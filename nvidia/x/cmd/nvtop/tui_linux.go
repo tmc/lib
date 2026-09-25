@@ -14,8 +14,9 @@ import (
 )
 
 // runTUI runs the interactive interface on the terminal until the user
-// quits or ctx is done.
-func runTUI(ctx context.Context, src source, h *host, opts options) error {
+// quits or ctx is done. If rec is not nil, it records every refresh.
+// If src is a player, it replays it.
+func runTUI(ctx context.Context, src source, h *host, opts options, rec *recorder) error {
 	t, err := openTerminal(os.Stdin, os.Stdout)
 	if err != nil {
 		return err
@@ -30,8 +31,17 @@ func runTUI(ctx context.Context, src source, h *host, opts options) error {
 	go readKeys(os.Stdin, keys)
 
 	devs := src.devices()
-	u := newUI(devs, opts, os.Getpid(), time.Now)
+	pid, now := os.Getpid(), time.Now
+	p, replay := src.(player)
+	if replay {
+		pid, now = 0, p.at
+	}
+	u := newUI(devs, opts, pid, now)
 	u.host = h
+	if replay {
+		u.player = p
+	}
+	stepped := false // a replay has shown its first frame
 	var scr *screen
 	var buf []byte
 	refresh := time.NewTimer(0)
@@ -41,12 +51,34 @@ func runTUI(ctx context.Context, src source, h *host, opts options) error {
 		case <-ctx.Done():
 			return nil
 		case <-refresh.C:
-			gather(src, h, devs, !u.frozen())
-			if es, ok := src.(eventSource); ok {
-				u.addEvents(es.events())
+			if replay {
+				// Paused or at the end, the timer stops until
+				// a key restarts it.
+				if u.paused && !u.kick {
+					break
+				}
+				u.kick = false
+				if stepped && !p.step() {
+					u.ended = true
+					break
+				}
+				stepped = true
 			}
+			gather(src, h, devs, !u.frozen())
+			var evs []event
+			if es, ok := src.(eventSource); ok {
+				evs = es.events()
+			}
+			u.addEvents(evs)
 			u.record()
-			refresh.Reset(u.interval())
+			if rec != nil {
+				if err := rec.write(u.now(), devs, evs); err != nil {
+					return err
+				}
+			}
+			if !u.paused {
+				refresh.Reset(u.interval())
+			}
 		case ks, ok := <-keys:
 			if !ok {
 				return nil
@@ -56,6 +88,9 @@ func runTUI(ctx context.Context, src source, h *host, opts options) error {
 			}
 			if u.quit {
 				return nil
+			}
+			if u.kick {
+				refresh.Reset(0)
 			}
 		case s := <-sigs:
 			switch s {

@@ -16,6 +16,22 @@ func (u *ui) handleExt(k key) bool {
 	if u.overlay != overlayNone {
 		return false
 	}
+	if u.player != nil {
+		switch k {
+		case ' ':
+			if !u.ended {
+				u.paused = !u.paused
+				u.kick = !u.paused
+			}
+			return true
+		case 'n':
+			u.kick = u.paused && !u.ended
+			return true
+		case keyF9:
+			// The processes of a recording are not ours to signal.
+			return true
+		}
+	}
 	switch u.view {
 	case viewProcesses:
 		switch k {
@@ -54,14 +70,28 @@ func (u *ui) handleExt(k key) bool {
 
 // extShortcuts are the -x entries of the shortcut bar.
 func (u *ui) extShortcuts() [][2]string {
-	if !u.opts.ext || u.opts.noProcs {
+	if !u.opts.ext {
 		return nil
 	}
-	switch u.view {
-	case viewEvents:
-		return [][2]string{{"e", "Procs"}}
-	case viewDetail:
-		return [][2]string{{"ESC", "Back"}}
+	var keys [][2]string
+	if !u.opts.noProcs {
+		switch u.view {
+		case viewEvents:
+			keys = [][2]string{{"e", "Procs"}}
+		case viewDetail:
+			keys = [][2]string{{"ESC", "Back"}}
+		default:
+			keys = [][2]string{{"Enter", "Detail"}, {"e", "Events"}}
+		}
 	}
-	return [][2]string{{"Enter", "Detail"}, {"e", "Events"}}
+	switch {
+	case u.player == nil:
+	case u.ended:
+		keys = append(keys, [2]string{"", "Replay ended"})
+	case u.paused:
+		keys = append(keys, [2]string{"Space", "Play"}, [2]string{"n", "Step"})
+	default:
+		keys = append(keys, [2]string{"Space", "Pause"})
+	}
+	return keys
 }

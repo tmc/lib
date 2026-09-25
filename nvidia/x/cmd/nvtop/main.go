@@ -27,6 +27,8 @@ type options struct {
 	fahrenheit bool
 	infoBar    bool
 	ext        bool          // -x: the extensions nvtop does not have
+	record     string        // file to record to; "-" records to stdout without the interface
+	replay     string        // recording to replay
 	encodeHide time.Duration // negative keeps the meters shown
 }
 
@@ -48,6 +50,8 @@ const helpText = `Available options:
 // extHelpText lists the flags nvtop does not have.
 const extHelpText = `Extensions (not in nvtop):
   -x --extensions   : Show clock throttle reasons, energy, NVML events and process details
+  -record FILE      : With -x, record every refresh to FILE as JSON lines (- for stdout, without the interface)
+  -replay FILE      : With -x, replay a recording (Space pauses, n steps)
 `
 
 func main() {
@@ -61,33 +65,64 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return status
 	}
 
-	h := newHost(os.DirFS("/proc"))
-	src, err := openNVML(h)
-	if err != nil {
-		fmt.Fprintf(stderr, "nvtop: %v\n", err)
-		return 1
-	}
-	defer src.close()
-	if opts.ext {
-		src.extend()
+	var src source
+	var h *host
+	if opts.replay != "" {
+		r, err := openReplay(opts.replay)
+		if err != nil {
+			fmt.Fprintf(stderr, "nvtop: %v\n", err)
+			return 1
+		}
+		src = r
+	} else {
+		h = newHost(os.DirFS("/proc"))
+		n, err := openNVML(h)
+		if err != nil {
+			fmt.Fprintf(stderr, "nvtop: %v\n", err)
+			return 1
+		}
+		if opts.ext {
+			n.extend()
+		}
+		src = n
 	}
 	if len(src.devices()) == 0 {
+		src.close()
 		fmt.Fprintln(stdout, "No GPU to monitor.")
 		return 0
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM)
-	defer stop()
-	if opts.snapshot || opts.loop {
-		err = snapshots(ctx, stdout, src, h, opts)
-	} else {
-		err = runTUI(ctx, src, h, opts)
+	err := serve(src, h, opts, stdout)
+	if cerr := src.close(); err == nil {
+		err = cerr
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "nvtop: %v\n", err)
 		return 1
 	}
 	return 0
+}
+
+// serve shows, prints or records what src reads, as opts say, until the
+// user quits or nvtop is signaled.
+func serve(src source, h *host, opts options, stdout io.Writer) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM)
+	defer stop()
+	switch {
+	case opts.record == "-":
+		return record(ctx, stdout, src, h, opts)
+	case opts.snapshot || opts.loop:
+		return snapshots(ctx, stdout, src, h, opts)
+	}
+	var rec *recorder
+	if opts.record != "" {
+		f, err := os.Create(opts.record)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		rec = newRecorder(f)
+	}
+	return runTUI(ctx, src, h, opts, rec)
 }
 
 // parseFlags parses args. If the command should stop, ok is false and
@@ -128,6 +163,8 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 	boolVar(&opts.fahrenheit, "f", "freedom-unit", "show temperatures in Fahrenheit")
 	boolVar(&opts.infoBar, "i", "gpu-info", "show a bar of more device information")
 	boolVar(&opts.ext, "x", "extensions", "show what nvtop does not")
+	fs.StringVar(&opts.record, "record", "", "with -x, record every refresh to `file`")
+	fs.StringVar(&opts.replay, "replay", "", "with -x, replay a recording from `file`")
 	opts.encodeHide = 30 * time.Second
 	hide := func(s string) error {
 		f, err := strconv.ParseFloat(s, 64)
@@ -159,6 +196,19 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 		fmt.Fprintf(stdout, "nvtop version %s\n", version)
 		return opts, 0, false
 	}
+	var bad string
+	switch {
+	case (opts.record != "" || opts.replay != "") && !opts.ext:
+		bad = "-record and -replay need -x"
+	case opts.record != "" && opts.replay != "":
+		bad = "-record and -replay cannot be used together"
+	case opts.record != "" && (opts.snapshot || opts.loop):
+		bad = "-record cannot be used with -s or -l"
+	}
+	if bad != "" {
+		fmt.Fprintf(stderr, "nvtop: %s\n", bad)
+		return opts, 2, false
+	}
 	return opts, 0, true
 }
 
@@ -166,12 +216,26 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 // and with -l keeps printing one every interval until ctx is done. The
 // first refresh starts the counters that only a second one can turn into
 // rates.
+//
+// When replaying, it prints the first frame, and with -l every frame
+// after it, as fast as it can.
 func snapshots(ctx context.Context, w io.Writer, src source, h *host, opts options) error {
+	devs := src.devices()
+	if p, ok := src.(player); ok {
+		for {
+			gather(src, h, devs, true)
+			if err := writeSnapshot(w, devs, opts.fahrenheit, opts.noProcs); err != nil {
+				return err
+			}
+			if !opts.loop || ctx.Err() != nil || !p.step() {
+				return nil
+			}
+		}
+	}
 	delay := opts.delay
 	if delay == 0 {
 		delay = 100 * time.Millisecond
 	}
-	devs := src.devices()
 	gather(src, h, devs, true)
 	t := time.NewTicker(delay)
 	defer t.Stop()

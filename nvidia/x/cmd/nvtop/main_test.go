@@ -31,6 +31,12 @@ func TestParseFlags(t *testing.T) {
 		{args: []string{"-Z"}, status: 2, stderr: "Extensions (not in nvtop):"},
 		{args: []string{"-x", "-i"}, want: options{ext: true, infoBar: true, encodeHide: 30 * time.Second}, ok: true},
 		{args: []string{"--extensions"}, want: options{ext: true, encodeHide: 30 * time.Second}, ok: true},
+		{args: []string{"-x", "-record", "-"}, want: options{ext: true, record: "-", encodeHide: 30 * time.Second}, ok: true},
+		{args: []string{"-x", "-replay", "r.jsonl", "-l"}, want: options{ext: true, replay: "r.jsonl", loop: true, encodeHide: 30 * time.Second}, ok: true},
+		{args: []string{"-record", "r.jsonl"}, status: 2, stderr: "need -x"},
+		{args: []string{"-replay", "r.jsonl"}, status: 2, stderr: "need -x"},
+		{args: []string{"-x", "-record", "a", "-replay", "b"}, status: 2, stderr: "cannot be used together"},
+		{args: []string{"-x", "-record", "-", "-s"}, status: 2, stderr: "cannot be used with -s or -l"},
 		{args: []string{"extra"}, status: 2, stderr: "unexpected argument"},
 	}
 	for _, tt := range tests {

@@ -109,6 +109,13 @@ type ui struct {
 	detailKey   procKey
 	detailProc  process
 	procHistory map[procKey]*[2]series
+
+	// When replaying a recording, the player, whether it is paused or
+	// at its end, and whether the next frame must be shown at once.
+	player player
+	paused bool
+	ended  bool
+	kick   bool
 }
 
 func newUI(devs []*device, opts options, pid int, now func() time.Time) *ui {
@@ -148,10 +155,16 @@ func newUI(devs []*device, opts options, pid int, now func() time.Time) *ui {
 	return u
 }
 
-// interval is the refresh interval: -d, or one second.
+// interval is the refresh interval: -d, or when replaying the time
+// between the frames, or one second.
 func (u *ui) interval() time.Duration {
 	if u.opts.delay > 0 {
 		return u.opts.delay
+	}
+	if u.player != nil {
+		if g := u.player.gap(); g > 0 {
+			return g
+		}
 	}
 	return time.Second
 }

@@ -37,6 +37,11 @@
 //		seconds (default 30); zero or negative keeps them shown.
 //	-x
 //		Turn on the extensions: see Extensions.
+//	-record file
+//		With -x, record every refresh to file; - writes to standard
+//		output without the interface.
+//	-replay file
+//		With -x, replay a recording.
 //	-v
 //		Print the version and exit.
 //	-h
@@ -104,6 +109,20 @@
 // NCCL_, and a few more), if nvtop may read them. Its GPU and GPU memory
 // use since nvtop started replace its device's plot. Enter or Esc goes
 // back.
+//
+// With -record FILE, nvtop also writes every refresh to FILE as a line
+// of JSON: the time, every device with the values it reports, including
+// its processes and the extension figures, and the events since the
+// line before. With -record -, it writes the lines to standard output
+// every refresh interval without the interface, for logging or for
+// another program to read.
+//
+// With -replay FILE, nvtop reads a recording in place of the devices,
+// needing no GPU, and shows its frames as far apart as they were
+// recorded, or -d apart if -d is set. Space pauses and resumes, n shows
+// the next frame while paused, and F9 does nothing: the processes are
+// not this machine's. With -s it prints the first frame as a snapshot,
+// and with -l every frame, as fast as it can.
 //
 // # Snapshots
 //

@@ -8,6 +8,8 @@ stdout '^Available options:$'
 stdout '-s --snapshot'
 stdout '^Extensions \(not in nvtop\):$'
 stdout '-x --extensions'
+stdout '-record FILE'
+stdout '-replay FILE'
 ! stderr .
 
 # A bad flag or argument prints the help to standard error and fails.

@@ -801,7 +801,10 @@ func (u *ui) drawShortcuts(w *window) {
 	switch u.overlay {
 	case overlayNone:
 		if !u.opts.noProcs && u.view == viewProcesses {
-			keys = append(keys, [2]string{"F6", "Sort"}, [2]string{"F9", "Kill"})
+			keys = append(keys, [2]string{"F6", "Sort"})
+			if u.player == nil {
+				keys = append(keys, [2]string{"F9", "Kill"})
+			}
 		}
 		keys = append(keys, [2]string{"F10", "Quit"})
 		keys = append(keys, u.extShortcuts()...)

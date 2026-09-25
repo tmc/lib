@@ -1,0 +1,29 @@
+# -replay reads a recording instead of NVML, so it needs no GPU.
+# -s prints the first frame; -l prints every frame.
+exec nvtop -x -replay rec.jsonl -s
+stdout '^   "device_name": "NVIDIA GB10",$'
+stdout '^   "gpu_util": "3%",$'
+! stdout '"gpu_util": "41%"'
+! stderr .
+
+exec nvtop -x -replay rec.jsonl -l
+stdout '"gpu_util": "3%"'
+stdout '"gpu_util": "41%"'
+stdout '"cmdline": "python train.py"'
+! stderr .
+
+# The extension flags need -x.
+! exec nvtop -replay rec.jsonl -s
+stderr '^nvtop: -record and -replay need -x$'
+
+! exec nvtop -x -replay missing.jsonl -s
+stderr '^nvtop: open missing.jsonl: '
+
+! exec nvtop -x -replay bad.jsonl -s
+stderr '^nvtop: replay bad.jsonl: '
+
+-- rec.jsonl --
+{"time":"2026-09-25T10:00:00Z","devices":[{"name":"NVIDIA GB10","arch":"Blackwell","gpu_util":3,"mem_total":130662940672,"mem_used":18993635328,"temp_c":57,"power_mw":14251,"clock_event_reasons":0,"energy_mj":0}]}
+{"time":"2026-09-25T10:00:01Z","devices":[{"name":"NVIDIA GB10","arch":"Blackwell","gpu_util":41,"mem_total":130662940672,"mem_used":28993635328,"temp_c":61,"power_mw":38000,"clock_event_reasons":4,"throttle_pct":[0,0,12,0,0,0,0,0,0,0,0],"energy_mj":26125,"processes":[{"pid":4242,"kind":1,"user":"alice","cmdline":"python train.py","gpu_mem":10238541824,"gpu_util":40}]}],"events":[{"time":"2026-09-25T10:00:00.5Z","dev":0,"kind":8,"data":79}]}
+-- bad.jsonl --
+not json
