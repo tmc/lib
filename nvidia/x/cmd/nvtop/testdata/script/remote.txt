@@ -1,0 +1,44 @@
+# -remote runs nvtop -x -record - on each host with ssh, and shows their
+# devices in turn. A fake ssh stands in for the real one here: it plays
+# the recording named for the host and stays connected.
+[!exec:sh] skip
+chmod 0755 bin/ssh
+env PATH=$WORK${/}bin${:}$PATH
+
+exec nvtop -x -remote alpha,beta -remote-cmd /opt/nvtop -d 5 -s
+stdout '^   "host": "alpha",$'
+stdout '^   "host": "beta",$'
+stdout '"device_name": "NVIDIA GB10"'
+stdout '"device_name": "NVIDIA H100"'
+! stderr .
+cmp args-alpha want-args
+
+# A host that cannot be reached stops nvtop with ssh's complaint.
+! exec nvtop -x -remote alpha,nowhere -s
+stderr '^nvtop: nowhere: exit status 255: ssh: Could not resolve hostname nowhere$'
+
+! exec nvtop -remote alpha -s
+stderr '^nvtop: -remote needs -x$'
+! exec nvtop -x -remote alpha,,beta -s
+stderr 'host names separated by commas'
+! exec nvtop -x -remote-cmd nvtop -s
+stderr '^nvtop: -remote-cmd needs -remote$'
+
+-- bin/ssh --
+#!/bin/sh
+# ssh -T -o BatchMode=yes HOST COMMAND
+host=$4
+dir=$(dirname "$0")/..
+echo "$@" > "$dir/args-$host"
+if [ ! -f "$dir/$host.jsonl" ]; then
+	echo "ssh: Could not resolve hostname $host" >&2
+	exit 255
+fi
+cat "$dir/$host.jsonl"
+exec sleep 30
+-- want-args --
+-T -o BatchMode=yes alpha /opt/nvtop -x -record - -d 5
+-- alpha.jsonl --
+{"time":"2026-09-25T10:00:00Z","devices":[{"name":"NVIDIA GB10","gpu_util":3,"mem_total":130662940672,"mem_used":18993635328}]}
+-- beta.jsonl --
+{"time":"2026-09-25T10:00:00Z","devices":[{"name":"NVIDIA H100","gpu_util":90,"temp_c":70},{"name":"NVIDIA H100","gpu_util":0}]}

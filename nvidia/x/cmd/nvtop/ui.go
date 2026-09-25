@@ -113,6 +113,7 @@ type ui struct {
 	// When replaying a recording, the player, whether it is paused or
 	// at its end, and whether the next frame must be shown at once.
 	player player
+	remote bool // some devices are on other machines
 	paused bool
 	ended  bool
 	kick   bool
@@ -145,15 +146,24 @@ func newUI(devs []*device, opts options, pid int, now func() time.Time) *ui {
 	}
 	u.largestName = 4
 	for _, d := range devs {
-		if d.name.ok {
-			u.largestName = max(u.largestName, width(d.name.v))
+		if d.name.ok || d.host != "" {
+			u.largestName = max(u.largestName, width(d.title()))
 		}
+		u.remote = u.remote || d.host != ""
 		u.ecc = u.ecc || d.ecc
 		u.nvlink = u.nvlink || d.nvlink.present()
 		u.nvlinkActive = u.nvlinkActive || d.nvlink.links > 0
 	}
+	if u.remote {
+		// nvtop's own pid means nothing on other machines.
+		u.pid = 0
+	}
 	return u
 }
+
+// foreign reports whether the processes listed are another machine's,
+// so that nvtop must not signal them.
+func (u *ui) foreign() bool { return u.player != nil || u.remote }
 
 // interval is the refresh interval: -d, or when replaying the time
 // between the frames, or one second.

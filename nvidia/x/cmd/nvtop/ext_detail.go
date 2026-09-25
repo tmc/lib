@@ -275,7 +275,9 @@ func (u *ui) drawDetail(s *screen, r rect) {
 	line("DEV", strconv.Itoa(k.dev), "TYPE", kind, "GPU", pctOrNA(p.gpuUtil), "GPU MEM", mem,
 		"CPU", pctOrNA(p.cpuUtil), "HOST MEM", host)
 
-	if u.host != nil {
+	if dev := u.devs[k.dev]; dev.host != "" {
+		line("HOST", dev.host+" (no more detail from another machine)")
+	} else if u.host != nil {
 		d := u.host.detail(k.pid)
 		str := func(v opt[int]) string {
 			if v.ok {

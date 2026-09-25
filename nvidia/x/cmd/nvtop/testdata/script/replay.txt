@@ -14,7 +14,7 @@ stdout '"cmdline": "python train.py"'
 
 # The extension flags need -x.
 ! exec nvtop -replay rec.jsonl -s
-stderr '^nvtop: -record and -replay need -x$'
+stderr '^nvtop: -replay needs -x$'
 
 ! exec nvtop -x -replay missing.jsonl -s
 stderr '^nvtop: open missing.jsonl: '

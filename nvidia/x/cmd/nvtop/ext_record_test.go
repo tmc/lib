@@ -65,6 +65,7 @@ func TestWireRoundTrip(t *testing.T) {
 	devs := append(extDevices(), datacenterDevices()...)
 	devs[0].nvlinkErrs = some(nvlinkErrors{flit: 1, crc: 2, ecc: 3})
 	devs[0].mig = some(false)
+	devs[1].host = "gb10b"
 	for i, d := range devs {
 		d.index = i
 		w := toWire(d)

@@ -122,11 +122,7 @@ func (u *ui) drawDevice(s *screen, r rect, i int, d *device, now time.Time) {
 	// Line 1: name and PCIe.
 	w := s.window(r.x, r.y, nw, 1)
 	x := w.printf(0, 0, fg(cyan), "Device %-2d", i)
-	if d.name.ok {
-		w.print(x, 0, "["+d.name.v+"]", plain)
-	} else {
-		w.print(x, 0, "[N/A]", plain)
-	}
+	w.print(x, 0, "["+d.title()+"]", plain)
 	w = s.window(r.x+sp+nw, r.y, pcieWidth, 1)
 	x = w.print(0, 0, "PCIe ", fg(cyan))
 	x = w.print(x, 0, "GEN ", fg(magenta))
@@ -802,7 +798,7 @@ func (u *ui) drawShortcuts(w *window) {
 	case overlayNone:
 		if !u.opts.noProcs && u.view == viewProcesses {
 			keys = append(keys, [2]string{"F6", "Sort"})
-			if u.player == nil {
+			if !u.foreign() {
 				keys = append(keys, [2]string{"F9", "Kill"})
 			}
 		}

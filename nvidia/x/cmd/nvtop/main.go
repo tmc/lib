@@ -8,7 +8,9 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"slices"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -29,6 +31,8 @@ type options struct {
 	ext        bool          // -x: the extensions nvtop does not have
 	record     string        // file to record to; "-" records to stdout without the interface
 	replay     string        // recording to replay
+	remote     string        // comma-separated hosts to show instead of this one
+	remoteCmd  string        // the nvtop to run on them, if not nvtop
 	encodeHide time.Duration // negative keeps the meters shown
 }
 
@@ -52,6 +56,8 @@ const extHelpText = `Extensions (not in nvtop):
   -x --extensions   : Show clock throttle reasons, energy, NVML events and process details
   -record FILE      : With -x, record every refresh to FILE as JSON lines (- for stdout, without the interface)
   -replay FILE      : With -x, replay a recording (Space pauses, n steps)
+  -remote HOSTS     : With -x, show the GPUs of these comma-separated hosts, over ssh
+  -remote-cmd CMD   : The nvtop to run on the remote hosts (default nvtop)
 `
 
 func main() {
@@ -67,14 +73,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	var src source
 	var h *host
-	if opts.replay != "" {
+	switch {
+	case opts.replay != "":
 		r, err := openReplay(opts.replay)
 		if err != nil {
 			fmt.Fprintf(stderr, "nvtop: %v\n", err)
 			return 1
 		}
 		src = r
-	} else {
+	case opts.remote != "":
+		r, err := openRemote(strings.Split(opts.remote, ","), sshDialer(opts.remoteCmd, opts.delay))
+		if err != nil {
+			fmt.Fprintf(stderr, "nvtop: %v\n", err)
+			return 1
+		}
+		src = r
+	default:
 		h = newHost(os.DirFS("/proc"))
 		n, err := openNVML(h)
 		if err != nil {
@@ -165,6 +179,8 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 	boolVar(&opts.ext, "x", "extensions", "show what nvtop does not")
 	fs.StringVar(&opts.record, "record", "", "with -x, record every refresh to `file`")
 	fs.StringVar(&opts.replay, "replay", "", "with -x, replay a recording from `file`")
+	fs.StringVar(&opts.remote, "remote", "", "with -x, show the GPUs of these comma-separated `hosts`")
+	fs.StringVar(&opts.remoteCmd, "remote-cmd", "", "the nvtop `command` to run on the remote hosts")
 	opts.encodeHide = 30 * time.Second
 	hide := func(s string) error {
 		f, err := strconv.ParseFloat(s, 64)
@@ -198,10 +214,20 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 	}
 	var bad string
 	switch {
-	case (opts.record != "" || opts.replay != "") && !opts.ext:
-		bad = "-record and -replay need -x"
+	case !opts.ext && opts.record != "":
+		bad = "-record needs -x"
+	case !opts.ext && opts.replay != "":
+		bad = "-replay needs -x"
+	case !opts.ext && opts.remote != "":
+		bad = "-remote needs -x"
+	case opts.remoteCmd != "" && opts.remote == "":
+		bad = "-remote-cmd needs -remote"
 	case opts.record != "" && opts.replay != "":
 		bad = "-record and -replay cannot be used together"
+	case opts.remote != "" && opts.replay != "":
+		bad = "-remote and -replay cannot be used together"
+	case opts.remote != "" && slices.Contains(strings.Split(opts.remote, ","), ""):
+		bad = "-remote needs host names separated by commas"
 	case opts.record != "" && (opts.snapshot || opts.loop):
 		bad = "-record cannot be used with -s or -l"
 	}

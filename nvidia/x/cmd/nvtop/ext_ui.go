@@ -27,10 +27,11 @@ func (u *ui) handleExt(k key) bool {
 		case 'n':
 			u.kick = u.paused && !u.ended
 			return true
-		case keyF9:
-			// The processes of a recording are not ours to signal.
-			return true
 		}
+	}
+	if k == keyF9 && u.foreign() {
+		// The processes are not this machine's to signal.
+		return true
 	}
 	switch u.view {
 	case viewProcesses:

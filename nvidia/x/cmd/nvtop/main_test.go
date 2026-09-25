@@ -33,10 +33,12 @@ func TestParseFlags(t *testing.T) {
 		{args: []string{"--extensions"}, want: options{ext: true, encodeHide: 30 * time.Second}, ok: true},
 		{args: []string{"-x", "-record", "-"}, want: options{ext: true, record: "-", encodeHide: 30 * time.Second}, ok: true},
 		{args: []string{"-x", "-replay", "r.jsonl", "-l"}, want: options{ext: true, replay: "r.jsonl", loop: true, encodeHide: 30 * time.Second}, ok: true},
-		{args: []string{"-record", "r.jsonl"}, status: 2, stderr: "need -x"},
-		{args: []string{"-replay", "r.jsonl"}, status: 2, stderr: "need -x"},
+		{args: []string{"-record", "r.jsonl"}, status: 2, stderr: "needs -x"},
+		{args: []string{"-replay", "r.jsonl"}, status: 2, stderr: "needs -x"},
 		{args: []string{"-x", "-record", "a", "-replay", "b"}, status: 2, stderr: "cannot be used together"},
 		{args: []string{"-x", "-record", "-", "-s"}, status: 2, stderr: "cannot be used with -s or -l"},
+		{args: []string{"-x", "-remote", "a,b", "-remote-cmd", "~/nvtop"}, want: options{ext: true, remote: "a,b", remoteCmd: "~/nvtop", encodeHide: 30 * time.Second}, ok: true},
+		{args: []string{"-x", "-remote", "a", "-replay", "r.jsonl"}, status: 2, stderr: "cannot be used together"},
 		{args: []string{"extra"}, status: 2, stderr: "unexpected argument"},
 	}
 	for _, tt := range tests {

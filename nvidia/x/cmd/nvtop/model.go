@@ -37,6 +37,7 @@ type process struct {
 // The static fields are read once; the rest at every refresh.
 type device struct {
 	index int
+	host  string // the machine it is on, if not this one
 
 	name         opt[string]
 	arch         opt[string]
@@ -89,6 +90,19 @@ type nvlink struct {
 	links   uint32 // active links
 }
 
+// title is how the interface names d: its name, after its host's if it
+// is on another machine.
+func (d *device) title() string {
+	name := "N/A"
+	if d.name.ok {
+		name = d.name.v
+	}
+	if d.host != "" {
+		return d.host + ": " + name
+	}
+	return name
+}
+
 func (n nvlink) present() bool { return n.version > 0 || n.links > 0 }
 
 // nvlinkErrors are a device's NVLink error counts since nvtop started,
@@ -103,6 +117,7 @@ type nvlinkErrors struct {
 func (d *device) resetDynamic() {
 	*d = device{
 		index:        d.index,
+		host:         d.host,
 		name:         d.name,
 		arch:         d.arch,
 		maxPcieGen:   d.maxPcieGen,

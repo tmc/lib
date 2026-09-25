@@ -42,6 +42,10 @@
 //		output without the interface.
 //	-replay file
 //		With -x, replay a recording.
+//	-remote hosts
+//		With -x, show the GPUs of these comma-separated hosts.
+//	-remote-cmd command
+//		The nvtop to run on the -remote hosts (default nvtop).
 //	-v
 //		Print the version and exit.
 //	-h
@@ -123,6 +127,15 @@
 // the next frame while paused, and F9 does nothing: the processes are
 // not this machine's. With -s it prints the first frame as a snapshot,
 // and with -l every frame, as fast as it can.
+//
+// With -remote alpha,beta, nvtop shows the GPUs of the named hosts in
+// place of this machine's, in order, each named after its host. It runs
+// nvtop -x -record - on each with ssh, which must log in without asking
+// for a password; -remote-cmd names the nvtop to run there if it is not
+// on the remote PATH. The processes listed are the hosts', so F9 does
+// nothing and the detail view shows only what the list does. A host
+// whose connection drops reports nothing from then on, and logs a
+// "connection to host lost" event. Snapshots name each device's host.
 //
 // # Snapshots
 //

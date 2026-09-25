@@ -15,6 +15,7 @@ type event struct {
 	dev  int    // device index
 	kind uint64 // an nvml.EventType* bit
 	data uint64 // for an Xid error, the Xid
+	msg  string // for a lost host, why
 }
 
 // An eventSource is a source that also reports events.
@@ -43,6 +44,7 @@ var eventKinds = []struct {
 	{nvml.EventTypeFatalPoisonError, "fatal poison error", true},
 	{nvml.EventTypeGpuUnavailableError, "GPU unavailable", true},
 	{nvml.EventTypeGpuRecoveryAction, "GPU recovery action", true},
+	{eventHostLost, "connection to host lost", true},
 }
 
 // watchedEvents are the event types nvtop listens for: all but clock
@@ -94,6 +96,9 @@ func (e event) String() string {
 	}
 	for _, k := range eventKinds {
 		if k.kind == e.kind {
+			if e.msg != "" {
+				return k.name + ": " + e.msg
+			}
 			return k.name
 		}
 	}

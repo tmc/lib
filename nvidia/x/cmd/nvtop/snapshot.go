@@ -24,6 +24,9 @@ func writeSnapshot(w io.Writer, devs []*device, fahrenheit, hideProcs bool) erro
 	b.WriteString("[\n")
 	for i, d := range devs {
 		fmt.Fprintf(b, "%s{\n", devIndent)
+		if d.host != "" {
+			b.field(fieldIndent, "host", some(escape(d.host)), false)
+		}
 		b.field(fieldIndent, "device_name", d.name, false)
 		b.field(fieldIndent, "device_architecture", d.arch, false)
 		b.field(fieldIndent, "memory_type", opt[string]{}, false) // NVML does not say

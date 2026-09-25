@@ -23,6 +23,7 @@ type frame struct {
 // A wireDevice is a device as recorded. Values a device does not report
 // are null or left out.
 type wireDevice struct {
+	Host         string                  `json:"host,omitzero"`
 	Name         opt[string]             `json:"name,omitzero"`
 	Arch         opt[string]             `json:"arch,omitzero"`
 	MaxPcieGen   opt[uint32]             `json:"max_pcie_gen,omitzero"`
@@ -83,6 +84,7 @@ type wireEvent struct {
 	Dev  int       `json:"dev"`
 	Kind uint64    `json:"kind"`
 	Data uint64    `json:"data,omitzero"`
+	Msg  string    `json:"msg,omitzero"`
 }
 
 func (o opt[T]) IsZero() bool { return !o.ok }
@@ -109,6 +111,7 @@ func (o *opt[T]) UnmarshalJSON(b []byte) error {
 
 func toWire(d *device) wireDevice {
 	w := wireDevice{
+		Host: d.host,
 		Name: d.name, Arch: d.arch,
 		MaxPcieGen: d.maxPcieGen, MaxPcieWidth: d.maxPcieWidth,
 		TempSlowdown: d.tempSlowdown, TempShutdown: d.tempShutdown,
@@ -143,6 +146,7 @@ func toWire(d *device) wireDevice {
 func fromWire(w *wireDevice, index int) device {
 	d := device{
 		index: index,
+		host:  w.Host,
 		name:  w.Name, arch: w.Arch,
 		maxPcieGen: w.MaxPcieGen, maxPcieWidth: w.MaxPcieWidth,
 		tempSlowdown: w.TempSlowdown, tempShutdown: w.TempShutdown,
@@ -192,7 +196,7 @@ func (r *recorder) write(t time.Time, devs []*device, evs []event) error {
 		f.Devices = append(f.Devices, toWire(d))
 	}
 	for _, e := range evs {
-		f.Events = append(f.Events, wireEvent{Time: e.at, Dev: e.dev, Kind: e.kind, Data: e.data})
+		f.Events = append(f.Events, wireEvent{Time: e.at, Dev: e.dev, Kind: e.kind, Data: e.data, Msg: e.msg})
 	}
 	if err := r.enc.Encode(&f); err != nil {
 		return fmt.Errorf("record: %w", err)
@@ -326,7 +330,7 @@ func (s *replaySource) events() []event {
 	s.fresh = false
 	var evs []event
 	for _, e := range s.cur.Events {
-		evs = append(evs, event{at: e.Time, dev: e.Dev, kind: e.Kind, data: e.Data})
+		evs = append(evs, event{at: e.Time, dev: e.Dev, kind: e.Kind, data: e.Data, msg: e.Msg})
 	}
 	return evs
 }
