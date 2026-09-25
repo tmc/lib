@@ -378,7 +378,7 @@ type GpuDynamicPstatesInfo struct {
 // PowerValueV2 represents Contains the power management limit.
 type PowerValueV2 struct {
 	Version      uint32
-	PowerScope   uint8
+	PowerScope   PowerScopeType
 	PowerValueMw uint32
 }
 
@@ -897,7 +897,7 @@ type GpuFabricInfo struct {
 	ClusterUuid [16]uint8
 	Status      Result
 	CliqueId    uint32
-	State       uint8
+	State       GpuFabricState
 }
 
 // GpuFabricInfoV2 represents GPU Fabric information (v2)..
@@ -906,7 +906,7 @@ type GpuFabricInfoV2 struct {
 	ClusterUuid [16]uint8
 	Status      Result
 	CliqueId    uint32
-	State       uint8
+	State       GpuFabricState
 	HealthMask  uint32
 }
 
@@ -916,7 +916,7 @@ type GpuFabricInfoV struct {
 	ClusterUuid   [16]uint8
 	Status        Result
 	CliqueId      uint32
-	State         uint8
+	State         GpuFabricState
 	HealthMask    uint32
 	HealthSummary uint8
 }

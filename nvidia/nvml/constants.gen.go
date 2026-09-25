@@ -6,26 +6,6 @@
 package nvml
 
 const (
-	// DeviceArchAda is NVML_DEVICE_ARCH_ADA.
-	DeviceArchAda uint32 = 8
-	// DeviceArchAmpere is NVML_DEVICE_ARCH_AMPERE.
-	DeviceArchAmpere uint32 = 7
-	// DeviceArchBlackwell is NVML_DEVICE_ARCH_BLACKWELL.
-	DeviceArchBlackwell uint32 = 10
-	// DeviceArchHopper is NVML_DEVICE_ARCH_HOPPER.
-	DeviceArchHopper uint32 = 9
-	// DeviceArchKepler is NVML_DEVICE_ARCH_KEPLER.
-	DeviceArchKepler uint32 = 2
-	// DeviceArchMaxwell is NVML_DEVICE_ARCH_MAXWELL.
-	DeviceArchMaxwell uint32 = 3
-	// DeviceArchPascal is NVML_DEVICE_ARCH_PASCAL.
-	DeviceArchPascal uint32 = 4
-	// DeviceArchTuring is NVML_DEVICE_ARCH_TURING.
-	DeviceArchTuring uint32 = 6
-	// DeviceArchUnknown is NVML_DEVICE_ARCH_UNKNOWN.
-	DeviceArchUnknown uint32 = 4294967295
-	// DeviceArchVolta is NVML_DEVICE_ARCH_VOLTA.
-	DeviceArchVolta uint32 = 5
 	// FieldDevC2CLinkCount is NVML_FI_DEV_C2C_LINK_COUNT.
 	FieldDevC2CLinkCount uint32 = 170
 	// FieldDevC2CLinkErrorIntr is NVML_FI_DEV_C2C_LINK_ERROR_INTR.

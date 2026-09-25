@@ -220,7 +220,7 @@ func (d Device) ApplicationsClock(clockType ClockType) (uint32, error) {
 //   - arch: Reference where architecture is returned, if call successful. Set to NVML_DEVICE_ARCH_* upon success
 //
 // Wraps nvmlDeviceGetArchitecture.
-func (d Device) Architecture() (uint32, error) {
+func (d Device) Architecture() (DeviceArchitecture, error) {
 	return deviceGetArchitecture(d)
 }
 
@@ -312,7 +312,7 @@ func (d Device) BridgeChipInfo(bridgeHierarchy *BridgeChipHierarchy) error {
 //   - type_: The PCI Bus type
 //
 // Wraps nvmlDeviceGetBusType.
-func (d Device) BusType() (uint32, error) {
+func (d Device) BusType() (BusType, error) {
 	return deviceGetBusType(d)
 }
 
@@ -538,7 +538,7 @@ func (d Device) CoolerInfo(coolerInfo *CoolerInfo) error {
 	return deviceGetCoolerInfo(d, coolerInfo)
 }
 
-// CpuAffinity Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with NVML_AFFINITY_SCOPE_NODE.
+// CpuAffinity Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
 //
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
@@ -561,7 +561,7 @@ func (d Device) CpuAffinity(cpuSetSize uint32, cpuSet *uint) error {
 //   - scope: Scope that change the default behavior
 //
 // Wraps nvmlDeviceGetCpuAffinityWithinScope.
-func (d Device) CpuAffinityWithinScope(cpuSetSize uint32, cpuSet *uint, scope uint32) error {
+func (d Device) CpuAffinityWithinScope(cpuSetSize uint32, cpuSet *uint, scope AffinityScope) error {
 	return deviceGetCpuAffinityWithinScope(d, cpuSetSize, cpuSet, scope)
 }
 
@@ -964,7 +964,7 @@ func (d Device) FBCStats(fbcStats *FBCStats) error {
 //   - policy: Reference in which to return the fan control policy
 //
 // Wraps nvmlDeviceGetFanControlPolicy_v2.
-func (d Device) FanControlPolicy(fan uint32) (uint32, error) {
+func (d Device) FanControlPolicy(fan uint32) (FanControlPolicy, error) {
 	return deviceGetFanControlPolicy(d, fan)
 }
 
@@ -1575,7 +1575,7 @@ func (d Device) MemClkVfOffset() (int32, error) {
 //   - scope: Scope that change the default behavior
 //
 // Wraps nvmlDeviceGetMemoryAffinity.
-func (d Device) MemoryAffinity(nodeSetSize uint32, nodeSet *uint, scope uint32) error {
+func (d Device) MemoryAffinity(nodeSetSize uint32, nodeSet *uint, scope AffinityScope) error {
 	return deviceGetMemoryAffinity(d, nodeSetSize, nodeSet, scope)
 }
 
@@ -2158,7 +2158,7 @@ func (d Device) PowerSmoothingUpdatePresetProfileParam(profile *PowerSmoothingPr
 //   - powerSource: The power source of the device
 //
 // Wraps nvmlDeviceGetPowerSource.
-func (d Device) PowerSource() (uint32, error) {
+func (d Device) PowerSource() (PowerSource, error) {
 	return deviceGetPowerSource(d)
 }
 
@@ -2682,7 +2682,7 @@ func (d Device) SetEccMode(ecc EnableState) error {
 //   - policy: The fan control policy to set
 //
 // Wraps nvmlDeviceSetFanControlPolicy.
-func (d Device) SetFanControlPolicy(fan uint32, policy uint32) error {
+func (d Device) SetFanControlPolicy(fan uint32, policy FanControlPolicy) error {
 	return deviceSetFanControlPolicy(d, fan, policy)
 }
 

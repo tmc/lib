@@ -64,7 +64,7 @@
 //   - [Device.ConfComputeMemSizeInfo]: Get Conf Computing Protected and Unprotected Memory Sizes.
 //   - [Device.ConfComputeProtectedMemoryUsage]: Get Conf Computing protected memory usage.
 //   - [Device.CoolerInfo]: Retrieves the cooler's information.
-//   - [Device.CpuAffinity]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with NVML_AFFINITY_SCOPE_NODE.
+//   - [Device.CpuAffinity]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
 //   - [Device.CpuAffinityWithinScope]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity within node or socket for the device.
 //   - [Device.CudaComputeCapability]: Retrieves the CUDA compute capability of the device.
 //   - [Device.CurrPcieLinkGeneration]: Retrieves the current PCIe link generation

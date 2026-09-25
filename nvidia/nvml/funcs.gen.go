@@ -23,7 +23,7 @@ var (
 	fndeviceGetAdaptiveClockInfoStatus                 func(Device, *uint32) Result
 	fndeviceGetAddressingMode                          func(Device, *DeviceAddressingMode) Result
 	fndeviceGetApplicationsClock                       func(Device, ClockType, *uint32) Result
-	fndeviceGetArchitecture                            func(Device, *uint32) Result
+	fndeviceGetArchitecture                            func(Device, *DeviceArchitecture) Result
 	fndeviceGetAttributes                              func(Device, *DeviceAttributes) Result
 	fndeviceGetAutoBoostedClocksEnabled                func(Device, *EnableState, *EnableState) Result
 	fndeviceGetBAR1MemoryInfo                          func(Device, *BAR1Memory) Result
@@ -31,7 +31,7 @@ var (
 	fndeviceGetBoardPartNumber                         func(Device, *byte, uint32) Result
 	fndeviceGetBrand                                   func(Device, *BrandType) Result
 	fndeviceGetBridgeChipInfo                          func(Device, *BridgeChipHierarchy) Result
-	fndeviceGetBusType                                 func(Device, *uint32) Result
+	fndeviceGetBusType                                 func(Device, *BusType) Result
 	fndeviceGetC2cModeInfoV                            func(Device, *C2cModeInfoV1) Result
 	fndeviceGetCapabilities                            func(Device, *DeviceCapabilities) Result
 	fndeviceGetClkMonStatus                            func(Device, *ClkMonStatus) Result
@@ -48,7 +48,7 @@ var (
 	fndeviceGetCoolerInfo                              func(Device, *CoolerInfo) Result
 	fnDeviceGetCount                                   func(*uint32) Result
 	fndeviceGetCpuAffinity                             func(Device, uint32, *uint) Result
-	fndeviceGetCpuAffinityWithinScope                  func(Device, uint32, *uint, uint32) Result
+	fndeviceGetCpuAffinityWithinScope                  func(Device, uint32, *uint, AffinityScope) Result
 	fndeviceGetCreatableVgpus                          func(Device, *uint32, *VgpuTypeId) Result
 	fndeviceGetCudaComputeCapability                   func(Device, *int32, *int32) Result
 	fndeviceGetCurrPcieLinkGeneration                  func(Device, *uint32) Result
@@ -74,7 +74,7 @@ var (
 	fndeviceGetEnforcedPowerLimit                      func(Device, *uint32) Result
 	fndeviceGetFBCSessions                             func(Device, *uint32, *FBCSessionInfo) Result
 	fndeviceGetFBCStats                                func(Device, *FBCStats) Result
-	fndeviceGetFanControlPolicy                        func(Device, uint32, *uint32) Result
+	fndeviceGetFanControlPolicy                        func(Device, uint32, *FanControlPolicy) Result
 	fndeviceGetFanSpeedRPM                             func(Device, *FanSpeedInfo) Result
 	fndeviceGetFanSpeed                                func(Device, uint32, *uint32) Result
 	fndeviceGetFieldValues                             func(Device, int32, *FieldValue) Result
@@ -119,7 +119,7 @@ var (
 	fndeviceGetMaxPcieLinkWidth                        func(Device, *uint32) Result
 	fndeviceGetMemClkMinMaxVfOffset                    func(Device, *int32, *int32) Result
 	fndeviceGetMemClkVfOffset                          func(Device, *int32) Result
-	fndeviceGetMemoryAffinity                          func(Device, uint32, *uint, uint32) Result
+	fndeviceGetMemoryAffinity                          func(Device, uint32, *uint, AffinityScope) Result
 	fndeviceGetMemoryBusWidth                          func(Device, *uint32) Result
 	fndeviceGetMemoryErrorCounter                      func(Device, MemoryErrorType, EccCounterType, MemoryLocation, *uint64) Result
 	fndeviceGetMemoryInfo                              func(Device, *MemoryV2) Result
@@ -164,7 +164,7 @@ var (
 	fndeviceGetPowerManagementLimitConstraints         func(Device, *uint32, *uint32) Result
 	fndeviceGetPowerManagementMode                     func(Device, *EnableState) Result
 	fndeviceGetPowerMizerMode                          func(Device, *DevicePowerMizerModesV1) Result
-	fndeviceGetPowerSource                             func(Device, *uint32) Result
+	fndeviceGetPowerSource                             func(Device, *PowerSource) Result
 	fndeviceGetPowerState                              func(Device, *Pstates) Result
 	fndeviceGetPowerUsage                              func(Device, *uint32) Result
 	fndeviceGetProcessUtilization                      func(Device, *ProcessUtilizationSample, *uint32, uint64) Result
@@ -242,7 +242,7 @@ var (
 	fndeviceSetDramEncryptionMode                      func(Device, *DramEncryptionInfo) Result
 	fndeviceSetDriverModel                             func(Device, DriverModel, uint32) Result
 	fndeviceSetEccMode                                 func(Device, EnableState) Result
-	fndeviceSetFanControlPolicy                        func(Device, uint32, uint32) Result
+	fndeviceSetFanControlPolicy                        func(Device, uint32, FanControlPolicy) Result
 	fndeviceSetFanSpeed                                func(Device, uint32, uint32) Result
 	fndeviceSetGpcClkVfOffset                          func(Device, int32) Result
 	fndeviceSetGpuLockedClocks                         func(Device, uint32, uint32) Result
@@ -723,14 +723,14 @@ func deviceGetApplicationsClock(device Device, clockType ClockType) (uint32, err
 //   - arch: Reference where architecture is returned, if call successful. Set to NVML_DEVICE_ARCH_* upon success
 //
 // Wraps nvmlDeviceGetArchitecture.
-func deviceGetArchitecture(device Device) (uint32, error) {
+func deviceGetArchitecture(device Device) (DeviceArchitecture, error) {
 	if err := checkLibSym("nvmlDeviceGetArchitecture"); err != nil {
-		var zero uint32
+		var zero DeviceArchitecture
 		return zero, err
 	}
-	var out uint32
+	var out DeviceArchitecture
 	if err := toError(fndeviceGetArchitecture(device, &out)); err != nil {
-		var zero uint32
+		var zero DeviceArchitecture
 		return zero, err
 	}
 	return out, nil
@@ -879,14 +879,14 @@ func deviceGetBridgeChipInfo(device Device, bridgeHierarchy *BridgeChipHierarchy
 //   - type_: The PCI Bus type
 //
 // Wraps nvmlDeviceGetBusType.
-func deviceGetBusType(device Device) (uint32, error) {
+func deviceGetBusType(device Device) (BusType, error) {
 	if err := checkLibSym("nvmlDeviceGetBusType"); err != nil {
-		var zero uint32
+		var zero BusType
 		return zero, err
 	}
-	var out uint32
+	var out BusType
 	if err := toError(fndeviceGetBusType(device, &out)); err != nil {
-		var zero uint32
+		var zero BusType
 		return zero, err
 	}
 	return out, nil
@@ -1159,7 +1159,7 @@ func DeviceGetCount() (uint32, error) {
 	return out, nil
 }
 
-// deviceGetCpuAffinity Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with NVML_AFFINITY_SCOPE_NODE.
+// deviceGetCpuAffinity Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
 //
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
@@ -1187,7 +1187,7 @@ func deviceGetCpuAffinity(device Device, cpuSetSize uint32, cpuSet *uint) error 
 //   - scope: Scope that change the default behavior
 //
 // Wraps nvmlDeviceGetCpuAffinityWithinScope.
-func deviceGetCpuAffinityWithinScope(device Device, cpuSetSize uint32, cpuSet *uint, scope uint32) error {
+func deviceGetCpuAffinityWithinScope(device Device, cpuSetSize uint32, cpuSet *uint, scope AffinityScope) error {
 	if err := checkLibSym("nvmlDeviceGetCpuAffinityWithinScope"); err != nil {
 		return err
 	}
@@ -1693,14 +1693,14 @@ func deviceGetFBCStats(device Device, fbcStats *FBCStats) error {
 //   - policy: Reference in which to return the fan control policy
 //
 // Wraps nvmlDeviceGetFanControlPolicy_v2.
-func deviceGetFanControlPolicy(device Device, fan uint32) (uint32, error) {
+func deviceGetFanControlPolicy(device Device, fan uint32) (FanControlPolicy, error) {
 	if err := checkLibSym("nvmlDeviceGetFanControlPolicy_v2"); err != nil {
-		var zero uint32
+		var zero FanControlPolicy
 		return zero, err
 	}
-	var out uint32
+	var out FanControlPolicy
 	if err := toError(fndeviceGetFanControlPolicy(device, fan, &out)); err != nil {
-		var zero uint32
+		var zero FanControlPolicy
 		return zero, err
 	}
 	return out, nil
@@ -2586,7 +2586,7 @@ func deviceGetMemClkVfOffset(device Device) (int32, error) {
 //   - scope: Scope that change the default behavior
 //
 // Wraps nvmlDeviceGetMemoryAffinity.
-func deviceGetMemoryAffinity(device Device, nodeSetSize uint32, nodeSet *uint, scope uint32) error {
+func deviceGetMemoryAffinity(device Device, nodeSetSize uint32, nodeSet *uint, scope AffinityScope) error {
 	if err := checkLibSym("nvmlDeviceGetMemoryAffinity"); err != nil {
 		return err
 	}
@@ -3492,14 +3492,14 @@ func deviceGetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerMode
 //   - powerSource: The power source of the device
 //
 // Wraps nvmlDeviceGetPowerSource.
-func deviceGetPowerSource(device Device) (uint32, error) {
+func deviceGetPowerSource(device Device) (PowerSource, error) {
 	if err := checkLibSym("nvmlDeviceGetPowerSource"); err != nil {
-		var zero uint32
+		var zero PowerSource
 		return zero, err
 	}
-	var out uint32
+	var out PowerSource
 	if err := toError(fndeviceGetPowerSource(device, &out)); err != nil {
-		var zero uint32
+		var zero PowerSource
 		return zero, err
 	}
 	return out, nil
@@ -4869,7 +4869,7 @@ func deviceSetEccMode(device Device, ecc EnableState) error {
 //   - policy: The fan control policy to set
 //
 // Wraps nvmlDeviceSetFanControlPolicy.
-func deviceSetFanControlPolicy(device Device, fan uint32, policy uint32) error {
+func deviceSetFanControlPolicy(device Device, fan uint32, policy FanControlPolicy) error {
 	if err := checkLibSym("nvmlDeviceSetFanControlPolicy"); err != nil {
 		return err
 	}

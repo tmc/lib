@@ -2483,3 +2483,181 @@ func (e PowerProfileOperation) String() string {
 	}
 	return fmt.Sprintf("PowerProfileOperation(%d)", e)
 }
+
+// DeviceArchitecture represents Simplified chip architecture.
+type DeviceArchitecture uint32
+
+const (
+	DeviceArchKepler    DeviceArchitecture = 2          // Devices based on the NVIDIA Kepler architecture
+	DeviceArchMaxwell   DeviceArchitecture = 3          // Devices based on the NVIDIA Maxwell architecture
+	DeviceArchPascal    DeviceArchitecture = 4          // Devices based on the NVIDIA Pascal architecture
+	DeviceArchVolta     DeviceArchitecture = 5          // Devices based on the NVIDIA Volta architecture
+	DeviceArchTuring    DeviceArchitecture = 6          // Devices based on the NVIDIA Turing architecture
+	DeviceArchAmpere    DeviceArchitecture = 7          // Devices based on the NVIDIA Ampere architecture
+	DeviceArchAda       DeviceArchitecture = 8          // Devices based on the NVIDIA Ada architecture
+	DeviceArchHopper    DeviceArchitecture = 9          // Devices based on the NVIDIA Hopper architecture
+	DeviceArchBlackwell DeviceArchitecture = 10         // Devices based on the NVIDIA Blackwell architecture
+	DeviceArchUnknown   DeviceArchitecture = 0xffffffff // Anything else, presumably something newer
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e DeviceArchitecture) String() string {
+	switch e {
+	case DeviceArchKepler:
+		return "DeviceArchKepler"
+	case DeviceArchMaxwell:
+		return "DeviceArchMaxwell"
+	case DeviceArchPascal:
+		return "DeviceArchPascal"
+	case DeviceArchVolta:
+		return "DeviceArchVolta"
+	case DeviceArchTuring:
+		return "DeviceArchTuring"
+	case DeviceArchAmpere:
+		return "DeviceArchAmpere"
+	case DeviceArchAda:
+		return "DeviceArchAda"
+	case DeviceArchHopper:
+		return "DeviceArchHopper"
+	case DeviceArchBlackwell:
+		return "DeviceArchBlackwell"
+	case DeviceArchUnknown:
+		return "DeviceArchUnknown"
+	}
+	return fmt.Sprintf("DeviceArchitecture(%d)", e)
+}
+
+// BusType represents PCI bus types.
+type BusType uint32
+
+const (
+	BusTypeUnknown BusType = 0 // Unknown bus type.
+	BusTypePci     BusType = 1 // PCI bus.
+	BusTypePcie    BusType = 2 // PCI-Express bus.
+	BusTypeFpci    BusType = 3 // FPCI bus.
+	BusTypeAgp     BusType = 4 // AGP bus.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e BusType) String() string {
+	switch e {
+	case BusTypeUnknown:
+		return "BusTypeUnknown"
+	case BusTypePci:
+		return "BusTypePci"
+	case BusTypePcie:
+		return "BusTypePcie"
+	case BusTypeFpci:
+		return "BusTypeFpci"
+	case BusTypeAgp:
+		return "BusTypeAgp"
+	}
+	return fmt.Sprintf("BusType(%d)", e)
+}
+
+// FanControlPolicy represents Device Fan control policy.
+type FanControlPolicy uint32
+
+const (
+	FanPolicyTemperatureContinousSw FanControlPolicy = 0 // Temperature-controlled fan policy.
+	FanPolicyManual                 FanControlPolicy = 1 // Manual fan control policy.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e FanControlPolicy) String() string {
+	switch e {
+	case FanPolicyTemperatureContinousSw:
+		return "FanPolicyTemperatureContinousSw"
+	case FanPolicyManual:
+		return "FanPolicyManual"
+	}
+	return fmt.Sprintf("FanControlPolicy(%d)", e)
+}
+
+// PowerSource represents Device Power Source.
+type PowerSource uint32
+
+const (
+	PowerSourceAc         PowerSource = 0x00000000 // AC power source.
+	PowerSourceBattery    PowerSource = 0x00000001 // Battery power source.
+	PowerSourceUndersized PowerSource = 0x00000002 // Undersized power source.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PowerSource) String() string {
+	switch e {
+	case PowerSourceAc:
+		return "PowerSourceAc"
+	case PowerSourceBattery:
+		return "PowerSourceBattery"
+	case PowerSourceUndersized:
+		return "PowerSourceUndersized"
+	}
+	return fmt.Sprintf("PowerSource(%d)", e)
+}
+
+// PowerScopeType represents Device Scope - This is useful to retrieve the telemetry at GPU and module (e.g..
+type PowerScopeType uint8
+
+const (
+	PowerScopeGpu    PowerScopeType = 0 // Targets only GPU
+	PowerScopeModule PowerScopeType = 1 // Targets the whole module
+	PowerScopeMemory PowerScopeType = 2 // Targets the GPU Memory
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PowerScopeType) String() string {
+	switch e {
+	case PowerScopeGpu:
+		return "PowerScopeGpu"
+	case PowerScopeModule:
+		return "PowerScopeModule"
+	case PowerScopeMemory:
+		return "PowerScopeMemory"
+	}
+	return fmt.Sprintf("PowerScopeType(%d)", e)
+}
+
+// GpuFabricState represents Probe State of GPU registration process.
+type GpuFabricState uint8
+
+const (
+	GpuFabricStateNotSupported GpuFabricState = 0 // Fabric Probe State not supported
+	GpuFabricStateNotStarted   GpuFabricState = 1 // Fabric Probe has not started
+	GpuFabricStateInProgress   GpuFabricState = 2 // Fabric Probe in progress
+	GpuFabricStateCompleted    GpuFabricState = 3 // Fabric Probe State completed
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e GpuFabricState) String() string {
+	switch e {
+	case GpuFabricStateNotSupported:
+		return "GpuFabricStateNotSupported"
+	case GpuFabricStateNotStarted:
+		return "GpuFabricStateNotStarted"
+	case GpuFabricStateInProgress:
+		return "GpuFabricStateInProgress"
+	case GpuFabricStateCompleted:
+		return "GpuFabricStateCompleted"
+	}
+	return fmt.Sprintf("GpuFabricState(%d)", e)
+}
+
+// AffinityScope represents nvmlAffinityScope_t.
+type AffinityScope uint32
+
+const (
+	AffinityScopeNode   AffinityScope = 0 // Scope of NUMA node for affinity queries
+	AffinityScopeSocket AffinityScope = 1 // Scope of processor socket for affinity queries
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e AffinityScope) String() string {
+	switch e {
+	case AffinityScopeNode:
+		return "AffinityScopeNode"
+	case AffinityScopeSocket:
+		return "AffinityScopeSocket"
+	}
+	return fmt.Sprintf("AffinityScope(%d)", e)
+}

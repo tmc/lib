@@ -2924,6 +2924,82 @@ func (e MatmulAlgoConfigAttributes) String() string {
 	return fmt.Sprintf("MatmulAlgoConfigAttributes(%d)", e)
 }
 
+// NumericalImplFlags represents Implementation details that may affect numerical behavior of algorithms..
+type NumericalImplFlags uint64
+
+const (
+	NumericalImplFlagsFma                 NumericalImplFlags = 0x01 << 0
+	NumericalImplFlagsHmma                NumericalImplFlags = 0x02 << 0
+	NumericalImplFlagsImma                NumericalImplFlags = 0x04 << 0
+	NumericalImplFlagsDmma                NumericalImplFlags = 0x08 << 0
+	NumericalImplFlagsTensorOpMask        NumericalImplFlags = 0xfe << 0
+	NumericalImplFlagsOpTypeMask          NumericalImplFlags = 0xff << 0
+	NumericalImplFlagsAccumulator16F      NumericalImplFlags = 0x01 << 8
+	NumericalImplFlagsAccumulator32F      NumericalImplFlags = 0x02 << 8
+	NumericalImplFlagsAccumulator64F      NumericalImplFlags = 0x04 << 8
+	NumericalImplFlagsAccumulator32I      NumericalImplFlags = 0x08 << 8
+	NumericalImplFlagsAccumulatorTypeMask NumericalImplFlags = 0xff << 8
+	NumericalImplFlagsInput16F            NumericalImplFlags = 0x01 << 16
+	NumericalImplFlagsInput16BF           NumericalImplFlags = 0x02 << 16
+	NumericalImplFlagsInputTF32           NumericalImplFlags = 0x04 << 16
+	NumericalImplFlagsInput32F            NumericalImplFlags = 0x08 << 16
+	NumericalImplFlagsInput64F            NumericalImplFlags = 0x10 << 16
+	NumericalImplFlagsInput8I             NumericalImplFlags = 0x20 << 16
+	NumericalImplFlagsInput8FE4M3         NumericalImplFlags = 0x40 << 16
+	NumericalImplFlagsInput8FE5M2         NumericalImplFlags = 0x80 << 16
+	NumericalImplFlagsOpInputTypeMask     NumericalImplFlags = 0xff << 16
+	NumericalImplFlagsGaussian            NumericalImplFlags = 0x01 << 32
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e NumericalImplFlags) String() string {
+	switch e {
+	case NumericalImplFlagsFma:
+		return "NumericalImplFlagsFma"
+	case NumericalImplFlagsHmma:
+		return "NumericalImplFlagsHmma"
+	case NumericalImplFlagsImma:
+		return "NumericalImplFlagsImma"
+	case NumericalImplFlagsDmma:
+		return "NumericalImplFlagsDmma"
+	case NumericalImplFlagsTensorOpMask:
+		return "NumericalImplFlagsTensorOpMask"
+	case NumericalImplFlagsOpTypeMask:
+		return "NumericalImplFlagsOpTypeMask"
+	case NumericalImplFlagsAccumulator16F:
+		return "NumericalImplFlagsAccumulator16F"
+	case NumericalImplFlagsAccumulator32F:
+		return "NumericalImplFlagsAccumulator32F"
+	case NumericalImplFlagsAccumulator64F:
+		return "NumericalImplFlagsAccumulator64F"
+	case NumericalImplFlagsAccumulator32I:
+		return "NumericalImplFlagsAccumulator32I"
+	case NumericalImplFlagsAccumulatorTypeMask:
+		return "NumericalImplFlagsAccumulatorTypeMask"
+	case NumericalImplFlagsInput16F:
+		return "NumericalImplFlagsInput16F"
+	case NumericalImplFlagsInput16BF:
+		return "NumericalImplFlagsInput16BF"
+	case NumericalImplFlagsInputTF32:
+		return "NumericalImplFlagsInputTF32"
+	case NumericalImplFlagsInput32F:
+		return "NumericalImplFlagsInput32F"
+	case NumericalImplFlagsInput64F:
+		return "NumericalImplFlagsInput64F"
+	case NumericalImplFlagsInput8I:
+		return "NumericalImplFlagsInput8I"
+	case NumericalImplFlagsInput8FE4M3:
+		return "NumericalImplFlagsInput8FE4M3"
+	case NumericalImplFlagsInput8FE5M2:
+		return "NumericalImplFlagsInput8FE5M2"
+	case NumericalImplFlagsOpInputTypeMask:
+		return "NumericalImplFlagsOpInputTypeMask"
+	case NumericalImplFlagsGaussian:
+		return "NumericalImplFlagsGaussian"
+	}
+	return fmt.Sprintf("NumericalImplFlags(%d)", e)
+}
+
 // CublasfillmodeT represents cublasFillMode_t.
 type CublasfillmodeT int32
 
