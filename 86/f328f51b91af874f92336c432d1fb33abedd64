@@ -1,0 +1,1 @@
+commit 86f328f51b91af874f92336c432d1fb33abedd64, date 2026-09-25T00:43:53-07:00, Claude Code subagent, model claude-opus-5-5, session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911; verified on dgx: sys1 LoRA graphs on, CUDAPROF_MEMSETS=0 2/2 complete, default 2/2 SEGV
