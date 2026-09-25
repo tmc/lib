@@ -12,6 +12,7 @@ import (
 type nvmlSource struct {
 	host    *host // for the memory of unified-memory devices
 	ext     bool  // read the -x fields
+	watcher *eventWatcher
 	handles []nvml.Device
 	devs    []*device
 
@@ -79,7 +80,25 @@ func get[T any](v T, err error) opt[T] {
 
 func (s *nvmlSource) devices() []*device { return s.devs }
 
-func (s *nvmlSource) close() error { return nvml.Shutdown() }
+// extend turns on the -x fields and starts watching for events.
+func (s *nvmlSource) extend() {
+	s.ext = true
+	s.watcher = watchEvents(s.handles)
+}
+
+func (s *nvmlSource) events() []event {
+	if s.watcher == nil {
+		return nil
+	}
+	return s.watcher.events()
+}
+
+func (s *nvmlSource) close() error {
+	if s.watcher != nil {
+		s.watcher.close()
+	}
+	return nvml.Shutdown()
+}
 
 // refresh follows gpuinfo_nvidia_refresh_dynamic_info.
 func (s *nvmlSource) refresh(d *device) {

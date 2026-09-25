@@ -68,7 +68,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	defer src.close()
-	src.ext = opts.ext
+	if opts.ext {
+		src.extend()
+	}
 	if len(src.devices()) == 0 {
 		fmt.Fprintln(stdout, "No GPU to monitor.")
 		return 0

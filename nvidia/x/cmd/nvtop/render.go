@@ -89,7 +89,12 @@ func (u *ui) render(s *screen) {
 		u.drawPlot(s, r, l.plotDevices[i])
 	}
 	if !u.opts.noProcs && l.processes.h > 0 {
-		u.drawProcesses(s, l.processes)
+		switch u.view {
+		case viewProcesses:
+			u.drawProcesses(s, l.processes)
+		case viewEvents:
+			u.drawEvents(s, l.processes)
+		}
 	}
 	u.drawShortcuts(s.window(0, s.h-1, s.w, 1))
 }
@@ -789,10 +794,11 @@ func (u *ui) drawShortcuts(w *window) {
 	var keys [][2]string
 	switch u.overlay {
 	case overlayNone:
-		if !u.opts.noProcs {
+		if !u.opts.noProcs && u.view == viewProcesses {
 			keys = append(keys, [2]string{"F6", "Sort"}, [2]string{"F9", "Kill"})
 		}
 		keys = append(keys, [2]string{"F10", "Quit"})
+		keys = append(keys, u.extShortcuts()...)
 	case overlayKill:
 		keys = [][2]string{{"Enter", "Send"}, {"ESC", "Cancel"}}
 	case overlaySort:

@@ -90,6 +90,13 @@
 // interval it held them, and shows even when it is no longer active.
 // Hardware slowdowns are red; software power and thermal limits yellow.
 //
+// The same line counts the NVML events on the device since nvtop started
+// (EVT), in red once one was a fault such as an Xid error. The e key
+// shows the event log in place of the process list, newest first, with
+// the commonest Xids described; e or Esc goes back, and Up and Down
+// scroll. Clock changes are not logged: the header shows the clocks, and
+// they change many times a second.
+//
 // # Snapshots
 //
 // The snapshot format matches nvtop -s: an array of devices whose values

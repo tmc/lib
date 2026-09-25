@@ -90,6 +90,7 @@ func TestRenderExt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.opts.encodeHide = 30 * time.Second
 			u := newUI(extDevices(), tt.opts, 1, func() time.Time { return testNow })
+			u.addEvents(testEvents())
 			s := newScreen(120, 40, true)
 			u.render(s)
 			golden(t, "render/"+tt.name+".golden", []byte(s.String()))
@@ -99,6 +100,9 @@ func TestRenderExt(t *testing.T) {
 				{"THR sw-power 37% hw-therm 2%", 0, cyan},
 				{"THR sw-power 37% hw-therm 2%", 4, yellow},
 				{"THR sw-power 37% hw-therm 2%", 17, red},
+				{"EVT 2", 0, cyan},
+				{"EVT 2", 4, red},
+				{"EVT 1", 4, noColor},
 				{"NRG N/A", 0, cyan},
 				{"THR idle", 4, noColor},
 			})

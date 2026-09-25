@@ -126,7 +126,10 @@ func energyString(mj uint64) string {
 }
 
 // Widths of the fields on the -x line.
-const energyWidth = 13
+const (
+	energyWidth = 13
+	eventsWidth = 9
+)
 
 // drawExtLine draws a device's -x line in w: the energy used since
 // nvtop started, then the reasons the clocks are held down, each with
@@ -139,7 +142,13 @@ func (u *ui) drawExtLine(w *window, d *device) {
 		w.print(x, 0, "N/A", plain)
 	}
 	x = energyWidth + 1
-	x = w.print(x, 0, "THR", fg(cyan))
+	x = w.print(x, 0, "EVT ", fg(cyan))
+	st := plain
+	if u.faulted[d.index] {
+		st = fg(red)
+	}
+	w.print(x, 0, fmt.Sprint(u.eventCount[d.index]), st)
+	x = w.print(energyWidth+1+eventsWidth+1, 0, "THR", fg(cyan))
 	if !d.reasons.ok && !d.throttle.ok {
 		w.print(x, 0, " N/A", plain)
 		return

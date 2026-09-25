@@ -2,13 +2,13 @@
  GPU 2520MHz MEM 10501MHz TEMP  71°C  FAN  65%   POW 270 / 450 W
  GPU[||||||||||||||||87%(eff 52%)] MEM[||||||||||10.742Gi/23.988Gi] ENC[|     12%]
  NSHC N/A    L2CF N/A    NEXC N/A
- NRG 45.99 kJ  THR sw-power 37% hw-therm 2%
+ NRG 45.99 kJ  EVT 2     THR sw-power 37% hw-therm 2%
 
  Device 1 [NVIDIA GB10]             PCIe GEN N/A RX: N/A TX: N/A
  GPU N/A MHz MEM N/A MHz  TEMP N/A°C   FAN N/A   POW N/A W
  GPU[                                N/A] MEM[                                N/A]
  NSHC N/A    L2CF N/A    NEXC N/A
- NRG N/A       THR idle
+ NRG N/A       EVT 1     THR idle
    ┌──────────────────────────────────────────────────────┐    ┌──────────────────────────────────────────────────────┐
 100│GPU0 %                                                │ 100│GPU1 %                                                │
    │GPU0 mem%                                             │    │GPU1 mem%                                             │
@@ -37,4 +37,4 @@
 
 
 
-F6Sort    F9Kill    F10Quit
+F6Sort    F9Kill    F10Quit    eEvents

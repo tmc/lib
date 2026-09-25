@@ -93,21 +93,32 @@ type ui struct {
 	// Whether any device reports ECC error counts, has NVLink, or has
 	// active NVLink links. The device headers make room for these.
 	ecc, nvlink, nvlinkActive bool
+
+	// With -x, what shows in place of the process list, and the event
+	// log with the number of events and whether any was a fault, per
+	// device.
+	view        view
+	events      []event
+	eventOffset int // newest events scrolled past
+	eventCount  []int
+	faulted     []bool
 }
 
 func newUI(devs []*device, opts options, pid int, now func() time.Time) *ui {
 	u := &ui{
-		opts:     opts,
-		devs:     devs,
-		pid:      pid,
-		history:  make([][2]series, len(devs)),
-		encSeen:  make([]time.Time, len(devs)),
-		decSeen:  make([]time.Time, len(devs)),
-		sortBy:   fieldMem,
-		sortDesc: true,
-		selPID:   -1,
-		kill:     sendSignal,
-		now:      now,
+		opts:       opts,
+		devs:       devs,
+		pid:        pid,
+		history:    make([][2]series, len(devs)),
+		encSeen:    make([]time.Time, len(devs)),
+		decSeen:    make([]time.Time, len(devs)),
+		sortBy:     fieldMem,
+		sortDesc:   true,
+		selPID:     -1,
+		eventCount: make([]int, len(devs)),
+		faulted:    make([]bool, len(devs)),
+		kill:       sendSignal,
+		now:        now,
 	}
 	// The meters start hidden: their last activity is set in the past
 	// by more than the hiding time, as nvtop does.
@@ -238,6 +249,10 @@ func (u *ui) compare(a, b row) int {
 // handle applies a key press, following nvtop's main loop and
 // interface_key.
 func (u *ui) handle(k key) {
+	if u.opts.ext && u.handleExt(k) {
+		u.lastDigit = false
+		return
+	}
 	switch k {
 	case 'q':
 		u.quit = true

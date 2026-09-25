@@ -41,6 +41,9 @@ func runTUI(ctx context.Context, src source, h *host, opts options) error {
 			return nil
 		case <-refresh.C:
 			gather(src, h, devs, !u.frozen())
+			if es, ok := src.(eventSource); ok {
+				u.addEvents(es.events())
+			}
 			u.record()
 			refresh.Reset(u.interval())
 		case ks, ok := <-keys:
