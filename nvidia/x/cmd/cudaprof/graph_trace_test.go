@@ -123,7 +123,7 @@ func TestGapReportGraphTraceMode(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if r.GraphTraceMode != tc.want {
+			if r.GraphTraceMode != string(tc.want) {
 				t.Errorf("GraphTraceMode = %q, want %q", r.GraphTraceMode, tc.want)
 			}
 			if text := r.text(); !strings.Contains(text, tc.wantText) {

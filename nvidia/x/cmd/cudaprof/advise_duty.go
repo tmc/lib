@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/gaps"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
@@ -446,7 +447,7 @@ type idleAttribution struct {
 	// classes is the host concurrency split, carried for its gap counts.
 	// The arms above hold only nanoseconds, so a class that is rare and
 	// long reads the same as one that is frequent and short.
-	classes []GapClass
+	classes []gaps.Class
 
 	// opaqueGraphs reports that this capture held graph replay envelopes with
 	// no per-node records. Those replays carry no launch correlation, so idle
@@ -458,7 +459,7 @@ type idleAttribution struct {
 	opaqueGraphs bool
 }
 
-func idleArms(a GapAttribution) []idleArm {
+func idleArms(a gaps.Attribution) []idleArm {
 	arms := []idleArm{
 		{
 			name:   "host behind",
@@ -494,13 +495,13 @@ func idleArms(a GapAttribution) []idleArm {
 // capture without them, or whose journals are truncated, yields nothing here
 // rather than an attribution computed from a surviving prefix.
 func captureIdleAttribution(cap *cudacapture.Capture) (idleAttribution, bool) {
-	gaps, err := analyzeGaps(cap, gapOptions{maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes})
+	report, err := analyzeGaps(cap, gapOptions{maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes})
 	if err != nil {
 		return idleAttribution{}, false
 	}
 	var best idleAttribution
 	var found bool
-	for _, dev := range gaps.Devices {
+	for _, dev := range report.Devices {
 		s := dev.Overall
 		if s == nil || s.IdleNanos <= 0 || (found && s.IdleNanos <= best.idle) {
 			continue
@@ -515,7 +516,7 @@ func captureIdleAttribution(cap *cudacapture.Capture) (idleAttribution, bool) {
 			maxGap:       s.Distribution.Max,
 			classes:      s.Concurrency,
 			arms:         idleArms(s.Attribution),
-			opaqueGraphs: gaps.OpaqueGraphReplays,
+			opaqueGraphs: report.OpaqueGraphReplays,
 		}
 		found = true
 	}
@@ -579,7 +580,7 @@ func (a idleAttribution) dominantGap() (float64, bool) {
 // and long reads exactly like one that is frequent and short. Those are
 // different engineering problems: ten gaps holding 70 ms is a stall, and a
 // hundred and sixty seven holding 0.36 ms is a well-fed device.
-func gapClassSplit(classes []GapClass) string {
+func gapClassSplit(classes []gaps.Class) string {
 	var b strings.Builder
 	for _, c := range classes {
 		if c.Count == 0 {

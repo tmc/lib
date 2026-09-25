@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/gaps"
 )
 
 // Comparing two gap reports is what makes the idle axis usable in a
@@ -206,8 +207,8 @@ func diffKernelCensus(base, target *GapReport) *KernelCensusDiff {
 	if len(base.Kernels) == 0 && len(target.Kernels) == 0 {
 		return nil
 	}
-	index := func(rows []KernelCensus) map[string]KernelCensus {
-		m := make(map[string]KernelCensus, len(rows))
+	index := func(rows []gaps.Kernel) map[string]gaps.Kernel {
+		m := make(map[string]gaps.Kernel, len(rows))
 		for _, r := range rows {
 			m[r.Name] = r
 		}
@@ -310,7 +311,7 @@ type GapStatsDiff struct {
 // diffGapReports compares two reports produced under the same options.
 func diffGapReports(base, target *GapReport) (*GapDiff, error) {
 	if base.WarmupMS != target.WarmupMS || base.WarmupUntil != target.WarmupUntil {
-		return nil, fmt.Errorf("warmup windows differ: base excludes the %s and target the %s, so their steady-state sections cover unlike windows", base.warmup(), target.warmup())
+		return nil, fmt.Errorf("warmup windows differ: base excludes the %s and target the %s, so their steady-state sections cover unlike windows", base.Warmup(), target.Warmup())
 	}
 	diff := &GapDiff{Base: base, Target: target, WarmupMS: base.WarmupMS, Cudaprof: currentBuild()}
 	baseByDevice := indexGapDevices(base)
@@ -331,7 +332,7 @@ func diffGapReports(base, target *GapReport) (*GapDiff, error) {
 				entry.Missing = append(entry.Missing, "overall window missing from one capture")
 			}
 			if entry.SteadyState == nil {
-				entry.Missing = append(entry.Missing, steadyStateAbsence(b, t, base.warmup()))
+				entry.Missing = append(entry.Missing, steadyStateAbsence(b, t, base.Warmup()))
 			}
 		}
 		diff.Devices = append(diff.Devices, entry)
@@ -346,7 +347,7 @@ func diffGapReports(base, target *GapReport) (*GapDiff, error) {
 // steadyStateAbsence says which side lacks a steady-state section. A run whose
 // activities all fall inside the warmup has no such section, and reporting the
 // side that is missing keeps the absence from reading as a zero.
-func steadyStateAbsence(base, target GapDevice, warmup string) string {
+func steadyStateAbsence(base, target gaps.Device, warmup string) string {
 	switch {
 	case base.SteadyState == nil && target.SteadyState == nil:
 		return fmt.Sprintf("neither capture has activity past the %s, so there is no steady-state window", warmup)
@@ -357,18 +358,18 @@ func steadyStateAbsence(base, target GapDevice, warmup string) string {
 	}
 }
 
-func indexGapDevices(r *GapReport) map[uint32]GapDevice {
-	out := make(map[uint32]GapDevice, len(r.Devices))
+func indexGapDevices(r *GapReport) map[uint32]gaps.Device {
+	out := make(map[uint32]gaps.Device, len(r.Devices))
 	for _, d := range r.Devices {
 		out[d.Device] = d
 	}
 	return out
 }
 
-func mergedDeviceIDs(a, b map[uint32]GapDevice) []uint32 {
+func mergedDeviceIDs(a, b map[uint32]gaps.Device) []uint32 {
 	seen := make(map[uint32]bool, len(a)+len(b))
 	var ids []uint32
-	for _, m := range []map[uint32]GapDevice{a, b} {
+	for _, m := range []map[uint32]gaps.Device{a, b} {
 		for id := range m {
 			if !seen[id] {
 				seen[id] = true
@@ -380,7 +381,7 @@ func mergedDeviceIDs(a, b map[uint32]GapDevice) []uint32 {
 	return ids
 }
 
-func diffGapStats(base, target *GapStats) *GapStatsDiff {
+func diffGapStats(base, target *gaps.Stats) *GapStatsDiff {
 	if base == nil || target == nil {
 		return nil
 	}
@@ -405,7 +406,7 @@ func diffGapStats(base, target *GapStats) *GapStatsDiff {
 	}
 	baseClass := indexGapClasses(base)
 	targetClass := indexGapClasses(target)
-	for _, name := range []string{classHostAhead, classHostDuring, classHostBehind, classUnmatched} {
+	for _, name := range []string{gaps.ClassHostAhead, gaps.ClassHostDuring, gaps.ClassHostBehind, gaps.ClassUnmatched} {
 		d.Concurrency = append(d.Concurrency, intDelta(name, baseClass[name], targetClass[name]))
 	}
 	d.Attribution = []GapIntDelta{
@@ -421,7 +422,7 @@ func diffGapStats(base, target *GapStats) *GapStatsDiff {
 	return d
 }
 
-func indexGapClasses(s *GapStats) map[string]int64 {
+func indexGapClasses(s *gaps.Stats) map[string]int64 {
 	out := make(map[string]int64, len(s.Concurrency))
 	for _, c := range s.Concurrency {
 		out[c.Name] = c.IdleNanos
@@ -518,7 +519,7 @@ func (d *GapDiff) text() string {
 			}
 			fmt.Fprintf(&b, "\ndevice %d, %s", dev.Device, s.Label)
 			if s.Label == "steady-state" {
-				fmt.Fprintf(&b, " (%s excluded from both)", d.Base.warmup())
+				fmt.Fprintf(&b, " (%s excluded from both)", d.Base.Warmup())
 			}
 			b.WriteString("\n")
 			writeGapStatsDiff(&b, s)

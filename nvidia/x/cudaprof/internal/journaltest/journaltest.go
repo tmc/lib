@@ -65,6 +65,14 @@ func (b *Builder) Activity(subtype string, device uint32, start, end uint64, cor
 	})
 }
 
+// Named appends one named activity of the given subtype on device 0.
+func (b *Builder) Named(subtype, name string, start, end uint64, correlation uint32) *Builder {
+	return b.Append(wire.KindActivity, map[string]any{
+		"kind": "activity", "subtype": subtype, "valid": true,
+		"name": name, "start": start, "end": end, "device": 0, "correlation": correlation,
+	})
+}
+
 // KernelOn appends one kernel on an explicit device and context. The context
 // is what a synchronization record is resolved through.
 func (b *Builder) KernelOn(device, context uint32, start, end uint64, correlation uint32) *Builder {

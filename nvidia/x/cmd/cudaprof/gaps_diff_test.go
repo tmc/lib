@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/gaps"
 )
 
 // pacedJournal is a five-kernel run with uniform kernels and uniform gaps. The
@@ -389,8 +390,8 @@ func TestGapDuration(t *testing.T) {
 // a claim about what one capture reports. What the test pins is the direction:
 // span and active moving opposite ways, and the verdict that follows.
 func TestGapsDiffMeasuredCase(t *testing.T) {
-	stats := func(span, active, idle int64) *GapStats {
-		s := &GapStats{Label: "steady-state", SpanNanos: span, ActiveNanos: active, IdleNanos: idle}
+	stats := func(span, active, idle int64) *gaps.Stats {
+		s := &gaps.Stats{Label: "steady-state", SpanNanos: span, ActiveNanos: active, IdleNanos: idle}
 		s.DutyCyclePct = float64(active) / float64(active+idle) * 100
 		return s
 	}

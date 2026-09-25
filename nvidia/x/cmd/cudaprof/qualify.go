@@ -487,7 +487,7 @@ func qualifySpan(path string, report *GapReport) (steady, whole int64, err error
 	d := report.Devices[0]
 	switch {
 	case d.SteadyActivities == 0:
-		return 0, 0, fmt.Errorf("no steady-state window: the warmup (%s) never ended", report.warmup())
+		return 0, 0, fmt.Errorf("no steady-state window: the warmup (%s) never ended", report.Warmup())
 	case d.SteadyState == nil:
 		// The warmup excluded nothing: the window is the whole timeline.
 		return d.Overall.SpanNanos, d.Overall.SpanNanos, nil

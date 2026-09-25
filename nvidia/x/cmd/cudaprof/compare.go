@@ -19,6 +19,7 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
+	"github.com/tmc/lib/nvidia/x/cudaprof/gaps"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
@@ -1278,7 +1279,7 @@ func (s *CompareSide) cutWarmup(records timeline.Records, opts gapOptions) error
 		return acts[i].End < acts[j].End
 	})
 	s.Warmup = describeWarmup(opts)
-	steady := steadyActivities(acts, int64(opts.warmupMS*1e6), until)
+	steady := gaps.Steady(acts, int64(opts.warmupMS*1e6), until)
 	if len(steady) == 0 {
 		return fmt.Errorf("no steady state in the window [%d,%d): the warmup (%s) never ended", s.StartTimestamp, s.StopTimestamp, s.Warmup)
 	}
