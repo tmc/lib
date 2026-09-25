@@ -286,7 +286,7 @@ func deviceAllocT(t *testing.T, bytes uint) driver.DevicePtr {
 	if bytes == 0 {
 		return 0
 	}
-	p, err := driver.MemAlloc(bytes)
+	p, err := driver.MemAllocBytes(bytes)
 	if err != nil {
 		t.Fatalf("allocating %d bytes on the device: %v", bytes, err)
 	}

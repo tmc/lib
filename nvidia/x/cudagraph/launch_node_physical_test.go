@@ -66,7 +66,7 @@ func TestAddLaunchMatchesDirectLaunch(t *testing.T) {
 		if err := buf.CopyFromHost(seed); err != nil {
 			t.Fatal(err)
 		}
-		l := cudalaunch.OwnedKernel(kern).Grid(n / block).Block(block).On(stream)
+		l := cudalaunch.OwnedKernel(kern).Grid(n / block, 1, 1).Block(block, 1, 1).On(stream)
 		if err := apply(l, buf); err != nil {
 			t.Fatal(err)
 		}
@@ -167,7 +167,7 @@ func TestAddLaunchArgumentsCopied(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	desc, err := cudalaunch.OwnedKernel(kern).Grid(n / block).Block(block).Describe()
+	desc, err := cudalaunch.OwnedKernel(kern).Grid(n / block, 1, 1).Block(block, 1, 1).Describe()
 	if err != nil {
 		t.Fatal(err)
 	}

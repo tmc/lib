@@ -3,6 +3,7 @@
 package driver
 
 import (
+	"fmt"
 	"unsafe"
 )
 
@@ -13,6 +14,20 @@ func nulTerminated(b []byte) *byte {
 		b = append(b[:len(b):len(b)], 0)
 	}
 	return &b[0]
+}
+
+// elementBytes returns the size in bytes of n values of type T as the byte
+// count type S, or an error naming the function fn when n is negative or
+// the size overflows S.
+func elementBytes[T any, S ~uint | ~uint32 | ~uint64 | ~uintptr](fn string, n int) (S, error) {
+	size := uint64(unsafe.Sizeof(*(*T)(nil)))
+	if n < 0 {
+		return 0, fmt.Errorf("%s: negative count %d", fn, n)
+	}
+	if size != 0 && uint64(n) > uint64(^S(0))/size {
+		return 0, fmt.Errorf("%s: %d values of %d bytes overflow %T", fn, n, size, S(0))
+	}
+	return S(uint64(n) * size), nil
 }
 
 // Function pointer variables, registered by init via registerFuncs.
@@ -1475,15 +1490,17 @@ func CtxGetSharedMemConfig() (Sharedconfig, error) {
 //
 // Returns in *leastPriority and *greatestPriority the numerical values that correspond to the least and greatest stream priorities respectively. Stream priorities follow a convention where lower numbers imply greater priorities. The range of meaningful stream priorities is given by [ *greatestPriority, *leastPriority]. If the user attempts to create a stream with a priority value that is outside the meaningful range as specified by this API, the priority is automatically clamped down or up to either *leastPriority or *greatestPriority respectively. See [StreamCreateWithPriority] for details on creating a priority stream. A NULL may be passed in for *leastPriority or *greatestPriority if the value is not desired. This function will return '0' in both *leastPriority and *greatestPriority if the current context's device does not support stream priorities (see [Device.Attribute]). Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [StreamCreateWithPriority], [Stream.Priority], [CtxGetDevice], [CtxGetFlags], [CtxSetLimit], [CtxSynchronize], cudaDeviceGetStreamPriorityRange
 //
-//   - leastPriority: Pointer to an int in which the numerical value for least stream priority is returned
-//   - greatestPriority: Pointer to an int in which the numerical value for greatest stream priority is returned
-//
 // Wraps cuCtxGetStreamPriorityRange.
-func CtxGetStreamPriorityRange(leastPriority *int32, greatestPriority *int32) error {
+func CtxGetStreamPriorityRange() (leastPriority int32, greatestPriority int32, err error) {
 	if err := checkLibSym("cuCtxGetStreamPriorityRange"); err != nil {
-		return err
+		return 0, 0, err
 	}
-	return toError(fnCtxGetStreamPriorityRange(leastPriority, greatestPriority))
+	var out0 int32
+	var out1 int32
+	if err := toError(fnCtxGetStreamPriorityRange(&out0, &out1)); err != nil {
+		return 0, 0, err
+	}
+	return out0, out1, nil
 }
 
 // ctxPopCurrent Pops the current CUDA context from the current CPU thread.
@@ -1704,18 +1721,23 @@ func destroyExternalSemaphore(extSem ExternalSemaphore) error {
 //
 // Note: The API is not supported on 32-bit platforms.
 //
-//   - phDesc: Output descriptor
 //   - resources: Array of resources to be included in the descriptor
 //   - nbResources: Number of resources passed in resources
 //
 // See also: [DevSmResourceSplitByCount]
 //
 // Wraps cuDevResourceGenerateDesc.
-func DevResourceGenerateDesc(phDesc *DevResourceDesc, resources *DevResource, nbResources uint32) error {
+func DevResourceGenerateDesc(resources *DevResource, nbResources uint32) (DevResourceDesc, error) {
 	if err := checkLibSym("cuDevResourceGenerateDesc"); err != nil {
-		return err
+		var zero DevResourceDesc
+		return zero, err
 	}
-	return toError(fnDevResourceGenerateDesc(phDesc, resources, nbResources))
+	var out DevResourceDesc
+	if err := toError(fnDevResourceGenerateDesc(&out, resources, nbResources)); err != nil {
+		var zero DevResourceDesc
+		return zero, err
+	}
+	return out, nil
 }
 
 // DevSmResourceSplit Splits a [DevResourceTypeSm] resource into structured groups.
@@ -1869,8 +1891,6 @@ func deviceCanAccessPeer(dev Device, peerDev Device) (int32, error) {
 
 // deviceComputeCapability Returns the compute capability of the device
 //
-//   - major: Major revision number
-//   - minor: Minor revision number
 //   - dev: Device handle
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
@@ -1878,11 +1898,16 @@ func deviceCanAccessPeer(dev Device, peerDev Device) (int32, error) {
 // Deprecated: This function was deprecated as of CUDA 5.0 and its functionality superseded by [Device.Attribute](). Returns in *major and *minor the major and minor revision numbers that define the compute capability of the device dev.
 //
 // Wraps cuDeviceComputeCapability.
-func deviceComputeCapability(major *int32, minor *int32, dev Device) error {
+func deviceComputeCapability(dev Device) (major int, minor int, err error) {
 	if err := checkLibSym("cuDeviceComputeCapability"); err != nil {
-		return err
+		return 0, 0, err
 	}
-	return toError(fndeviceComputeCapability(major, minor, dev))
+	var out0 int32
+	var out1 int32
+	if err := toError(fndeviceComputeCapability(&out0, &out1, dev)); err != nil {
+		return 0, 0, err
+	}
+	return int(out0), int(out1), nil
 }
 
 // deviceGet Returns a handle to a compute device.
@@ -3142,18 +3167,23 @@ func graphAddMemAllocNode(hGraph Graph, dependencies *GraphNode, numDependencies
 //
 // Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [MemFreeNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
-//   - phGraphNode: Returns newly created node
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - dptr: Address of memory to free [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: - an allocation twice in the same graph. - an address that was not returned by an allocation node. - an invalid address. The following restrictions apply to graphs which contain allocation and/or memory free nodes: - Nodes and edges of the graph cannot be deleted. - The graph can only be used in a child node if the ownership is moved to the parent. - Only one instantiation of the graph may exist at any point in time. - The graph cannot be cloned
 //
 // Wraps cuGraphAddMemFreeNode.
-func graphAddMemFreeNode(phGraphNode *GraphNode, hGraph Graph, dependencies *GraphNode, numDependencies uint, dptr DevicePtr) error {
+func graphAddMemFreeNode(hGraph Graph, dependencies *GraphNode, numDependencies uint, dptr DevicePtr) (GraphNode, error) {
 	if err := checkLibSym("cuGraphAddMemFreeNode"); err != nil {
-		return err
+		var zero GraphNode
+		return zero, err
 	}
-	return toError(fngraphAddMemFreeNode(phGraphNode, hGraph, dependencies, numDependencies, dptr))
+	var out GraphNode
+	if err := toError(fngraphAddMemFreeNode(&out, hGraph, dependencies, numDependencies, dptr)); err != nil {
+		var zero GraphNode
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphAddMemcpyNode Creates a memcpy node and adds it to a graph.
@@ -4056,14 +4086,19 @@ func graphMemAllocNodeGetParams(hNode GraphNode) (MemAllocNodeParams, error) {
 // Returns the address of a memory free node hNode in dptrOut. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [MemAllocNode.Params]
 //
 //   - hNode: Node to get the parameters for
-//   - dptrOut: Pointer to return the device address
 //
 // Wraps cuGraphMemFreeNodeGetParams.
-func graphMemFreeNodeGetParams(hNode GraphNode, dptrOut *DevicePtr) error {
+func graphMemFreeNodeGetParams(hNode GraphNode) (DevicePtr, error) {
 	if err := checkLibSym("cuGraphMemFreeNodeGetParams"); err != nil {
-		return err
+		var zero DevicePtr
+		return zero, err
 	}
-	return toError(fngraphMemFreeNodeGetParams(hNode, dptrOut))
+	var out DevicePtr
+	if err := toError(fngraphMemFreeNodeGetParams(hNode, &out)); err != nil {
+		var zero DevicePtr
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphMemcpyNodeGetParams Returns a memcpy node's parameters.
@@ -4892,30 +4927,40 @@ func ipcCloseMemHandle(dptr DevicePtr) error {
 //
 // Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes. After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling [Device.Attribute] with [DevAttrIpcEventSupported] See also: [NewEvent], [Event.Destroy], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
 //
-//   - pHandle: Pointer to a user allocated [IpcEventHandle] in which to return the opaque event handle
 //   - event: Event allocated with [EventInterprocess] and [EventDisableTiming] flags
 //
 // Wraps cuIpcGetEventHandle.
-func ipcGetEventHandle(pHandle *IpcEventHandle, event Event) error {
+func ipcGetEventHandle(event Event) (IpcEventHandle, error) {
 	if err := checkLibSym("cuIpcGetEventHandle"); err != nil {
-		return err
+		var zero IpcEventHandle
+		return zero, err
 	}
-	return toError(fnipcGetEventHandle(pHandle, event))
+	var out IpcEventHandle
+	if err := toError(fnipcGetEventHandle(&out, event)); err != nil {
+		var zero IpcEventHandle
+		return zero, err
+	}
+	return out, nil
 }
 
 // ipcGetMemHandle Gets an interprocess memory handle for an existing device memory allocation.
 //
 // Takes a pointer to the base of an existing device memory allocation created with [MemAlloc] and exports it for use in another process. This is a lightweight operation and may be called multiple times on an allocation without adverse effects. If a region of memory is freed with [DevicePtr.Free] and a subsequent call to [MemAlloc] returns memory with the same device address, [DevicePtr.IpcGetMemHandle] will return a unique handle for the new memory. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling cuapiDeviceGetAttribute with [DevAttrIpcEventSupported] See also: [MemAlloc], [DevicePtr.Free], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetMemHandle
 //
-//   - pHandle: Pointer to user allocated [IpcMemHandle] to return the handle in
 //   - dptr: Base pointer to previously allocated device memory
 //
 // Wraps cuIpcGetMemHandle.
-func ipcGetMemHandle(pHandle *IpcMemHandle, dptr DevicePtr) error {
+func ipcGetMemHandle(dptr DevicePtr) (IpcMemHandle, error) {
 	if err := checkLibSym("cuIpcGetMemHandle"); err != nil {
-		return err
+		var zero IpcMemHandle
+		return zero, err
 	}
-	return toError(fnipcGetMemHandle(pHandle, dptr))
+	var out IpcMemHandle
+	if err := toError(fnipcGetMemHandle(&out, dptr)); err != nil {
+		var zero IpcMemHandle
+		return zero, err
+	}
+	return out, nil
 }
 
 // IpcOpenEventHandle Opens an interprocess event handle for use in the current process.
@@ -5568,19 +5613,22 @@ func libraryGetModule(library Library) (Module, error) {
 // If there is no device with attribute [DevAttrUnifiedFunctionPointers] present in the system,
 // the call may return [ErrNotFound].
 //
-//   - fptr: Returned pointer to a unified function
 //   - library: Library to retrieve function pointer memory from
 //   - symbol: Name of function pointer to retrieve
 //
 // See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
 //
 // Wraps cuLibraryGetUnifiedFunction.
-func libraryGetUnifiedFunction(fptr *uintptr, library Library, symbol string) error {
+func libraryGetUnifiedFunction(library Library, symbol string) (uintptr, error) {
 	if err := checkLibSym("cuLibraryGetUnifiedFunction"); err != nil {
-		return err
+		return 0, err
 	}
 	cstr_symbol := append([]byte(symbol), 0)
-	return toError(fnlibraryGetUnifiedFunction(fptr, library, &cstr_symbol[0]))
+	var out uintptr
+	if err := toError(fnlibraryGetUnifiedFunction(&out, library, &cstr_symbol[0])); err != nil {
+		return 0, err
+	}
+	return out, nil
 }
 
 // libraryLoadData Load a library with specified code and options
@@ -5747,15 +5795,18 @@ func linkAddFile(state LinkState, type_ JitInputType, path *byte, numOptions uin
 // Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state. See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Destroy], [ModuleLoadData]
 //
 //   - state: A pending linker invocation
-//   - cubinOut: On success, this will point to the output image
-//   - sizeOut: Optional parameter to receive the size of the generated image
 //
 // Wraps cuLinkComplete.
-func linkComplete(state LinkState, cubinOut *uintptr, sizeOut *uint) error {
+func linkComplete(state LinkState) (cubinOut uintptr, sizeOut uint, err error) {
 	if err := checkLibSym("cuLinkComplete"); err != nil {
-		return err
+		return 0, 0, err
 	}
-	return toError(fnlinkComplete(state, cubinOut, sizeOut))
+	var out1 uintptr
+	var out2 uint
+	if err := toError(fnlinkComplete(state, &out1, &out2)); err != nil {
+		return 0, 0, err
+	}
+	return out1, out2, nil
 }
 
 // LinkCreate Creates a pending JIT linker invocation.
@@ -5960,10 +6011,23 @@ func memAdvise(devPtr DevicePtr, count uint, advice MemAdvise, location MemLocat
 //
 // Allocates bytesize bytes of linear memory on the device and returns in *dptr a pointer to the allocated memory. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAlloc] returns [ErrInvalidValue]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc
 //
-//   - bytesize: Requested allocation size in bytes
+// The allocation holds n values of type T: bytesize is n times the size of T.
+// A negative n, or one whose size overflows uint, is an error.
 //
 // Wraps cuMemAlloc, bound as cuMemAlloc_v2.
-func MemAlloc(bytesize uint) (DevicePtr, error) {
+func MemAlloc[T any](n int) (DevicePtr, error) {
+	bytesize, err := elementBytes[T, uint]("MemAlloc", n)
+	if err != nil {
+		var zero DevicePtr
+		return zero, err
+	}
+	return MemAllocBytes(bytesize)
+}
+
+// MemAllocBytes is [MemAlloc] with the size given in bytes.
+//
+// Wraps cuMemAlloc, bound as cuMemAlloc_v2.
+func MemAllocBytes(bytesize uint) (DevicePtr, error) {
 	if err := checkLibSym("cuMemAlloc_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
@@ -6038,11 +6102,25 @@ func MemAllocHost(pp *uintptr, bytesize uint) error {
 //
 // Allocates bytesize bytes of managed memory on the device and returns in *dptr a pointer to the allocated memory. If the device doesn't support allocating managed memory, [ErrNotSupported] is returned. Support for managed memory can be queried using the device attribute [DevAttrManagedMemory]. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAllocManaged] returns [ErrInvalidValue]. The pointer is valid on the CPU and on all GPUs in the system that support managed memory. All accesses to this pointer must obey the Unified Memory programming model. flags specifies the default stream association for this allocation. flags must be one of [MemAttachGlobal] or [MemAttachHost]. If [MemAttachGlobal] is specified, then this memory is accessible from any stream on any device. If [MemAttachHost] is specified, then the allocation should not be accessed from devices that have a zero value for the device attribute [DevAttrConcurrentManagedAccess]; an explicit call to [Stream.AttachMemAsync] will be required to enable access on such devices. If the association is later changed via [Stream.AttachMemAsync] to a single stream, the default association as specified during [MemAllocManaged] is restored when that stream is destroyed. For __managed__ variables, the default association is always [MemAttachGlobal]. Note that destroying a stream is an asynchronous operation, and as a result, the change to default association won't happen until all work in the stream has completed. Memory allocated with [MemAllocManaged] should be released with [DevicePtr.Free]. Device memory oversubscription is possible for GPUs that have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Managed memory on such GPUs may be evicted from device memory to host memory at any time by the Unified Memory driver in order to make room for other allocations. In a system where all GPUs have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess], managed memory may not be populated when this API returns and instead may be populated on access. In such systems, managed memory can migrate to any processor's memory at any time. The Unified Memory driver will employ heuristics to maintain data locality and prevent excessive page faults to the extent possible. The application can also guide the driver about memory usage patterns via [DevicePtr.MemAdvise]. The application can also explicitly migrate memory to a desired processor's memory via [DevicePtr.MemPrefetchAsync]. In a multi-GPU system where all of the GPUs have a zero value for the device attribute [DevAttrConcurrentManagedAccess] and all the GPUs have peer-to-peer support with each other, the physical storage for managed memory is created on the GPU which is active at the time [MemAllocManaged] is called. All other GPUs will reference the data at reduced bandwidth via peer mappings over the PCIe bus. The Unified Memory driver does not migrate memory among such GPUs. In a multi-GPU system where not all GPUs have peer-to-peer support with each other and where the value of the device attribute [DevAttrConcurrentManagedAccess] is zero for at least one of those GPUs, the location chosen for physical storage of managed memory is system-dependent. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], [Device.Attribute], [Stream.AttachMemAsync], cudaMallocManaged
 //
-//   - bytesize: Requested allocation size in bytes
 //   - flags: Must be one of [MemAttachGlobal] or [MemAttachHost]
 //
+// The allocation holds n values of type T: bytesize is n times the size of T.
+// A negative n, or one whose size overflows uint, is an error.
+//
 // Wraps cuMemAllocManaged.
-func MemAllocManaged(bytesize uint, flags MemattachFlags) (DevicePtr, error) {
+func MemAllocManaged[T any](n int, flags MemattachFlags) (DevicePtr, error) {
+	bytesize, err := elementBytes[T, uint]("MemAllocManaged", n)
+	if err != nil {
+		var zero DevicePtr
+		return zero, err
+	}
+	return MemAllocManagedBytes(bytesize, flags)
+}
+
+// MemAllocManagedBytes is [MemAllocManaged] with the size given in bytes.
+//
+// Wraps cuMemAllocManaged.
+func MemAllocManagedBytes(bytesize uint, flags MemattachFlags) (DevicePtr, error) {
 	if err := checkLibSym("cuMemAllocManaged"); err != nil {
 		var zero DevicePtr
 		return zero, err
@@ -9004,15 +9082,20 @@ func SurfObjectDestroy(surfObject uint64) error {
 //
 // Returns the resource descriptor for the surface object specified by surfObject. See also: [SurfObjectCreate], cudaGetSurfaceObjectResourceDesc
 //
-//   - pResDesc: Resource descriptor surfObject- Surface object
 //   - surfObject: Surface object
 //
 // Wraps cuSurfObjectGetResourceDesc.
-func SurfObjectGetResourceDesc(pResDesc *ResourceDesc, surfObject uint64) error {
+func SurfObjectGetResourceDesc(surfObject uint64) (ResourceDesc, error) {
 	if err := checkLibSym("cuSurfObjectGetResourceDesc"); err != nil {
-		return err
+		var zero ResourceDesc
+		return zero, err
 	}
-	return toError(fnSurfObjectGetResourceDesc(pResDesc, surfObject))
+	var out ResourceDesc
+	if err := toError(fnSurfObjectGetResourceDesc(&out, surfObject)); err != nil {
+		var zero ResourceDesc
+		return zero, err
+	}
+	return out, nil
 }
 
 // surfRefGetArray Passes back the CUDA array bound to a surface reference.
@@ -9481,45 +9564,60 @@ func TexObjectDestroy(texObject uint64) error {
 //
 // Returns the resource descriptor for the texture object specified by texObject. See also: [TexObjectCreate], cudaGetTextureObjectResourceDesc,
 //
-//   - pResDesc: Resource descriptor texObject- Texture object
 //   - texObject: Texture object
 //
 // Wraps cuTexObjectGetResourceDesc.
-func TexObjectGetResourceDesc(pResDesc *ResourceDesc, texObject uint64) error {
+func TexObjectGetResourceDesc(texObject uint64) (ResourceDesc, error) {
 	if err := checkLibSym("cuTexObjectGetResourceDesc"); err != nil {
-		return err
+		var zero ResourceDesc
+		return zero, err
 	}
-	return toError(fnTexObjectGetResourceDesc(pResDesc, texObject))
+	var out ResourceDesc
+	if err := toError(fnTexObjectGetResourceDesc(&out, texObject)); err != nil {
+		var zero ResourceDesc
+		return zero, err
+	}
+	return out, nil
 }
 
 // TexObjectGetResourceViewDesc Returns a texture object's resource view descriptor.
 //
 // Returns the resource view descriptor for the texture object specified by texObject. If no resource view was set for texObject, the [ErrInvalidValue] is returned. See also: [TexObjectCreate], cudaGetTextureObjectResourceViewDesc
 //
-//   - pResViewDesc: Resource view descriptor
 //   - texObject: Texture object
 //
 // Wraps cuTexObjectGetResourceViewDesc.
-func TexObjectGetResourceViewDesc(pResViewDesc *ResourceViewDesc, texObject uint64) error {
+func TexObjectGetResourceViewDesc(texObject uint64) (ResourceViewDesc, error) {
 	if err := checkLibSym("cuTexObjectGetResourceViewDesc"); err != nil {
-		return err
+		var zero ResourceViewDesc
+		return zero, err
 	}
-	return toError(fnTexObjectGetResourceViewDesc(pResViewDesc, texObject))
+	var out ResourceViewDesc
+	if err := toError(fnTexObjectGetResourceViewDesc(&out, texObject)); err != nil {
+		var zero ResourceViewDesc
+		return zero, err
+	}
+	return out, nil
 }
 
 // TexObjectGetTextureDesc Returns a texture object's texture descriptor.
 //
 // Returns the texture descriptor for the texture object specified by texObject. See also: [TexObjectCreate], cudaGetTextureObjectTextureDesc
 //
-//   - pTexDesc: Texture descriptor texObject- Texture object
 //   - texObject: Texture object
 //
 // Wraps cuTexObjectGetTextureDesc.
-func TexObjectGetTextureDesc(pTexDesc *TextureDesc, texObject uint64) error {
+func TexObjectGetTextureDesc(texObject uint64) (TextureDesc, error) {
 	if err := checkLibSym("cuTexObjectGetTextureDesc"); err != nil {
-		return err
+		var zero TextureDesc
+		return zero, err
 	}
-	return toError(fnTexObjectGetTextureDesc(pTexDesc, texObject))
+	var out TextureDesc
+	if err := toError(fnTexObjectGetTextureDesc(&out, texObject)); err != nil {
+		var zero TextureDesc
+		return zero, err
+	}
+	return out, nil
 }
 
 // texRefCreate Creates a texture reference.

@@ -103,7 +103,7 @@ func TestOwnedCompilerModule(t *testing.T) {
 	kernel, err := owner.Function("fill")
 	check(err)
 	var p driver.DevicePtr
-	check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(64 * 4); return err }))
+	check(dev.WithContext(func() error { var err error; p, err = driver.MemAllocBytes(64 * 4); return err }))
 	defer func() {
 		if err := dev.WithContext(p.Free); err != nil {
 			t.Error(err)
@@ -158,7 +158,7 @@ func TestOwnedModuleConcurrentClose(t *testing.T) {
 	var p driver.DevicePtr
 	check(dev.WithContext(func() error {
 		var err error
-		p, err = driver.MemAlloc(4)
+		p, err = driver.MemAllocBytes(4)
 		if err != nil {
 			return err
 		}

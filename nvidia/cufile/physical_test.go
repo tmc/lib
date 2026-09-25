@@ -61,7 +61,7 @@ func TestPhysicalTransfer(t *testing.T) {
 	h, err := cufile.HandleRegister(&cufile.Descr{Type: cufile.HandleTypeOpaqueFd, Handle: [1]uint64{uint64(f.Fd())}})
 	check(err)
 	t.Cleanup(h.Deregister)
-	p, err := driver.MemAlloc(n)
+	p, err := driver.MemAllocBytes(n)
 	check(err)
 	cleanup(p.Free)
 	gotn := h.Read(uintptr(p), n, 0, 0)

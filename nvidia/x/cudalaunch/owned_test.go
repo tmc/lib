@@ -40,7 +40,7 @@ func TestBindOwnedInvalidTarget(t *testing.T) {
 
 func ExampleOwnedKernel() {
 	var kernel cuda.Kernel // A zero kernel has no live module.
-	err := cudalaunch.OwnedKernel(&kernel).Grid(1).Block(32).Launch()
+	err := cudalaunch.OwnedKernel(&kernel).Grid(1, 1, 1).Block(32, 1, 1).Launch()
 	fmt.Println(err != nil)
 	// Output: true
 }

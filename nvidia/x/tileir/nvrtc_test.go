@@ -114,7 +114,7 @@ func TestNVRTCCompileTileIR(t *testing.T) {
 				allocBuf := func(data []float32) (driver.DevicePtr, error) {
 					var ptr driver.DevicePtr
 					err := dev.WithContext(func() error {
-						p, err := driver.MemAlloc(uint(len(data) * 4))
+						p, err := driver.MemAllocBytes(uint(len(data) * 4))
 						if err != nil {
 							return err
 						}

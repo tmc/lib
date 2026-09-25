@@ -13,8 +13,8 @@
 // dynamic shared memory allocation, and stream assignment:
 //
 //	err := cudalaunch.Kernel(fn).
-//		Grid(128, 1).
-//		Block(256, 1).
+//		Grid(128, 1, 1).
+//		Block(256, 1, 1).
 //		SharedMem(1024).
 //		On(stream).
 //		Launch(d_a.Ptr(), d_b.Ptr(), d_c.Ptr(), int32(n))

@@ -96,7 +96,7 @@ func TestPhysicalEvictorChangesTheMeasurement(t *testing.T) {
 				}
 				cb.SetBytes(int64(words) * 4)
 				cb.Time(func(s *cuda.Stream) {
-					cudalaunch.Kernel(read).Grid(256).Block(256).On(s).
+					cudalaunch.Kernel(read).Grid(256, 1, 1).Block(256, 1, 1).On(s).
 						Launch(in, out, uint32(words))
 				})
 			})

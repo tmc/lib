@@ -47,7 +47,7 @@ extern "C" __tile_global__ void fill(int* out) {
 	fn, err := mod.Function("fill")
 	check(err)
 	var p driver.DevicePtr
-	check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(64 * 4); return err }))
+	check(dev.WithContext(func() error { var err error; p, err = driver.MemAllocBytes(64 * 4); return err }))
 	defer func() { check(dev.WithContext(p.Free)) }()
 	check(fn.Launch([3]uint32{64, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	var got [64]int32

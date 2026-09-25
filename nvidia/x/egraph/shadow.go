@@ -133,7 +133,7 @@ func (e *DeviceShadowExecutor) ExecuteShadow(ctx context.Context, s *cuda.Stream
 		shared = plan.shared
 	}
 
-	launcher := cudalaunch.Kernel(fn).Grid(grid, 1).Block(block).SharedMem(shared).On(s)
+	launcher := cudalaunch.Kernel(fn).Grid(grid, 1, 1).Block(block, 1, 1).SharedMem(shared).On(s)
 
 	start, err := e.dev.NewEvent()
 	if err != nil {

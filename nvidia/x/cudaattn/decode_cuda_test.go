@@ -138,7 +138,7 @@ func testDecodeAgainstReference(t *testing.T, threads uint32, legacyShared bool)
 		sharedBytes = (curPos + 1) * 4
 	}
 	shared := uint32(sharedBytes)
-	if err := cudalaunch.Kernel(decode).Grid(qHeads, 1).Block(threads).SharedMem(shared).On(stream).Launch(
+	if err := cudalaunch.Kernel(decode).Grid(qHeads, 1, 1).Block(threads, 1, 1).SharedMem(shared).On(stream).Launch(
 		dq, dk, dv, dout,
 		int32(curPos), int32(maxSeq), int32(qHeads), int32(kvHeads), int32(headDim), float32(scale),
 	); err != nil {
@@ -252,7 +252,7 @@ func runDecode(t *testing.T, threads uint32, qSign float32) []float32 {
 		t.Fatalf("DecodeSharedMemoryBytes: %v", err)
 	}
 	shared := uint32(sharedBytes)
-	if err := cudalaunch.Kernel(decode).Grid(qHeads, 1).Block(threads).SharedMem(shared).On(stream).Launch(
+	if err := cudalaunch.Kernel(decode).Grid(qHeads, 1, 1).Block(threads, 1, 1).SharedMem(shared).On(stream).Launch(
 		dq, dk, dv, dout,
 		int32(curPos), int32(maxSeq), int32(qHeads), int32(kvHeads), int32(headDim),
 		float32(1.0/math.Sqrt(headDim)),

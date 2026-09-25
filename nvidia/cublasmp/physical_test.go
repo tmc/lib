@@ -244,7 +244,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	upload := func(name string, values []float32) driver.DevicePtr {
 		t.Helper()
 		bytes := uint(len(values)) * uint(unsafe.Sizeof(float32(0)))
-		ptr, err := driver.MemAlloc(bytes)
+		ptr, err := driver.MemAllocBytes(bytes)
 		if err != nil {
 			t.Fatalf("allocate %s: %v", name, err)
 		}
@@ -324,7 +324,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	var deviceWork uintptr
 	if deviceBytes > 0 {
 		var ptr driver.DevicePtr
-		ptr, err = driver.MemAlloc(deviceBytes)
+		ptr, err = driver.MemAllocBytes(deviceBytes)
 		deviceWork = uintptr(ptr)
 		if err != nil {
 			t.Fatalf("allocate device workspace: %v", err)

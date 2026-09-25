@@ -152,12 +152,12 @@ func TestPhysicalVersionedDescriptors(t *testing.T) {
 		// the context here rather than inheriting whatever the library left.
 		check("set current context", ctx.SetCurrent())
 		const count = 1024
-		send, err := driver.MemAlloc(count * 4)
+		send, err := driver.MemAllocBytes(count * 4)
 		if err != nil {
 			t.Fatalf("allocate send: %v", err)
 		}
 		defer send.Free()
-		recv, err := driver.MemAlloc(count * 4)
+		recv, err := driver.MemAllocBytes(count * 4)
 		if err != nil {
 			t.Fatalf("allocate receive: %v", err)
 		}

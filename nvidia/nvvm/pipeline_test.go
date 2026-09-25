@@ -98,7 +98,7 @@ func TestCompilerPipeline(t *testing.T) {
 	for i := range data {
 		data[i] = float32(i)/32 - 2
 	}
-	ptr, err := driver.MemAlloc(uint(len(data) * 4))
+	ptr, err := driver.MemAllocBytes(uint(len(data) * 4))
 	check(err)
 	defer func() { check(ptr.Free()) }()
 	check(ptr.CopyFromHostPtr(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))

@@ -15,7 +15,7 @@ import (
 // memory pool fragmentation; they are not device properties, and they are
 // deliberately not queried from the driver.
 //
-// [driver.Stream.MemAllocAsync], the allocator [AllocAsync] uses, documents no
+// [driver.Stream.MemAllocAsyncBytes], the allocator [AllocAsync] uses, documents no
 // alignment or granularity requirement on its bytesize argument, and no
 // [driver.MempoolAttribute] reports the pool's internal sub-allocation quantum.
 // The driver's granularity query, [driver.MemGetAllocationGranularity], governs
@@ -77,7 +77,7 @@ func AllocAsync[T any](stream *cuda.Stream, length int) (Slice[T], error) {
 		return stream.WithHandle(func(handle driver.Stream) error {
 			return dev.WithContext(func() error { return fn(handle) })
 		})
-	}, driver.Stream.MemAllocAsync)
+	}, driver.Stream.MemAllocAsyncBytes)
 }
 
 func allocateAsyncSlice[T any](dev *cuda.Device, length int, run func(func(driver.Stream) error) error, allocate func(driver.Stream, uint) (driver.DevicePtr, error)) (Slice[T], error) {

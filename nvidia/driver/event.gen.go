@@ -67,11 +67,9 @@ func (e Event) Synchronize() error {
 //
 // Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes. After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling [Device.Attribute] with [DevAttrIpcEventSupported] See also: [NewEvent], [Event.Destroy], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
 //
-//   - pHandle: Pointer to a user allocated [IpcEventHandle] in which to return the opaque event handle
-//
 // Wraps cuIpcGetEventHandle.
-func (e Event) IpcGetEventHandle(pHandle *IpcEventHandle) error {
-	return ipcGetEventHandle(pHandle, e)
+func (e Event) IpcGetEventHandle() (IpcEventHandle, error) {
+	return ipcGetEventHandle(e)
 }
 
 // NewEvent Creates an event.

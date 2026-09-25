@@ -29,7 +29,7 @@ func ExampleBind() {
 	}
 
 	var x, weight, out cudamem.Slice[float32]
-	err := cudalaunch.Kernel(k.Norm).Grid(1).Block(256).
+	err := cudalaunch.Kernel(k.Norm).Grid(1, 1, 1).Block(256, 1, 1).
 		Launch(x, weight, out, int32(x.Len()), float32(1e-5))
 	if err != nil {
 		fmt.Println(err)
@@ -44,7 +44,7 @@ func ExampleLauncher_Launch_optionalArgument() {
 	var in, weight, out cudamem.Slice[float32]
 	var bias cudamem.Slice[float32] // absent: packed as a null pointer
 
-	err := cudalaunch.Kernel(fn).Grid(uint32(out.Len())).Block(128).
+	err := cudalaunch.Kernel(fn).Grid(uint32(out.Len()), 1, 1).Block(128, 1, 1).
 		Launch(in, weight, bias, out, int32(in.Len()), int32(out.Len()))
 	if err != nil {
 		fmt.Println(err)
@@ -58,8 +58,8 @@ func ExampleLauncher_Launch_optionalArgument() {
 func ExampleLauncher_WithProgrammaticStreamSerialization() {
 	var fn driver.Function
 	l := cudalaunch.Kernel(fn).
-		Grid(64).
-		Block(256).
+		Grid(64, 1, 1).
+		Block(256, 1, 1).
 		WithProgrammaticStreamSerialization(true)
 
 	attrs := l.Attrs()

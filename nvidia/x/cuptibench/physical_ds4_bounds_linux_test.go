@@ -25,10 +25,10 @@ func TestPhysicalDS4KernelReplayBounds(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			run := func() error {
-				if err := cudalaunch.Kernel(p.project).Grid(4).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid); err != nil {
+				if err := cudalaunch.Kernel(p.project).Grid(4, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid); err != nil {
 					return err
 				}
-				return cudalaunch.Kernel(p.decode).Grid(4).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid, p.out)
+				return cudalaunch.Kernel(p.decode).Grid(4, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid, p.out)
 			}
 			var graphs []*cudagraph.Exec
 			if graphMode {

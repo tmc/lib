@@ -99,7 +99,7 @@ func TestPhysicalDisableRetry(t *testing.T) {
 		}
 		return nil
 	}
-	replay := Replay{Prepare: func(uint) error { return out.CopyFromHost(poison) }, Run: func(uint, *Scope) error { return cudalaunch.Kernel(fn).Block(32).On(stream).Launch(out) }, Synchronize: synchronize}
+	replay := Replay{Prepare: func(uint) error { return out.CopyFromHost(poison) }, Run: func(uint, *Scope) error { return cudalaunch.Kernel(fn).Block(32, 1, 1).On(stream).Launch(out) }, Synchronize: synchronize}
 	availability, err := CounterAvailability(dev, 16<<20)
 	check(err)
 	var chip string

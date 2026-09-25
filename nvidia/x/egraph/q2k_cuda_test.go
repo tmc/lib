@@ -190,7 +190,7 @@ func testQ2KMatvec(t *testing.T, threads uint32) {
 
 	// One warp per row: the kernel derives its row from the global warp index.
 	grid := (rows*32 + threads - 1) / threads
-	if err := cudalaunch.Kernel(fn).Grid(grid, 1).Block(threads).On(stream).Launch(
+	if err := cudalaunch.Kernel(fn).Grid(grid, 1, 1).Block(threads, 1, 1).On(stream).Launch(
 		dw, dx, dy, int32(rows), int32(cols),
 	); err != nil {
 		t.Fatalf("launch: %v", err)
@@ -262,7 +262,7 @@ func TestGeneratedQ2KMatvecRaggedColsReturnsNaN(t *testing.T) {
 		defer free()
 	}
 
-	if err := cudalaunch.Kernel(fn).Grid(1, 1).Block(64).On(stream).Launch(
+	if err := cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(64, 1, 1).On(stream).Launch(
 		dw, dx, dy, int32(rows), int32(cols),
 	); err != nil {
 		t.Fatalf("launch: %v", err)

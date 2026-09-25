@@ -480,10 +480,23 @@ func (s Stream) LaunchHostFunc(fn uintptr, userData uintptr, syncMode uint32) er
 //
 // Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the memory pool current to the stream's device. See also: [MemoryPool.MemAllocFromPoolAsync], [DevicePtr.FreeAsync], [Device.SetMemPool], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
-//   - bytesize (in): Number of bytes to allocate
+// The allocation holds n values of type T: bytesize is n times the size of T.
+// A negative n, or one whose size overflows uint, is an error.
 //
 // Wraps cuMemAllocAsync.
-func (s Stream) MemAllocAsync(bytesize uint) (DevicePtr, error) {
+func (s Stream) MemAllocAsync[T any](n int) (DevicePtr, error) {
+	bytesize, err := elementBytes[T, uint]("Stream.MemAllocAsync", n)
+	if err != nil {
+		var zero DevicePtr
+		return zero, err
+	}
+	return s.MemAllocAsyncBytes(bytesize)
+}
+
+// MemAllocAsyncBytes is [Stream.MemAllocAsync] with the size given in bytes.
+//
+// Wraps cuMemAllocAsync.
+func (s Stream) MemAllocAsyncBytes(bytesize uint) (DevicePtr, error) {
 	return memAllocAsync(bytesize, s)
 }
 

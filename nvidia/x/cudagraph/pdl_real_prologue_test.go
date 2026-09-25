@@ -287,11 +287,11 @@ func TestRealKernelPrologueTimestamps(t *testing.T) {
 		_ = tsBuf.CopyFromHost(zero)
 
 		g, err := cudagraph.Capture(stream, func() {
-			_ = cudalaunch.Kernel(pFn).Grid(1).Block(32).
+			_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(32, 1, 1).
 				WithProgrammaticStreamSerialization(true).
 				On(stream).
 				Launch(xBuf, gBuf, actBuf, int32(dim), trailingSpin, tsBuf)
-			_ = cudalaunch.Kernel(cFn).Grid(1).Block(32).
+			_ = cudalaunch.Kernel(cFn).Grid(1, 1, 1).Block(32, 1, 1).
 				WithProgrammaticStreamSerialization(true).
 				On(stream).
 				Launch(actBuf, wBuf, outBuf, int32(dim), int32(dim), prologueSpin, computeSpin, tsBuf)
@@ -441,11 +441,11 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 
 	launchArm := func(cFn driver.Function, pdl bool) float64 {
 		g, err := cudagraph.Capture(stream, func() {
-			_ = cudalaunch.Kernel(pFn).Grid(1).Block(32).
+			_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(32, 1, 1).
 				WithProgrammaticStreamSerialization(pdl).
 				On(stream).
 				Launch(xBuf, gBuf, actBuf, resBuf, int32(dim), trailingSpin)
-			_ = cudalaunch.Kernel(cFn).Grid(dim/32).Block(32).
+			_ = cudalaunch.Kernel(cFn).Grid(dim/32, 1, 1).Block(32, 1, 1).
 				WithProgrammaticStreamSerialization(pdl).
 				On(stream).
 				Launch(actBuf, wBuf, bBuf, outBuf, int32(dim), int32(dim), prologueSpin, computeSpin)

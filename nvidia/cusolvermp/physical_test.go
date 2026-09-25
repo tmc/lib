@@ -378,7 +378,7 @@ func numrocOrFail(t *testing.T, n, nb int64, iproc, nprocs uint32) int64 {
 
 func mallocOrFail(t *testing.T, size uint) cusolvermp.DevicePtr {
 	t.Helper()
-	ptr, err := driver.MemAlloc(size)
+	ptr, err := driver.MemAllocBytes(size)
 	if err != nil {
 		t.Fatalf("allocate %d device bytes: %v", size, err)
 	}

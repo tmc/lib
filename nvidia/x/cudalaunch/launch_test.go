@@ -15,28 +15,11 @@ func (m mockSlice) Ptr() driver.DevicePtr {
 	return m.ptr
 }
 
-func TestDims(t *testing.T) {
-	d1 := cudalaunch.Dims(64)
-	if d1.X != 64 || d1.Y != 1 || d1.Z != 1 {
-		t.Errorf("unexpected Dims(64): %+v", d1)
-	}
-
-	d2 := cudalaunch.Dims(64, 4)
-	if d2.X != 64 || d2.Y != 4 || d2.Z != 1 {
-		t.Errorf("unexpected Dims(64, 4): %+v", d2)
-	}
-
-	d3 := cudalaunch.Dims(64, 4, 2)
-	if d3.X != 64 || d3.Y != 4 || d3.Z != 2 {
-		t.Errorf("unexpected Dims(64, 4, 2): %+v", d3)
-	}
-}
-
 func TestLauncherBuilder(t *testing.T) {
 	var mockFn driver.Function = 1234
 	l := cudalaunch.Kernel(mockFn).
-		Grid(128, 2).
-		Block(256).
+		Grid(128, 2, 1).
+		Block(256, 1, 1).
 		SharedMem(2048)
 
 	if l == nil {
@@ -129,11 +112,11 @@ func TestLaunchAttributes(t *testing.T) {
 
 	var mockFn driver.Function = 42
 	l := cudalaunch.Kernel(mockFn).
-		Grid(64, 2).
-		Block(128).
+		Grid(64, 2, 1).
+		Block(128, 1, 1).
 		WithProgrammaticStreamSerialization(true).
 		WithCooperative(true).
-		WithClusterDim(cudalaunch.Dims(2, 2, 1))
+		WithClusterDim(driver.Dims(2, 2, 1))
 
 	attrs := l.Attrs()
 	if len(attrs) != 3 {
@@ -151,7 +134,7 @@ func TestLaunchAttributes(t *testing.T) {
 }
 
 func TestClusterDimAttr(t *testing.T) {
-	attr := cudalaunch.ClusterDimAttr(cudalaunch.Dims(2, 4, 1))
+	attr := cudalaunch.ClusterDimAttr(driver.Dims(2, 4, 1))
 	if attr.Id != driver.LaunchAttributeClusterDimension {
 		t.Fatalf("attr.Id = %v, want %v", attr.Id, driver.LaunchAttributeClusterDimension)
 	}

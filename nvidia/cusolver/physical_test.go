@@ -54,7 +54,7 @@ func TestCholeskySolve(t *testing.T) {
 			}
 		}
 		alloc := func(n uint) driver.DevicePtr {
-			p, err := driver.MemAlloc(n)
+			p, err := driver.MemAllocBytes(n)
 			check(err)
 			allocations = append(allocations, p)
 			return p

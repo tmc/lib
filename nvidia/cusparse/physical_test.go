@@ -42,7 +42,7 @@ func TestSpMVNumerical(t *testing.T) {
 		if n == 0 {
 			return 0
 		}
-		p, err := driver.MemAlloc(n)
+		p, err := driver.MemAllocBytes(n)
 		check(err)
 		allocations = append(allocations, p)
 		if src != nil {

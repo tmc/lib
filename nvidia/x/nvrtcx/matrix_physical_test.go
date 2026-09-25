@@ -188,7 +188,7 @@ func runTileMatrix(t *testing.T, mixed bool) {
 		var p driver.DevicePtr
 		check(dev.WithContext(func() error {
 			var err error
-			p, err = driver.MemAlloc(uint(len(data) * 4))
+			p, err = driver.MemAllocBytes(uint(len(data) * 4))
 			return err
 		}))
 		cleanup(func() error { return dev.WithContext(p.Free) })

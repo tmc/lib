@@ -176,7 +176,7 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 		t.Fatalf("workspace size = %d, want >= 0", scratch)
 	}
 	if scratch > 0 {
-		dW, err := driver.MemAlloc(uint(scratch))
+		dW, err := driver.MemAllocBytes(uint(scratch))
 		if err != nil {
 			t.Fatalf("cuMemAlloc(%d) for the workspace: %v", scratch, err)
 		}
@@ -191,17 +191,17 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 		}
 	}
 
-	dA, err := driver.MemAlloc(uint(len(hostA)) * 8)
+	dA, err := driver.MemAllocBytes(uint(len(hostA)) * 8)
 	if err != nil {
 		t.Fatalf("cuMemAlloc(A): %v", err)
 	}
 	defer dA.Free()
-	dB, err := driver.MemAlloc(uint(len(hostB)) * 8)
+	dB, err := driver.MemAllocBytes(uint(len(hostB)) * 8)
 	if err != nil {
 		t.Fatalf("cuMemAlloc(B): %v", err)
 	}
 	defer dB.Free()
-	dC, err := driver.MemAlloc(uint(M*N) * 8)
+	dC, err := driver.MemAllocBytes(uint(M*N) * 8)
 	if err != nil {
 		t.Fatalf("cuMemAlloc(C): %v", err)
 	}

@@ -84,7 +84,7 @@ func TestPinMapCopy(t *testing.T) {
 	// inside the allocation. That is the case the offset arithmetic exists for.
 	const pinSize = gdrcopy.GPUPageSize
 	const dataOffset = 0x100
-	alloc, err := driver.MemAlloc(uint(3 * gdrcopy.GPUPageSize))
+	alloc, err := driver.MemAllocBytes(uint(3 * gdrcopy.GPUPageSize))
 	if err != nil {
 		t.Fatalf("cuMemAlloc: %v", err)
 	}

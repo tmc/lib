@@ -175,7 +175,7 @@ func TestCallbackSubscription(t *testing.T) {
 
 	// cuMemAlloc is the call under observation. The driver binding resolves it
 	// as the versioned symbol cuMemAlloc_v2, which is the name CUPTI reports.
-	ptr, err := driver.MemAlloc(4096)
+	ptr, err := driver.MemAllocBytes(4096)
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestActivityMemcpyRecord(t *testing.T) {
 	for i := range src {
 		src[i] = byte(i)
 	}
-	dev, err := driver.MemAlloc(copyBytes)
+	dev, err := driver.MemAllocBytes(copyBytes)
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}

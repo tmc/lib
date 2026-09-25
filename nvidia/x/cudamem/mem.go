@@ -45,7 +45,7 @@ func AllocTracked[T any](dev *cuda.Device, tracker *Tracker, length int) (Slice[
 	if dev == nil {
 		return Slice[T]{}, errors.New("cudamem: nil allocation device")
 	}
-	return allocateSlice[T](dev, tracker, length, dev.WithContext, driver.MemAlloc)
+	return allocateSlice[T](dev, tracker, length, dev.WithContext, driver.MemAllocBytes)
 }
 
 // AllocManaged allocates a new typed Slice[T] in Unified/Managed memory.
@@ -55,7 +55,7 @@ func AllocManaged[T any](dev *cuda.Device, length int) (Slice[T], error) {
 		return Slice[T]{}, errors.New("cudamem: nil allocation device")
 	}
 	slice, err := allocateSlice[T](dev, nil, length, dev.WithContext, func(bytes uint) (driver.DevicePtr, error) {
-		return driver.MemAllocManaged(bytes, driver.MemAttachGlobal)
+		return driver.MemAllocManagedBytes(bytes, driver.MemAttachGlobal)
 	})
 	if err != nil {
 		return slice, fmt.Errorf("cudamem: managed memory: %w", err)

@@ -17,11 +17,9 @@ func (d DevicePtr) IpcCloseMemHandle() error {
 //
 // Takes a pointer to the base of an existing device memory allocation created with [MemAlloc] and exports it for use in another process. This is a lightweight operation and may be called multiple times on an allocation without adverse effects. If a region of memory is freed with [DevicePtr.Free] and a subsequent call to [MemAlloc] returns memory with the same device address, [DevicePtr.IpcGetMemHandle] will return a unique handle for the new memory. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling cuapiDeviceGetAttribute with [DevAttrIpcEventSupported] See also: [MemAlloc], [DevicePtr.Free], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetMemHandle
 //
-//   - pHandle: Pointer to user allocated [IpcMemHandle] to return the handle in
-//
 // Wraps cuIpcGetMemHandle.
-func (d DevicePtr) IpcGetMemHandle(pHandle *IpcMemHandle) error {
-	return ipcGetMemHandle(pHandle, d)
+func (d DevicePtr) IpcGetMemHandle() (IpcMemHandle, error) {
+	return ipcGetMemHandle(d)
 }
 
 // MemAddressFree Free an address range reservation.

@@ -98,7 +98,7 @@ func TestUpdateDoesNotValidateKernelIdentity(t *testing.T) {
 
 	// One kernel node holding swapIncrement: two parameters, no shared memory.
 	incGraph := capture(func() error {
-		return cudalaunch.Kernel(incFn).Grid(n/block).Block(block).On(stream).
+		return cudalaunch.Kernel(incFn).Grid(n/block, 1, 1).Block(block, 1, 1).On(stream).
 			Launch(buf, int32(n))
 	})
 	defer incGraph.Destroy()
@@ -113,7 +113,7 @@ func TestUpdateDoesNotValidateKernelIdentity(t *testing.T) {
 	// instead of two, and a dynamic shared-memory block the first node had none
 	// of. The only thing it shares with the graph above is the node count.
 	scaleGraph := capture(func() error {
-		return cudalaunch.Kernel(scaleFn).Grid(n/block).Block(block).
+		return cudalaunch.Kernel(scaleFn).Grid(n/block, 1, 1).Block(block, 1, 1).
 			SharedMem(block*4).On(stream).
 			Launch(buf, int32(n), uint32(factor))
 	})
@@ -193,7 +193,7 @@ func TestUpdateErrorNamesTheNode(t *testing.T) {
 	defer dev.WithContext(buf.Free)
 
 	launch := func() error {
-		return cudalaunch.Kernel(incFn).Grid(n/block).Block(block).On(stream).Launch(buf, int32(n))
+		return cudalaunch.Kernel(incFn).Grid(n/block, 1, 1).Block(block, 1, 1).On(stream).Launch(buf, int32(n))
 	}
 	capture := func(fn func() error) *cudagraph.Graph {
 		t.Helper()

@@ -668,19 +668,14 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			}
 		}
 
-		headerNames := make([]string, 0, len(cfg.headers))
-		for k := range cfg.headers {
-			headerNames = append(headerNames, k)
+		headers := make([]nvrtc.Header, 0, len(cfg.headers))
+		for name, source := range cfg.headers {
+			headers = append(headers, nvrtc.Header{Name: name, Source: source})
 		}
-		sort.Strings(headerNames)
-
-		headerContents := make([]string, len(headerNames))
-		for i, k := range headerNames {
-			headerContents[i] = cfg.headers[k]
-		}
+		sort.Slice(headers, func(i, j int) bool { return headers[i].Name < headers[j].Name })
 
 		compileOnce := func() (nvrtc.Program, string, error, error) {
-			prog, err := nvrtc.CreateProgram(src, cfg.name, headerContents, headerNames)
+			prog, err := nvrtc.CreateProgram(src, cfg.name, headers...)
 			if err != nil {
 				return prog, "", nil, fmt.Errorf("nvrtcx: create program: %w", err)
 			}

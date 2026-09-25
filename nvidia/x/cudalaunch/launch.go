@@ -12,18 +12,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
-// Dims returns a [driver.Dim3]. Unspecified Y or Z dimensions default to 1.
-func Dims(x uint32, yz ...uint32) driver.Dim3 {
-	d := driver.Dim3{X: x, Y: 1, Z: 1}
-	if len(yz) > 0 {
-		d.Y = yz[0]
-	}
-	if len(yz) > 1 {
-		d.Z = yz[1]
-	}
-	return d
-}
-
 // DevicePtrProvider represents any type that exposes a raw GPU device pointer.
 type DevicePtrProvider interface {
 	Ptr() driver.DevicePtr
@@ -91,15 +79,17 @@ func OwnedKernel(fn *cuda.Kernel) *Launcher {
 	return l
 }
 
-// Grid configures the grid dimensions (in blocks).
-func (l *Launcher) Grid(x uint32, yz ...uint32) *Launcher {
-	l.grid = Dims(x, yz...)
+// Grid configures the grid dimensions (in blocks). Every dimension must be
+// at least 1.
+func (l *Launcher) Grid(x, y, z uint32) *Launcher {
+	l.grid = driver.Dims(x, y, z)
 	return l
 }
 
-// Block configures the block dimensions (in threads).
-func (l *Launcher) Block(x uint32, yz ...uint32) *Launcher {
-	l.block = Dims(x, yz...)
+// Block configures the block dimensions (in threads). Every dimension must
+// be at least 1.
+func (l *Launcher) Block(x, y, z uint32) *Launcher {
+	l.block = driver.Dims(x, y, z)
 	return l
 }
 
@@ -140,7 +130,7 @@ func (l *Launcher) AutoBlock(dev *cuda.Device, dynamicSMem int) error {
 	if err != nil {
 		return err
 	}
-	l.block = Dims(uint32(block))
+	l.block = driver.Dims(uint32(block), 1, 1)
 	l.shmem = uint32(dynamicSMem)
 	return nil
 }

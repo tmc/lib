@@ -318,7 +318,7 @@ func (r *rig) sync() {
 // alloc returns n elements of caller-owned device memory, freed after the test.
 func (r *rig) alloc(n int) driver.DevicePtr {
 	r.t.Helper()
-	p, err := driver.MemAlloc(uint(n) * elemSize)
+	p, err := driver.MemAllocBytes(uint(n) * elemSize)
 	r.check(err)
 	r.t.Cleanup(func() { r.check(p.Free()) })
 	return p
@@ -493,7 +493,7 @@ func (r *rig) attachWorkspace(ws cudensitymat.WorkspaceDescriptor) {
 	if need == 0 {
 		return
 	}
-	buf, err := driver.MemAlloc(need)
+	buf, err := driver.MemAllocBytes(need)
 	r.check(err)
 	r.t.Cleanup(func() { r.check(buf.Free()) })
 	r.check(r.handle.WorkspaceSetMemory(ws, cudensitymat.MemspaceDevice,

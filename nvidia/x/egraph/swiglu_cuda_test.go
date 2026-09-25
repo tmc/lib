@@ -101,7 +101,7 @@ func TestGeneratedSwiGLUMatchesReference(t *testing.T) {
 	// The kernel stages the activations in dynamic shared memory, one float
 	// per intermediate element, and every block fills the whole array, so a
 	// single block is the only launch shape its s_act indexing supports.
-	if err := cudalaunch.Kernel(fn).Grid(1, 1).Block(64).SharedMem(uint32(inter*4)).On(stream).Launch(
+	if err := cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(64, 1, 1).SharedMem(uint32(inter*4)).On(stream).Launch(
 		dx, dg, du, dd, dout, int32(hidden), int32(inter),
 	); err != nil {
 		t.Fatalf("launch: %v", err)

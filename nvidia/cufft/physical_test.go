@@ -49,7 +49,7 @@ func TestImpulseRoundTrip(t *testing.T) {
 	values := make([]cufft.Complex, n)
 	values[0].X = 1
 	bytes := uint(n) * uint(unsafe.Sizeof(values[0]))
-	ptr, err := driver.MemAlloc(bytes)
+	ptr, err := driver.MemAllocBytes(bytes)
 	check(err)
 	defer func() {
 		if err := ptr.Free(); err != nil {

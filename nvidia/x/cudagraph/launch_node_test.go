@@ -18,7 +18,7 @@ func describeOrFatal(t *testing.T, l *cudalaunch.Launcher) cudalaunch.Descriptio
 }
 
 func TestAddLaunchClosedGraph(t *testing.T) {
-	desc := describeOrFatal(t, cudalaunch.Kernel(0x1000).Grid(1).Block(1))
+	desc := describeOrFatal(t, cudalaunch.Kernel(0x1000).Grid(1, 1, 1).Block(1, 1, 1))
 	var g *Graph
 	if _, err := g.AddLaunch(desc, nil); err == nil {
 		t.Error("AddLaunch on a nil graph succeeded, want error")
@@ -79,7 +79,7 @@ func TestAddLaunchIgnoredAttribute(t *testing.T) {
 }
 
 func TestAddLaunchBadArgument(t *testing.T) {
-	desc := describeOrFatal(t, cudalaunch.Kernel(0x1000).Grid(1).Block(1))
+	desc := describeOrFatal(t, cudalaunch.Kernel(0x1000).Grid(1, 1, 1).Block(1, 1, 1))
 	g := &Graph{raw: 1}
 	if _, err := g.AddLaunch(desc, []any{nil}); err == nil {
 		t.Fatal("AddLaunch packed a nil argument, want error")

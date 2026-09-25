@@ -108,7 +108,7 @@ func testPagedRoPEStoreAndAttention(t *testing.T, seqs int) {
 		width = kvHeads * headDim
 	}
 	gridX := uint32((width + int(threads) - 1) / int(threads))
-	if err := cudalaunch.Kernel(store).Grid(gridX, uint32(tokens)).Block(threads).On(stream).Launch(
+	if err := cudalaunch.Kernel(store).Grid(gridX, uint32(tokens), 1).Block(threads, 1, 1).On(stream).Launch(
 		dq, dk, dv, dqr, dkb, dvb, dtable, dseq, dpos,
 		int32(tokens), int32(maxBlocks), int32(blockSize), int32(qHeads), int32(kvHeads), int32(headDim),
 		int32(seqs), int32(totalSlots), float32(10000), dstatus,
@@ -154,7 +154,7 @@ func testPagedRoPEStoreAndAttention(t *testing.T, seqs int) {
 		t.Fatal(err)
 	}
 	shared, _ := cudaattn.PagedSharedMemoryBytes(5, int(threads))
-	if err := cudalaunch.Kernel(attention).Grid(qHeads, uint32(seqs)).Block(threads).SharedMem(uint32(shared)).On(stream).Launch(
+	if err := cudalaunch.Kernel(attention).Grid(qHeads, uint32(seqs), 1).Block(threads, 1, 1).SharedMem(uint32(shared)).On(stream).Launch(
 		dcurrent, dkb, dvb, dtable, dlens, dout,
 		int32(maxBlocks), int32(blockSize), int32(qHeads), int32(kvHeads), int32(headDim),
 		float32(1/math.Sqrt(headDim)), int32(seqs), int32(totalSlots), int32(5), dstatus,
@@ -180,7 +180,7 @@ func testPagedRoPEStoreAndAttention(t *testing.T, seqs int) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := cudalaunch.Kernel(attention).Grid(qHeads, uint32(seqs)).Block(threads).SharedMem(uint32(shared)).On(stream).Launch(
+	if err := cudalaunch.Kernel(attention).Grid(qHeads, uint32(seqs), 1).Block(threads, 1, 1).SharedMem(uint32(shared)).On(stream).Launch(
 		dcurrent, dkb, dvb, dtable, dlens, dout,
 		int32(maxBlocks), int32(blockSize), int32(qHeads), int32(kvHeads), int32(headDim),
 		float32(1/math.Sqrt(headDim)), int32(seqs), int32(totalSlots), int32(5), dstatus,

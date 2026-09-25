@@ -53,7 +53,7 @@ func Example() {
 	x := make([]float64, 4)
 
 	upload := func(p unsafe.Pointer, n uint) (driver.DevicePtr, error) {
-		d, err := driver.MemAlloc(n)
+		d, err := driver.MemAllocBytes(n)
 		if err != nil {
 			return 0, err
 		}

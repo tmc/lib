@@ -39,7 +39,7 @@ func Example() {
 
 	host := []float32{1, 2, 3, 4}
 	size := uint(len(host)) * uint(unsafe.Sizeof(host[0]))
-	dptr, err := driver.MemAlloc(size)
+	dptr, err := driver.MemAllocBytes(size)
 	if err != nil {
 		fmt.Println("alloc:", err)
 		return

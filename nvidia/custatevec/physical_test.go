@@ -119,7 +119,7 @@ func TestBellStateOnDevice(t *testing.T) {
 	want.apply(hadamardMatrix, 0, -1)
 	want.apply(xMatrix, 1, 0)
 
-	sv, err := driver.MemAlloc(nAmplitudes * uint(elemSize))
+	sv, err := driver.MemAllocBytes(nAmplitudes * uint(elemSize))
 	if err != nil {
 		t.Fatalf("cuMemAlloc(%d): %v", nAmplitudes*uint(elemSize), err)
 	}

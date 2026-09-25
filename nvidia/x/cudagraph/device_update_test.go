@@ -145,7 +145,7 @@ func TestKernelNodeUpdateEncoding(t *testing.T) {
 	devNode := cudagraph.DeviceNode(0x4000)
 
 	t.Run("grid dim", func(t *testing.T) {
-		u := cudagraph.NewGridDimUpdate(devNode, cudalaunch.Dims(4, 2, 1))
+		u := cudagraph.NewGridDimUpdate(devNode, driver.Dims(4, 2, 1))
 		dev := u.DeviceUpdate()
 
 		if dev.Field != uint32(cudagraph.KernelNodeFieldGridDim) {
@@ -210,7 +210,7 @@ func TestKernelNodeUpdateEncoding(t *testing.T) {
 
 	t.Run("batch encoding", func(t *testing.T) {
 		updates := []cudagraph.KernelNodeUpdate{
-			cudagraph.NewGridDimUpdate(devNode, cudalaunch.Dims(2)),
+			cudagraph.NewGridDimUpdate(devNode, driver.Dims(2, 1, 1)),
 			cudagraph.NewEnabledUpdate(devNode, true),
 		}
 		encoded := cudagraph.EncodeDeviceUpdates(updates)
@@ -315,14 +315,14 @@ func TestDeviceUpdateErrorHandling(t *testing.T) {
 			name: "nil node SetGrid",
 			fn: func() error {
 				var n *cudagraph.Node
-				return n.SetGrid(cudalaunch.Dims(1))
+				return n.SetGrid(driver.Dims(1, 1, 1))
 			},
 		},
 		{
 			name: "closed node SetGrid",
 			fn: func() error {
 				n := &cudagraph.Node{}
-				return n.SetGrid(cudalaunch.Dims(1))
+				return n.SetGrid(driver.Dims(1, 1, 1))
 			},
 		},
 		{
@@ -366,56 +366,56 @@ func TestDeviceUpdateErrorHandling(t *testing.T) {
 			name: "nil exec SetKernelNodeGrid",
 			fn: func() error {
 				var e *cudagraph.Exec
-				return e.SetKernelNodeGrid(&cudagraph.Node{}, cudalaunch.Dims(1))
+				return e.SetKernelNodeGrid(&cudagraph.Node{}, driver.Dims(1, 1, 1))
 			},
 		},
 		{
 			name: "closed exec SetKernelNodeGrid",
 			fn: func() error {
 				e := &cudagraph.Exec{}
-				return e.SetKernelNodeGrid(&cudagraph.Node{}, cudalaunch.Dims(1))
+				return e.SetKernelNodeGrid(&cudagraph.Node{}, driver.Dims(1, 1, 1))
 			},
 		},
 		{
 			name: "nil exec UpdateKernelNode",
 			fn: func() error {
 				var e *cudagraph.Exec
-				return e.UpdateKernelNode(&cudagraph.Node{}, cudalaunch.Dims(1))
+				return e.UpdateKernelNode(&cudagraph.Node{}, driver.Dims(1, 1, 1))
 			},
 		},
 		{
 			name: "closed exec UpdateKernelNode",
 			fn: func() error {
 				e := &cudagraph.Exec{}
-				return e.UpdateKernelNode(&cudagraph.Node{}, cudalaunch.Dims(1))
+				return e.UpdateKernelNode(&cudagraph.Node{}, driver.Dims(1, 1, 1))
 			},
 		},
 		{
 			name: "nil exec HotSwapNode",
 			fn: func() error {
 				var e *cudagraph.Exec
-				return e.HotSwapNode(&cudagraph.Node{}, 1, cudalaunch.Dims(1))
+				return e.HotSwapNode(&cudagraph.Node{}, 1, driver.Dims(1, 1, 1))
 			},
 		},
 		{
 			name: "closed exec HotSwapNode",
 			fn: func() error {
 				e := &cudagraph.Exec{}
-				return e.HotSwapNode(&cudagraph.Node{}, 1, cudalaunch.Dims(1))
+				return e.HotSwapNode(&cudagraph.Node{}, 1, driver.Dims(1, 1, 1))
 			},
 		},
 		{
 			name: "nil exec ApplyKernelNodeUpdate",
 			fn: func() error {
 				var e *cudagraph.Exec
-				return e.ApplyKernelNodeUpdate(&cudagraph.Node{}, cudagraph.NewGridDimUpdate(0, cudalaunch.Dims(1)))
+				return e.ApplyKernelNodeUpdate(&cudagraph.Node{}, cudagraph.NewGridDimUpdate(0, driver.Dims(1, 1, 1)))
 			},
 		},
 		{
 			name: "closed exec ApplyKernelNodeUpdate",
 			fn: func() error {
 				e := &cudagraph.Exec{}
-				return e.ApplyKernelNodeUpdate(&cudagraph.Node{}, cudagraph.NewGridDimUpdate(0, cudalaunch.Dims(1)))
+				return e.ApplyKernelNodeUpdate(&cudagraph.Node{}, cudagraph.NewGridDimUpdate(0, driver.Dims(1, 1, 1)))
 			},
 		},
 		{
@@ -553,7 +553,7 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 		}
 
 		// Update kernel node arguments without whole-graph Update: change offset to 20
-		if err := exec.UpdateKernelNode(node, cudalaunch.Dims(n/block), buf, int32(n), uint32(20)); err != nil {
+		if err := exec.UpdateKernelNode(node, driver.Dims(n/block, 1, 1), buf, int32(n), uint32(20)); err != nil {
 			t.Fatalf("UpdateKernelNode: %v", err)
 		}
 
@@ -577,8 +577,8 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 
 	t.Run("captured node device updatable", func(t *testing.T) {
 		launcher := cudalaunch.Kernel(fn).
-			Grid(n / block).
-			Block(block).
+			Grid(n / block, 1, 1).
+			Block(block, 1, 1).
 			WithDeviceUpdatable(true).
 			On(stream)
 
@@ -613,7 +613,7 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 		defer exec.Destroy()
 
 		// Test SetKernelNodeGrid
-		if err := exec.SetKernelNodeGrid(nodes[0], cudalaunch.Dims(n/block)); err != nil {
+		if err := exec.SetKernelNodeGrid(nodes[0], driver.Dims(n/block, 1, 1)); err != nil {
 			t.Fatalf("SetKernelNodeGrid: %v", err)
 		}
 

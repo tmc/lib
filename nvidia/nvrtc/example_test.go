@@ -22,7 +22,7 @@ extern "C" __global__ void saxpy(float a, float *x, float *y, int n) {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if (i < n) y[i] = a*x[i] + y[i];
 }`
-	prog, err := nvrtc.CreateProgram(src, "saxpy.cu", nil, nil)
+	prog, err := nvrtc.CreateProgram(src, "saxpy.cu")
 	if err != nil {
 		fmt.Println("create:", err)
 		return

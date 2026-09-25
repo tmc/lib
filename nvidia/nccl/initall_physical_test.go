@@ -129,9 +129,9 @@ func TestPhysicalInitAll(t *testing.T) {
 		}
 		t.Logf("slot=%d rank=%d device=%d uuid=%x count=%d", i, rank, device, uuids[i], size)
 		check("set allocation context", contexts[i].SetCurrent())
-		send[i], err = driver.MemAlloc(count * 4)
+		send[i], err = driver.MemAllocBytes(count * 4)
 		check("allocate send", err)
-		recv[i], err = driver.MemAlloc(count * 4)
+		recv[i], err = driver.MemAllocBytes(count * 4)
 		check("allocate receive", err)
 		host := make([]int32, count)
 		for k := range host {

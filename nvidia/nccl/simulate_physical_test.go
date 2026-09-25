@@ -111,9 +111,9 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 			check("set current context", ctxs[i].SetCurrent())
 			streams[i], err = driver.NewStream(0)
 			check("create stream", err)
-			send[i], err = driver.MemAlloc(elems * 4)
+			send[i], err = driver.MemAllocBytes(elems * 4)
 			check("allocate send", err)
-			recv[i], err = driver.MemAlloc(elems * 4)
+			recv[i], err = driver.MemAllocBytes(elems * 4)
 			check("allocate receive", err)
 			host := make([]int32, elems)
 			for k := range host {

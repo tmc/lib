@@ -55,7 +55,7 @@ func TestNativeAllocationCallback(t *testing.T) {
 	check(err)
 	defer func() { check(ctx.Destroy()) }()
 	before := bytes.Load()
-	p, err := driver.MemAlloc(4096)
+	p, err := driver.MemAllocBytes(4096)
 	check(err)
 	check(p.Free())
 	if events.Load() == 0 || bytes.Load()-before < 4096 || badToken.Load() != 0 {

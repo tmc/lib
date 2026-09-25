@@ -4,6 +4,8 @@ package driver
 
 import "unsafe"
 
+import "fmt"
+
 // Uuid represents CUuuid.
 type Uuid struct {
 	Bytes [16]byte
@@ -1064,6 +1066,23 @@ type DevResource struct {
 // unsigned int members.
 type Dim3 struct {
 	X, Y, Z uint32
+}
+
+// Dims returns the Dim3 {x, y, z}. Unlike CUDA's dim3, it has no default
+// extents: a launch rejects a zero member.
+func Dims(x, y, z uint32) Dim3 {
+	return Dim3{X: x, Y: y, Z: z}
+}
+
+// String returns d as XxYxZ, such as 64x1x1.
+func (d Dim3) String() string {
+	return fmt.Sprintf("%dx%dx%d", d.X, d.Y, d.Z)
+}
+
+// zeroExtentError reports that the extent d, described by what, such as
+// "launch grid", has a zero member.
+func zeroExtentError(what string, d Dim3) error {
+	return fmt.Errorf("%s %v has a zero extent: %w", what, d, ErrInvalidValue)
 }
 
 // Array3dDescriptorV2 is an alias for Array3dDescriptor.

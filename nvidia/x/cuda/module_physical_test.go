@@ -79,7 +79,7 @@ ret;
 		}
 	}()
 	var p driver.DevicePtr
-	check(m.ctx.Run(func() error { var err error; p, err = driver.MemAlloc(4); return err }))
+	check(m.ctx.Run(func() error { var err error; p, err = driver.MemAllocBytes(4); return err }))
 	defer func() {
 		if p != 0 {
 			if err := m.ctx.Run(p.Free); err != nil {

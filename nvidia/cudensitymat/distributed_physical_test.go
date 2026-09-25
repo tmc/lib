@@ -74,7 +74,7 @@ func TestDistributedNorm(t *testing.T) {
 	defer func() { clean("state destroy", state.Destroy()) }()
 	alloc := func(n uint) driver.DevicePtr {
 		t.Helper()
-		p, e := driver.MemAlloc(n)
+		p, e := driver.MemAllocBytes(n)
 		check("allocate", e)
 		allocations = append(allocations, p)
 		return p

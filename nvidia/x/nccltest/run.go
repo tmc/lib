@@ -289,11 +289,11 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 		if err != nil {
 			return result, err
 		}
-		s.send, err = driver.MemAlloc(uint(allocationBytes))
+		s.send, err = driver.MemAllocBytes(uint(allocationBytes))
 		if err != nil {
 			return result, err
 		}
-		s.recv, err = driver.MemAlloc(uint(allocationBytes))
+		s.recv, err = driver.MemAllocBytes(uint(allocationBytes))
 		if err != nil {
 			return result, err
 		}

@@ -123,7 +123,7 @@ func testRMSNormGEMV(t *testing.T, threads uint32) {
 		defer free()
 	}
 
-	if err := cudalaunch.Kernel(fn).Grid(outDim, 1).Block(threads).On(stream).Launch(
+	if err := cudalaunch.Kernel(fn).Grid(outDim, 1, 1).Block(threads, 1, 1).On(stream).Launch(
 		dx, dw, dp, dout, int32(inDim), int32(outDim), float32(eps),
 	); err != nil {
 		t.Fatalf("launch: %v", err)

@@ -85,7 +85,7 @@ func TestPhysicalReadOnlyHMMReplay(t *testing.T) {
 				// Registered after mmap cleanup so outstanding GPU work is drained first.
 				physicalClose(t, p.synchronize)
 				project := func() error {
-					return cudalaunch.Kernel(p.project).Grid(p.grid).Block(physicalBlock).On(p.streams[0]).Launch(ptr, p.mid)
+					return cudalaunch.Kernel(p.project).Grid(p.grid, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(ptr, p.mid)
 				}
 				run := project
 				var graphs []*cudagraph.Exec

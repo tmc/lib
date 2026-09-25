@@ -92,7 +92,7 @@ func TestGeneratedU2MatchesReference(t *testing.T) {
 
 			threads := uint32(32)
 			blocks := uint32((n + int(threads) - 1) / int(threads))
-			if err := cudalaunch.Kernel(fn).Grid(blocks, 1).Block(threads).On(stream).Launch(
+			if err := cudalaunch.Kernel(fn).Grid(blocks, 1, 1).Block(threads, 1, 1).On(stream).Launch(
 				dq, da, dout, scale, int32(n),
 			); err != nil {
 				t.Fatalf("launch: %v", err)

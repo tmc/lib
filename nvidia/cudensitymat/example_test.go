@@ -91,13 +91,13 @@ func Example() {
 		fmt.Println("component storage size:", err)
 		return
 	}
-	inBuf, err := driver.MemAlloc(size)
+	inBuf, err := driver.MemAllocBytes(size)
 	if err != nil {
 		fmt.Println("device alloc:", err)
 		return
 	}
 	defer inBuf.Free()
-	outBuf, err := driver.MemAlloc(size)
+	outBuf, err := driver.MemAllocBytes(size)
 	if err != nil {
 		fmt.Println("device alloc:", err)
 		return
@@ -125,7 +125,7 @@ func Example() {
 	// H = sigma_y, Hermitian, stored column-major like the state. Its GPU
 	// storage is caller-owned too and must outlive the elementary operator.
 	sigmaY := []complex128{0, complex(0, 1), complex(0, -1), 0}
-	hBuf, err := driver.MemAlloc(uint(len(sigmaY)) * 16)
+	hBuf, err := driver.MemAllocBytes(uint(len(sigmaY)) * 16)
 	if err != nil {
 		fmt.Println("device alloc:", err)
 		return
@@ -208,7 +208,7 @@ func Example() {
 		return
 	}
 	if need > 0 {
-		scratch, err := driver.MemAlloc(need)
+		scratch, err := driver.MemAllocBytes(need)
 		if err != nil {
 			fmt.Println("workspace alloc:", err)
 			return

@@ -81,7 +81,7 @@ func TestCounterCountsSubmissionNotCompletion(t *testing.T) {
 		t.Fatal("stream completed before submission/completion distinction was observed")
 	}
 
-	launch.Grid(0)
+	launch.Grid(0, 1, 1)
 	if err := launch.Launch(uint64(1)); err == nil {
 		t.Fatal("zero-grid launch succeeded")
 	}

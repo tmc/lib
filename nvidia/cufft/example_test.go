@@ -47,7 +47,7 @@ func Example() {
 
 	values := []cufft.Complex{{X: 1}, {}, {}, {}}
 	size := uint(len(values)) * uint(unsafe.Sizeof(values[0]))
-	p, err := driver.MemAlloc(size)
+	p, err := driver.MemAllocBytes(size)
 	if err != nil {
 		fmt.Println("alloc:", err)
 		return

@@ -96,11 +96,25 @@ func (m MemoryPool) TrimTo(minBytesToKeep uint) error {
 //
 // Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the specified memory pool. See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
-//   - bytesize (in): Number of bytes to allocate
 //   - hStream (in): The stream establishing the stream ordering semantic
 //
+// The allocation holds n values of type T: bytesize is n times the size of T.
+// A negative n, or one whose size overflows uint, is an error.
+//
 // Wraps cuMemAllocFromPoolAsync.
-func (m MemoryPool) MemAllocFromPoolAsync(bytesize uint, hStream Stream) (DevicePtr, error) {
+func (m MemoryPool) MemAllocFromPoolAsync[T any](n int, hStream Stream) (DevicePtr, error) {
+	bytesize, err := elementBytes[T, uint]("MemoryPool.MemAllocFromPoolAsync", n)
+	if err != nil {
+		var zero DevicePtr
+		return zero, err
+	}
+	return m.MemAllocFromPoolAsyncBytes(bytesize, hStream)
+}
+
+// MemAllocFromPoolAsyncBytes is [MemoryPool.MemAllocFromPoolAsync] with the size given in bytes.
+//
+// Wraps cuMemAllocFromPoolAsync.
+func (m MemoryPool) MemAllocFromPoolAsyncBytes(bytesize uint, hStream Stream) (DevicePtr, error) {
 	return memAllocFromPoolAsync(bytesize, m, hStream)
 }
 

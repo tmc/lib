@@ -54,17 +54,17 @@ func gpuArch(t *testing.T) string {
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
-	var major, minor int32
-	if err := dev.ComputeCapability(&major, &minor); err != nil {
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
 		t.Fatalf("compute capability: %v", err)
 	}
-	return strconv.Itoa(int(major)) + strconv.Itoa(int(minor))
+	return strconv.Itoa(major) + strconv.Itoa(minor)
 }
 
 // compilePTX builds kernelSource to PTX with NVRTC.
 func compilePTX(t *testing.T, arch string) []byte {
 	t.Helper()
-	prog, err := nvrtc.CreateProgram(kernelSource, "fill.cu", nil, nil)
+	prog, err := nvrtc.CreateProgram(kernelSource, "fill.cu")
 	if err != nil {
 		t.Skipf("NVRTC unavailable: %v", err)
 	}
@@ -217,7 +217,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 		t.Fatalf("GetFunction: %v", err)
 	}
 	const size = elems * 4
-	out, err := driver.MemAlloc(size)
+	out, err := driver.MemAllocBytes(size)
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}

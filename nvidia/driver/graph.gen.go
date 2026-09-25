@@ -158,14 +158,14 @@ func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, no
 //
 // Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [MemFreeNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
-//   - phGraphNode: Returns newly created node
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - dptr: Address of memory to free [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: - an allocation twice in the same graph. - an address that was not returned by an allocation node. - an invalid address. The following restrictions apply to graphs which contain allocation and/or memory free nodes: - Nodes and edges of the graph cannot be deleted. - The graph can only be used in a child node if the ownership is moved to the parent. - Only one instantiation of the graph may exist at any point in time. - The graph cannot be cloned
 //
 // Wraps cuGraphAddMemFreeNode.
-func (g Graph) AddMemFreeNode(phGraphNode *GraphNode, dependencies *GraphNode, numDependencies uint, dptr DevicePtr) error {
-	return graphAddMemFreeNode(phGraphNode, g, dependencies, numDependencies, dptr)
+func (g Graph) AddMemFreeNode(dependencies *GraphNode, numDependencies uint, dptr DevicePtr) (MemFreeNode, error) {
+	h, err := graphAddMemFreeNode(g, dependencies, numDependencies, dptr)
+	return MemFreeNode{h}, err
 }
 
 // AddMemcpyNode Creates a memcpy node and adds it to a graph.

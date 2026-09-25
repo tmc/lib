@@ -136,10 +136,10 @@ func (p *physicalPipeline) synchronize() error {
 }
 func (p *physicalPipeline) prepare() error {
 	p.prepares++
-	return cudalaunch.Kernel(p.reset).Grid(8).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid, p.out)
+	return cudalaunch.Kernel(p.reset).Grid(8, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid, p.out)
 }
 func (p *physicalPipeline) projectStage() error {
-	if err := cudalaunch.Kernel(p.project).Grid(p.grid).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid); err != nil {
+	if err := cudalaunch.Kernel(p.project).Grid(p.grid, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid); err != nil {
 		return err
 	}
 	if err := p.projected.Record(p.streams[0]); err != nil {
@@ -148,7 +148,7 @@ func (p *physicalPipeline) projectStage() error {
 	return p.streams[1].WaitEvent(p.projected)
 }
 func (p *physicalPipeline) decodeStage() error {
-	if err := cudalaunch.Kernel(p.decode).Grid(p.grid).Block(physicalBlock).On(p.streams[1]).Launch(p.state, p.mid, p.out); err != nil {
+	if err := cudalaunch.Kernel(p.decode).Grid(p.grid, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[1]).Launch(p.state, p.mid, p.out); err != nil {
 		return err
 	}
 	if err := p.decoded.Record(p.streams[1]); err != nil {
@@ -418,7 +418,7 @@ func TestPhysicalTwoStreamTiming(t *testing.T) {
 					if err := starts[i].Record(s); err != nil {
 						return err
 					}
-					if err := cudalaunch.Kernel(p.wait).Block(physicalBlock).On(s).Launch(p.out, uint32(i), uint32(i+1)); err != nil {
+					if err := cudalaunch.Kernel(p.wait).Block(physicalBlock, 1, 1).On(s).Launch(p.out, uint32(i), uint32(i+1)); err != nil {
 						return err
 					}
 					if err := ends[i].Record(s); err != nil {
@@ -663,11 +663,11 @@ func TestPhysicalFilteredL2Traffic(t *testing.T) {
 		return err
 	}))
 	launch := func(data cudamem.Slice[uint32], words uint32) error {
-		return cudalaunch.Kernel(read).Grid(128).Block(256).On(p.streams[0]).Launch(data, p.out, words)
+		return cudalaunch.Kernel(read).Grid(128, 1, 1).Block(256, 1, 1).On(p.streams[0]).Launch(data, p.out, words)
 	}
 	for _, data := range []cudamem.Slice[uint32]{target, eviction} {
 		physicalCheck(t, p.dev.WithContext(func() error {
-			return cudalaunch.Kernel(initialize).Grid(128).Block(256).On(p.streams[0]).Launch(data, uint32(data.Len()))
+			return cudalaunch.Kernel(initialize).Grid(128, 1, 1).Block(256, 1, 1).On(p.streams[0]).Launch(data, uint32(data.Len()))
 		}))
 	}
 	physicalCheck(t, p.synchronize())
@@ -955,9 +955,9 @@ func TestPhysicalGraphWholeAndRegions(t *testing.T) {
 	p := newPhysicalPipeline(t, 4)
 	var launchErr error
 	graph, err := cudagraph.Capture(p.streams[0], func() {
-		launchErr = cudalaunch.Kernel(p.project).Grid(p.grid).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid)
+		launchErr = cudalaunch.Kernel(p.project).Grid(p.grid, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid)
 		if launchErr == nil {
-			launchErr = cudalaunch.Kernel(p.decode).Grid(p.grid).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid, p.out)
+			launchErr = cudalaunch.Kernel(p.decode).Grid(p.grid, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid, p.out)
 		}
 	})
 	physicalCheck(t, err)
@@ -1033,10 +1033,10 @@ func TestPhysicalKernelIdentityAssociation(t *testing.T) {
 		for _, reverse := range []bool{false, true} {
 			t.Run(fmt.Sprintf("graph%v/reverse%v", graphMode, reverse), func(t *testing.T) {
 				project := func() error {
-					return cudalaunch.Kernel(p.project).Grid(2).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid)
+					return cudalaunch.Kernel(p.project).Grid(2, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid)
 				}
 				decode := func() error {
-					return cudalaunch.Kernel(p.decode).Grid(5).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid, p.out)
+					return cudalaunch.Kernel(p.decode).Grid(5, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid, p.out)
 				}
 				sequence := func() error {
 					first, second := project, decode
@@ -1073,7 +1073,7 @@ func TestPhysicalKernelIdentityAssociation(t *testing.T) {
 					if err := p.prepare(); err != nil {
 						return err
 					}
-					return cudalaunch.Kernel(p.project).Grid(5).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid)
+					return cudalaunch.Kernel(p.project).Grid(5, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid)
 				}, Run: func(*cuptibench.Scope) error { runs++; return sequence() }}
 				r, err := plan.Collect(w)
 				physicalCheck(t, err)

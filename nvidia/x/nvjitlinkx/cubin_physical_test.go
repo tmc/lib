@@ -131,7 +131,7 @@ extern "C" __global__ void apply(int* out) {
 	kernel, err := owner.Function("apply")
 	check(err)
 	var p driver.DevicePtr
-	check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(64 * 4); return err }))
+	check(dev.WithContext(func() error { var err error; p, err = driver.MemAllocBytes(64 * 4); return err }))
 	defer func() { cleanup(dev.WithContext(p.Free)) }()
 	check(kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{64, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	check(owner.Close()) // Completes submitted work before unloading.

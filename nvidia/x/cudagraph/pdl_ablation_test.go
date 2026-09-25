@@ -178,8 +178,8 @@ func TestPDLPositiveControl(t *testing.T) {
 
 	measure := func(prodSpin int64) float64 {
 		g, err := cudagraph.Capture(stream, func() {
-			_ = cudalaunch.Kernel(pFn).Grid(1).Block(32).On(stream).Launch(buf1, prodSpin)
-			_ = cudalaunch.Kernel(cFn).Grid(1).Block(32).On(stream).Launch(buf1, buf2, consSpin)
+			_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(32, 1, 1).On(stream).Launch(buf1, prodSpin)
+			_ = cudalaunch.Kernel(cFn).Grid(1, 1, 1).Block(32, 1, 1).On(stream).Launch(buf1, buf2, consSpin)
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -273,11 +273,11 @@ func TestPDLHardwareTimestamps(t *testing.T) {
 		_ = tsBuf.CopyFromHost(zero)
 
 		g, err := cudagraph.Capture(stream, func() {
-			_ = cudalaunch.Kernel(pFn).Grid(1).Block(32).
+			_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(32, 1, 1).
 				WithProgrammaticStreamSerialization(pdl).
 				On(stream).
 				Launch(tsBuf, prodSpin)
-			_ = cudalaunch.Kernel(cFn).Grid(1).Block(32).
+			_ = cudalaunch.Kernel(cFn).Grid(1, 1, 1).Block(32, 1, 1).
 				WithProgrammaticStreamSerialization(pdl).
 				On(stream).
 				Launch(tsBuf, consSpin)
@@ -397,11 +397,11 @@ func TestPDLAblationRun(t *testing.T) {
 
 	launchArm := func(pdl bool) float64 {
 		g, err := cudagraph.Capture(stream, func() {
-			_ = cudalaunch.Kernel(pFn).Grid(1).Block(32).
+			_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(32, 1, 1).
 				WithProgrammaticStreamSerialization(pdl).
 				On(stream).
 				Launch(buf1, prodSpin)
-			_ = cudalaunch.Kernel(cFn).Grid(1).Block(32).
+			_ = cudalaunch.Kernel(cFn).Grid(1, 1, 1).Block(32, 1, 1).
 				WithProgrammaticStreamSerialization(pdl).
 				On(stream).
 				Launch(buf1, buf2, consSpin)

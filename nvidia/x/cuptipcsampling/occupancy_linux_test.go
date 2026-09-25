@@ -550,7 +550,7 @@ func (h *occupancyHarness) run() error {
 			workErr = errors.Join(workErr, err)
 			break
 		}
-		err = cudalaunch.OwnedKernel(fn).Grid(s.grid).Block(s.block).On(stream).Launch(args...)
+		err = cudalaunch.OwnedKernel(fn).Grid(s.grid, 1, 1).Block(s.block, 1, 1).On(stream).Launch(args...)
 		if err == nil {
 			err = stream.Synchronize(ctx)
 		}

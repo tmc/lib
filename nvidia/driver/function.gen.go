@@ -248,6 +248,12 @@ func (f Function) Launch() error {
 //
 // Wraps cuLaunchCooperativeKernel.
 func (f Function) LaunchCooperativeKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
+	if gridDim.X == 0 || gridDim.Y == 0 || gridDim.Z == 0 {
+		return zeroExtentError("launch grid", gridDim)
+	}
+	if blockDim.X == 0 || blockDim.Y == 0 || blockDim.Z == 0 {
+		return zeroExtentError("launch block", blockDim)
+	}
 	return launchCooperativeKernel(f, gridDim.X, gridDim.Y, gridDim.Z, blockDim.X, blockDim.Y, blockDim.Z, sharedMemBytes, hStream, kernelParams)
 }
 
@@ -296,6 +302,12 @@ func (f Function) LaunchGridAsync(gridWidth int32, gridHeight int32, hStream Str
 //
 // Wraps cuLaunchKernel.
 func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
+	if gridDim.X == 0 || gridDim.Y == 0 || gridDim.Z == 0 {
+		return zeroExtentError("launch grid", gridDim)
+	}
+	if blockDim.X == 0 || blockDim.Y == 0 || blockDim.Z == 0 {
+		return zeroExtentError("launch block", blockDim)
+	}
 	return launchKernel(f, gridDim.X, gridDim.Y, gridDim.Z, blockDim.X, blockDim.Y, blockDim.Z, sharedMemBytes, hStream, kernelParams)
 }
 

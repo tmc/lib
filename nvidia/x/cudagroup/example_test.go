@@ -16,7 +16,7 @@ func Example() {
 
 func ExampleNew() {
 	g, err := cudagroup.New(cudagroup.Warp, driver.Dim3{X: 32, Y: 1, Z: 1})
-	fmt.Println(err, g.Kind(), g.Dims(), g.Size()) /* Output: <nil> warp {32 1 1} 32 */
+	fmt.Println(err, g.Kind(), g.Dims(), g.Size()) /* Output: <nil> warp 32x1x1 32 */
 }
 func ExampleGroup_Rank() {
 	g, _ := cudagroup.New(cudagroup.Warp, driver.Dim3{X: 32, Y: 1, Z: 1})
@@ -29,7 +29,7 @@ func ExampleGroup_Size() {
 }
 func ExampleGroup_Dims() {
 	g, _ := cudagroup.New(cudagroup.Thread, driver.Dim3{X: 1, Y: 1, Z: 1})
-	fmt.Println(g.Dims()) /* Output: {1 1 1} */
+	fmt.Println(g.Dims()) /* Output: 1x1x1 */
 }
 func ExampleGroup_Kind() {
 	g, _ := cudagroup.New(cudagroup.WarpGroup, driver.Dim3{X: 128, Y: 1, Z: 1})

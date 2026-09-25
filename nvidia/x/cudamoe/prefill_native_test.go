@@ -296,7 +296,7 @@ func TestNativePrefillW256Reference(t *testing.T) {
 		if _, err := artifact.Schema.Pack(args...); err != nil {
 			t.Fatal(err)
 		}
-		if err := cudalaunch.OwnedKernel(kernel).Grid(uint32(n/16), 4, 1).Block(128).On(stream).Launch(args...); err != nil {
+		if err := cudalaunch.OwnedKernel(kernel).Grid(uint32(n/16), 4, 1).Block(128, 1, 1).On(stream).Launch(args...); err != nil {
 			t.Fatal(err)
 		}
 		if err := stream.Synchronize(runCtx); err != nil {

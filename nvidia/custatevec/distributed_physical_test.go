@@ -77,7 +77,7 @@ func TestDistributedSwap(t *testing.T) {
 		if n == 0 {
 			n = 1
 		}
-		p, e := driver.MemAlloc(n)
+		p, e := driver.MemAllocBytes(n)
 		check("allocate", e)
 		allocations = append(allocations, p)
 		return p

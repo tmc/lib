@@ -26,13 +26,13 @@ func TestPhysicalGraphAllocationIdentity(t *testing.T) {
 	var captured error
 	graph, err := cudagraph.Capture(p.streams[0], func() {
 		captured = p.dev.WithContext(func() error {
-			mid, err := p.streams[0].Raw().MemAllocAsync(5 * physicalBlock * 4)
+			mid, err := p.streams[0].Raw().MemAllocAsyncBytes(5 * physicalBlock * 4)
 			if err != nil {
 				return err
 			}
-			err = cudalaunch.Kernel(p.project).Grid(5).Block(physicalBlock).On(p.streams[0]).Launch(p.state, mid)
+			err = cudalaunch.Kernel(p.project).Grid(5, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, mid)
 			if err == nil {
-				err = cudalaunch.Kernel(p.decode).Grid(2).Block(physicalBlock).On(p.streams[0]).Launch(p.state, mid, p.out)
+				err = cudalaunch.Kernel(p.decode).Grid(2, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, mid, p.out)
 			}
 			return errors.Join(err, mid.FreeAsync(p.streams[0].Raw()))
 		})

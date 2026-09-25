@@ -547,8 +547,8 @@ func (p *ExecutablePlan) enqueue(stream *cuda.Stream, nodePointers map[string]dr
 				}
 
 				launcher := cudalaunch.OwnedKernel(kernel).
-					Grid(blocks).
-					Block(256).
+					Grid(blocks, 1, 1).
+					Block(256, 1, 1).
 					On(stream)
 
 				if err := launcher.Launch(args...); err != nil {

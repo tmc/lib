@@ -14,9 +14,7 @@ type MemFreeNode struct {
 //
 // Returns the address of a memory free node hNode in dptrOut. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [MemAllocNode.Params]
 //
-//   - dptrOut: Pointer to return the device address
-//
 // Wraps cuGraphMemFreeNodeGetParams.
-func (m MemFreeNode) Params(dptrOut *DevicePtr) error {
-	return graphMemFreeNodeGetParams(m.GraphNode, dptrOut)
+func (m MemFreeNode) Params() (DevicePtr, error) {
+	return graphMemFreeNodeGetParams(m.GraphNode)
 }

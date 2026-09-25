@@ -54,7 +54,7 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 	defer func() { check(ctx.Destroy()) }()
 
 	const count = 4096
-	ptr, err := driver.MemAlloc(count * 4)
+	ptr, err := driver.MemAllocBytes(count * 4)
 	check(err)
 	defer func() { check(ptr.Free()) }()
 

@@ -110,7 +110,7 @@ func TestSolveCSR(t *testing.T) {
 	}()
 	upload := func(name string, p unsafe.Pointer, n uint) driver.DevicePtr {
 		t.Helper()
-		d, err := driver.MemAlloc(n)
+		d, err := driver.MemAllocBytes(n)
 		if err != nil {
 			t.Fatalf("allocate %d bytes for %s: %v", n, name, err)
 		}

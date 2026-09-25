@@ -75,7 +75,7 @@ extern "C" __global__ void probe(int *value) {
 		if err := value.CopyFromHost([]int32{input}); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(fn).Grid(1).Block(1).Launch(value); err != nil {
+		if err := cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(1, 1, 1).Launch(value); err != nil {
 			return err
 		}
 		if err := driver.CtxSynchronize(); err != nil {

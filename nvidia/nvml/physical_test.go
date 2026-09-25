@@ -284,7 +284,7 @@ func TestMemoryInfoLayout(t *testing.T) {
 		t.Fatalf("set current context: %v", err)
 	}
 	const request = 256 << 20
-	ptr, err := driver.MemAlloc(request)
+	ptr, err := driver.MemAllocBytes(request)
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}
@@ -418,11 +418,11 @@ func TestComputeCapability(t *testing.T) {
 	if err != nil {
 		t.Skipf("no CUDA device 0: %v", err)
 	}
-	var dmajor, dminor int32
-	if err := cudev.ComputeCapability(&dmajor, &dminor); err != nil {
+	dmajor, dminor, err := cudev.ComputeCapability()
+	if err != nil {
 		t.Fatalf("driver ComputeCapability: %v", err)
 	}
-	if dmajor != major || dminor != minor {
+	if dmajor != int(major) || dminor != int(minor) {
 		t.Fatalf("driver reports %d.%d, NVML reports %d.%d", dmajor, dminor, major, minor)
 	}
 	t.Logf("driver API agrees: %d.%d", dmajor, dminor)

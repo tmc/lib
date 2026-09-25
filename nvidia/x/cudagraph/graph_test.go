@@ -96,7 +96,7 @@ func TestGraphReplayOutputAndLifetime(t *testing.T) {
 	}
 
 	launch := func(dst cudamem.Slice[uint32]) error {
-		return cudalaunch.Kernel(fn).Grid((n+127)/128).Block(128).On(stream).Launch(dst, int32(n))
+		return cudalaunch.Kernel(fn).Grid((n+127)/128, 1, 1).Block(128, 1, 1).On(stream).Launch(dst, int32(n))
 	}
 	var captureErr error
 	graph, err := cudagraph.Capture(stream, func() { captureErr = launch(replayed) })
@@ -316,8 +316,8 @@ func TestGraphCaptureWithPDL(t *testing.T) {
 	var captureErr error
 	graph, err := cudagraph.Capture(stream, func() {
 		captureErr = cudalaunch.Kernel(fn).
-			Grid(1).
-			Block(128).
+			Grid(1, 1, 1).
+			Block(128, 1, 1).
 			WithProgrammaticStreamSerialization(true).
 			On(stream).
 			Launch(buf, int32(n))

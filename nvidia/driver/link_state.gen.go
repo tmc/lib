@@ -38,12 +38,9 @@ func (l LinkState) AddFile(type_ JitInputType, path *byte, numOptions uint32, op
 //
 // Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state. See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Destroy], [ModuleLoadData]
 //
-//   - cubinOut: On success, this will point to the output image
-//   - sizeOut: Optional parameter to receive the size of the generated image
-//
 // Wraps cuLinkComplete.
-func (l LinkState) Complete(cubinOut *uintptr, sizeOut *uint) error {
-	return linkComplete(l, cubinOut, sizeOut)
+func (l LinkState) Complete() (cubinOut uintptr, sizeOut uint, err error) {
+	return linkComplete(l)
 }
 
 // Destroy Destroys state for a JIT linker invocation.

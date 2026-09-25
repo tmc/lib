@@ -276,7 +276,7 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 		shared = plan.shared
 	}
 
-	launcher := cudalaunch.Kernel(fn).Grid(grid, 1).Block(block).SharedMem(shared).On(stream)
+	launcher := cudalaunch.Kernel(fn).Grid(grid, 1, 1).Block(block, 1, 1).SharedMem(shared).On(stream)
 
 	// 1. Warmup Execution
 	if err := launcher.Launch(args...); err != nil {

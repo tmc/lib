@@ -72,7 +72,7 @@ func Example_allReduce() {
 
 	values := []float32{3, 5, 7, 11}
 	size := uint(len(values)) * uint(unsafe.Sizeof(values[0]))
-	p, err := driver.MemAlloc(size)
+	p, err := driver.MemAllocBytes(size)
 	if err != nil {
 		fmt.Println("alloc:", err)
 		return

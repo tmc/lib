@@ -109,7 +109,7 @@ func TestGeneratedHalfAddMatchesReference(t *testing.T) {
 		defer free()
 	}
 
-	if err := cudalaunch.Kernel(fn).Grid(1, 1).Block(n).On(stream).Launch(
+	if err := cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(n, 1, 1).On(stream).Launch(
 		da, db, dout, int32(n),
 	); err != nil {
 		t.Fatalf("launch: %v", err)

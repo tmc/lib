@@ -58,10 +58,10 @@ func TestNativeActivationForward(t *testing.T) {
 	input := [8]float32{-3, -1, 0, 1, 2, 4, -2, 8}
 	initial := [8]float32{1, 2, 3, 4, 5, 6, 7, 8}
 	const bytes = uint(8 * 4)
-	x, err := driver.MemAlloc(bytes)
+	x, err := driver.MemAllocBytes(bytes)
 	check("allocate input", err)
 	defer func() { clean("free input", x.Free()) }()
-	y, err := driver.MemAlloc(bytes)
+	y, err := driver.MemAllocBytes(bytes)
 	check("allocate output", err)
 	defer func() { clean("free output", y.Free()) }()
 	check("upload input", x.CopyFromHostPtr(unsafe.Pointer(&input[0]), bytes))

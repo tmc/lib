@@ -28,7 +28,7 @@ func budgetWorkload(p *physicalPipeline, sleep time.Duration, launch bool) cupti
 			if !launch {
 				return nil
 			}
-			return cudalaunch.Kernel(p.wait).Grid(1).Block(physicalBlock).
+			return cudalaunch.Kernel(p.wait).Grid(1, 1, 1).Block(physicalBlock, 1, 1).
 				On(p.streams[0]).Launch(p.out, uint32(0), uint32(7))
 		})
 	}

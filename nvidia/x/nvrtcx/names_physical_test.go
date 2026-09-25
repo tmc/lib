@@ -75,7 +75,7 @@ func TestPhysicalLoweredName(t *testing.T) {
 	defer func() { check(mod.Unload()) }()
 	fn, e := mod.Function(name)
 	check(e)
-	p, e := driver.MemAlloc(64 * 4)
+	p, e := driver.MemAllocBytes(64 * 4)
 	check(e)
 	defer func() { check(p.Free()) }()
 	check(fn.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 64, Y: 1, Z: 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))

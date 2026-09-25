@@ -38,6 +38,15 @@ var (
 	fnVersion                func(*int32, *int32) Result
 )
 
+// A Header is a header a program can include by name.
+// It is passed to [CreateProgram].
+type Header struct {
+	// Name is the name the program's #include directive uses.
+	Name string
+	// Source is the contents of the header.
+	Source string
+}
+
 // addNameExpression [Program.AddNameExpression] notes the given name expression denoting the address of a global function or device/__constant__ variable.
 //
 // The identical name expression string must be provided on a subsequent call to [Program.LoweredName] to extract the lowered name. [Program.LoweredName]
@@ -86,41 +95,37 @@ func compileProgram(prog Program, options []string) error {
 //
 //   - src: in CUDA program source
 //   - name: in CUDA program name. name can be NULL; "default_program" is used when name is NULL or “”
-//   - numHeaders: in Number of headers used. numHeaders must be greater than or equal to 0
-//   - headers: in Sources of the headers. headers can be NULL when numHeaders is 0
-//   - includeNames: in Name of each header by which they can be included in the CUDA program source. includeNames can be NULL when numHeaders is 0. These headers must be included with the exact names specified here. Returns [Success] [ErrOutOfMemory] [ErrProgramCreationFailure] [ErrInvalidInput] [ErrInvalidProgram]
 //
 // Wraps nvrtcCreateProgram.
-func CreateProgram(src string, name string, headers []string, includeNames []string) (Program, error) {
+func CreateProgram(src string, name string, headers ...Header) (Program, error) {
 	if err := checkLibSym("nvrtcCreateProgram"); err != nil {
 		return 0, err
 	}
 	cstr_src := append([]byte(src), 0)
 	cstr_name := append([]byte(name), 0)
-	var carg_headers **byte
+	var carg_headers_Name **byte
+	var carg_headers_Source **byte
 	if len(headers) > 0 {
-		cstrs_headers := make([][]byte, len(headers))
-		ptrs_headers := make([]*byte, len(headers))
-		for i, s := range headers {
-			cstrs_headers[i] = append([]byte(s), 0)
-			ptrs_headers[i] = &cstrs_headers[i][0]
+		size := 0
+		for _, e := range headers {
+			size += len(e.Name) + len(e.Source) + 2
 		}
-		carg_headers = &ptrs_headers[0]
-		_ = cstrs_headers
-	}
-	var carg_includeNames **byte
-	if len(includeNames) > 0 {
-		cstrs_includeNames := make([][]byte, len(includeNames))
-		ptrs_includeNames := make([]*byte, len(includeNames))
-		for i, s := range includeNames {
-			cstrs_includeNames[i] = append([]byte(s), 0)
-			ptrs_includeNames[i] = &cstrs_includeNames[i][0]
+		// strs has room for every string, so appending never moves it.
+		strs := make([]byte, 0, size)
+		ptrs := make([]*byte, 2*len(headers))
+		for i, e := range headers {
+			off := len(strs)
+			strs = append(append(strs, e.Name...), 0)
+			ptrs[i] = &strs[off]
+			off = len(strs)
+			strs = append(append(strs, e.Source...), 0)
+			ptrs[len(headers)+i] = &strs[off]
 		}
-		carg_includeNames = &ptrs_includeNames[0]
-		_ = cstrs_includeNames
+		carg_headers_Name = &ptrs[0]
+		carg_headers_Source = &ptrs[len(headers)]
 	}
 	var out Program
-	if err := toError(fnCreateProgram(&out, &cstr_src[0], &cstr_name[0], int32(len(headers)), carg_headers, carg_includeNames)); err != nil {
+	if err := toError(fnCreateProgram(&out, &cstr_src[0], &cstr_name[0], int32(len(headers)), carg_headers_Source, carg_headers_Name)); err != nil {
 		return 0, err
 	}
 	return out, nil

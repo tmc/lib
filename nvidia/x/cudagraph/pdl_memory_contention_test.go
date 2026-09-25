@@ -611,11 +611,11 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 
 	launchArm := func(cFn driver.Function, pdl bool) float64 {
 		g, err := cudagraph.Capture(stream, func() {
-			_ = cudalaunch.Kernel(pFn).Grid(1).Block(blockDim).
+			_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(blockDim, 1, 1).
 				WithProgrammaticStreamSerialization(pdl).
 				On(stream).
 				Launch(xBuf, gBuf, actBuf, resBuf, int32(dim), int32(trailingPasses), nullTs)
-			_ = cudalaunch.Kernel(cFn).Grid(rows).Block(blockDim).
+			_ = cudalaunch.Kernel(cFn).Grid(rows, 1, 1).Block(blockDim, 1, 1).
 				SharedMem(smemBytes).
 				WithProgrammaticStreamSerialization(pdl).
 				On(stream).
@@ -949,11 +949,11 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 
 			launchArm := func(cFn driver.Function, pdl bool) float64 {
 				g, err := cudagraph.Capture(stream, func() {
-					_ = cudalaunch.Kernel(pFn).Grid(1).Block(blockDim).
+					_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(blockDim, 1, 1).
 						WithProgrammaticStreamSerialization(pdl).
 						On(stream).
 						Launch(xBuf, gBuf, actBuf, resBuf, int32(k), int32(trailingPasses), nullTs)
-					_ = cudalaunch.Kernel(cFn).Grid(rows).Block(blockDim).
+					_ = cudalaunch.Kernel(cFn).Grid(rows, 1, 1).Block(blockDim, 1, 1).
 						SharedMem(smemBytes).
 						WithProgrammaticStreamSerialization(pdl).
 						On(stream).
@@ -1174,7 +1174,7 @@ func TestPDLResidentCTAStarvationIsolation(t *testing.T) {
 	// Build graphs for the 3 configurations
 	// Config A: Producer standalone
 	gA, err := cudagraph.Capture(stream, func() {
-		_ = cudalaunch.Kernel(pFn).Grid(1).Block(blockDim).
+		_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(blockDim, 1, 1).
 			On(stream).
 			Launch(xBuf, gBuf, actBuf, resBuf, int32(dim), int32(trailingPasses), tsBuf)
 	})
@@ -1190,11 +1190,11 @@ func TestPDLResidentCTAStarvationIsolation(t *testing.T) {
 
 	// Config B: Producer with entry-sync resident CTAs parked in griddepcontrol.wait
 	gB, err := cudagraph.Capture(stream, func() {
-		_ = cudalaunch.Kernel(pFn).Grid(1).Block(blockDim).
+		_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(blockDim, 1, 1).
 			WithProgrammaticStreamSerialization(true).
 			On(stream).
 			Launch(xBuf, gBuf, actBuf, resBuf, int32(dim), int32(trailingPasses), tsBuf)
-		_ = cudalaunch.Kernel(cEntryFn).Grid(rows).Block(blockDim).
+		_ = cudalaunch.Kernel(cEntryFn).Grid(rows, 1, 1).Block(blockDim, 1, 1).
 			SharedMem(smemBytes).
 			WithProgrammaticStreamSerialization(true).
 			On(stream).
@@ -1212,11 +1212,11 @@ func TestPDLResidentCTAStarvationIsolation(t *testing.T) {
 
 	// Config C: Producer with active memory-prefetching hoisted CTAs
 	gC, err := cudagraph.Capture(stream, func() {
-		_ = cudalaunch.Kernel(pFn).Grid(1).Block(blockDim).
+		_ = cudalaunch.Kernel(pFn).Grid(1, 1, 1).Block(blockDim, 1, 1).
 			WithProgrammaticStreamSerialization(true).
 			On(stream).
 			Launch(xBuf, gBuf, actBuf, resBuf, int32(dim), int32(trailingPasses), tsBuf)
-		_ = cudalaunch.Kernel(cHoistFn).Grid(rows).Block(blockDim).
+		_ = cudalaunch.Kernel(cHoistFn).Grid(rows, 1, 1).Block(blockDim, 1, 1).
 			SharedMem(smemBytes).
 			WithProgrammaticStreamSerialization(true).
 			On(stream).

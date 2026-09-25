@@ -51,7 +51,7 @@ func TestDoubleRoundTrip(t *testing.T) {
 		values[i] = cufft.DoubleComplex{X: real(input[i]), Y: imag(input[i])}
 	}
 	bytes := uint(n) * uint(unsafe.Sizeof(values[0]))
-	ptr, err := driver.MemAlloc(bytes)
+	ptr, err := driver.MemAllocBytes(bytes)
 	check("allocate", err)
 	defer func() { clean("free buffer", ptr.Free()) }()
 	if uintptr(ptr)%16 != 0 {

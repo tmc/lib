@@ -123,7 +123,7 @@ func TestPhysicalContraction(t *testing.T) {
 		}
 	}
 	alloc := func(v []float32) driver.DevicePtr {
-		p, e := driver.MemAlloc(uint(len(v) * 4))
+		p, e := driver.MemAllocBytes(uint(len(v) * 4))
 		check(e)
 		cleanup(p.Free)
 		check(p.CopyFromHostPtr(unsafe.Pointer(&v[0]), uint(len(v)*4)))
@@ -132,7 +132,7 @@ func TestPhysicalContraction(t *testing.T) {
 	pa, pb, pc := alloc(a), alloc(b), alloc(c)
 	var workspace driver.DevicePtr
 	if wsSize > 0 {
-		workspace, err = driver.MemAlloc(uint(wsSize))
+		workspace, err = driver.MemAllocBytes(uint(wsSize))
 		check(err)
 		cleanup(workspace.Free)
 	}

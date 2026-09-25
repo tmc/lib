@@ -92,7 +92,7 @@ func TestGeneratedCompositeMatchesReference(t *testing.T) {
 		defer free()
 	}
 
-	if err := cudalaunch.Kernel(fn).Grid(4, 1).Block(256).On(stream).Launch(
+	if err := cudalaunch.Kernel(fn).Grid(4, 1, 1).Block(256, 1, 1).On(stream).Launch(
 		da, db, dout, int32(n),
 	); err != nil {
 		t.Fatalf("launch: %v", err)

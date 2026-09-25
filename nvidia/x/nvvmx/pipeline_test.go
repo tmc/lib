@@ -132,7 +132,7 @@ func checkSineKernel(t *testing.T, cubin []byte) {
 	input := []float32{-3, -1, -0.25, 0, 0.25, 1, 3}
 	got := make([]float32, len(input))
 	bytes := uint(len(input) * 4)
-	p, err := driver.MemAlloc(bytes)
+	p, err := driver.MemAllocBytes(bytes)
 	check(err)
 	defer func() { check(p.Free()) }()
 	check(p.CopyFromHostPtr(unsafe.Pointer(&input[0]), bytes))

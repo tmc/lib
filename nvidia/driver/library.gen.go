@@ -94,14 +94,13 @@ func (l Library) Module() (Module, error) {
 // If there is no device with attribute [DevAttrUnifiedFunctionPointers] present in the system,
 // the call may return [ErrNotFound].
 //
-//   - fptr: Returned pointer to a unified function
 //   - symbol: Name of function pointer to retrieve
 //
 // See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
 //
 // Wraps cuLibraryGetUnifiedFunction.
-func (l Library) UnifiedFunction(fptr *uintptr, symbol string) error {
-	return libraryGetUnifiedFunction(fptr, l, symbol)
+func (l Library) UnifiedFunction(symbol string) (uintptr, error) {
+	return libraryGetUnifiedFunction(l, symbol)
 }
 
 // Unload Unloads a library

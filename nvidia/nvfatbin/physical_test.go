@@ -48,11 +48,11 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
-	var major, minor int32
-	if err := dev.ComputeCapability(&major, &minor); err != nil {
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
 		t.Fatalf("compute capability: %v", err)
 	}
-	arch := strconv.Itoa(int(major)) + strconv.Itoa(int(minor))
+	arch := strconv.Itoa(major) + strconv.Itoa(minor)
 	ctx, err := dev.PrimaryCtxRetain()
 	if err != nil {
 		t.Fatalf("retain primary context: %v", err)
@@ -68,7 +68,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 
 	// NVRTC produces a cubin for this exact GPU, which is what goes into the
 	// fatbin. nvFatbin names architectures by their bare number, not sm_NN.
-	prog, err := nvrtc.CreateProgram(kernelSource, "fill.cu", nil, nil)
+	prog, err := nvrtc.CreateProgram(kernelSource, "fill.cu")
 	if err != nil {
 		t.Skipf("NVRTC unavailable: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	}
 
 	const nbytes = elems * 4
-	out, err := driver.MemAlloc(nbytes)
+	out, err := driver.MemAllocBytes(nbytes)
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}

@@ -101,7 +101,7 @@ extern "C" __global__ void apply(float* out) { out[0] = twice(3); }`,
 		kernel, err := owner.Function("apply")
 		check(err)
 		var p driver.DevicePtr
-		check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(4); return err }))
+		check(dev.WithContext(func() error { var err error; p, err = driver.MemAllocBytes(4); return err }))
 		defer func() {
 			if err := dev.WithContext(p.Free); err != nil {
 				t.Error(err)

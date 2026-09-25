@@ -258,7 +258,7 @@ func testIQ2XXSMatvec(t *testing.T, threads uint32) {
 	}
 
 	grid := (rows*32 + threads - 1) / threads
-	if err := cudalaunch.Kernel(fn).Grid(grid, 1).Block(threads).On(stream).Launch(
+	if err := cudalaunch.Kernel(fn).Grid(grid, 1, 1).Block(threads, 1, 1).On(stream).Launch(
 		dw, dx, dy, int32(rows), int32(cols),
 	); err != nil {
 		t.Fatalf("launch: %v", err)
@@ -330,7 +330,7 @@ func TestGeneratedIQ2XXSMatvecRaggedColsReturnsNaN(t *testing.T) {
 		defer free()
 	}
 
-	if err := cudalaunch.Kernel(fn).Grid(1, 1).Block(64).On(stream).Launch(
+	if err := cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(64, 1, 1).On(stream).Launch(
 		dw, dx, dy, int32(rows), int32(cols),
 	); err != nil {
 		t.Fatalf("launch: %v", err)

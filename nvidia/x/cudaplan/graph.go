@@ -133,7 +133,7 @@ func (p *ExecutablePlan) addGraphStep(graph *cudagraph.Graph, step StepPlan, poi
 	if previous != nil {
 		deps = append(deps, previous)
 	}
-	return graph.AddLauncher(cudalaunch.OwnedKernel(kernel).Grid(blocks).Block(256), args, deps...)
+	return graph.AddLauncher(cudalaunch.OwnedKernel(kernel).Grid(blocks, 1, 1).Block(256, 1, 1), args, deps...)
 }
 
 // kernelArguments defines the pointer ABI and geometry for both backends.

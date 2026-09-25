@@ -357,7 +357,7 @@ func cudaAlloc(t *testing.T, size int) (ptr uintptr, free func(), err error) {
 	if size <= 0 {
 		return 0, nil, fmt.Errorf("invalid allocation size %d", size)
 	}
-	p, err := driver.MemAlloc(uint(size))
+	p, err := driver.MemAllocBytes(uint(size))
 	if err != nil {
 		return 0, nil, err
 	}

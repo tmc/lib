@@ -91,7 +91,7 @@ func setup(t *testing.T) cublas.Handle {
 func devSlice[T any](t *testing.T, xs []T) uintptr {
 	t.Helper()
 	n := uint(len(xs)) * uint(unsafe.Sizeof(xs[0]))
-	ptr, err := driver.MemAlloc(n)
+	ptr, err := driver.MemAllocBytes(n)
 	if err != nil {
 		t.Fatalf("MemAlloc(%d): %v", n, err)
 	}

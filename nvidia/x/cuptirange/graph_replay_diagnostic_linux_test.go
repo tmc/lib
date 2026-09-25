@@ -83,9 +83,9 @@ extern "C" __global__ void graph_second(unsigned* out){unsigned i=blockIdx.x*blo
 	}))
 	var captured error
 	graph, err := cudagraph.Capture(stream, func() {
-		captured = cudalaunch.Kernel(first).Grid(5).Block(32).On(stream).Launch(data)
+		captured = cudalaunch.Kernel(first).Grid(5, 1, 1).Block(32, 1, 1).On(stream).Launch(data)
 		if captured == nil {
-			captured = cudalaunch.Kernel(second).Grid(2).Block(32).On(stream).Launch(data)
+			captured = cudalaunch.Kernel(second).Grid(2, 1, 1).Block(32, 1, 1).On(stream).Launch(data)
 		}
 	})
 	check(err)

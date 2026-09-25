@@ -129,11 +129,11 @@ func TestCompileAndRun(t *testing.T) {
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
-	var major, minor int32
-	if err := dev.ComputeCapability(&major, &minor); err != nil {
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
 		t.Fatalf("compute capability: %v", err)
 	}
-	arch := strconv.Itoa(int(major)) + strconv.Itoa(int(minor))
+	arch := strconv.Itoa(major) + strconv.Itoa(minor)
 	ctx, err := dev.PrimaryCtxRetain()
 	if err != nil {
 		t.Fatalf("retain primary context: %v", err)
@@ -225,7 +225,7 @@ func TestCompileAndRun(t *testing.T) {
 	}
 
 	const nbytes = elems * 4
-	out, err := driver.MemAlloc(nbytes)
+	out, err := driver.MemAllocBytes(nbytes)
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}

@@ -35,7 +35,7 @@ func TestDeviceMemoryCheckCUDA(t *testing.T) {
 		var ptr driver.DevicePtr
 		if err := dev.WithContext(func() error {
 			var err error
-			ptr, err = driver.MemAlloc(4 << 20)
+			ptr, err = driver.MemAllocBytes(4 << 20)
 			return err
 		}); err != nil {
 			t.Fatal(err)
@@ -56,7 +56,7 @@ func TestDeviceMemoryCheckCUDA(t *testing.T) {
 		var ptr driver.DevicePtr
 		if err := dev.WithContext(func() error {
 			var err error
-			ptr, err = driver.MemAlloc(4 << 20)
+			ptr, err = driver.MemAllocBytes(4 << 20)
 			return err
 		}); err != nil {
 			t.Fatal(err)

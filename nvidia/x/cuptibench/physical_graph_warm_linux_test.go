@@ -42,9 +42,9 @@ func TestPhysicalGraphWarmBeforeProfiling(t *testing.T) {
 	t.Logf("graph warm order=%s stream=%s", order, streamMode)
 	var captured error
 	graph, err := cudagraph.Capture(p.streams[0], func() {
-		captured = cudalaunch.Kernel(p.project).Grid(5).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid)
+		captured = cudalaunch.Kernel(p.project).Grid(5, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid)
 		if captured == nil {
-			captured = cudalaunch.Kernel(p.decode).Grid(2).Block(physicalBlock).On(p.streams[0]).Launch(p.state, p.mid, p.out)
+			captured = cudalaunch.Kernel(p.decode).Grid(2, 1, 1).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(p.state, p.mid, p.out)
 		}
 	})
 	physicalCheck(t, err)

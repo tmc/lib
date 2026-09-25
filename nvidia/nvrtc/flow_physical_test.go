@@ -26,7 +26,7 @@ func TestNativeFlowCallback(t *testing.T) {
 			name = "cancel"
 		}
 		t.Run(name, func(t *testing.T) {
-			program, err := nvrtc.CreateProgram(source, "flow.cu", nil, nil)
+			program, err := nvrtc.CreateProgram(source, "flow.cu")
 			if err != nil {
 				t.Fatal(err)
 			}

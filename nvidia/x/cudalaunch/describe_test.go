@@ -9,7 +9,7 @@ import (
 
 func TestDescribe(t *testing.T) {
 	const fn = driver.Function(0x1000)
-	l := cudalaunch.Kernel(fn).Grid(4, 2, 3).Block(128, 2).SharedMem(2048).WithCooperative(true)
+	l := cudalaunch.Kernel(fn).Grid(4, 2, 3).Block(128, 2, 1).SharedMem(2048).WithCooperative(true)
 
 	desc, err := l.Describe()
 	if err != nil {
@@ -45,7 +45,7 @@ func TestDescribeAttrsCopied(t *testing.T) {
 		t.Fatalf("Describe: %v", err)
 	}
 	l.WithAttrs(driver.LaunchAttribute{Id: driver.LaunchAttributePriority})
-	l.Grid(99)
+	l.Grid(99, 1, 1)
 	if len(desc.Attrs) != 1 {
 		t.Errorf("Attrs grew to %d after reconfiguring the launcher", len(desc.Attrs))
 	}

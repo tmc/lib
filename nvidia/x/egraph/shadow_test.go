@@ -605,7 +605,7 @@ func TestInPlaceGraphNodeUpdate(t *testing.T) {
 
 	t.Run("HotSwapKernelNodeUpdates", func(t *testing.T) {
 		updater := &mockGraphUpdater{}
-		u1 := cudagraph.NewGridDimUpdate(0, cudalaunch.Dims(16))
+		u1 := cudagraph.NewGridDimUpdate(0, driver.Dims(16, 1, 1))
 		u2 := cudagraph.NewEnabledUpdate(0, true)
 
 		if err := HotSwapKernelNodeUpdates(updater, node, u1, u2); err != nil {

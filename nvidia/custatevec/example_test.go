@@ -67,7 +67,7 @@ func Example_bellState() {
 
 	// The state vector is device memory this package neither allocates nor
 	// frees. Its size is 2^nIndexBits complex elements.
-	sv, err := driver.MemAlloc(nAmplitudes * uint(unsafe.Sizeof(custatevec.Complex128{})))
+	sv, err := driver.MemAllocBytes(nAmplitudes * uint(unsafe.Sizeof(custatevec.Complex128{})))
 	if err != nil {
 		panic(err)
 	}

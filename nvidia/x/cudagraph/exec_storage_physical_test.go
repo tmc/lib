@@ -96,7 +96,7 @@ func TestExecOutlivesTheGraphItWasUpdatedFrom(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		l := cudalaunch.OwnedKernel(kern).Grid(n / block).Block(block)
+		l := cudalaunch.OwnedKernel(kern).Grid(n / block, 1, 1).Block(block, 1, 1)
 		if _, err := g.AddLauncher(l, []any{buf, int32(n), factor}); err != nil {
 			t.Fatal(err)
 		}

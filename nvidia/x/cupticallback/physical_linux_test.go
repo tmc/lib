@@ -81,7 +81,7 @@ func TestPhysicalCallbackLifecycle(t *testing.T) {
 	}
 
 	// Trigger driver API calls under observation
-	ptr, err := driver.MemAlloc(4096)
+	ptr, err := driver.MemAllocBytes(4096)
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}

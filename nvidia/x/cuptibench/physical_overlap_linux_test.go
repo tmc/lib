@@ -167,7 +167,7 @@ func TestPhysicalWholeOverlap(t *testing.T) {
 				if tc.dependent {
 					dependent = 1
 				}
-				if err := cudalaunch.Kernel(kernel).Block(physicalBlock).On(p.streams[0]).Launch(records, uint32(op), uint32(0), dependent); err != nil {
+				if err := cudalaunch.Kernel(kernel).Block(physicalBlock, 1, 1).On(p.streams[0]).Launch(records, uint32(op), uint32(0), dependent); err != nil {
 					return err
 				}
 				if err := p.projected.Record(p.streams[0]); err != nil {
@@ -178,7 +178,7 @@ func TestPhysicalWholeOverlap(t *testing.T) {
 						return err
 					}
 				}
-				if err := cudalaunch.Kernel(kernel).Block(physicalBlock).On(p.streams[1]).Launch(records, uint32(op), uint32(1), dependent); err != nil {
+				if err := cudalaunch.Kernel(kernel).Block(physicalBlock, 1, 1).On(p.streams[1]).Launch(records, uint32(op), uint32(1), dependent); err != nil {
 					return err
 				}
 				if err := p.decoded.Record(p.streams[1]); err != nil {
