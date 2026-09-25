@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -86,7 +87,17 @@ func (u *ui) render(s *screen) {
 		u.drawDevice(s, l.devices[i], i, d, now)
 	}
 	for i, r := range l.plots {
-		u.drawPlot(s, r, l.plotDevices[i])
+		if u.view == viewDetail && slices.Contains(l.plotDevices[i], u.detailKey.dev) {
+			u.drawDetailPlot(s, r)
+			continue
+		}
+		var lines []*series
+		var legend []string
+		for _, d := range l.plotDevices[i] {
+			lines = append(lines, &u.history[d][0], &u.history[d][1])
+			legend = append(legend, fmt.Sprintf("GPU%d %%", d), fmt.Sprintf("GPU%d mem%%", d))
+		}
+		u.drawPlot(s, r, lines, legend)
 	}
 	if !u.opts.noProcs && l.processes.h > 0 {
 		switch u.view {
@@ -94,6 +105,8 @@ func (u *ui) render(s *screen) {
 			u.drawProcesses(s, l.processes)
 		case viewEvents:
 			u.drawEvents(s, l.processes)
+		case viewDetail:
+			u.drawDetail(s, l.processes)
 		}
 	}
 	u.drawShortcuts(s.window(0, s.h-1, s.w, 1))
@@ -440,8 +453,8 @@ func dataRate(v uint64) string {
 }
 
 // drawPlot follows initialize_gpu_mem_plot and draw_plots for the plot
-// at r showing devs.
-func (u *ui) drawPlot(s *screen, r rect, devs []int) {
+// at r showing the given lines.
+func (u *ui) drawPlot(s *screen, r rect, lines []*series, legend []string) {
 	outer := s.window(r.x, r.y, r.w, r.h)
 	cols, rows := r.w-boxCols, r.h-2
 	box(outer, 3, 0, cols+2, rows+2)
@@ -451,10 +464,10 @@ func (u *ui) drawPlot(s *screen, r rect, devs []int) {
 	outer.print(0, 1, "100", plain)
 	outer.print(0, rows, "  0", plain)
 
-	lines := 2 * len(devs)
+	n := len(lines)
 	ms := int(u.interval() / time.Millisecond)
 	secs := func(num, den int) string {
-		s := fmt.Sprintf("%ds", ms*cols*num/den/lines/1000)
+		s := fmt.Sprintf("%ds", ms*cols*num/den/n/1000)
 		if len(s) > 15 {
 			return "err"
 		}
@@ -487,24 +500,17 @@ func (u *ui) drawPlot(s *screen, r rect, devs []int) {
 		return
 	}
 	data := make([]float64, cols)
-	maxCopy := cols / lines
-	var legend []string
-	line := 0
-	for _, d := range devs {
-		for k, name := range [2]string{"GPU%d %%", "GPU%d mem%%"} {
-			legend = append(legend, fmt.Sprintf(name, d))
-			h := &u.history[d][k]
-			for j := 0; j < h.len() && j < maxCopy; j++ {
-				t := maxCopy - j - 1
-				if u.opts.reverse {
-					t = j
-				}
-				data[t*lines+line] = float64(h.recent(j))
+	maxCopy := cols / n
+	for line, h := range lines {
+		for j := 0; j < h.len() && j < maxCopy; j++ {
+			t := maxCopy - j - 1
+			if u.opts.reverse {
+				t = j
 			}
-			line++
+			data[t*n+line] = float64(h.recent(j))
 		}
 	}
-	linePlot(s.window(r.x+4, r.y+1, cols, rows), data, lines, !u.opts.reverse, legend)
+	linePlot(s.window(r.x+4, r.y+1, cols, rows), data, n, !u.opts.reverse, legend)
 }
 
 // box follows draw_rectangle.

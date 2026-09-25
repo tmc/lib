@@ -6,6 +6,7 @@ type view int
 const (
 	viewProcesses view = iota
 	viewEvents
+	viewDetail
 )
 
 // handleExt applies a key press that means something only with -x, and
@@ -17,9 +18,13 @@ func (u *ui) handleExt(k key) bool {
 	}
 	switch u.view {
 	case viewProcesses:
-		if k == 'e' {
+		switch k {
+		case 'e':
 			u.view = viewEvents
 			u.eventOffset = 0
+			return true
+		case keyEnter:
+			u.openDetail()
 			return true
 		}
 		return false
@@ -31,6 +36,14 @@ func (u *ui) handleExt(k key) bool {
 			u.eventOffset = max(0, u.eventOffset-1)
 		case 'j', keyDown:
 			u.eventOffset++
+		case 'q', keyF10, keyF5, keyCtrlL:
+			return false
+		}
+		return true
+	case viewDetail:
+		switch k {
+		case keyEnter, keyEsc:
+			u.view = viewProcesses
 		case 'q', keyF10, keyF5, keyCtrlL:
 			return false
 		}
@@ -47,6 +60,8 @@ func (u *ui) extShortcuts() [][2]string {
 	switch u.view {
 	case viewEvents:
 		return [][2]string{{"e", "Procs"}}
+	case viewDetail:
+		return [][2]string{{"ESC", "Back"}}
 	}
-	return [][2]string{{"e", "Events"}}
+	return [][2]string{{"Enter", "Detail"}, {"e", "Events"}}
 }

@@ -97,6 +97,14 @@
 // scroll. Clock changes are not logged: the header shows the clocks, and
 // they change many times a second.
 //
+// Enter shows the selected process in detail in place of the process
+// list: its figures from the list, its state, parent, thread count,
+// start time, cgroup, the container and Kubernetes pod it runs in, and
+// the environment variables that steer its GPU use (CUDA_, NVIDIA_,
+// NCCL_, and a few more), if nvtop may read them. Its GPU and GPU memory
+// use since nvtop started replace its device's plot. Enter or Esc goes
+// back.
+//
 // # Snapshots
 //
 // The snapshot format matches nvtop -s: an array of devices whose values

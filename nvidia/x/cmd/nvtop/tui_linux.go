@@ -31,6 +31,7 @@ func runTUI(ctx context.Context, src source, h *host, opts options) error {
 
 	devs := src.devices()
 	u := newUI(devs, opts, os.Getpid(), time.Now)
+	u.host = h
 	var scr *screen
 	var buf []byte
 	refresh := time.NewTimer(0)

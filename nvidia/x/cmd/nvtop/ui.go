@@ -102,23 +102,31 @@ type ui struct {
 	eventOffset int // newest events scrolled past
 	eventCount  []int
 	faulted     []bool
+
+	// The process shown in detail, as last listed, and the plotted
+	// history of every process.
+	host        *host // where to read process details; nil if none
+	detailKey   procKey
+	detailProc  process
+	procHistory map[procKey]*[2]series
 }
 
 func newUI(devs []*device, opts options, pid int, now func() time.Time) *ui {
 	u := &ui{
-		opts:       opts,
-		devs:       devs,
-		pid:        pid,
-		history:    make([][2]series, len(devs)),
-		encSeen:    make([]time.Time, len(devs)),
-		decSeen:    make([]time.Time, len(devs)),
-		sortBy:     fieldMem,
-		sortDesc:   true,
-		selPID:     -1,
-		eventCount: make([]int, len(devs)),
-		faulted:    make([]bool, len(devs)),
-		kill:       sendSignal,
-		now:        now,
+		opts:        opts,
+		devs:        devs,
+		pid:         pid,
+		history:     make([][2]series, len(devs)),
+		encSeen:     make([]time.Time, len(devs)),
+		decSeen:     make([]time.Time, len(devs)),
+		sortBy:      fieldMem,
+		sortDesc:    true,
+		selPID:      -1,
+		eventCount:  make([]int, len(devs)),
+		faulted:     make([]bool, len(devs)),
+		procHistory: make(map[procKey]*[2]series),
+		kill:        sendSignal,
+		now:         now,
 	}
 	// The meters start hidden: their last activity is set in the past
 	// by more than the hiding time, as nvtop does.
@@ -158,6 +166,9 @@ func (u *ui) record() {
 	for i, d := range u.devs {
 		u.history[i][0].push(d.gpuUtil.v)
 		u.history[i][1].push(d.memUtil.v)
+	}
+	if u.opts.ext {
+		u.recordProcs()
 	}
 }
 
