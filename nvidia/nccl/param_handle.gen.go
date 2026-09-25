@@ -2,52 +2,52 @@
 
 package nccl
 
-// ParamGet wraps ncclParamGet.
-func (p ParamHandle) ParamGet(out uintptr, maxLen int32, len_ *int32) error {
+// Get wraps ncclParamGet.
+func (p ParamHandle) Get(out uintptr, maxLen int32, len_ *int32) error {
 	return paramGet(p, out, maxLen, len_)
 }
 
-// ParamGetI16 wraps ncclParamGetI16.
-func (p ParamHandle) ParamGetI16(out *int16) error {
+// I16 wraps ncclParamGetI16.
+func (p ParamHandle) I16(out *int16) error {
 	return paramGetI16(p, out)
 }
 
-// ParamGetI32 wraps ncclParamGetI32.
-func (p ParamHandle) ParamGetI32() (int32, error) {
+// I32 wraps ncclParamGetI32.
+func (p ParamHandle) I32() (int32, error) {
 	return paramGetI32(p)
 }
 
-// ParamGetI64 wraps ncclParamGetI64.
-func (p ParamHandle) ParamGetI64() (int64, error) {
+// I64 wraps ncclParamGetI64.
+func (p ParamHandle) I64() (int64, error) {
 	return paramGetI64(p)
 }
 
-// ParamGetI8 wraps ncclParamGetI8.
-func (p ParamHandle) ParamGetI8(out *int8) error {
+// I8 wraps ncclParamGetI8.
+func (p ParamHandle) I8(out *int8) error {
 	return paramGetI8(p, out)
 }
 
-// ParamGetStr wraps ncclParamGetStr.
-func (p ParamHandle) ParamGetStr(out **byte) error {
+// Str wraps ncclParamGetStr.
+func (p ParamHandle) Str(out **byte) error {
 	return paramGetStr(p, out)
 }
 
-// ParamGetU16 wraps ncclParamGetU16.
-func (p ParamHandle) ParamGetU16(out *uint16) error {
+// U16 wraps ncclParamGetU16.
+func (p ParamHandle) U16(out *uint16) error {
 	return paramGetU16(p, out)
 }
 
-// ParamGetU32 wraps ncclParamGetU32.
-func (p ParamHandle) ParamGetU32() (uint32, error) {
+// U32 wraps ncclParamGetU32.
+func (p ParamHandle) U32() (uint32, error) {
 	return paramGetU32(p)
 }
 
-// ParamGetU64 wraps ncclParamGetU64.
-func (p ParamHandle) ParamGetU64() (uint64, error) {
+// U64 wraps ncclParamGetU64.
+func (p ParamHandle) U64() (uint64, error) {
 	return paramGetU64(p)
 }
 
-// ParamGetU8 wraps ncclParamGetU8.
-func (p ParamHandle) ParamGetU8(out *uint8) error {
+// U8 wraps ncclParamGetU8.
+func (p ParamHandle) U8(out *uint8) error {
 	return paramGetU8(p, out)
 }

@@ -69,11 +69,11 @@ func CreateVideoSourceW(pObj *Source, pwszFileName unsafe.Pointer, pParams *Sour
 }
 
 // CtxLock wraps cuvidCtxLock.
-func CtxLock(lck uintptr, reserved_flags uint32) (Result, error) {
+func CtxLock(lck uintptr, reservedFlags uint32) (Result, error) {
 	if err := checkLibSym("cuvidCtxLock"); err != nil {
 		return Result(0), err
 	}
-	return fnCtxLock(lck, reserved_flags), nil
+	return fnCtxLock(lck, reservedFlags), nil
 }
 
 // CtxLockCreate wraps cuvidCtxLockCreate.
@@ -93,11 +93,11 @@ func CtxLockDestroy(lck uintptr) (Result, error) {
 }
 
 // CtxUnlock wraps cuvidCtxUnlock.
-func CtxUnlock(lck uintptr, reserved_flags uint32) (Result, error) {
+func CtxUnlock(lck uintptr, reservedFlags uint32) (Result, error) {
 	if err := checkLibSym("cuvidCtxUnlock"); err != nil {
 		return Result(0), err
 	}
-	return fnCtxUnlock(lck, reserved_flags), nil
+	return fnCtxUnlock(lck, reservedFlags), nil
 }
 
 // DecodePicture wraps cuvidDecodePicture.

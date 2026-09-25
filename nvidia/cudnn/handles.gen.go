@@ -20,7 +20,7 @@ type LRNDescriptor uintptr
 // ActivationDescriptor is deprecated and is currently only used by deprecated APIs.
 type ActivationDescriptor uintptr
 
-// SpatialTransformerDescriptor is a pointer to an opaque structure holding the description of a spatial transformation operation. [CreateSpatialTransformerDescriptor] is used to create one instance, [SpatialTransformerDescriptor.SetSpatialTransformerNdDescriptor] is used to initialize this instance, and [SpatialTransformerDescriptor.Destroy] is used to destroy this instance.
+// SpatialTransformerDescriptor is a pointer to an opaque structure holding the description of a spatial transformation operation. [CreateSpatialTransformerDescriptor] is used to create one instance, [SpatialTransformerDescriptor.Set] is used to initialize this instance, and [SpatialTransformerDescriptor.Destroy] is used to destroy this instance.
 type SpatialTransformerDescriptor uintptr
 
 // OpTensorDescriptor is deprecated and is currently only used by deprecated APIs.

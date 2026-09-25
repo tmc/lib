@@ -50,7 +50,7 @@ func TestNativeActivationForward(t *testing.T) {
 	desc, err := cudnn.CreateTensorDescriptor()
 	check("tensor descriptor", err)
 	defer func() { clean("destroy tensor descriptor", desc.Destroy()) }()
-	check("tensor layout", desc.SetTensor4dDescriptor(cudnn.TensorNchw, cudnn.DataFloat, 1, 1, 2, 4))
+	check("tensor layout", desc.Set4D(cudnn.TensorNchw, cudnn.DataFloat, 1, 1, 2, 4))
 	activation, err := cudnn.CreateActivationDescriptor()
 	check("activation descriptor", err)
 	defer func() { clean("destroy activation descriptor", activation.Destroy()) }()

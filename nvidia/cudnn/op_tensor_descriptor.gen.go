@@ -16,10 +16,6 @@ func (o OpTensorDescriptor) Destroy() error {
 
 // Get returns the configuration of the passed tensor pointwise math descriptor.
 //
-//   - opTensorOp: Output. Pointer to the tensor pointwise math operation type, associated with this tensor pointwise math descriptor
-//   - opTensorCompType: Output. Pointer to the cuDNN data-type associated with this tensor pointwise math descriptor
-//   - opTensorNanOpt: Output. Pointer to the NAN propagation option associated with this tensor pointwise math descriptor
-//
 // Returns:
 //   - [ErrBadParam]: Input tensor pointwise math descriptor passed is invalid.
 //   - [Success]: The function returned successfully.
@@ -27,8 +23,8 @@ func (o OpTensorDescriptor) Destroy() error {
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetOpTensorDescriptor.
-func (o OpTensorDescriptor) Get(opTensorOp *OpTensorOp, opTensorCompType *DataType, opTensorNanOpt *NanPropagation) error {
-	return getOpTensorDescriptor(o, opTensorOp, opTensorCompType, opTensorNanOpt)
+func (o OpTensorDescriptor) Get() (opTensorOp OpTensorOp, opTensorCompType DataType, opTensorNanOpt NanPropagation, err error) {
+	return getOpTensorDescriptor(o)
 }
 
 // Set initializes a tensor pointwise math descriptor.

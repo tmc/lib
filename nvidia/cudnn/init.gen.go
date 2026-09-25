@@ -499,7 +499,6 @@ func registerFuncs() {
 	register(&fngetBatchNormalizationBackwardExWorkspaceSize, "cudnnGetBatchNormalizationBackwardExWorkspaceSize")
 	register(&fngetBatchNormalizationForwardTrainingExWorkspaceSize, "cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize")
 	register(&fngetBatchNormalizationTrainingExReserveSpaceSize, "cudnnGetBatchNormalizationTrainingExReserveSpaceSize")
-	register(&fngetCTCLossDescriptorEx, "cudnnGetCTCLossDescriptorEx")
 	register(&fngetCTCLossDescriptor, "cudnnGetCTCLossDescriptor_v9")
 	register(&fngetCTCLossWorkspaceSize, "cudnnGetCTCLossWorkspaceSize")
 	register(&fngetCTCLossWorkspaceSizeV8, "cudnnGetCTCLossWorkspaceSize_v8")
@@ -586,7 +585,6 @@ func registerFuncs() {
 	register(&fnsetActivationDescriptor, "cudnnSetActivationDescriptor")
 	register(&fnsetActivationDescriptorSwishBeta, "cudnnSetActivationDescriptorSwishBeta")
 	register(&fnsetAttnDescriptor, "cudnnSetAttnDescriptor")
-	register(&fnsetCTCLossDescriptorEx, "cudnnSetCTCLossDescriptorEx")
 	register(&fnsetCTCLossDescriptor, "cudnnSetCTCLossDescriptor_v9")
 	register(&fnSetCallback, "cudnnSetCallback")
 	register(&fnsetConvolution2dDescriptor, "cudnnSetConvolution2dDescriptor")
@@ -717,7 +715,6 @@ func clearFuncs() {
 	fngetBatchNormalizationBackwardExWorkspaceSize = nil
 	fngetBatchNormalizationForwardTrainingExWorkspaceSize = nil
 	fngetBatchNormalizationTrainingExReserveSpaceSize = nil
-	fngetCTCLossDescriptorEx = nil
 	fngetCTCLossDescriptor = nil
 	fngetCTCLossWorkspaceSize = nil
 	fngetCTCLossWorkspaceSizeV8 = nil
@@ -804,7 +801,6 @@ func clearFuncs() {
 	fnsetActivationDescriptor = nil
 	fnsetActivationDescriptorSwishBeta = nil
 	fnsetAttnDescriptor = nil
-	fnsetCTCLossDescriptorEx = nil
 	fnsetCTCLossDescriptor = nil
 	fnSetCallback = nil
 	fnsetConvolution2dDescriptor = nil
@@ -1289,11 +1285,6 @@ func HasGetBatchNormalizationTrainingExReserveSpaceSize() bool {
 	return Has("cudnnGetBatchNormalizationTrainingExReserveSpaceSize")
 }
 
-// HasGetCTCLossDescriptorEx reports whether cudnnGetCTCLossDescriptorEx resolved in the loaded library.
-func HasGetCTCLossDescriptorEx() bool {
-	return Has("cudnnGetCTCLossDescriptorEx")
-}
-
 // HasGetCTCLossDescriptor reports whether cudnnGetCTCLossDescriptor_v9 resolved in the loaded library.
 func HasGetCTCLossDescriptor() bool {
 	return Has("cudnnGetCTCLossDescriptor_v9")
@@ -1722,11 +1713,6 @@ func HasSetActivationDescriptorSwishBeta() bool {
 // HasSetAttnDescriptor reports whether cudnnSetAttnDescriptor resolved in the loaded library.
 func HasSetAttnDescriptor() bool {
 	return Has("cudnnSetAttnDescriptor")
-}
-
-// HasSetCTCLossDescriptorEx reports whether cudnnSetCTCLossDescriptorEx resolved in the loaded library.
-func HasSetCTCLossDescriptorEx() bool {
-	return Has("cudnnSetCTCLossDescriptorEx")
 }
 
 // HasSetCTCLossDescriptor reports whether cudnnSetCTCLossDescriptor_v9 resolved in the loaded library.

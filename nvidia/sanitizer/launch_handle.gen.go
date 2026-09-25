@@ -2,7 +2,7 @@
 
 package sanitizer
 
-// SetLaunchCallbackData Specifies the user data pointer for callbacks.
+// SetCallbackData Specifies the user data pointer for callbacks.
 //
 // Mark launch to use userdata pointer as the device memory buffer
 // to pass in to callback functions. This function is only available if
@@ -16,6 +16,6 @@ package sanitizer
 //   - [Success]: on success.
 //
 // Wraps sanitizerSetLaunchCallbackData.
-func (l LaunchHandle) SetLaunchCallbackData(kernel Function, stream StreamHandle, userdata uintptr) error {
+func (l LaunchHandle) SetCallbackData(kernel Function, stream StreamHandle, userdata uintptr) error {
 	return setLaunchCallbackData(l, kernel, stream, userdata)
 }

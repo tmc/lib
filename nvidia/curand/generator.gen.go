@@ -62,13 +62,13 @@ func (g Generator) GenerateUniformDouble(outputPtr *float64, num uint) error {
 	return generateUniformDouble(g, outputPtr, num)
 }
 
-// SetGeneratorOffset wraps curandSetGeneratorOffset.
-func (g Generator) SetGeneratorOffset(offset uint64) error {
+// SetOffset wraps curandSetGeneratorOffset.
+func (g Generator) SetOffset(offset uint64) error {
 	return setGeneratorOffset(g, offset)
 }
 
-// SetGeneratorOrdering wraps curandSetGeneratorOrdering.
-func (g Generator) SetGeneratorOrdering(order Ordering) error {
+// SetOrdering wraps curandSetGeneratorOrdering.
+func (g Generator) SetOrdering(order Ordering) error {
 	return setGeneratorOrdering(g, order)
 }
 

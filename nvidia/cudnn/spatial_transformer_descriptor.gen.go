@@ -12,17 +12,16 @@ func (s SpatialTransformerDescriptor) Destroy() error {
 	return destroySpatialTransformerDescriptor(s)
 }
 
-// SetSpatialTransformerNdDescriptor initializes a previously created generic spatial transformer descriptor object.
+// Set initializes a previously created generic spatial transformer descriptor object.
 //
 //   - samplerType: Input. Enumerant to specify the sampler type
 //   - dataType: Input. Data type
-//   - nbDims: containing the size of the transformed tensor for every dimension
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met:
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSetSpatialTransformerNdDescriptor.
-func (s SpatialTransformerDescriptor) SetSpatialTransformerNdDescriptor(samplerType SamplerType, dataType DataType, nbDims int32, dimA *int32) error {
-	return setSpatialTransformerNdDescriptor(s, samplerType, dataType, nbDims, dimA)
+func (s SpatialTransformerDescriptor) Set(samplerType SamplerType, dataType DataType, dimA []int32) error {
+	return setSpatialTransformerNdDescriptor(s, samplerType, dataType, dimA)
 }

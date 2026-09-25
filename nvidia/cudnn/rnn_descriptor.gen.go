@@ -18,46 +18,30 @@ func (r RNNDescriptor) Destroy() error {
 //
 // The user can assign NULL to any pointer except rnnDesc when the retrieved value is not needed. The function does not check the validity of retrieved parameters.
 //
-//   - algo: Output. Pointer to where RNN algorithm type should be stored
-//   - cellMode: Output. Pointer to where RNN cell type should be saved
-//   - biasMode: Output. Pointer to where RNN bias mode [RNNBiasMode] should be saved
-//   - dirMode: Output. Pointer to where RNN unidirectional/bidirectional mode should be saved
-//   - inputMode: Output. Pointer to where the mode of the first RNN layer should be saved
-//   - dataType: Output. Pointer to where the data type of RNN weights/biases should be stored
-//   - mathPrec: Output. Pointer to where the math precision type should be stored
-//   - mathType: Output. Pointer to where the preferred option for Tensor Cores are saved
-//   - inputSize: Output. Pointer to where the RNN input vector size is stored
-//   - hiddenSize: Output. Pointer to where the size of the hidden state should be stored (the same value is used in every RNN layer)
-//   - projSize: Output. Pointer to where the LSTM cell output size after the recurrent projection is stored
-//   - numLayers: Output. Pointer to where the number of RNN layers should be stored
-//   - auxFlags: Output. Pointer to miscellaneous RNN options (flags) that do not require passing additional numerical values to configure
-//
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was found ( rnnDesc was NULL).
 //   - [ErrNotInitialized]: The cuDNN library was not initialized properly.
 //   - [Success]: RNN parameters were successfully retrieved from the RNN descriptor.
 //
 // Wraps cudnnGetRNNDescriptor_v8.
-func (r RNNDescriptor) Get(algo *RNNAlgo, cellMode *RNNMode, biasMode *RNNBiasMode, dirMode *DirectionMode, inputMode *RNNInputMode, dataType *DataType, mathPrec *DataType, mathType *MathType, inputSize *int32, hiddenSize *int32, projSize *int32, numLayers *int32, auxFlags *uint32) (DropoutDescriptor, error) {
-	return getRNNDescriptor(r, algo, cellMode, biasMode, dirMode, inputMode, dataType, mathPrec, mathType, inputSize, hiddenSize, projSize, numLayers, auxFlags)
+func (r RNNDescriptor) Get() (RNNConfig, error) {
+	return getRNNDescriptor(r)
 }
 
-// RNNGetClip Retrieves the current LSTM cell clipping parameters, and stores them in the arguments provided.
+// Clip Retrieves the current LSTM cell clipping parameters, and stores them in the arguments provided.
 //
 // The user can assign NULL to any pointer except rnnDesc when the retrieved value is not needed. The function does not check the validity of retrieved parameters.
-//
-//   - clipMode: can be
 //
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was found ( rnnDesc was NULL).
 //   - [Success]: LSTM clipping parameters were successfully retrieved from the RNN descriptor.
 //
 // Wraps cudnnRNNGetClip_v9.
-func (r RNNDescriptor) RNNGetClip(clipMode *RNNClipMode, lclip *float64, rclip *float64) error {
-	return rNNGetClip(r, clipMode, lclip, rclip)
+func (r RNNDescriptor) Clip() (clipMode RNNClipMode, lclip float64, rclip float64, err error) {
+	return rNNGetClip(r)
 }
 
-// RNNSetClip Sets the LSTM cell clipping mode.
+// SetClip Sets the LSTM cell clipping mode.
 //
 // The LSTM clipping is disabled by default. When enabled, clipping is applied to all layers. This cudnnRNNSetClip_v8() function does not affect the work, reserve, and weight-space buffer sizes and may be called multiple times.
 //
@@ -68,7 +52,7 @@ func (r RNNDescriptor) RNNGetClip(clipMode *RNNClipMode, lclip *float64, rclip *
 //   - [Success]: The function completed successfully.
 //
 // Wraps cudnnRNNSetClip_v9.
-func (r RNNDescriptor) RNNSetClip(clipMode RNNClipMode, lclip float64, rclip float64) error {
+func (r RNNDescriptor) SetClip(clipMode RNNClipMode, lclip float64, rclip float64) error {
 	return rNNSetClip(r, clipMode, lclip, rclip)
 }
 

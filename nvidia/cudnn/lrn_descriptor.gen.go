@@ -14,14 +14,12 @@ func (l LRNDescriptor) Destroy() error {
 
 // Get retrieves values stored in the previously initialized LRN descriptor object.
 //
-//   - lrnK: Outputs . Pointers to receive values of parameters stored in the descriptor object. For more information, refer to [LRNDescriptor.Set] . Any of these pointers can be
-//
 // Returns:
 //   - [Success]: Function completed successfully.
 //
 // Wraps cudnnGetLRNDescriptor.
-func (l LRNDescriptor) Get(lrnN *uint32, lrnAlpha *float64, lrnBeta *float64, lrnK *float64) error {
-	return getLRNDescriptor(l, lrnN, lrnAlpha, lrnBeta, lrnK)
+func (l LRNDescriptor) Get() (lrnN uint32, lrnAlpha float64, lrnBeta float64, lrnK float64, err error) {
+	return getLRNDescriptor(l)
 }
 
 // Set initializes a previously created LRN descriptor object.

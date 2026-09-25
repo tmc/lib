@@ -31,7 +31,7 @@ func (f FusedOpsVariantParamPack) Attribute(paramLabel FusedOpsVariantParamLabel
 	return getFusedOpsVariantParamPackAttribute(f, paramLabel, ptr)
 }
 
-// SetFusedOpsVariantParamPackAttribute sets the variable parameter pack descriptor.
+// SetAttribute sets the variable parameter pack descriptor.
 //
 // This function sets the variable parameter pack descriptor.
 //
@@ -43,6 +43,6 @@ func (f FusedOpsVariantParamPack) Attribute(paramLabel FusedOpsVariantParamLabel
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnSetFusedOpsVariantParamPackAttribute.
-func (f FusedOpsVariantParamPack) SetFusedOpsVariantParamPackAttribute(paramLabel FusedOpsVariantParamLabel, ptr uintptr) error {
+func (f FusedOpsVariantParamPack) SetAttribute(paramLabel FusedOpsVariantParamLabel, ptr uintptr) error {
 	return setFusedOpsVariantParamPackAttribute(f, paramLabel, ptr)
 }

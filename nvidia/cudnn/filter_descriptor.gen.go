@@ -16,15 +16,9 @@ func (f FilterDescriptor) Destroy() error {
 	return destroyFilterDescriptor(f)
 }
 
-// Filter4dDescriptor queries the parameters of the previously initialized Filter4d descriptor object.
+// Get4D queries the parameters of the previously initialized Filter4d descriptor object.
 //
 // This function queries the parameters of the previously initialized Filter4d descriptor object.
-//
-//   - format: Output. Type of format
-//   - k: Output. Number of output feature maps
-//   - c: Output. Number of input feature maps
-//   - h: Output. Height of each filter
-//   - w: Output. Width of each filter
 //
 // Returns:
 //   - [Success]: The object was set successfully.
@@ -32,17 +26,15 @@ func (f FilterDescriptor) Destroy() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetFilter4dDescriptor.
-func (f FilterDescriptor) Filter4dDescriptor(dataType *DataType, format *TensorFormat, k *int32, c *int32, h *int32, w *int32) error {
-	return getFilter4dDescriptor(f, dataType, format, k, c, h, w)
+func (f FilterDescriptor) Get4D() (Filter4DConfig, error) {
+	return getFilter4dDescriptor(f)
 }
 
-// FilterNdDescriptor queries a previously initialized FilterNd descriptor object.
+// Get queries a previously initialized FilterNd descriptor object.
 //
 // This function queries a previously initialized FilterNd descriptor object.
 //
 //   - nbDimsRequested: that will be filled with the filter parameters from the provided filter descriptor
-//   - format: Output. Type of format
-//   - nbDims: Output. Actual dimension of the filter
 //
 // Returns:
 //   - [ErrBadParam]: The parameter nbDimsRequested is negative.
@@ -51,11 +43,11 @@ func (f FilterDescriptor) Filter4dDescriptor(dataType *DataType, format *TensorF
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetFilterNdDescriptor.
-func (f FilterDescriptor) FilterNdDescriptor(nbDimsRequested int32, dataType *DataType, format *TensorFormat, nbDims *int32, filterDimA *int32) error {
-	return getFilterNdDescriptor(f, nbDimsRequested, dataType, format, nbDims, filterDimA)
+func (f FilterDescriptor) Get(nbDimsRequested int) (dataType DataType, format TensorFormat, filterDimA []int32, err error) {
+	return getFilterNdDescriptor(f, nbDimsRequested)
 }
 
-// FilterSizeInBytes returns the size of the filter tensor in memory with respect to the given descriptor.
+// Size returns the size of the filter tensor in memory with respect to the given descriptor.
 //
 // This function returns the size of the filter tensor in memory with respect to the given descriptor. It can be used to know the amount of GPU memory to be allocated to hold that filter tensor.
 //
@@ -66,11 +58,11 @@ func (f FilterDescriptor) FilterNdDescriptor(nbDimsRequested int32, dataType *Da
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetFilterSizeInBytes.
-func (f FilterDescriptor) FilterSizeInBytes() (uint, error) {
+func (f FilterDescriptor) Size() (size int, err error) {
 	return getFilterSizeInBytes(f)
 }
 
-// SetFilter4dDescriptor initializes a previously created filter descriptor object into a 4D filter.
+// Set4D initializes a previously created filter descriptor object into a 4D filter.
 //
 // This function initializes a previously created filter descriptor object into a 4D filter. The layout of the filters must be contiguous in memory. Tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
 //
@@ -86,15 +78,13 @@ func (f FilterDescriptor) FilterSizeInBytes() (uint, error) {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnSetFilter4dDescriptor.
-func (f FilterDescriptor) SetFilter4dDescriptor(dataType DataType, format TensorFormat, k int32, c int32, h int32, w int32) error {
+func (f FilterDescriptor) Set4D(dataType DataType, format TensorFormat, k int32, c int32, h int32, w int32) error {
 	return setFilter4dDescriptor(f, dataType, format, k, c, h, w)
 }
 
-// SetFilterNdDescriptor initializes a previously created filter descriptor object.
+// Set initializes a previously created filter descriptor object.
 //
 // This function initializes a previously created filter descriptor object. The layout of the filters must be contiguous in memory. The tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
-//
-//   - nbDims: containing the size of the filter for each dimension
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the elements of the array filterDimA is negative or dataType or format has an invalid enumerant value.
@@ -104,6 +94,6 @@ func (f FilterDescriptor) SetFilter4dDescriptor(dataType DataType, format Tensor
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnSetFilterNdDescriptor.
-func (f FilterDescriptor) SetFilterNdDescriptor(dataType DataType, format TensorFormat, nbDims int32, filterDimA *int32) error {
-	return setFilterNdDescriptor(f, dataType, format, nbDims, filterDimA)
+func (f FilterDescriptor) Set(dataType DataType, format TensorFormat, filterDimA []int32) error {
+	return setFilterNdDescriptor(f, dataType, format, filterDimA)
 }

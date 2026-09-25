@@ -20,22 +20,6 @@ func (a AttnDescriptor) Destroy() error {
 //
 // This function retrieves settings from the previously created attention descriptor. The user can assign NULL to any pointer except attnDesc when the retrieved value is not needed.
 //
-//   - attnMode: Output. Pointer to the storage for binary attention flags
-//   - nHeads: Output. Pointer to the storage for the number of attention heads
-//   - smScaler: Output. Pointer to the storage for the softmax smoothing/sharpening coefficient
-//   - dataType: Output. Data type for attention weights, sequence data inputs, and outputs
-//   - computePrec: Output. Pointer to the storage for the compute precision
-//   - mathType: Output. NVIDIA Tensor Core settings
-//   - attnDropoutDesc: Output. Descriptor of the dropout operation applied to the softmax output
-//   - postDropoutDesc: Output. Descriptor of the dropout operation applied to the multihead attention output
-//   - vSize: Output. Q, K, and V embedding vector lengths
-//   - vProjSize: Output. Q, K, and V embedding vector lengths after input projections
-//   - oProjSize: Output. Pointer to store the output vector length after projection
-//   - qoMaxSeqLength: Output. Largest sequence length expected in sequence data descriptors related to Q, O, dQ, dO inputs and outputs
-//   - kvMaxSeqLength: Output. Largest sequence length expected in sequence data descriptors related to K, V, dK, dV inputs and outputs
-//   - maxBatchSize: Output. Largest batch size expected in the [SeqDataDescriptor] container
-//   - maxBeamSize: Output. Largest beam size expected in the [SeqDataDescriptor] container
-//
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was found.
 //   - [Success]: Requested attention descriptor fields were retrieved successfully.
@@ -43,8 +27,8 @@ func (a AttnDescriptor) Destroy() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetAttnDescriptor.
-func (a AttnDescriptor) Get(attnMode *uint32, nHeads *int32, smScaler *float64, dataType *DataType, computePrec *DataType, mathType *MathType, attnDropoutDesc *DropoutDescriptor, postDropoutDesc *DropoutDescriptor, qSize *int32, kSize *int32, vSize *int32, qProjSize *int32, kProjSize *int32, vProjSize *int32, oProjSize *int32, qoMaxSeqLength *int32, kvMaxSeqLength *int32, maxBatchSize *int32, maxBeamSize *int32) error {
-	return getAttnDescriptor(a, attnMode, nHeads, smScaler, dataType, computePrec, mathType, attnDropoutDesc, postDropoutDesc, qSize, kSize, vSize, qProjSize, kProjSize, vProjSize, oProjSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize)
+func (a AttnDescriptor) Get() (AttnConfig, error) {
+	return getAttnDescriptor(a)
 }
 
 // Set configures a multihead attention descriptor that was previously created using the [CreateAttnDescriptor] function.

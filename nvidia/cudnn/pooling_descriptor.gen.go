@@ -14,16 +14,7 @@ func (p PoolingDescriptor) Destroy() error {
 	return destroyPoolingDescriptor(p)
 }
 
-// Pooling2dDescriptor queries a previously created Pooling2d descriptor object.
-//
-//   - mode: Output. Enumerant to specify the pooling mode
-//   - maxpoolingNanOpt: Output. Enumerant to specify the Nan propagation mode
-//   - windowHeight: Output. Height of the pooling window
-//   - windowWidth: Output. Width of the pooling window
-//   - verticalPadding: Output. Size of vertical padding
-//   - horizontalPadding: Output. Size of horizontal padding
-//   - verticalStride: Output. Pooling vertical stride
-//   - horizontalStride: Output. Pooling horizontal stride
+// Get2D queries a previously created Pooling2d descriptor object.
 //
 // Returns:
 //   - [Success]: The object was set successfully.
@@ -31,11 +22,11 @@ func (p PoolingDescriptor) Destroy() error {
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetPooling2dDescriptor.
-func (p PoolingDescriptor) Pooling2dDescriptor(mode *PoolingMode, maxpoolingNanOpt *NanPropagation, windowHeight *int32, windowWidth *int32, verticalPadding *int32, horizontalPadding *int32, verticalStride *int32, horizontalStride *int32) error {
-	return getPooling2dDescriptor(p, mode, maxpoolingNanOpt, windowHeight, windowWidth, verticalPadding, horizontalPadding, verticalStride, horizontalStride)
+func (p PoolingDescriptor) Get2D() (Pooling2DConfig, error) {
+	return getPooling2dDescriptor(p)
 }
 
-// Pooling2dForwardOutputDim provides the output dimensions of a tensor after Pooling2d has been applied.
+// ForwardOutputDim2D provides the output dimensions of a tensor after Pooling2d has been applied.
 //
 // Each dimension h and w of the output images is computed as follows:
 //
@@ -46,16 +37,13 @@ func (p PoolingDescriptor) Pooling2dDescriptor(mode *PoolingMode, maxpoolingNanO
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetPooling2dForwardOutputDim.
-func (p PoolingDescriptor) Pooling2dForwardOutputDim(inputTensorDesc TensorDescriptor, n *int32, c *int32, h *int32, w *int32) error {
-	return getPooling2dForwardOutputDim(p, inputTensorDesc, n, c, h, w)
+func (p PoolingDescriptor) ForwardOutputDim2D(inputTensorDesc TensorDescriptor) (n int32, c int32, h int32, w int32, err error) {
+	return getPooling2dForwardOutputDim(p, inputTensorDesc)
 }
 
-// PoolingNdDescriptor queries a previously initialized generic PoolingNd descriptor object.
+// Get queries a previously initialized generic PoolingNd descriptor object.
 //
 //   - nbDimsRequested: that will be filled with the stride parameters from the provided pooling descriptor
-//   - mode: Output. Enumerant to specify the pooling mode
-//   - maxpoolingNanOpt: Input. Enumerant to specify the Nan propagation mode
-//   - nbDims: Output. Actual dimension of the pooling descriptor
 //
 // Returns:
 //   - [ErrNotSupported]: The parameter nbDimsRequested is greater than CUDNN_DIM_MAX.
@@ -64,11 +52,11 @@ func (p PoolingDescriptor) Pooling2dForwardOutputDim(inputTensorDesc TensorDescr
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetPoolingNdDescriptor.
-func (p PoolingDescriptor) PoolingNdDescriptor(nbDimsRequested int32, mode *PoolingMode, maxpoolingNanOpt *NanPropagation, nbDims *int32, windowDimA *int32, paddingA *int32, strideA *int32) error {
-	return getPoolingNdDescriptor(p, nbDimsRequested, mode, maxpoolingNanOpt, nbDims, windowDimA, paddingA, strideA)
+func (p PoolingDescriptor) Get(nbDimsRequested int) (PoolingConfig, error) {
+	return getPoolingNdDescriptor(p, nbDimsRequested)
 }
 
-// PoolingNdForwardOutputDim provides the output dimensions of a tensor after PoolingNd has been applied.
+// ForwardOutputDims provides the output dimensions of a tensor after PoolingNd has been applied.
 //
 // Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows:
 //
@@ -81,11 +69,11 @@ func (p PoolingDescriptor) PoolingNdDescriptor(nbDimsRequested int32, mode *Pool
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetPoolingNdForwardOutputDim.
-func (p PoolingDescriptor) PoolingNdForwardOutputDim(inputTensorDesc TensorDescriptor, nbDims int32, outputTensorDimA *int32) error {
-	return getPoolingNdForwardOutputDim(p, inputTensorDesc, nbDims, outputTensorDimA)
+func (p PoolingDescriptor) ForwardOutputDims(inputTensorDesc TensorDescriptor, nbDims int) (outputTensorDimA []int32, err error) {
+	return getPoolingNdForwardOutputDim(p, inputTensorDesc, nbDims)
 }
 
-// SetPooling2dDescriptor initializes a previously created generic pooling descriptor object into a 2D description.
+// Set2D initializes a previously created generic pooling descriptor object into a 2D description.
 //
 //   - mode: Input. Enumerant to specify the pooling mode
 //   - maxpoolingNanOpt: Input. Enumerant to specify the Nan propagation mode
@@ -103,15 +91,14 @@ func (p PoolingDescriptor) PoolingNdForwardOutputDim(inputTensorDesc TensorDescr
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnSetPooling2dDescriptor.
-func (p PoolingDescriptor) SetPooling2dDescriptor(mode PoolingMode, maxpoolingNanOpt NanPropagation, windowHeight int32, windowWidth int32, verticalPadding int32, horizontalPadding int32, verticalStride int32, horizontalStride int32) error {
+func (p PoolingDescriptor) Set2D(mode PoolingMode, maxpoolingNanOpt NanPropagation, windowHeight int32, windowWidth int32, verticalPadding int32, horizontalPadding int32, verticalStride int32, horizontalStride int32) error {
 	return setPooling2dDescriptor(p, mode, maxpoolingNanOpt, windowHeight, windowWidth, verticalPadding, horizontalPadding, verticalStride, horizontalStride)
 }
 
-// SetPoolingNdDescriptor initializes a previously created generic pooling descriptor object.
+// Set initializes a previously created generic pooling descriptor object.
 //
 //   - mode: Input. Enumerant to specify the pooling mode
 //   - maxpoolingNanOpt: Input. Enumerant to specify the Nan propagation mode
-//   - nbDims: containing the striding size for each dimension. The value of array elements must be greater than zero (meaning, negative striding size is not allowed)
 //
 // Returns:
 //   - [ErrBadParam]: Either nbDims, or at least one of the elements of the arrays windowDimA or strideA is negative, or mode or maxpoolingNanOpt has an invalid enumerate value.
@@ -121,6 +108,6 @@ func (p PoolingDescriptor) SetPooling2dDescriptor(mode PoolingMode, maxpoolingNa
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnSetPoolingNdDescriptor.
-func (p PoolingDescriptor) SetPoolingNdDescriptor(mode PoolingMode, maxpoolingNanOpt NanPropagation, nbDims int32, windowDimA *int32, paddingA *int32, strideA *int32) error {
-	return setPoolingNdDescriptor(p, mode, maxpoolingNanOpt, nbDims, windowDimA, paddingA, strideA)
+func (p PoolingDescriptor) Set(mode PoolingMode, maxpoolingNanOpt NanPropagation, windowDimA []int32, paddingA []int32, strideA []int32) error {
+	return setPoolingNdDescriptor(p, mode, maxpoolingNanOpt, windowDimA, paddingA, strideA)
 }

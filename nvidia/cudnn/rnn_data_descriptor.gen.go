@@ -16,11 +16,6 @@ func (r RNNDataDescriptor) Destroy() error {
 
 // Get retrieves a previously created RNN data descriptor object.
 //
-//   - dataType: Output. Pointer to the host memory location to store the datatype of the RNN data tensor
-//   - layout: Output. Pointer to the host memory location to store the memory layout of the RNN data tensor
-//   - maxSeqLength: Output. The maximum sequence length within this RNN data tensor, including the padding vectors
-//   - batchSize: Output. The number of sequences within the mini-batch
-//   - vectorSize: Output. The vector length (meaning, embedding size) of the input or output tensor at each time-step
 //   - arrayLengthRequested: is
 //   - paddingFill: Output. Pointer to the host memory location to store the user defined symbol. The symbol should be interpreted as the same data type as the RNN data tensor
 //
@@ -29,8 +24,8 @@ func (r RNNDataDescriptor) Destroy() error {
 //   - [Success]: The parameters are fetched successfully.
 //
 // Wraps cudnnGetRNNDataDescriptor.
-func (r RNNDataDescriptor) Get(dataType *DataType, layout *RNNDataLayout, maxSeqLength *int32, batchSize *int32, vectorSize *int32, arrayLengthRequested int32, seqLengthArray *int32, paddingFill uintptr) error {
-	return getRNNDataDescriptor(r, dataType, layout, maxSeqLength, batchSize, vectorSize, arrayLengthRequested, seqLengthArray, paddingFill)
+func (r RNNDataDescriptor) Get(arrayLengthRequested int, paddingFill uintptr) (RNNDataConfig, error) {
+	return getRNNDataDescriptor(r, arrayLengthRequested, paddingFill)
 }
 
 // Set initializes a previously created RNN data descriptor object.
@@ -40,7 +35,6 @@ func (r RNNDataDescriptor) Get(dataType *DataType, layout *RNNDataLayout, maxSeq
 //   - dataType: Input. The datatype of the RNN data tensor. For more information, refer to [DataType]
 //   - layout: Input. The memory layout of the RNN data tensor
 //   - maxSeqLength: In the packed layout, the elements should be sorted in descending order, similar to the layout required by the non-extended RNN compute functions
-//   - batchSize: number of elements. Describes the length (number of time-steps) of each sequence. Each element in
 //   - vectorSize: Input. The vector length (embedding size) of the input or output tensor at each time-step
 //   - seqLengthArray: must be greater than or equal to 0 but less than or equal to
 //
@@ -51,6 +45,6 @@ func (r RNNDataDescriptor) Get(dataType *DataType, layout *RNNDataLayout, maxSeq
 //   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetRNNDataDescriptor.
-func (r RNNDataDescriptor) Set(dataType DataType, layout RNNDataLayout, maxSeqLength int32, batchSize int32, vectorSize int32, seqLengthArray *int32, paddingFill uintptr) error {
-	return setRNNDataDescriptor(r, dataType, layout, maxSeqLength, batchSize, vectorSize, seqLengthArray, paddingFill)
+func (r RNNDataDescriptor) Set(dataType DataType, layout RNNDataLayout, maxSeqLength int32, vectorSize int32, seqLengthArray []int32, paddingFill uintptr) error {
+	return setRNNDataDescriptor(r, dataType, layout, maxSeqLength, vectorSize, seqLengthArray, paddingFill)
 }

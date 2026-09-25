@@ -12,72 +12,24 @@ func (c CTCLossDescriptor) Destroy() error {
 	return destroyCTCLossDescriptor(c)
 }
 
-// Ex returns the configuration of the passed CTC loss function descriptor.
-//
-// This function returns the configuration of the passed CTC loss function descriptor.
-//
-//   - compType: Output. Compute type associated with this CTC loss function descriptor
-//   - normMode: Output. Input normalization type for this CTC loss function descriptor. For more information, refer to [LossNormalizationMode]
-//   - gradMode: Output. NaN propagation type for this CTC loss function descriptor
-//
-// Returns:
-//   - [ErrBadParam]: Input ctcLossDesc descriptor passed is invalid.
-//   - [Success]: The function returned successfully.
-//
-// Deprecated: This function has been deprecated in cuDNN 9.0; use [CTCLossDescriptor.Get] instead.
-//
-// Wraps cudnnGetCTCLossDescriptorEx.
-func (c CTCLossDescriptor) Ex(compType *DataType, normMode *LossNormalizationMode, gradMode *NanPropagation) error {
-	return getCTCLossDescriptorEx(c, compType, normMode, gradMode)
-}
-
 // Get returns the configuration of the passed CTC loss function descriptor.
-//
-//   - compType: Output. Compute type associated with this CTC loss function descriptor
-//   - normMode: Output. Input normalization type for this CTC loss function descriptor. For more information, refer to [LossNormalizationMode]
-//   - ctcGradMode: Output. The gradient mode for handling OOB samples for this CTC loss function descriptor. Refer to [CTCLossDescriptor.Set] for more information
-//   - maxLabelLength: Output. The max label length for this CTC loss function descriptor
 //
 // Returns:
 //   - [ErrBadParam]: Input ctcLossDesc descriptor passed is invalid.
 //   - [Success]: The function returned successfully.
 //
 // Wraps cudnnGetCTCLossDescriptor_v9.
-func (c CTCLossDescriptor) Get(compType *DataType, normMode *LossNormalizationMode, ctcGradMode *CTCGradMode, maxLabelLength *int32) error {
-	return getCTCLossDescriptor(c, compType, normMode, ctcGradMode, maxLabelLength)
-}
-
-// SetCTCLossDescriptorEx is an extension of [CTCLossDescriptor.Set].
-//
-// This function is an extension of [CTCLossDescriptor.Set]. This function provides an additional interface normMode to set the input normalization mode for the CTC loss function, and gradMode to control the NaN propagation type. When this function [CTCLossDescriptor.SetCTCLossDescriptorEx] is used with normMode set to [LossNormalizationNone] and the gradMode set to [NotPropagateNan], then it is the same as [CTCLossDescriptor.Set], meaning:
-//
-//   - compType: Input. Compute type for this CTC loss function
-//   - normMode: Input. Input normalization type for this CTC loss function. For more information, refer to [LossNormalizationMode]
-//   - gradMode: is set to
-//
-// Returns:
-//   - [ErrBadParam]: At least one of the input parameters passed is invalid.
-//   - [Success]: The function returned successfully.
-//
-// Deprecated: This function has been deprecated in cuDNN 9.0; use [CTCLossDescriptor.Set] instead.
-//
-// Wraps cudnnSetCTCLossDescriptorEx.
-func (c CTCLossDescriptor) SetCTCLossDescriptorEx(compType DataType, normMode LossNormalizationMode, gradMode NanPropagation) error {
-	return setCTCLossDescriptorEx(c, compType, normMode, gradMode)
+func (c CTCLossDescriptor) Get() (CTCLossConfig, error) {
+	return getCTCLossDescriptor(c)
 }
 
 // Set sets a CTC loss function descriptor.
-//
-//   - compType: Input. Compute type for this CTC loss function
-//   - normMode: Input. Input normalization type for this CTC loss function. For more information, refer to [LossNormalizationMode]
-//   - ctcGradMode: Behavior for out of boundary (OOB) samples. OOB samples are samples where L+R > T is encountered during the gradient calculation
-//   - maxLabelLength: Input. The maximum label length from the labels data
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the input parameters passed is invalid.
 //   - [Success]: The function returned successfully.
 //
 // Wraps cudnnSetCTCLossDescriptor_v9.
-func (c CTCLossDescriptor) Set(compType DataType, normMode LossNormalizationMode, ctcGradMode CTCGradMode, maxLabelLength int32) error {
-	return setCTCLossDescriptor(c, compType, normMode, ctcGradMode, maxLabelLength)
+func (c CTCLossDescriptor) Set(cfg CTCLossConfig) error {
+	return setCTCLossDescriptor(c, cfg)
 }

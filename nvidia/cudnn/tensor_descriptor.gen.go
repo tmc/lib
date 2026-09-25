@@ -57,30 +57,21 @@ func (t TensorDescriptor) Destroy() error {
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnDropoutGetReserveSpaceSize.
-func (t TensorDescriptor) DropoutGetReserveSpaceSize() (uint, error) {
+func (t TensorDescriptor) DropoutGetReserveSpaceSize() (sizeInBytes int, err error) {
 	return dropoutGetReserveSpaceSize(t)
 }
 
-// Tensor4dDescriptor queries the parameters of the previously initialized Tensor4d descriptor object.
-//
-//   - n: Output. Number of images
-//   - c: Output. Number of feature maps per image
-//   - h: Output. Height of each feature map
-//   - w: Output. Width of each feature map
-//   - nStride: Output. Stride between two consecutive images
-//   - cStride: Output. Stride between two consecutive feature maps
-//   - hStride: Output. Stride between two consecutive rows
-//   - wStride: Output. Stride between two consecutive columns
+// Get4D queries the parameters of the previously initialized Tensor4d descriptor object.
 //
 // Returns:
 //   - [Success]: The operation succeeded.
 //
 // Wraps cudnnGetTensor4dDescriptor.
-func (t TensorDescriptor) Tensor4dDescriptor(dataType *DataType, n *int32, c *int32, h *int32, w *int32, nStride *int32, cStride *int32, hStride *int32, wStride *int32) error {
-	return getTensor4dDescriptor(t, dataType, n, c, h, w, nStride, cStride, hStride, wStride)
+func (t TensorDescriptor) Get4D() (Tensor4DConfig, error) {
+	return getTensor4dDescriptor(t)
 }
 
-// TensorNdDescriptor retrieves values stored in a previously initialized TensorNd descriptor object.
+// Get retrieves values stored in a previously initialized TensorNd descriptor object.
 //
 //   - nbDimsRequested: that will be filled with the strides from the provided tensor descriptor
 //
@@ -89,11 +80,11 @@ func (t TensorDescriptor) Tensor4dDescriptor(dataType *DataType, n *int32, c *in
 //   - [Success]: The results were returned successfully.
 //
 // Wraps cudnnGetTensorNdDescriptor.
-func (t TensorDescriptor) TensorNdDescriptor(nbDimsRequested int32, dataType *DataType, nbDims *int32, dimA *int32, strideA *int32) error {
-	return getTensorNdDescriptor(t, nbDimsRequested, dataType, nbDims, dimA, strideA)
+func (t TensorDescriptor) Get(nbDimsRequested int) (dataType DataType, dimA []int32, strideA []int32, err error) {
+	return getTensorNdDescriptor(t, nbDimsRequested)
 }
 
-// TensorSizeInBytes returns the size of the tensor in memory in respect to the given descriptor.
+// Size returns the size of the tensor in memory in respect to the given descriptor.
 //
 // This function can be used to know the amount of GPU memory to be allocated to hold that tensor.
 //
@@ -101,11 +92,11 @@ func (t TensorDescriptor) TensorNdDescriptor(nbDimsRequested int32, dataType *Da
 //   - [Success]: The results were returned successfully.
 //
 // Wraps cudnnGetTensorSizeInBytes.
-func (t TensorDescriptor) TensorSizeInBytes() (uint, error) {
+func (t TensorDescriptor) Size() (size int, err error) {
 	return getTensorSizeInBytes(t)
 }
 
-// SetTensor4dDescriptor initializes a previously created generic tensor descriptor object into a 4D tensor.
+// Set4D initializes a previously created generic tensor descriptor object into a 4D tensor.
 //
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
@@ -121,11 +112,11 @@ func (t TensorDescriptor) TensorSizeInBytes() (uint, error) {
 //   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensor4dDescriptor.
-func (t TensorDescriptor) SetTensor4dDescriptor(format TensorFormat, dataType DataType, n int32, c int32, h int32, w int32) error {
+func (t TensorDescriptor) Set4D(format TensorFormat, dataType DataType, n int32, c int32, h int32, w int32) error {
 	return setTensor4dDescriptor(t, format, dataType, n, c, h, w)
 }
 
-// SetTensor4dDescriptorEx initializes a previously created generic tensor descriptor object into a 4D tensor, similarly to [TensorDescriptor.SetTensor4dDescriptor] but with the strides explicitly passed as parameters.
+// Set4DEx initializes a previously created generic tensor descriptor object into a 4D tensor, similarly to [TensorDescriptor.Set4D] but with the strides explicitly passed as parameters.
 //
 // At present, some cuDNN routines have limited support for strides. Those routines will return [ErrNotSupported] if a 4D tensor object with an unsupported stride is used. [Handle.TransformTensor] can be used to convert the data to a supported layout. The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
@@ -144,15 +135,13 @@ func (t TensorDescriptor) SetTensor4dDescriptor(format TensorFormat, dataType Da
 //   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensor4dDescriptorEx.
-func (t TensorDescriptor) SetTensor4dDescriptorEx(dataType DataType, n int32, c int32, h int32, w int32, nStride int32, cStride int32, hStride int32, wStride int32) error {
+func (t TensorDescriptor) Set4DEx(dataType DataType, n int32, c int32, h int32, w int32, nStride int32, cStride int32, hStride int32, wStride int32) error {
 	return setTensor4dDescriptorEx(t, dataType, n, c, h, w, nStride, cStride, hStride, wStride)
 }
 
-// SetTensorNdDescriptor initializes a previously created generic tensor descriptor object.
+// Set initializes a previously created generic tensor descriptor object.
 //
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype. Tensors are restricted to having at least 4 dimensions, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h). When working with lower dimensional data, it is recommended that the user create a 4D tensor, and set the size along unused dimensions to 1.
-//
-//   - nbDims: that contain the stride of the tensor for every dimension. By convention, the ordering of the strides in the array follows the format -
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the elements of the array dimA was negative or zero, or dataType has an invalid enumerant value.
@@ -160,15 +149,14 @@ func (t TensorDescriptor) SetTensor4dDescriptorEx(dataType DataType, n int32, c 
 //   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensorNdDescriptor.
-func (t TensorDescriptor) SetTensorNdDescriptor(dataType DataType, nbDims int32, dimA *int32, strideA *int32) error {
-	return setTensorNdDescriptor(t, dataType, nbDims, dimA, strideA)
+func (t TensorDescriptor) Set(dataType DataType, dimA []int32, strideA []int32) error {
+	return setTensorNdDescriptor(t, dataType, dimA, strideA)
 }
 
-// SetTensorNdDescriptorEx initializes an Nd tensor descriptor.
+// SetEx initializes an Nd tensor descriptor.
 //
 //   - format: Input. Tensor format
 //   - dataType: Input. Tensor data type
-//   - nbDims: Input. Dimension of the tensor. Do not use 2 dimensions. Due to historical reasons, the minimum number of dimensions in the filter descriptor is three
 //   - dimA: Input. Array containing the size of each dimension
 //
 // Returns:
@@ -177,6 +165,6 @@ func (t TensorDescriptor) SetTensorNdDescriptor(dataType DataType, nbDims int32,
 //   - [Success]: The function was successful.
 //
 // Wraps cudnnSetTensorNdDescriptorEx.
-func (t TensorDescriptor) SetTensorNdDescriptorEx(format TensorFormat, dataType DataType, nbDims int32, dimA *int32) error {
-	return setTensorNdDescriptorEx(t, format, dataType, nbDims, dimA)
+func (t TensorDescriptor) SetEx(format TensorFormat, dataType DataType, dimA []int32) error {
+	return setTensorNdDescriptorEx(t, format, dataType, dimA)
 }

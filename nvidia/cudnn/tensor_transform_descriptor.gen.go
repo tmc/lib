@@ -18,9 +18,6 @@ func (t TensorTransformDescriptor) Destroy() error {
 //
 // This function returns the values stored in a previously initialized tensor transform descriptor.
 //
-//   - destFormat: Output. The transform format that will be returned
-//   - direction: Output. The setting that selects folding or unfolding. For more information, refer to [FoldingDirection]
-//
 // Returns:
 //   - [ErrBadParam]: If transformDesc is NULL or if nbDimsRequested is less than 3 or greater than CUDNN_DIM_MAX.
 //   - [Success]: The results were obtained successfully.
@@ -28,8 +25,8 @@ func (t TensorTransformDescriptor) Destroy() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetTensorTransformDescriptor.
-func (t TensorTransformDescriptor) Get(nbDimsRequested uint32, destFormat *TensorFormat, padBeforeA *int32, padAfterA *int32, foldA *uint32, direction *FoldingDirection) error {
-	return getTensorTransformDescriptor(t, nbDimsRequested, destFormat, padBeforeA, padAfterA, foldA, direction)
+func (t TensorTransformDescriptor) Get(nbDimsRequested int) (TensorTransformConfig, error) {
+	return getTensorTransformDescriptor(t, nbDimsRequested)
 }
 
 // InitTransformDest initializes and returns a destination tensor descriptor destDesc for tensor transform operations.
@@ -38,7 +35,6 @@ func (t TensorTransformDescriptor) Get(nbDimsRequested uint32, destFormat *Tenso
 //
 //   - srcDesc: Input. Handle to a previously initialized tensor descriptor
 //   - destDesc: Output. Handle of the tensor descriptor that will be initialized and returned
-//   - destSizeInBytes: Output. A pointer to hold the size, in bytes, of the new tensor
 //
 // Returns:
 //   - [ErrBadParam]: If either srcDesc or destDesc is NULL, or if the tensor descriptors nbDims is incorrect. For more information, refer to Tensor Descriptor..
@@ -49,8 +45,8 @@ func (t TensorTransformDescriptor) Get(nbDimsRequested uint32, destFormat *Tenso
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnInitTransformDest.
-func (t TensorTransformDescriptor) InitTransformDest(srcDesc TensorDescriptor, destDesc TensorDescriptor, destSizeInBytes *uint) error {
-	return initTransformDest(t, srcDesc, destDesc, destSizeInBytes)
+func (t TensorTransformDescriptor) InitTransformDest(srcDesc TensorDescriptor, destDesc TensorDescriptor) (destSizeInBytes int, err error) {
+	return initTransformDest(t, srcDesc, destDesc)
 }
 
 // Set initializes a tensor transform descriptor that was previously created using the [CreateTensorTransformDescriptor] function.

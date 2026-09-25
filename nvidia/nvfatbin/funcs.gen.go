@@ -158,14 +158,14 @@ func Create(options []string) (Handle, error) {
 
 // destroy [Handle.Destroy] destroys the handle.
 //
-//   - handle_indirect (in): Pointer to the handle
+//   - handleIndirect (in): Pointer to the handle
 //
 // Wraps nvFatbinDestroy.
-func destroy(handle_indirect *Handle) error {
+func destroy(handleIndirect *Handle) error {
 	if err := checkLibSym("nvFatbinDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle_indirect))
+	return toError(fndestroy(handleIndirect))
 }
 
 // get [Handle.Get] returns the completed fatbinary.

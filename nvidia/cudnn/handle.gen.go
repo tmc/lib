@@ -112,7 +112,7 @@ func (h Handle) BatchNormalizationBackward(mode BatchNormMode, alphaDataDiff uns
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnBatchNormalizationBackwardEx.
-func (h Handle) BatchNormalizationBackwardEx(mode BatchNormMode, bnOps BatchNormOps, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, yDesc TensorDescriptor, yData uintptr, dyDesc TensorDescriptor, dyData uintptr, dzDesc TensorDescriptor, dzData uintptr, dxDesc TensorDescriptor, dxData uintptr, dBnScaleBiasDesc TensorDescriptor, bnScaleData uintptr, bnBiasData uintptr, dBnScaleData uintptr, dBnBiasData uintptr, epsilon float64, savedMean uintptr, savedInvVariance uintptr, activationDesc ActivationDescriptor, workSpace uintptr, workSpaceSizeInBytes uint, reserveSpace uintptr, reserveSpaceSizeInBytes uint) error {
+func (h Handle) BatchNormalizationBackwardEx(mode BatchNormMode, bnOps BatchNormOps, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, yDesc TensorDescriptor, yData uintptr, dyDesc TensorDescriptor, dyData uintptr, dzDesc TensorDescriptor, dzData uintptr, dxDesc TensorDescriptor, dxData uintptr, dBnScaleBiasDesc TensorDescriptor, bnScaleData uintptr, bnBiasData uintptr, dBnScaleData uintptr, dBnBiasData uintptr, epsilon float64, savedMean uintptr, savedInvVariance uintptr, activationDesc ActivationDescriptor, workSpace uintptr, workSpaceSizeInBytes int, reserveSpace uintptr, reserveSpaceSizeInBytes int) error {
 	return batchNormalizationBackwardEx(h, mode, bnOps, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, xData, yDesc, yData, dyDesc, dyData, dzDesc, dzData, dxDesc, dxData, dBnScaleBiasDesc, bnScaleData, bnBiasData, dBnScaleData, dBnBiasData, epsilon, savedMean, savedInvVariance, activationDesc, workSpace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes)
 }
 
@@ -186,7 +186,7 @@ func (h Handle) BatchNormalizationForwardTraining(mode BatchNormMode, alpha unsa
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnBatchNormalizationForwardTrainingEx.
-func (h Handle) BatchNormalizationForwardTrainingEx(mode BatchNormMode, bnOps BatchNormOps, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, zDesc TensorDescriptor, zData uintptr, yDesc TensorDescriptor, yData uintptr, bnScaleBiasMeanVarDesc TensorDescriptor, bnScale uintptr, bnBias uintptr, exponentialAverageFactor float64, resultRunningMean uintptr, resultRunningVariance uintptr, epsilon float64, resultSaveMean uintptr, resultSaveInvVariance uintptr, activationDesc ActivationDescriptor, workspace uintptr, workSpaceSizeInBytes uint, reserveSpace uintptr, reserveSpaceSizeInBytes uint) error {
+func (h Handle) BatchNormalizationForwardTrainingEx(mode BatchNormMode, bnOps BatchNormOps, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, zDesc TensorDescriptor, zData uintptr, yDesc TensorDescriptor, yData uintptr, bnScaleBiasMeanVarDesc TensorDescriptor, bnScale uintptr, bnBias uintptr, exponentialAverageFactor float64, resultRunningMean uintptr, resultRunningVariance uintptr, epsilon float64, resultSaveMean uintptr, resultSaveInvVariance uintptr, activationDesc ActivationDescriptor, workspace uintptr, workSpaceSizeInBytes int, reserveSpace uintptr, reserveSpaceSizeInBytes int) error {
 	return batchNormalizationForwardTrainingEx(h, mode, bnOps, alpha, beta, xDesc, xData, zDesc, zData, yDesc, yData, bnScaleBiasMeanVarDesc, bnScale, bnBias, exponentialAverageFactor, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance, activationDesc, workspace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes)
 }
 
@@ -211,7 +211,7 @@ func (h Handle) BuildRNNDynamic(rnnDesc RNNDescriptor, miniBatch int32) error {
 
 // CTCLoss returns the CTC costs and gradients, given the probabilities and labels.
 //
-// This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with [CTCLossDescriptor.SetCTCLossDescriptorEx]). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
+// This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with cudnnSetCTCLossDescriptorEx()). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
 //
 //   - probsDesc: Input. Handle to the previously initialized probabilities tensor descriptor. For more information, refer to [TensorDescriptor]
 //   - probs: Input. Pointer to a previously initialized probabilities tensor. These input probabilities are normalized by softmax
@@ -231,13 +231,13 @@ func (h Handle) BuildRNNDynamic(rnnDesc RNNDescriptor, miniBatch int32) error {
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnCTCLoss.
-func (h Handle) CTCLoss(probsDesc TensorDescriptor, probs uintptr, hostLabels *int32, hostLabelLengths *int32, hostInputLengths *int32, costs uintptr, gradientsDesc TensorDescriptor, gradients uintptr, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, workspace uintptr, workSpaceSizeInBytes uint) error {
+func (h Handle) CTCLoss(probsDesc TensorDescriptor, probs uintptr, hostLabels *int32, hostLabelLengths *int32, hostInputLengths *int32, costs uintptr, gradientsDesc TensorDescriptor, gradients uintptr, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, workspace uintptr, workSpaceSizeInBytes int) error {
 	return cTCLoss(h, probsDesc, probs, hostLabels, hostLabelLengths, hostInputLengths, costs, gradientsDesc, gradients, algo, ctcLossDesc, workspace, workSpaceSizeInBytes)
 }
 
 // CTCLossV8 returns the CTC costs and gradients, given the probabilities and labels.
 //
-// This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with [CTCLossDescriptor.SetCTCLossDescriptorEx]). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
+// This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with cudnnSetCTCLossDescriptorEx()). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
 //
 //   - algo: Input. Enumerant that specifies the chosen CTC loss algorithm. For more information, refer to [CTCLossAlgo]
 //   - ctcLossDesc: Input. Handle to the previously initialized CTC loss descriptor. For more information, refer to [CTCLossDescriptor]
@@ -258,7 +258,7 @@ func (h Handle) CTCLoss(probsDesc TensorDescriptor, probs uintptr, hostLabels *i
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnCTCLoss_v8.
-func (h Handle) CTCLossV8(algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probsDesc TensorDescriptor, probs uintptr, labels *int32, labelLengths *int32, inputLengths *int32, costs uintptr, gradientsDesc TensorDescriptor, gradients uintptr, workSpaceSizeInBytes uint, workspace uintptr) error {
+func (h Handle) CTCLossV8(algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probsDesc TensorDescriptor, probs uintptr, labels *int32, labelLengths *int32, inputLengths *int32, costs uintptr, gradientsDesc TensorDescriptor, gradients uintptr, workSpaceSizeInBytes int, workspace uintptr) error {
 	return cTCLossV8(h, algo, ctcLossDesc, probsDesc, probs, labels, labelLengths, inputLengths, costs, gradientsDesc, gradients, workSpaceSizeInBytes, workspace)
 }
 
@@ -297,7 +297,7 @@ func (h Handle) ConvolutionBackwardBias(alpha unsafe.Pointer, dyDesc TensorDescr
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionBackwardData.
-func (h Handle) ConvolutionBackwardData(alpha unsafe.Pointer, wDesc FilterDescriptor, w uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, algo ConvolutionBwdDataAlgo, workSpace uintptr, workSpaceSizeInBytes uint, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
+func (h Handle) ConvolutionBackwardData(alpha unsafe.Pointer, wDesc FilterDescriptor, w uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, algo ConvolutionBwdDataAlgo, workSpace uintptr, workSpaceSizeInBytes int, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
 	return convolutionBackwardData(h, alpha, wDesc, w, dyDesc, dy, convDesc, algo, workSpace, workSpaceSizeInBytes, beta, dxDesc, dx)
 }
 
@@ -318,13 +318,13 @@ func (h Handle) ConvolutionBackwardData(alpha unsafe.Pointer, wDesc FilterDescri
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionBackwardFilter.
-func (h Handle) ConvolutionBackwardFilter(alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, algo ConvolutionBwdFilterAlgo, workSpace uintptr, workSpaceSizeInBytes uint, beta unsafe.Pointer, dwDesc FilterDescriptor, dw uintptr) error {
+func (h Handle) ConvolutionBackwardFilter(alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, algo ConvolutionBwdFilterAlgo, workSpace uintptr, workSpaceSizeInBytes int, beta unsafe.Pointer, dwDesc FilterDescriptor, dw uintptr) error {
 	return convolutionBackwardFilter(h, alpha, xDesc, x, dyDesc, dy, convDesc, algo, workSpace, workSpaceSizeInBytes, beta, dwDesc, dw)
 }
 
 // ConvolutionBiasActivationForward applies a bias and then an activation to the convolutions or cross-correlations of [Handle.ConvolutionForward], returning results in y.
 //
-// This function applies a bias and then an activation to the convolutions or cross-correlations of [Handle.ConvolutionForward], returning results in y. The full computation follows the equation y = act (alpha1 * conv(x) + alpha2 * z + bias). The routine [ConvolutionDescriptor.Convolution2dForwardOutputDim] or [ConvolutionDescriptor.ConvolutionNdForwardOutputDim] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc. Only the [ConvolutionFwdAlgoImplicitPrecompGemm] algo is enabled with [ActivationIdentity]. In other words, in the [ActivationDescriptor] structure of the input activationDesc, if the mode of the [ActivationMode] field is set to the enum value [ActivationIdentity], then the input [ConvolutionFwdAlgo] of this function [Handle.ConvolutionBiasActivationForward] must be set to the enum value [ConvolutionFwdAlgoImplicitPrecompGemm]. For more information, refer to [ActivationDescriptor.Set]. Device pointer z and y may be pointing to the same buffer, however, x cannot point to the same buffer as z or y.
+// This function applies a bias and then an activation to the convolutions or cross-correlations of [Handle.ConvolutionForward], returning results in y. The full computation follows the equation y = act (alpha1 * conv(x) + alpha2 * z + bias). The routine [ConvolutionDescriptor.ForwardOutputDim2D] or [ConvolutionDescriptor.ForwardOutputDims] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc. Only the [ConvolutionFwdAlgoImplicitPrecompGemm] algo is enabled with [ActivationIdentity]. In other words, in the [ActivationDescriptor] structure of the input activationDesc, if the mode of the [ActivationMode] field is set to the enum value [ActivationIdentity], then the input [ConvolutionFwdAlgo] of this function [Handle.ConvolutionBiasActivationForward] must be set to the enum value [ConvolutionFwdAlgoImplicitPrecompGemm]. For more information, refer to [ActivationDescriptor.Set]. Device pointer z and y may be pointing to the same buffer, however, x cannot point to the same buffer as z or y.
 //
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionFwdAlgo]
 //   - zDesc: Input. Handle to a previously initialized tensor descriptor
@@ -340,13 +340,13 @@ func (h Handle) ConvolutionBackwardFilter(alpha unsafe.Pointer, xDesc TensorDesc
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionBiasActivationForward.
-func (h Handle) ConvolutionBiasActivationForward(alpha1 unsafe.Pointer, xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, algo ConvolutionFwdAlgo, workSpace uintptr, workSpaceSizeInBytes uint, alpha2 unsafe.Pointer, zDesc TensorDescriptor, z uintptr, biasDesc TensorDescriptor, bias uintptr, activationDesc ActivationDescriptor, yDesc TensorDescriptor, y uintptr) error {
+func (h Handle) ConvolutionBiasActivationForward(alpha1 unsafe.Pointer, xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, algo ConvolutionFwdAlgo, workSpace uintptr, workSpaceSizeInBytes int, alpha2 unsafe.Pointer, zDesc TensorDescriptor, z uintptr, biasDesc TensorDescriptor, bias uintptr, activationDesc ActivationDescriptor, yDesc TensorDescriptor, y uintptr) error {
 	return convolutionBiasActivationForward(h, alpha1, xDesc, x, wDesc, w, convDesc, algo, workSpace, workSpaceSizeInBytes, alpha2, zDesc, z, biasDesc, bias, activationDesc, yDesc, y)
 }
 
 // ConvolutionForward executes convolutions or cross-correlations over x using filters specified with w, returning results in y.
 //
-// This function executes convolutions or cross-correlations over x using filters specified with w, returning results in y. Scaling factors alpha and beta can be used to scale the input tensor and the output tensor respectively. The routine [ConvolutionDescriptor.Convolution2dForwardOutputDim] or [ConvolutionDescriptor.ConvolutionNdForwardOutputDim] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc.
+// This function executes convolutions or cross-correlations over x using filters specified with w, returning results in y. Scaling factors alpha and beta can be used to scale the input tensor and the output tensor respectively. The routine [ConvolutionDescriptor.ForwardOutputDim2D] or [ConvolutionDescriptor.ForwardOutputDims] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc.
 //
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionFwdAlgo]
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
@@ -361,7 +361,7 @@ func (h Handle) ConvolutionBiasActivationForward(alpha1 unsafe.Pointer, xDesc Te
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionForward.
-func (h Handle) ConvolutionForward(alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, algo ConvolutionFwdAlgo, workSpace uintptr, workSpaceSizeInBytes uint, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func (h Handle) ConvolutionForward(alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, algo ConvolutionFwdAlgo, workSpace uintptr, workSpaceSizeInBytes int, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
 	return convolutionForward(h, alpha, xDesc, x, wDesc, w, convDesc, algo, workSpace, workSpaceSizeInBytes, beta, yDesc, y)
 }
 
@@ -432,7 +432,7 @@ func (h Handle) DivisiveNormalizationForward(normDesc LRNDescriptor, mode DivNor
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnDropoutBackward.
-func (h Handle) DropoutBackward(dropoutDesc DropoutDescriptor, dydesc TensorDescriptor, dy uintptr, dxdesc TensorDescriptor, dx uintptr, reserveSpace uintptr, reserveSpaceSizeInBytes uint) error {
+func (h Handle) DropoutBackward(dropoutDesc DropoutDescriptor, dydesc TensorDescriptor, dy uintptr, dxdesc TensorDescriptor, dx uintptr, reserveSpace uintptr, reserveSpaceSizeInBytes int) error {
 	return dropoutBackward(h, dropoutDesc, dydesc, dy, dxdesc, dx, reserveSpace, reserveSpaceSizeInBytes)
 }
 
@@ -451,7 +451,7 @@ func (h Handle) DropoutBackward(dropoutDesc DropoutDescriptor, dydesc TensorDesc
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnDropoutForward.
-func (h Handle) DropoutForward(dropoutDesc DropoutDescriptor, xdesc TensorDescriptor, x uintptr, ydesc TensorDescriptor, y uintptr, reserveSpace uintptr, reserveSpaceSizeInBytes uint) error {
+func (h Handle) DropoutForward(dropoutDesc DropoutDescriptor, xdesc TensorDescriptor, x uintptr, ydesc TensorDescriptor, y uintptr, reserveSpace uintptr, reserveSpaceSizeInBytes int) error {
 	return dropoutForward(h, dropoutDesc, xdesc, x, ydesc, y, reserveSpace, reserveSpaceSizeInBytes)
 }
 
@@ -461,7 +461,7 @@ func (h Handle) DropoutForward(dropoutDesc DropoutDescriptor, xdesc TensorDescri
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnDropoutGetStatesSize.
-func (h Handle) DropoutGetStatesSize() (uint, error) {
+func (h Handle) DropoutGetStatesSize() (sizeInBytes int, err error) {
 	return dropoutGetStatesSize(h)
 }
 
@@ -473,7 +473,6 @@ func (h Handle) DropoutGetStatesSize() (uint, error) {
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrAllocFailed]: This function was unable to allocate memory to store sample input, filters, and output.
@@ -484,8 +483,8 @@ func (h Handle) DropoutGetStatesSize() (uint, error) {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionBackwardDataAlgorithm.
-func (h Handle) FindConvolutionBackwardDataAlgorithm(wDesc FilterDescriptor, dyDesc TensorDescriptor, convDesc ConvolutionDescriptor, dxDesc TensorDescriptor, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionBwdDataAlgoPerf) error {
-	return findConvolutionBackwardDataAlgorithm(h, wDesc, dyDesc, convDesc, dxDesc, requestedAlgoCount, returnedAlgoCount, perfResults)
+func (h Handle) FindConvolutionBackwardDataAlgorithm(wDesc FilterDescriptor, dyDesc TensorDescriptor, convDesc ConvolutionDescriptor, dxDesc TensorDescriptor, requestedAlgoCount int) (perfResults []ConvolutionBwdDataAlgoPerf, err error) {
+	return findConvolutionBackwardDataAlgorithm(h, wDesc, dyDesc, convDesc, dxDesc, requestedAlgoCount)
 }
 
 // FindConvolutionBackwardDataAlgorithmEx attempts all algorithms available for [Handle.ConvolutionBackwardData].
@@ -494,7 +493,6 @@ func (h Handle) FindConvolutionBackwardDataAlgorithm(wDesc FilterDescriptor, dyD
 //
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dxDesc: The content of this tensor will be overwritten with arbitrary values
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met:
@@ -504,8 +502,8 @@ func (h Handle) FindConvolutionBackwardDataAlgorithm(wDesc FilterDescriptor, dyD
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionBackwardDataAlgorithmEx.
-func (h Handle) FindConvolutionBackwardDataAlgorithmEx(wDesc FilterDescriptor, w uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, dxDesc TensorDescriptor, dx uintptr, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionBwdDataAlgoPerf, workSpace uintptr, workSpaceSizeInBytes uint) error {
-	return findConvolutionBackwardDataAlgorithmEx(h, wDesc, w, dyDesc, dy, convDesc, dxDesc, dx, requestedAlgoCount, returnedAlgoCount, perfResults, workSpace, workSpaceSizeInBytes)
+func (h Handle) FindConvolutionBackwardDataAlgorithmEx(wDesc FilterDescriptor, w uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, dxDesc TensorDescriptor, dx uintptr, requestedAlgoCount int, workSpace uintptr, workSpaceSizeInBytes int) (perfResults []ConvolutionBwdDataAlgoPerf, err error) {
+	return findConvolutionBackwardDataAlgorithmEx(h, wDesc, w, dyDesc, dy, convDesc, dxDesc, dx, requestedAlgoCount, workSpace, workSpaceSizeInBytes)
 }
 
 // FindConvolutionBackwardFilterAlgorithm attempts all algorithms available for [Handle.ConvolutionBackwardFilter].
@@ -516,7 +514,6 @@ func (h Handle) FindConvolutionBackwardDataAlgorithmEx(wDesc FilterDescriptor, w
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dwDesc: Input. Handle to a previously initialized filter descriptor
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: [ErrAllocFailed] This function was unable to allocate memory to store sample input, filters and output. [ErrInternalError] At least one of the following conditions are met:
@@ -525,8 +522,8 @@ func (h Handle) FindConvolutionBackwardDataAlgorithmEx(wDesc FilterDescriptor, w
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionBackwardFilterAlgorithm.
-func (h Handle) FindConvolutionBackwardFilterAlgorithm(xDesc TensorDescriptor, dyDesc TensorDescriptor, convDesc ConvolutionDescriptor, dwDesc FilterDescriptor, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionBwdFilterAlgoPerf) error {
-	return findConvolutionBackwardFilterAlgorithm(h, xDesc, dyDesc, convDesc, dwDesc, requestedAlgoCount, returnedAlgoCount, perfResults)
+func (h Handle) FindConvolutionBackwardFilterAlgorithm(xDesc TensorDescriptor, dyDesc TensorDescriptor, convDesc ConvolutionDescriptor, dwDesc FilterDescriptor, requestedAlgoCount int) (perfResults []ConvolutionBwdFilterAlgoPerf, err error) {
+	return findConvolutionBackwardFilterAlgorithm(h, xDesc, dyDesc, convDesc, dwDesc, requestedAlgoCount)
 }
 
 // FindConvolutionBackwardFilterAlgorithmEx attempts all algorithms available for [Handle.ConvolutionBackwardFilter].
@@ -536,7 +533,6 @@ func (h Handle) FindConvolutionBackwardFilterAlgorithm(xDesc TensorDescriptor, d
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dwDesc: The content of this tensor will be overwritten with arbitrary values
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: [ErrInternalError] At least one of the following conditions are met:
@@ -545,8 +541,8 @@ func (h Handle) FindConvolutionBackwardFilterAlgorithm(xDesc TensorDescriptor, d
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionBackwardFilterAlgorithmEx.
-func (h Handle) FindConvolutionBackwardFilterAlgorithmEx(xDesc TensorDescriptor, x uintptr, dyDesc TensorDescriptor, y uintptr, convDesc ConvolutionDescriptor, dwDesc FilterDescriptor, dw uintptr, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionBwdFilterAlgoPerf, workSpace uintptr, workSpaceSizeInBytes uint) error {
-	return findConvolutionBackwardFilterAlgorithmEx(h, xDesc, x, dyDesc, y, convDesc, dwDesc, dw, requestedAlgoCount, returnedAlgoCount, perfResults, workSpace, workSpaceSizeInBytes)
+func (h Handle) FindConvolutionBackwardFilterAlgorithmEx(xDesc TensorDescriptor, x uintptr, dyDesc TensorDescriptor, y uintptr, convDesc ConvolutionDescriptor, dwDesc FilterDescriptor, dw uintptr, requestedAlgoCount int, workSpace uintptr, workSpaceSizeInBytes int) (perfResults []ConvolutionBwdFilterAlgoPerf, err error) {
+	return findConvolutionBackwardFilterAlgorithmEx(h, xDesc, x, dyDesc, y, convDesc, dwDesc, dw, requestedAlgoCount, workSpace, workSpaceSizeInBytes)
 }
 
 // FindConvolutionForwardAlgorithm attempts all algorithms available for [Handle.ConvolutionForward].
@@ -557,7 +553,6 @@ func (h Handle) FindConvolutionBackwardFilterAlgorithmEx(xDesc TensorDescriptor,
 //   - wDesc: Input. Handle to a previously initialized filter descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - yDesc: Input. Handle to the previously initialized output tensor descriptor
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrAllocFailed]: This function was unable to allocate memory to store sample input, filters, and output. [ErrInternalError] At least one of the following conditions are met:
@@ -567,8 +562,8 @@ func (h Handle) FindConvolutionBackwardFilterAlgorithmEx(xDesc TensorDescriptor,
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionForwardAlgorithm.
-func (h Handle) FindConvolutionForwardAlgorithm(xDesc TensorDescriptor, wDesc FilterDescriptor, convDesc ConvolutionDescriptor, yDesc TensorDescriptor, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionFwdAlgoPerf) error {
-	return findConvolutionForwardAlgorithm(h, xDesc, wDesc, convDesc, yDesc, requestedAlgoCount, returnedAlgoCount, perfResults)
+func (h Handle) FindConvolutionForwardAlgorithm(xDesc TensorDescriptor, wDesc FilterDescriptor, convDesc ConvolutionDescriptor, yDesc TensorDescriptor, requestedAlgoCount int) (perfResults []ConvolutionFwdAlgoPerf, err error) {
+	return findConvolutionForwardAlgorithm(h, xDesc, wDesc, convDesc, yDesc, requestedAlgoCount)
 }
 
 // FindConvolutionForwardAlgorithmEx attempts all algorithms available for [Handle.ConvolutionForward].
@@ -577,7 +572,6 @@ func (h Handle) FindConvolutionForwardAlgorithm(xDesc TensorDescriptor, wDesc Fi
 //
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - yDesc: The content of this tensor will be overwritten with arbitrary values
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: [ErrInternalError] At least one of the following conditions are met:
@@ -586,8 +580,8 @@ func (h Handle) FindConvolutionForwardAlgorithm(xDesc TensorDescriptor, wDesc Fi
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionForwardAlgorithmEx.
-func (h Handle) FindConvolutionForwardAlgorithmEx(xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, yDesc TensorDescriptor, y uintptr, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionFwdAlgoPerf, workSpace uintptr, workSpaceSizeInBytes uint) error {
-	return findConvolutionForwardAlgorithmEx(h, xDesc, x, wDesc, w, convDesc, yDesc, y, requestedAlgoCount, returnedAlgoCount, perfResults, workSpace, workSpaceSizeInBytes)
+func (h Handle) FindConvolutionForwardAlgorithmEx(xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, yDesc TensorDescriptor, y uintptr, requestedAlgoCount int, workSpace uintptr, workSpaceSizeInBytes int) (perfResults []ConvolutionFwdAlgoPerf, err error) {
+	return findConvolutionForwardAlgorithmEx(h, xDesc, x, wDesc, w, convDesc, yDesc, y, requestedAlgoCount, workSpace, workSpaceSizeInBytes)
 }
 
 // FusedOpsExecute executes the sequence of cudnnFusedOps operations.
@@ -620,7 +614,7 @@ func (h Handle) FusedOpsExecute(plan FusedOpsPlan, varPack FusedOpsVariantParamP
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetBatchNormalizationBackwardExWorkspaceSize.
-func (h Handle) BatchNormalizationBackwardExWorkspaceSize(mode BatchNormMode, bnOps BatchNormOps, xDesc TensorDescriptor, yDesc TensorDescriptor, dyDesc TensorDescriptor, dzDesc TensorDescriptor, dxDesc TensorDescriptor, dBnScaleBiasDesc TensorDescriptor, activationDesc ActivationDescriptor) (uint, error) {
+func (h Handle) BatchNormalizationBackwardExWorkspaceSize(mode BatchNormMode, bnOps BatchNormOps, xDesc TensorDescriptor, yDesc TensorDescriptor, dyDesc TensorDescriptor, dzDesc TensorDescriptor, dxDesc TensorDescriptor, dBnScaleBiasDesc TensorDescriptor, activationDesc ActivationDescriptor) (sizeInBytes int, err error) {
 	return getBatchNormalizationBackwardExWorkspaceSize(h, mode, bnOps, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dBnScaleBiasDesc, activationDesc)
 }
 
@@ -640,7 +634,7 @@ func (h Handle) BatchNormalizationBackwardExWorkspaceSize(mode BatchNormMode, bn
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize.
-func (h Handle) BatchNormalizationForwardTrainingExWorkspaceSize(mode BatchNormMode, bnOps BatchNormOps, xDesc TensorDescriptor, zDesc TensorDescriptor, yDesc TensorDescriptor, bnScaleBiasMeanVarDesc TensorDescriptor, activationDesc ActivationDescriptor) (uint, error) {
+func (h Handle) BatchNormalizationForwardTrainingExWorkspaceSize(mode BatchNormMode, bnOps BatchNormOps, xDesc TensorDescriptor, zDesc TensorDescriptor, yDesc TensorDescriptor, bnScaleBiasMeanVarDesc TensorDescriptor, activationDesc ActivationDescriptor) (sizeInBytes int, err error) {
 	return getBatchNormalizationForwardTrainingExWorkspaceSize(h, mode, bnOps, xDesc, zDesc, yDesc, bnScaleBiasMeanVarDesc, activationDesc)
 }
 
@@ -659,7 +653,7 @@ func (h Handle) BatchNormalizationForwardTrainingExWorkspaceSize(mode BatchNormM
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetBatchNormalizationTrainingExReserveSpaceSize.
-func (h Handle) BatchNormalizationTrainingExReserveSpaceSize(mode BatchNormMode, bnOps BatchNormOps, activationDesc ActivationDescriptor, xDesc TensorDescriptor) (uint, error) {
+func (h Handle) BatchNormalizationTrainingExReserveSpaceSize(mode BatchNormMode, bnOps BatchNormOps, activationDesc ActivationDescriptor, xDesc TensorDescriptor) (sizeInBytes int, err error) {
 	return getBatchNormalizationTrainingExReserveSpaceSize(h, mode, bnOps, activationDesc, xDesc)
 }
 
@@ -680,7 +674,7 @@ func (h Handle) BatchNormalizationTrainingExReserveSpaceSize(mode BatchNormMode,
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnGetCTCLossWorkspaceSize.
-func (h Handle) CTCLossWorkspaceSize(probsDesc TensorDescriptor, gradientsDesc TensorDescriptor, labels *int32, labelLengths *int32, inputLengths *int32, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor) (uint, error) {
+func (h Handle) CTCLossWorkspaceSize(probsDesc TensorDescriptor, gradientsDesc TensorDescriptor, labels *int32, labelLengths *int32, inputLengths *int32, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor) (sizeInBytes int, err error) {
 	return getCTCLossWorkspaceSize(h, probsDesc, gradientsDesc, labels, labelLengths, inputLengths, algo, ctcLossDesc)
 }
 
@@ -698,15 +692,13 @@ func (h Handle) CTCLossWorkspaceSize(probsDesc TensorDescriptor, gradientsDesc T
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnGetCTCLossWorkspaceSize_v8.
-func (h Handle) CTCLossWorkspaceSizeV8(algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probsDesc TensorDescriptor, gradientsDesc TensorDescriptor) (uint, error) {
+func (h Handle) CTCLossWorkspaceSizeV8(algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probsDesc TensorDescriptor, gradientsDesc TensorDescriptor) (sizeInBytes int, err error) {
 	return getCTCLossWorkspaceSizeV8(h, algo, ctcLossDesc, probsDesc, gradientsDesc)
 }
 
 // ConvolutionBackwardDataAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardDataAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
 //
 // This function returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardDataAlgorithm] and [Handle.ConvolutionForwardAlgorithm]. This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
-//
-//   - count: Output. The resulting maximum number of algorithms
 //
 // Returns:
 //   - [ErrBadParam]: The provided handle is not allocated properly.
@@ -715,8 +707,8 @@ func (h Handle) CTCLossWorkspaceSizeV8(algo CTCLossAlgo, ctcLossDesc CTCLossDesc
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionBackwardDataAlgorithmMaxCount.
-func (h Handle) ConvolutionBackwardDataAlgorithmMaxCount(count *int32) error {
-	return getConvolutionBackwardDataAlgorithmMaxCount(h, count)
+func (h Handle) ConvolutionBackwardDataAlgorithmMaxCount() (count int32, err error) {
+	return getConvolutionBackwardDataAlgorithmMaxCount(h)
 }
 
 // ConvolutionBackwardDataAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardData] for the given layer specifications.
@@ -724,7 +716,6 @@ func (h Handle) ConvolutionBackwardDataAlgorithmMaxCount(count *int32) error {
 // This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardData] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionBackwardDataAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - convDesc: Input. Previously initialized convolution descriptor
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met:
@@ -733,8 +724,8 @@ func (h Handle) ConvolutionBackwardDataAlgorithmMaxCount(count *int32) error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionBackwardDataAlgorithm_v7.
-func (h Handle) ConvolutionBackwardDataAlgorithm(filterDesc FilterDescriptor, diffDesc TensorDescriptor, convDesc ConvolutionDescriptor, gradDesc TensorDescriptor, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionBwdDataAlgoPerf) error {
-	return getConvolutionBackwardDataAlgorithm(h, filterDesc, diffDesc, convDesc, gradDesc, requestedAlgoCount, returnedAlgoCount, perfResults)
+func (h Handle) ConvolutionBackwardDataAlgorithm(filterDesc FilterDescriptor, diffDesc TensorDescriptor, convDesc ConvolutionDescriptor, gradDesc TensorDescriptor, requestedAlgoCount int) (perfResults []ConvolutionBwdDataAlgoPerf, err error) {
+	return getConvolutionBackwardDataAlgorithm(h, filterDesc, diffDesc, convDesc, gradDesc, requestedAlgoCount)
 }
 
 // ConvolutionBackwardDataWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardData] with the specified algorithm.
@@ -754,15 +745,13 @@ func (h Handle) ConvolutionBackwardDataAlgorithm(filterDesc FilterDescriptor, di
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionBackwardDataWorkspaceSize.
-func (h Handle) ConvolutionBackwardDataWorkspaceSize(wDesc FilterDescriptor, dyDesc TensorDescriptor, convDesc ConvolutionDescriptor, dxDesc TensorDescriptor, algo ConvolutionBwdDataAlgo) (uint, error) {
+func (h Handle) ConvolutionBackwardDataWorkspaceSize(wDesc FilterDescriptor, dyDesc TensorDescriptor, convDesc ConvolutionDescriptor, dxDesc TensorDescriptor, algo ConvolutionBwdDataAlgo) (sizeInBytes int, err error) {
 	return getConvolutionBackwardDataWorkspaceSize(h, wDesc, dyDesc, convDesc, dxDesc, algo)
 }
 
 // ConvolutionBackwardFilterAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardFilterAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
 //
 // This function returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardFilterAlgorithm] and [Handle.ConvolutionForwardAlgorithm]. This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
-//
-//   - count: Output. The resulting maximum count of algorithms
 //
 // Returns:
 //   - [ErrBadParam]: The provided handle is not allocated properly.
@@ -771,8 +760,8 @@ func (h Handle) ConvolutionBackwardDataWorkspaceSize(wDesc FilterDescriptor, dyD
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionBackwardFilterAlgorithmMaxCount.
-func (h Handle) ConvolutionBackwardFilterAlgorithmMaxCount(count *int32) error {
-	return getConvolutionBackwardFilterAlgorithmMaxCount(h, count)
+func (h Handle) ConvolutionBackwardFilterAlgorithmMaxCount() (count int32, err error) {
+	return getConvolutionBackwardFilterAlgorithmMaxCount(h)
 }
 
 // ConvolutionBackwardFilterAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardFilter] for the given layer specifications.
@@ -780,7 +769,6 @@ func (h Handle) ConvolutionBackwardFilterAlgorithmMaxCount(count *int32) error {
 // This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardFilter] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionBackwardFilterAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - convDesc: Input. Previously initialized convolution descriptor
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met:
@@ -789,8 +777,8 @@ func (h Handle) ConvolutionBackwardFilterAlgorithmMaxCount(count *int32) error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionBackwardFilterAlgorithm_v7.
-func (h Handle) ConvolutionBackwardFilterAlgorithm(srcDesc TensorDescriptor, diffDesc TensorDescriptor, convDesc ConvolutionDescriptor, gradDesc FilterDescriptor, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionBwdFilterAlgoPerf) error {
-	return getConvolutionBackwardFilterAlgorithm(h, srcDesc, diffDesc, convDesc, gradDesc, requestedAlgoCount, returnedAlgoCount, perfResults)
+func (h Handle) ConvolutionBackwardFilterAlgorithm(srcDesc TensorDescriptor, diffDesc TensorDescriptor, convDesc ConvolutionDescriptor, gradDesc FilterDescriptor, requestedAlgoCount int) (perfResults []ConvolutionBwdFilterAlgoPerf, err error) {
+	return getConvolutionBackwardFilterAlgorithm(h, srcDesc, diffDesc, convDesc, gradDesc, requestedAlgoCount)
 }
 
 // ConvolutionBackwardFilterWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardFilter] with the specified algorithm.
@@ -809,15 +797,13 @@ func (h Handle) ConvolutionBackwardFilterAlgorithm(srcDesc TensorDescriptor, dif
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionBackwardFilterWorkspaceSize.
-func (h Handle) ConvolutionBackwardFilterWorkspaceSize(xDesc TensorDescriptor, dyDesc TensorDescriptor, convDesc ConvolutionDescriptor, gradDesc FilterDescriptor, algo ConvolutionBwdFilterAlgo) (uint, error) {
+func (h Handle) ConvolutionBackwardFilterWorkspaceSize(xDesc TensorDescriptor, dyDesc TensorDescriptor, convDesc ConvolutionDescriptor, gradDesc FilterDescriptor, algo ConvolutionBwdFilterAlgo) (sizeInBytes int, err error) {
 	return getConvolutionBackwardFilterWorkspaceSize(h, xDesc, dyDesc, convDesc, gradDesc, algo)
 }
 
 // ConvolutionForwardAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionForwardAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
 //
 // This function returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionForwardAlgorithm] and [Handle.ConvolutionForwardAlgorithm]. This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
-//
-//   - count: Output. The resulting maximum number of algorithms
 //
 // Returns:
 //   - [ErrBadParam]: The provided handle is not allocated properly.
@@ -826,8 +812,8 @@ func (h Handle) ConvolutionBackwardFilterWorkspaceSize(xDesc TensorDescriptor, d
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionForwardAlgorithmMaxCount.
-func (h Handle) ConvolutionForwardAlgorithmMaxCount(count *int32) error {
-	return getConvolutionForwardAlgorithmMaxCount(h, count)
+func (h Handle) ConvolutionForwardAlgorithmMaxCount() (count int32, err error) {
+	return getConvolutionForwardAlgorithmMaxCount(h)
 }
 
 // ConvolutionForwardAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionForward] for the given layer specifications.
@@ -835,7 +821,6 @@ func (h Handle) ConvolutionForwardAlgorithmMaxCount(count *int32) error {
 // This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionForward] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionForwardAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - convDesc: Input. Previously initialized convolution descriptor
-//   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met:
@@ -844,8 +829,8 @@ func (h Handle) ConvolutionForwardAlgorithmMaxCount(count *int32) error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionForwardAlgorithm_v7.
-func (h Handle) ConvolutionForwardAlgorithm(srcDesc TensorDescriptor, filterDesc FilterDescriptor, convDesc ConvolutionDescriptor, destDesc TensorDescriptor, requestedAlgoCount int32, returnedAlgoCount *int32, perfResults *ConvolutionFwdAlgoPerf) error {
-	return getConvolutionForwardAlgorithm(h, srcDesc, filterDesc, convDesc, destDesc, requestedAlgoCount, returnedAlgoCount, perfResults)
+func (h Handle) ConvolutionForwardAlgorithm(srcDesc TensorDescriptor, filterDesc FilterDescriptor, convDesc ConvolutionDescriptor, destDesc TensorDescriptor, requestedAlgoCount int) (perfResults []ConvolutionFwdAlgoPerf, err error) {
+	return getConvolutionForwardAlgorithm(h, srcDesc, filterDesc, convDesc, destDesc, requestedAlgoCount)
 }
 
 // ConvolutionForwardWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionForward] with the specified algorithm.
@@ -863,7 +848,7 @@ func (h Handle) ConvolutionForwardAlgorithm(srcDesc TensorDescriptor, filterDesc
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionForwardWorkspaceSize.
-func (h Handle) ConvolutionForwardWorkspaceSize(xDesc TensorDescriptor, wDesc FilterDescriptor, convDesc ConvolutionDescriptor, yDesc TensorDescriptor, algo ConvolutionFwdAlgo) (uint, error) {
+func (h Handle) ConvolutionForwardWorkspaceSize(xDesc TensorDescriptor, wDesc FilterDescriptor, convDesc ConvolutionDescriptor, yDesc TensorDescriptor, algo ConvolutionFwdAlgo) (sizeInBytes int, err error) {
 	return getConvolutionForwardWorkspaceSize(h, xDesc, wDesc, convDesc, yDesc, algo)
 }
 
@@ -899,8 +884,6 @@ func (h Handle) FoldedConvBackwardDataDescriptors(filterDesc FilterDescriptor, d
 // This function computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights]. This situation occurs in the inference mode. The user must allocate weight, work, and reserve space buffer sizes in the GPU memory using cudaMalloc() with the reported buffer sizes. The buffers can be also carved out from a larger chunk of allocated memory but the buffer addresses must be at least 16B aligned. The workspace buffer is used for temporary storage. Its content can be discarded or modified after all GPU kernels launched by the corresponding API complete. The reserve-space buffer is used to transfer intermediate results from [Handle.MultiHeadAttnForward] to [Handle.MultiHeadAttnBackwardData], and from [Handle.MultiHeadAttnBackwardData] to [Handle.MultiHeadAttnBackwardWeights]. The content of the reserve-space buffer cannot be modified until all GPU kernels launched by the above three multihead attention API functions finish. All multihead attention weight and bias tensors are stored in a single weight buffer. For speed optimizations, the cuDNN API may change tensor layouts and their relative locations in the weight buffer based on the provided attention parameters. Use the [Handle.MultiHeadAttnWeights] function to obtain the start address and the shape of each weight or bias tensor.
 //
 //   - attnDesc: Input. Pointer to a previously initialized attention descriptor
-//   - weightSizeInBytes: Output. Minimum buffer size required to store all multihead attention trainable parameters
-//   - workSpaceSizeInBytes: Output. Minimum buffer size required to hold all temporary surfaces used by the forward and gradient multihead attention API calls
 //
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was found.
@@ -909,8 +892,8 @@ func (h Handle) FoldedConvBackwardDataDescriptors(filterDesc FilterDescriptor, d
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetMultiHeadAttnBuffers.
-func (h Handle) MultiHeadAttnBuffers(attnDesc AttnDescriptor, weightSizeInBytes *uint, workSpaceSizeInBytes *uint, reserveSpaceSizeInBytes *uint) error {
-	return getMultiHeadAttnBuffers(h, attnDesc, weightSizeInBytes, workSpaceSizeInBytes, reserveSpaceSizeInBytes)
+func (h Handle) MultiHeadAttnBuffers(attnDesc AttnDescriptor) (weightSizeInBytes int, workSpaceSizeInBytes int, reserveSpaceSizeInBytes int, err error) {
+	return getMultiHeadAttnBuffers(h, attnDesc)
 }
 
 // MultiHeadAttnWeights obtains the shape of the weight or bias tensor.
@@ -920,7 +903,6 @@ func (h Handle) MultiHeadAttnBuffers(attnDesc AttnDescriptor, weightSizeInBytes 
 //   - attnDesc: Input. A previously configured attention descriptor
 //   - wKind: Input. Enumerant type to specify which weight or bias tensor should be retrieved
 //   - weightSizeInBytes: Input. Buffer size that stores all multihead attention weights and biases
-//   - wAddr: is
 //
 // Returns:
 //   - [ErrBadParam]: An invalid or incompatible input argument was encountered. For example, wKind did not have a valid value or weightSizeInBytes was too small.
@@ -929,8 +911,8 @@ func (h Handle) MultiHeadAttnBuffers(attnDesc AttnDescriptor, weightSizeInBytes 
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetMultiHeadAttnWeights.
-func (h Handle) MultiHeadAttnWeights(attnDesc AttnDescriptor, wKind MultiHeadAttnWeightKind, weightSizeInBytes uint, weights uintptr, wDesc TensorDescriptor, wAddr *uintptr) error {
-	return getMultiHeadAttnWeights(h, attnDesc, wKind, weightSizeInBytes, weights, wDesc, wAddr)
+func (h Handle) MultiHeadAttnWeights(attnDesc AttnDescriptor, wKind MultiHeadAttnWeightKind, weightSizeInBytes int, weights uintptr, wDesc TensorDescriptor) (wAddr uintptr, err error) {
+	return getMultiHeadAttnWeights(h, attnDesc, wKind, weightSizeInBytes, weights, wDesc)
 }
 
 // NormalizationBackwardWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationBackward] function for the specified normOps and algo input setting.
@@ -949,7 +931,7 @@ func (h Handle) MultiHeadAttnWeights(attnDesc AttnDescriptor, wKind MultiHeadAtt
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetNormalizationBackwardWorkspaceSize.
-func (h Handle) NormalizationBackwardWorkspaceSize(mode NormMode, normOps NormOps, algo NormAlgo, xDesc TensorDescriptor, yDesc TensorDescriptor, dyDesc TensorDescriptor, dzDesc TensorDescriptor, dxDesc TensorDescriptor, dNormScaleBiasDesc TensorDescriptor, activationDesc ActivationDescriptor, normMeanVarDesc TensorDescriptor, groupCnt int32) (uint, error) {
+func (h Handle) NormalizationBackwardWorkspaceSize(mode NormMode, normOps NormOps, algo NormAlgo, xDesc TensorDescriptor, yDesc TensorDescriptor, dyDesc TensorDescriptor, dzDesc TensorDescriptor, dxDesc TensorDescriptor, dNormScaleBiasDesc TensorDescriptor, activationDesc ActivationDescriptor, normMeanVarDesc TensorDescriptor, groupCnt int32) (sizeInBytes int, err error) {
 	return getNormalizationBackwardWorkspaceSize(h, mode, normOps, algo, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dNormScaleBiasDesc, activationDesc, normMeanVarDesc, groupCnt)
 }
 
@@ -969,7 +951,7 @@ func (h Handle) NormalizationBackwardWorkspaceSize(mode NormMode, normOps NormOp
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetNormalizationForwardTrainingWorkspaceSize.
-func (h Handle) NormalizationForwardTrainingWorkspaceSize(mode NormMode, normOps NormOps, algo NormAlgo, xDesc TensorDescriptor, zDesc TensorDescriptor, yDesc TensorDescriptor, normScaleBiasDesc TensorDescriptor, activationDesc ActivationDescriptor, normMeanVarDesc TensorDescriptor, groupCnt int32) (uint, error) {
+func (h Handle) NormalizationForwardTrainingWorkspaceSize(mode NormMode, normOps NormOps, algo NormAlgo, xDesc TensorDescriptor, zDesc TensorDescriptor, yDesc TensorDescriptor, normScaleBiasDesc TensorDescriptor, activationDesc ActivationDescriptor, normMeanVarDesc TensorDescriptor, groupCnt int32) (sizeInBytes int, err error) {
 	return getNormalizationForwardTrainingWorkspaceSize(h, mode, normOps, algo, xDesc, zDesc, yDesc, normScaleBiasDesc, activationDesc, normMeanVarDesc, groupCnt)
 }
 
@@ -989,7 +971,7 @@ func (h Handle) NormalizationForwardTrainingWorkspaceSize(mode NormMode, normOps
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetNormalizationTrainingReserveSpaceSize.
-func (h Handle) NormalizationTrainingReserveSpaceSize(mode NormMode, normOps NormOps, algo NormAlgo, activationDesc ActivationDescriptor, xDesc TensorDescriptor, groupCnt int32) (uint, error) {
+func (h Handle) NormalizationTrainingReserveSpaceSize(mode NormMode, normOps NormOps, algo NormAlgo, activationDesc ActivationDescriptor, xDesc TensorDescriptor, groupCnt int32) (sizeInBytes int, err error) {
 	return getNormalizationTrainingReserveSpaceSize(h, mode, normOps, algo, activationDesc, xDesc, groupCnt)
 }
 
@@ -1005,8 +987,8 @@ func (h Handle) NormalizationTrainingReserveSpaceSize(mode NormMode, normOps Nor
 //   - [Success]: RNN temporary buffer sizes were computed successfully.
 //
 // Wraps cudnnGetRNNTempSpaceSizes.
-func (h Handle) RNNTempSpaceSizes(rnnDesc RNNDescriptor, fwdMode ForwardMode, xDesc RNNDataDescriptor, reserveSpaceSize *uint) (uint, error) {
-	return getRNNTempSpaceSizes(h, rnnDesc, fwdMode, xDesc, reserveSpaceSize)
+func (h Handle) RNNTempSpaceSizes(rnnDesc RNNDescriptor, fwdMode ForwardMode, xDesc RNNDataDescriptor) (workSpaceSize int, reserveSpaceSize int, err error) {
+	return getRNNTempSpaceSizes(h, rnnDesc, fwdMode, xDesc)
 }
 
 // RNNWeightParams is used to obtain the start address and shape of every RNN weight matrix and bias vector in each pseudo-layer within the recurrent neural network model.
@@ -1014,8 +996,6 @@ func (h Handle) RNNTempSpaceSizes(rnnDesc RNNDescriptor, fwdMode ForwardMode, xD
 //   - rnnDesc: was set to
 //   - weightSpace: Input. Pointer to the weight space buffer
 //   - linLayerID: Input. Weight matrix or bias vector linear ID index
-//   - mAddr: arguments can be both
-//   - bAddr: arguments can be both
 //
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was encountered. For example, the value of pseudoLayer is out of range or linLayerID is negative or larger than 8.
@@ -1024,8 +1004,8 @@ func (h Handle) RNNTempSpaceSizes(rnnDesc RNNDescriptor, fwdMode ForwardMode, xD
 //   - [Success]: The query was completed successfully.
 //
 // Wraps cudnnGetRNNWeightParams.
-func (h Handle) RNNWeightParams(rnnDesc RNNDescriptor, pseudoLayer int32, weightSpaceSize uint, weightSpace uintptr, linLayerID int32, mDesc TensorDescriptor, mAddr *uintptr, bDesc TensorDescriptor, bAddr *uintptr) error {
-	return getRNNWeightParams(h, rnnDesc, pseudoLayer, weightSpaceSize, weightSpace, linLayerID, mDesc, mAddr, bDesc, bAddr)
+func (h Handle) RNNWeightParams(rnnDesc RNNDescriptor, pseudoLayer int32, weightSpaceSize int, weightSpace uintptr, linLayerID int32, mDesc TensorDescriptor, bDesc TensorDescriptor) (mAddr uintptr, bAddr uintptr, err error) {
+	return getRNNWeightParams(h, rnnDesc, pseudoLayer, weightSpaceSize, weightSpace, linLayerID, mDesc, bDesc)
 }
 
 // RNNWeightSpaceSize reports the required size of the weight space buffer in bytes.
@@ -1040,7 +1020,7 @@ func (h Handle) RNNWeightParams(rnnDesc RNNDescriptor, pseudoLayer int32, weight
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnGetRNNWeightSpaceSize.
-func (h Handle) RNNWeightSpaceSize(rnnDesc RNNDescriptor) (uint, error) {
+func (h Handle) RNNWeightSpaceSize(rnnDesc RNNDescriptor) (weightSpaceSize int, err error) {
 	return getRNNWeightSpaceSize(h, rnnDesc)
 }
 
@@ -1055,7 +1035,7 @@ func (h Handle) RNNWeightSpaceSize(rnnDesc RNNDescriptor) (uint, error) {
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetReductionIndicesSize.
-func (h Handle) ReductionIndicesSize(reduceTensorDesc ReduceTensorDescriptor, aDesc TensorDescriptor, cDesc TensorDescriptor) (uint, error) {
+func (h Handle) ReductionIndicesSize(reduceTensorDesc ReduceTensorDescriptor, aDesc TensorDescriptor, cDesc TensorDescriptor) (sizeInBytes int, err error) {
 	return getReductionIndicesSize(h, reduceTensorDesc, aDesc, cDesc)
 }
 
@@ -1070,7 +1050,7 @@ func (h Handle) ReductionIndicesSize(reduceTensorDesc ReduceTensorDescriptor, aD
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetReductionWorkspaceSize.
-func (h Handle) ReductionWorkspaceSize(reduceTensorDesc ReduceTensorDescriptor, aDesc TensorDescriptor, cDesc TensorDescriptor) (uint, error) {
+func (h Handle) ReductionWorkspaceSize(reduceTensorDesc ReduceTensorDescriptor, aDesc TensorDescriptor, cDesc TensorDescriptor) (sizeInBytes int, err error) {
 	return getReductionWorkspaceSize(h, reduceTensorDesc, aDesc, cDesc)
 }
 
@@ -1154,7 +1134,6 @@ func (h Handle) LRNCrossChannelForward(normDesc LRNDescriptor, lrnMode LRNMode, 
 //
 //   - plan: Input. Pointer to a previously-created and initialized plan descriptor
 //   - constPack: Input. Pointer to the descriptor to the const parameters pack
-//   - workspaceSizeInBytes: Output. The amount of workspace size the user should allocate for the execution of this plan
 //
 // Returns:
 //   - [ErrBadParam]: If any of the inputs is NULL, or if the type of [FusedOps] in the constPack descriptor is unsupported.
@@ -1163,8 +1142,8 @@ func (h Handle) LRNCrossChannelForward(normDesc LRNDescriptor, lrnMode LRNMode, 
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnMakeFusedOpsPlan.
-func (h Handle) MakeFusedOpsPlan(plan FusedOpsPlan, constPack FusedOpsConstParamPack, workspaceSizeInBytes *uint) error {
-	return makeFusedOpsPlan(h, plan, constPack, workspaceSizeInBytes)
+func (h Handle) MakeFusedOpsPlan(plan FusedOpsPlan, constPack FusedOpsConstParamPack) (workspaceSizeInBytes int, err error) {
+	return makeFusedOpsPlan(h, plan, constPack)
 }
 
 // MultiHeadAttnBackwardData computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V.
@@ -1193,7 +1172,7 @@ func (h Handle) MakeFusedOpsPlan(plan FusedOpsPlan, constPack FusedOpsConstParam
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnMultiHeadAttnBackwardData.
-func (h Handle) MultiHeadAttnBackwardData(attnDesc AttnDescriptor, loWinIdx *int32, hiWinIdx *int32, devSeqLengthsDQDO *int32, devSeqLengthsDKDV *int32, doDesc SeqDataDescriptor, dout uintptr, dqDesc SeqDataDescriptor, dqueries uintptr, queries uintptr, dkDesc SeqDataDescriptor, dkeys uintptr, keys uintptr, dvDesc SeqDataDescriptor, dvalues uintptr, values uintptr, weightSizeInBytes uint, weights uintptr, workSpaceSizeInBytes uint, workSpace uintptr, reserveSpaceSizeInBytes uint, reserveSpace uintptr) error {
+func (h Handle) MultiHeadAttnBackwardData(attnDesc AttnDescriptor, loWinIdx *int32, hiWinIdx *int32, devSeqLengthsDQDO *int32, devSeqLengthsDKDV *int32, doDesc SeqDataDescriptor, dout uintptr, dqDesc SeqDataDescriptor, dqueries uintptr, queries uintptr, dkDesc SeqDataDescriptor, dkeys uintptr, keys uintptr, dvDesc SeqDataDescriptor, dvalues uintptr, values uintptr, weightSizeInBytes int, weights uintptr, workSpaceSizeInBytes int, workSpace uintptr, reserveSpaceSizeInBytes int, reserveSpace uintptr) error {
 	return multiHeadAttnBackwardData(h, attnDesc, loWinIdx, hiWinIdx, devSeqLengthsDQDO, devSeqLengthsDKDV, doDesc, dout, dqDesc, dqueries, queries, dkDesc, dkeys, keys, dvDesc, dvalues, values, weightSizeInBytes, weights, workSpaceSizeInBytes, workSpace, reserveSpaceSizeInBytes, reserveSpace)
 }
 
@@ -1225,7 +1204,7 @@ func (h Handle) MultiHeadAttnBackwardData(attnDesc AttnDescriptor, loWinIdx *int
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnMultiHeadAttnBackwardWeights.
-func (h Handle) MultiHeadAttnBackwardWeights(attnDesc AttnDescriptor, addGrad WgradMode, qDesc SeqDataDescriptor, queries uintptr, kDesc SeqDataDescriptor, keys uintptr, vDesc SeqDataDescriptor, values uintptr, doDesc SeqDataDescriptor, dout uintptr, weightSizeInBytes uint, weights uintptr, dweights uintptr, workSpaceSizeInBytes uint, workSpace uintptr, reserveSpaceSizeInBytes uint, reserveSpace uintptr) error {
+func (h Handle) MultiHeadAttnBackwardWeights(attnDesc AttnDescriptor, addGrad WgradMode, qDesc SeqDataDescriptor, queries uintptr, kDesc SeqDataDescriptor, keys uintptr, vDesc SeqDataDescriptor, values uintptr, doDesc SeqDataDescriptor, dout uintptr, weightSizeInBytes int, weights uintptr, dweights uintptr, workSpaceSizeInBytes int, workSpace uintptr, reserveSpaceSizeInBytes int, reserveSpace uintptr) error {
 	return multiHeadAttnBackwardWeights(h, attnDesc, addGrad, qDesc, queries, kDesc, keys, vDesc, values, doDesc, dout, weightSizeInBytes, weights, dweights, workSpaceSizeInBytes, workSpace, reserveSpaceSizeInBytes, reserveSpace)
 }
 
@@ -1257,7 +1236,7 @@ func (h Handle) MultiHeadAttnBackwardWeights(attnDesc AttnDescriptor, addGrad Wg
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnMultiHeadAttnForward.
-func (h Handle) MultiHeadAttnForward(attnDesc AttnDescriptor, currIdx int32, loWinIdx *int32, hiWinIdx *int32, devSeqLengthsQO *int32, devSeqLengthsKV *int32, qDesc SeqDataDescriptor, queries uintptr, residuals uintptr, kDesc SeqDataDescriptor, keys uintptr, vDesc SeqDataDescriptor, values uintptr, oDesc SeqDataDescriptor, out uintptr, weightSizeInBytes uint, weights uintptr, workSpaceSizeInBytes uint, workSpace uintptr, reserveSpaceSizeInBytes uint, reserveSpace uintptr) error {
+func (h Handle) MultiHeadAttnForward(attnDesc AttnDescriptor, currIdx int32, loWinIdx *int32, hiWinIdx *int32, devSeqLengthsQO *int32, devSeqLengthsKV *int32, qDesc SeqDataDescriptor, queries uintptr, residuals uintptr, kDesc SeqDataDescriptor, keys uintptr, vDesc SeqDataDescriptor, values uintptr, oDesc SeqDataDescriptor, out uintptr, weightSizeInBytes int, weights uintptr, workSpaceSizeInBytes int, workSpace uintptr, reserveSpaceSizeInBytes int, reserveSpace uintptr) error {
 	return multiHeadAttnForward(h, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, queries, residuals, kDesc, keys, vDesc, values, oDesc, out, weightSizeInBytes, weights, workSpaceSizeInBytes, workSpace, reserveSpaceSizeInBytes, reserveSpace)
 }
 
@@ -1285,7 +1264,7 @@ func (h Handle) MultiHeadAttnForward(attnDesc AttnDescriptor, currIdx int32, loW
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnNormalizationBackward.
-func (h Handle) NormalizationBackward(mode NormMode, normOps NormOps, algo NormAlgo, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, yDesc TensorDescriptor, yData uintptr, dyDesc TensorDescriptor, dyData uintptr, dzDesc TensorDescriptor, dzData uintptr, dxDesc TensorDescriptor, dxData uintptr, dNormScaleBiasDesc TensorDescriptor, normScaleData uintptr, normBiasData uintptr, dNormScaleData uintptr, dNormBiasData uintptr, epsilon float64, normMeanVarDesc TensorDescriptor, savedMean uintptr, savedInvVariance uintptr, activationDesc ActivationDescriptor, workSpace uintptr, workSpaceSizeInBytes uint, reserveSpace uintptr, reserveSpaceSizeInBytes uint, groupCnt int32) error {
+func (h Handle) NormalizationBackward(mode NormMode, normOps NormOps, algo NormAlgo, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, yDesc TensorDescriptor, yData uintptr, dyDesc TensorDescriptor, dyData uintptr, dzDesc TensorDescriptor, dzData uintptr, dxDesc TensorDescriptor, dxData uintptr, dNormScaleBiasDesc TensorDescriptor, normScaleData uintptr, normBiasData uintptr, dNormScaleData uintptr, dNormBiasData uintptr, epsilon float64, normMeanVarDesc TensorDescriptor, savedMean uintptr, savedInvVariance uintptr, activationDesc ActivationDescriptor, workSpace uintptr, workSpaceSizeInBytes int, reserveSpace uintptr, reserveSpaceSizeInBytes int, groupCnt int32) error {
 	return normalizationBackward(h, mode, normOps, algo, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, xData, yDesc, yData, dyDesc, dyData, dzDesc, dzData, dxDesc, dxData, dNormScaleBiasDesc, normScaleData, normBiasData, dNormScaleData, dNormBiasData, epsilon, normMeanVarDesc, savedMean, savedInvVariance, activationDesc, workSpace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes, groupCnt)
 }
 
@@ -1343,7 +1322,7 @@ func (h Handle) NormalizationForwardInference(mode NormMode, normOps NormOps, al
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnNormalizationForwardTraining.
-func (h Handle) NormalizationForwardTraining(mode NormMode, normOps NormOps, algo NormAlgo, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, normScaleBiasDesc TensorDescriptor, normScale uintptr, normBias uintptr, exponentialAverageFactor float64, normMeanVarDesc TensorDescriptor, resultRunningMean uintptr, resultRunningVariance uintptr, epsilon float64, resultSaveMean uintptr, resultSaveInvVariance uintptr, activationDesc ActivationDescriptor, zDesc TensorDescriptor, zData uintptr, yDesc TensorDescriptor, yData uintptr, workspace uintptr, workSpaceSizeInBytes uint, reserveSpace uintptr, reserveSpaceSizeInBytes uint, groupCnt int32) error {
+func (h Handle) NormalizationForwardTraining(mode NormMode, normOps NormOps, algo NormAlgo, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, normScaleBiasDesc TensorDescriptor, normScale uintptr, normBias uintptr, exponentialAverageFactor float64, normMeanVarDesc TensorDescriptor, resultRunningMean uintptr, resultRunningVariance uintptr, epsilon float64, resultSaveMean uintptr, resultSaveInvVariance uintptr, activationDesc ActivationDescriptor, zDesc TensorDescriptor, zData uintptr, yDesc TensorDescriptor, yData uintptr, workspace uintptr, workSpaceSizeInBytes int, reserveSpace uintptr, reserveSpaceSizeInBytes int, groupCnt int32) error {
 	return normalizationForwardTraining(h, mode, normOps, algo, alpha, beta, xDesc, xData, normScaleBiasDesc, normScale, normBias, exponentialAverageFactor, normMeanVarDesc, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance, activationDesc, zDesc, zData, yDesc, yData, workspace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes, groupCnt)
 }
 
@@ -1393,7 +1372,7 @@ func (h Handle) PoolingBackward(poolingDesc PoolingDescriptor, alpha unsafe.Poin
 
 // PoolingForward computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width.
 //
-// This function computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width. All tensor formats are supported, best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are allowed. Vectorized tensors are only supported if they have 2 spatial dimensions. The dimensions of the output tensor yDesc can be smaller or bigger than the dimensions advised by the routine [PoolingDescriptor.Pooling2dForwardOutputDim] or [PoolingDescriptor.PoolingNdForwardOutputDim]. For average pooling, the compute type is float even for integer input and output data type. Output round is nearest-even and clamp to the most negative or most positive value of type if out of range.
+// This function computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width. All tensor formats are supported, best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are allowed. Vectorized tensors are only supported if they have 2 spatial dimensions. The dimensions of the output tensor yDesc can be smaller or bigger than the dimensions advised by the routine [PoolingDescriptor.ForwardOutputDim2D] or [PoolingDescriptor.ForwardOutputDims]. For average pooling, the compute type is float even for integer input and output data type. Output round is nearest-even and clamp to the most negative or most positive value of type if out of range.
 //
 //   - poolingDesc: Input. Handle to a previously initialized pooling descriptor
 //   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
@@ -1415,7 +1394,6 @@ func (h Handle) PoolingForward(poolingDesc PoolingDescriptor, alpha unsafe.Point
 //
 // When the [BatchnormSpatialPersistent] mode is selected in [Handle.BatchNormalizationForwardTraining] or [Handle.BatchNormalizationBackward], the algorithm may encounter numerical overflows where [BatchnormSpatial] performs just fine albeit at a slower speed. The user can invoke [Handle.QueryRuntimeError] to make sure numerical overflows did not occur during the kernel execution. Those issues are reported by the kernel that performs computations. [Handle.QueryRuntimeError] can be used in polling and blocking software control flows. There are two polling modes ( [ErrqueryRawcode] and [ErrqueryNonblocking]) and one blocking mode [ErrqueryBlocking]. [ErrqueryRawcode] reads the error storage location regardless of the kernel completion status. The kernel might not even start and the error storage (allocated per cuDNN handle) might be used by an earlier call. [ErrqueryNonblocking] checks if all tasks in the user stream are completed. The [Handle.QueryRuntimeError] function will return immediately and report [ErrRuntimeInProgress] in rstatus if some tasks in the user stream are pending. Otherwise, the function will copy the remote kernel error code to rstatus. In the blocking mode ( [ErrqueryBlocking]), the function waits for all tasks to drain in the user stream before reporting the remote kernel error code. The blocking flavor can be further adjusted by calling cudaSetDeviceFlags with the cudaDeviceScheduleSpin, cudaDeviceScheduleYield, or cudaDeviceScheduleBlockingSync flag. [ErrqueryNonblocking] and [ErrqueryBlocking] modes should not be used when the user stream is changed in the cuDNN handle, meaning, [Handle.SetStream] is invoked between functions that report runtime kernel errors and the [Handle.QueryRuntimeError] function. The remote error status reported in rstatus can be set to: [Success], [ErrRuntimeInProgress], or [ErrRuntimeFpOverflow]. The remote kernel error is automatically cleared by [Handle.QueryRuntimeError]. The [Handle.QueryRuntimeError] function should be used in conjunction with [Handle.BatchNormalizationForwardTraining] and [Handle.BatchNormalizationBackward] when the [BatchNormMode] argument is [BatchnormSpatialPersistent].
 //
-//   - rstatus: Output. Pointer to the user’s error code storage
 //   - mode: Input. Remote error query mode
 //
 // Returns:
@@ -1427,8 +1405,8 @@ func (h Handle) PoolingForward(poolingDesc PoolingDescriptor, alpha unsafe.Point
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnQueryRuntimeError.
-func (h Handle) QueryRuntimeError(rstatus *Result, mode ErrQueryMode, tag *RuntimeTag) error {
-	return queryRuntimeError(h, rstatus, mode, tag)
+func (h Handle) QueryRuntimeError(mode ErrQueryMode, tag *RuntimeTag) (rstatus Result, err error) {
+	return queryRuntimeError(h, mode, tag)
 }
 
 // RNNBackwardData computes exact, first-order derivatives of the RNN model with respect to its inputs: x, hx and for the LSTM cell type also cx.
@@ -1464,7 +1442,7 @@ func (h Handle) QueryRuntimeError(rstatus *Result, mode ErrQueryMode, tag *Runti
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNBackwardData_v8.
-func (h Handle) RNNBackwardData(rnnDesc RNNDescriptor, devSeqLengths *int32, yDesc RNNDataDescriptor, y uintptr, dy uintptr, xDesc RNNDataDescriptor, dx uintptr, hDesc TensorDescriptor, hx uintptr, dhy uintptr, dhx uintptr, cDesc TensorDescriptor, cx uintptr, dcy uintptr, dcx uintptr, weightSpaceSize uint, weightSpace uintptr, workSpaceSize uint, workSpace uintptr, reserveSpaceSize uint, reserveSpace uintptr) error {
+func (h Handle) RNNBackwardData(rnnDesc RNNDescriptor, devSeqLengths *int32, yDesc RNNDataDescriptor, y uintptr, dy uintptr, xDesc RNNDataDescriptor, dx uintptr, hDesc TensorDescriptor, hx uintptr, dhy uintptr, dhx uintptr, cDesc TensorDescriptor, cx uintptr, dcy uintptr, dcx uintptr, weightSpaceSize int, weightSpace uintptr, workSpaceSize int, workSpace uintptr, reserveSpaceSize int, reserveSpace uintptr) error {
 	return rNNBackwardData(h, rnnDesc, devSeqLengths, yDesc, y, dy, xDesc, dx, hDesc, hx, dhy, dhx, cDesc, cx, dcy, dcx, weightSpaceSize, weightSpace, workSpaceSize, workSpace, reserveSpaceSize, reserveSpace)
 }
 
@@ -1495,7 +1473,7 @@ func (h Handle) RNNBackwardData(rnnDesc RNNDescriptor, devSeqLengths *int32, yDe
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNBackwardWeights_v8.
-func (h Handle) RNNBackwardWeights(rnnDesc RNNDescriptor, addGrad WgradMode, devSeqLengths *int32, xDesc RNNDataDescriptor, x uintptr, hDesc TensorDescriptor, hx uintptr, yDesc RNNDataDescriptor, y uintptr, weightSpaceSize uint, dweightSpace uintptr, workSpaceSize uint, workSpace uintptr, reserveSpaceSize uint, reserveSpace uintptr) error {
+func (h Handle) RNNBackwardWeights(rnnDesc RNNDescriptor, addGrad WgradMode, devSeqLengths *int32, xDesc RNNDataDescriptor, x uintptr, hDesc TensorDescriptor, hx uintptr, yDesc RNNDataDescriptor, y uintptr, weightSpaceSize int, dweightSpace uintptr, workSpaceSize int, workSpace uintptr, reserveSpaceSize int, reserveSpace uintptr) error {
 	return rNNBackwardWeights(h, rnnDesc, addGrad, devSeqLengths, xDesc, x, hDesc, hx, yDesc, y, weightSpaceSize, dweightSpace, workSpaceSize, workSpace, reserveSpaceSize, reserveSpace)
 }
 
@@ -1524,7 +1502,7 @@ func (h Handle) RNNBackwardWeights(rnnDesc RNNDescriptor, addGrad WgradMode, dev
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNForward.
-func (h Handle) RNNForward(rnnDesc RNNDescriptor, fwdMode ForwardMode, devSeqLengths *int32, xDesc RNNDataDescriptor, x uintptr, yDesc RNNDataDescriptor, y uintptr, hDesc TensorDescriptor, hx uintptr, hy uintptr, cDesc TensorDescriptor, cx uintptr, cy uintptr, weightSpaceSize uint, weightSpace uintptr, workSpaceSize uint, workSpace uintptr, reserveSpaceSize uint, reserveSpace uintptr) error {
+func (h Handle) RNNForward(rnnDesc RNNDescriptor, fwdMode ForwardMode, devSeqLengths *int32, xDesc RNNDataDescriptor, x uintptr, yDesc RNNDataDescriptor, y uintptr, hDesc TensorDescriptor, hx uintptr, hy uintptr, cDesc TensorDescriptor, cx uintptr, cy uintptr, weightSpaceSize int, weightSpace uintptr, workSpaceSize int, workSpace uintptr, reserveSpaceSize int, reserveSpace uintptr) error {
 	return rNNForward(h, rnnDesc, fwdMode, devSeqLengths, xDesc, x, yDesc, y, hDesc, hx, hy, cDesc, cx, cy, weightSpaceSize, weightSpace, workSpaceSize, workSpace, reserveSpaceSize, reserveSpace)
 }
 
@@ -1551,7 +1529,7 @@ func (h Handle) RNNForward(rnnDesc RNNDescriptor, fwdMode ForwardMode, devSeqLen
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnReduceTensor.
-func (h Handle) ReduceTensor(reduceTensorDesc ReduceTensorDescriptor, indices uintptr, indicesSizeInBytes uint, workspace uintptr, workspaceSizeInBytes uint, alpha unsafe.Pointer, aDesc TensorDescriptor, a uintptr, beta unsafe.Pointer, cDesc TensorDescriptor, c uintptr) error {
+func (h Handle) ReduceTensor(reduceTensorDesc ReduceTensorDescriptor, indices uintptr, indicesSizeInBytes int, workspace uintptr, workspaceSizeInBytes int, alpha unsafe.Pointer, aDesc TensorDescriptor, a uintptr, beta unsafe.Pointer, cDesc TensorDescriptor, c uintptr) error {
 	return reduceTensor(h, reduceTensorDesc, indices, indicesSizeInBytes, workspace, workspaceSizeInBytes, alpha, aDesc, a, beta, cDesc, c)
 }
 

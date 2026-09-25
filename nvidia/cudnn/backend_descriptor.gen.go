@@ -2,14 +2,14 @@
 
 package cudnn
 
-// DestroyDescriptor destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptor].
+// Destroy destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptor].
 //
 // Returns:
 //   - [ErrAllocFailed]: The destruction of memory failed. Undefined Behavior The descriptor was altered between the Create and Destroy Descriptor. Undefined The value pointed by the descriptor will be Undefined after the memory is free and done.
 //   - [Success]: The memory was destroyed successfully.
 //
 // Wraps cudnnBackendDestroyDescriptor.
-func (b BackendDescriptor) DestroyDescriptor() error {
+func (b BackendDescriptor) Destroy() error {
 	return backendDestroyDescriptor(b)
 }
 
@@ -56,8 +56,8 @@ func (b BackendDescriptor) Finalize() error {
 //   - [Success]: The attributeName was given to the descriptor successfully.
 //
 // Wraps cudnnBackendGetAttribute.
-func (b BackendDescriptor) Attribute(attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, elementCount *int64, arrayOfElements uintptr) error {
-	return backendGetAttribute(b, attributeName, attributeType, requestedElementCount, elementCount, arrayOfElements)
+func (b BackendDescriptor) Attribute(attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, arrayOfElements uintptr) (elementCount int64, err error) {
+	return backendGetAttribute(b, attributeName, attributeType, requestedElementCount, arrayOfElements)
 }
 
 // Initialize repurposes a pre-allocated memory pointed to by a descriptor of size sizeInByte to a backend descriptor of type descriptorType.

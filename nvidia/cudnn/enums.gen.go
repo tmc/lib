@@ -190,7 +190,7 @@ func (e CTCGradMode) String() string {
 	return fmt.Sprintf("CTCGradMode(%d)", e)
 }
 
-// TensorFormat [TensorFormat] is an enumerated type used by [TensorDescriptor.SetTensor4dDescriptor] to create a tensor with a pre-defined layout. For a detailed explanation of how these tensors are arranged in memory, refer to Data Layout Formats.
+// TensorFormat [TensorFormat] is an enumerated type used by [TensorDescriptor.Set4D] to create a tensor with a pre-defined layout. For a detailed explanation of how these tensors are arranged in memory, refer to Data Layout Formats.
 type TensorFormat int32
 
 const (
@@ -2617,7 +2617,7 @@ func (e NormOps) String() string {
 	return fmt.Sprintf("NormOps(%d)", e)
 }
 
-// SamplerType [SamplerType] is an enumerated type passed to [SpatialTransformerDescriptor.SetSpatialTransformerNdDescriptor] to select the sampler type to be used by [Handle.SpatialTfSamplerForward] and [Handle.SpatialTfSamplerBackward].
+// SamplerType [SamplerType] is an enumerated type passed to [SpatialTransformerDescriptor.Set] to select the sampler type to be used by [Handle.SpatialTfSamplerForward] and [Handle.SpatialTfSamplerBackward].
 type SamplerType int32
 
 const (

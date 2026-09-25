@@ -157,6 +157,7 @@ func (h Handle) Size() (uint, error) {
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
 //   - nx: The transform size (e.g. 256 for a 256-point FFT)
+//   - type_: The transform data type (e.g., C2C for single precision complex to complex)
 //   - batch: Number of transforms of size nx. Please consider using [Handle.SizeMany] for multiple transforms
 //
 // Returns:
@@ -179,6 +180,7 @@ func (h Handle) Size1d(nx int32, type_ Type, batch int32) (uint, error) {
 //
 //   - nx: The transform size in the x dimension (number of rows)
 //   - ny: The transform size in the y dimension (number of columns)
+//   - type_: The transform data type (e.g., C2R for single precision complex to real)
 //
 // Returns:
 //   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
@@ -201,6 +203,7 @@ func (h Handle) Size2d(nx int32, ny int32, type_ Type) (uint, error) {
 //   - nx: The transform size in the x dimension
 //   - ny: The transform size in the y dimension
 //   - nz: The transform size in the z dimension
+//   - type_: The transform data type (e.g., R2C for single precision real to complex)
 //
 // Returns:
 //   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
@@ -225,6 +228,7 @@ func (h Handle) Size3d(nx int32, ny int32, nz int32, type_ Type) (uint, error) {
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
+//   - type_: The transform data type (e.g., R2C for single precision real to complex)
 //   - batch: Batch size for this transform
 //
 // Returns:
@@ -250,6 +254,7 @@ func (h Handle) SizeMany(rank int32, n *int32, inembed *int32, istride int32, id
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
+//   - type_: The transform data type (e.g., R2C for single precision real to complex)
 //   - batch: Batch size for this transform
 //
 // Returns:
@@ -271,6 +276,7 @@ func (h Handle) SizeMany64(rank int32, n *int64, inembed *int64, istride int64, 
 // This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call. If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
 //
 //   - nx: The transform size (e.g. 256 for a 256-point FFT). For multiple GPUs, this must be a power of 2
+//   - type_: The transform data type (e.g., C2C for single precision complex to complex). For multiple GPUs this must be a complex to complex transform
 //   - batch: Number of transforms of size nx. Please consider using [Handle.MakePlanMany] for multiple transforms
 //
 // Returns:
@@ -296,6 +302,7 @@ func (h Handle) MakePlan1d(nx int32, type_ Type, batch int32) (uint, error) {
 //
 //   - nx: The transform size in the x dimension. This is slowest changing dimension of a transform (strided in memory). For multiple GPUs, this must be factorable into primes less than or equal to 127
 //   - ny: The transform size in the y dimension. This is fastest changing dimension of a transform (contiguous in memory). For 2 GPUs, this must be factorable into primes less than or equal to 127
+//   - type_: The transform data type (e.g., C2R for single precision complex to real)
 //
 // Returns:
 //   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
@@ -321,6 +328,7 @@ func (h Handle) MakePlan2d(nx int32, ny int32, type_ Type) (uint, error) {
 //   - nx: The transform size in the x dimension. This is slowest changing dimension of a transform (strided in memory). For multiple GPUs, this must be factorable into primes less than or equal to 127
 //   - ny: The transform size in the y dimension. For multiple GPUs, this must be factorable into primes less than or equal to 127
 //   - nz: The transform size in the z dimension. This is fastest changing dimension of a transform (contiguous in memory). For multiple GPUs, this must be factorable into primes less than or equal to 127
+//   - type_: The transform data type (e.g., R2C for single precision real to complex)
 //
 // Returns:
 //   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
@@ -348,6 +356,7 @@ func (h Handle) MakePlan3d(nx int32, ny int32, nz int32, type_ Type) (uint, erro
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
+//   - type_: The transform data type (e.g., R2C for single precision real to complex). For 2 GPUs this must be a complex to complex transform
 //   - batch: Batch size for this transform
 //
 // Returns:
@@ -376,6 +385,7 @@ func (h Handle) MakePlanMany(rank int32, n *int32, inembed *int32, istride int32
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
+//   - type_: The transform data type (e.g., R2C for single precision real to complex). For 2 GPUs this must be a complex to complex transform
 //   - batch: Batch size for this transform
 //
 // Returns:

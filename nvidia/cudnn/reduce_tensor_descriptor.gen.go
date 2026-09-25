@@ -18,12 +18,6 @@ func (r ReduceTensorDescriptor) Destroy() error {
 
 // Get queries a previously initialized reduce tensor descriptor object.
 //
-//   - reduceTensorOp: Output. Enumerant to specify the reduced tensor operation
-//   - reduceTensorCompType: Output. Enumerant to specify the computation datatype of the reduction
-//   - reduceTensorNanOpt: Input. Enumerant to specify the Nan propagation mode
-//   - reduceTensorIndices: Output. Enumerant to specify the reduced tensor indices
-//   - reduceTensorIndicesType: Output. Enumerant to specify the reduced tensor indices type
-//
 // Returns:
 //   - [ErrBadParam]: reduceTensorDesc is NULL.
 //   - [Success]: The object was queried successfully.
@@ -31,8 +25,8 @@ func (r ReduceTensorDescriptor) Destroy() error {
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetReduceTensorDescriptor.
-func (r ReduceTensorDescriptor) Get(reduceTensorOp *ReduceTensorOp, reduceTensorCompType *DataType, reduceTensorNanOpt *NanPropagation, reduceTensorIndices *ReduceTensorIndices, reduceTensorIndicesType *IndicesType) error {
-	return getReduceTensorDescriptor(r, reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType)
+func (r ReduceTensorDescriptor) Get() (ReduceTensorConfig, error) {
+	return getReduceTensorDescriptor(r)
 }
 
 // Set initializes a previously created reduce tensor descriptor object.

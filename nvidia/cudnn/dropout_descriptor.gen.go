@@ -15,17 +15,14 @@ func (d DropoutDescriptor) Destroy() error {
 // Get queries the fields of a previously initialized dropout descriptor.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
-//   - dropout: Output. The probability with which the value from input is set to 0 during the dropout layer
-//   - states: Output. Pointer to user-allocated GPU memory that holds random number generator states
-//   - seed: Output. Seed used to initialize random number generator states
 //
 // Returns:
 //   - [ErrBadParam]: One or more of the arguments was an invalid pointer.
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnGetDropoutDescriptor.
-func (d DropoutDescriptor) Get(handle Handle, dropout *float32, states *uintptr, seed *uint64) error {
-	return getDropoutDescriptor(d, handle, dropout, states, seed)
+func (d DropoutDescriptor) Get(handle Handle) (dropout float32, states uintptr, seed uint64, err error) {
+	return getDropoutDescriptor(d, handle)
 }
 
 // Restore restores a dropout descriptor to a previously saved-off state.
@@ -39,7 +36,7 @@ func (d DropoutDescriptor) Get(handle Handle, dropout *float32, states *uintptr,
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnRestoreDropoutDescriptor.
-func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states uintptr, stateSizeInBytes uint, seed uint64) error {
+func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states uintptr, stateSizeInBytes int, seed uint64) error {
 	return restoreDropoutDescriptor(d, handle, dropout, states, stateSizeInBytes, seed)
 }
 
@@ -61,6 +58,6 @@ func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states uintpt
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSetDropoutDescriptor.
-func (d DropoutDescriptor) Set(handle Handle, dropout float32, states uintptr, stateSizeInBytes uint, seed uint64) error {
+func (d DropoutDescriptor) Set(handle Handle, dropout float32, states uintptr, stateSizeInBytes int, seed uint64) error {
 	return setDropoutDescriptor(d, handle, dropout, states, stateSizeInBytes, seed)
 }

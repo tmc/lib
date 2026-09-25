@@ -210,7 +210,7 @@
 //   - [PatchModule]: Perform the actual instrumentation of a module.
 //   - [SetCallbackData]: Specifies the user data pointer for callbacks.
 //   - [StreamHandle.SetDeviceGraphData]: Specifies the user data pointer accessible from callbacks in the device-launched graphs launched by the specified host-launched graphExec.
-//   - [LaunchHandle.SetLaunchCallbackData]: Specifies the user data pointer for callbacks.
+//   - [LaunchHandle.SetCallbackData]: Specifies the user data pointer for callbacks.
 //   - [UnpatchModule]: Remove existing instrumentation of a module.
 //
 // # Callback-safe Memory

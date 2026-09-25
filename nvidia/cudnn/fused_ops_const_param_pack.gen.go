@@ -31,11 +31,11 @@ func (f FusedOpsConstParamPack) Destroy() error {
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetFusedOpsConstParamPackAttribute.
-func (f FusedOpsConstParamPack) Attribute(paramLabel FusedOpsConstParamLabel, param uintptr, isNULL *int32) error {
-	return getFusedOpsConstParamPackAttribute(f, paramLabel, param, isNULL)
+func (f FusedOpsConstParamPack) Attribute(paramLabel FusedOpsConstParamLabel, param uintptr) (isNULL int32, err error) {
+	return getFusedOpsConstParamPackAttribute(f, paramLabel, param)
 }
 
-// SetFusedOpsConstParamPackAttribute sets the descriptor pointed to by the param pointer input.
+// SetAttribute sets the descriptor pointed to by the param pointer input.
 //
 // This function sets the descriptor pointed to by the param pointer input. The type of the descriptor to be set is indicated by the enum value of the paramLabel input.
 //
@@ -48,6 +48,6 @@ func (f FusedOpsConstParamPack) Attribute(paramLabel FusedOpsConstParamLabel, pa
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnSetFusedOpsConstParamPackAttribute.
-func (f FusedOpsConstParamPack) SetFusedOpsConstParamPackAttribute(paramLabel FusedOpsConstParamLabel, param uintptr) error {
+func (f FusedOpsConstParamPack) SetAttribute(paramLabel FusedOpsConstParamLabel, param uintptr) error {
 	return setFusedOpsConstParamPackAttribute(f, paramLabel, param)
 }

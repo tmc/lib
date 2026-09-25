@@ -43,14 +43,14 @@ var (
 // The identical name expression string must be provided on a subsequent call to [Program.LoweredName] to extract the lowered name. [Program.LoweredName]
 //
 //   - prog: in CUDA Runtime Compilation program
-//   - name_expression: in constant expression denoting the address of a global function or device/__constant__ variable. Returns [Success] [ErrInvalidProgram] [ErrInvalidInput] [ErrNoNameExpressionsAfterCompilation]
+//   - nameExpression: in constant expression denoting the address of a global function or device/__constant__ variable. Returns [Success] [ErrInvalidProgram] [ErrInvalidInput] [ErrNoNameExpressionsAfterCompilation]
 //
 // Wraps nvrtcAddNameExpression.
-func addNameExpression(prog Program, name_expression *byte) error {
+func addNameExpression(prog Program, nameExpression *byte) error {
 	if err := checkLibSym("nvrtcAddNameExpression"); err != nil {
 		return err
 	}
-	return toError(fnaddNameExpression(prog, name_expression))
+	return toError(fnaddNameExpression(prog, nameExpression))
 }
 
 // compileProgram [Program.Compile] compiles the given program.
@@ -256,15 +256,15 @@ func getLTOIRSize(prog Program) (uint, error) {
 // The memory containing the name is released when the NVRTC program is destroyed by [Program.Destroy]. The identical name expression must have been previously provided to [Program.AddNameExpression]. [Program.AddNameExpression]
 //
 //   - prog: in CUDA Runtime Compilation program
-//   - name_expression: in constant expression denoting the address of a global function or device/__constant__ variable
-//   - lowered_name: out initialized by the function to point to a C string containing the lowered (mangled) name corresponding to the provided name expression. Returns [Success] [ErrNoLoweredNamesBeforeCompilation] [ErrInvalidProgram] [ErrInvalidInput] [ErrNameExpressionNotValid]
+//   - nameExpression: in constant expression denoting the address of a global function or device/__constant__ variable
+//   - loweredName: out initialized by the function to point to a C string containing the lowered (mangled) name corresponding to the provided name expression. Returns [Success] [ErrNoLoweredNamesBeforeCompilation] [ErrInvalidProgram] [ErrInvalidInput] [ErrNameExpressionNotValid]
 //
 // Wraps nvrtcGetLoweredName.
-func getLoweredName(prog Program, name_expression *byte, lowered_name **byte) error {
+func getLoweredName(prog Program, nameExpression *byte, loweredName **byte) error {
 	if err := checkLibSym("nvrtcGetLoweredName"); err != nil {
 		return err
 	}
-	return toError(fngetLoweredName(prog, name_expression, lowered_name))
+	return toError(fngetLoweredName(prog, nameExpression, loweredName))
 }
 
 // GetNumSupportedArchs [GetNumSupportedArchs] sets the output parameter numArchs with the number of architectures supported by NVRTC.

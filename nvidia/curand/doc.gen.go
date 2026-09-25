@@ -42,8 +42,8 @@
 //
 // # Generator Configuration
 //
-//   - [Generator.SetGeneratorOffset].
-//   - [Generator.SetGeneratorOrdering].
+//   - [Generator.SetOffset].
+//   - [Generator.SetOrdering].
 //   - [Generator.SetPseudoRandomGeneratorSeed].
 //   - [Generator.SetQuasiRandomGeneratorDimensions].
 //   - [Generator.SetStream].

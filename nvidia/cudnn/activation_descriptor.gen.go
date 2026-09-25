@@ -16,22 +16,17 @@ func (a ActivationDescriptor) Destroy() error {
 
 // Get queries a previously initialized generic activation descriptor object.
 //
-//   - mode: Output. Enumerant to specify the activation mode
-//   - reluNanOpt: Output. Enumerant to specify the Nan propagation mode
-//
 // Returns:
 //   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetActivationDescriptor.
-func (a ActivationDescriptor) Get(mode *ActivationMode, reluNanOpt *NanPropagation, coef *float64) error {
-	return getActivationDescriptor(a, mode, reluNanOpt, coef)
+func (a ActivationDescriptor) Get() (mode ActivationMode, reluNanOpt NanPropagation, coef float64, err error) {
+	return getActivationDescriptor(a)
 }
 
 // SwishBeta queries the current beta parameter set for SWISH activation.
-//
-//   - swish_beta: Output. Pointer to a double value that will receive the currently configured SWISH beta parameter
 //
 // Returns:
 //   - [ErrBadParam]: At least one of activationDesc or swish_beta were NULL.
@@ -40,8 +35,8 @@ func (a ActivationDescriptor) Get(mode *ActivationMode, reluNanOpt *NanPropagati
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetActivationDescriptorSwishBeta.
-func (a ActivationDescriptor) SwishBeta(swish_beta *float64) error {
-	return getActivationDescriptorSwishBeta(a, swish_beta)
+func (a ActivationDescriptor) SwishBeta() (swishBeta float64, err error) {
+	return getActivationDescriptorSwishBeta(a)
 }
 
 // Set initializes a previously created generic activation descriptor object.
@@ -59,9 +54,9 @@ func (a ActivationDescriptor) Set(mode ActivationMode, reluNanOpt NanPropagation
 	return setActivationDescriptor(a, mode, reluNanOpt, coef)
 }
 
-// SetActivationDescriptorSwishBeta sets the beta parameter of the SWISH activation function to swish_beta.
+// SetSwishBeta sets the beta parameter of the SWISH activation function to swish_beta.
 //
-//   - swish_beta: Input. The value to set the SWISH activations’ beta parameter to
+//   - swishBeta: Input. The value to set the SWISH activations’ beta parameter to
 //
 // Returns:
 //   - [ErrBadParam]: The activation descriptor is a NULL pointer.
@@ -70,6 +65,6 @@ func (a ActivationDescriptor) Set(mode ActivationMode, reluNanOpt NanPropagation
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnSetActivationDescriptorSwishBeta.
-func (a ActivationDescriptor) SetActivationDescriptorSwishBeta(swish_beta float64) error {
-	return setActivationDescriptorSwishBeta(a, swish_beta)
+func (a ActivationDescriptor) SetSwishBeta(swishBeta float64) error {
+	return setActivationDescriptorSwishBeta(a, swishBeta)
 }

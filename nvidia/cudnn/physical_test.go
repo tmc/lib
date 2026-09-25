@@ -2,6 +2,7 @@ package cudnn_test
 
 import (
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/cudnn"
@@ -22,17 +23,22 @@ func TestNativeTensorDescriptor(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	if err := d.SetTensor4dDescriptor(cudnn.TensorNchw, cudnn.DataFloat, 2, 3, 4, 5); err != nil {
+	if err := d.Set4D(cudnn.TensorNchw, cudnn.DataFloat, 2, 3, 4, 5); err != nil {
 		t.Fatal(err)
 	}
-	var typ cudnn.DataType
-	var dims, strides [4]int32
-	err = d.Tensor4dDescriptor(&typ, &dims[0], &dims[1], &dims[2], &dims[3], &strides[0], &strides[1], &strides[2], &strides[3])
+	c, err := d.Get4D()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if typ != cudnn.DataFloat || dims != [4]int32{2, 3, 4, 5} || strides != [4]int32{60, 20, 5, 1} {
-		t.Fatalf("type=%v dims=%v strides=%v", typ, dims, strides)
+	if c != (cudnn.Tensor4DConfig{DataType: cudnn.DataFloat, N: 2, C: 3, H: 4, W: 5, NStride: 60, CStride: 20, HStride: 5, WStride: 1}) {
+		t.Fatalf("Get4D = %+v", c)
+	}
+	typ, dims, strides, err := d.Get(8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if typ != cudnn.DataFloat || !slices.Equal(dims, []int32{2, 3, 4, 5}) || !slices.Equal(strides, []int32{60, 20, 5, 1}) {
+		t.Fatalf("Get = %v, %v, %v", typ, dims, strides)
 	}
 	t.Logf("type=%v dims=%v strides=%v", typ, dims, strides)
 }
