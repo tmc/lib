@@ -1771,7 +1771,7 @@ const (
 	JITReferencedVariableNames JITOption = 27
 	// JITReferencedVariableCount: \deprecated Number of entries in [JITReferencedVariableNames] array.\n Option type: unsigned int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITReferencedVariableCount JITOption = 28
-	// JITOptimizeUnusedDeviceVariables: \deprecated This option serves as a hint to enable the JIT compiler/linker to remove constant (__constant__) and device (__device__) variables unreferenced in device code (Disabled by default).\n Note that host references to constant and device variables using APIs like [Module.Global]() with this option specified may result in undefined behavior unless the variables are explicitly specified using [JITReferencedVariableNames].\n Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITOptimizeUnusedDeviceVariables: \deprecated This option serves as a hint to enable the JIT compiler/linker to remove constant (__constant__) and device (__device__) variables unreferenced in device code (Disabled by default).\n Note that host references to constant and device variables using APIs like [Module.Global] with this option specified may result in undefined behavior unless the variables are explicitly specified using [JITReferencedVariableNames].\n Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITOptimizeUnusedDeviceVariables JITOption = 29
 	// JITPositionIndependentCode: Generate position independent code (0: false)\n Option type: int\n Applies to: compiler only
 	JITPositionIndependentCode JITOption = 30
@@ -2703,7 +2703,7 @@ type LibraryOption int32
 
 const (
 	LibraryOptionLibraryHostUniversalFunctionAndDataTable LibraryOption = 0
-	// LibraryBinaryIsPreserved: Specifes that the argument code passed to [LibraryLoadData]() will be preserved. Specifying this option will let the driver know that code can be accessed at any point until [Library.Unload](). The default behavior is for the driver to allocate and maintain its own copy of code. Note that this is only a memory usage optimization hint and the driver can choose to ignore it if required. Specifying this option with [LibraryLoadFromFile]() is invalid and will return [ErrInvalidValue].
+	// LibraryBinaryIsPreserved: Specifes that the argument code passed to [LibraryLoadData] will be preserved. Specifying this option will let the driver know that code can be accessed at any point until [Library.Unload]. The default behavior is for the driver to allocate and maintain its own copy of code. Note that this is only a memory usage optimization hint and the driver can choose to ignore it if required. Specifying this option with [LibraryLoadFromFile] is invalid and will return [ErrInvalidValue].
 	LibraryBinaryIsPreserved LibraryOption = 1
 	LibraryNumOptions        LibraryOption = 2
 )
@@ -3636,7 +3636,7 @@ func (e GraphChildGraphNodeOwnership) String() string {
 type FlushGPUDirectRDMAWritesOptions int32
 
 const (
-	// FlushGpuDirectRdmaWritesOptionHost: [FlushGPUDirectRDMAWrites]() and its CUDA Runtime API counterpart are supported on the device.
+	// FlushGpuDirectRdmaWritesOptionHost: [FlushGPUDirectRDMAWrites] and its CUDA Runtime API counterpart are supported on the device.
 	FlushGpuDirectRdmaWritesOptionHost FlushGPUDirectRDMAWritesOptions = 1 << 0
 	// FlushGpuDirectRdmaWritesOptionMemops: The [StreamWaitValueFlush] flag and the [StreamMemOpFlushRemoteWrites] MemOp are supported on the device.
 	FlushGpuDirectRdmaWritesOptionMemops FlushGPUDirectRDMAWritesOptions = 1 << 1
@@ -3657,7 +3657,7 @@ func (e FlushGPUDirectRDMAWritesOptions) String() string {
 type GPUDirectRDMAWritesOrdering int32
 
 const (
-	// GpuDirectRdmaWritesOrderingNone: The device does not natively support ordering of remote writes. [FlushGPUDirectRDMAWrites]() can be leveraged if supported.
+	// GpuDirectRdmaWritesOrderingNone: The device does not natively support ordering of remote writes. [FlushGPUDirectRDMAWrites] can be leveraged if supported.
 	GpuDirectRdmaWritesOrderingNone GPUDirectRDMAWritesOrdering = 0
 	// GpuDirectRdmaWritesOrderingOwner: Natively, the device can consistently consume remote writes, although other CUDA devices may not.
 	GpuDirectRdmaWritesOrderingOwner GPUDirectRDMAWritesOrdering = 100
@@ -3703,7 +3703,7 @@ func (e FlushGPUDirectRDMAWritesScope) String() string {
 type FlushGPUDirectRDMAWritesTarget int32
 
 const (
-	// FlushGpuDirectRdmaWritesTargetCurrentCtx: Sets the target for [FlushGPUDirectRDMAWrites]() to the currently active CUDA device context.
+	// FlushGpuDirectRdmaWritesTargetCurrentCtx: Sets the target for [FlushGPUDirectRDMAWrites] to the currently active CUDA device context.
 	FlushGpuDirectRdmaWritesTargetCurrentCtx FlushGPUDirectRDMAWritesTarget = 0
 )
 

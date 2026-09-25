@@ -18,6 +18,8 @@ func (t TensorTransformDescriptor) Destroy() error {
 //
 // This function returns the values stored in a previously initialized tensor transform descriptor.
 //
+//   - nbDimsRequested: Input. The number of dimensions to consider. For more information, refer to Tensor Descriptor
+//
 // Returns:
 //   - [ErrBadParam]: If transformDesc is NULL or if nbDimsRequested is less than 3 or greater than CUDNN_DIM_MAX.
 //   - [Success]: The results were obtained successfully.
@@ -31,7 +33,8 @@ func (t TensorTransformDescriptor) Get(nbDimsRequested int) (TensorTransformConf
 
 // InitTransformDest initializes and returns a destination tensor descriptor destDesc for tensor transform operations.
 //
-// This function initializes and returns a destination tensor descriptor destDesc for tensor transform operations. The initialization is done with the desired parameters described in the transform descriptor [TensorDescriptor]. The returned Tensor descriptor will be packed.
+// This function initializes and returns a destination tensor descriptor destDesc for tensor transform operations. The initialization is done with the desired parameters described in the transform descriptor [TensorDescriptor].
+// The returned Tensor descriptor will be packed.
 //
 //   - srcDesc: Input. Handle to a previously initialized tensor descriptor
 //   - destDesc: Output. Handle of the tensor descriptor that will be initialized and returned

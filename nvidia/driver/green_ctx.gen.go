@@ -4,7 +4,10 @@ package driver
 
 // Destroy Destroys a green context.
 //
-// Destroys the green context, releasing the primary context of the device that this green context was created for. Any resources provisioned for this green context (that were initially available via the resource descriptor) are released as well. The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority]. Users are expected to destroy these streams explicitly using [Stream.Destroy] to avoid resource leaks. Once the green context is destroyed, any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs: Additionally, the API will invalidate all active captures on these streams. See also: [NewGreenCtx], [Context.Destroy]
+// Destroys the green context, releasing the primary context of the device that this green context was created for. Any resources provisioned for this green context (that were initially available via the resource descriptor) are released as well. The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority]. Users are expected to destroy these streams explicitly using [Stream.Destroy] to avoid resource leaks. Once the green context is destroyed, any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs:
+// Additionally, the API will invalidate all active captures on these streams.
+//
+// See also: [NewGreenCtx], [Context.Destroy]
 //
 // Wraps cuGreenCtxDestroy.
 func (g GreenCtx) Destroy() error {
@@ -13,7 +16,9 @@ func (g GreenCtx) Destroy() error {
 
 // DevResource Get green context resources.
 //
-// Get the type resources available to the green context represented by hCtx See also: [DevResourceGenerateDesc]
+// # Get the type resources available to the green context represented by hCtx
+//
+// See also: [DevResourceGenerateDesc]
 //
 // Wraps cuGreenCtxGetDevResource.
 func (g GreenCtx) DevResource(type_ DevResourceType) (DevResource, error) {
@@ -22,7 +27,11 @@ func (g GreenCtx) DevResource(type_ DevResourceType) (DevResource, error) {
 
 // Id Returns the unique Id associated with the green context supplied.
 //
-// Returns in greenCtxId the unique Id which is associated with a given green context. The Id is unique for the life of the program for this instance of CUDA. If green context is supplied as NULL and the current context is set to a green context, the Id of the current green context is returned. See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.Id] Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Returns in greenCtxId the unique Id which is associated with a given green context. The Id is unique for the life of the program for this instance of CUDA. If green context is supplied as NULL and the current context is set to a green context, the Id of the current green context is returned.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.Id]
 //
 // Wraps cuGreenCtxGetId.
 func (g GreenCtx) Id() (uint64, error) {
@@ -31,7 +40,11 @@ func (g GreenCtx) Id() (uint64, error) {
 
 // RecordEvent Records an event.
 //
-// Captures in hEvent all the activities of the green context of hCtx at the time of this call. hEvent and hCtx must be from the same primary context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [GreenCtx.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hCtx after this call do not modify hEvent. See also: [GreenCtx.WaitEvent], [Event.Record], [Context.RecordEvent], [Context.WaitEvent] Note: The API will return [ErrStreamCaptureUnsupported] if the specified green context hCtx has a stream in the capture mode. In such a case, the call will invalidate all the conflicting captures.
+// Captures in hEvent all the activities of the green context of hCtx at the time of this call. hEvent and hCtx must be from the same primary context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [GreenCtx.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hCtx after this call do not modify hEvent.
+//
+// Note: The API will return [ErrStreamCaptureUnsupported] if the specified green context hCtx has a stream in the capture mode. In such a case, the call will invalidate all the conflicting captures.
+//
+// See also: [GreenCtx.WaitEvent], [Event.Record], [Context.RecordEvent], [Context.WaitEvent]
 //
 //   - hEvent: Event to record
 //
@@ -42,7 +55,15 @@ func (g GreenCtx) RecordEvent(hEvent Event) error {
 
 // StreamCreate Create a stream for use in the green context.
 //
-// Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Destroy]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx. The supported values for flags are: Specifying priority affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order. priority follows a convention where lower numbers represent higher priorities. ‘0’ represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range. See also: [Stream.Destroy], [NewGreenCtx] [NewStream], [Stream.Priority], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreateWithPriority Note: Note that this function may also return error codes from previous, asynchronous launches. Note: In the current implementation, only compute kernels launched in priority streams are affected by the stream’s priority. Stream priorities have no effect on host-to-device and device-to-host memory operations.
+// Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Destroy]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx.
+// The supported values for flags are:
+// Specifying priority affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order. priority follows a convention where lower numbers represent higher priorities. ‘0’ represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// Note: In the current implementation, only compute kernels launched in priority streams are affected by the stream’s priority. Stream priorities have no effect on host-to-device and device-to-host memory operations.
+//
+// See also: [Stream.Destroy], [NewGreenCtx] [NewStream], [Stream.Priority], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreateWithPriority
 //
 //   - flags: Flags for stream creation. [StreamNonBlocking] must be specified
 //   - priority: Stream priority. Lower numbers represent higher priorities. See [CtxGetStreamPriorityRange] for more information about meaningful stream priorities that can be passed
@@ -54,7 +75,13 @@ func (g GreenCtx) StreamCreate(flags StreamFlags, priority int32) (Stream, error
 
 // WaitEvent Make a green context wait on an event.
 //
-// Makes all future work submitted to green context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [GreenCtx.RecordEvent] or [Event.Record], for details on what is captured by an event. See also: [GreenCtx.RecordEvent], [Stream.WaitEvent], [Context.RecordEvent], [Context.WaitEvent] Note: hEvent may be from a different context or device than hCtx. Note: The API will return [ErrStreamCaptureUnsupported] and invalidate the capture if the specified event hEvent is part of an ongoing capture sequence or if the specified green context hCtx has a stream in the capture mode.
+// Makes all future work submitted to green context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [GreenCtx.RecordEvent] or [Event.Record], for details on what is captured by an event.
+//
+// Note: hEvent may be from a different context or device than hCtx.
+//
+// Note: The API will return [ErrStreamCaptureUnsupported] and invalidate the capture if the specified event hEvent is part of an ongoing capture sequence or if the specified green context hCtx has a stream in the capture mode.
+//
+// See also: [GreenCtx.RecordEvent], [Stream.WaitEvent], [Context.RecordEvent], [Context.WaitEvent]
 //
 //   - hEvent: Event to wait on
 //
@@ -65,7 +92,13 @@ func (g GreenCtx) WaitEvent(hEvent Event) error {
 
 // NewGreenCtx Creates a green context with a specified set of resources.
 //
-// This API creates a green context with the resources specified in the descriptor desc and returns it in the handle represented by phCtx. This API will retain the primary context on device dev, which will is released when the green context is destroyed. It is advised to have the primary context active before calling this API to avoid the heavy cost of triggering primary context initialization and deinitialization multiple times. The API does not set the green context current. In order to set it current, you need to explicitly set it current by first converting the green context to a [Context] using [CtxFromGreenCtx] and subsequently calling [Context.SetCurrent] / [Context.PushCurrent]. It should be noted that a green context can be current to only one thread at a time. There is no internal synchronization to make API calls accessing the same green context from multiple threads work. Note: The API is not supported on 32-bit platforms. The supported flags are: See also: [GreenCtx.Destroy], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
+// This API creates a green context with the resources specified in the descriptor desc and returns it in the handle represented by phCtx. This API will retain the primary context on device dev, which will is released when the green context is destroyed. It is advised to have the primary context active before calling this API to avoid the heavy cost of triggering primary context initialization and deinitialization multiple times.
+// The API does not set the green context current. In order to set it current, you need to explicitly set it current by first converting the green context to a [Context] using [CtxFromGreenCtx] and subsequently calling [Context.SetCurrent] / [Context.PushCurrent]. It should be noted that a green context can be current to only one thread at a time. There is no internal synchronization to make API calls accessing the same green context from multiple threads work.
+//
+// Note: The API is not supported on 32-bit platforms.
+// The supported flags are:
+//
+// See also: [GreenCtx.Destroy], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
 //
 //   - desc: Descriptor generated via [DevResourceGenerateDesc] which contains the set of resources to be used
 //   - dev: Device on which to create the green context

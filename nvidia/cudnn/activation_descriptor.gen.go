@@ -42,6 +42,8 @@ func (a ActivationDescriptor) SwishBeta() (swishBeta float64, err error) {
 // Set initializes a previously created generic activation descriptor object.
 //
 //   - mode: Input. Enumerant to specify the activation mode
+//   - reluNanOpt: Input. Enumerant to specify the Nan propagation mode
+//   - coef: Input. Floating point number. When the activation mode (refer to [ActivationMode]) is set to [ActivationClippedRelu], this input specifies the clipping threshold; and when the activation mode is set to [ActivationRelu], this input specifies the upper bound
 //
 // Returns:
 //   - [ErrBadParam]: mode or reluNanOpt has an invalid enumerant value.

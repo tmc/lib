@@ -4,7 +4,12 @@ package driver
 
 // Destroy Destroys the specified memory pool.
 //
-// If any pointers obtained from this pool haven’t been freed or the pool has free operations that haven’t completed when [MemoryPool.Destroy] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations. Destroying the current mempool of a device sets the default mempool of that device as the current mempool for that device. See also: [DevicePtr.FreeAsync], [Device.SetMemPool], [Device.MemPool], [Device.DefaultMemPool], [NewMemoryPool] Note: A device’s default memory pool cannot be destroyed.
+// If any pointers obtained from this pool haven’t been freed or the pool has free operations that haven’t completed when [MemoryPool.Destroy] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations.
+// Destroying the current mempool of a device sets the default mempool of that device as the current mempool for that device.
+//
+// Note: A device’s default memory pool cannot be destroyed.
+//
+// See also: [DevicePtr.FreeAsync], [Device.SetMemPool], [Device.MemPool], [Device.DefaultMemPool], [NewMemoryPool]
 //
 // Wraps cuMemPoolDestroy.
 func (m MemoryPool) Destroy() error {
@@ -13,7 +18,11 @@ func (m MemoryPool) Destroy() error {
 
 // ExportToShareableHandle Exports a memory pool to the requested handle type.
 //
-// Given an IPC capable mempool, create an OS handle to share the pool with another process. A recipient process can convert the shareable handle into a mempool with [MemPoolImportFromShareableHandle]. Individual pointers can then be shared with the [DevicePtr.MemPoolExportPointer] and [MemoryPool.ImportPointer] APIs. The implementation of what the shareable handle is and how it can be transferred is defined by the requested handle type. See also: [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer], [MemoryPool.ImportPointer], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute] Note: : To create an IPC capable mempool, create a mempool with a [MemAllocationHandleType] other than [MemHandleTypeNone].
+// Given an IPC capable mempool, create an OS handle to share the pool with another process. A recipient process can convert the shareable handle into a mempool with [MemPoolImportFromShareableHandle]. Individual pointers can then be shared with the [DevicePtr.MemPoolExportPointer] and [MemoryPool.ImportPointer] APIs. The implementation of what the shareable handle is and how it can be transferred is defined by the requested handle type.
+//
+// Note: : To create an IPC capable mempool, create a mempool with a [MemAllocationHandleType] other than [MemHandleTypeNone].
+//
+// See also: [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer], [MemoryPool.ImportPointer], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
 //   - handleOut: Returned OS handle
 //   - handleType: the type of handle to create
@@ -26,7 +35,9 @@ func (m MemoryPool) ExportToShareableHandle(handleOut uintptr, handleType MemAll
 
 // Access Returns the accessibility of a pool from a device.
 //
-// Returns the accessibility of the pool’s memory from the specified location. See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
+// Returns the accessibility of the pool’s memory from the specified location.
+//
+// See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - location: the location accessing the pool
 //
@@ -37,7 +48,12 @@ func (m MemoryPool) Access(location *MemLocation) (MemaccessFlags, error) {
 
 // Attribute Gets attributes of a memory pool.
 //
-// Supported attributes are: The following properties can be also be queried on imported and default pools: See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool] Note: On devices with a single locality domain, mempools created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 are equivalent to full-device mempools created with [MemLocationTypeDevice]. The value of this attribute will be -1 for such mempools.
+// Supported attributes are:
+// The following properties can be also be queried on imported and default pools:
+//
+// Note: On devices with a single locality domain, mempools created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 are equivalent to full-device mempools created with [MemLocationTypeDevice]. The value of this attribute will be -1 for such mempools.
+//
+// See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - attr: The attribute to get
 //   - value: Retrieved value
@@ -49,7 +65,11 @@ func (m MemoryPool) Attribute(attr MempoolAttribute, value uintptr) error {
 
 // ImportPointer Import a memory pool allocation from another process.
 //
-// Returns in ptrOut a pointer to the imported memory. The imported memory must not be accessed before the allocation operation completes in the exporting process. The imported memory must be freed from all importing processes before being freed in the exporting process. The pointer may be freed with [DevicePtr.Free] or [DevicePtr.FreeAsync]. If [DevicePtr.FreeAsync] is used, the free must be completed on the importing process before the free operation on the exporting process. See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer] Note: The [DevicePtr.FreeAsync] api may be used in the exporting process before the [DevicePtr.FreeAsync] operation completes in its stream as long as the [DevicePtr.FreeAsync] in the exporting process specifies a stream with a stream dependency on the importing process’s [DevicePtr.FreeAsync].
+// Returns in ptrOut a pointer to the imported memory. The imported memory must not be accessed before the allocation operation completes in the exporting process. The imported memory must be freed from all importing processes before being freed in the exporting process. The pointer may be freed with [DevicePtr.Free] or [DevicePtr.FreeAsync]. If [DevicePtr.FreeAsync] is used, the free must be completed on the importing process before the free operation on the exporting process.
+//
+// Note: The [DevicePtr.FreeAsync] api may be used in the exporting process before the [DevicePtr.FreeAsync] operation completes in its stream as long as the [DevicePtr.FreeAsync] in the exporting process specifies a stream with a stream dependency on the importing process’s [DevicePtr.FreeAsync].
+//
+// See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer]
 //
 //   - shareData: data specifying the memory to import
 //
@@ -71,7 +91,9 @@ func (m MemoryPool) SetAccess(map_ *MemAccessDesc, count uint) error {
 
 // SetAttribute Sets attributes of a memory pool.
 //
-// Supported attributes are: See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
+// Supported attributes are:
+//
+// See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - attr: The attribute to modify
 //   - value: Pointer to the value to assign
@@ -83,7 +105,13 @@ func (m MemoryPool) SetAttribute(attr MempoolAttribute, value uintptr) error {
 
 // TrimTo Tries to release memory back to the OS.
 //
-// Releases memory back to the OS until the pool contains fewer than minBytesToKeep reserved bytes, or there is no more memory that the allocator can safely release. The allocator cannot release OS allocations that back outstanding asynchronous allocations. The OS allocations may happen at different granularity from the user allocations. See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool] Note: : Allocations that have not been freed count as outstanding. Note: : Allocations that have been asynchronously freed but whose completion has not been observed on the host (eg. by a synchronize) can count as outstanding.
+// Releases memory back to the OS until the pool contains fewer than minBytesToKeep reserved bytes, or there is no more memory that the allocator can safely release. The allocator cannot release OS allocations that back outstanding asynchronous allocations. The OS allocations may happen at different granularity from the user allocations.
+//
+// Note: : Allocations that have not been freed count as outstanding.
+//
+// Note: : Allocations that have been asynchronously freed but whose completion has not been observed on the host (eg. by a synchronize) can count as outstanding.
+//
+// See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - minBytesToKeep: If the pool has less than minBytesToKeep reserved, the TrimTo operation is a no-op. Otherwise the pool will be guaranteed to have at least minBytesToKeep bytes reserved after the operation
 //
@@ -94,7 +122,15 @@ func (m MemoryPool) TrimTo(minBytesToKeep uint) error {
 
 // MemAllocFromPoolAsync Allocates memory from a specified pool with stream ordered semantics.
 //
-// Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the specified memory pool. See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute] Note: The specified memory pool may be from a device different than that of the specified hStream. Note: Basic stream ordering allows future work submitted into the same stream to use the allocation. Stream query, stream synchronize, and CUDA events can be used to guarantee that the allocation operation completes before work submitted in a separate stream runs. Note: During stream capture, this function results in the creation of an allocation node. In this case, the allocation is owned by the graph instead of the memory pool. The memory pool’s properties are used to set the node’s creation parameters.
+// Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the specified memory pool.
+//
+// Note: The specified memory pool may be from a device different than that of the specified hStream.
+//
+// Note: Basic stream ordering allows future work submitted into the same stream to use the allocation. Stream query, stream synchronize, and CUDA events can be used to guarantee that the allocation operation completes before work submitted in a separate stream runs.
+//
+// Note: During stream capture, this function results in the creation of an allocation node. In this case, the allocation is owned by the graph instead of the memory pool. The memory pool’s properties are used to set the node’s creation parameters.
+//
+// See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
 //   - hStream: The stream establishing the stream ordering semantic
 //
@@ -122,7 +158,12 @@ func (m MemoryPool) MemAllocFromPoolAsyncBytes(bytesize uint, hStream Stream) (D
 
 // MemSetMemPool Sets the current memory pool for a memory location and allocation type.
 //
-// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. In all other cases, the call returns [ErrInvalidValue]. When a memory pool is set as the current memory pool, the location parameter should be the same as the location of the pool. The location and allocation type specified must match those of the pool otherwise [ErrInvalidValue] is returned. By default, a memory location’s current memory pool is its default memory pool that can be obtained via [MemGetDefaultMemPool]. If the location type is [MemLocationTypeDevice] and the allocation type is [MemAllocationTypePinned], then this API is the equivalent of calling [Device.SetMemPool] with the location id as the device. For further details on the implications, please refer to the documentation for [Device.SetMemPool]. See also: [Device.DefaultMemPool], [Device.MemPool], [MemGetMemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync] Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on.
+// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. In all other cases, the call returns [ErrInvalidValue].
+// When a memory pool is set as the current memory pool, the location parameter should be the same as the location of the pool. The location and allocation type specified must match those of the pool otherwise [ErrInvalidValue] is returned. By default, a memory location’s current memory pool is its default memory pool that can be obtained via [MemGetDefaultMemPool]. If the location type is [MemLocationTypeDevice] and the allocation type is [MemAllocationTypePinned], then this API is the equivalent of calling [Device.SetMemPool] with the location id as the device. For further details on the implications, please refer to the documentation for [Device.SetMemPool].
+//
+// Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on.
+//
+// See also: [Device.DefaultMemPool], [Device.MemPool], [MemGetMemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
 //
 // Wraps cuMemSetMemPool.
 func (m MemoryPool) MemSetMemPool(location *MemLocation, type_ MemAllocationType) error {
@@ -131,7 +172,20 @@ func (m MemoryPool) MemSetMemPool(location *MemLocation, type_ MemAllocationType
 
 // NewMemoryPool Creates a memory pool.
 //
-// Creates a CUDA memory pool and returns the handle in pool. The poolProps determines the properties of the pool such as the backing device and IPC capabilities. To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHost]. [MemPoolProps].CUmemLocationid is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHostNuma] and [MemPoolProps].CUmemLocationid must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].CUmemLocationtype will result in [ErrInvalidValue]. To create a memory pool targeting a specific device locality domain, applications must set [MemPoolProps].CUmemLocationtype to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN, [MemPoolProps].CUmemLocationlocalized.deviceId must specify the device ID, and [MemPoolProps].CUmemLocationlocalized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT. By default, the pool’s memory will be accessible from the device it is allocated on. In the case of pools created with [MemLocationTypeHostNuma] or [MemLocationTypeHost], their default accessibility will be from the host CPU. Applications can control the maximum size of the pool by specifying a non-zero value for [MemPoolProps].maxSize. If set to 0, the maximum size of the pool will default to a system dependent value. Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) nvidia-caps-imex-channels character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application. When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory. The IMEX channel security model works on a per user basis. Which means all processes under a user can share memory if the user has access to a valid IMEX channel. When multi-user isolation is desired, a separate IMEX channel is required for each user. These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c 0 To create a managed memory pool, applications must set [MemPoolProps].[MemAllocationType] to [MemAllocationTypeManaged]. [MemPoolProps].[MemAllocationHandleType] must also be set to [MemHandleTypeNone] since IPC is not supported. For managed memory pools, [MemPoolProps].[MemLocation] will be treated as the preferred location for all allocations created from the pool. An application can also set [MemLocationTypeNone] to indicate no preferred location. [MemPoolProps].maxSize must be set to zero for managed memory pools. [MemPoolProps].usage should be zero as decompress for managed memory is not supported. For managed memory pools, all devices on the system must have non-zero concurrentManagedAccess. If not, this call returns [ErrNotSupported] See also: [Device.SetMemPool], [Device.MemPool], [Device.DefaultMemPool], [MemoryPool.MemAllocFromPoolAsync], [MemoryPool.ExportToShareableHandle] Note: On devices with a single locality domain, a memory pool created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 is equivalent to a full-device memory pool created with [MemLocationTypeDevice]. The pool will report [MemLocationTypeDevice] for [MempoolAttrLocationType] and -1 for CU_MEMPOOL_ATTR_LOCALITY_DOMAIN_ID. Note: Specifying [MemHandleTypeNone] creates a memory pool that will not support IPC.
+// Creates a CUDA memory pool and returns the handle in pool. The poolProps determines the properties of the pool such as the backing device and IPC capabilities.
+// To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHost]. [MemPoolProps].CUmemLocationid is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHostNuma] and [MemPoolProps].CUmemLocationid must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].CUmemLocationtype will result in [ErrInvalidValue]. To create a memory pool targeting a specific device locality domain, applications must set [MemPoolProps].CUmemLocationtype to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN, [MemPoolProps].CUmemLocationlocalized.deviceId must specify the device ID, and [MemPoolProps].CUmemLocationlocalized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT.
+// By default, the pool’s memory will be accessible from the device it is allocated on. In the case of pools created with [MemLocationTypeHostNuma] or [MemLocationTypeHost], their default accessibility will be from the host CPU. Applications can control the maximum size of the pool by specifying a non-zero value for [MemPoolProps].maxSize. If set to 0, the maximum size of the pool will default to a system dependent value.
+// Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) nvidia-caps-imex-channels character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application.
+// When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory.
+// The IMEX channel security model works on a per user basis. Which means all processes under a user can share memory if the user has access to a valid IMEX channel. When multi-user isolation is desired, a separate IMEX channel is required for each user.
+// These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c 0
+// To create a managed memory pool, applications must set [MemPoolProps].[MemAllocationType] to [MemAllocationTypeManaged]. [MemPoolProps].[MemAllocationHandleType] must also be set to [MemHandleTypeNone] since IPC is not supported. For managed memory pools, [MemPoolProps].[MemLocation] will be treated as the preferred location for all allocations created from the pool. An application can also set [MemLocationTypeNone] to indicate no preferred location. [MemPoolProps].maxSize must be set to zero for managed memory pools. [MemPoolProps].usage should be zero as decompress for managed memory is not supported. For managed memory pools, all devices on the system must have non-zero concurrentManagedAccess. If not, this call returns [ErrNotSupported]
+//
+// Note: On devices with a single locality domain, a memory pool created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 is equivalent to a full-device memory pool created with [MemLocationTypeDevice]. The pool will report [MemLocationTypeDevice] for [MempoolAttrLocationType] and -1 for CU_MEMPOOL_ATTR_LOCALITY_DOMAIN_ID.
+//
+// Note: Specifying [MemHandleTypeNone] creates a memory pool that will not support IPC.
+//
+// See also: [Device.SetMemPool], [Device.MemPool], [Device.DefaultMemPool], [MemoryPool.MemAllocFromPoolAsync], [MemoryPool.ExportToShareableHandle]
 //
 // Wraps cuMemPoolCreate.
 func NewMemoryPool(poolProps *MemPoolProps) (MemoryPool, error) {
@@ -140,7 +194,12 @@ func NewMemoryPool(poolProps *MemPoolProps) (MemoryPool, error) {
 
 // MemPoolImportFromShareableHandle imports a memory pool from a shared handle.
 //
-// Specific allocations can be imported from the imported pool with [MemoryPool.ImportPointer]. If handleType is [MemHandleTypeFabric] and the importer process has not been granted access to the same IMEX channel as the exporter process, this API will error as [ErrNotPermitted]. See also: [MemoryPool.ExportToShareableHandle], [DevicePtr.MemPoolExportPointer], [MemoryPool.ImportPointer] Note: Imported memory pools do not support creating new allocations. As such imported memory pools may not be used in [Device.SetMemPool] or [MemoryPool.MemAllocFromPoolAsync] calls.
+// Specific allocations can be imported from the imported pool with [MemoryPool.ImportPointer].
+// If handleType is [MemHandleTypeFabric] and the importer process has not been granted access to the same IMEX channel as the exporter process, this API will error as [ErrNotPermitted].
+//
+// Note: Imported memory pools do not support creating new allocations. As such imported memory pools may not be used in [Device.SetMemPool] or [MemoryPool.MemAllocFromPoolAsync] calls.
+//
+// See also: [MemoryPool.ExportToShareableHandle], [DevicePtr.MemPoolExportPointer], [MemoryPool.ImportPointer]
 //
 //   - handle: OS handle of the pool to open
 //   - handleType: The type of handle being imported

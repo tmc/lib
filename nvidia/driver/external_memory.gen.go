@@ -4,7 +4,15 @@ package driver
 
 // MappedBuffer Maps a buffer onto an imported memory object.
 //
-// Maps a buffer onto an imported memory object and returns a device pointer in devPtr. The properties of the buffer being mapped must be described in bufferDesc. The [ExternalMemoryBufferDesc] structure is defined as follows: where [ExternalMemoryBufferDesc].offset is the offset in the memory object where the buffer’s base address is. [ExternalMemoryBufferDesc].size is the size of the buffer. [ExternalMemoryBufferDesc].flags must be zero. The offset and size have to be suitably aligned to match the requirements of the external API. Mapping two buffers whose ranges overlap may or may not result in the same virtual address being returned for the overlapped portion. In such cases, the application must ensure that all accesses to that region from the GPU are volatile. Otherwise writes made via one address are not guaranteed to be visible via the other address, even if they’re issued by the same thread. It is recommended that applications map the combined range instead of mapping separate buffers and then apply the appropriate offsets to the returned pointer to derive the individual buffers. The returned pointer devPtr must be freed using [DevicePtr.Free]. See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedMipmappedArray] Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Maps a buffer onto an imported memory object and returns a device pointer in devPtr.
+// The properties of the buffer being mapped must be described in bufferDesc. The [ExternalMemoryBufferDesc] structure is defined as follows:
+// where [ExternalMemoryBufferDesc].offset is the offset in the memory object where the buffer’s base address is. [ExternalMemoryBufferDesc].size is the size of the buffer. [ExternalMemoryBufferDesc].flags must be zero.
+// The offset and size have to be suitably aligned to match the requirements of the external API. Mapping two buffers whose ranges overlap may or may not result in the same virtual address being returned for the overlapped portion. In such cases, the application must ensure that all accesses to that region from the GPU are volatile. Otherwise writes made via one address are not guaranteed to be visible via the other address, even if they’re issued by the same thread. It is recommended that applications map the combined range instead of mapping separate buffers and then apply the appropriate offsets to the returned pointer to derive the individual buffers.
+// The returned pointer devPtr must be freed using [DevicePtr.Free].
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedMipmappedArray]
 //
 //   - bufferDesc: Buffer descriptor
 //
@@ -15,7 +23,16 @@ func (e ExternalMemory) MappedBuffer(bufferDesc *ExternalMemoryBufferDesc) (Devi
 
 // MappedMipmappedArray Maps a CUDA mipmapped array onto an external memory object.
 //
-// Maps a CUDA mipmapped array onto an external object and returns a handle to it in mipmap. The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc. The structure [ExternalMemoryMipmappedArrayDesc] is defined as follows: where [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDescFlags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain. If extMem was imported from a handle of type [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryMipmappedArrayDesc].numLevels must be equal to 1. Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported. The returned CUDA mipmapped array must be freed using [MipmappedArray.Destroy]. See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedBuffer] Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Maps a CUDA mipmapped array onto an external object and returns a handle to it in mipmap.
+// The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc. The structure [ExternalMemoryMipmappedArrayDesc] is defined as follows:
+// where [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDescFlags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain.
+// If extMem was imported from a handle of type [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryMipmappedArrayDesc].numLevels must be equal to 1.
+// Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported.
+// The returned CUDA mipmapped array must be freed using [MipmappedArray.Destroy].
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedBuffer]
 //
 //   - mipmapDesc: CUDA array descriptor
 //
@@ -26,7 +43,11 @@ func (e ExternalMemory) MappedMipmappedArray(mipmapDesc *ExternalMemoryMipmapped
 
 // Destroy Destroys an external memory object.
 //
-// Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively. See also: [ImportExternalMemory], [ExternalMemory.MappedBuffer], [ExternalMemory.MappedMipmappedArray] Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [ImportExternalMemory], [ExternalMemory.MappedBuffer], [ExternalMemory.MappedMipmappedArray]
 //
 // Wraps cuDestroyExternalMemory.
 func (e ExternalMemory) Destroy() error {

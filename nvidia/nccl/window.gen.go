@@ -6,7 +6,11 @@ import "github.com/tmc/lib/nvidia/driver"
 
 // PutSignal Write data from localbuff to rank peer’s registered memory window peerWin at offset peerWinOffset and subsequently updating a remote signal.
 //
-// The target memory window peerWin must be registered using [Comm.WindowRegister]. The sigIdx is the signal index identifier for the operation. It must be set to 0 for now. The ctx is the context identifier for the operation. It must be set to 0 for now. The flags parameter is reserved for future use. It must be set to 0 for now. The return of [Window.PutSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Window.PutSignal] on the CUDA stream, the localbuff is safe to reuse or modify. When a signal is updated on the remote peer, it guarantees that the data from the corresponding [Window.PutSignal] operation has been delivered to the remote memory. All prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
+// The target memory window peerWin must be registered using [Comm.WindowRegister].
+// The sigIdx is the signal index identifier for the operation. It must be set to 0 for now.
+// The ctx is the context identifier for the operation. It must be set to 0 for now.
+// The flags parameter is reserved for future use. It must be set to 0 for now.
+// The return of [Window.PutSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Window.PutSignal] on the CUDA stream, the localbuff is safe to reuse or modify. When a signal is updated on the remote peer, it guarantees that the data from the corresponding [Window.PutSignal] operation has been delivered to the remote memory. All prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
 //
 // Wraps ncclPutSignal.
 func (w Window) PutSignal(localbuff driver.DevicePtr, count uint, datatype DataType, peer int32, peerWinOffset uint, sigIdx int32, ctx int32, flags uint32, comm Comm, stream driver.Stream) error {

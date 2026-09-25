@@ -127,7 +127,7 @@
 //
 // # Tensor Operations
 //
-//   - [Handle.OpTensor]: [TensorNchwVectC] is not supported as input tensor format.
+//   - [Handle.OpTensor]: implements the equation C = op(alpha1 [0] * A, alpha2 [0] * B) + beta [0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta.
 //   - [Handle.ReduceTensor]: reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta.
 //
 // # Pooling
@@ -200,7 +200,7 @@
 //   - [FusedOpsVariantParamPack.Attribute]: retrieves the settings of the variable parameter pack descriptor.
 //   - [LRNDescriptor.Get]: retrieves values stored in the previously initialized LRN descriptor object.
 //   - [GetLastErrorString]: retrieves the last encountered cuDNN error message in the current thread to a NULL terminated (ASCIIZ) string.
-//   - [Handle.MultiHeadAttnBuffers]: computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights].
+//   - [Handle.MultiHeadAttnBuffers]: computes weight, work, and reserve space buffer sizes used by the following functions:
 //   - [Handle.MultiHeadAttnWeights]: obtains the shape of the weight or bias tensor.
 //   - [Handle.NormalizationBackwardWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationBackward] function for the specified normOps and algo input setting.
 //   - [Handle.NormalizationForwardTrainingWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationForwardTraining] function for the specified normOps and algo input setting.

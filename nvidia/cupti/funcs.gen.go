@@ -203,7 +203,9 @@ var (
 
 // ActivityConfigurePCSampling Set PC sampling configuration.
 //
-// For Pascal and older GPU architectures this API must be called before enabling activity kind [ActivityKindPcSampling]. There is no such requirement for Volta and newer GPU architectures. For Volta and newer GPU architectures if this API is called in the middle of execution, PC sampling configuration will be updated for subsequent kernel launches. Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
+// For Pascal and older GPU architectures this API must be called before enabling activity kind [ActivityKindPcSampling]. There is no such requirement for Volta and newer GPU architectures.
+// For Volta and newer GPU architectures if this API is called in the middle of execution, PC sampling configuration will be updated for subsequent kernel launches.
+// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
 //
 //   - ctx: The context
 //   - config: A pointer to [ActivityPCSamplingConfig] structure containing PC sampling configuration
@@ -316,7 +318,8 @@ func ActivityEnable(kind ActivityKind) error {
 
 // ActivityEnableAllSyncRecords Enables collecting records for all synchronization operations.
 //
-// CUPTI provides CUDA event query and stream query records via [ActivityKindSynchronization]. Using this API, CUPTI client can disable to record CUDA event query and stream query records for queries for which the operations have not yet been completed on the CUDA event/stream. By default, the record is generated for all CUDA events and stream irrespective of whether the operations have been completed on the CUDA event/stream.
+// CUPTI provides CUDA event query and stream query records via [ActivityKindSynchronization]. Using this API, CUPTI client can disable to record CUDA event query and stream query records for queries for which the operations have not yet been completed on the CUDA event/stream.
+// By default, the record is generated for all CUDA events and stream irrespective of whether the operations have been completed on the CUDA event/stream.
 //
 //   - enable: is a boolean, denoting whether to enable or disable the collection of all CUDA event query and stream query records
 //
@@ -352,7 +355,10 @@ func ActivityEnableAllocationSource(enable uint8) error {
 
 // ActivityEnableAndDump Enable collection of a specific kind of activity record.
 //
-// For certain activity kinds it dumps existing records. In general, the behavior of this API is similar to the API [ActivityEnable] i.e. it enables the collection of a specific kind of activity record. Additionally, this API can help in dumping the records for activities which happened in the past before enabling the corresponding activity kind. The API allows to get records for the current resource allocations done in CUDA For [ActivityKindDevice], existing device records are dumped For [ActivityKindContext], existing context records are dumped For [ActivityKindStream], existing stream records are dumped For [ActivityKind] NVLINK, existing NVLINK records are dumped For [ActivityKindPcie], existing PCIE records are dumped For other activities, the behavior is similar to the API [ActivityEnable] Device records are emitted in CUPTI on CUDA driver initialization. Those records can only be retrieved by the user if CUPTI is attached before CUDA initialization. Context and stream records are emitted on context and stream creation. The use case of the API is to provide the records for CUDA resources (contexts/streams/devices) that are currently active if user late attaches CUPTI. Before calling this function, the user must register buffer callbacks to get the activity records by calling [ActivityRegisterCallbacks]. If the user does not register the buffers and calls API [ActivityEnableAndDump], then CUPTI will enable the activity kind but not provide any records for that activity kind.
+// For certain activity kinds it dumps existing records.
+// In general, the behavior of this API is similar to the API [ActivityEnable] i.e. it enables the collection of a specific kind of activity record. Additionally, this API can help in dumping the records for activities which happened in the past before enabling the corresponding activity kind. The API allows to get records for the current resource allocations done in CUDA For [ActivityKindDevice], existing device records are dumped For [ActivityKindContext], existing context records are dumped For [ActivityKindStream], existing stream records are dumped For [ActivityKind] NVLINK, existing NVLINK records are dumped For [ActivityKindPcie], existing PCIE records are dumped For other activities, the behavior is similar to the API [ActivityEnable]
+// Device records are emitted in CUPTI on CUDA driver initialization. Those records can only be retrieved by the user if CUPTI is attached before CUDA initialization. Context and stream records are emitted on context and stream creation. The use case of the API is to provide the records for CUDA resources (contexts/streams/devices) that are currently active if user late attaches CUPTI.
+// Before calling this function, the user must register buffer callbacks to get the activity records by calling [ActivityRegisterCallbacks]. If the user does not register the buffers and calls API [ActivityEnableAndDump], then CUPTI will enable the activity kind but not provide any records for that activity kind.
 //
 //   - kind: The kind of activity record to collect
 //
@@ -371,7 +377,10 @@ func ActivityEnableAndDump(kind ActivityKind) error {
 
 // activityEnableAndDumpV2 Enable collection of a specific kind of activity record.
 //
-// For certain activity kinds it dumps existing records. In general, the behavior of this API is similar to the API [Subscriber.ActivityEnableV2] i.e. it enables the collection of a specific kind of activity record. Additionally, this API can help in dumping the records for activities which happened in the past before enabling the corresponding activity kind. The API allows to get records for the current resource allocations done in CUDA For [ActivityKindDevice], existing device records are dumped For [ActivityKindContext], existing context records are dumped For [ActivityKindStream], existing stream records are dumped For [ActivityKind] NVLINK, existing NVLINK records are dumped For [ActivityKindPcie], existing PCIE records are dumped For other activities, the behavior is similar to the API [ActivityEnable] Device records are emitted in CUPTI on CUDA driver initialization. Those records can only be retrieved by the user if CUPTI is attached before CUDA initialization. Context and stream records are emitted on context and stream creation. The use case of the API is to provide the records for CUDA resources (contexts/streams/devices) that are currently active if user late attaches CUPTI. Before calling this function, the user must register buffer callbacks to get the activity records by calling [Subscriber.ActivityRegisterCallbacksV2]. If the user does not register the buffers and calls API [Subscriber.ActivityEnableAndDumpV2], then CUPTI will enable the activity kind but not provide any records for that activity kind.
+// For certain activity kinds it dumps existing records.
+// In general, the behavior of this API is similar to the API [Subscriber.ActivityEnableV2] i.e. it enables the collection of a specific kind of activity record. Additionally, this API can help in dumping the records for activities which happened in the past before enabling the corresponding activity kind. The API allows to get records for the current resource allocations done in CUDA For [ActivityKindDevice], existing device records are dumped For [ActivityKindContext], existing context records are dumped For [ActivityKindStream], existing stream records are dumped For [ActivityKind] NVLINK, existing NVLINK records are dumped For [ActivityKindPcie], existing PCIE records are dumped For other activities, the behavior is similar to the API [ActivityEnable]
+// Device records are emitted in CUPTI on CUDA driver initialization. Those records can only be retrieved by the user if CUPTI is attached before CUDA initialization. Context and stream records are emitted on context and stream creation. The use case of the API is to provide the records for CUDA resources (contexts/streams/devices) that are currently active if user late attaches CUPTI.
+// Before calling this function, the user must register buffer callbacks to get the activity records by calling [Subscriber.ActivityRegisterCallbacksV2]. If the user does not register the buffers and calls API [Subscriber.ActivityEnableAndDumpV2], then CUPTI will enable the activity kind but not provide any records for that activity kind.
 //
 //   - subscriber: The subscriber handle
 //   - kind: The kind of activity record to collect
@@ -447,7 +456,9 @@ func ActivityEnableDeviceGraph(enable uint8) error {
 
 // ActivityEnableDriverApi Controls the collection of activity records for specific CUDA Driver APIs.
 //
-// Activity kind [ActivityKindDriver] controls the collection of either all CUDA Driver APIs or none. API [ActivityEnableDriverApi] can be used for fine-grained control, it allows enabling/disabling tracing of a specific set of CUDA Driver APIs. To disable collection of a small set of CUDA Driver APIs, user can first enable the collection of all Driver APIs using the activity kind [ActivityKindDriver] and call this API to disable specific Driver APIs. And to enable the collection of a small set of CUDA Driver APIs, user can call this API without using the activity kind [ActivityKindDriver]. Note: Activity kind [ActivityKindDriver] overrides the settings done by this API if it is called after the API.
+// Activity kind [ActivityKindDriver] controls the collection of either all CUDA Driver APIs or none. API [ActivityEnableDriverApi] can be used for fine-grained control, it allows enabling/disabling tracing of a specific set of CUDA Driver APIs. To disable collection of a small set of CUDA Driver APIs, user can first enable the collection of all Driver APIs using the activity kind [ActivityKindDriver] and call this API to disable specific Driver APIs. And to enable the collection of a small set of CUDA Driver APIs, user can call this API without using the activity kind [ActivityKindDriver].
+//
+// Note: Activity kind [ActivityKindDriver] overrides the settings done by this API if it is called after the API.
 //
 //   - cbid: callback id of the CUDA Driver API. This can be found in the header cupti_driver_cbid.h
 //   - enable: is a boolean, denoting whether to enable or disable the collection
@@ -466,7 +477,11 @@ func ActivityEnableDriverApi(cbid uint32, enable uint8) error {
 
 // ActivityEnableHWTrace Enables CUDA kernel timestamp collection via Hardware Event System (HES).
 //
-// This API enables hardware-based collection of CUDA kernel timestamps as an alternative to the traditional software instrumentation and semaphore-based approach. HES-based collection provides lower overhead and more accurate timing measurements. This API must be called after CUDA driver initialization but before creating the CUDA context. As a generic solution, this API can be called from the [CbidResourceCuInitFinished] callback. Once enabled, HES-based tracing persists for the entire profiling session and cannot be disabled. This API can also be called before CUDA driver initialization. After driver initialization, CUPTI may switch to traditional semaphore-based tracing and return error through callback with domain [CbDomainState] if HES-based tracing cannot be supported. Note This feature is only available on NVIDIA Blackwell architecture and later.
+// This API enables hardware-based collection of CUDA kernel timestamps as an alternative to the traditional software instrumentation and semaphore-based approach. HES-based collection provides lower overhead and more accurate timing measurements.
+// This API must be called after CUDA driver initialization but before creating the CUDA context. As a generic solution, this API can be called from the [CbidResourceCuInitFinished] callback. Once enabled, HES-based tracing persists for the entire profiling session and cannot be disabled.
+// This API can also be called before CUDA driver initialization. After driver initialization, CUPTI may switch to traditional semaphore-based tracing and return error through callback with domain [CbDomainState] if HES-based tracing cannot be supported.
+// Note
+// This feature is only available on NVIDIA Blackwell architecture and later.
 //
 //   - enable: is a boolean flag to enable (true) HES-based timestamp collection
 //
@@ -483,7 +498,8 @@ func ActivityEnableHWTrace(enable uint8) error {
 
 // ActivityEnableLatencyTimestamps Controls the collection of queued and submitted timestamps for kernels.
 //
-// This API is used to control the collection of queued and submitted timestamps for kernels whose records are provided through the struct CUpti_ActivityKernel12. Default value is 0, i.e. these timestamps are not collected. This API needs to be called before initialization of CUDA and this setting should not be changed during the profiling session. This API is not supported if the HW trace is enabled through the API [ActivityEnableHWTrace].
+// This API is used to control the collection of queued and submitted timestamps for kernels whose records are provided through the struct CUpti_ActivityKernel12. Default value is 0, i.e. these timestamps are not collected. This API needs to be called before initialization of CUDA and this setting should not be changed during the profiling session.
+// This API is not supported if the HW trace is enabled through the API [ActivityEnableHWTrace].
 //
 //   - enable: is a boolean, denoting whether these timestamps should be collected
 //
@@ -515,7 +531,9 @@ func ActivityEnableLaunchAttributes(enable uint8) error {
 
 // ActivityEnableRuntimeApi Controls the collection of activity records for specific CUDA Runtime APIs.
 //
-// Activity kind [ActivityKindRuntime] controls the collection of either all CUDA Runtime APIs or none. API [ActivityEnableRuntimeApi] can be used for fine-grained control, it allows enabling/disabling tracing of a specific set of CUDA Runtime APIs. To disable collection of a small set of CUDA Runtime APIs, user can first enable the collection of all Runtime APIs using the activity kind [ActivityKindRuntime] and call this API to disable specific Runtime APIs. And to enable the collection of a small set of CUDA Runtime APIs, user can call this API without using the activity kind [ActivityKindRuntime]. Note: Activity kind [ActivityKindRuntime] overrides the settings done by this API if it is called after the API.
+// Activity kind [ActivityKindRuntime] controls the collection of either all CUDA Runtime APIs or none. API [ActivityEnableRuntimeApi] can be used for fine-grained control, it allows enabling/disabling tracing of a specific set of CUDA Runtime APIs. To disable collection of a small set of CUDA Runtime APIs, user can first enable the collection of all Runtime APIs using the activity kind [ActivityKindRuntime] and call this API to disable specific Runtime APIs. And to enable the collection of a small set of CUDA Runtime APIs, user can call this API without using the activity kind [ActivityKindRuntime].
+//
+// Note: Activity kind [ActivityKindRuntime] overrides the settings done by this API if it is called after the API.
 //
 //   - cbid: callback id of the CUDA Runtime API. This can be found in the header cupti_runtime_cbid.h
 //   - enable: is a boolean, denoting whether to enable or disable the collection
@@ -554,7 +572,10 @@ func activityEnableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig 
 
 // ActivityFlush Wait for all activity records to be delivered via the completion callback.
 //
-// This function does not return until all activity records associated with the specified context/stream are returned to the CUPTI client using the callback registered in [ActivityRegisterCallbacks]. To ensure that all activity records are complete, the requested stream(s), if any, are synchronized. If context is NULL, the global activity records (i.e. those not associated with a particular stream) are flushed (in this case no streams are synchronized). If context is a valid [Context] and streamId is 0, the buffers of all streams of this context are flushed. Otherwise, the buffers of the specified stream in this context is flushed. Before calling this function, the buffer handling callback api must be activated by calling [ActivityRegisterCallbacks]. DEPRECATED This method is deprecated CONTEXT and STREAMID will be ignored. Use [ActivityFlushAll] to flush all data.
+// This function does not return until all activity records associated with the specified context/stream are returned to the CUPTI client using the callback registered in [ActivityRegisterCallbacks]. To ensure that all activity records are complete, the requested stream(s), if any, are synchronized.
+// If context is NULL, the global activity records (i.e. those not associated with a particular stream) are flushed (in this case no streams are synchronized). If context is a valid [Context] and streamId is 0, the buffers of all streams of this context are flushed. Otherwise, the buffers of the specified stream in this context is flushed.
+// Before calling this function, the buffer handling callback api must be activated by calling [ActivityRegisterCallbacks].
+// DEPRECATED This method is deprecated CONTEXT and STREAMID will be ignored. Use [ActivityFlushAll] to flush all data.
 //
 //   - context: A valid [Context] or NULL
 //   - streamId: The stream ID
@@ -576,7 +597,12 @@ func ActivityFlush(context Context, streamId uint32, flag uint32) error {
 
 // ActivityFlushAll Request to deliver activity records via the buffer completion callback.
 //
-// This function returns the activity records associated with all contexts/streams (and the global buffers not associated with any stream) to the CUPTI client using the callback registered in [ActivityRegisterCallbacks]. This is a blocking call but it doesn’t issue any CUDA synchronization calls implicitly thus it’s not guaranteed that all activities are completed on the underlying devices. Activity record is considered as completed if it has all the information filled up including the timestamps if any. It is the client’s responsibility to issue necessary CUDA synchronization calls before calling this function if all activity records with complete information are expected to be delivered. Behavior of the function based on the input flag: (-) For default flush i.e. when flag is set as 0, it returns all the activity buffers which have all the activity records completed, buffers need not to be full though. It doesn’t return buffers which have one or more incomplete records. Default flush can be done at a regular interval in a separate thread. (-) For forced flush i.e. when flag [ActivityFlagFlushForced] is passed to the function, it returns all the activity buffers including the ones which have one or more incomplete activity records. It’s suggested for clients to do the force flush before the termination of the profiling session to allow remaining buffers to be delivered. In general, it can be done in the at-exit handler. Before calling this function, the buffer handling callback api must be activated by calling [ActivityRegisterCallbacks]. When multiple subscribers are allowed, the buffers of all subscribers are flushed with the same flag. It is not possible to flush the buffers of only a specific subscriber. [ActivityFlushPeriod]
+// This function returns the activity records associated with all contexts/streams (and the global buffers not associated with any stream) to the CUPTI client using the callback registered in [ActivityRegisterCallbacks].
+// This is a blocking call but it doesn’t issue any CUDA synchronization calls implicitly thus it’s not guaranteed that all activities are completed on the underlying devices. Activity record is considered as completed if it has all the information filled up including the timestamps if any. It is the client’s responsibility to issue necessary CUDA synchronization calls before calling this function if all activity records with complete information are expected to be delivered.
+// Behavior of the function based on the input flag: (-) For default flush i.e. when flag is set as 0, it returns all the activity buffers which have all the activity records completed, buffers need not to be full though. It doesn’t return buffers which have one or more incomplete records. Default flush can be done at a regular interval in a separate thread. (-) For forced flush i.e. when flag [ActivityFlagFlushForced] is passed to the function, it returns all the activity buffers including the ones which have one or more incomplete activity records. It’s suggested for clients to do the force flush before the termination of the profiling session to allow remaining buffers to be delivered. In general, it can be done in the at-exit handler.
+// Before calling this function, the buffer handling callback api must be activated by calling [ActivityRegisterCallbacks].
+// When multiple subscribers are allowed, the buffers of all subscribers are flushed with the same flag. It is not possible to flush the buffers of only a specific subscriber.
+// [ActivityFlushPeriod]
 //
 //   - flag: The flag can be set to indicate a forced flush. See [ActivityFlag]
 //
@@ -594,7 +620,11 @@ func ActivityFlushAll(flag uint32) error {
 
 // ActivityFlushPeriod Sets the flush period for the worker thread.
 //
-// CUPTI creates a worker thread to minimize the perturbance for the application created threads. CUPTI offloads certain operations from the application threads to the worker thread, this includes synchronization of profiling resources between host and device, delivery of the activity buffers to the client using the callback registered in [ActivityRegisterCallbacks]. For performance reasons, CUPTI wakes up the worker thread based on certain heuristics. This API is used to control the flush period of the worker thread. This setting will override the CUPTI heuristics. Setting time to zero disables the periodic flush and restores the default behavior. Periodic flush can return only those activity buffers which are full and have all the activity records completed. It’s allowed to use the API [ActivityFlushAll] to flush the data on-demand, even when client sets the periodic flush. [ActivityFlushAll]
+// CUPTI creates a worker thread to minimize the perturbance for the application created threads. CUPTI offloads certain operations from the application threads to the worker thread, this includes synchronization of profiling resources between host and device, delivery of the activity buffers to the client using the callback registered in [ActivityRegisterCallbacks]. For performance reasons, CUPTI wakes up the worker thread based on certain heuristics.
+// This API is used to control the flush period of the worker thread. This setting will override the CUPTI heuristics. Setting time to zero disables the periodic flush and restores the default behavior.
+// Periodic flush can return only those activity buffers which are full and have all the activity records completed.
+// It’s allowed to use the API [ActivityFlushAll] to flush the data on-demand, even when client sets the periodic flush.
+// [ActivityFlushAll]
 //
 //   - time: flush period in milliseconds (ms)
 //
@@ -632,7 +662,8 @@ func ActivityGetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.
 
 // activityGetAttributeV2 Read an activity API attribute.
 //
-// This function is similar to [ActivityGetAttribute]. Note that in case of multiple subscribers, only [Subscriber.ActivityGetAttributeV2] can be used to read the attribute for the subscriber. Read an activity API attribute and return it in *value.
+// This function is similar to [ActivityGetAttribute]. Note that in case of multiple subscribers, only [Subscriber.ActivityGetAttributeV2] can be used to read the attribute for the subscriber.
+// Read an activity API attribute and return it in *value.
 //
 //   - subscriber: The subscriber handle
 //   - attr: The attribute to read
@@ -653,7 +684,8 @@ func activityGetAttributeV2(subscriber Subscriber, attr ActivityAttribute, value
 
 // activityGetEnabledKinds Get the enabled activity kinds for a subscriber.
 //
-// Note If the provided buffer size is not sufficient to store all the enabled activity kinds, we populate the buffer with as much as we can, but return the true value of the number of enabled activity kinds in enabledKindsCount.
+// Note
+// If the provided buffer size is not sufficient to store all the enabled activity kinds, we populate the buffer with as much as we can, but return the true value of the number of enabled activity kinds in enabledKindsCount.
 //
 //   - subscriber: The subscriber handle. If NULL, the union of activity kinds enabled across all subscribers is returned
 //   - buffer: The buffer to store the enabled activity kinds. If NULL, the number of enabled activity kinds is returned in enabledKindsCount
@@ -678,7 +710,8 @@ func activityGetEnabledKinds(subscriber Subscriber, buffer *ActivityKind, buffer
 
 // ActivityGetNextRecord Iterate over the activity records in a buffer.
 //
-// This is a helper function to iterate over the activity records in a buffer. A buffer of activity records is typically obtained by receiving a [BuffersCallbackCompleteFunc] callback. Stop iterating the buffer when an error occurs. An example of typical usage:
+// This is a helper function to iterate over the activity records in a buffer. A buffer of activity records is typically obtained by receiving a [BuffersCallbackCompleteFunc] callback. Stop iterating the buffer when an error occurs.
+// An example of typical usage:
 //
 //   - buffer: The buffer containing activity records
 //   - validBufferSizeBytes: The number of valid bytes in the buffer
@@ -791,7 +824,8 @@ func ActivityPushExternalCorrelationId(kind ExternalCorrelationKind, id uint64) 
 
 // ActivityRegisterCallbacks Registers callback functions with CUPTI for activity buffer handling.
 //
-// This function registers two callback functions to be used in asynchronous buffer handling. If registered, activity record buffers are handled using asynchronous requested/completed callbacks from CUPTI. Registering these callbacks prevents the client from using CUPTI’s blocking enqueue/dequeue functions.
+// This function registers two callback functions to be used in asynchronous buffer handling. If registered, activity record buffers are handled using asynchronous requested/completed callbacks from CUPTI.
+// Registering these callbacks prevents the client from using CUPTI’s blocking enqueue/dequeue functions.
 //
 //   - funcBufferRequested: callback which is invoked when an empty buffer is requested by CUPTI (see [BuffersCallbackRequestFunc])
 //   - funcBufferCompleted: callback which is invoked when a buffer containing activity records is available from CUPTI (see [BuffersCallbackCompleteFunc])
@@ -809,7 +843,8 @@ func ActivityRegisterCallbacks(funcBufferRequested uintptr, funcBufferCompleted 
 
 // activityRegisterCallbacksV2 Registers callback functions with CUPTI for activity buffer handling for the subscriber.
 //
-// This function registers two callback functions to be used in asynchronous buffer handling. If registered, activity record buffers are handled using asynchronous requested/completed callbacks from CUPTI. Registering these callbacks prevents the client from using CUPTI’s blocking enqueue/dequeue functions.
+// This function registers two callback functions to be used in asynchronous buffer handling. If registered, activity record buffers are handled using asynchronous requested/completed callbacks from CUPTI.
+// Registering these callbacks prevents the client from using CUPTI’s blocking enqueue/dequeue functions.
 //
 //   - subscriber: The subscriber handle
 //   - funcBufferRequested: callback which is invoked when an empty buffer is requested by CUPTI (see [BuffersCallbackRequestFuncV2])
@@ -828,7 +863,10 @@ func activityRegisterCallbacksV2(subscriber Subscriber, funcBufferRequested uint
 
 // ActivityRegisterTimestampCallback Registers callback function with CUPTI for providing timestamp.
 //
-// This function registers a callback function to obtain timestamp of user’s choice instead of using CUPTI provided timestamp. By default CUPTI uses different methods, based on the underlying platform, to retrieve the timestamp Linux (x86_64, aarch64 sbsa, aarch64) uses clock_gettime(CLOCK_REALTIME) Windows uses QueryPerformanceCounter() WSL (Windows Subsystem for Linux) uses clock_gettime(CLOCK_MONOTONIC_RAW) as CLOCK_REALTIME can cause backward jumps. QNX uses ClockCycles() Timestamps retrieved using these methods are converted to nanosecond if needed before usage. Timestamps for GPU activities such as kernels, memory copies and memset operations are recorded directly on the GPU. To provide a unified and normalized view of these timestamps in relation to CPU time, CUPTI performs a linear interpolation to convert GPU timestamps into CPU timestamps during post-processing. For activities where timestamps are captured on the GPU, the timestamp callback is invoked during the post-processing phase, while converting GPU timestamps into CPU timestamps. For activities for which timestamps are captured directly on the CPU, the timestamp callback is invoked immediately at the time of the activity. The registration of timestamp callback should be done before any of the CUPTI activity kinds are enabled to make sure that all the records report the timestamp using the callback function registered through [ActivityRegisterTimestampCallback] API. Changing the timestamp callback function in CUPTI through [ActivityRegisterTimestampCallback] API in the middle of the profiling session can cause records generated prior to the change to report timestamps through previous timestamp method.
+// This function registers a callback function to obtain timestamp of user’s choice instead of using CUPTI provided timestamp. By default CUPTI uses different methods, based on the underlying platform, to retrieve the timestamp Linux (x86_64, aarch64 sbsa, aarch64) uses clock_gettime(CLOCK_REALTIME) Windows uses QueryPerformanceCounter() WSL (Windows Subsystem for Linux) uses clock_gettime(CLOCK_MONOTONIC_RAW) as CLOCK_REALTIME can cause backward jumps. QNX uses ClockCycles() Timestamps retrieved using these methods are converted to nanosecond if needed before usage.
+// Timestamps for GPU activities such as kernels, memory copies and memset operations are recorded directly on the GPU. To provide a unified and normalized view of these timestamps in relation to CPU time, CUPTI performs a linear interpolation to convert GPU timestamps into CPU timestamps during post-processing. For activities where timestamps are captured on the GPU, the timestamp callback is invoked during the post-processing phase, while converting GPU timestamps into CPU timestamps. For activities for which timestamps are captured directly on the CPU, the timestamp callback is invoked immediately at the time of the activity.
+// The registration of timestamp callback should be done before any of the CUPTI activity kinds are enabled to make sure that all the records report the timestamp using the callback function registered through [ActivityRegisterTimestampCallback] API.
+// Changing the timestamp callback function in CUPTI through [ActivityRegisterTimestampCallback] API in the middle of the profiling session can cause records generated prior to the change to report timestamps through previous timestamp method.
 //
 //   - funcTimestamp: callback which is invoked when a timestamp is needed by CUPTI (see [TimestampCallbackFunc])
 //
@@ -951,7 +989,8 @@ func CheckpointSave(handle *Checkpoint) error {
 
 // ComputeCapabilitySupported Check support for a compute capability.
 //
-// This function is used to check the support for a device based on it’s compute capability. It sets the support when the compute capability is supported by the current version of CUPTI, and clears it otherwise. This version of CUPTI might not support all GPUs sharing the same compute capability. It is suggested to use API [DeviceSupported] which provides correct information. [DeviceSupported]
+// This function is used to check the support for a device based on it’s compute capability. It sets the support when the compute capability is supported by the current version of CUPTI, and clears it otherwise. This version of CUPTI might not support all GPUs sharing the same compute capability. It is suggested to use API [DeviceSupported] which provides correct information.
+// [DeviceSupported]
 //
 //   - major: The major revision number of the compute capability
 //   - minor: The minor revision number of the compute capability
@@ -1154,7 +1193,8 @@ func DeviceGetNumMetrics(device Device) (uint32, error) {
 
 // DeviceSupported Check support for a compute device.
 //
-// This function is used to check the support for a compute device. It sets the support when the device is supported by the current version of CUPTI, and clears it otherwise. [ComputeCapabilitySupported]
+// This function is used to check the support for a compute device. It sets the support when the device is supported by the current version of CUPTI, and clears it otherwise.
+// [ComputeCapabilitySupported]
 //
 //   - dev: The device handle returned by CUDA Driver API cuDeviceGet
 //
@@ -1221,7 +1261,10 @@ func DisableKernelReplayMode(context Context) error {
 
 // enableAllDomains Enable or disable all callbacks in all domains.
 //
-// Note Thread-safety : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d, *) and [Subscriber.EnableAllDomains](sub) are called concurrently, the results are undefined.
+// Note
+// Thread-safety
+// : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
+// d, *) and [Subscriber.EnableAllDomains](sub) are called concurrently, the results are undefined.
 //
 //   - enable: New enable state for all callbacks in all domain. Zero disables all callbacks, non-zero enables all callbacks
 //   - subscriber: Handle to callback subscription
@@ -1241,7 +1284,11 @@ func enableAllDomains(enable uint32, subscriber Subscriber) error {
 
 // enableCallback Enable or disabled callbacks for a specific domain and callback ID.
 //
-// Enable or disabled callbacks for a subscriber for a specific domain and callback ID. Note Thread-safety : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
+// Enable or disabled callbacks for a subscriber for a specific domain and callback ID.
+// Note
+// Thread-safety
+// : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
+// d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
 //
 //   - enable: New enable state for the callback. Zero disables the callback, non-zero enables the callback
 //   - subscriber: Handle to callback subscription
@@ -1263,7 +1310,10 @@ func enableCallback(enable uint32, subscriber Subscriber, domain CallbackDomain,
 
 // enableDomain Enable or disabled all callbacks for a specific domain.
 //
-// Note Thread-safety : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if cuptiGetCallbackEnabled(sub, d, *) and [Subscriber.EnableDomain](sub, d) are called concurrently, the results are undefined.
+// Note
+// Thread-safety
+// : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if cuptiGetCallbackEnabled(sub,
+// d, *) and [Subscriber.EnableDomain](sub, d) are called concurrently, the results are undefined.
 //
 //   - enable: New enable state for all callbacks in the domain. Zero disables all callbacks, non-zero enables all callbacks
 //   - subscriber: Handle to callback subscription
@@ -2025,7 +2075,9 @@ func GetAutoBoostState(context Context, state *ActivityAutoBoostState) error {
 
 // GetCallbackName Get the name of a callback for a specific domain and callback ID.
 //
-// Returns a pointer to the name c_string in **name. Note Names are available only for the DRIVER and RUNTIME domains.
+// Returns a pointer to the name c_string in **name.
+// Note
+// Names are available only for the DRIVER and RUNTIME domains.
 //
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
@@ -2050,7 +2102,11 @@ func GetCallbackName(domain CallbackDomain, cbid uint32) (string, error) {
 
 // getCallbackState Get the current enabled/disabled state of a callback for a specific domain and function ID.
 //
-// Returns non-zero in *enable if the callback for a domain and callback ID is enabled, and zero if not enabled. Note Thread-safety : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
+// Returns non-zero in *enable if the callback for a domain and callback ID is enabled, and zero if not enabled.
+// Note
+// Thread-safety
+// : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
+// d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
 //
 //   - subscriber: Handle to the initialize subscriber
 //   - domain: The domain of the callback
@@ -2140,7 +2196,8 @@ func GetDeviceId(context Context) (uint32, error) {
 
 // getEnabledCallbacks Get the enabled callbacks for a subscriber.
 //
-// Note If the provided buffer size is not sufficient to store all the enabled callbacks, we populate the buffer with as much as we can, but return the true value of the number of enabled callbacks in enabledCallbacksCount.
+// Note
+// If the provided buffer size is not sufficient to store all the enabled callbacks, we populate the buffer with as much as we can, but return the true value of the number of enabled callbacks in enabledCallbacksCount.
 //
 //   - subscriber: The subscriber handle. If NULL, the union of callbacks (for that domain) enabled across all subscribers is returned
 //   - domain: The domain of the callbacks to get. If NULL, [ErrInvalidParameter] is returned
@@ -2316,7 +2373,8 @@ func GetSassToSourceCorrelation(pParams *GetSassToSourceCorrelationParams) error
 
 // GetStreamId Get the ID of a stream.
 //
-// The stream ID is unique within a context (i.e. all streams within a context will have unique stream IDs). DEPRECATED This method is deprecated as of CUDA 8.0. Use method [GetStreamIdEx] instead.
+// The stream ID is unique within a context (i.e. all streams within a context will have unique stream IDs).
+// DEPRECATED This method is deprecated as of CUDA 8.0. Use method [GetStreamIdEx] instead.
 //
 //   - context: If non-NULL then the stream is checked to ensure that it belongs to this context. Typically this parameter should be null
 //   - stream: The stream
@@ -2405,7 +2463,8 @@ func GetTimestamp() (uint64, error) {
 
 // GetVersion Get the CUPTI API version.
 //
-// Return the API version in *version. CUPTI_API_VERSION
+// Return the API version in *version.
+// CUPTI_API_VERSION
 //
 // Returns:
 //   - [ErrInvalidParameter]: if version is NULL
@@ -2874,7 +2933,10 @@ func PCSamplingGetConfigurationAttribute(pParams *PCSamplingConfigurationInfoPar
 
 // PCSamplingGetData Flush GPU PC sampling data periodically.
 //
-// Flushing of GPU PC Sampling data is required at following point to maintain uniqueness of PCs: For [PcSamplingCollectionModeContinuous], after every module load-unload-load For [PcSamplingCollectionModeKernelSerialized], after every kernel ends If configuration option [PcSamplingConfigurationAttrTypeEnableStartStopControl] is enabled, then after every range end i.e. [PCSamplingStop] If application is profiled in [PcSamplingCollectionModeContinuous], with disabled [PcSamplingConfigurationAttrTypeEnableStartStopControl], and there is no module unload, user can collect data in two ways: Use [PCSamplingGetData] API periodically Use [PCSamplingDisable] on application exit and read GPU PC sampling data from sampling data buffer passed during configuration. Note: In case, [PCSamplingGetData] API is not called periodically, then sampling data buffer passed during configuration should be large enough to hold all PCs data. [PCSamplingGetData] API never does device synchronization. It is possible that when the API is called there is some unconsumed data from the HW buffer. In this case CUPTI provides only the data available with it at that moment.
+// Flushing of GPU PC Sampling data is required at following point to maintain uniqueness of PCs: For [PcSamplingCollectionModeContinuous], after every module load-unload-load For [PcSamplingCollectionModeKernelSerialized], after every kernel ends If configuration option [PcSamplingConfigurationAttrTypeEnableStartStopControl] is enabled, then after every range end i.e. [PCSamplingStop]
+// If application is profiled in [PcSamplingCollectionModeContinuous], with disabled
+// [PcSamplingConfigurationAttrTypeEnableStartStopControl], and there is no module unload, user can collect data in two ways: Use [PCSamplingGetData] API periodically Use [PCSamplingDisable] on application exit and read GPU PC sampling data from sampling data buffer passed during configuration. Note: In case, [PCSamplingGetData] API is not called periodically, then sampling data buffer passed during configuration should be large enough to hold all PCs data.
+// [PCSamplingGetData] API never does device synchronization. It is possible that when the API is called there is some unconsumed data from the HW buffer. In this case CUPTI provides only the data available with it at that moment.
 //
 //   - pParams: A pointer to [PCSamplingGetDataParams]
 //
@@ -2943,7 +3005,8 @@ func PCSamplingSetConfigurationAttribute(pParams *PCSamplingConfigurationInfoPar
 
 // PCSamplingStart Start PC sampling.
 //
-// User can collect PC Sampling data for user-defined range specified by Start/Stop APIs. This API can be used to mark starting of range. Set configuration option [PcSamplingConfigurationAttrTypeEnableStartStopControl] to use this API.
+// User can collect PC Sampling data for user-defined range specified by Start/Stop APIs. This API can be used to mark starting of range. Set configuration option
+// [PcSamplingConfigurationAttrTypeEnableStartStopControl] to use this API.
 //
 //   - pParams: A pointer to [PCSamplingStartParams]
 //
@@ -2962,7 +3025,8 @@ func PCSamplingStart(pParams *PCSamplingStartParams) error {
 
 // PCSamplingStop Stop PC sampling.
 //
-// User can collect PC Sampling data for user-defined range specified by Start/Stop APIs. This API can be used to mark end of range. Set configuration option [PcSamplingConfigurationAttrTypeEnableStartStopControl] to use this API.
+// User can collect PC Sampling data for user-defined range specified by Start/Stop APIs. This API can be used to mark end of range. Set configuration option
+// [PcSamplingConfigurationAttrTypeEnableStartStopControl] to use this API.
 //
 //   - pParams: A pointer to [PCSamplingStopParams]
 //
@@ -3177,7 +3241,8 @@ func PmSamplingStop(pParams *PmSamplingStopParams) error {
 
 // ProfilerBeginPass Replay API: used for multipass collection.
 //
-// These APIs are used if user chooses to replay by itself CUPTI_UserReplay or CUPTI_ApplicationReplay for multipass collection of the metrics configurations. It’s a no-op in case of CUPTI_KernelReplay. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// These APIs are used if user chooses to replay by itself CUPTI_UserReplay or CUPTI_ApplicationReplay for multipass collection of the metrics configurations. It’s a no-op in case of CUPTI_KernelReplay.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3191,7 +3256,8 @@ func ProfilerBeginPass(pParams *ProfilerBeginPassParams) error {
 
 // ProfilerBeginSession Begin profiling session sets up the profiling on the device.
 //
-// Although, it doesn’t start the profiling but GPU resources needed for profiling are allocated. Outside of a session, the GPU will return to its normal operating state. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// Although, it doesn’t start the profiling but GPU resources needed for profiling are allocated. Outside of a session, the GPU will return to its normal operating state.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3205,7 +3271,8 @@ func ProfilerBeginSession(pParams *ProfilerBeginSessionParams) error {
 
 // ProfilerCounterDataImageCalculateScratchBufferSize A temporary storage for CounterData image needed for internal operations.
 //
-// Use these APIs to calculate the allocation size and initialize counterData image scratch buffer. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// Use these APIs to calculate the allocation size and initialize counterData image scratch buffer.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3219,7 +3286,8 @@ func ProfilerCounterDataImageCalculateScratchBufferSize(pParams *ProfilerCounter
 
 // ProfilerCounterDataImageCalculateSize A CounterData image allocates space for values for each counter for each range.
 //
-// User borne the resposibility of managing the counterDataImage allocations. CounterDataPrefix contains meta data about the metrics that will be stored in counterDataImage. Use these APIs to calculate the allocation size and initialize counterData image. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// User borne the resposibility of managing the counterDataImage allocations. CounterDataPrefix contains meta data about the metrics that will be stored in counterDataImage. Use these APIs to calculate the allocation size and initialize counterData image.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3271,7 +3339,8 @@ func ProfilerDeviceSupported(pParams *ProfilerDeviceSupportedParams) error {
 
 // ProfilerDisableProfiling Disable Profiling.
 //
-// In CUPTI_AutoRange, these APIs are used to enable/disable profiling for the kernels to be executed in a profiling session. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// In CUPTI_AutoRange, these APIs are used to enable/disable profiling for the kernels to be executed in a profiling session.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3285,7 +3354,8 @@ func ProfilerDisableProfiling(pParams *ProfilerDisableProfilingParams) error {
 
 // ProfilerEnableProfiling Enables Profiling.
 //
-// In CUPTI_AutoRange, these APIs are used to enable/disable profiling for the kernels to be executed in a profiling session. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// In CUPTI_AutoRange, these APIs are used to enable/disable profiling for the kernels to be executed in a profiling session.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3299,7 +3369,8 @@ func ProfilerEnableProfiling(pParams *ProfilerEnableProfilingParams) error {
 
 // ProfilerEndPass Replay API: used for multipass collection.
 //
-// These APIs are used if user chooses to replay by itself CUPTI_UserReplay or CUPTI_ApplicationReplay for multipass collection of the metrics configurations. Its a no-op in case of CUPTI_KernelReplay. Returns information for next pass. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// These APIs are used if user chooses to replay by itself CUPTI_UserReplay or CUPTI_ApplicationReplay for multipass collection of the metrics configurations. Its a no-op in case of CUPTI_KernelReplay. Returns information for next pass.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3313,7 +3384,8 @@ func ProfilerEndPass(pParams *ProfilerEndPassParams) error {
 
 // ProfilerEndSession Ends profiling session.
 //
-// Frees up the GPU resources acquired for profiling. Outside of a session, the GPU will return to it’s normal operating state. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// Frees up the GPU resources acquired for profiling. Outside of a session, the GPU will return to it’s normal operating state.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3327,7 +3399,8 @@ func ProfilerEndSession(pParams *ProfilerEndSessionParams) error {
 
 // ProfilerFlushCounterData Decode all the submitted passes.
 //
-// Flush Counter data API to ensure every pass is decoded into the counterDataImage passed at beginSession. This will cause the CPU/GPU sync to collect all the undecoded pass. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// Flush Counter data API to ensure every pass is decoded into the counterDataImage passed at beginSession. This will cause the CPU/GPU sync to collect all the undecoded pass.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3457,7 +3530,8 @@ func ProfilerHostGetConfigImageSize(pParams *ProfilerHostGetConfigImageSizeParam
 
 // ProfilerHostGetMaxNumHardwareMetricsPerPass Get the maximum number of hardware metrics (metric names which doesn’t include sass keyword) that can be scheduled in a single pass for a chip.
 //
-// While this represents a theoretical upper limit, practical constraints may prevent reaching this threshold for a specific set of metrics. Furthermore, the maximum achievable value is contingent upon the characteristics and architecture of the chip in question. Use [ProfilerHostGetNumOfPasses] API for getting the actual number of passes required for the for collecting the profiling data for the scheduled metrics in a config image.
+// While this represents a theoretical upper limit, practical constraints may prevent reaching this threshold for a specific set of metrics. Furthermore, the maximum achievable value is contingent upon the characteristics and architecture of the chip in question.
+// Use [ProfilerHostGetNumOfPasses] API for getting the actual number of passes required for the for collecting the profiling data for the scheduled metrics in a config image.
 //
 //   - pParams: A pointer to [ProfilerHostGetMaxNumHardwareMetricsPerPassParams]
 //
@@ -3492,7 +3566,9 @@ func ProfilerHostGetMetricProperties(pParams *ProfilerHostGetMetricPropertiesPar
 
 // ProfilerHostGetMetricsInSinglePassSet Get all the metrics defined in the single pass metric set.
 //
-// Profiling data for the metrics in a single pass metric set can be collected in a single pass. This is a two-phase function to retrieve metrics in a single-pass metric set. First pass (query mode): Set pParams->pMetricsBuffer = NULL and pParams->pMetricsIndicesBuffer = NULL The function returns required buffer sizes in: Second pass (data retrieval):
+// Profiling data for the metrics in a single pass metric set can be collected in a single pass.
+// This is a two-phase function to retrieve metrics in a single-pass metric set. First pass (query mode): Set pParams->pMetricsBuffer = NULL and pParams->pMetricsIndicesBuffer = NULL The function returns required buffer sizes in:
+// Second pass (data retrieval):
 //
 //   - pParams: A pointer to [ProfilerHostGetMetricsInSinglePassSetParams]
 //
@@ -3641,7 +3717,8 @@ func ProfilerIsPassCollected(pParams *ProfilerIsPassCollectedParams) error {
 
 // ProfilerPopRange Range API’s : Pop user range.
 //
-// Counter data is collected per unique range-stack. Identified by a string label passsed by the user. It’s an invalid operation in case of CUPTI_AutoRange. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// Counter data is collected per unique range-stack. Identified by a string label passsed by the user. It’s an invalid operation in case of CUPTI_AutoRange.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3655,7 +3732,8 @@ func ProfilerPopRange(pParams *ProfilerPopRangeParams) error {
 
 // ProfilerPushRange Range API’s : Push user range.
 //
-// Counter data is collected per unique range-stack. Identified by a string label passsed by the user. It’s an invalid operation in case of CUPTI_AutoRange. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// Counter data is collected per unique range-stack. Identified by a string label passsed by the user. It’s an invalid operation in case of CUPTI_AutoRange.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3669,7 +3747,8 @@ func ProfilerPushRange(pParams *ProfilerPushRangeParams) error {
 
 // ProfilerSetConfig Set metrics configuration to be profiled.
 //
-// Use these APIs to set the config to profile in a session. It can be used for advanced cases such as where multiple configurations are collected into a single CounterData Image on the need basis, without restarting the session. DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
+// Use these APIs to set the config to profile in a session. It can be used for advanced cases such as where multiple configurations are collected into a single CounterData Image on the need basis, without restarting the session.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -3730,7 +3809,8 @@ func RangeProfilerCounterDataImageInitialize(pParams *RangeProfilerCounterDataIm
 
 // RangeProfilerDecodeData Decode the profiling data stored in the hardware to the counter data image passed in the SetConfig API.
 //
-// This API should be called after [RangeProfilerStop]. The counter data image will be updated with the profiling data for the ranges profiled. For the cases where the number of ranges counter data image can store is less than the number of ranges profiled (= maxRangesPerPass in SetConfig API), the counter data image will report dropped ranges.
+// This API should be called after [RangeProfilerStop]. The counter data image will be updated with the profiling data for the ranges profiled.
+// For the cases where the number of ranges counter data image can store is less than the number of ranges profiled (= maxRangesPerPass in SetConfig API), the counter data image will report dropped ranges.
 //
 //   - pParams: A pointer to [RangeProfilerDecodeDataParams]
 //
@@ -4125,7 +4205,15 @@ func SetThreadIdType(type_ ActivityThreadIdType) error {
 
 // Subscribe Initialize a callback subscriber with a callback function and user data.
 //
-// Initializes a callback subscriber with a callback function and (optionally) a pointer to user data. The returned subscriber handle can be used to enable and disable the callback for specific domains and callback IDs. Note Only a single subscriber can be registered at a time. To ensure that no other CUPTI client interrupts the profiling session, it’s the responsibility of all the CUPTI clients to call this function before starting the profling session. In case profiling session is already started by another CUPTI client, this function returns the error code [ErrMultipleSubscribersNotSupported]. Note that this function returns the same error when application is launched using NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck. Note This function does not enable any callbacks. Note Thread-safety: this function is thread safe. Note While this API is fully supported and remains available, we recommend transitioning to the new API [SubscribeV2] moving forward.
+// Initializes a callback subscriber with a callback function and (optionally) a pointer to user data. The returned subscriber handle can be used to enable and disable the callback for specific domains and callback IDs.
+// Note
+// Only a single subscriber can be registered at a time. To ensure that no other CUPTI client interrupts the profiling session, it’s the responsibility of all the CUPTI clients to call this function before starting the profling session. In case profiling session is already started by another CUPTI client, this function returns the error code [ErrMultipleSubscribersNotSupported]. Note that this function returns the same error when application is launched using NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck.
+// Note
+// This function does not enable any callbacks.
+// Note
+// Thread-safety: this function is thread safe.
+// Note
+// While this API is fully supported and remains available, we recommend transitioning to the new API [SubscribeV2] moving forward.
 //
 //   - callback: The callback function (see [CallbackFunc])
 //   - userdata: A pointer to user data. This data will be passed to the callback function via the userdata parameter
@@ -4152,7 +4240,13 @@ func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
 
 // SubscribeV2 Initialize a callback subscriber with a callback function and user data.
 //
-// Initializes a callback subscriber with a callback function and (optionally) a pointer to user data. The returned subscriber handle can be used to enable and disable the callback for specific domains and callback IDs. Note Only a single subscriber can be registered at a time. To ensure that no other CUPTI client interrupts the profiling session, it’s the responsibility of all the CUPTI clients to call this function before starting the profling session. In case profiling session is already started by another CUPTI client, this function returns the error code [ErrMultipleSubscribersNotSupported]. Note that this function returns the same error when application is launched using NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck. Note This function does not enable any callbacks. Note Thread-safety: this function is thread safe.
+// Initializes a callback subscriber with a callback function and (optionally) a pointer to user data. The returned subscriber handle can be used to enable and disable the callback for specific domains and callback IDs.
+// Note
+// Only a single subscriber can be registered at a time. To ensure that no other CUPTI client interrupts the profiling session, it’s the responsibility of all the CUPTI clients to call this function before starting the profling session. In case profiling session is already started by another CUPTI client, this function returns the error code [ErrMultipleSubscribersNotSupported]. Note that this function returns the same error when application is launched using NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck.
+// Note
+// This function does not enable any callbacks.
+// Note
+// Thread-safety: this function is thread safe.
 //
 //   - callback: The callback function (see [CallbackFunc])
 //   - userdata: A pointer to user data. This data will be passed to the callback function via the userdata parameter
@@ -4180,7 +4274,9 @@ func SubscribeV2(callback uintptr, userdata uintptr, pParams *SubscriberParams) 
 
 // SupportedDomains Get the available callback domains.
 //
-// Returns in *domainTable an array of size *domainCount of all the available callback domains. Note Thread-safety: this function is thread safe.
+// Returns in *domainTable an array of size *domainCount of all the available callback domains.
+// Note
+// Thread-safety: this function is thread safe.
 //
 // Returns:
 //   - [ErrInvalidParameter]: if domainCount or domainTable are NULL
@@ -4202,7 +4298,9 @@ func SupportedDomains() (domainCount uint, domainTable uintptr, err error) {
 
 // unsubscribe Unregister a callback subscriber.
 //
-// Removes a callback subscriber so that no future callbacks will be issued to that subscriber. Note Thread-safety: this function is thread safe.
+// Removes a callback subscriber so that no future callbacks will be issued to that subscriber.
+// Note
+// Thread-safety: this function is thread safe.
 //
 //   - subscriber: Handle to the initialize subscriber
 //

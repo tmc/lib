@@ -33,7 +33,8 @@ func (c ConvolutionDescriptor) Get2D() (Convolution2DConfig, error) {
 
 // ForwardOutputDim2D returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor.
 //
-// This function returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor. This function can help to set up the output tensor and allocate the proper amount of memory prior to launching the actual convolution. Each dimension h and w of the output images is computed as follows:
+// This function returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor. This function can help to set up the output tensor and allocate the proper amount of memory prior to launching the actual convolution.
+// Each dimension h and w of the output images is computed as follows:
 //
 //   - inputTensorDesc: Input. Handle to a previously initialized tensor descriptor
 //   - filterDesc: Input. Handle to a previously initialized filter descriptor
@@ -83,10 +84,10 @@ func (c ConvolutionDescriptor) MathType() (mathType MathType, err error) {
 //
 // This function queries a previously initialized convolution descriptor object.
 //
-//   - arrayLengthRequested: that will be filled with the dilation parameters from the provided convolution descriptor
+//   - arrayLengthRequested: Input. Dimension of the expected convolution descriptor. It is also the minimum size of the arrays padA, filterStrideA, and dilationA in order to be able to hold the results
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The descriptor convDesc is NIL. The arrayLengthRequest is negative.
 //   - [ErrNotSupported]: The arrayLengthRequested is greater than CUDNN_DIM_MAX-2.
 //   - [Success]: The query was successful.
 //
@@ -99,14 +100,16 @@ func (c ConvolutionDescriptor) Get(arrayLengthRequested int) (ConvolutionConfig,
 
 // ForwardOutputDims returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
 //
-// This function returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution. Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows: The dimensions provided by this routine must be strictly respected when calling [Handle.ConvolutionForward] or [Handle.ConvolutionBackwardBias]. Providing a smaller or larger output tensor is not supported by the convolution routines.
+// This function returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
+// Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows:
+// The dimensions provided by this routine must be strictly respected when calling [Handle.ConvolutionForward] or [Handle.ConvolutionBackwardBias]. Providing a smaller or larger output tensor is not supported by the convolution routines.
 //
 //   - inputTensorDesc: Input. Handle to a previously initialized tensor descriptor
 //   - filterDesc: Input. Handle to a previously initialized filter descriptor
-//   - nbDims: that contains on exit of this routine the sizes of the output tensor
+//   - nbDims: Input. Dimension of the output tensor
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the parameters convDesc, inputTensorDesc, and filterDesc is NIL. The dimension of the filter descriptor filterDesc is different from the dimension of input tensor descriptor inputTensorDesc. The dimension of the convolution descriptor is different from the dimension of input tensor descriptor inputTensorDesc-2. The features map of the filter descriptor filterDesc is different from the one of input tensor descriptor inputTensorDesc. The size of the dilated filter filterDesc is larger than the padded sizes of the input tensor. The dimension nbDims of the output array is negative or greater than the dimension of input tensor descriptor inputTensorDesc.
 //   - [Success]: The routine exited successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -141,10 +144,11 @@ func (c ConvolutionDescriptor) ReorderType() (reorderType ReorderType, err error
 //   - v: Input. Horizontal filter stride
 //   - dilationH: Input. Filter height dilation
 //   - dilationW: Input. Filter width dilation
+//   - mode: Input. Selects between [Convolution] and [CrossCorrelation]
 //   - computeType: Input. compute precision
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The descriptor convDesc is NIL. One of the parameters pad_h, pad_w is strictly negative. One of the parameters u, v is negative or zero. One of the parameters dilation_h, dilation_w is negative or zero. The parameter mode has an invalid enumerant value.
 //   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -188,9 +192,16 @@ func (c ConvolutionDescriptor) SetMathType(mathType MathType) error {
 //
 // This function initializes a previously created generic convolution descriptor object into a Nd correlation. That same convolution descriptor can be reused in the backward path provided it corresponds to the same layer. The convolution computation will be done in the specified dataType, which can be potentially different from the input/output tensors.
 //
+// Note: [DataHalf] in [ConvolutionDescriptor.Set] with HALF_CONVOLUTION_BWD_FILTER is not recommended as it is known to not be useful for any practical use case for training and will be considered to be blocked in a future cuDNN release. The use of [DataHalf] for input tensors in [TensorDescriptor.Set] and [DataFloat] in [ConvolutionDescriptor.Set] with HALF_CONVOLUTION_BWD_FILTER is recommended and is used with the automatic mixed precision (AMP) training in many well known deep learning frameworks.
+//
+//   - padA: Input. Array of dimension arrayLength containing the zero-padding size for each dimension. For every dimension, the padding represents the number of extra zeros implicitly concatenated at the start and at the end of every element of that dimension
+//   - filterStrideA: Input. Array of dimension arrayLength containing the filter stride for each dimension. For every dimension, the filter stride represents the number of elements to slide to reach the next start of the filtering window of the next point
+//   - dilationA: Input. Array of dimension arrayLength containing the dilation factor for each dimension
+//   - mode: Input. Selects between [Convolution] and [CrossCorrelation]
+//
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
-//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The descriptor convDesc is NIL. The arrayLengthRequest is negative. The enumerant mode has an invalid value. The enumerant datatype has an invalid value. One of the elements of padA is strictly negative. One of the elements of strideA is negative or zero. One of the elements of dilationA is negative or zero.
+//   - [ErrNotSupported]: At least one of the following conditions are met: The arrayLengthRequest is greater than CUDNN_DIM_MAX.
 //   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.

@@ -12,7 +12,11 @@ type KernelNode struct {
 
 // CopyAttributes Copies attributes from source node to destination node.
 //
-// Copies attributes from source node src to destination node dst. Both node must have the same context. See also: [AccessPolicyWindow] Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Copies attributes from source node src to destination node dst. Both node must have the same context.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [AccessPolicyWindow]
 //
 //   - src: Source node For list of attributes see CUkernelNodeAttrID
 //
@@ -23,7 +27,11 @@ func (k KernelNode) CopyAttributes(src KernelNode) error {
 
 // Attribute Queries node attribute.
 //
-// Queries attribute attr from node hNode and stores it in corresponding member of valueOut. See also: [AccessPolicyWindow] Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Queries attribute attr from node hNode and stores it in corresponding member of valueOut.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [AccessPolicyWindow]
 //
 // Wraps cuGraphKernelNodeGetAttribute.
 func (k KernelNode) Attribute(attr int32) ([8]uint64, error) {
@@ -32,7 +40,14 @@ func (k KernelNode) Attribute(attr int32) ([8]uint64, error) {
 
 // Params Returns a kernel node’s parameters.
 //
-// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [KernelNode.SetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.SetParams] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [KernelNode.SetParams] to update the parameters of this node.
+// The params will contain either kernelParams or extra, according to which of these was most recently set on the node.
+//
+// Note: Graph objects are not threadsafe. More here.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.SetParams]
 //
 // Wraps cuGraphKernelNodeGetParams, bound as cuGraphKernelNodeGetParams_v2.
 func (k KernelNode) Params() (KernelNodeParams, error) {
@@ -41,7 +56,11 @@ func (k KernelNode) Params() (KernelNodeParams, error) {
 
 // SetAttribute Sets node attribute.
 //
-// Sets attribute attr on node hNode from corresponding attribute of value. See also: [AccessPolicyWindow] Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Sets attribute attr on node hNode from corresponding attribute of value.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [AccessPolicyWindow]
 //
 // Wraps cuGraphKernelNodeSetAttribute.
 func (k KernelNode) SetAttribute(attr int32, value *[8]uint64) error {
@@ -50,7 +69,13 @@ func (k KernelNode) SetAttribute(attr int32, value *[8]uint64) error {
 
 // SetParams Sets a kernel node’s parameters.
 //
-// Sets the parameters of kernel node hNode to nodeParams. See also: [GraphNode.SetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.Params] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Sets the parameters of kernel node hNode to nodeParams.
+//
+// Note: Graph objects are not threadsafe. More here.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [GraphNode.SetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.Params]
 //
 //   - nodeParams: Parameters to copy
 //

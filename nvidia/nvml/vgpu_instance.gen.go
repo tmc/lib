@@ -25,9 +25,10 @@ func (v VgpuInstance) AccountingMode() (EnableState, error) {
 // For Maxwell or newer fully supported devices.
 // To just query the maximum number of processes that can be queried, call this function with *count = 0 and pids=NULL. The return code will be [ErrInsufficientSize], or [Success] if list is empty.
 // For more details see [VgpuInstance.AccountingStats].
+//
+// Note: In case of PID collision some processes might not be accessible before the circular buffer is full.
+//
 // See also: [VgpuInstance.AccountingPids]
-// Note:
-// In case of PID collision some processes might not be accessible before the circular buffer is full.
 //
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
@@ -64,12 +65,12 @@ func (v VgpuInstance) AccountingPids(buf []uint32) ([]uint32, error) {
 // For Maxwell or newer fully supported devices.
 // Accounting stats capture GPU utilization and other statistics across the lifetime of a process, and can be queried during life time of the process or after its termination. The time field in [AccountingStats] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats are kept in a circular buffer, newly created processes overwrite information about old processes.
 // See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [VgpuInstance.AccountingPids].
-// Note:
-// Accounting Mode needs to be on. See [VgpuInstance.AccountingMode].
-// Note:
-// Only compute and graphics applications stats can be queried. Monitoring applications stats can’t be queried since they don’t contribute to GPU utilization.
-// Note:
-// In case of pid collision stats of only the latest process (that terminated last) will be reported
+//
+// Note: Accounting Mode needs to be on. See [VgpuInstance.AccountingMode].
+//
+// Note: Only compute and graphics applications stats can be queried. Monitoring applications stats can’t be queried since they don’t contribute to GPU utilization.
+//
+// Note: In case of pid collision stats of only the latest process (that terminated last) will be reported
 //
 //   - pid: Process Id of the target process to query stats for
 //   - stats: Reference in which to return the process’s accounting stats
@@ -84,10 +85,10 @@ func (v VgpuInstance) AccountingStats(pid uint32, stats *AccountingStats) error 
 // ClearAccountingPids Clears accounting information of the vGPU instance that have already terminated.
 //
 // For Maxwell or newer fully supported devices. Requires root/admin permissions.
-// Note:
-// Accounting Mode needs to be on. See [VgpuInstance.AccountingMode].
-// Note:
-// Only compute and graphics applications stats are reported and can be cleared since monitoring applications stats don’t contribute to GPU utilization.
+//
+// Note: Accounting Mode needs to be on. See [VgpuInstance.AccountingMode].
+//
+// Note: Only compute and graphics applications stats are reported and can be cleared since monitoring applications stats don’t contribute to GPU utilization.
 //
 // Wraps [nvmlVgpuInstanceClearAccountingPids].
 //
@@ -176,8 +177,8 @@ func (v VgpuInstance) EncoderStats(sessionCount *uint32, averageFps *uint32, ave
 // An array of active FBC sessions is returned in the caller-supplied buffer pointed at by sessionInfo. The array element count is passed in sessionCount, and sessionCount is used to return the number of sessions written to the buffer.
 // If the supplied buffer is not large enough to accommodate the active session array, the function returns [ErrInsufficientSize], with the element count of [FBCSessionInfo] array required in sessionCount. To query the number of active FBC sessions, call this function with *sessionCount = 0. The code will return [Success] with number of active FBC sessions updated in *sessionCount.
 // For Maxwell or newer fully supported devices.
-// Note:
-// hResolution, vResolution, averageFPS and averageLatency data for a FBC session returned in sessionInfo may be zero if there are no new frames captured since the session started.
+//
+// Note: hResolution, vResolution, averageFPS and averageLatency data for a FBC session returned in sessionInfo may be zero if there are no new frames captured since the session started.
 //
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information

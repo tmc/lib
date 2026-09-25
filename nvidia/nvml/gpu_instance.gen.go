@@ -50,8 +50,8 @@ func (g GpuInstance) ComputeInstancePossiblePlacements(profileId uint32, placeme
 //
 // Information provided by this API is immutable throughout the lifetime of a MIG mode.
 // For Ampere or newer fully supported devices. Supported on Linux only.
-// Note:
-// This API can be used to enumerate all MIG profiles supported by NVML in a forward compatible way by invoking it on profile values starting from 0, until the API returns [ErrInvalidArgument].
+//
+// Note: This API can be used to enumerate all MIG profiles supported by NVML in a forward compatible way by invoking it on profile values starting from 0, until the API returns [ErrInvalidArgument].
 //
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
@@ -67,8 +67,8 @@ func (g GpuInstance) ComputeInstanceProfileInfo(profile uint32, engProfile uint3
 // ComputeInstanceProfileInfoV Versioned wrapper around [GpuInstance.ComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
-// Note:
-// The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
+//
+// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
 //
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*

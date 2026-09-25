@@ -79,7 +79,8 @@ var (
 
 // allGather Gathers sendcount values from all GPUs and leaves identical copies of the result in each recvbuff, receiving data from rank i at offset i*sendcount.
 //
-// Note: This assumes the receive count is equal to nranks*sendcount, which means that recvbuff should have a size of at least nranks*sendcount elements. In-place operation will happen if sendbuff == recvbuff + rank * sendcount.
+// Note: This assumes the receive count is equal to nranks*sendcount, which means that recvbuff should have a size of at least nranks*sendcount elements.
+// In-place operation will happen if sendbuff == recvbuff + rank * sendcount.
 //
 // Wraps ncclAllGather.
 func allGather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, sendcount uint, datatype DataType, comm Comm, stream driver.Stream) error {
@@ -119,7 +120,8 @@ func allReduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count
 
 // alltoAll Each rank sends count values to all other ranks and receives count values from all other ranks.
 //
-// Note: This assumes both the total send and receive count is equal to nranks*count, which means that sendbuff and recvbuff should have a size of at least nranks*count elements. In-place operation is currently not supported.
+// Note: This assumes both the total send and receive count is equal to nranks*count, which means that sendbuff and recvbuff should have a size of at least nranks*count elements.
+// In-place operation is currently not supported.
 //
 // Wraps ncclAlltoAll.
 func alltoAll(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, comm Comm, stream driver.Stream) error {
@@ -213,7 +215,8 @@ func commDeregister(comm Comm, handle Registration) error {
 
 // commDestroy Destroy a communicator object comm.
 //
-// [Comm.Destroy] will call [Comm.Finalize] internally, unless [Comm.Finalize] was previously called on the communicator. If [Comm.Finalize] was previously called on the communicator object comm, then [Comm.Destroy] is a purely local operation. This function is an intra-node collective call, which all ranks on the same node should call to avoid a hang.
+// [Comm.Destroy] will call [Comm.Finalize] internally, unless [Comm.Finalize] was previously called on the communicator. If [Comm.Finalize] was previously called on the communicator object comm, then [Comm.Destroy] is a purely local operation.
+// This function is an intra-node collective call, which all ranks on the same node should call to avoid a hang.
 //
 // Wraps ncclCommDestroy.
 func commDestroy(comm Comm) error {
@@ -273,7 +276,11 @@ func commGetUniqueId(comm Comm) (UniqueId, error) {
 
 // commGrow The [Comm.Grow] function creates a new communicator by adding new ranks to an existing communicator.
 //
-// For existing ranks: For new ranks: The nRanks parameter specifies the total number of ranks in the new communicator and must be greater than the size of the parent communicator. If the new communicator needs a special configuration, it can be passed as config; otherwise, setting config to NULL will make the new communicator inherit the configuration of the parent communicator (for existing ranks) or use default configuration (for new ranks). There should not be any outstanding NCCL operations on the parent communicator when calling this function to avoid potential deadlocks. After the grow operation completes, the parent communicator should be destroyed using [Comm.Destroy] to free resources. Example workflow:
+// For existing ranks:
+// For new ranks:
+// The nRanks parameter specifies the total number of ranks in the new communicator and must be greater than the size of the parent communicator. If the new communicator needs a special configuration, it can be passed as config; otherwise, setting config to NULL will make the new communicator inherit the configuration of the parent communicator (for existing ranks) or use default configuration (for new ranks).
+// There should not be any outstanding NCCL operations on the parent communicator when calling this function to avoid potential deadlocks. After the grow operation completes, the parent communicator should be destroyed using [Comm.Destroy] to free resources.
+// Example workflow:
 //
 // Wraps ncclCommGrow.
 func commGrow(comm Comm, nRanks int32, uniqueId *UniqueId, rank int32, config *Config) (Comm, error) {
@@ -405,7 +412,8 @@ func commResume(comm Comm) error {
 
 // commRevoke Revokes in-flight operations on a communicator without destroying resources.
 //
-// revokeFlags must be set to NCCL_REVOKE_DEFAULT (0). Other values are reserved for future use. After revoke completes, the communicator is quiesced and safe for destroy, split, and shrink. Launching new collectives on a revoked communicator returns ncclInvalidUsage. Calling [Comm.Finalize] after revoke is not supported. Resource sharing via splitShare/ shrinkShare is disabled when the parent communicator is revoked.
+// revokeFlags must be set to NCCL_REVOKE_DEFAULT (0). Other values are reserved for future use.
+// After revoke completes, the communicator is quiesced and safe for destroy, split, and shrink. Launching new collectives on a revoked communicator returns ncclInvalidUsage. Calling [Comm.Finalize] after revoke is not supported. Resource sharing via splitShare/ shrinkShare is disabled when the parent communicator is revoked.
 //
 // Wraps ncclCommRevoke.
 func commRevoke(comm Comm, revokeFlags int32) error {
@@ -453,7 +461,8 @@ func commSplit(comm Comm, color int32, key int32, config *Config) (Comm, error) 
 
 // commSuspend Suspend communicator operations to free resources.
 //
-// The flags parameter controls which resources are released: A suspended communicator can be restored to an active state by calling [Comm.Resume].
+// The flags parameter controls which resources are released:
+// A suspended communicator can be restored to an active state by calling [Comm.Resume].
 //
 // Wraps ncclCommSuspend.
 func commSuspend(comm Comm, flags int32) error {
@@ -511,7 +520,8 @@ func commWindowRegister(comm Comm, buff driver.DevicePtr, size uint, winFlags in
 
 // gather Each rank sends count elements from sendbuff to the root rank.
 //
-// Note: This assumes the receive count is equal to nranks*count, which means that recvbuff should have a size of at least nranks*count elements. In-place operation will happen if sendbuff == recvbuff + root * count.
+// Note: This assumes the receive count is equal to nranks*count, which means that recvbuff should have a size of at least nranks*count elements.
+// In-place operation will happen if sendbuff == recvbuff + root * count.
 //
 // Wraps ncclGather.
 func gather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream) error {
@@ -579,7 +589,8 @@ func GetVersion() (int32, error) {
 
 // GroupEnd End a group call.
 //
-// Returns when all operations since [GroupStart] have been processed. This means the communication primitives have been enqueued to the provided streams, but are not necessarily complete. When used with the [CommInitRank] call, the [GroupEnd] call waits for all communicators to be initialized.
+// Returns when all operations since [GroupStart] have been processed. This means the communication primitives have been enqueued to the provided streams, but are not necessarily complete.
+// When used with the [CommInitRank] call, the [GroupEnd] call waits for all communicators to be initialized.
 //
 // Wraps ncclGroupEnd.
 func GroupEnd() error {
@@ -774,7 +785,11 @@ func paramGetU8(h ParamHandle, out *uint8) error {
 
 // putSignal Write data from localbuff to rank peer’s registered memory window peerWin at offset peerWinOffset and subsequently updating a remote signal.
 //
-// The target memory window peerWin must be registered using [Comm.WindowRegister]. The sigIdx is the signal index identifier for the operation. It must be set to 0 for now. The ctx is the context identifier for the operation. It must be set to 0 for now. The flags parameter is reserved for future use. It must be set to 0 for now. The return of [Window.PutSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Window.PutSignal] on the CUDA stream, the localbuff is safe to reuse or modify. When a signal is updated on the remote peer, it guarantees that the data from the corresponding [Window.PutSignal] operation has been delivered to the remote memory. All prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
+// The target memory window peerWin must be registered using [Comm.WindowRegister].
+// The sigIdx is the signal index identifier for the operation. It must be set to 0 for now.
+// The ctx is the context identifier for the operation. It must be set to 0 for now.
+// The flags parameter is reserved for future use. It must be set to 0 for now.
+// The return of [Window.PutSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Window.PutSignal] on the CUDA stream, the localbuff is safe to reuse or modify. When a signal is updated on the remote peer, it guarantees that the data from the corresponding [Window.PutSignal] operation has been delivered to the remote memory. All prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
 //
 // Wraps ncclPutSignal.
 func putSignal(localbuff driver.DevicePtr, count uint, datatype DataType, peer int32, peerWin Window, peerWinOffset uint, sigIdx int32, ctx int32, flags uint32, comm Comm, stream driver.Stream) error {
@@ -786,7 +801,9 @@ func putSignal(localbuff driver.DevicePtr, count uint, datatype DataType, peer i
 
 // recv Receive data from rank peer into recvbuff.
 //
-// Rank peer needs to call [Comm.Send] with the same datatype and the same count as this rank. This operation is blocking for the GPU. If multiple [Comm.Send] and [Comm.Recv] operations need to progress concurrently to complete, they must be fused within a [GroupStart]/ [GroupEnd] section. One-sided Remote Memory Access (RMA) operations enable ranks to directly access remote memory without explicit participation from the target process. These operations require the target memory to be pre-registered within a symmetric memory window using [Comm.WindowRegister].
+// Rank peer needs to call [Comm.Send] with the same datatype and the same count as this rank.
+// This operation is blocking for the GPU. If multiple [Comm.Send] and [Comm.Recv] operations need to progress concurrently to complete, they must be fused within a [GroupStart]/ [GroupEnd] section.
+// One-sided Remote Memory Access (RMA) operations enable ranks to directly access remote memory without explicit participation from the target process. These operations require the target memory to be pre-registered within a symmetric memory window using [Comm.WindowRegister].
 //
 // Wraps ncclRecv.
 func recv(recvbuff driver.DevicePtr, count uint, datatype DataType, peer int32, comm Comm, stream driver.Stream) error {
@@ -848,7 +865,8 @@ func reduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count ui
 
 // reduceScatter Reduce data in sendbuff from all GPUs using the op operation and leave the reduced result scattered over the devices so that the recvbuff on rank i will contain the i-th block of the result.
 //
-// Note: This assumes the send count is equal to nranks*recvcount, which means that sendbuff should have a size of at least nranks*recvcount elements. In-place operation will happen if recvbuff == sendbuff + rank * recvcount.
+// Note: This assumes the send count is equal to nranks*recvcount, which means that sendbuff should have a size of at least nranks*recvcount elements.
+// In-place operation will happen if recvbuff == sendbuff + rank * recvcount.
 //
 // Wraps ncclReduceScatter.
 func reduceScatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, recvcount uint, datatype DataType, op RedOp, comm Comm, stream driver.Stream) error {
@@ -868,7 +886,8 @@ func reduceScatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, r
 
 // scatter Each rank receives count elements from the root rank.
 //
-// Note: This assumes the send count is equal to nranks*count, which means that sendbuff should have a size of at least nranks*count elements. In-place operation will happen if recvbuff == sendbuff + root * count.
+// Note: This assumes the send count is equal to nranks*count, which means that sendbuff should have a size of at least nranks*count elements.
+// In-place operation will happen if recvbuff == sendbuff + root * count.
 //
 // Wraps ncclScatter.
 func scatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream) error {
@@ -888,7 +907,8 @@ func scatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count u
 
 // send Send data from sendbuff to rank peer.
 //
-// Rank peer needs to call [Comm.Recv] with the same datatype and the same count as this rank. This operation is blocking for the GPU. If multiple [Comm.Send] and [Comm.Recv] operations need to progress concurrently to complete, they must be fused within a [GroupStart]/ [GroupEnd] section.
+// Rank peer needs to call [Comm.Recv] with the same datatype and the same count as this rank.
+// This operation is blocking for the GPU. If multiple [Comm.Send] and [Comm.Recv] operations need to progress concurrently to complete, they must be fused within a [GroupStart]/ [GroupEnd] section.
 //
 // Wraps ncclSend.
 func send(sendbuff driver.DevicePtr, count uint, datatype DataType, peer int32, comm Comm, stream driver.Stream) error {
@@ -900,7 +920,20 @@ func send(sendbuff driver.DevicePtr, count uint, datatype DataType, peer int32, 
 
 // signal Send a signal to rank peer without transferring data.
 //
-// Descriptor that specifies how many signal operations to wait for from a particular rank on a given signal index and context. intopCnt  Number of signal operations to wait for. intpeer  Target peer to wait for signals from. intsigIdx  Signal index identifier. Must be set to 0 for now. intctx  Context identifier. Must be set to 0 for now.
+// The sigIdx is the signal index identifier for the operation. It must be set to 0 for now.
+// The ctx is the context identifier for the operation. It must be set to 0 for now.
+// The flags parameter is reserved for future use. It must be set to 0 for now.
+// When a signal is updated on the remote peer, all prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
+// typencclWaitSignalDesc_t 
+// Descriptor that specifies how many signal operations to wait for from a particular rank on a given signal index and context.
+// intopCnt 
+// Number of signal operations to wait for.
+// intpeer 
+// Target peer to wait for signals from.
+// intsigIdx 
+// Signal index identifier. Must be set to 0 for now.
+// intctx 
+// Context identifier. Must be set to 0 for now.
 //
 // Wraps ncclSignal.
 func signal(peer int32, sigIdx int32, ctx int32, flags uint32, comm Comm, stream driver.Stream) error {
@@ -912,7 +945,8 @@ func signal(peer int32, sigIdx int32, ctx int32, flags uint32, comm Comm, stream
 
 // waitSignal Wait for signals as described in the signal descriptor array.
 //
-// The nDesc parameter specifies the number of signal descriptors in the signalDescs array. Each descriptor indicates how many signals ( opCnt) to expect from a specific peer on a particular signal index ( sigIdx) and context ( ctx). The return of [Comm.WaitSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Comm.WaitSignal] on the CUDA stream, all specified signal operations have been received and the corresponding data is visible in local memory.
+// The nDesc parameter specifies the number of signal descriptors in the signalDescs array. Each descriptor indicates how many signals ( opCnt) to expect from a specific peer on a particular signal index ( sigIdx) and context ( ctx).
+// The return of [Comm.WaitSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Comm.WaitSignal] on the CUDA stream, all specified signal operations have been received and the corresponding data is visible in local memory.
 //
 // Wraps ncclWaitSignal.
 func waitSignal(nDesc int32, signalDescs *WaitSignalDesc, comm Comm, stream driver.Stream) error {

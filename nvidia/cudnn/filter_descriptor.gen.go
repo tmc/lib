@@ -34,7 +34,7 @@ func (f FilterDescriptor) Get4D() (Filter4DConfig, error) {
 //
 // This function queries a previously initialized FilterNd descriptor object.
 //
-//   - nbDimsRequested: that will be filled with the filter parameters from the provided filter descriptor
+//   - nbDimsRequested: Input. Dimension of the expected filter descriptor. It is also the minimum size of the arrays filterDimA in order to be able to hold the results
 //
 // Returns:
 //   - [ErrBadParam]: The parameter nbDimsRequested is negative.
@@ -64,8 +64,10 @@ func (f FilterDescriptor) Size() (size int, err error) {
 
 // Set4D initializes a previously created filter descriptor object into a 4D filter.
 //
-// This function initializes a previously created filter descriptor object into a 4D filter. The layout of the filters must be contiguous in memory. Tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
+// This function initializes a previously created filter descriptor object into a 4D filter. The layout of the filters must be contiguous in memory.
+// Tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
 //
+//   - format: Input. Type of the filter layout format. If this input is set to [TensorNchw], which is one of the enumerant values allowed by [TensorFormat] descriptor, then the layout of the filter is in the form of KCRS, where: If this input is set to [TensorNhwc], then the layout of the filter is in the form of KRSC
 //   - k: Input. Number of output feature maps
 //   - c: Input. Number of input feature maps
 //   - h: Input. Height of each filter
@@ -84,7 +86,11 @@ func (f FilterDescriptor) Set4D(dataType DataType, format TensorFormat, k int32,
 
 // Set initializes a previously created filter descriptor object.
 //
-// This function initializes a previously created filter descriptor object. The layout of the filters must be contiguous in memory. The tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
+// This function initializes a previously created filter descriptor object. The layout of the filters must be contiguous in memory.
+// The tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
+//
+//   - format: Input. Type of the filter layout format. If this input is set to [TensorNchw], which is one of the enumerant values allowed by [TensorFormat] descriptor, then the layout of the filter is as follows: On the other hand, if this input is set to [TensorNhwc], then the layout of the filter is as follows:
+//   - filterDimA: Input. Array of dimension nbDims containing the size of the filter for each dimension
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the elements of the array filterDimA is negative or dataType or format has an invalid enumerant value.

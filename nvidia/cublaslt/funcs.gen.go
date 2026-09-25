@@ -60,6 +60,7 @@ var (
 // Create initializes the cuBLASLt library and creates a handle to an opaque structure holding the cuBLASLt library context.
 //
 // The cuBLASLt library context is tied to the current CUDA device. To use the library on multiple devices, one cuBLASLt handle must be created for each device. Furthermore, the device must be set as the current before invoking cuBLASLt functions with a handle tied to that device.
+//
 // See also: cuBLAS Context.
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the created cuBLASLt context
@@ -230,6 +231,8 @@ func groupedMatrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ D
 
 // HeuristicsCacheGetCapacity Returns the Heuristics Cache capacity.
 //
+//   - capacity: The pointer to the returned capacity value
+//
 // Wraps cublasLtHeuristicsCacheGetCapacity.
 func HeuristicsCacheGetCapacity(capacity *uint) error {
 	if err := checkLibSym("cublasLtHeuristicsCacheGetCapacity"); err != nil {
@@ -242,6 +245,8 @@ func HeuristicsCacheGetCapacity(capacity *uint) error {
 //
 // This function takes precedence over CUBLASLT_HEURISTICS_CACHE_CAPACITY environment variable.
 //
+//   - capacity: The desirable heuristics cache capacity
+//
 // Wraps cublasLtHeuristicsCacheSetCapacity.
 func HeuristicsCacheSetCapacity(capacity uint) error {
 	if err := checkLibSym("cublasLtHeuristicsCacheSetCapacity"); err != nil {
@@ -251,9 +256,6 @@ func HeuristicsCacheSetCapacity(capacity uint) error {
 }
 
 // LoggerForceDisable Experimental: This function disables logging for the entire run.
-//
-// Returns:
-// See [Result] for a complete list of valid return codes.
 //
 // Returns:
 //   - [Success]: if disabled logging
@@ -346,25 +348,19 @@ func LoggerSetMask(mask int32) error {
 //
 // D = alpha*(A*B) + beta*(C),
 // where A, B, and C are input matrices, and alpha and beta are input scalars.
-// Note
-// This function supports both in-place matrix multiplication ( C == D and Cdesc == Ddesc) and out-of-place matrix multiplication ( C != D, both matrices must have the same data type, number of rows, number of columns, batch size, and memory order). In the out-of-place case, the leading dimension of C can be different from the leading dimension of D. Specifically the leading dimension of C can be 0 to achieve row or column broadcast. If Cdesc is omitted, this function assumes it to be equal to Ddesc.
+//
+// Note: This function supports both in-place matrix multiplication ( C == D and Cdesc == Ddesc) and out-of-place matrix multiplication ( C != D, both matrices must have the same data type, number of rows, number of columns, batch size, and memory order). In the out-of-place case, the leading dimension of C can be different from the leading dimension of D. Specifically the leading dimension of C can be 0 to achieve row or column broadcast. If Cdesc is omitted, this function assumes it to be equal to Ddesc.
 // The workspace pointer must be aligned to at least a multiple of 256 bytes. The recommendations on workspaceSizeInBytes are the same as mentioned in the cublasSetWorkspace() section.
 // Datatypes Supported:
 // [Handle.Matmul] supports the following computeType, scaleType, Atype/Btype, and Ctype. Footnotes can be found at the end of this section.
-// Table 1. When A, B, C, and D are Regular Column- or Row-major Matrices
 // To use IMMA kernels, one of the following sets of requirements, with the first being the preferred one, must be met:
-// Table 2. When A, B, C, and D Use Layouts for IMMA
 // To use tensor- or block-scaled FP8 kernels, the following set of requirements must be satisfied:
 // See the table below when using FP8 kernels:
-// Table 3. When A, B, C, and D Use Layouts for FP8
 // To use block-scaled FP4 kernels, the following set of requirements must be satisfied:
-// Table 4. When A, B, C, and D Use Layouts for FP4
 // When A,B,C,D are planar-complex matrices ( [MatrixLayoutPlaneOffset] != 0, see [MatrixLayoutAttribute]) to make use of mixed precision tensor core acceleration, the following set of requirements must be satisfied:
-// Table 5. When A, B, C, and D are Planar-Complex Matrices
 // Experimental: To use [Handle.Matmul] with grouped matrices, the following set of requirements must be satisfied:
-// Table 6. When A, B, C, and D are Regular Column- or Row-major Matrices
-// Note
-// Because the shape information for the matrices is only available on the GPU (see [GroupedMatrixLayoutRowsArray], [GroupedMatrixLayoutColsArray], and [GroupedMatrixLayoutLdArray]), the arguments validation is very limited. So it is possible that invalid arguments are not detected which will result in an undefined behavior.
+//
+// Note: Because the shape information for the matrices is only available on the GPU (see [GroupedMatrixLayoutRowsArray], [GroupedMatrixLayoutColsArray], and [GroupedMatrixLayoutLdArray]), the arguments validation is very limited. So it is possible that invalid arguments are not detected which will result in an undefined behavior.
 // NOTES:
 // 7( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55)
 // Epilogue modes that combine ReLU, dReLu, GELU, or dGELU with Bias (see [MatmulDescEpilogue] in [MatmulDescAttributes]) are not supported when D matrix memory order is defined as [OrderRow]. For best performance when using the bias vector, specify zero beta and set pointer mode to [PointerModeHost].
@@ -436,8 +432,7 @@ func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, b
 
 // matmulAlgoCheck performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
-// Note
-// [Success] doesn’t fully guarantee that the algo will run. The algo will fail if, for example, the buffers are not correctly aligned. However, if [Handle.MatmulAlgoCheck] fails, the algo will not run.
+// Note: [Success] doesn’t fully guarantee that the algo will run. The algo will fail if, for example, the buffers are not correctly aligned. However, if [Handle.MatmulAlgoCheck] fails, the algo will not run.
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
@@ -515,6 +510,8 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 
 // matmulAlgoGetHeuristic retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
+// Note: This function may load some kernels using CUDA Driver API which may fail when there is no available GPU memory. Do not allocate the entire VRAM before running [Handle.MatmulAlgoGetHeuristic].
+//
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
 //   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
@@ -546,8 +543,7 @@ func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc 
 
 // matmulAlgoGetIds retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.
 //
-// Note
-// The IDs are returned in no particular order. To make sure the best possible algo is contained in the list, make requestedAlgoCount large enough to receive the full list. The list is guaranteed to be full if returnAlgoCount < requestedAlgoCount.
+// Note: The IDs are returned in no particular order. To make sure the best possible algo is contained in the list, make requestedAlgoCount large enough to receive the full list. The list is guaranteed to be full if returnAlgoCount < requestedAlgoCount.
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - computeType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t

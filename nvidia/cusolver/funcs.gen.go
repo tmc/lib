@@ -447,21 +447,7 @@ func cCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fncCgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnCCgels")
 }
 
-// cCgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cCgelsBufferSize returns the workspace size, in bytes, for [Handle.CCgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -473,8 +459,7 @@ func cCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -544,20 +529,7 @@ func cCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fncCgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnCCgesv")
 }
 
-// cCgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cCgesvBufferSize returns the workspace size, in bytes, for [Handle.CCgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -569,8 +541,7 @@ func cCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -641,21 +612,7 @@ func cEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fncEgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnCEgels")
 }
 
-// cEgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cEgelsBufferSize returns the workspace size, in bytes, for [Handle.CEgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -667,8 +624,7 @@ func cEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -738,20 +694,7 @@ func cEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fncEgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnCEgesv")
 }
 
-// cEgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cEgesvBufferSize returns the workspace size, in bytes, for [Handle.CEgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -763,8 +706,7 @@ func cEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -835,21 +777,7 @@ func cKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fncKgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnCKgels")
 }
 
-// cKgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cKgelsBufferSize returns the workspace size, in bytes, for [Handle.CKgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -861,8 +789,7 @@ func cKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -932,20 +859,7 @@ func cKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fncKgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnCKgesv")
 }
 
-// cKgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cKgesvBufferSize returns the workspace size, in bytes, for [Handle.CKgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -957,8 +871,7 @@ func cKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -1029,21 +942,7 @@ func cYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fncYgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnCYgels")
 }
 
-// cYgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cYgelsBufferSize returns the workspace size, in bytes, for [Handle.CYgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -1055,8 +954,7 @@ func cYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -1126,20 +1024,7 @@ func cYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fncYgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnCYgesv")
 }
 
-// cYgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cYgesvBufferSize returns the workspace size, in bytes, for [Handle.CYgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -1151,8 +1036,7 @@ func cYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -1209,14 +1093,12 @@ func cgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d dr
 	return toError(fncgebrd(handle, m, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tauq), uintptr(taup), uintptr(work), lwork, uintptr(devInfo)), "cusolverDnCgebrd")
 }
 
-// cgebrdBufferSize reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
-//
-// If m>=n, B is upper bidiagonal; if m=n.
+// cgebrdBufferSize returns the workspace size, in elements of complex64, for [Handle.Cgebrd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
-//   - lwork: Size of Work, returned by gebrd_bufferSize
+//   - lwork: Size of Work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -1274,15 +1156,7 @@ func cgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau 
 	return toError(fncgeqrf(handle, m, n, uintptr(a), lda, uintptr(tau), uintptr(workspace), lwork, uintptr(devInfo)), "cusolverDnCgeqrf")
 }
 
-// cgeqrfBufferSize computes the QR factorization of an m×n matrix
-//
-// A=Q∗R
-// where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
-// The matrix R is overwritten in upper triangular part of A, including diagonal elements.
-// The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// cgeqrfBufferSize returns the workspace size, in elements of complex64, for [Handle.Cgeqrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
@@ -1353,21 +1227,12 @@ func cgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.Dev
 	return toError(fncgesvd(handle, jobu, jobvt, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(vt), ldvt, uintptr(work), lwork, uintptr(rwork), uintptr(info)), "cusolverDnCgesvd")
 }
 
-// cgesvdBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, devInfo specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
-// The rwork is real array of dimension (min(m,n)-1). If devInfo >0 and rwork is not NULL, rwork contains the unconverged superdiagonal elements of an upper bidiagonal matrix. This is slightly different from LAPACK which puts unconverged superdiagonal elements in work if type is real; in rwork if type is complex. rwork can be a NULL pointer if the user does not want the information from superdiagonal.
-// Please visit cuSOLVER Library Samples - gesvd for a code example.
-// Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// cgesvdBufferSize returns the workspace size, in elements of complex64, for [Handle.Cgesvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
-//   - lwork: Size of work, returned by gesvd_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -1444,30 +1309,7 @@ func cgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 	return toError(fncgesvdaStridedBatched(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, uintptr(dWork), lwork, uintptr(dInfo), hRNrmF, batchSize), "cusolverDnCgesvdaStridedBatched")
 }
 
-// cgesvdaStridedBatchedBufferSize gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
-// gesvda computes eigenvalues of A**T*A, or A**H*A (if A is complex), to approximate singular values and singular vectors. It generates matrices U and V and transforms the matrix A to the following form
-// UH∗A∗V=S+E
-// where S is diagonal and E depends on rounding errors. To certain conditions, U, V and S approximate singular values and singular vectors up to machine zero of single precision. In general, V is unitary, S is more accurate than U. If singular value is far from zero, then left singular vector U is accurate. In other words, the accuracy of singular values and left singular vectors depend on the distance between singular value and zero. Since the computation of A**T*A, or A**H*A can greatly amplify errors, it is recommended to use gesvda only with well-conditioned data.
-// The input parameter rank decides the number of singular values and singular vectors are computed in parameter S, U and V.
-// The output parameter h_RnrmF computes Frobenius norm of residual. To compute h_RnrmF, info != NULL is required.
-// A−U∗S∗VH
-// if the parameter rank is equal n. Otherwise, h_RnrmF reports
-// ‖U∗S∗VH‖−‖S‖
-// in Frobenius norm sense, that is, how far U is from unitary.
-// gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+strideA∗k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS∗k] , the formula for random access of U is Uk(i,j)=U [i+ldu∗j+strideU∗k] and the formula for random access of V is Vk(i,j)=V [i+ldv∗j+strideV∗k] .
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
-// Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
-// Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
-// Remark 1: The routine returns V, not VH . This is different from gesvd.
-// Remark 2: The routine only supports m >=n.
-// Remark 3: It is recommended to use an FP64 data type, that is [Handle.DgesvdaStridedBatched] or [Handle.ZgesvdaStridedBatched].
-// Remark 4: If the user is confident on the accuracy of singular values and singular vectors, for example, certain conditions hold (required singular value is far from zero), then the performance can be improved by passing a null pointer to h_RnrmF, i.e. no computation of the residual norm.
+// cgesvdaStridedBatchedBufferSize returns the workspace size, in elements of complex64, for [Handle.CgesvdaStridedBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -1481,7 +1323,7 @@ func cgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 //   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
-//   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Returns:
@@ -1600,21 +1442,7 @@ func cgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 	return toError(fncgesvdjBatched(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params, batchSize), "cusolverDnCgesvdjBatched")
 }
 
-// cgesvdjBatchedBufferSize computes singular values and singular vectors of a sequence of general m×n matrices
-//
-// Aj=Uj∗Σj∗VjH
-// where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
-// gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter S also contains singular values of each matrix in contiguous way,
-// S=(S0S1⋯)
-// The formula for random access of S is Sk(j)=S [j+min(m,n)∗k] .
-// Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
-// gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
-// Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
+// cgesvdjBatchedBufferSize returns the workspace size, in elements of complex64, for [Handle.CgesvdjBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -1627,7 +1455,7 @@ func cgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
 //   - v: array of dimension ldv * n * batchSize. Vj contains the right singular vectors of Aj
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - lwork: Size of work, returned by gesvdjBatched_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
@@ -1645,29 +1473,7 @@ func cgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 	return toError(fncgesvdjBatchedBufferSize(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params, batchSize), "cusolverDnCgesvdjBatched_bufferSize")
 }
 
-// cgesvdjBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// gesvdj has the same functionality as gesvd. The difference is that gesvd uses QR algorithm and gesvdj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure gesvdj to perform approximation up to certain accuracy.
-// gesvdj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// UH∗A∗V=S+E
-// where S is diagonal and diagonal of E is zero.
-// During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, S is the set of singular values. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
-// where eps is given tolerance. Note that if the real residual norm
-// ‖S−UH∗A∗V‖F
-// is computed, it will differ from ‖E‖F up to roundoff errors of order N=max(m,n), to still have the standard SVD accuracy expectation
-// ‖S−UH∗A∗V‖FO(N)∗‖A‖F≤‖E‖F‖A‖F≤eps
-// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps∗N.
-// gesvdj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [GesvdjInfo.XgesvdjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [GesvdjInfo.XgesvdjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. gesvdj stops either tolerance is met or maximum number of sweeps is met.
-// Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = min(m,n)+1, gesvdj does not converge under given tolerance and maximum sweeps.
-// If the user sets an improper tolerance, gesvdj may not converge. For example, tolerance should not be smaller than machine accuracy.
-// Please visit cuSOLVER Library Samples - gesvdj for a code example.
-// Remark 1: gesvdj supports any combination of m and n.
-// Remark 2: the routine returns V, not VH . This is different from gesvd.
+// cgesvdjBufferSize returns the workspace size, in elements of complex64, for [Handle.Cgesvdj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -1681,7 +1487,7 @@ func cgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 //   - ldu: Leading dimension of two-dimensional array used to store matrix U. ldu is not less than max(1,m)
 //   - v: array of dimension ldv * n if econ is zero. If econ is nonzero, the dimension is ldv * min(m,n). V contains the right singular vectors
 //   - ldv: Leading dimension of two-dimensional array used to store matrix V. ldv is not less than max(1,n)
-//   - lwork: Size of work, returned by gesvdj_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
 // Returns:
@@ -1734,23 +1540,14 @@ func cgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, work
 	return toError(fncgetrf(handle, m, n, uintptr(a), lda, uintptr(workspace), uintptr(devIpiv), uintptr(devInfo)), "cusolverDnCgetrf")
 }
 
-// cgetrfBufferSize computes the LU factorization of an m×n matrix
-//
-// P∗A=L∗U
-// where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
-// If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// If devIpiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
-// No matter LU factorization failed or not, the output parameter devIpiv contains pivoting sequence, row i is interchanged with row devIpiv(i).
-// The user can combine getrf and getrs to complete a linear solver.
-// Remark: getrf uses fastest implementation with large workspace of size m*n. The user can choose the legacy implementation with minimal workspace by Getrf and [Params.SetAdvOptions](params, CUSOLVERDN_GETRF, [Alg1]).
+// cgetrfBufferSize returns the workspace size, in elements of complex64, for [Handle.Cgetrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -1777,8 +1574,6 @@ func cgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 //
 // op(A)∗X=B
 // where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
-// The input parameter trans is defined by
-// image1
 // The input parameter devIpiv is an output of getrf. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine getrf and getrs to complete a linear solver.
@@ -1842,14 +1637,7 @@ func cheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 	return toError(fncheevd(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnCheevd")
 }
 
-// cheevdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - syevd for a code example.
+// cheevdBufferSize returns the workspace size, in elements of complex64, for [Handle.Cheevd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -1858,6 +1646,7 @@ func cheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -1915,14 +1704,7 @@ func cheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 	return toError(fncheevdx(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnCheevdx")
 }
 
-// cheevdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - syevdx for a code example.
+// cheevdxBufferSize returns the workspace size, in elements of complex64, for [Handle.Cheevdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -1932,7 +1714,7 @@ func cheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
-//   - lwork: Size of work, returned by syevdx_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -2047,22 +1829,7 @@ func cheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 	return toError(fncheevjBatched(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params, batchSize), "cusolverDnCheevjBatched")
 }
 
-// cheevjBatchedBufferSize computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
-//
-// Aj∗Qj=Qj∗Λj
-// where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
-// syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter W also contains eigenvalues of each matrix in contiguous way,
-// W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
-// Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
-// syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
-// If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors Vj.
-// Please visit cuSOLVER Library Samples - syevjBatched for a code example.
+// cheevjBatchedBufferSize returns the workspace size, in elements of complex64, for [Handle.CheevjBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -2071,7 +1838,7 @@ func cheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 //   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
-//   - lwork: Size of work, returned by syevjBatched_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
@@ -2089,27 +1856,7 @@ func cheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 	return toError(fncheevjBatchedBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params, batchSize), "cusolverDnCheevjBatched_bufferSize")
 }
 
-// cheevjBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗Q=Q∗Λ
-// where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// syevj has the same functionality as syevd. The difference is that syevd uses QR algorithm and syevj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure syevj to perform approximation up to certain accuracy.
-// How does it work?
-// syevj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// VH∗A∗V=W+E
-// where W is diagonal and E is symmetric without diagonal.
-// During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, W is the set of eigenvalues. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
-// where eps is the given tolerance.
-// syevj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [SyevjInfo.XsyevjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [SyevjInfo.XsyevjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. syevj stops either tolerance is met or maximum number of sweeps is met.
-// The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
-// residual=‖E‖F=‖Λ−W‖F
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
-// If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
-// Please visit cuSOLVER Library Samples - syevj for a code example.
+// cheevjBufferSize returns the workspace size, in elements of complex64, for [Handle.Cheevj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -2118,7 +1865,7 @@ func cheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and info = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
-//   - lwork: Size of work, returned by syevj_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
 // Returns:
@@ -2137,9 +1884,7 @@ func cheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 
 // chegvd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -2172,15 +1917,7 @@ func chegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 	return toError(fnchegvd(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnChegvd")
 }
 
-// chegvdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - sygvd for a code example.
+// chegvdBufferSize returns the workspace size, in elements of complex64, for [Handle.Chegvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
@@ -2192,6 +1929,7 @@ func chegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -2216,9 +1954,7 @@ func chegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 
 // chegvdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -2253,15 +1989,7 @@ func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 	return toError(fnchegvdx(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnChegvdx")
 }
 
-// chegvdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - sygvdx for a code example.
+// chegvdxBufferSize returns the workspace size, in elements of complex64, for [Handle.Chegvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
@@ -2274,7 +2002,7 @@ func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
-//   - lwork: Size of work, returned by sygvdx_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -2299,9 +2027,7 @@ func chegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRan
 
 // chegvj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
 // This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
 // However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
 // B=L∗LH
@@ -2344,24 +2070,7 @@ func chegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 	return toError(fnchegvj(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info), params), "cusolverDnChegvj")
 }
 
-// chegvjBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
-// However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
-// B=L∗LH
-// transform the problem to standard eigenvalue problem, then calls syevj.
-// For example, the standard eigenvalue problem of type I is
-// M∗Q=Q∗Λ
-// where matrix M is symmetric
-// M=L−1∗A∗L−H
-// The residual is the result of syevj on matrix M, not A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n), B is not positive definite, the factorization of B could not be completed and no eigenvalues or eigenvectors were computed. If info = n+1, syevj does not converge under given tolerance and maximum sweeps. In this case, the eigenvalues and eigenvectors are still computed because non-convergence comes from improper tolerance of maximum sweeps.
-// if jobz = [EigModeVector], A contains the orthogonal eigenvectors V.
-// Please visit cuSOLVER Library Samples - sygvj for a code example.
+// chegvjBufferSize returns the workspace size, in elements of complex64, for [Handle.Chegvj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
@@ -2373,7 +2082,7 @@ func chegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if info is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
-//   - lwork: Size of work, returned by sygvj_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -2419,11 +2128,7 @@ func chetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fnchetrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnChetrd")
 }
 
-// chetrdBufferSize reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
-//
-// As an output, A contains T and householder reflection vectors. If uplo = CUBLAS_FILL_MODE_UPPER, the diagonal and first superdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements above the first superdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors; If uplo = CUBLAS_FILL_MODE_LOWER, the diagonal and first subdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements below the first subdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). Note that the problem size n is limited by a condition n*lda < INT32_MAX primarily due to the current implementation constraints.
+// chetrdBufferSize returns the workspace size, in elements of complex64, for [Handle.Chetrd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
@@ -2431,7 +2136,7 @@ func chetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
-//   - lwork: Size of work, returned by sytrd_bufferSize
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -2552,23 +2257,14 @@ func cpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePt
 	return toError(fncpotrfBatched(handle, uplo, n, uintptr(aarray), lda, uintptr(infoArray), batchSize), "cusolverDnCpotrfBatched")
 }
 
-// cpotrfBufferSize computes the Cholesky factorization of a Hermitian positive-definite matrix.
-//
-// A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only the lower triangular part of A is processed, and replaced by the lower triangular Cholesky factor L.
-// A=L∗LH
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
-// If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// cpotrfBufferSize returns the workspace size, in elements of complex64, for [Handle.Cpotrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored; the other part is not referenced
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - lwork: Size of Workspace, returned by potrf_bufferSize
+//   - lwork: Size of Workspace, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -2624,16 +2320,7 @@ func cpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fncpotri(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)), "cusolverDnCpotri")
 }
 
-// cpotriBufferSize computes the inverse of a positive-definite matrix A using the Cholesky factorization
-//
-// A=L∗LH=UH∗U
-// computed by potrf().
-// A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
-// If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
-// If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
-// The user has to provide the working space which is pointed to by input parameter Workspace. The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
-// If the computation of the inverse fails, i.e. some leading minor of L or U, is null, the output parameter devInfo would indicate the smallest leading minor of L or U which is not positive definite.
-// If the output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting the handle).
+// cpotriBufferSize returns the workspace size, in elements of complex64, for [Handle.Cpotri].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
@@ -2853,23 +2540,13 @@ func csytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fncsytrf(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)), "cusolverDnCsytrf")
 }
 
-// csytrfBufferSize computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
-//
-// A is a n×n symmetric matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. If devIpiv is null, no pivoting is performed, which is not numerically stable.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular factor L and block diagonal matrix D. Each block of D is either 1x1 or 2x2 block, depending on pivoting.
-// P∗A∗PT=L∗D∗LT
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular factor U and block diagonal matrix D.
-// P∗A∗PT=U∗D∗UT
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
-// If Bunch-Kaufman factorization failed, i.e. A is singular. The output parameter devInfo = i would indicate D(i,i)=0.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The output parameter devIpiv contains pivoting sequence. If devIpiv(i) = k > 0, D(i,i) is 1x1 block, and i-th row/column of A is interchanged with k-th row/column of A. If uplo is CUBLAS_FILL_MODE_UPPER and devIpiv(i-1) = devIpiv(i) = -m < 0, D(i-1:i,i-1:i) is a 2x2 block, and (i-1)-th row/column is interchanged with m-th row/column. If uplo is CUBLAS_FILL_MODE_LOWER and devIpiv(i+1) = devIpiv(i) = -m < 0, D(i:i+1,i:i+1) is a 2x2 block, and (i+1)-th row/column is interchanged with m-th row/column.
+// csytrfBufferSize returns the workspace size, in elements of complex64, for [Handle.Csytrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - lwork: Size of working space work
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -2946,11 +2623,7 @@ func cungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 	return toError(fncungbr(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnCungbr")
 }
 
-// cungbrBufferSize generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
-//
-// Q and P**H are defined as products of elementary reflectors H(i) or G(i) respectively.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// cungbrBufferSize returns the workspace size, in elements of complex64, for [Handle.Cungbr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - side: If side = CUBLAS_SIDE_LEFT, generate Q. if side = CUBLAS_SIDE_RIGHT, generate P**T
@@ -2960,7 +2633,7 @@ func cungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 //   - a: array of dimension lda * n On entry, the vectors which define the elementary reflectors, as returned by gebrd. On exit, the m-by-n matrix Q or P**T
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,m)
 //   - tau: array of dimension min(m,k) if side is CUBLAS_SIDE_LEFT; of dimension min(n,k) if side is CUBLAS_SIDE_RIGHT; tau(i) must contain the scalar factor of the elementary reflector H(i) or G(i), which determines Q or P**T, as returned by gebrd in its array argument TAUQ or TAUP
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -3016,13 +2689,7 @@ func cungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 	return toError(fncungqr(handle, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnCungqr")
 }
 
-// cungqrBufferSize overwrites m×n matrix A by
-//
-// Q=H(1)∗H(2)∗...∗H(k)
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The user can combine geqrf, orgqr to complete orthogonalization.
+// cungqrBufferSize returns the workspace size, in elements of complex64, for [Handle.Cungqr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix Q. m >= 0
@@ -3031,7 +2698,7 @@ func cungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 //   - a: array of dimension lda * n with lda is not less than max(1,m). i-th column of A contains elementary reflection vector
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,m)
 //   - tau: array of dimension k. tau(i) is the scalar of i-th elementary reflection vector
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -3083,10 +2750,7 @@ func cungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fncungtr(handle, uplo, n, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnCungtr")
 }
 
-// cungtrBufferSize generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
-//
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// cungtrBufferSize returns the workspace size, in elements of complex64, for [Handle.Cungtr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A contains elementary reflectors from sytrd. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A contains elementary reflectors from sytrd
@@ -3094,7 +2758,7 @@ func cungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - a: array of dimension lda * n On entry, matrix A from sytrd contains the elementary reflectors. On exit, matrix A contains the n-by-n orthogonal matrix Q
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
 //   - tau: array of dimension (n-1) tau(i) is the scalar of i-th elementary reflection vector
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -3117,11 +2781,8 @@ func cungtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 	return out, nil
 }
 
-// cunmqr overwrites m×n matrix C by
+// cunmqr overwrites m×n matrix C.
 //
-// image2
-// The operation of Q is defined by
-// image3
 // Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
 // Q = H(1) H(2) … H(k)
 // Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
@@ -3159,17 +2820,7 @@ func cunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 	return toError(fncunmqr(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(devInfo)), "cusolverDnCunmqr")
 }
 
-// cunmqrBufferSize overwrites m×n matrix C by
-//
-// image2
-// The operation of Q is defined by
-// image3
-// Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
-// Q = H(1) H(2) … H(k)
-// Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The user can combine geqrf, ormqr and trsm to complete a linear solver or a least-square solver.
+// cunmqrBufferSize returns the workspace size, in elements of complex64, for [Handle.Cunmqr].
 //
 //   - handle: Handle to the cuSolverDn library context
 //   - side: Indicates if matrix Q is on the left or right of C
@@ -3182,7 +2833,7 @@ func cunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 //   - tau: array of dimension k. The vector tau is from geqrf, so tau(i) is the scalar of the i-th elementary reflection vector
 //   - c: array of size ldc * n. On exit, C is overwritten by op(Q)*C or C*op(Q)
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -3205,12 +2856,9 @@ func cunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 	return out, nil
 }
 
-// cunmtr overwrites m×n matrix C by
+// cunmtr overwrites m×n matrix C.
 //
-// image2
 // where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The operation on Q is defined by
-// image3
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
@@ -3243,14 +2891,7 @@ func cunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 	return toError(fncunmtr(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(info)), "cusolverDnCunmtr")
 }
 
-// cunmtrBufferSize overwrites m×n matrix C by
-//
-// image2
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The operation on Q is defined by
-// image3
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// cunmtrBufferSize returns the workspace size, in elements of complex64, for [Handle.Cunmtr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - side: side = CUBLAS_SIDE_LEFT, apply Q or Q**T from the Left; side = CUBLAS_SIDE_RIGHT, apply Q or Q**T from the Right
@@ -3263,7 +2904,7 @@ func cunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 //   - tau: array of dimension (m-1) if side is CUBLAS_SIDE_LEFT; of dimension (n-1) if side is CUBLAS_SIDE_RIGHT; The vector tau is from sytrd, so tau(i) is the scalar of i-th elementary reflection vector
 //   - c: array of size ldc * n. On exit, C is overwritten by op(Q)*C or C*op(Q)
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -3332,21 +2973,7 @@ func dBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fndBgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDBgels")
 }
 
-// dBgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// dBgelsBufferSize returns the workspace size, in bytes, for [Handle.DBgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -3358,8 +2985,7 @@ func dBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3429,20 +3055,7 @@ func dBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fndBgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDBgesv")
 }
 
-// dBgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// dBgesvBufferSize returns the workspace size, in bytes, for [Handle.DBgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -3454,8 +3067,7 @@ func dBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3526,21 +3138,7 @@ func dDgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fndDgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDDgels")
 }
 
-// dDgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// dDgelsBufferSize returns the workspace size, in bytes, for [Handle.DDgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -3552,8 +3150,7 @@ func dDgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3623,20 +3220,7 @@ func dDgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fndDgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDDgesv")
 }
 
-// dDgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// dDgesvBufferSize returns the workspace size, in bytes, for [Handle.DDgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -3648,8 +3232,7 @@ func dDgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3720,21 +3303,7 @@ func dHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fndHgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDHgels")
 }
 
-// dHgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// dHgelsBufferSize returns the workspace size, in bytes, for [Handle.DHgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -3746,8 +3315,7 @@ func dHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3817,20 +3385,7 @@ func dHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fndHgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDHgesv")
 }
 
-// dHgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// dHgesvBufferSize returns the workspace size, in bytes, for [Handle.DHgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -3842,8 +3397,7 @@ func dHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3914,21 +3468,7 @@ func dSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fndSgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDSgels")
 }
 
-// dSgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// dSgelsBufferSize returns the workspace size, in bytes, for [Handle.DSgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -3940,8 +3480,7 @@ func dSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -4011,20 +3550,7 @@ func dSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fndSgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDSgesv")
 }
 
-// dSgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// dSgesvBufferSize returns the workspace size, in bytes, for [Handle.DSgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -4036,8 +3562,7 @@ func dSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -4108,21 +3633,7 @@ func dXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fndXgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDXgels")
 }
 
-// dXgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// dXgelsBufferSize returns the workspace size, in bytes, for [Handle.DXgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -4134,8 +3645,7 @@ func dXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -4205,20 +3715,7 @@ func dXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fndXgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnDXgesv")
 }
 
-// dXgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// dXgesvBufferSize returns the workspace size, in bytes, for [Handle.DXgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -4230,8 +3727,7 @@ func dXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -4349,14 +3845,12 @@ func dgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d dr
 	return toError(fndgebrd(handle, m, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tauq), uintptr(taup), uintptr(work), lwork, uintptr(devInfo)), "cusolverDnDgebrd")
 }
 
-// dgebrdBufferSize reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
-//
-// If m>=n, B is upper bidiagonal; if m=n.
+// dgebrdBufferSize returns the workspace size, in elements of float64, for [Handle.Dgebrd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
-//   - lwork: Size of Work, returned by gebrd_bufferSize
+//   - lwork: Size of Work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -4414,15 +3908,7 @@ func dgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau 
 	return toError(fndgeqrf(handle, m, n, uintptr(a), lda, uintptr(tau), uintptr(workspace), lwork, uintptr(devInfo)), "cusolverDnDgeqrf")
 }
 
-// dgeqrfBufferSize computes the QR factorization of an m×n matrix
-//
-// A=Q∗R
-// where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
-// The matrix R is overwritten in upper triangular part of A, including diagonal elements.
-// The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// dgeqrfBufferSize returns the workspace size, in elements of float64, for [Handle.Dgeqrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
@@ -4493,21 +3979,12 @@ func dgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.Dev
 	return toError(fndgesvd(handle, jobu, jobvt, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(vt), ldvt, uintptr(work), lwork, uintptr(rwork), uintptr(info)), "cusolverDnDgesvd")
 }
 
-// dgesvdBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, devInfo specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
-// The rwork is real array of dimension (min(m,n)-1). If devInfo >0 and rwork is not NULL, rwork contains the unconverged superdiagonal elements of an upper bidiagonal matrix. This is slightly different from LAPACK which puts unconverged superdiagonal elements in work if type is real; in rwork if type is complex. rwork can be a NULL pointer if the user does not want the information from superdiagonal.
-// Please visit cuSOLVER Library Samples - gesvd for a code example.
-// Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// dgesvdBufferSize returns the workspace size, in elements of float64, for [Handle.Dgesvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
-//   - lwork: Size of work, returned by gesvd_bufferSize
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -4584,30 +4061,7 @@ func dgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 	return toError(fndgesvdaStridedBatched(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, uintptr(dWork), lwork, uintptr(dInfo), hRNrmF, batchSize), "cusolverDnDgesvdaStridedBatched")
 }
 
-// dgesvdaStridedBatchedBufferSize gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
-// gesvda computes eigenvalues of A**T*A, or A**H*A (if A is complex), to approximate singular values and singular vectors. It generates matrices U and V and transforms the matrix A to the following form
-// UH∗A∗V=S+E
-// where S is diagonal and E depends on rounding errors. To certain conditions, U, V and S approximate singular values and singular vectors up to machine zero of single precision. In general, V is unitary, S is more accurate than U. If singular value is far from zero, then left singular vector U is accurate. In other words, the accuracy of singular values and left singular vectors depend on the distance between singular value and zero. Since the computation of A**T*A, or A**H*A can greatly amplify errors, it is recommended to use gesvda only with well-conditioned data.
-// The input parameter rank decides the number of singular values and singular vectors are computed in parameter S, U and V.
-// The output parameter h_RnrmF computes Frobenius norm of residual. To compute h_RnrmF, info != NULL is required.
-// A−U∗S∗VH
-// if the parameter rank is equal n. Otherwise, h_RnrmF reports
-// ‖U∗S∗VH‖−‖S‖
-// in Frobenius norm sense, that is, how far U is from unitary.
-// gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+strideA∗k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS∗k] , the formula for random access of U is Uk(i,j)=U [i+ldu∗j+strideU∗k] and the formula for random access of V is Vk(i,j)=V [i+ldv∗j+strideV∗k] .
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
-// Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
-// Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
-// Remark 1: The routine returns V, not VH . This is different from gesvd.
-// Remark 2: The routine only supports m >=n.
-// Remark 3: It is recommended to use an FP64 data type, that is [Handle.DgesvdaStridedBatched] or [Handle.ZgesvdaStridedBatched].
-// Remark 4: If the user is confident on the accuracy of singular values and singular vectors, for example, certain conditions hold (required singular value is far from zero), then the performance can be improved by passing a null pointer to h_RnrmF, i.e. no computation of the residual norm.
+// dgesvdaStridedBatchedBufferSize returns the workspace size, in elements of float64, for [Handle.DgesvdaStridedBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -4621,7 +4075,7 @@ func dgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 //   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
-//   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
+//   - lwork: Size of work, in elements of float64
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Returns:
@@ -4740,21 +4194,7 @@ func dgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 	return toError(fndgesvdjBatched(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params, batchSize), "cusolverDnDgesvdjBatched")
 }
 
-// dgesvdjBatchedBufferSize computes singular values and singular vectors of a sequence of general m×n matrices
-//
-// Aj=Uj∗Σj∗VjH
-// where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
-// gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter S also contains singular values of each matrix in contiguous way,
-// S=(S0S1⋯)
-// The formula for random access of S is Sk(j)=S [j+min(m,n)∗k] .
-// Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
-// gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
-// Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
+// dgesvdjBatchedBufferSize returns the workspace size, in elements of float64, for [Handle.DgesvdjBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -4767,7 +4207,7 @@ func dgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
 //   - v: array of dimension ldv * n * batchSize. Vj contains the right singular vectors of Aj
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - lwork: Size of work, returned by gesvdjBatched_bufferSize
+//   - lwork: Size of work, in elements of float64
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
@@ -4785,29 +4225,7 @@ func dgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 	return toError(fndgesvdjBatchedBufferSize(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params, batchSize), "cusolverDnDgesvdjBatched_bufferSize")
 }
 
-// dgesvdjBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// gesvdj has the same functionality as gesvd. The difference is that gesvd uses QR algorithm and gesvdj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure gesvdj to perform approximation up to certain accuracy.
-// gesvdj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// UH∗A∗V=S+E
-// where S is diagonal and diagonal of E is zero.
-// During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, S is the set of singular values. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
-// where eps is given tolerance. Note that if the real residual norm
-// ‖S−UH∗A∗V‖F
-// is computed, it will differ from ‖E‖F up to roundoff errors of order N=max(m,n), to still have the standard SVD accuracy expectation
-// ‖S−UH∗A∗V‖FO(N)∗‖A‖F≤‖E‖F‖A‖F≤eps
-// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps∗N.
-// gesvdj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [GesvdjInfo.XgesvdjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [GesvdjInfo.XgesvdjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. gesvdj stops either tolerance is met or maximum number of sweeps is met.
-// Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = min(m,n)+1, gesvdj does not converge under given tolerance and maximum sweeps.
-// If the user sets an improper tolerance, gesvdj may not converge. For example, tolerance should not be smaller than machine accuracy.
-// Please visit cuSOLVER Library Samples - gesvdj for a code example.
-// Remark 1: gesvdj supports any combination of m and n.
-// Remark 2: the routine returns V, not VH . This is different from gesvd.
+// dgesvdjBufferSize returns the workspace size, in elements of float64, for [Handle.Dgesvdj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -4821,7 +4239,7 @@ func dgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 //   - ldu: Leading dimension of two-dimensional array used to store matrix U. ldu is not less than max(1,m)
 //   - v: array of dimension ldv * n if econ is zero. If econ is nonzero, the dimension is ldv * min(m,n). V contains the right singular vectors
 //   - ldv: Leading dimension of two-dimensional array used to store matrix V. ldv is not less than max(1,n)
-//   - lwork: Size of work, returned by gesvdj_bufferSize
+//   - lwork: Size of work, in elements of float64
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
 // Returns:
@@ -4874,23 +4292,14 @@ func dgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, work
 	return toError(fndgetrf(handle, m, n, uintptr(a), lda, uintptr(workspace), uintptr(devIpiv), uintptr(devInfo)), "cusolverDnDgetrf")
 }
 
-// dgetrfBufferSize computes the LU factorization of an m×n matrix
-//
-// P∗A=L∗U
-// where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
-// If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// If devIpiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
-// No matter LU factorization failed or not, the output parameter devIpiv contains pivoting sequence, row i is interchanged with row devIpiv(i).
-// The user can combine getrf and getrs to complete a linear solver.
-// Remark: getrf uses fastest implementation with large workspace of size m*n. The user can choose the legacy implementation with minimal workspace by Getrf and [Params.SetAdvOptions](params, CUSOLVERDN_GETRF, [Alg1]).
+// dgetrfBufferSize returns the workspace size, in elements of float64, for [Handle.Dgetrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -4917,8 +4326,6 @@ func dgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 //
 // op(A)∗X=B
 // where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
-// The input parameter trans is defined by
-// image1
 // The input parameter devIpiv is an output of getrf. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine getrf and getrs to complete a linear solver.
@@ -5011,11 +4418,7 @@ func dorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 	return toError(fndorgbr(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnDorgbr")
 }
 
-// dorgbrBufferSize generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
-//
-// Q and P**H are defined as products of elementary reflectors H(i) or G(i) respectively.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// dorgbrBufferSize returns the workspace size, in elements of float64, for [Handle.Dorgbr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - side: If side = CUBLAS_SIDE_LEFT, generate Q. if side = CUBLAS_SIDE_RIGHT, generate P**T
@@ -5025,7 +4428,7 @@ func dorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 //   - a: array of dimension lda * n On entry, the vectors which define the elementary reflectors, as returned by gebrd. On exit, the m-by-n matrix Q or P**T
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,m)
 //   - tau: array of dimension min(m,k) if side is CUBLAS_SIDE_LEFT; of dimension min(n,k) if side is CUBLAS_SIDE_RIGHT; tau(i) must contain the scalar factor of the elementary reflector H(i) or G(i), which determines Q or P**T, as returned by gebrd in its array argument TAUQ or TAUP
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -5081,13 +4484,7 @@ func dorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 	return toError(fndorgqr(handle, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnDorgqr")
 }
 
-// dorgqrBufferSize overwrites m×n matrix A by
-//
-// Q=H(1)∗H(2)∗...∗H(k)
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The user can combine geqrf, orgqr to complete orthogonalization.
+// dorgqrBufferSize returns the workspace size, in elements of float64, for [Handle.Dorgqr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix Q. m >= 0
@@ -5096,7 +4493,7 @@ func dorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 //   - a: array of dimension lda * n with lda is not less than max(1,m). i-th column of A contains elementary reflection vector
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,m)
 //   - tau: array of dimension k. tau(i) is the scalar of i-th elementary reflection vector
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -5148,10 +4545,7 @@ func dorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fndorgtr(handle, uplo, n, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnDorgtr")
 }
 
-// dorgtrBufferSize generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
-//
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// dorgtrBufferSize returns the workspace size, in elements of float64, for [Handle.Dorgtr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A contains elementary reflectors from sytrd. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A contains elementary reflectors from sytrd
@@ -5159,7 +4553,7 @@ func dorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - a: array of dimension lda * n On entry, matrix A from sytrd contains the elementary reflectors. On exit, matrix A contains the n-by-n orthogonal matrix Q
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
 //   - tau: array of dimension (n-1) tau(i) is the scalar of i-th elementary reflection vector
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -5182,11 +4576,8 @@ func dorgtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 	return out, nil
 }
 
-// dormqr overwrites m×n matrix C by
+// dormqr overwrites m×n matrix C.
 //
-// image2
-// The operation of Q is defined by
-// image3
 // Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
 // Q = H(1) H(2) … H(k)
 // Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
@@ -5224,17 +4615,7 @@ func dormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 	return toError(fndormqr(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(devInfo)), "cusolverDnDormqr")
 }
 
-// dormqrBufferSize overwrites m×n matrix C by
-//
-// image2
-// The operation of Q is defined by
-// image3
-// Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
-// Q = H(1) H(2) … H(k)
-// Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The user can combine geqrf, ormqr and trsm to complete a linear solver or a least-square solver.
+// dormqrBufferSize returns the workspace size, in elements of float64, for [Handle.Dormqr].
 //
 //   - handle: Handle to the cuSolverDn library context
 //   - side: Indicates if matrix Q is on the left or right of C
@@ -5247,7 +4628,7 @@ func dormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 //   - tau: array of dimension k. The vector tau is from geqrf, so tau(i) is the scalar of the i-th elementary reflection vector
 //   - c: array of size ldc * n. On exit, C is overwritten by op(Q)*C or C*op(Q)
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -5270,12 +4651,9 @@ func dormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 	return out, nil
 }
 
-// dormtr overwrites m×n matrix C by
+// dormtr overwrites m×n matrix C.
 //
-// image2
 // where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The operation on Q is defined by
-// image3
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
@@ -5308,14 +4686,7 @@ func dormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 	return toError(fndormtr(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(info)), "cusolverDnDormtr")
 }
 
-// dormtrBufferSize overwrites m×n matrix C by
-//
-// image2
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The operation on Q is defined by
-// image3
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// dormtrBufferSize returns the workspace size, in elements of float64, for [Handle.Dormtr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - side: side = CUBLAS_SIDE_LEFT, apply Q or Q**T from the Left; side = CUBLAS_SIDE_RIGHT, apply Q or Q**T from the Right
@@ -5328,7 +4699,7 @@ func dormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 //   - tau: array of dimension (m-1) if side is CUBLAS_SIDE_LEFT; of dimension (n-1) if side is CUBLAS_SIDE_RIGHT; The vector tau is from sytrd, so tau(i) is the scalar of i-th elementary reflection vector
 //   - c: array of size ldc * n. On exit, C is overwritten by op(Q)*C or C*op(Q)
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -5419,23 +4790,14 @@ func dpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePt
 	return toError(fndpotrfBatched(handle, uplo, n, uintptr(aarray), lda, uintptr(infoArray), batchSize), "cusolverDnDpotrfBatched")
 }
 
-// dpotrfBufferSize computes the Cholesky factorization of a Hermitian positive-definite matrix.
-//
-// A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only the lower triangular part of A is processed, and replaced by the lower triangular Cholesky factor L.
-// A=L∗LH
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
-// If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// dpotrfBufferSize returns the workspace size, in elements of float64, for [Handle.Dpotrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored; the other part is not referenced
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - lwork: Size of Workspace, returned by potrf_bufferSize
+//   - lwork: Size of Workspace, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -5491,16 +4853,7 @@ func dpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fndpotri(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)), "cusolverDnDpotri")
 }
 
-// dpotriBufferSize computes the inverse of a positive-definite matrix A using the Cholesky factorization
-//
-// A=L∗LH=UH∗U
-// computed by potrf().
-// A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
-// If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
-// If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
-// The user has to provide the working space which is pointed to by input parameter Workspace. The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
-// If the computation of the inverse fails, i.e. some leading minor of L or U, is null, the output parameter devInfo would indicate the smallest leading minor of L or U which is not positive definite.
-// If the output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting the handle).
+// dpotriBufferSize returns the workspace size, in elements of float64, for [Handle.Dpotri].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
@@ -5628,14 +4981,7 @@ func dsyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 	return toError(fndsyevd(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnDsyevd")
 }
 
-// dsyevdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - syevd for a code example.
+// dsyevdBufferSize returns the workspace size, in elements of float64, for [Handle.Dsyevd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -5644,6 +4990,7 @@ func dsyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -5701,14 +5048,7 @@ func dsyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 	return toError(fndsyevdx(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnDsyevdx")
 }
 
-// dsyevdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - syevdx for a code example.
+// dsyevdxBufferSize returns the workspace size, in elements of float64, for [Handle.Dsyevdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -5718,7 +5058,7 @@ func dsyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
-//   - lwork: Size of work, returned by syevdx_bufferSize
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -5833,22 +5173,7 @@ func dsyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 	return toError(fndsyevjBatched(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params, batchSize), "cusolverDnDsyevjBatched")
 }
 
-// dsyevjBatchedBufferSize computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
-//
-// Aj∗Qj=Qj∗Λj
-// where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
-// syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter W also contains eigenvalues of each matrix in contiguous way,
-// W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
-// Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
-// syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
-// If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors Vj.
-// Please visit cuSOLVER Library Samples - syevjBatched for a code example.
+// dsyevjBatchedBufferSize returns the workspace size, in elements of float64, for [Handle.DsyevjBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -5857,7 +5182,7 @@ func dsyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 //   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
-//   - lwork: Size of work, returned by syevjBatched_bufferSize
+//   - lwork: Size of work, in elements of float64
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
@@ -5875,27 +5200,7 @@ func dsyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 	return toError(fndsyevjBatchedBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params, batchSize), "cusolverDnDsyevjBatched_bufferSize")
 }
 
-// dsyevjBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗Q=Q∗Λ
-// where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// syevj has the same functionality as syevd. The difference is that syevd uses QR algorithm and syevj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure syevj to perform approximation up to certain accuracy.
-// How does it work?
-// syevj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// VH∗A∗V=W+E
-// where W is diagonal and E is symmetric without diagonal.
-// During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, W is the set of eigenvalues. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
-// where eps is the given tolerance.
-// syevj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [SyevjInfo.XsyevjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [SyevjInfo.XsyevjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. syevj stops either tolerance is met or maximum number of sweeps is met.
-// The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
-// residual=‖E‖F=‖Λ−W‖F
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
-// If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
-// Please visit cuSOLVER Library Samples - syevj for a code example.
+// dsyevjBufferSize returns the workspace size, in elements of float64, for [Handle.Dsyevj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -5904,7 +5209,7 @@ func dsyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and info = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
-//   - lwork: Size of work, returned by syevj_bufferSize
+//   - lwork: Size of work, in elements of float64
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
 // Returns:
@@ -5923,9 +5228,7 @@ func dsyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 
 // dsygvd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -5958,15 +5261,7 @@ func dsygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 	return toError(fndsygvd(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnDsygvd")
 }
 
-// dsygvdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - sygvd for a code example.
+// dsygvdBufferSize returns the workspace size, in elements of float64, for [Handle.Dsygvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
@@ -5978,6 +5273,7 @@ func dsygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -6002,9 +5298,7 @@ func dsygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 
 // dsygvdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -6039,15 +5333,7 @@ func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 	return toError(fndsygvdx(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnDsygvdx")
 }
 
-// dsygvdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - sygvdx for a code example.
+// dsygvdxBufferSize returns the workspace size, in elements of float64, for [Handle.Dsygvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
@@ -6060,7 +5346,7 @@ func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
-//   - lwork: Size of work, returned by sygvdx_bufferSize
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -6085,9 +5371,7 @@ func dsygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRan
 
 // dsygvj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
 // This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
 // However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
 // B=L∗LH
@@ -6130,24 +5414,7 @@ func dsygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 	return toError(fndsygvj(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info), params), "cusolverDnDsygvj")
 }
 
-// dsygvjBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
-// However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
-// B=L∗LH
-// transform the problem to standard eigenvalue problem, then calls syevj.
-// For example, the standard eigenvalue problem of type I is
-// M∗Q=Q∗Λ
-// where matrix M is symmetric
-// M=L−1∗A∗L−H
-// The residual is the result of syevj on matrix M, not A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n), B is not positive definite, the factorization of B could not be completed and no eigenvalues or eigenvectors were computed. If info = n+1, syevj does not converge under given tolerance and maximum sweeps. In this case, the eigenvalues and eigenvectors are still computed because non-convergence comes from improper tolerance of maximum sweeps.
-// if jobz = [EigModeVector], A contains the orthogonal eigenvectors V.
-// Please visit cuSOLVER Library Samples - sygvj for a code example.
+// dsygvjBufferSize returns the workspace size, in elements of float64, for [Handle.Dsygvj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
@@ -6159,7 +5426,7 @@ func dsygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if info is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
-//   - lwork: Size of work, returned by sygvj_bufferSize
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -6205,11 +5472,7 @@ func dsytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fndsytrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnDsytrd")
 }
 
-// dsytrdBufferSize reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
-//
-// As an output, A contains T and householder reflection vectors. If uplo = CUBLAS_FILL_MODE_UPPER, the diagonal and first superdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements above the first superdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors; If uplo = CUBLAS_FILL_MODE_LOWER, the diagonal and first subdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements below the first subdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). Note that the problem size n is limited by a condition n*lda < INT32_MAX primarily due to the current implementation constraints.
+// dsytrdBufferSize returns the workspace size, in elements of float64, for [Handle.Dsytrd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
@@ -6217,7 +5480,7 @@ func dsytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
-//   - lwork: Size of work, returned by sytrd_bufferSize
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -6275,23 +5538,13 @@ func dsytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fndsytrf(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)), "cusolverDnDsytrf")
 }
 
-// dsytrfBufferSize computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
-//
-// A is a n×n symmetric matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. If devIpiv is null, no pivoting is performed, which is not numerically stable.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular factor L and block diagonal matrix D. Each block of D is either 1x1 or 2x2 block, depending on pivoting.
-// P∗A∗PT=L∗D∗LT
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular factor U and block diagonal matrix D.
-// P∗A∗PT=U∗D∗UT
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
-// If Bunch-Kaufman factorization failed, i.e. A is singular. The output parameter devInfo = i would indicate D(i,i)=0.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The output parameter devIpiv contains pivoting sequence. If devIpiv(i) = k > 0, D(i,i) is 1x1 block, and i-th row/column of A is interchanged with k-th row/column of A. If uplo is CUBLAS_FILL_MODE_UPPER and devIpiv(i-1) = devIpiv(i) = -m < 0, D(i-1:i,i-1:i) is a 2x2 block, and (i-1)-th row/column is interchanged with m-th row/column. If uplo is CUBLAS_FILL_MODE_LOWER and devIpiv(i+1) = devIpiv(i) = -m < 0, D(i:i+1,i:i+1) is a 2x2 block, and (i+1)-th row/column is interchanged with m-th row/column.
+// dsytrfBufferSize returns the workspace size, in elements of float64, for [Handle.Dsytrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - lwork: Size of working space work
+//   - lwork: Size of work, in elements of float64
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -6995,20 +6248,13 @@ func iRSXgels(handle Handle, gelsIrsParams IRSParams, gelsIrsInfos IRSInfos, m C
 	return toError(fniRSXgels(handle, gelsIrsParams, gelsIrsInfos, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, niters, uintptr(dInfo)), "cusolverDnIRSXgels")
 }
 
-// iRSXgelsBufferSize is designed to perform same functionality as cusolverDngels() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
-//
-// through the configuration parameters structure gels_irs_params and its helper functions. For more details about what configuration can be set and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSParamsxxxx(). Moreover, [Handle.IRSXgels] provides additional information on the output such as the convergence history (e.g., the residual norms) at each iteration and the number of iterations needed to converge. For more details about what information can be retrieved and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSInfosxxxx().
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the configurations of params/infos structure is incorrect or if the function did not finish with success. More details about the error can be found by checking the niters and the dinfo API parameters. See their description below for further details. Users should provide the required workspace allocated on device for the [Handle.IRSXgels] function. The amount of bytes required for the function can be queried by calling the respective function [Handle.IRSXgelsBufferSize]. Note that, if the user would like a particular configuration to be set via the params structure, it should be set before the call to [Handle.IRSXgelsBufferSize] to get the size of the required workspace.
-// The following table provides all possible combinations values for the lowest precision corresponding to the Inputs/Outputs data type. Note that if the lowest precision matches the Inputs/Outputs datatype, then main precision factorization will be used
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision.
-// The [Handle.IRSXgelsBufferSize] function return the required workspace buffer size in bytes for the corresponding cusolverDnXgels() call with given gels_irs_params configuration.
+// iRSXgelsBufferSize returns the workspace size, in bytes, for [Handle.IRSXgels].
 //
 //   - handle: Handle to the cusolverDn library context
-//   - params: Xgels configuration parameters
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
 //   - n: Number of columns of the matrix A. Should be non-negative and n<=m
 //   - nrhs: Number of right hand sides to solve. Should be non-negative. Note that, nrhs is limited to 1 if the selected IRS refinement solver is [IrsRefineGmres], [IrsRefineGmresGmres], [IrsRefineClassicalGmres]
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by [Handle.IRSXgelsBufferSize] function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrAllocFailed]: CPU memory allocation failed, most likely during the allocation of the residual array that store the residual norms.
@@ -7089,19 +6335,12 @@ func iRSXgesv(handle Handle, gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n C
 	return toError(fniRSXgesv(handle, gesvIrsParams, gesvIrsInfos, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, niters, uintptr(dInfo)), "cusolverDnIRSXgesv")
 }
 
-// iRSXgesvBufferSize is designed to perform same functionality as cusolverDngesv() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
-//
-// through the configuration parameters structure gesv_irs_params and its helper functions. For more details about what configuration can be set and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSParamsxxxx(). Moreover, [Handle.IRSXgesv] provides additional information on the output such as the convergence history (e.g., the residual norms) at each iteration and the number of iterations needed to converge. For more details about what information can be retrieved and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSInfosxxxx()
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the configurations of params/infos structure is incorrect or if the function did not finish with success. More details about the error can be found by checking the niters and the dinfo API parameters. See their description below for further details. User should provide the required workspace allocated on device for the [Handle.IRSXgesv] function. The amount of bytes required for the function can be queried by calling the respective function [Handle.IRSXgesvBufferSize]. Note that, if the user would like a particular configuration to be set via the params structure, it should be set before the call to [Handle.IRSXgesvBufferSize] to get the size of the required workspace.
-// Tensor Float (TF32), introduced with NVIDIA Ampere architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision.
-// The following table provides all possible combinations values for the lowest precision corresponding to the Inputs/Outputs data type. Note that if the lowest precision matches the Inputs/Outputs datatype, then the main precision factorization will be used.
-// The [Handle.IRSXgesvBufferSize] function returns the required workspace buffer size in bytes for the corresponding cusolverDnXgesv() call with the given gesv_irs_params configuration.
+// iRSXgesvBufferSize returns the workspace size, in bytes, for [Handle.IRSXgesv].
 //
 //   - handle: Handle to the cusolverDn library context
-//   - params: Xgesv configuration parameters
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
 //   - nrhs: Number of right hand sides to solve. Should be non-negative. Note that, nrhs is limited to 1 if the selected IRS refinement solver is [IrsRefineGmres], [IrsRefineGmresGmres], [IrsRefineClassicalGmres]
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by [Handle.IRSXgesvBufferSize] function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrAllocFailed]: CPU memory allocation failed, most likely during the allocation of the residual array that store the residual norms.
@@ -7269,21 +6508,7 @@ func sBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnsBgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnSBgels")
 }
 
-// sBgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// sBgelsBufferSize returns the workspace size, in bytes, for [Handle.SBgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -7295,8 +6520,7 @@ func sBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7366,20 +6590,7 @@ func sBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnsBgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnSBgesv")
 }
 
-// sBgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// sBgesvBufferSize returns the workspace size, in bytes, for [Handle.SBgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -7391,8 +6602,7 @@ func sBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7463,21 +6673,7 @@ func sHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnsHgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnSHgels")
 }
 
-// sHgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// sHgelsBufferSize returns the workspace size, in bytes, for [Handle.SHgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -7489,8 +6685,7 @@ func sHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7560,20 +6755,7 @@ func sHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnsHgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnSHgesv")
 }
 
-// sHgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// sHgesvBufferSize returns the workspace size, in bytes, for [Handle.SHgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -7585,8 +6767,7 @@ func sHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7657,21 +6838,7 @@ func sSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnsSgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnSSgels")
 }
 
-// sSgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// sSgelsBufferSize returns the workspace size, in bytes, for [Handle.SSgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -7683,8 +6850,7 @@ func sSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7754,20 +6920,7 @@ func sSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnsSgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnSSgesv")
 }
 
-// sSgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// sSgesvBufferSize returns the workspace size, in bytes, for [Handle.SSgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -7779,8 +6932,7 @@ func sSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7851,21 +7003,7 @@ func sXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnsXgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnSXgels")
 }
 
-// sXgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// sXgelsBufferSize returns the workspace size, in bytes, for [Handle.SXgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -7877,8 +7015,7 @@ func sXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7948,20 +7085,7 @@ func sXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnsXgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnSXgesv")
 }
 
-// sXgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// sXgesvBufferSize returns the workspace size, in bytes, for [Handle.SXgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -7973,8 +7097,7 @@ func sXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -8059,11 +7182,13 @@ func setEmulationSpecialValuesSupport(handle Handle, mask EmulationSpecialValues
 //
 // The emulation strategy set by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
 //
+// Note: Please note that the workspace sizes returned by *_bufferSize APIs may depend on the emulation strategy.
+//
 //   - handle: Handle to the cuSolverDN library context
 //   - strategy: The emulation strategy to be used with handle
 //
 // Returns:
-//   - [ErrInternalError]: An internal error occurred. Note Please note that the workspace sizes returned by *_bufferSize APIs may depend on the emulation strategy.
+//   - [ErrInternalError]: An internal error occurred.
 //   - [ErrInvalidValue]: strategy was not a supported emulation strategy
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [Success]: The strategy was set successfully.
@@ -8143,10 +7268,12 @@ func setFixedPointEmulationMaxMantissaBitCount(handle Handle, mantissaBitCount i
 
 // setMathMode sets the math modes of all cuSolverDN functions for handle.
 //
+// Note: Please note that the workspace sizes returned by *_bufferSize APIs may depend on the math mode.
+//
 //   - handle: Handle to the cuSolverDN library context
 //
 // Returns:
-//   - [ErrInternalError]: An internal error occurred. Note Please note that the workspace sizes returned by *_bufferSize APIs may depend on the math mode.
+//   - [ErrInternalError]: An internal error occurred.
 //   - [ErrInvalidValue]: An invalid mode was given.
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [Success]: The mode was set successfully.
@@ -8208,14 +7335,12 @@ func sgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d dr
 	return toError(fnsgebrd(handle, m, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tauq), uintptr(taup), uintptr(work), lwork, uintptr(devInfo)), "cusolverDnSgebrd")
 }
 
-// sgebrdBufferSize reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
-//
-// If m>=n, B is upper bidiagonal; if m=n.
+// sgebrdBufferSize returns the workspace size, in elements of float32, for [Handle.Sgebrd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
-//   - lwork: Size of Work, returned by gebrd_bufferSize
+//   - lwork: Size of Work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -8273,15 +7398,7 @@ func sgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau 
 	return toError(fnsgeqrf(handle, m, n, uintptr(a), lda, uintptr(tau), uintptr(workspace), lwork, uintptr(devInfo)), "cusolverDnSgeqrf")
 }
 
-// sgeqrfBufferSize computes the QR factorization of an m×n matrix
-//
-// A=Q∗R
-// where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
-// The matrix R is overwritten in upper triangular part of A, including diagonal elements.
-// The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// sgeqrfBufferSize returns the workspace size, in elements of float32, for [Handle.Sgeqrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
@@ -8352,21 +7469,12 @@ func sgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.Dev
 	return toError(fnsgesvd(handle, jobu, jobvt, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(vt), ldvt, uintptr(work), lwork, uintptr(rwork), uintptr(info)), "cusolverDnSgesvd")
 }
 
-// sgesvdBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, devInfo specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
-// The rwork is real array of dimension (min(m,n)-1). If devInfo >0 and rwork is not NULL, rwork contains the unconverged superdiagonal elements of an upper bidiagonal matrix. This is slightly different from LAPACK which puts unconverged superdiagonal elements in work if type is real; in rwork if type is complex. rwork can be a NULL pointer if the user does not want the information from superdiagonal.
-// Please visit cuSOLVER Library Samples - gesvd for a code example.
-// Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// sgesvdBufferSize returns the workspace size, in elements of float32, for [Handle.Sgesvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
-//   - lwork: Size of work, returned by gesvd_bufferSize
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -8443,30 +7551,7 @@ func sgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 	return toError(fnsgesvdaStridedBatched(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, uintptr(dWork), lwork, uintptr(dInfo), hRNrmF, batchSize), "cusolverDnSgesvdaStridedBatched")
 }
 
-// sgesvdaStridedBatchedBufferSize gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
-// gesvda computes eigenvalues of A**T*A, or A**H*A (if A is complex), to approximate singular values and singular vectors. It generates matrices U and V and transforms the matrix A to the following form
-// UH∗A∗V=S+E
-// where S is diagonal and E depends on rounding errors. To certain conditions, U, V and S approximate singular values and singular vectors up to machine zero of single precision. In general, V is unitary, S is more accurate than U. If singular value is far from zero, then left singular vector U is accurate. In other words, the accuracy of singular values and left singular vectors depend on the distance between singular value and zero. Since the computation of A**T*A, or A**H*A can greatly amplify errors, it is recommended to use gesvda only with well-conditioned data.
-// The input parameter rank decides the number of singular values and singular vectors are computed in parameter S, U and V.
-// The output parameter h_RnrmF computes Frobenius norm of residual. To compute h_RnrmF, info != NULL is required.
-// A−U∗S∗VH
-// if the parameter rank is equal n. Otherwise, h_RnrmF reports
-// ‖U∗S∗VH‖−‖S‖
-// in Frobenius norm sense, that is, how far U is from unitary.
-// gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+strideA∗k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS∗k] , the formula for random access of U is Uk(i,j)=U [i+ldu∗j+strideU∗k] and the formula for random access of V is Vk(i,j)=V [i+ldv∗j+strideV∗k] .
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
-// Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
-// Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
-// Remark 1: The routine returns V, not VH . This is different from gesvd.
-// Remark 2: The routine only supports m >=n.
-// Remark 3: It is recommended to use an FP64 data type, that is [Handle.DgesvdaStridedBatched] or [Handle.ZgesvdaStridedBatched].
-// Remark 4: If the user is confident on the accuracy of singular values and singular vectors, for example, certain conditions hold (required singular value is far from zero), then the performance can be improved by passing a null pointer to h_RnrmF, i.e. no computation of the residual norm.
+// sgesvdaStridedBatchedBufferSize returns the workspace size, in elements of float32, for [Handle.SgesvdaStridedBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -8480,7 +7565,7 @@ func sgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 //   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
-//   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
+//   - lwork: Size of work, in elements of float32
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Returns:
@@ -8599,21 +7684,7 @@ func sgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 	return toError(fnsgesvdjBatched(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params, batchSize), "cusolverDnSgesvdjBatched")
 }
 
-// sgesvdjBatchedBufferSize computes singular values and singular vectors of a sequence of general m×n matrices
-//
-// Aj=Uj∗Σj∗VjH
-// where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
-// gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter S also contains singular values of each matrix in contiguous way,
-// S=(S0S1⋯)
-// The formula for random access of S is Sk(j)=S [j+min(m,n)∗k] .
-// Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
-// gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
-// Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
+// sgesvdjBatchedBufferSize returns the workspace size, in elements of float32, for [Handle.SgesvdjBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -8626,7 +7697,7 @@ func sgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
 //   - v: array of dimension ldv * n * batchSize. Vj contains the right singular vectors of Aj
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - lwork: Size of work, returned by gesvdjBatched_bufferSize
+//   - lwork: Size of work, in elements of float32
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
@@ -8644,29 +7715,7 @@ func sgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 	return toError(fnsgesvdjBatchedBufferSize(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params, batchSize), "cusolverDnSgesvdjBatched_bufferSize")
 }
 
-// sgesvdjBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// gesvdj has the same functionality as gesvd. The difference is that gesvd uses QR algorithm and gesvdj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure gesvdj to perform approximation up to certain accuracy.
-// gesvdj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// UH∗A∗V=S+E
-// where S is diagonal and diagonal of E is zero.
-// During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, S is the set of singular values. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
-// where eps is given tolerance. Note that if the real residual norm
-// ‖S−UH∗A∗V‖F
-// is computed, it will differ from ‖E‖F up to roundoff errors of order N=max(m,n), to still have the standard SVD accuracy expectation
-// ‖S−UH∗A∗V‖FO(N)∗‖A‖F≤‖E‖F‖A‖F≤eps
-// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps∗N.
-// gesvdj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [GesvdjInfo.XgesvdjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [GesvdjInfo.XgesvdjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. gesvdj stops either tolerance is met or maximum number of sweeps is met.
-// Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = min(m,n)+1, gesvdj does not converge under given tolerance and maximum sweeps.
-// If the user sets an improper tolerance, gesvdj may not converge. For example, tolerance should not be smaller than machine accuracy.
-// Please visit cuSOLVER Library Samples - gesvdj for a code example.
-// Remark 1: gesvdj supports any combination of m and n.
-// Remark 2: the routine returns V, not VH . This is different from gesvd.
+// sgesvdjBufferSize returns the workspace size, in elements of float32, for [Handle.Sgesvdj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -8680,7 +7729,7 @@ func sgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 //   - ldu: Leading dimension of two-dimensional array used to store matrix U. ldu is not less than max(1,m)
 //   - v: array of dimension ldv * n if econ is zero. If econ is nonzero, the dimension is ldv * min(m,n). V contains the right singular vectors
 //   - ldv: Leading dimension of two-dimensional array used to store matrix V. ldv is not less than max(1,n)
-//   - lwork: Size of work, returned by gesvdj_bufferSize
+//   - lwork: Size of work, in elements of float32
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
 // Returns:
@@ -8733,23 +7782,14 @@ func sgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, work
 	return toError(fnsgetrf(handle, m, n, uintptr(a), lda, uintptr(workspace), uintptr(devIpiv), uintptr(devInfo)), "cusolverDnSgetrf")
 }
 
-// sgetrfBufferSize computes the LU factorization of an m×n matrix
-//
-// P∗A=L∗U
-// where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
-// If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// If devIpiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
-// No matter LU factorization failed or not, the output parameter devIpiv contains pivoting sequence, row i is interchanged with row devIpiv(i).
-// The user can combine getrf and getrs to complete a linear solver.
-// Remark: getrf uses fastest implementation with large workspace of size m*n. The user can choose the legacy implementation with minimal workspace by Getrf and [Params.SetAdvOptions](params, CUSOLVERDN_GETRF, [Alg1]).
+// sgetrfBufferSize returns the workspace size, in elements of float32, for [Handle.Sgetrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -8776,8 +7816,6 @@ func sgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 //
 // op(A)∗X=B
 // where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
-// The input parameter trans is defined by
-// image1
 // The input parameter devIpiv is an output of getrf. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine getrf and getrs to complete a linear solver.
@@ -8870,11 +7908,7 @@ func sorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 	return toError(fnsorgbr(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnSorgbr")
 }
 
-// sorgbrBufferSize generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
-//
-// Q and P**H are defined as products of elementary reflectors H(i) or G(i) respectively.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// sorgbrBufferSize returns the workspace size, in elements of float32, for [Handle.Sorgbr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - side: If side = CUBLAS_SIDE_LEFT, generate Q. if side = CUBLAS_SIDE_RIGHT, generate P**T
@@ -8884,7 +7918,7 @@ func sorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 //   - a: array of dimension lda * n On entry, the vectors which define the elementary reflectors, as returned by gebrd. On exit, the m-by-n matrix Q or P**T
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,m)
 //   - tau: array of dimension min(m,k) if side is CUBLAS_SIDE_LEFT; of dimension min(n,k) if side is CUBLAS_SIDE_RIGHT; tau(i) must contain the scalar factor of the elementary reflector H(i) or G(i), which determines Q or P**T, as returned by gebrd in its array argument TAUQ or TAUP
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -8940,13 +7974,7 @@ func sorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 	return toError(fnsorgqr(handle, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnSorgqr")
 }
 
-// sorgqrBufferSize overwrites m×n matrix A by
-//
-// Q=H(1)∗H(2)∗...∗H(k)
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The user can combine geqrf, orgqr to complete orthogonalization.
+// sorgqrBufferSize returns the workspace size, in elements of float32, for [Handle.Sorgqr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix Q. m >= 0
@@ -8955,7 +7983,7 @@ func sorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 //   - a: array of dimension lda * n with lda is not less than max(1,m). i-th column of A contains elementary reflection vector
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,m)
 //   - tau: array of dimension k. tau(i) is the scalar of i-th elementary reflection vector
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9007,10 +8035,7 @@ func sorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fnsorgtr(handle, uplo, n, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnSorgtr")
 }
 
-// sorgtrBufferSize generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
-//
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// sorgtrBufferSize returns the workspace size, in elements of float32, for [Handle.Sorgtr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A contains elementary reflectors from sytrd. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A contains elementary reflectors from sytrd
@@ -9018,7 +8043,7 @@ func sorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - a: array of dimension lda * n On entry, matrix A from sytrd contains the elementary reflectors. On exit, matrix A contains the n-by-n orthogonal matrix Q
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
 //   - tau: array of dimension (n-1) tau(i) is the scalar of i-th elementary reflection vector
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9041,11 +8066,8 @@ func sorgtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 	return out, nil
 }
 
-// sormqr overwrites m×n matrix C by
+// sormqr overwrites m×n matrix C.
 //
-// image2
-// The operation of Q is defined by
-// image3
 // Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
 // Q = H(1) H(2) … H(k)
 // Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
@@ -9083,17 +8105,7 @@ func sormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 	return toError(fnsormqr(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(devInfo)), "cusolverDnSormqr")
 }
 
-// sormqrBufferSize overwrites m×n matrix C by
-//
-// image2
-// The operation of Q is defined by
-// image3
-// Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
-// Q = H(1) H(2) … H(k)
-// Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The user can combine geqrf, ormqr and trsm to complete a linear solver or a least-square solver.
+// sormqrBufferSize returns the workspace size, in elements of float32, for [Handle.Sormqr].
 //
 //   - handle: Handle to the cuSolverDn library context
 //   - side: Indicates if matrix Q is on the left or right of C
@@ -9106,7 +8118,7 @@ func sormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 //   - tau: array of dimension k. The vector tau is from geqrf, so tau(i) is the scalar of the i-th elementary reflection vector
 //   - c: array of size ldc * n. On exit, C is overwritten by op(Q)*C or C*op(Q)
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9129,12 +8141,9 @@ func sormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 	return out, nil
 }
 
-// sormtr overwrites m×n matrix C by
+// sormtr overwrites m×n matrix C.
 //
-// image2
 // where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The operation on Q is defined by
-// image3
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
@@ -9167,14 +8176,7 @@ func sormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 	return toError(fnsormtr(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(info)), "cusolverDnSormtr")
 }
 
-// sormtrBufferSize overwrites m×n matrix C by
-//
-// image2
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The operation on Q is defined by
-// image3
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// sormtrBufferSize returns the workspace size, in elements of float32, for [Handle.Sormtr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - side: side = CUBLAS_SIDE_LEFT, apply Q or Q**T from the Left; side = CUBLAS_SIDE_RIGHT, apply Q or Q**T from the Right
@@ -9187,7 +8189,7 @@ func sormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 //   - tau: array of dimension (m-1) if side is CUBLAS_SIDE_LEFT; of dimension (n-1) if side is CUBLAS_SIDE_RIGHT; The vector tau is from sytrd, so tau(i) is the scalar of i-th elementary reflection vector
 //   - c: array of size ldc * n. On exit, C is overwritten by op(Q)*C or C*op(Q)
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9278,23 +8280,14 @@ func spotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePt
 	return toError(fnspotrfBatched(handle, uplo, n, uintptr(aarray), lda, uintptr(infoArray), batchSize), "cusolverDnSpotrfBatched")
 }
 
-// spotrfBufferSize computes the Cholesky factorization of a Hermitian positive-definite matrix.
-//
-// A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only the lower triangular part of A is processed, and replaced by the lower triangular Cholesky factor L.
-// A=L∗LH
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
-// If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// spotrfBufferSize returns the workspace size, in elements of float32, for [Handle.Spotrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored; the other part is not referenced
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - lwork: Size of Workspace, returned by potrf_bufferSize
+//   - lwork: Size of Workspace, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9350,16 +8343,7 @@ func spotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fnspotri(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)), "cusolverDnSpotri")
 }
 
-// spotriBufferSize computes the inverse of a positive-definite matrix A using the Cholesky factorization
-//
-// A=L∗LH=UH∗U
-// computed by potrf().
-// A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
-// If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
-// If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
-// The user has to provide the working space which is pointed to by input parameter Workspace. The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
-// If the computation of the inverse fails, i.e. some leading minor of L or U, is null, the output parameter devInfo would indicate the smallest leading minor of L or U which is not positive definite.
-// If the output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting the handle).
+// spotriBufferSize returns the workspace size, in elements of float32, for [Handle.Spotri].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
@@ -9487,14 +8471,7 @@ func ssyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 	return toError(fnssyevd(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnSsyevd")
 }
 
-// ssyevdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - syevd for a code example.
+// ssyevdBufferSize returns the workspace size, in elements of float32, for [Handle.Ssyevd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -9503,6 +8480,7 @@ func ssyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9560,14 +8538,7 @@ func ssyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 	return toError(fnssyevdx(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnSsyevdx")
 }
 
-// ssyevdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - syevdx for a code example.
+// ssyevdxBufferSize returns the workspace size, in elements of float32, for [Handle.Ssyevdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -9577,7 +8548,7 @@ func ssyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
-//   - lwork: Size of work, returned by syevdx_bufferSize
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9692,22 +8663,7 @@ func ssyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 	return toError(fnssyevjBatched(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params, batchSize), "cusolverDnSsyevjBatched")
 }
 
-// ssyevjBatchedBufferSize computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
-//
-// Aj∗Qj=Qj∗Λj
-// where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
-// syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter W also contains eigenvalues of each matrix in contiguous way,
-// W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
-// Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
-// syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
-// If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors Vj.
-// Please visit cuSOLVER Library Samples - syevjBatched for a code example.
+// ssyevjBatchedBufferSize returns the workspace size, in elements of float32, for [Handle.SsyevjBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -9716,7 +8672,7 @@ func ssyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 //   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
-//   - lwork: Size of work, returned by syevjBatched_bufferSize
+//   - lwork: Size of work, in elements of float32
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
@@ -9734,27 +8690,7 @@ func ssyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 	return toError(fnssyevjBatchedBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params, batchSize), "cusolverDnSsyevjBatched_bufferSize")
 }
 
-// ssyevjBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗Q=Q∗Λ
-// where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// syevj has the same functionality as syevd. The difference is that syevd uses QR algorithm and syevj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure syevj to perform approximation up to certain accuracy.
-// How does it work?
-// syevj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// VH∗A∗V=W+E
-// where W is diagonal and E is symmetric without diagonal.
-// During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, W is the set of eigenvalues. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
-// where eps is the given tolerance.
-// syevj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [SyevjInfo.XsyevjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [SyevjInfo.XsyevjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. syevj stops either tolerance is met or maximum number of sweeps is met.
-// The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
-// residual=‖E‖F=‖Λ−W‖F
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
-// If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
-// Please visit cuSOLVER Library Samples - syevj for a code example.
+// ssyevjBufferSize returns the workspace size, in elements of float32, for [Handle.Ssyevj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -9763,7 +8699,7 @@ func ssyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and info = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
-//   - lwork: Size of work, returned by syevj_bufferSize
+//   - lwork: Size of work, in elements of float32
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
 // Returns:
@@ -9782,9 +8718,7 @@ func ssyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 
 // ssygvd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -9817,15 +8751,7 @@ func ssygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 	return toError(fnssygvd(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnSsygvd")
 }
 
-// ssygvdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - sygvd for a code example.
+// ssygvdBufferSize returns the workspace size, in elements of float32, for [Handle.Ssygvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
@@ -9837,6 +8763,7 @@ func ssygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9861,9 +8788,7 @@ func ssygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 
 // ssygvdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -9898,15 +8823,7 @@ func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 	return toError(fnssygvdx(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnSsygvdx")
 }
 
-// ssygvdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - sygvdx for a code example.
+// ssygvdxBufferSize returns the workspace size, in elements of float32, for [Handle.Ssygvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
@@ -9919,7 +8836,7 @@ func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
-//   - lwork: Size of work, returned by sygvdx_bufferSize
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -9944,9 +8861,7 @@ func ssygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRan
 
 // ssygvj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
 // This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
 // However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
 // B=L∗LH
@@ -9989,24 +8904,7 @@ func ssygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 	return toError(fnssygvj(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info), params), "cusolverDnSsygvj")
 }
 
-// ssygvjBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
-// However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
-// B=L∗LH
-// transform the problem to standard eigenvalue problem, then calls syevj.
-// For example, the standard eigenvalue problem of type I is
-// M∗Q=Q∗Λ
-// where matrix M is symmetric
-// M=L−1∗A∗L−H
-// The residual is the result of syevj on matrix M, not A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n), B is not positive definite, the factorization of B could not be completed and no eigenvalues or eigenvectors were computed. If info = n+1, syevj does not converge under given tolerance and maximum sweeps. In this case, the eigenvalues and eigenvectors are still computed because non-convergence comes from improper tolerance of maximum sweeps.
-// if jobz = [EigModeVector], A contains the orthogonal eigenvectors V.
-// Please visit cuSOLVER Library Samples - sygvj for a code example.
+// ssygvjBufferSize returns the workspace size, in elements of float32, for [Handle.Ssygvj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
@@ -10018,7 +8916,7 @@ func ssygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if info is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
-//   - lwork: Size of work, returned by sygvj_bufferSize
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -10064,11 +8962,7 @@ func ssytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fnssytrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnSsytrd")
 }
 
-// ssytrdBufferSize reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
-//
-// As an output, A contains T and householder reflection vectors. If uplo = CUBLAS_FILL_MODE_UPPER, the diagonal and first superdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements above the first superdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors; If uplo = CUBLAS_FILL_MODE_LOWER, the diagonal and first subdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements below the first subdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). Note that the problem size n is limited by a condition n*lda < INT32_MAX primarily due to the current implementation constraints.
+// ssytrdBufferSize returns the workspace size, in elements of float32, for [Handle.Ssytrd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
@@ -10076,7 +8970,7 @@ func ssytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
-//   - lwork: Size of work, returned by sytrd_bufferSize
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -10134,23 +9028,13 @@ func ssytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fnssytrf(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)), "cusolverDnSsytrf")
 }
 
-// ssytrfBufferSize computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
-//
-// A is a n×n symmetric matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. If devIpiv is null, no pivoting is performed, which is not numerically stable.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular factor L and block diagonal matrix D. Each block of D is either 1x1 or 2x2 block, depending on pivoting.
-// P∗A∗PT=L∗D∗LT
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular factor U and block diagonal matrix D.
-// P∗A∗PT=U∗D∗UT
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
-// If Bunch-Kaufman factorization failed, i.e. A is singular. The output parameter devInfo = i would indicate D(i,i)=0.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The output parameter devIpiv contains pivoting sequence. If devIpiv(i) = k > 0, D(i,i) is 1x1 block, and i-th row/column of A is interchanged with k-th row/column of A. If uplo is CUBLAS_FILL_MODE_UPPER and devIpiv(i-1) = devIpiv(i) = -m < 0, D(i-1:i,i-1:i) is a 2x2 block, and (i-1)-th row/column is interchanged with m-th row/column. If uplo is CUBLAS_FILL_MODE_LOWER and devIpiv(i+1) = devIpiv(i) = -m < 0, D(i:i+1,i:i+1) is a 2x2 block, and (i+1)-th row/column is interchanged with m-th row/column.
+// ssytrfBufferSize returns the workspace size, in elements of float32, for [Handle.Ssytrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - lwork: Size of working space work
+//   - lwork: Size of work, in elements of float32
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -10252,25 +9136,7 @@ func xgeev(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, 
 	return toError(fnxgeev(handle, params, jobvl, jobvr, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), dataTypeVL, uintptr(vl), ldvl, dataTypeVR, uintptr(vr), ldvr, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)), "cusolverDnXgeev")
 }
 
-// xgeevBufferSize computes for an n-by-n real non-symmetric or complex non-Hermitian matrix A the eigenvalues and, optionally, the left and/or right eigenvectors.
-//
-// A∗v(j)=w(j)∗v(j)
-// where w(j) is its eigenvalue. The left eigenvalue u(j) of A satisfies
-// u(j)H∗A=w(j)∗v(j)H
-// where u(j)H denotes the conjugate-transpose of u(j).
-// The computed eigenvectors are normalized to have Euclidean norm equal to 1 and largest component real.
-// If A is real-valued, there are two options to return the eigenvalues in W. The first options sets all data types to real-valued types. Then W holds 2*n entries. The first n entries hold the real parts and the last n entries hold the imaginary parts. The LAPACK interface with separate arrays for the real parts WR and the imaginary parts WI can be recovered by settings pointers WR = W, WI = W+n. The second option uses a complex data type for W. Then W is n entries long; each real eigenvalue is stored as a complex number and for each complex conjugate pair, both eigenvalues are returned. The computation is still executed fully in real arithmetic.
-// The user has to provide device and host working space which are pointed to by the input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost denote the size in bytes of the device and host working space, and returned by [Handle.XgeevBufferSize].
-// If the output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = 0, the QR algorithm converged and W contains the computed eigenvalues of A and, if requested, the corresponding left and/or right eigenvectors have been computed. If info = i (greater than zero), the QR algorithm failed to compute all the eigenvalues and no eigenvectors have been computed. The elements i+1:n of W contain eigenvalues which have converged.
-// Remark 1: geev only supports the computation of right eigenvectors. So, jobvl = [EigModeNovector] must be set.
-// Remark 2: geev uses balancing to improve the conditioning of the eigenvalues and eigenvectors.
-// Remark 3: geev is a hybrid CPU-GPU algorithm. Best performance is attained with pinned host memory.
-// Currently, [Handle.Xgeev] supports only the default algorithm.
-// Please visit cuSOLVER Library Samples - [Handle.Xgeev] for a code example.
-// Table of algorithms supported by [Handle.Xgeev]
-// List of input arguments for [Handle.XgeevBufferSize] and [Handle.Xgeev]:
-// The generic API has five different types, dataTypeA is the data type of the matrix A, dataTypeW is the data type of the array W, dataTypeVL is the data type of the matrix VL, dataTypeVR is the data type of the matrix VR and computeType is compute type of the operation. [Handle.Xgeev] only supports the following four combinations:
-// Valid combination of data type and compute type
+// xgeevBufferSize returns the workspace sizes, in bytes, for [Handle.Xgeev].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -10289,8 +9155,8 @@ func xgeev(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, 
 //   - vr: Array of dimension ldvr * n. If jobvr = [EigModeVector], the right eigenvectors v(j) are stored one after another in the columns of VR, in the same order as their eigenvalues. If datatypeVR is complex or the j-th eigenvalue is real, then v(j) = VR(:,j), the j-th column of VR. If dataTypeVR is real and the j-th and (j+1)-st eigenvalues form a complex conjugate pair, then v(j) = VR(:,j) + i*VR(:,j+1) and v(j+1) = VR(:,j) - i*VR(:,j+1). If jobvr = [EigModeNovector], VR is not referenced
 //   - ldvr: Leading dimension of two-dimensional array used to store matrix VR with ldvr >= 1. If jobvr = [EigModeVector], ldvr >= n
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XgeevBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgeevBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -10357,21 +9223,7 @@ func xgeqrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, 
 	return toError(fnxgeqrf(handle, params, m, n, dataTypeA, uintptr(a), lda, dataTypeTau, uintptr(tau), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)), "cusolverDnXgeqrf")
 }
 
-// xgeqrfBufferSize computes the QR factorization of a m×n matrix
-//
-// A=Q∗R
-// where A is an m×n matrix, Q is a m×n matrix, and R is an n×n upper triangular matrix using the generic API interface.
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XgeqrfBufferSize].
-// The matrix R is overwritten in upper triangular part of A, including diagonal elements.
-// The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// Currently, [Handle.Xgeqrf] supports only the default algorithm.
-// Please visit cuSOLVER Library Samples - [Handle.Xgeqrf] for a code example.
-// Algorithms supported by [Handle.Xgeqrf]
-// List of input arguments for [Handle.XgeqrfBufferSize] and [Handle.Xgeqrf]:
-// The generic API has two different types, dataTypeA is data type of the matrix A, dataTypeTau is data type of the array tau and computeType is compute type of the operation. [Handle.Xgeqrf] only supports the following four combinations.
-// Valid combination of data type and compute type
+// xgeqrfBufferSize returns the workspace sizes, in bytes, for [Handle.Xgeqrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -10383,8 +9235,8 @@ func xgeqrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, 
 //   - dataTypeTau: Data type of array tau
 //   - tau: Array of dimension at least min(m,n)
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XgeqrfBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgeqrfBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -10458,20 +9310,7 @@ func xgesvd(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int6
 	return toError(fnxgesvd(handle, params, jobu, jobvt, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeVT, uintptr(vt), ldvt, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)), "cusolverDnXgesvd")
 }
 
-// xgesvdBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XgesvdBufferSize].
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, info specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
-// Currently, [Handle.Xgesvd] supports only the default algorithm.
-// Algorithms supported by [Handle.Xgesvd]
-// Please visit cuSOLVER Library Samples - [Handle.Xgesvd] for a code example.
-// Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
-// List of input arguments for [Handle.XgesvdBufferSize] and [Handle.Xgesvd]:
-// The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeVT is data type of the matrix VT, computeType is compute type of the operation. [Handle.Xgesvd] only supports the following four combinations.
-// Valid combination of data type and compute type
+// xgesvdBufferSize returns the workspace sizes, in bytes, for [Handle.Xgesvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -10491,8 +9330,8 @@ func xgesvd(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int6
 //   - vt: Array of dimension ldvt * n with ldvt is not less than max(1,n). If jobvt = ‘A’,“VT“ contains the n×n unitary matrix V**T. If jobvt = ‘S’, VT contains the first min(m,n) rows of V**T. If jobvt = ‘N’ or ‘O’, VT is not referenced
 //   - ldvt: Leading dimension of two-dimensional array used to store matrix VT. If jobvt = ‘A’, ldvt >= max(1,n). If jobvt = ‘S’, ldvt >= max(1,min(m,n)). Otherwise, ldvt >= 1
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XgesvdBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgesvdBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -10666,21 +9505,7 @@ func xgesvdp(handle Handle, params Params, jobz EigMode, econ int32, m int64, n 
 	return toError(fnxgesvdp(handle, params, jobz, econ, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeV, uintptr(v), ldv, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(dInfo), hErrSigma), "cusolverDnXgesvdp")
 }
 
-// xgesvdpBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// [Handle.Xgesvdp] combines polar decomposition in [14] and [Handle.Xsyevd] to compute SVD. It is much faster than [Handle.Xgesvd] which is based on QR algorithm. However polar decomposition in [14] may not deliver a full unitary matrix when the matrix A has a singular value close to zero. To workaround the issue when the singular value is close to zero, we add a small perturbation so polar decomposition can deliver the correct result. The consequence is inaccurate singular values shifted by this perturbation. The output parameter h_err_sigma is the magnitude of this perturbation. In other words, h_err_sigma shows the accuracy of SVD.
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XgesvdpBufferSize].
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// Currently, [Handle.Xgesvdp] supports only the default algorithm.
-// Algorithms supported by [Handle.Xgesvdp]
-// Please visit cuSOLVER Library Samples - [Handle.Xgesvdp] for a code example.
-// Remark 1: gesvdp supports n>=m as well.
-// Remark 2: the routine returns V, not VH
-// List of input arguments for [Handle.XgesvdpBufferSize] and [Handle.Xgesvdp]:
-// The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeV is data type of the matrix V, computeType is compute type of the operation. [Handle.Xgesvdp] only supports the following four combinations:
-// Valid combination of data type and compute type
+// xgesvdpBufferSize returns the workspace sizes, in bytes, for [Handle.Xgesvdp].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -10700,8 +9525,8 @@ func xgesvdp(handle Handle, params Params, jobz EigMode, econ int32, m int64, n 
 //   - v: Array of dimension ldv * n with ldv is not less than max(1,n). V contains the n×n unitary matrix V. if econ=1, only reports first min(m,n) columns of V
 //   - ldv: Leading dimension of two-dimensional array used to store matrix V
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XgesvdpBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgesvdpBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -10773,23 +9598,7 @@ func xgesvdr(handle Handle, params Params, jobu int8, jobv int8, m int64, n int6
 	return toError(fnxgesvdr(handle, params, jobu, jobv, m, n, k, p, niters, dataTypeA, uintptr(a), lda, dataTypeSrand, uintptr(srand), dataTypeUrand, uintptr(urand), ldUrand, dataTypeVrand, uintptr(vrand), ldVrand, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(dInfo)), "cusolverDnXgesvdr")
 }
 
-// xgesvdrBufferSize computes the approximated rank-k singular value decomposition (k-SVD) of an m×n matrix A and the corresponding left and/or right singular vectors.
-//
-// Ak≈U∗Σ∗VH
-// where Σ is a k×k matrix which is zero except for its diagonal elements, U is an m×k orthonormal matrix, and V is an k×n orthonormal matrix. The diagonal elements of Σ are the approximated singular values of A; they are real and non-negative, and are returned in descending order. The columns of U and V are the top- k left and right singular vectors of A.
-// [Handle.Xgesvdr] implements randomized methods described in [15] to compute k-SVD that is accurate with high probability if the conditions described in [15] hold. [Handle.Xgesvdr] is intended to compute a very small portion of the spectrum (meaning that k is very small compared to min(m,n)). of A fast and with good quality, specially when the dimensions of the matrix are large.
-// The accuracy of the method depends on the spectrum of A, the number of power iterations niters, the oversampling parameter p and the ratio between p and the dimensions of the matrix A. Larger values of oversampling p or larger number of iterations niters might produce more accurate approximations, but it will also increase the run time of [Handle.Xgesvdr].
-// Our recommendation is to use two iterations and set the oversampling to at least 2k. Once the solver provides enough accuracy, adjust the values of k and niters for better performance.
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XgesvdrBufferSize].
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// Currently, [Handle.Xgesvdr] supports only the default algorithm.
-// Algorithms supported by [Handle.Xgesvdr]
-// Please visit cuSOLVER Library Samples - [Handle.Xgesvdr] for a code example.
-// Remark 1: gesvdr supports n>=m as well.
-// Remark 2: the routine returns V, not VH
-// List of input arguments for [Handle.XgesvdrBufferSize] and [Handle.Xgesvdr]:
-// The generic API has five different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeV is data type of the matrix V, computeType is compute type of the operation. [Handle.Xgesvdr] only supports the following four combinations.
-// Valid combination of data type and compute type
+// xgesvdrBufferSize returns the workspace sizes, in bytes, for [Handle.Xgesvdr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -10804,8 +9613,8 @@ func xgesvdr(handle Handle, params Params, jobu int8, jobv int8, m int64, n int6
 //   - a: Array of dimension lda * n with lda is not less than max(1,m). On exit, the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XgesvdrBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgesvdrBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -10872,22 +9681,7 @@ func xgetrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, 
 	return toError(fnxgetrf(handle, params, m, n, dataTypeA, uintptr(a), lda, uintptr(ipiv), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)), "cusolverDnXgetrf")
 }
 
-// xgetrfBufferSize computes the LU factorization of a m×n matrix
-//
-// P∗A=L∗U
-// where A is a m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix using the generic API interface.
-// If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter info=i indicates U(i,i) = 0.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// If ipiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
-// No matter LU factorization failed or not, the output parameter ipiv contains pivoting sequence, row i is interchanged with row ipiv(i).
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XgetrfBufferSize].
-// The user can combine [Handle.Xgetrf] and cusolverDnGetrs to complete a linear solver.
-// Currently, [Handle.Xgetrf] supports two algorithms. To select legacy implementation, the user has to call [Params.SetAdvOptions].
-// Please visit cuSOLVER Library Samples - [Handle.Xgetrf] for a code example.
-// Algorithms supported by [Handle.Xgetrf]
-// List of input arguments for [Handle.XgetrfBufferSize] and [Handle.Xgetrf]:
-// The generic API has two different types, dataTypeA is data type of the matrix A, computeType is compute type of the operation. [Handle.Xgetrf] only supports the following four combinations.
-// Valid combination of data type and compute type
+// xgetrfBufferSize returns the workspace sizes, in bytes, for [Handle.Xgetrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -10897,8 +9691,8 @@ func xgetrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, 
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XgetrfBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XgetrfBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -10923,8 +9717,6 @@ func xgetrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA 
 //
 // op(A)∗X=B
 // where A is an n×n matrix, and was LU-factored by [Handle.Xgetrf], that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix using the generic API interface.
-// The input parameter trans is defined by
-// image1
 // The input parameter ipiv is an output of [Handle.Xgetrf]. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine [Handle.Xgetrf] and [Handle.Xgetrs] to complete a linear solver.
@@ -11006,14 +9798,7 @@ func xlarft(handle Handle, params Params, direct DirectMode, storev StorevMode, 
 	return toError(fnxlarft(handle, params, direct, storev, n, k, dataTypeV, uintptr(v), ldv, dataTypeTau, uintptr(tau), dataTypeT, uintptr(t), ldt, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost), "cusolverDnXlarft")
 }
 
-// xlarftBufferSize forms the triangular factor T of a real block reflector H of order n, which is defined as a product of k elementary reflectors.
-//
-// Only storev == CUBLAS_STOREV_COLUMNWISE is supported, which indicates that the vector defining the elementary reflector H(i) is stored in the i-th column of the array V, and H=I−V∗T∗VT (H=I−V∗T∗VH for complex types).
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XlarftBufferSize].
-// Currently, only n >= k scenario is supported.
-// The generic API has four different types:
-// [Handle.Xlarft] only supports the following four combinations.
-// Valid combinations of data types and compute types
+// xlarftBufferSize returns the workspace sizes, in bytes, for [Handle.Xlarft].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -11030,8 +9815,8 @@ func xlarft(handle Handle, params Params, direct DirectMode, storev StorevMode, 
 //   - t: Dimension ldt * k. The k×k triangular factor T of the block reflector. If direct == CUBLAS_DIRECT_FORWARD, T is upper triangular; if direct == CUBLAS_DIRECT_BACKWARD, T is lower triangular
 //   - ldt: The leading dimension of the array T. ldt >= k
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XlarftBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XlarftBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -11097,22 +9882,7 @@ func xpotrf(handle Handle, params Params, uplo FillMode, n int64, dataTypeA Data
 	return toError(fnxpotrf(handle, params, uplo, n, dataTypeA, uintptr(a), lda, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)), "cusolverDnXpotrf")
 }
 
-// xpotrfBufferSize computes the Cholesky factorization of a Hermitian positive-definite matrix using the generic API interface.
-//
-// A is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
-// A=L∗LH
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XpotrfBufferSize].
-// If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter info would indicate smallest leading minor of A which is not positive definite.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// Currently, [Handle.Xpotrf] supports only the default algorithm.
-// Please visit cuSOLVER Library Samples - [Handle.Xpotrf] for a code example.
-// Algorithms supported by [Handle.Xpotrf]
-// List of input arguments for [Handle.XpotrfBufferSize] and [Handle.Xpotrf]:
-// The generic API has two different types, dataTypeA is data type of the matrix A, computeType is compute type of the operation. [Handle.Xpotrf] only supports the following four combinations.
-// Valid combination of data type and compute type
+// xpotrfBufferSize returns the workspace sizes, in bytes, for [Handle.Xpotrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -11122,8 +9892,8 @@ func xpotrf(handle Handle, params Params, uplo FillMode, n int64, dataTypeA Data
 //   - a: Array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XpotrfBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XpotrfBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -11234,23 +10004,7 @@ func xsyevBatched(handle Handle, params Params, jobz EigMode, uplo FillMode, n i
 	return toError(fnxsyevBatched(handle, params, jobz, uplo, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info), batchSize), "cusolverDnXsyevBatched")
 }
 
-// xsyevBatchedBufferSize computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
-//
-// Aj∗Vj=Vj∗Λj
-// where Λj is a real n×n diagonal matrix. Vj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in ascending order.
-// syevBatched performs an eigendecomposition on each matrix. It requires that all matrices are of the same size n and are packed in a contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter W also contains the eigenvalues of each matrix in a contiguous way,
-// W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
-// The user has to provide device and host working space which are pointed to by the input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost denote the size in bytes of the device and host working space, and returned by [Handle.XsyevBatchedBufferSize].
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates the i-th parameter is wrong (not counting handle). Otherwise, if info [i] > 0, syevBatched does not converge on the i-th matrix.
-// If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors of the matrix Aj.
-// Note that the problem size is limited by the condition n*lda*batchSize<=INT32_MAX primarily due to the current implementation constraints.
-// List of input arguments for [Handle.XsyevBatchedBufferSize] and [Handle.XsyevBatched]:
-// The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the array W and computeType is compute type of the operation. [Handle.XsyevBatched] only supports the following four combinations:
-// Valid combination of data type and compute type
+// xsyevBatchedBufferSize returns the workspace sizes, in bytes, for [Handle.XsyevBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -11263,8 +10017,8 @@ func xsyevBatched(handle Handle, params Params, jobz EigMode, uplo FillMode, n i
 //   - dataTypeW: Data type of array W
 //   - w: A real array of dimension n * batchSize. The eigenvalue values of Aj, in ascending order, i.e., sorted so that Wj(i) <= Wj(i+1)
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XsyevBatchedBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsyevBatchedBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Returns:
@@ -11326,19 +10080,7 @@ func xsyevd(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, 
 	return toError(fnxsyevd(handle, params, jobz, uplo, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)), "cusolverDnXsyevd")
 }
 
-// xsyevdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsyevdBufferSize].
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - [Handle.Xsyevd] for a code example.
-// Currently, [Handle.Xsyevd] supports only the default algorithm.
-// Algorithms supported by [Handle.Xsyevd]
-// List of input arguments for [Handle.XsyevdBufferSize] and [Handle.Xsyevd]:
-// The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsyevd] only supports the following four combinations.
-// Valid combination of data type and compute type
+// xsyevdBufferSize returns the workspace sizes, in bytes, for [Handle.Xsyevd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -11351,8 +10093,8 @@ func xsyevd(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, 
 //   - dataTypeW: Data type of array W
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order, i.e., sorted so that W(i) <= W(i+1)
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XsyevdBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsyevdBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -11419,19 +10161,7 @@ func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo F
 	return toError(fnxsyevdx(handle, params, jobz, range_, uplo, n, dataTypeA, uintptr(a), lda, vl, vu, il, iu, meig64, dataTypeW, uintptr(w), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)), "cusolverDnXsyevdx")
 }
 
-// xsyevdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×hMeig diagonal matrix. V is an n×hMeig unitary matrix. hMeig is the number of eigenvalues/eigenvectors computed by the routine, hMeig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsyevdxBufferSize].
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// if jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Currently, [Handle.Xsyevdx] supports only the default algorithm.
-// Please visit cuSOLVER Library Samples - [Handle.Xsyevdx] for a code example.
-// Algorithms supported by [Handle.Xsyevdx]
-// List of input arguments for [Handle.XsyevdxBufferSize] and [Handle.Xsyevdx]:
-// The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsyevdx] only supports the following four combinations:
-// Valid combination of data type and compute type
+// xsyevdxBufferSize returns the workspace sizes, in bytes, for [Handle.Xsyevdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -11446,8 +10176,8 @@ func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo F
 //   - dataTypeW: Data type of array W
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order, i.e., sorted so that W(i) <= W(i+1)
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XsyevdxBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsyevdxBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -11564,11 +10294,9 @@ func xsyevjSetTolerance(info SyevjInfo, tolerance float64) error {
 	return toError(fnxsyevjSetTolerance(info, tolerance), "cusolverDnXsyevjSetTolerance")
 }
 
-// xsygvd The generalized symmetric (Hermitian) definite eigenvalue problem is
+// xsygvd The following routine computes all the eigenvalues, and optionally, the eigenvectors of a generalized symmetric (Hermitian) definite eigenproblem.
 //
-// image4
-// where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:v
-// image5
+// where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. V is an n×n orthogonal matrix.
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsygvdBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If info = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
@@ -11609,19 +10337,7 @@ func xsygvd(handle Handle, params Params, itype EigType, jobz EigMode, uplo Fill
 	return toError(fnxsygvd(handle, params, itype, jobz, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, dataTypeW, uintptr(dW), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(dInfo)), "cusolverDnXsygvd")
 }
 
-// xsygvdBufferSize The generalized symmetric (Hermitian) definite eigenvalue problem is
-//
-// image4
-// where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:v
-// image5
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsygvdBufferSize].
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If info = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Currently, [Handle.Xsygvd] supports only the default algorithm.
-// Algorithms supported by [Handle.Xsygvd]
-// List of input arguments for [Handle.XsygvdBufferSize] and [Handle.Xsygvd]:
-// The generic API has four different data types, dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix B, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsygvd] only supports the following four combinations.
-// Valid combination of data type and compute type
+// xsygvdBufferSize returns the workspace sizes, in bytes, for [Handle.Xsygvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -11635,8 +10351,8 @@ func xsygvd(handle Handle, params Params, itype EigType, jobz EigMode, uplo Fill
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - dataTypeW: Data type of array W
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XsygvdBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsygvdBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -11657,11 +10373,9 @@ func xsygvdBufferSize(handle Handle, params Params, itype EigType, jobz EigMode,
 	return out0, out1, nil
 }
 
-// xsygvdx The generalized symmetric-definite eigenvalue problem is
+// xsygvdx The following routine computes all or selection of the eigenvalues, and optionally, the eigenvectors of a generalized symmetric (Hermitian) definite eigenproblem.
 //
-// image4
-// where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. h_meig represents the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. h_meig represents the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. V is an n×n orthogonal matrix.
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsygvdxBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If info = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -11702,18 +10416,7 @@ func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ E
 	return toError(fnxsygvdx(handle, params, itype, jobz, range_, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, vl, vu, il, iu, meig, dataTypeW, uintptr(dW), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(dInfo)), "cusolverDnXsygvdx")
 }
 
-// xsygvdxBufferSize The generalized symmetric-definite eigenvalue problem is
-//
-// image4
-// where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. h_meig represents the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsygvdxBufferSize].
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If info = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Algorithms supported by [Handle.Xsygvdx]
-// List of input arguments for [Handle.XsygvdxBufferSize] and [Handle.Xsygvdx]:
-// The generic API has four different types, dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix B, dataTypeW is data type of the matrix W and computeType is compute type of the operation. [Handle.Xsygvdx] only supports the following four combinations:
-// Valid combination of data type and compute type
+// xsygvdxBufferSize returns the workspace sizes, in bytes, for [Handle.Xsygvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - params: Structure with information collected by [Params.SetAdvOptions]
@@ -11727,8 +10430,8 @@ func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ E
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - dataTypeW: Data type of array W
 //   - computeType: Data type of computation
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XsygvdxBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsygvdxBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -11792,18 +10495,7 @@ func xsytrs(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataTyp
 	return toError(fnxsytrs(handle, uplo, n, nrhs, dataTypeA, uintptr(a), lda, uintptr(ipiv), dataTypeB, uintptr(b), ldb, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)), "cusolverDnXsytrs")
 }
 
-// xsytrsBufferSize solves a system of linear equations using the generic API interface.
-//
-// A contains the factorization from cusolverDnsytrf(), only lower or upper part is meaningful, the other part is not touched.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, the details of the factorization are stores as:
-// A=L∗D∗LT
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, the details of the factorization are stores as:
-// A=U∗D∗UT
-// The user has to provide the pivot indices that can be obtained by cusolverDnsytrf() as well as device and host work spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost are sizes in bytes of the device and host work spaces, and they are returned by [Handle.XsytrsBufferSize]. To factorize and solve the symmetric system without pivoting, the user should set devIpiv = NULL when calling cusolverDnsytrf and [Handle.Xsytrs].
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// List of input arguments for [Handle.XsytrsBufferSize] and [Handle.Xsytrs]:
-// The generic API has two different types: dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix A. [Handle.Xsytrs] only supports the following four combinations:
-// Valid combination of data type and compute type
+// xsytrsBufferSize returns the workspace sizes, in bytes, for [Handle.Xsytrs].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
@@ -11815,8 +10507,8 @@ func xsytrs(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataTyp
 //   - dataTypeB: Data type of array B
 //   - b: Array of dimension ldb * nrhs with ldb is not less than max(1,nrhs)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XsytrsBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XsytrsBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -11877,17 +10569,7 @@ func xtrtri(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA Data
 	return toError(fnxtrtri(handle, uplo, diag, n, dataTypeA, uintptr(a), lda, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(devInfo)), "cusolverDnXtrtri")
 }
 
-// xtrtriBufferSize computes the inverse of a triangular matrix using the generic API interface.
-//
-// A is an n×n triangular matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular inverse.
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular inverse.
-// The user has to provide device and host work spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost are sizes in bytes of the device and host work spaces, and they are returned by [Handle.XtrtriBufferSize].
-// If matrix inversion fails, the output parameter info = i shows A(i,i) = 0.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// Please visit cuSOLVER Library Samples - [Handle.Xtrtri] for a code example.
-// List of input arguments for [Handle.XtrtriBufferSize] and [Handle.Xtrtri]:
-// Valid data types
+// xtrtriBufferSize returns the workspace sizes, in bytes, for [Handle.Xtrtri].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
@@ -11896,8 +10578,8 @@ func xtrtri(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA Data
 //   - dataTypeA: Data type of array A
 //   - a: Array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - workspaceInBytesOnDevice: Size in bytes of bufferOnDevice, returned by [Handle.XtrtriBufferSize]
-//   - workspaceInBytesOnHost: Size in bytes of bufferOnHost, returned by [Handle.XtrtriBufferSize]
+//   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
+//   - workspaceInBytesOnHost: Size of bufferOnHost, in bytes
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -11965,21 +10647,7 @@ func zCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnzCgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZCgels")
 }
 
-// zCgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// zCgelsBufferSize returns the workspace size, in bytes, for [Handle.ZCgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -11991,8 +10659,7 @@ func zCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12062,20 +10729,7 @@ func zCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnzCgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZCgesv")
 }
 
-// zCgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// zCgesvBufferSize returns the workspace size, in bytes, for [Handle.ZCgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -12087,8 +10741,7 @@ func zCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12159,21 +10812,7 @@ func zEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnzEgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZEgels")
 }
 
-// zEgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// zEgelsBufferSize returns the workspace size, in bytes, for [Handle.ZEgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -12185,8 +10824,7 @@ func zEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12256,20 +10894,7 @@ func zEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnzEgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZEgesv")
 }
 
-// zEgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// zEgesvBufferSize returns the workspace size, in bytes, for [Handle.ZEgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -12281,8 +10906,7 @@ func zEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12353,21 +10977,7 @@ func zKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnzKgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZKgels")
 }
 
-// zKgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// zKgelsBufferSize returns the workspace size, in bytes, for [Handle.ZKgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -12379,8 +10989,7 @@ func zKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12450,20 +11059,7 @@ func zKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnzKgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZKgesv")
 }
 
-// zKgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// zKgesvBufferSize returns the workspace size, in bytes, for [Handle.ZKgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -12475,8 +11071,7 @@ func zKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12547,21 +11142,7 @@ func zYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnzYgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZYgels")
 }
 
-// zYgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// zYgelsBufferSize returns the workspace size, in bytes, for [Handle.ZYgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -12573,8 +11154,7 @@ func zYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12644,20 +11224,7 @@ func zYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnzYgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZYgesv")
 }
 
-// zYgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// zYgesvBufferSize returns the workspace size, in bytes, for [Handle.ZYgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -12669,8 +11236,7 @@ func zYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12741,21 +11307,7 @@ func zZgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 	return toError(fnzZgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZZgels")
 }
 
-// zZgelsBufferSize These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
-//
-// A×X=B
-// Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if:
-// ITER > ITERMAX
-// or for all the RHS we have:
-// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
-// where
-// The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// zZgelsBufferSize returns the workspace size, in bytes, for [Handle.ZZgels].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -12767,8 +11319,7 @@ func zZgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA dr
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. lddb >= max(1,m)
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12838,20 +11389,7 @@ func zZgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 	return toError(fnzZgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)), "cusolverDnZZgesv")
 }
 
-// zZgesvBufferSize These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
-//
-// A×X=B
-// Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
-// The iterative refinement process is stopped if
-// or for all the RHS we have:
-// where
-// The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
-// Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
-// Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
-// * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// zZgesvBufferSize returns the workspace size, in bytes, for [Handle.ZZgesv].
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -12863,8 +11401,7 @@ func zZgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr,
 //   - lddb: Leading dimension of two-dimensional array used to store matrix of right hand sides B. ldb >= n
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
-//   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of dWorkspace, in bytes
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -12921,14 +11458,12 @@ func zgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d dr
 	return toError(fnzgebrd(handle, m, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tauq), uintptr(taup), uintptr(work), lwork, uintptr(devInfo)), "cusolverDnZgebrd")
 }
 
-// zgebrdBufferSize reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
-//
-// If m>=n, B is upper bidiagonal; if m=n.
+// zgebrdBufferSize returns the workspace size, in elements of complex128, for [Handle.Zgebrd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
-//   - lwork: Size of Work, returned by gebrd_bufferSize
+//   - lwork: Size of Work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -12986,15 +11521,7 @@ func zgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau 
 	return toError(fnzgeqrf(handle, m, n, uintptr(a), lda, uintptr(tau), uintptr(workspace), lwork, uintptr(devInfo)), "cusolverDnZgeqrf")
 }
 
-// zgeqrfBufferSize computes the QR factorization of an m×n matrix
-//
-// A=Q∗R
-// where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
-// The matrix R is overwritten in upper triangular part of A, including diagonal elements.
-// The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// zgeqrfBufferSize returns the workspace size, in elements of complex128, for [Handle.Zgeqrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
@@ -13065,21 +11592,12 @@ func zgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.Dev
 	return toError(fnzgesvd(handle, jobu, jobvt, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(vt), ldvt, uintptr(work), lwork, uintptr(rwork), uintptr(info)), "cusolverDnZgesvd")
 }
 
-// zgesvdBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, devInfo specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
-// The rwork is real array of dimension (min(m,n)-1). If devInfo >0 and rwork is not NULL, rwork contains the unconverged superdiagonal elements of an upper bidiagonal matrix. This is slightly different from LAPACK which puts unconverged superdiagonal elements in work if type is real; in rwork if type is complex. rwork can be a NULL pointer if the user does not want the information from superdiagonal.
-// Please visit cuSOLVER Library Samples - gesvd for a code example.
-// Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// zgesvdBufferSize returns the workspace size, in elements of complex128, for [Handle.Zgesvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
-//   - lwork: Size of work, returned by gesvd_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -13156,30 +11674,7 @@ func zgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 	return toError(fnzgesvdaStridedBatched(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, uintptr(dWork), lwork, uintptr(dInfo), hRNrmF, batchSize), "cusolverDnZgesvdaStridedBatched")
 }
 
-// zgesvdaStridedBatchedBufferSize gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
-// gesvda computes eigenvalues of A**T*A, or A**H*A (if A is complex), to approximate singular values and singular vectors. It generates matrices U and V and transforms the matrix A to the following form
-// UH∗A∗V=S+E
-// where S is diagonal and E depends on rounding errors. To certain conditions, U, V and S approximate singular values and singular vectors up to machine zero of single precision. In general, V is unitary, S is more accurate than U. If singular value is far from zero, then left singular vector U is accurate. In other words, the accuracy of singular values and left singular vectors depend on the distance between singular value and zero. Since the computation of A**T*A, or A**H*A can greatly amplify errors, it is recommended to use gesvda only with well-conditioned data.
-// The input parameter rank decides the number of singular values and singular vectors are computed in parameter S, U and V.
-// The output parameter h_RnrmF computes Frobenius norm of residual. To compute h_RnrmF, info != NULL is required.
-// A−U∗S∗VH
-// if the parameter rank is equal n. Otherwise, h_RnrmF reports
-// ‖U∗S∗VH‖−‖S‖
-// in Frobenius norm sense, that is, how far U is from unitary.
-// gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+strideA∗k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS∗k] , the formula for random access of U is Uk(i,j)=U [i+ldu∗j+strideU∗k] and the formula for random access of V is Vk(i,j)=V [i+ldv∗j+strideV∗k] .
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
-// Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
-// Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
-// Remark 1: The routine returns V, not VH . This is different from gesvd.
-// Remark 2: The routine only supports m >=n.
-// Remark 3: It is recommended to use an FP64 data type, that is [Handle.DgesvdaStridedBatched] or [Handle.ZgesvdaStridedBatched].
-// Remark 4: If the user is confident on the accuracy of singular values and singular vectors, for example, certain conditions hold (required singular value is far from zero), then the performance can be improved by passing a null pointer to h_RnrmF, i.e. no computation of the residual norm.
+// zgesvdaStridedBatchedBufferSize returns the workspace size, in elements of complex128, for [Handle.ZgesvdaStridedBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -13193,7 +11688,7 @@ func zgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n i
 //   - strideU: Value of type long long int that gives the address offset between U [i] and U [i+1]. strideU is not less than ldu*rank
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
 //   - strideV: Value of type long long int that gives the address offset between V [i] and V [i+1]. strideV is not less than ldv*rank
-//   - lwork: Size of work, returned by gesvdaStridedBatched_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //   - batchSize: Number of matrices. batchSize is not less than 1
 //
 // Returns:
@@ -13312,21 +11807,7 @@ func zgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 	return toError(fnzgesvdjBatched(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params, batchSize), "cusolverDnZgesvdjBatched")
 }
 
-// zgesvdjBatchedBufferSize computes singular values and singular vectors of a sequence of general m×n matrices
-//
-// Aj=Uj∗Σj∗VjH
-// where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
-// gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter S also contains singular values of each matrix in contiguous way,
-// S=(S0S1⋯)
-// The formula for random access of S is Sk(j)=S [j+min(m,n)∗k] .
-// Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
-// gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
-// Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
+// zgesvdjBatchedBufferSize returns the workspace size, in elements of complex128, for [Handle.ZgesvdjBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -13339,7 +11820,7 @@ func zgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.Devi
 //   - ldu: Leading dimension of two-dimensional array used to store matrix Uj. ldu is not less than max(1,m)
 //   - v: array of dimension ldv * n * batchSize. Vj contains the right singular vectors of Aj
 //   - ldv: Leading dimension of two-dimensional array used to store matrix Vj. ldv is not less than max(1,n)
-//   - lwork: Size of work, returned by gesvdjBatched_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //   - params: Structure filled with parameters of Jacobi algorithm. params can be destroyed after the host thread exits the routine
 //   - batchSize: Number of matrices
 //
@@ -13357,29 +11838,7 @@ func zgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 	return toError(fnzgesvdjBatchedBufferSize(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params, batchSize), "cusolverDnZgesvdjBatched_bufferSize")
 }
 
-// zgesvdjBufferSize computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// gesvdj has the same functionality as gesvd. The difference is that gesvd uses QR algorithm and gesvdj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure gesvdj to perform approximation up to certain accuracy.
-// gesvdj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// UH∗A∗V=S+E
-// where S is diagonal and diagonal of E is zero.
-// During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, S is the set of singular values. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
-// where eps is given tolerance. Note that if the real residual norm
-// ‖S−UH∗A∗V‖F
-// is computed, it will differ from ‖E‖F up to roundoff errors of order N=max(m,n), to still have the standard SVD accuracy expectation
-// ‖S−UH∗A∗V‖FO(N)∗‖A‖F≤‖E‖F‖A‖F≤eps
-// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps∗N.
-// gesvdj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [GesvdjInfo.XgesvdjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [GesvdjInfo.XgesvdjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. gesvdj stops either tolerance is met or maximum number of sweeps is met.
-// Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = min(m,n)+1, gesvdj does not converge under given tolerance and maximum sweeps.
-// If the user sets an improper tolerance, gesvdj may not converge. For example, tolerance should not be smaller than machine accuracy.
-// Please visit cuSOLVER Library Samples - gesvdj for a code example.
-// Remark 1: gesvdj supports any combination of m and n.
-// Remark 2: the routine returns V, not VH . This is different from gesvd.
+// zgesvdjBufferSize returns the workspace size, in elements of complex128, for [Handle.Zgesvdj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -13393,7 +11852,7 @@ func zgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a d
 //   - ldu: Leading dimension of two-dimensional array used to store matrix U. ldu is not less than max(1,m)
 //   - v: array of dimension ldv * n if econ is zero. If econ is nonzero, the dimension is ldv * min(m,n). V contains the right singular vectors
 //   - ldv: Leading dimension of two-dimensional array used to store matrix V. ldv is not less than max(1,n)
-//   - lwork: Size of work, returned by gesvdj_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //   - params: Structure filled with parameters of Jacobi algorithm and results of gesvdj. params can be destroyed after the host thread exits the routine
 //
 // Returns:
@@ -13446,23 +11905,14 @@ func zgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, work
 	return toError(fnzgetrf(handle, m, n, uintptr(a), lda, uintptr(workspace), uintptr(devIpiv), uintptr(devInfo)), "cusolverDnZgetrf")
 }
 
-// zgetrfBufferSize computes the LU factorization of an m×n matrix
-//
-// P∗A=L∗U
-// where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
-// If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// If devIpiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
-// No matter LU factorization failed or not, the output parameter devIpiv contains pivoting sequence, row i is interchanged with row devIpiv(i).
-// The user can combine getrf and getrs to complete a linear solver.
-// Remark: getrf uses fastest implementation with large workspace of size m*n. The user can choose the legacy implementation with minimal workspace by Getrf and [Params.SetAdvOptions](params, CUSOLVERDN_GETRF, [Alg1]).
+// zgetrfBufferSize returns the workspace size, in elements of complex128, for [Handle.Zgetrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
+//   - lwork: Size of Workspace, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -13489,8 +11939,6 @@ func zgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 //
 // op(A)∗X=B
 // where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
-// The input parameter trans is defined by
-// image1
 // The input parameter devIpiv is an output of getrf. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine getrf and getrs to complete a linear solver.
@@ -13554,14 +12002,7 @@ func zheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 	return toError(fnzheevd(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnZheevd")
 }
 
-// zheevdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - syevd for a code example.
+// zheevdBufferSize returns the workspace size, in elements of complex128, for [Handle.Zheevd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -13570,6 +12011,7 @@ func zheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -13627,14 +12069,7 @@ func zheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 	return toError(fnzheevdx(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnZheevdx")
 }
 
-// zheevdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗V=V∗Λ
-// where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - syevdx for a code example.
+// zheevdxBufferSize returns the workspace size, in elements of complex128, for [Handle.Zheevdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -13644,7 +12079,7 @@ func zheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
-//   - lwork: Size of work, returned by syevdx_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -13759,22 +12194,7 @@ func zheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 	return toError(fnzheevjBatched(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params, batchSize), "cusolverDnZheevjBatched")
 }
 
-// zheevjBatchedBufferSize computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
-//
-// Aj∗Qj=Qj∗Λj
-// where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
-// syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
-// A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
-// The parameter W also contains eigenvalues of each matrix in contiguous way,
-// W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
-// Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
-// syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
-// If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors Vj.
-// Please visit cuSOLVER Library Samples - syevjBatched for a code example.
+// zheevjBatchedBufferSize returns the workspace size, in elements of complex128, for [Handle.ZheevjBatched].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -13783,7 +12203,7 @@ func zheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver
 //   - a: array of dimension lda * n * batchSize with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of Aj contains the upper triangular part of the matrix Aj. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of Aj contains the lower triangular part of the matrix Aj. On exit, if jobz = [EigModeVector], and info [j] = 0, Aj contains the orthonormal eigenvectors of the matrix Aj. If jobz = [EigModeNovector], the contents of Aj are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix Aj
 //   - w: A real array of dimension n*batchSize. It stores the eigenvalues of Aj in ascending order or non-sorting order
-//   - lwork: Size of work, returned by syevjBatched_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //   - params: Structure filled with parameters of Jacobi algorithm
 //   - batchSize: Number of matrices
 //
@@ -13801,27 +12221,7 @@ func zheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 	return toError(fnzheevjBatchedBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params, batchSize), "cusolverDnZheevjBatched_bufferSize")
 }
 
-// zheevjBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//
-// A∗Q=Q∗Λ
-// where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// syevj has the same functionality as syevd. The difference is that syevd uses QR algorithm and syevj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure syevj to perform approximation up to certain accuracy.
-// How does it work?
-// syevj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// VH∗A∗V=W+E
-// where W is diagonal and E is symmetric without diagonal.
-// During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, W is the set of eigenvalues. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
-// where eps is the given tolerance.
-// syevj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [SyevjInfo.XsyevjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [SyevjInfo.XsyevjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. syevj stops either tolerance is met or maximum number of sweeps is met.
-// The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
-// residual=‖E‖F=‖Λ−W‖F
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
-// If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
-// If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
-// Please visit cuSOLVER Library Samples - syevj for a code example.
+// zheevjBufferSize returns the workspace size, in elements of complex128, for [Handle.Zheevj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute eigenvalue only or compute eigen-pair: jobz = [EigModeNovector] : Compute eigenvalues only; jobz = [EigModeVector] : Compute eigenvalues and eigenvectors
@@ -13830,7 +12230,7 @@ func zheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and info = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
-//   - lwork: Size of work, returned by syevj_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //   - params: Structure filled with parameters of Jacobi algorithm and results of syevj
 //
 // Returns:
@@ -13849,9 +12249,7 @@ func zheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 
 // zhegvd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -13884,15 +12282,7 @@ func zhegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 	return toError(fnzhegvd(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnZhegvd")
 }
 
-// zhegvdBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - sygvd for a code example.
+// zhegvdBufferSize returns the workspace size, in elements of complex128, for [Handle.Zhegvd].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x. - itype =[EigType2]: A*B*x = (lambda)*x. - itype =[EigType3]: B*A*x = (lambda)*x
@@ -13904,6 +12294,7 @@ func zhegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -13928,9 +12319,7 @@ func zhegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 
 // zhegvdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -13965,15 +12354,7 @@ func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 	return toError(fnzhegvdx(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)), "cusolverDnZhegvdx")
 }
 
-// zhegvdxBufferSize computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows:
-// image5
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
-// If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
-// Please visit cuSOLVER Library Samples - sygvdx for a code example.
+// zhegvdxBufferSize returns the workspace size, in elements of complex128, for [Handle.Zhegvdx].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved:- itype =[EigType1]: A*x = (lambda)*B*x - itype =[EigType2]: A*B*x = (lambda)*x - itype =[EigType3]: B*A*x = (lambda)*x
@@ -13986,7 +12367,7 @@ func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
-//   - lwork: Size of work, returned by sygvdx_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -14011,9 +12392,7 @@ func zhegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRan
 
 // zhegvj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
+// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
 // This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
 // However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
 // B=L∗LH
@@ -14056,24 +12435,7 @@ func zhegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 	return toError(fnzhegvj(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info), params), "cusolverDnZhegvj")
 }
 
-// zhegvjBufferSize computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
-//
-// image4
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:
-// image5
-// This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
-// However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
-// B=L∗LH
-// transform the problem to standard eigenvalue problem, then calls syevj.
-// For example, the standard eigenvalue problem of type I is
-// M∗Q=Q∗Λ
-// where matrix M is symmetric
-// M=L−1∗A∗L−H
-// The residual is the result of syevj on matrix M, not A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n), B is not positive definite, the factorization of B could not be completed and no eigenvalues or eigenvectors were computed. If info = n+1, syevj does not converge under given tolerance and maximum sweeps. In this case, the eigenvalues and eigenvectors are still computed because non-convergence comes from improper tolerance of maximum sweeps.
-// if jobz = [EigModeVector], A contains the orthogonal eigenvectors V.
-// Please visit cuSOLVER Library Samples - sygvj for a code example.
+// zhegvjBufferSize returns the workspace size, in elements of complex128, for [Handle.Zhegvj].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - itype: Specifies the problem type to be solved: itype =[EigType1]: A*x = (lambda)*B*x. itype =[EigType2]: A*B*x = (lambda)*x. itype =[EigType3]: B*A*x = (lambda)*x
@@ -14085,7 +12447,7 @@ func zhegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, 
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if info is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
-//   - lwork: Size of work, returned by sygvj_bufferSize
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrInternalError]: An internal operation failed.
@@ -14101,15 +12463,7 @@ func zhegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 	return toError(fnzhegvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params), "cusolverDnZhegvj_bufferSize")
 }
 
-// zhetrd wraps cusolverDnZhetrd.
-func zhetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
-	if err := checkLibSym("cusolverDnZhetrd"); err != nil {
-		return err
-	}
-	return toError(fnzhetrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnZhetrd")
-}
-
-// zhetrdBufferSize reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+// zhetrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
 //
 // As an output, A contains T and householder reflection vectors. If uplo = CUBLAS_FILL_MODE_UPPER, the diagonal and first superdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements above the first superdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors; If uplo = CUBLAS_FILL_MODE_LOWER, the diagonal and first subdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements below the first subdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors.
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
@@ -14121,7 +12475,33 @@ func zhetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
 //   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
+//   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sytrd_bufferSize
+//
+// Returns:
+//   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
+//   - [ErrInternalError]: An internal operation failed.
+//   - [ErrInvalidValue]: Invalid parameters were passed ( n<0, or lda<max(1,n), or uplo is not CUBLAS_FILL_MODE_LOWER or CUBLAS_FILL_MODE_UPPER).
+//   - [ErrNotInitialized]: The library was not initialized.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnZhetrd.
+func zhetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
+	if err := checkLibSym("cusolverDnZhetrd"); err != nil {
+		return err
+	}
+	return toError(fnzhetrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnZhetrd")
+}
+
+// zhetrdBufferSize returns the workspace size, in elements of complex128, for [Handle.Zhetrd].
+//
+//   - handle: Handle to the cuSolverDN library context
+//   - uplo: Specifies which part of A is stored. uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A is stored. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A is stored
+//   - n: Number of rows (columns) of matrix A
+//   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A, and the strictly lower triangular part of A is not referenced. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A, and the strictly upper triangular part of A is not referenced. On exit, A is overwritten by T and householder reflection vectors
+//   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
+//   - tau: array of dimension (n-1). The scalar factors of the elementary reflectors which represent the orthogonal matrix Q
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -14242,23 +12622,14 @@ func zpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePt
 	return toError(fnzpotrfBatched(handle, uplo, n, uintptr(aarray), lda, uintptr(infoArray), batchSize), "cusolverDnZpotrfBatched")
 }
 
-// zpotrfBufferSize computes the Cholesky factorization of a Hermitian positive-definite matrix.
-//
-// A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only the lower triangular part of A is processed, and replaced by the lower triangular Cholesky factor L.
-// A=L∗LH
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
-// The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
-// If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// zpotrfBufferSize returns the workspace size, in elements of complex128, for [Handle.Zpotrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored; the other part is not referenced
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - lwork: Size of Workspace, returned by potrf_bufferSize
+//   - lwork: Size of Workspace, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -14314,16 +12685,7 @@ func zpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fnzpotri(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)), "cusolverDnZpotri")
 }
 
-// zpotriBufferSize computes the inverse of a positive-definite matrix A using the Cholesky factorization
-//
-// A=L∗LH=UH∗U
-// computed by potrf().
-// A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
-// If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
-// If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
-// The user has to provide the working space which is pointed to by input parameter Workspace. The input parameter Lwork is the size of the working space, returned by potri_bufferSize().
-// If the computation of the inverse fails, i.e. some leading minor of L or U, is null, the output parameter devInfo would indicate the smallest leading minor of L or U which is not positive definite.
-// If the output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting the handle).
+// zpotriBufferSize returns the workspace size, in elements of complex128, for [Handle.Zpotri].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other part is not referenced
@@ -14453,23 +12815,13 @@ func zsytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fnzsytrf(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)), "cusolverDnZsytrf")
 }
 
-// zsytrfBufferSize computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
-//
-// A is a n×n symmetric matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. If devIpiv is null, no pivoting is performed, which is not numerically stable.
-// If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular factor L and block diagonal matrix D. Each block of D is either 1x1 or 2x2 block, depending on pivoting.
-// P∗A∗PT=L∗D∗LT
-// If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular factor U and block diagonal matrix D.
-// P∗A∗PT=U∗D∗UT
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
-// If Bunch-Kaufman factorization failed, i.e. A is singular. The output parameter devInfo = i would indicate D(i,i)=0.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The output parameter devIpiv contains pivoting sequence. If devIpiv(i) = k > 0, D(i,i) is 1x1 block, and i-th row/column of A is interchanged with k-th row/column of A. If uplo is CUBLAS_FILL_MODE_UPPER and devIpiv(i-1) = devIpiv(i) = -m < 0, D(i-1:i,i-1:i) is a 2x2 block, and (i-1)-th row/column is interchanged with m-th row/column. If uplo is CUBLAS_FILL_MODE_LOWER and devIpiv(i+1) = devIpiv(i) = -m < 0, D(i:i+1,i:i+1) is a 2x2 block, and (i+1)-th row/column is interchanged with m-th row/column.
+// zsytrfBufferSize returns the workspace size, in elements of complex128, for [Handle.Zsytrf].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - n: Number of rows and columns of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - lwork: Size of working space work
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -14546,11 +12898,7 @@ func zungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 	return toError(fnzungbr(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnZungbr")
 }
 
-// zungbrBufferSize generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
-//
-// Q and P**H are defined as products of elementary reflectors H(i) or G(i) respectively.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// zungbrBufferSize returns the workspace size, in elements of complex128, for [Handle.Zungbr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - side: If side = CUBLAS_SIDE_LEFT, generate Q. if side = CUBLAS_SIDE_RIGHT, generate P**T
@@ -14560,7 +12908,7 @@ func zungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.De
 //   - a: array of dimension lda * n On entry, the vectors which define the elementary reflectors, as returned by gebrd. On exit, the m-by-n matrix Q or P**T
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,m)
 //   - tau: array of dimension min(m,k) if side is CUBLAS_SIDE_LEFT; of dimension min(n,k) if side is CUBLAS_SIDE_RIGHT; tau(i) must contain the scalar factor of the elementary reflector H(i) or G(i), which determines Q or P**T, as returned by gebrd in its array argument TAUQ or TAUP
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -14616,13 +12964,7 @@ func zungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 	return toError(fnzungqr(handle, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnZungqr")
 }
 
-// zungqrBufferSize overwrites m×n matrix A by
-//
-// Q=H(1)∗H(2)∗...∗H(k)
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The user can combine geqrf, orgqr to complete orthogonalization.
+// zungqrBufferSize returns the workspace size, in elements of complex128, for [Handle.Zungqr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix Q. m >= 0
@@ -14631,7 +12973,7 @@ func zungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda in
 //   - a: array of dimension lda * n with lda is not less than max(1,m). i-th column of A contains elementary reflection vector
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,m)
 //   - tau: array of dimension k. tau(i) is the scalar of i-th elementary reflection vector
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -14683,10 +13025,7 @@ func zungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	return toError(fnzungtr(handle, uplo, n, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)), "cusolverDnZungtr")
 }
 
-// zungtrBufferSize generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
-//
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// zungtrBufferSize returns the workspace size, in elements of complex128, for [Handle.Zungtr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - uplo: uplo = CUBLAS_FILL_MODE_LOWER: Lower triangle of A contains elementary reflectors from sytrd. uplo = CUBLAS_FILL_MODE_UPPER: Upper triangle of A contains elementary reflectors from sytrd
@@ -14694,7 +13033,7 @@ func zungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //   - a: array of dimension lda * n On entry, matrix A from sytrd contains the elementary reflectors. On exit, matrix A contains the n-by-n orthogonal matrix Q
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda >= max(1,n)
 //   - tau: array of dimension (n-1) tau(i) is the scalar of i-th elementary reflection vector
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -14717,11 +13056,8 @@ func zungtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 	return out, nil
 }
 
-// zunmqr overwrites m×n matrix C by
+// zunmqr overwrites m×n matrix C.
 //
-// image2
-// The operation of Q is defined by
-// image3
 // Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
 // Q = H(1) H(2) … H(k)
 // Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
@@ -14759,17 +13095,7 @@ func zunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 	return toError(fnzunmqr(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(devInfo)), "cusolverDnZunmqr")
 }
 
-// zunmqrBufferSize overwrites m×n matrix C by
-//
-// image2
-// The operation of Q is defined by
-// image3
-// Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
-// Q = H(1) H(2) … H(k)
-// Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
-// The user can combine geqrf, ormqr and trsm to complete a linear solver or a least-square solver.
+// zunmqrBufferSize returns the workspace size, in elements of complex128, for [Handle.Zunmqr].
 //
 //   - handle: Handle to the cuSolverDn library context
 //   - side: Indicates if matrix Q is on the left or right of C
@@ -14782,7 +13108,7 @@ func zunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k i
 //   - tau: array of dimension k. The vector tau is from geqrf, so tau(i) is the scalar of the i-th elementary reflection vector
 //   - c: array of size ldc * n. On exit, C is overwritten by op(Q)*C or C*op(Q)
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.
@@ -14805,12 +13131,9 @@ func zunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 	return out, nil
 }
 
-// zunmtr overwrites m×n matrix C by
+// zunmtr overwrites m×n matrix C.
 //
-// image2
 // where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The operation on Q is defined by
-// image3
 // The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
@@ -14843,14 +13166,7 @@ func zunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 	return toError(fnzunmtr(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(info)), "cusolverDnZunmtr")
 }
 
-// zunmtrBufferSize overwrites m×n matrix C by
-//
-// image2
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The operation on Q is defined by
-// image3
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
-// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// zunmtrBufferSize returns the workspace size, in elements of complex128, for [Handle.Zunmtr].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - side: side = CUBLAS_SIDE_LEFT, apply Q or Q**T from the Left; side = CUBLAS_SIDE_RIGHT, apply Q or Q**T from the Right
@@ -14863,7 +13179,7 @@ func zunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int3
 //   - tau: array of dimension (m-1) if side is CUBLAS_SIDE_LEFT; of dimension (n-1) if side is CUBLAS_SIDE_RIGHT; The vector tau is from sytrd, so tau(i) is the scalar of i-th elementary reflection vector
 //   - c: array of size ldc * n. On exit, C is overwritten by op(Q)*C or C*op(Q)
 //   - ldc: Leading dimension of two-dimensional array of matrix C. ldc >= max(1,m)
-//   - lwork: Size of working array work
+//   - lwork: Size of work, in elements of complex128
 //
 // Returns:
 //   - [ErrArchMismatch]: The device only supports compute capability 5.0 and above.

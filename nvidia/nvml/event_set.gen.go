@@ -6,6 +6,7 @@ package nvml
 //
 // Event set should be freed by [EventSet.Free]
 // For Fermi or newer fully supported devices.
+//
 // See also: [EventSet.Free]
 //
 //   - set: Reference in which to return the event handle
@@ -20,6 +21,7 @@ func NewEventSet() (EventSet, error) {
 // Free Releases events in the set.
 //
 // For Fermi or newer fully supported devices.
+//
 // See also: [Device.RegisterEvents]
 //
 // Wraps [nvmlEventSetFree].
@@ -37,9 +39,8 @@ func (e EventSet) Free() error {
 // On Linux, every Xid error event would return the associated event data and other information if applicable.
 // In MIG mode, if device handle is provided, the API reports all the events for the available instances, only if the caller has appropriate privileges. In absence of required privileges, only the events which affect all the instances (i.e. whole device) are reported.
 // This API does not currently support per-instance event reporting using MIG device handles.
-// See also:
-// Event Types
-// See also: [Device.RegisterEvents]
+//
+// See also: Event Types, [Device.RegisterEvents]
 //
 //   - data: Reference in which to return event data
 //   - timeoutms: Maximum amount of wait time in milliseconds for registered event

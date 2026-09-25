@@ -188,7 +188,8 @@ func Estimate3d(nx int32, ny int32, nz int32, type_ Type) (uint, error) {
 
 // EstimateMany During plan execution, cuFFT requires a work area for temporary storage of intermediate results.
 //
-// The [EstimateMany] API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist. All arrays are assumed to be in CPU memory.
+// The [EstimateMany] API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist.
+// All arrays are assumed to be in CPU memory.
 //
 //   - rank: Dimensionality of the transform (1, 2, or 3)
 //   - istride: Indicates the distance between two successive input elements in the least significant (i.e., innermost) dimension
@@ -561,7 +562,8 @@ func getSizeMany(handle Handle, rank int32, n *int32, inembed *int32, istride in
 
 // getSizeMany64 This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
 //
-// This API is identical to [Handle.MakePlanMany] except that the arguments specifying sizes and strides are 64 bit integers. This API makes very large transforms possible. cuFFT includes kernels that use 32 bit indexes, and kernels that use 64 bit indexes. cuFFT planning selects 32 bit kernels whenever possible to avoid any overhead due to 64 bit arithmetic. All sizes and types of transform are supported by this interface, with two exceptions. For transforms whose total size exceeds 4G elements, the dimensions specified in the array n must be factorable into primes that are less than or equal to 127. For real to complex and complex to real transforms whose total size exceeds 4G elements, the fastest changing dimension must be even.
+// This API is identical to [Handle.MakePlanMany] except that the arguments specifying sizes and strides are 64 bit integers. This API makes very large transforms possible. cuFFT includes kernels that use 32 bit indexes, and kernels that use 64 bit indexes. cuFFT planning selects 32 bit kernels whenever possible to avoid any overhead due to 64 bit arithmetic.
+// All sizes and types of transform are supported by this interface, with two exceptions. For transforms whose total size exceeds 4G elements, the dimensions specified in the array n must be factorable into primes that are less than or equal to 127. For real to complex and complex to real transforms whose total size exceeds 4G elements, the fastest changing dimension must be even.
 //
 //   - plan: [Handle] returned by [Create]
 //   - rank: Dimensionality of the transform (1, 2, or 3)
@@ -616,7 +618,8 @@ func GetVersion() (int32, error) {
 
 // makePlan1d Following a call to [Create] makes a 1D FFT plan configuration for a specified signal size and data type.
 //
-// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call. If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
+// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
+// If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
 //
 //   - plan: [Handle] returned by [Create]
 //   - nx: The transform size (e.g. 256 for a 256-point FFT). For multiple GPUs, this must be a power of 2
@@ -651,7 +654,8 @@ func makePlan1d(plan Handle, nx int32, type_ Type, batch int32) (uint, error) {
 
 // makePlan2d Following a call to [Create] makes a 2D FFT plan configuration according to specified signal sizes and data type.
 //
-// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call. If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
+// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
+// If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
 //
 //   - plan: [Handle] returned by [Create]
 //   - nx: The transform size in the x dimension. This is slowest changing dimension of a transform (strided in memory). For multiple GPUs, this must be factorable into primes less than or equal to 127
@@ -686,7 +690,8 @@ func makePlan2d(plan Handle, nx int32, ny int32, type_ Type) (uint, error) {
 
 // makePlan3d Following a call to [Create] makes a 3D FFT plan configuration according to specified signal sizes and data type.
 //
-// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call. If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
+// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
+// If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
 //
 //   - plan: [Handle] returned by [Create]
 //   - nx: The transform size in the x dimension. This is slowest changing dimension of a transform (strided in memory). For multiple GPUs, this must be factorable into primes less than or equal to 127
@@ -722,7 +727,11 @@ func makePlan3d(plan Handle, nx int32, ny int32, nz int32, type_ Type) (uint, er
 
 // makePlanMany Following a call to [Create] makes a FFT plan configuration of dimension rank, with sizes specified in the array n.
 //
-// The [PlanMany] API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist. If inembed and onembed are set to NULL, all other stride information is ignored, and default strides are used. The default assumes contiguous data arrays. This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call. If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details. All arrays are assumed to be in CPU memory.
+// The [PlanMany] API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist.
+// If inembed and onembed are set to NULL, all other stride information is ignored, and default strides are used. The default assumes contiguous data arrays.
+// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
+// If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
+// All arrays are assumed to be in CPU memory.
 //
 //   - plan: [Handle] returned by [Create]
 //   - rank: Dimensionality of the transform (1, 2, or 3)
@@ -761,7 +770,13 @@ func makePlanMany(plan Handle, rank int32, n *int32, inembed *int32, istride int
 
 // makePlanMany64 Following a call to [Create] makes a FFT plan configuration of dimension rank, with sizes specified in the array n.
 //
-// This API is identical to [Handle.MakePlanMany] except that the arguments specifying sizes and strides are 64 bit integers. This API makes very large transforms possible. cuFFT includes kernels that use 32 bit indexes, and kernels that use 64 bit indexes. cuFFT planning selects 32 bit kernels whenever possible to avoid any overhead due to 64 bit arithmetic. All sizes and types of transform are supported by this interface, with two exceptions. For transforms whose size exceeds 4G elements, the dimensions specified in the array n must be factorable into primes that are less than or equal to 127. For real to complex and complex to real transforms whose size exceeds 4G elements, the fastest changing dimension must be even. The cufftPlanMany64() API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist. If inembed and onembed are set to NULL, all other stride information is ignored, and default strides are used. The default assumes contiguous data arrays. This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call. If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details. All arrays are assumed to be in CPU memory.
+// This API is identical to [Handle.MakePlanMany] except that the arguments specifying sizes and strides are 64 bit integers. This API makes very large transforms possible. cuFFT includes kernels that use 32 bit indexes, and kernels that use 64 bit indexes. cuFFT planning selects 32 bit kernels whenever possible to avoid any overhead due to 64 bit arithmetic.
+// All sizes and types of transform are supported by this interface, with two exceptions. For transforms whose size exceeds 4G elements, the dimensions specified in the array n must be factorable into primes that are less than or equal to 127. For real to complex and complex to real transforms whose size exceeds 4G elements, the fastest changing dimension must be even.
+// The cufftPlanMany64() API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist.
+// If inembed and onembed are set to NULL, all other stride information is ignored, and default strides are used. The default assumes contiguous data arrays.
+// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
+// If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
+// All arrays are assumed to be in CPU memory.
 //
 //   - plan: [Handle] returned by [Create]
 //   - rank: Dimensionality of the transform (1, 2, or 3)
@@ -903,7 +918,11 @@ func Plan3d(nx int32, ny int32, nz int32, type_ Type) (Handle, error) {
 
 // PlanMany Creates a FFT plan configuration of dimension rank, with sizes specified in the array n.
 //
-// The [PlanMany] API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist. If inembed and onembed are set to NULL, all other stride information is ignored, and default strides are used. The default assumes contiguous data arrays. All arrays are assumed to be in CPU memory. Please note that behavior of [PlanMany] function when inembed and onembed is NULL is different than corresponding function in FFTW library fftw_plan_many_dft. This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
+// The [PlanMany] API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist.
+// If inembed and onembed are set to NULL, all other stride information is ignored, and default strides are used. The default assumes contiguous data arrays.
+// All arrays are assumed to be in CPU memory.
+// Please note that behavior of [PlanMany] function when inembed and onembed is NULL is different than corresponding function in FFTW library fftw_plan_many_dft.
+// This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
 //
 //   - rank: Dimensionality of the transform (1, 2, or 3)
 //   - istride: Indicates the distance between two successive input elements in the least significant (i.e., innermost) dimension
@@ -1001,7 +1020,8 @@ func setPlanPropertyInt64(plan Handle, property Property, inputValueInt int64) e
 
 // setStream Associates a CUDA stream with a cuFFT plan.
 //
-// Note that starting from CUDA 11.2 (cuFFT 10.4.0), [Handle.SetStream] is supported on multi-GPU plans. When associating a stream with a plan, cufftXtMemcpy() remains synchronous across the multiple GPUs. For previous versions of cuFFT, [Handle.SetStream] will return an error in multiple GPU plans. Note that starting from CUDA 12.2 (cuFFT 11.0.8), on multi-GPU plans, stream can be associated with any context on any GPU. However, repeated calls to [Handle.SetStream] with streams from different contexts incur a small time penalty. Optimal performance is obtained when repeated calls to [Handle.SetStream] use streams from the same CUDA context.
+// Note that starting from CUDA 11.2 (cuFFT 10.4.0), [Handle.SetStream] is supported on multi-GPU plans. When associating a stream with a plan, cufftXtMemcpy() remains synchronous across the multiple GPUs. For previous versions of cuFFT, [Handle.SetStream] will return an error in multiple GPU plans.
+// Note that starting from CUDA 12.2 (cuFFT 11.0.8), on multi-GPU plans, stream can be associated with any context on any GPU. However, repeated calls to [Handle.SetStream] with streams from different contexts incur a small time penalty. Optimal performance is obtained when repeated calls to [Handle.SetStream] use streams from the same CUDA context.
 //
 //   - plan: The [Handle] object to associate with the stream
 //   - stream: A valid CUDA stream created with cudaStreamCreate(); 0 for the default stream

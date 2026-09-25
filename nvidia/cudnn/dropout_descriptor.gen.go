@@ -31,7 +31,9 @@ func (d DropoutDescriptor) Get(handle Handle) (dropout float32, states uintptr, 
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - dropout: Input. Probability with which the value from an input tensor is set to 0 when performing dropout
-//   - states: buffer. Using a different seed from this has no effect. A change of seed, and subsequent update to random number generator states can be achieved by calling [DropoutDescriptor.Set]
+//   - states: Input. Pointer to GPU memory that holds random number generator states initialized by a prior call to [DropoutDescriptor.Set]
+//   - stateSizeInBytes: Input. Size in bytes of buffer holding random number generator states
+//   - seed: Input. Seed used in prior calls to [DropoutDescriptor.Set] that initialized states buffer. Using a different seed from this has no effect. A change of seed, and subsequent update to random number generator states can be achieved by calling [DropoutDescriptor.Set]
 //
 // Returns:
 //   - [ErrInvalidValue]: The states buffer size (as indicated in stateSizeInBytes) is too small.

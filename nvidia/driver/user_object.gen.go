@@ -4,7 +4,11 @@ package driver
 
 // Release Release a reference to a user object.
 //
-// Releases user object references owned by the caller. The object’s destructor is invoked if the reference count reaches zero. It is undefined behavior to release references not owned by the caller, or to use a user object handle after all references are released. See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects. See also: [NewUserObject], [UserObject.Retain], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
+// Releases user object references owned by the caller. The object’s destructor is invoked if the reference count reaches zero.
+// It is undefined behavior to release references not owned by the caller, or to use a user object handle after all references are released.
+// See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
+//
+// See also: [NewUserObject], [UserObject.Retain], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
 //
 //   - count: The number of references to release, typically 1. Must be nonzero and not larger than INT_MAX
 //
@@ -15,7 +19,10 @@ func (u UserObject) Release(count uint32) error {
 
 // Retain Retain a reference to a user object.
 //
-// Retains new references to a user object. The new references are owned by the caller. See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects. See also: [NewUserObject], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
+// Retains new references to a user object. The new references are owned by the caller.
+// See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
+//
+// See also: [NewUserObject], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
 //
 //   - count: The number of references to retain, typically 1. Must be nonzero and not larger than INT_MAX
 //
@@ -26,7 +33,11 @@ func (u UserObject) Retain(count uint32) error {
 
 // NewUserObject Create a user object.
 //
-// Create a user object with the specified destructor callback and initial reference count. The initial references are owned by the caller. Destructor callbacks cannot make CUDA API calls and should avoid blocking behavior, as they are executed by a shared internal thread. Another thread may be signaled to perform such actions, if it does not block forward progress of tasks scheduled through CUDA. See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects. See also: [UserObject.Retain], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
+// Create a user object with the specified destructor callback and initial reference count. The initial references are owned by the caller.
+// Destructor callbacks cannot make CUDA API calls and should avoid blocking behavior, as they are executed by a shared internal thread. Another thread may be signaled to perform such actions, if it does not block forward progress of tasks scheduled through CUDA.
+// See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
+//
+// See also: [UserObject.Retain], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
 //
 //   - ptr: The pointer to pass to the destroy function
 //   - destroy: Callback to free the user object when it is no longer in use (see [HostFn])

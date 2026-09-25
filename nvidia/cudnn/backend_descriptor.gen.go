@@ -17,6 +17,8 @@ func (b BackendDescriptor) Destroy() error {
 //
 // The data and the working space are encapsulated in the VariantPack.
 //
+//   - variantPack: Input. Pointer to the finalized VariantPack consisting of:
+//
 // Returns:
 //   - [ErrBadParam]: An incorrect or inconsistent value is encountered. For example, a required data pointer is invalid.
 //   - [ErrExecutionFailed]: An error was encountered executing the plan with the variant pack.
@@ -47,11 +49,13 @@ func (b BackendDescriptor) Finalize() error {
 //
 // attributeName is the name of the attribute whose value is requested. attributeType is the type of attribute. requestsedElementCount is the number of elements to be potentially retrieved. The number of elements for the requested attribute is stored in elementCount. The retrieved values are stored in arrayOfElements. When the attribute is expected to have a single value, arrayOfElements can be pointer to the output value. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
 //
-//   - attributeType: is listed in the mapping table of [BackendAttributeType]
-//   - requestedElementCount: elements to
+//   - attributeName: Input. The name of the attribute being get from the on the descriptor
+//   - attributeType: Input. The type of attribute
+//   - requestedElementCount: Input. Number of elements to output to arrayOfElements
+//   - arrayOfElements: Input. Array of elements of the datatype of the attributeType. The data type of the attributeType is listed in the mapping table of [BackendAttributeType]
 //
 // Returns:
-//   - [ErrBadParam]: One or more invalid or inconsistent argument values were encountered. Some examples include:
+//   - [ErrBadParam]: One or more invalid or inconsistent argument values were encountered. Some examples include: attributeName is not a valid attribute for the descriptor. attributeType is not one of the valid types for the attribute.
 //   - [ErrNotInitialized]: The descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
 //   - [Success]: The attributeName was given to the descriptor successfully.
 //
@@ -65,7 +69,7 @@ func (b BackendDescriptor) Attribute(attributeName BackendAttributeName, attribu
 // This function repurposes a pre-allocated memory pointed to by a descriptor of size sizeInByte to a backend descriptor of type descriptorType. The finalized state of the descriptor is set to false.
 //
 // Returns:
-//   - [ErrBadParam]: An invalid or inconsistent argument value is encountered. Some examples include:
+//   - [ErrBadParam]: An invalid or inconsistent argument value is encountered. Some examples include: descriptor is a nullptr sizeInBytes is less than the size required by the descriptor type
 //   - [Success]: The memory was initialized successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.2.
@@ -84,11 +88,13 @@ func (b BackendDescriptor) PopulateCudaGraph(handle Handle, variantPack BackendD
 //
 // descriptor is the descriptor to be set. attributeName is the name of the attribute to be set. attributeType is the type of attribute. The value to which the attribute is set, is pointed by the arrayOfElements. The number of elements is given by elementCount. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor is already successfully finalized using [BackendDescriptor.Finalize].
 //
-//   - attributeType: is listed in the mapping table of [BackendAttributeType]
+//   - attributeName: Input. The name of the attribute being set on the descriptor
+//   - attributeType: Input. The type of attribute
 //   - elementCount: Input. Number of elements being set
+//   - arrayOfElements: Input. The starting location for an array from where to read the values from. The elements of the array are expected to be of the datatype of the attributeType. The datatype of the attributeType is listed in the mapping table of [BackendAttributeType]
 //
 // Returns:
-//   - [ErrBadParam]: The function is called with arguments that correspond to invalid values. Some examples include:
+//   - [ErrBadParam]: The function is called with arguments that correspond to invalid values. Some examples include: attributeName is not a settable attribute of descriptor. attributeType is incorrect for this attributeName. elemCount value is unexpected. arrayOfElements contains values invalid for the attributeType.
 //   - [ErrNotInitialized]: The backend descriptor pointed to by the descriptor is already in the finalized state.
 //   - [ErrNotSupported]: The values to which the attributes are being set are not supported by the current version of cuDNN.
 //   - [Success]: The attributeName was set to the descriptor.

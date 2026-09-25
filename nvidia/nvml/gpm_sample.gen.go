@@ -31,10 +31,10 @@ func (g GpmSample) Free() error {
 //
 // After two samples are gathered, you can call nvmlGpmMetricGet on those samples to retrive metrics
 // For Hopper or newer fully supported devices.
-// Note:
-// The interval between two [GpmSample.Get] calls should be greater than 100ms due to the internal sample refresh rate.
-// Note:
-// This API supports the device handle and MIG device handle.
+//
+// Note: The interval between two [GpmSample.Get] calls should be greater than 100ms due to the internal sample refresh rate.
+//
+// Note: This API supports the device handle and MIG device handle.
 //
 //   - device: The device handle or MIG device handle to get samples for
 //

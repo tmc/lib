@@ -18,7 +18,8 @@ func (f FusedOpsVariantParamPack) Destroy() error {
 
 // Attribute retrieves the settings of the variable parameter pack descriptor.
 //
-//   - paramLabel: input selection. For more information, refer to [FusedOpsVariantParamLabel]
+//   - paramLabel: Input. Type of the buffer pointer parameter (in the varPack descriptor). For more information, refer to [FusedOpsConstParamLabel]. The retrieved descriptor values vary according to this type
+//   - ptr: Output. Pointer to the host or device memory where the retrieved value is written by this function. The data type of the pointer, and the host/device memory location, depend on the paramLabel input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
 // Returns:
 //   - [ErrBadParam]: If either varPack or ptr is NULL, or if paramLabel is set to invalid value.
@@ -35,10 +36,12 @@ func (f FusedOpsVariantParamPack) Attribute(paramLabel FusedOpsVariantParamLabel
 //
 // This function sets the variable parameter pack descriptor.
 //
-//   - paramLabel: input selection. For more information, refer to [FusedOpsVariantParamLabel]
+//   - paramLabel: Input. Type to which the buffer pointer parameter (in the varPack descriptor) is set by this function. For more information, refer to [FusedOpsConstParamLabel]
+//   - ptr: Input. Pointer to the host or device memory, to the value to which the descriptor parameter is set. The data type of the pointer, and the host/device memory location, depend on the paramLabel input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
 // Returns:
-//   - [ErrBadParam]: If varPack is NULL or if paramLabel is set to an unsupported value. [Success] The descriptor is set successfully.
+//   - [ErrBadParam]: If varPack is NULL or if paramLabel is set to an unsupported value.
+//   - [Success]: The descriptor is set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

@@ -12,7 +12,13 @@ type BatchMemOpNode struct {
 
 // Params Returns a batch mem op node’s parameters.
 //
-// Returns the parameters of batch mem op node hNode in nodeParamsOut. The paramArray returned in nodeParamsOut is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [BatchMemOpNode.SetParams] to update the parameters of this node. See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.SetParams] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Returns the parameters of batch mem op node hNode in nodeParamsOut. The paramArray returned in nodeParamsOut is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [BatchMemOpNode.SetParams] to update the parameters of this node.
+//
+// Note: Graph objects are not threadsafe. More here.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.SetParams]
 //
 // Wraps cuGraphBatchMemOpNodeGetParams.
 func (b BatchMemOpNode) Params() (BatchMemOpNodeParams, error) {
@@ -21,7 +27,14 @@ func (b BatchMemOpNode) Params() (BatchMemOpNodeParams, error) {
 
 // SetParams Sets a batch mem op node’s parameters.
 //
-// Sets the parameters of batch mem op node hNode to nodeParams. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Sets the parameters of batch mem op node hNode to nodeParams.
+// The paramArray inside nodeParams is copied and therefore it can be freed after the call returns.
+//
+// Note: Graph objects are not threadsafe. More here.
+//
+// Note that this function may also return error codes from previous, asynchronous launches.
+//
+// See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params]
 //
 //   - nodeParams: Parameters to copy
 //

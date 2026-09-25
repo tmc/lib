@@ -16,11 +16,11 @@ func (r RNNDataDescriptor) Destroy() error {
 
 // Get retrieves a previously created RNN data descriptor object.
 //
-//   - arrayLengthRequested: is
+//   - arrayLengthRequested: Input. The number of elements that the user requested for seqLengthArray
 //   - paddingFill: Output. Pointer to the host memory location to store the user defined symbol. The symbol should be interpreted as the same data type as the RNN data tensor
 //
 // Returns:
-//   - [ErrBadParam]: Any one of these have occurred:
+//   - [ErrBadParam]: Any one of these have occurred: Any of RNNDataDesc, dataType, layout, maxSeqLength, batchSize, vectorSize, or paddingFill is NULL. seqLengthArray is NULL while arrayLengthRequested is greater than zero. arrayLengthRequested is less than zero.
 //   - [Success]: The parameters are fetched successfully.
 //
 // Wraps cudnnGetRNNDataDescriptor.
@@ -34,14 +34,15 @@ func (r RNNDataDescriptor) Get(arrayLengthRequested int, paddingFill uintptr) (R
 //
 //   - dataType: Input. The datatype of the RNN data tensor. For more information, refer to [DataType]
 //   - layout: Input. The memory layout of the RNN data tensor
-//   - maxSeqLength: In the packed layout, the elements should be sorted in descending order, similar to the layout required by the non-extended RNN compute functions
+//   - maxSeqLength: Input. The maximum sequence length within this RNN data tensor. In the unpacked (padded) layout, this should include the padding vectors in each sequence. In the packed (unpadded) layout, this should be equal to the greatest element in seqLengthArray
 //   - vectorSize: Input. The vector length (embedding size) of the input or output tensor at each time-step
-//   - seqLengthArray: must be greater than or equal to 0 but less than or equal to
+//   - seqLengthArray: Input. An integer array with batchSize number of elements. Describes the length (number of time-steps) of each sequence. Each element in seqLengthArray must be greater than or equal to 0 but less than or equal to maxSeqLength. In the packed layout, the elements should be sorted in descending order, similar to the layout required by the non-extended RNN compute functions
+//   - paddingFill: Input. A user-defined symbol for filling the padding position in RNN output. This is only effective when the descriptor is describing the RNN output, and the unpacked layout is specified. The symbol should be in the host memory, and is interpreted as the same data type as that of the RNN data tensor. If a NULL pointer is passed in, then the padding position in the output will be undefined
 //
 // Returns:
 //   - [ErrAllocFailed]: The allocation of internal array storage has failed.
-//   - [ErrBadParam]: Any one of these have occurred:
-//   - [ErrNotSupported]: Any one of these have occurred:
+//   - [ErrBadParam]: Any one of these have occurred: RNNDataDesc is NULL. Any one of maxSeqLength, batchSize, or vectorSize is less than or equal to zero. An element of seqLengthArray is less than zero or greater than maxSeqLength. Layout is not one of [RnnDataLayoutSeqMajorUnpacked], [RnnDataLayoutSeqMajorPacked], or [RnnDataLayoutBatchMajorUnpacked].
+//   - [ErrNotSupported]: Any one of these have occurred: dataType is not one of [DataHalf], [DataFloat], [DataDouble]. maxSeqLength is larger than 65535 (0xffff).
 //   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetRNNDataDescriptor.

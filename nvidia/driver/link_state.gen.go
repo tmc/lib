@@ -4,7 +4,12 @@ package driver
 
 // AddData Add an input to a pending linker invocation.
 //
-// Ownership of data is retained by the caller. No reference is retained to any inputs after this call returns. This method accepts only compiler options, which are used if the data must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget]. See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy] Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
+// Ownership of data is retained by the caller. No reference is retained to any inputs after this call returns.
+// This method accepts only compiler options, which are used if the data must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget].
+//
+// Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
+//
+// See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy]
 //
 //   - data: The input data. PTX must be NULL-terminated
 //   - name: An optional name for this input in log messages
@@ -22,7 +27,13 @@ func (l LinkState) AddData(type_ JitInputType, data []byte, name *byte, numOptio
 
 // AddFile Add a file input to a pending linker invocation.
 //
-// No reference is retained to any inputs after this call returns. This method accepts only compiler options, which are used if the input must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget]. This method is equivalent to invoking [LinkState.AddData] on the contents of the file. See also: [LinkCreate], [LinkState.AddData], [LinkState.Complete], [LinkState.Destroy] Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
+// No reference is retained to any inputs after this call returns.
+// This method accepts only compiler options, which are used if the input must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget].
+// This method is equivalent to invoking [LinkState.AddData] on the contents of the file.
+//
+// Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
+//
+// See also: [LinkCreate], [LinkState.AddData], [LinkState.Complete], [LinkState.Destroy]
 //
 //   - path: Path to the input file
 //   - numOptions: Size of options
@@ -36,7 +47,9 @@ func (l LinkState) AddFile(type_ JitInputType, path *byte, numOptions uint32, op
 
 // Complete Complete a pending linker invocation.
 //
-// Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state. See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Destroy], [ModuleLoadData]
+// Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state.
+//
+// See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Destroy], [ModuleLoadData]
 //
 // Wraps cuLinkComplete.
 func (l LinkState) Complete() (cubinOut uintptr, sizeOut uint, err error) {

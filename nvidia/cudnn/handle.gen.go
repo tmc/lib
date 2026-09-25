@@ -9,15 +9,25 @@ import (
 
 // ActivationBackward This routine computes the gradient of a neuron activation function.
 //
-// In-place operation is allowed for this routine; meaning dy and dx pointers may be equal. However, this requires the corresponding tensor descriptors to be identical (particularly, the strides of the input and output must match for an in-place operation to be allowed). All tensor formats are supported for 4 and 5 dimensions, however, the best performance is obtained when the strides of yDesc and xDesc are equal and HW-packed. For more than 5 dimensions the tensors must have their spatial dimensions packed.
+// In-place operation is allowed for this routine; meaning dy and dx pointers may be equal. However, this requires the corresponding tensor descriptors to be identical (particularly, the strides of the input and output must match for an in-place operation to be allowed).
+// All tensor formats are supported for 4 and 5 dimensions, however, the best performance is obtained when the strides of yDesc and xDesc are equal and HW-packed. For more than 5 dimensions the tensors must have their spatial dimensions packed.
 //
 //   - activationDesc: Input. Activation descriptor. For more information, refer to [ActivationDescriptor]
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to the previously initialized input tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc
+//   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
+//   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyDesc
+//   - xDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - x: Input. Data pointer to GPU memory associated with the output tensor descriptor xDesc
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dxDesc: Input. Handle to the previously initialized output differential tensor descriptor
+//   - dx: Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The strides nStride, cStride, hStride, wStride of the input differential tensor and output differential tensor differ and in-place operation is used.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrNotSupported]: The function does not support the provided configuration. Refer to the following for some examples of non-supported configurations:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Refer to the following for some examples of non-supported configurations: The dimensions n, c, h, and w of the input tensor and output tensor differ. The datatype of the input tensor and output tensor differs. The strides nStride, cStride, hStride, and wStride of the input tensor and the input differential tensor differ. The strides nStride, cStride, hStride, and wStride of the output tensor and the output differential tensor differ.
 //   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -29,13 +39,19 @@ func (h Handle) ActivationBackward(activationDesc ActivationDescriptor, alpha un
 
 // ActivationForward This routine applies a specified neuron activation function element-wise over each input value.
 //
-// In-place operation is allowed for this routine; meaning, xData and yData pointers may be equal. However, this requires xDesc and yDesc descriptors to be identical (particularly, the strides of the input and output must match for an in-place operation to be allowed). All tensor formats are supported for 4 and 5 dimensions, however, the best performance is obtained when the strides of xDesc and yDesc are equal and HW-packed. For more than 5 dimensions the tensors must have their spatial dimensions packed.
+// In-place operation is allowed for this routine; meaning, xData and yData pointers may be equal. However, this requires xDesc and yDesc descriptors to be identical (particularly, the strides of the input and output must match for an in-place operation to be allowed).
+// All tensor formats are supported for 4 and 5 dimensions, however, the best performance is obtained when the strides of xDesc and yDesc are equal and HW-packed. For more than 5 dimensions the tensors must have their spatial dimensions packed.
 //
 //   - activationDesc: Input. Activation descriptor. For more information, refer to [ActivationDescriptor]
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to the previously initialized input tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to the previously initialized input tensor descriptor
+//   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The parameter mode has an invalid enumerant value. The dimensions n, c, h, w of the input tensor and output tensor differ. The datatype of the input tensor and output tensor differs. The strides nStride, cStride, hStride, wStride of the input tensor and output tensor differ and in-place operation is used (meaning, x and y pointers are equal).
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The function launched successfully.
@@ -49,11 +65,15 @@ func (h Handle) ActivationForward(activationDesc ActivationDescriptor, alpha uns
 
 // AddTensor adds the scaled values of a bias tensor to another tensor.
 //
-// This function adds the scaled values of a bias tensor to another tensor. Each dimension of the bias tensor A must match the corresponding dimension of the destination tensor C or must be equal to 1. In the latter case, the same value from the bias tensor for those dimensions will be used to blend into the C tensor. Only 4D and 5D tensors are supported. Beyond these dimensions, this routine is not supported.
+// This function adds the scaled values of a bias tensor to another tensor. Each dimension of the bias tensor A must match the corresponding dimension of the destination tensor C or must be equal to 1. In the latter case, the same value from the bias tensor for those dimensions will be used to blend into the C tensor.
+// Only 4D and 5D tensors are supported. Beyond these dimensions, this routine is not supported.
 //
-//   - aDesc: descriptor
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with the prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
+//   - aDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - a: Input. Pointer to data of the tensor described by the aDesc descriptor
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with the prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - cDesc: descriptor
+//   - cDesc: Input. Handle to a previously initialized tensor descriptor
+//   - c: Input. / Output. Pointer to data of the tensor described by the cDesc descriptor
 //
 // Returns:
 //   - [ErrBadParam]: The dimensions of the bias tensor refer to an amount of data that is incompatible with the output tensor dimensions or the dataType of the two tensor descriptors are different.
@@ -70,20 +90,20 @@ func (h Handle) AddTensor(alpha unsafe.Pointer, aDesc TensorDescriptor, a driver
 
 // BatchNormalizationBackward performs the backward batch normalization layer computation.
 //
-// This function performs the backward batch normalization layer computation. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. Higher performance can be obtained when HW-packed tensors are used for all of x, dy, and dx. For more information, refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
+// This function performs the backward batch normalization layer computation. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper.
+// Only 4D and 5D tensors are supported.
+// The epsilon value has to be the same during training, backpropagation, and inference.
+// Higher performance can be obtained when HW-packed tensors are used for all of x, dy, and dx.
+// For more information, refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - xDesc: for the layer’s
-//   - dyDesc: for the backpropagated differential
-//   - dy: input
-//   - dxDesc: for the resulting differential output with respect to
-//   - dx: with a prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - bnScale: data have to remain unchanged until this backward function is called. Supported Configurations This function supports the following combinations of data types for various descriptors
-//   - epsilon: value should be used in forward and backward functions
-//   - savedInvVariance: The dimensions for this tensor descriptor are dependent on normalization mode. For more information, refer to [TensorDescriptor.DeriveBN]
+//   - xDesc: Input. Handles to the previously initialized tensor descriptors
+//   - dyDesc: Input. Handles to the previously initialized tensor descriptors
+//   - dxDesc: Input. Handles to the previously initialized tensor descriptors
+//   - epsilon: Input. Epsilon value used in batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: Any of the pointers alpha, beta, x, dy, dx, bnScale, resultBnScaleDiff, and resultBnBiasDiff is NULL. The number of xDesc, yDesc, or dxDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). bnScaleBiasDiffDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of savedMean, savedInvVariance pointers is NULL. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for any pair of xDesc, dyDesc, or dxDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -96,19 +116,30 @@ func (h Handle) BatchNormalizationBackward(mode BatchNormMode, alphaDataDiff uns
 
 // BatchNormalizationBackwardEx is an extension of the [Handle.BatchNormalizationBackward] for performing the backward batch normalization layer computation with a fast NHWC semi-persistent kernel.
 //
-// This function is an extension of the [Handle.BatchNormalizationBackward] for performing the backward batch normalization layer computation with a fast NHWC semi-persistent kernel. This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: If workspace is NULL and workSpaceSizeInBytes of zero is passed in, this API will function exactly like the non-extended function [Handle.BatchNormalizationBackward]. This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
+// This function is an extension of the [Handle.BatchNormalizationBackward] for performing the backward batch normalization layer computation with a fast NHWC semi-persistent kernel.
+// This API will trigger the new semi-persistent NHWC kernel when the following conditions are true:
+// If workspace is NULL and workSpaceSizeInBytes of zero is passed in, this API will function exactly like the non-extended function [Handle.BatchNormalizationBackward].
+// This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information.
+// This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user.
+// The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation.
+// Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference.
+// When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - bnOps: input is set to either
-//   - yData: are not needed if
-//   - dzDesc: is not needed when
-//   - bnBiasData: data has to remain unchanged until this backward function is called. Note that both these parameters can be NULL but only at the same time. It is recommended to use this cache since the memory overhead is relatively small
-//   - savedInvVariance: For more information, refer to [TensorDescriptor.DeriveBN] . The dimensions for this tensor descriptor are dependent on normalization mode
+//   - bnOps: Input. Mode of operation. Currently, [BatchnormOpsBnActivation] and [BatchnormOpsBnAddActivation] are only supported in the NHWC layout. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
+//   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dyDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dzDesc: Input. Tensor descriptors and pointers in the device memory for the computed gradient output dz, and dx. dzDesc is not needed when bnOps is [BatchnormOpsBn] or [BatchnormOpsBnActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dxDesc: Input. Tensor descriptors and pointers in the device memory for the computed gradient output dz, and dx. dzDesc is not needed when bnOps is [BatchnormOpsBn] or [BatchnormOpsBnActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dBnScaleBiasDesc: Input. Shared tensor descriptor for the following six tensors: bnScaleData, bnBiasData, dBnScaleData, dBnBiasData, savedMean, and savedInvVariance. For more information, refer to [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on normalization mode
+//   - epsilon: Input. Epsilon value used in batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
+//   - activationDesc: Input. Descriptor for the activation operation. When the bnOps input is set to either [BatchnormOpsBnActivation] or [BatchnormOpsBnAddActivation] then this activation is used, otherwise the user may pass NULL
 //   - workSpaceSizeInBytes: Input. The size of the workspace. It must be large enough to trigger the fast NHWC semi-persistent kernel by this function
-//   - reserveSpace: It must be equal or larger than the amount required by [Handle.BatchNormalizationTrainingExReserveSpaceSize] . Supported Configurations This function supports the following combinations of data types for various descriptors
+//   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. It must be equal or larger than the amount required by [Handle.BatchNormalizationTrainingExReserveSpaceSize]. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationBackwardEx] 
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: Any of the pointers alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, x, dy, dx, bnScale, resultBnScaleDiff, and resultBnBiasDiff is NULL. The number of xDesc, yDesc, or dxDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). dBnScaleBiasDesc dimensions not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of savedMean, savedInvVariance pointers is NULL. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for any pair of xDesc, dyDesc, and dxDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -121,18 +152,28 @@ func (h Handle) BatchNormalizationBackwardEx(mode BatchNormMode, bnOps BatchNorm
 
 // BatchNormalizationForwardInference performs the forward batch normalization layer computation for the inference phase.
 //
-// This function performs the forward batch normalization layer computation for the inference phase. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The input transformation performed by this function is defined as: The epsilon value has to be the same during training, backpropagation and inference. For the training phase, refer to [Handle.BatchNormalizationForwardTraining]. Higher performance can be obtained when HW-packed tensors are used for all of x and dx. For more information, refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
+// This function performs the forward batch normalization layer computation for the inference phase. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper.
+// Only 4D and 5D tensors are supported.
+// The input transformation performed by this function is defined as:
+// The epsilon value has to be the same during training, backpropagation and inference.
+// For the training phase, refer to [Handle.BatchNormalizationForwardTraining].
+// Higher performance can be obtained when HW-packed tensors are used for all of x and dx.
+// For more information, refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - xDesc: for the layer’s
-//   - x: input data
-//   - yDesc: for the
-//   - y: output of the batch normalization layer
-//   - bnBias: Input. s. Tensor descriptors and pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handles to the previously initialized tensor descriptors
+//   - yDesc: Input. Handles to the previously initialized tensor descriptors
+//   - bnScaleBiasMeanVarDesc: Input. Tensor descriptors and pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
+//   - bnScale: Input. Tensor descriptors and pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
+//   - bnBias: Input. Tensor descriptors and pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
+//   - estimatedMean: Input. Mean and variance tensors (these have the same descriptor as the bias and scale). The resultRunningMean and resultRunningVariance, accumulated during the training phase from the [Handle.BatchNormalizationForwardTraining] call, should be passed as inputs here
+//   - estimatedVariance: Input. Mean and variance tensors (these have the same descriptor as the bias and scale). The resultRunningMean and resultRunningVariance, accumulated during the training phase from the [Handle.BatchNormalizationForwardTraining] call, should be passed as inputs here
+//   - epsilon: Input. Epsilon value used in batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationForwardInference] 
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the pointers alpha, beta, x, y, bnScale, bnBias, estimatedMean, and estimatedInvVariance is NULL. The number of xDesc or yDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported.) bnScaleBiasMeanVarDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for xDesc, yDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -145,22 +186,30 @@ func (h Handle) BatchNormalizationForwardInference(mode BatchNormMode, alpha uns
 
 // BatchNormalizationForwardTraining performs the forward batch normalization layer computation for the training phase.
 //
-// This function performs the forward batch normalization layer computation for the training phase. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. For the inference phase, use [Handle.BatchNormalizationForwardInference]. Higher performance can be obtained when HW-packed tensors are used for both x and y. Refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
+// This function performs the forward batch normalization layer computation for the training phase. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper.
+// Only 4D and 5D tensors are supported.
+// The epsilon value has to be the same during training, backpropagation, and inference.
+// For the inference phase, use [Handle.BatchNormalizationForwardInference].
+// Higher performance can be obtained when HW-packed tensors are used for both x and y.
+// Refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - xDesc: for the layer’s
-//   - x: input data
-//   - yDesc: for the
-//   - y: output of the batch normalization layer
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Tensor descriptors and pointers in device memory for the layer’s x and y data. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Tensor descriptors and pointers in device memory for the layer’s x and y data. For more information, refer to [TensorDescriptor]
 //   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on the normalization mode
-//   - bnBias: parameter can replace the previous layer’s bias parameter for improved efficiency
-//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows:
-//   - resultRunningVariance: (or passed as an input in inference mode) is the sample variance and is the moving average of
-//   - resultSaveInvVariance: may vary. For the cache to work correctly, the input layer data must remain unchanged until the backward function is called. Note that both parameters can be
+//   - bnScale: Input. Pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). Note that bnBias parameter can replace the previous layer’s bias parameter for improved efficiency
+//   - bnBias: Input. Pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). Note that bnBias parameter can replace the previous layer’s bias parameter for improved efficiency
+//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get the Cumulative Moving Average (CMA) behavior, for example: CMAn = (x [1]+...+xn)/n. For example:
+//   - resultRunningMean: Input. / Outputs. Running mean and variance tensors (these have the same descriptor as the bias and scale). Both of these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
+//   - resultRunningVariance: Input. / Outputs. Running mean and variance tensors (these have the same descriptor as the bias and scale). Both of these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
+//   - epsilon: Input. Epsilon value used in the batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
+//   - resultSaveMean: Output. Optional cache to save intermediate results computed during the forward pass. These buffers can be used to speed up the backward pass when supplied to the [Handle.BatchNormalizationBackward] function. The intermediate results stored in resultSaveMean and resultSaveInvVariance buffers should not be used directly by the user. Depending on the batch normalization mode, the results stored in resultSaveInvVariance may vary. For the cache to work correctly, the input layer data must remain unchanged until the backward function is called. Note that both parameters can be NULL but only at the same time. In such a case, intermediate statistics will not be saved, and [Handle.BatchNormalizationBackward] will have to re-compute them. It is recommended to use this cache as the memory overhead is relatively small because these tensors have a much lower product of dimensions than the data tensors. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationForwardTraining] 
+//   - resultSaveInvVariance: Output. Optional cache to save intermediate results computed during the forward pass. These buffers can be used to speed up the backward pass when supplied to the [Handle.BatchNormalizationBackward] function. The intermediate results stored in resultSaveMean and resultSaveInvVariance buffers should not be used directly by the user. Depending on the batch normalization mode, the results stored in resultSaveInvVariance may vary. For the cache to work correctly, the input layer data must remain unchanged until the backward function is called. Note that both parameters can be NULL but only at the same time. In such a case, intermediate statistics will not be saved, and [Handle.BatchNormalizationBackward] will have to re-compute them. It is recommended to use this cache as the memory overhead is relatively small because these tensors have a much lower product of dimensions than the data tensors. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationForwardTraining] 
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the pointers alpha, beta, x, y, bnScale, and bnBias is NULL. The number of xDesc or yDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported.) bnScaleBiasMeanVarDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of resultSaveMean, resultSaveInvVariance pointers are NULL. Exactly one of resultRunningMean, resultRunningInvVariance pointers are NULL. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for xDesc, yDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -173,16 +222,29 @@ func (h Handle) BatchNormalizationForwardTraining(mode BatchNormMode, alpha unsa
 
 // BatchNormalizationForwardTrainingEx is an extension of the [Handle.BatchNormalizationForwardTraining] for performing the forward batch normalization layer computation.
 //
-// This function is an extension of the [Handle.BatchNormalizationForwardTraining] for performing the forward batch normalization layer computation. This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: If workspace is NULL and workSpaceSizeInBytes of zero is passed in, this API will function exactly like the non-extended function [Handle.BatchNormalizationForwardTraining]. This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
+// This function is an extension of the [Handle.BatchNormalizationForwardTraining] for performing the forward batch normalization layer computation.
+// This API will trigger the new semi-persistent NHWC kernel when the following conditions are true:
+// If workspace is NULL and workSpaceSizeInBytes of zero is passed in, this API will function exactly like the non-extended function [Handle.BatchNormalizationForwardTraining].
+// This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information.
+// This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user.
+// The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation.
+// Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference.
+// When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - bnOps: input is set to either
-//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows:
-//   - workSpaceSizeInBytes: is the size of the workspace. When
-//   - reserveSpace: Must be equal or larger than the amount required by [Handle.BatchNormalizationTrainingExReserveSpaceSize] . Supported Configurations This function supports the following combinations of data types for various descriptors
+//   - bnOps: Input. Mode of operation for the fast NHWC kernel. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
+//   - xDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
+//   - zDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
+//   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on the normalization mode
+//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get the Cumulative Moving Average (CMA) behavior, for example: CMAn = (x [1]+...+xn)/n. For example:
+//   - epsilon: Input. Epsilon value used in the batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
+//   - activationDesc: Input. The tensor descriptor for the activation operation. When the bnOps input is set to either [BatchnormOpsBnActivation] or [BatchnormOpsBnAddActivation] then this activation is used, otherwise user may pass NULL
+//   - workSpaceSizeInBytes: Input. *workspace is a pointer to the GPU workspace, and workSpaceSizeInBytes is the size of the workspace. When *workspace is not NULL and *workSpaceSizeInBytes is large enough, and the tensor layout is NHWC and the data type configuration is supported, then this function will trigger a new semi-persistent NHWC kernel for batch normalization. The workspace is not required to be clean. Also, the workspace does not need to remain unchanged between the forward and backward passes
+//   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. Must be equal or larger than the amount required by [Handle.BatchNormalizationTrainingExReserveSpaceSize]. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationForwardTrainingEx] 
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the pointers alpha, beta, x, y, bnScaleData, and bnBiasData is NULL. The number of xDesc or yDesc tensor descriptor dimensions is not within the [4,5] range (only 4D and 5D tensors are supported.) bnScaleBiasMeanVarDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of saveMean, saveInvVariance pointers are NULL. Exactly one of resultRunningMeanData, resultRunningInvVarianceData pointers are NULL. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for xDesc and yDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -224,11 +286,12 @@ func (h Handle) BuildRNNDynamic(rnnDesc RNNDescriptor, miniBatch int32) error {
 //   - costs: Output. Pointer to the computed costs of CTC
 //   - gradientsDesc: Input. Handle to a previously initialized gradient tensor descriptor
 //   - gradients: Output. Pointer to the computed gradients of CTC. These computed gradient outputs are with respect to the unnormalized activation
+//   - algo: Input. Enumerant that specifies the chosen CTC loss algorithm. For more information, refer to [CTCLossAlgo]
 //   - ctcLossDesc: Input. Handle to the previously initialized CTC loss descriptor. For more information, refer to [CTCLossDescriptor]
 //   - workspace: Input. Pointer to GPU memory of a workspace needed to be able to execute the specified algorithm
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The dimensions of probsDesc do not match the dimensions of gradientsDesc. The inputLengths do not agree with the first dimension of probsDesc. The workSpaceSizeInBytes is not sufficient. The labelLengths is greater than 255.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrNotSupported]: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
 //   - [Success]: The query was successful.
@@ -255,7 +318,7 @@ func (h Handle) CTCLoss(probsDesc TensorDescriptor, probs driver.DevicePtr, host
 //   - workspace: Input. Pointer to GPU memory of a workspace needed to be able to execute the specified algorithm
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The dimensions of probsDesc do not match the dimensions of gradientsDesc. The inputLengths do not agree with the first dimension of probsDesc. The workSpaceSizeInBytes is not sufficient. The labelLengths is greater than 256.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrNotSupported]: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
 //   - [Success]: The query was successful.
@@ -269,10 +332,15 @@ func (h Handle) CTCLossV8(algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probs
 //
 // This function computes the convolution function gradient with respect to the bias, which is the sum of every element belonging to the same feature map across all of the images of the input tensor. Therefore, the number of elements produced is equal to the number of features maps of the input tensor.
 //
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dyDesc: Input. Handle to the previously initialized input tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyDesc
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dbDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - db: Output. Data pointer to GPU memory associated with the output tensor descriptor dbDesc
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the parameters n, height, or width of the output tensor is not 1. The numbers of feature maps of the input tensor and output tensor differ. The dataType of the two tensor descriptors is different.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The operation was launched successfully.
 //
@@ -287,14 +355,24 @@ func (h Handle) ConvolutionBackwardBias(alpha unsafe.Pointer, dyDesc TensorDescr
 //
 // This function computes the convolution data gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward]. It uses the specified algo, and returns the results in the output tensor dx. Scaling factors alpha and beta can be used to scale the computed result or accumulate with the current dx.
 //
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - wDesc: Input. Handle to a previously initialized filter descriptor. For more information, refer to [FilterDescriptor]
+//   - w: Input. Data pointer to GPU memory associated with the filter descriptor wDesc
+//   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - dy: Input. Data pointer to GPU memory associated with the input differential tensor descriptor dyDesc
+//   - convDesc: Input. Previously initialized convolution descriptor. For more information, refer to [ConvolutionDescriptor]
 //   - algo: Input. Enumerant that specifies which backward data convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionBwdDataAlgo]
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - workSpace: Input. Data pointer to GPU memory to a workspace needed to be able to execute the specified algorithm. If no workspace is needed for a particular algorithm, that pointer can be NIL
+//   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - dx: Input. /Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc that carries the result. Supported Configurations This function supports the following combinations of data types for wDesc, dyDesc, convDesc, and dxDesc. Supported Configurations for [Handle.ConvolutionBackwardData]  Supported Algorithms Specifying a separate algorithm can cause changes in performance, support and computation determinism. Refer to the following list of algorithm options, and their respective supported parameters and deterministic behavior. The table below shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions. For brevity, the short-form versions followed by > are used in the table below: Supported Algorithms for [Handle.ConvolutionBackwardData] 2D convolutions. Filter descriptor wDesc: _NHWC (refer to [TensorFormat]).  Supported Algorithms for [Handle.ConvolutionBackwardData] 2D convolutions. Filter descriptor wDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionBackwardData] 3D convolutions. Filter descriptor wDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionBackwardData] 3D convolutions. Filter descriptor wDesc: _NHWC. 
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, dyDesc, wDesc, convDesc, dxDesc, dy, w, dx, alpha, and beta wDesc and dyDesc have a non-matching number of dimensions wDesc and dxDesc have a non-matching number of dimensions wDesc has fewer than three number of dimensions wDesc, dxDesc, and dyDesc have a non-matching data type wDesc and dxDesc have a non-matching number of input feature maps per image (or group in case of grouped convolutions) dyDesc spatial sizes do not match with the expected size as determined by [ConvolutionDescriptor.ForwardOutputDims]
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrMappingError]: An error occurs during the texture binding of texture object creation associated with the filter data or the input differential tensor data.
-//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: At least one of the following conditions are met: dyDesc or dxDesc have a negative tensor striding dyDesc, wDesc, or dxDesc has a number of dimensions that is not 4 or 5 The chosen algo does not support the parameters provided; refer to the above tables for an exhaustive list of parameters that support each algo. dyDesc or wDesc indicate an output channel count that isn’t a multiple of group count (if group count has been set in convDesc)
 //   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -308,14 +386,24 @@ func (h Handle) ConvolutionBackwardData(alpha unsafe.Pointer, wDesc FilterDescri
 //
 // This function computes the convolution weight (filter) gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward]. It uses the specified algo, and returns the results in the output tensor dw. Scaling factors alpha and beta can be used to scale the computed result or accumulate with the current dw.
 //
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
+//   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
+//   - dy: Input. Data pointer to GPU memory associated with the backpropagation gradient tensor descriptor dyDesc
+//   - convDesc: Input. Previously initialized convolution descriptor. For more information, refer to [ConvolutionDescriptor]
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionBwdFilterAlgo]
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - workSpace: Input. Data pointer to GPU memory to a workspace needed to be able to execute the specified algorithm. If no workspace is needed for a particular algorithm, that pointer can be NIL
+//   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dwDesc: Input. Handle to a previously initialized filter gradient descriptor. For more information, refer to [FilterDescriptor]
+//   - dw: Input. / Output. Data pointer to GPU memory associated with the filter gradient descriptor dwDesc that carries the result. Supported Configurations This function supports the following combinations of data types for xDesc, dyDesc, convDesc, and dwDesc. Supported Configurations for [Handle.ConvolutionBackwardFilter]  Supported Algorithms Specifying a separate algorithm can cause changes in performance, support, and computation determinism. Refer to the following table for an exhaustive list of algorithm options and their respective supported parameters and deterministic behavior. The table below shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions. For the following terms, the short-form versions shown in parentheses are used in the table below, for brevity: For brevity, the short-form versions followed by > are used in the table below: Supported Algorithms for [Handle.ConvolutionBackwardFilter] 2D Convolutions. Filter descriptor dwDesc: _NHWC (refer to [TensorFormat]).  Supported Algorithms for [Handle.ConvolutionBackwardFilter] 2D Convolutions. Filter descriptor dwDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionBackwardFilter] 3D Convolutions. Filter descriptor dwDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionBackwardFilter] 3D Convolutions. Filter descriptor dwDesc: _NHWC. 
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, xDesc, dyDesc, convDesc, dwDesc, xData, dyData, dwData, alpha, or beta xDesc and dyDesc have a non-matching number of dimensions xDesc and dwDesc have a non-matching number of dimensions xDesc has fewer than three number of dimensions xDesc, dyDesc, and dwDesc have a non-matching data type xDesc and dwDesc have a non-matching number of input feature maps per image (or group in case of grouped convolutions) yDesc or dwDesc indicate an output channel count that isn’t a multiple of group count (if group count has been set in convDesc)
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrMappingError]: An error occurs during the texture object creation associated with the filter data.
-//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: At least one of the following conditions are met: xDesc or dyDesc have negative tensor striding xDesc, dyDesc`,` or “dwDesc has a number of dimensions that is not 4 or 5 The chosen algo does not support the parameters provided; see above for an exhaustive list of parameter support for each algo
 //   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -327,17 +415,33 @@ func (h Handle) ConvolutionBackwardFilter(alpha unsafe.Pointer, xDesc TensorDesc
 
 // ConvolutionBiasActivationForward applies a bias and then an activation to the convolutions or cross-correlations of [Handle.ConvolutionForward], returning results in y.
 //
-// This function applies a bias and then an activation to the convolutions or cross-correlations of [Handle.ConvolutionForward], returning results in y. The full computation follows the equation y = act (alpha1 * conv(x) + alpha2 * z + bias). The routine [ConvolutionDescriptor.ForwardOutputDim2D] or [ConvolutionDescriptor.ForwardOutputDims] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc. Only the [ConvolutionFwdAlgoImplicitPrecompGemm] algo is enabled with [ActivationIdentity]. In other words, in the [ActivationDescriptor] structure of the input activationDesc, if the mode of the [ActivationMode] field is set to the enum value [ActivationIdentity], then the input [ConvolutionFwdAlgo] of this function [Handle.ConvolutionBiasActivationForward] must be set to the enum value [ConvolutionFwdAlgoImplicitPrecompGemm]. For more information, refer to [ActivationDescriptor.Set]. Device pointer z and y may be pointing to the same buffer, however, x cannot point to the same buffer as z or y.
+// This function applies a bias and then an activation to the convolutions or cross-correlations of [Handle.ConvolutionForward], returning results in y. The full computation follows the equation y = act (alpha1 * conv(x) + alpha2 * z + bias).
+// The routine [ConvolutionDescriptor.ForwardOutputDim2D] or [ConvolutionDescriptor.ForwardOutputDims] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc.
+// Only the [ConvolutionFwdAlgoImplicitPrecompGemm] algo is enabled with [ActivationIdentity]. In other words, in the [ActivationDescriptor] structure of the input activationDesc, if the mode of the [ActivationMode] field is set to the enum value [ActivationIdentity], then the input [ConvolutionFwdAlgo] of this function [Handle.ConvolutionBiasActivationForward] must be set to the enum value [ConvolutionFwdAlgoImplicitPrecompGemm]. For more information, refer to [ActivationDescriptor.Set].
+// Device pointer z and y may be pointing to the same buffer, however, x cannot point to the same buffer as z or y.
 //
+//   - alpha1: Input. Pointers to scaling factors (in host memory) used to blend the computation result of convolution with z and bias as follows: y = act (alpha1 * conv(x) + alpha2 * z + bias). For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
+//   - wDesc: Input. Handle to a previously initialized filter descriptor. For more information, refer to [FilterDescriptor]
+//   - w: Input. Data pointer to GPU memory associated with the filter descriptor wDesc
+//   - convDesc: Input. Previously initialized convolution descriptor. For more information, refer to [ConvolutionDescriptor]
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionFwdAlgo]
+//   - workSpace: Input. Data pointer to GPU memory to a workspace needed to be able to execute the specified algorithm. If no workspace is needed for a particular algorithm, that pointer can be NIL
+//   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
+//   - alpha2: Input. Pointers to scaling factors (in host memory) used to blend the computation result of convolution with z and bias as follows: y = act (alpha1 * conv(x) + alpha2 * z + bias). For more information, refer to Scaling Parameters
 //   - zDesc: Input. Handle to a previously initialized tensor descriptor
+//   - z: Input. Data pointer to GPU memory associated with the tensor descriptor zDesc
+//   - biasDesc: Input. Handle to a previously initialized tensor descriptor
+//   - bias: Input. Data pointer to GPU memory associated with the tensor descriptor biasDesc
 //   - activationDesc: Input. Handle to a previously initialized activation descriptor. For more information, refer to [ActivationDescriptor]
-//   - yDesc: as listed in the documentation of [Handle.ConvolutionForward] . The following table specifies the supported combinations of data types for
+//   - yDesc: Input. Handle to a previously initialized tensor descriptor
+//   - y: Input. /Output. Data pointer to GPU memory associated with the tensor descriptor yDesc that carries the result of the convolution. For the convolution step, this function supports the specific combinations of data types for xDesc, wDesc, convDesc, and yDesc as listed in the documentation of [Handle.ConvolutionForward]. The following table specifies the supported combinations of data types for x, y, z, bias, alpha1, and alpha2. Supported Combinations of Data Types (X = CUDNN_DATA) for [Handle.ConvolutionBiasActivationForward] 
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, xDesc, wDesc, convDesc, yDesc, zDesc, biasDesc, activationDesc, xData, wData, yData, zData, bias, alpha1, and alpha2. The number of dimensions of xDesc, wDesc, yDesc, and zDesc is not equal to the array length of convDesc + 2.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples of non-supported configurations include:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples of non-supported configurations include: The mode of activationDesc is not [ActivationRelu] or [ActivationIdentity]. The reluNanOpt of activationDesc is not [NotPropagateNan]. The second stride of biasDesc is not equal to 1. The first dimension of biasDesc is not equal to 1. The second dimension of biasDesc and the first dimension of filterDesc are not equal. The data type of biasDesc does not correspond to the data type of yDesc as listed in the above data type tables. zDesc and destDesc do not match.
 //   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -349,16 +453,27 @@ func (h Handle) ConvolutionBiasActivationForward(alpha1 unsafe.Pointer, xDesc Te
 
 // ConvolutionForward executes convolutions or cross-correlations over x using filters specified with w, returning results in y.
 //
-// This function executes convolutions or cross-correlations over x using filters specified with w, returning results in y. Scaling factors alpha and beta can be used to scale the input tensor and the output tensor respectively. The routine [ConvolutionDescriptor.ForwardOutputDim2D] or [ConvolutionDescriptor.ForwardOutputDims] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc.
+// This function executes convolutions or cross-correlations over x using filters specified with w, returning results in y. Scaling factors alpha and beta can be used to scale the input tensor and the output tensor respectively.
+// The routine [ConvolutionDescriptor.ForwardOutputDim2D] or [ConvolutionDescriptor.ForwardOutputDims] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc.
 //
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
+//   - wDesc: Input. Handle to a previously initialized filter descriptor. For more information, refer to [FilterDescriptor]
+//   - w: Input. Data pointer to GPU memory associated with the filter descriptor wDesc
+//   - convDesc: Input. Previously initialized convolution descriptor. For more information, refer to [ConvolutionDescriptor]
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionFwdAlgo]
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - workSpace: Input. Data pointer to GPU memory to a workspace needed to be able to execute the specified algorithm. If no workspace is needed for a particular algorithm, that pointer can be NIL
+//   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to a previously initialized tensor descriptor
+//   - y: Input. / Output. Data pointer to GPU memory associated with the tensor descriptor yDesc that carries the result of the convolution. Supported Configurations This function supports the following combinations of data types for xDesc, wDesc, convDesc, and yDesc. Supported Configurations for [Handle.ConvolutionForward]  Supported Algorithms For this function, all algorithms perform deterministic computations. Specifying a separate algorithm can cause changes in performance and support. The following table shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions. For brevity, the short-form versions followed by > are used in the table below: Supported Algorithms for [Handle.ConvolutionForward] 2D Convolutions. Filter descriptor wDesc: _NCHW (refer to [TensorFormat]).  Supported Algorithms for [Handle.ConvolutionForward] 2D Convolutions. Filter descriptor wDesc: _NCHWC.  Supported Algorithms for [Handle.ConvolutionForward] 2D Convolutions. Filter descriptor wDesc: _NHWC.  Supported Algorithms for [Handle.ConvolutionForward] 3D Convolutions. Filter descriptor wDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionForward] 3D Convolutions. Filter descriptor wDesc: _NHWC.  Tensors can be converted to and from [TensorNchwVectC] with [Handle.TransformTensor]
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, xDesc, wDesc, convDesc, yDesc, xData, w, yData, alpha, and beta xDesc and yDesc have a non-matching number of dimensions xDesc and wDesc have a non-matching number of dimensions xDesc has fewer than three number of dimensions xDesc number of dimensions is not equal to convDesc array length + 2 xDesc and wDesc have a non-matching number of input feature maps per image (or group in case of grouped convolutions) yDesc or wDesc indicate an output channel count that isn’t a multiple of group count (if group count has been set in convDesc) xDesc, wDesc, and yDesc have a non-matching data type For some spatial dimension, wDesc has a spatial size that is larger than the input spatial size (including zero-padding size)
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrMappingError]: An error occurs during the texture object creation associated with the filter data.
-//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: At least one of the following conditions are met: xDesc or yDesc have negative tensor striding xDesc, wDesc, or yDesc has a number of dimensions that is not 4 or 5 yDesc spatial sizes do not match with the expected size as determined by [ConvolutionDescriptor.ForwardOutputDims] The chosen algo does not support the parameters provided; see above for an exhaustive list of parameters supported for each algo
 //   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -384,15 +499,21 @@ func (h Handle) Destroy() error {
 //
 // Supported tensor formats are NCHW for 4D and NCDHW for 5D with any non-overlapping non-negative strides. Only 4D and 5D tensors are supported.
 //
-//   - xDesc: as a descriptor
-//   - x: and means data. Note that the
-//   - means: and can be for instance a result of a convolution with a Gaussian kernel)
-//   - dy: cumulative loss differential data (error backpropagation)
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - dMeans: (
+//   - normDesc: Input. Handle to a previously initialized LRN parameter descriptor (this descriptor is used for both LRN and DivisiveNormalization layers)
+//   - mode: Input. DivisiveNormalization layer mode of operation. Currently only [DivnormPrecomputedMeans] is implemented. Normalization is performed using the means input tensor that is expected to be precomputed by the user
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Tensor descriptor and pointers in device memory for the layer’s x and means data. Note that the means tensor is expected to be precomputed by the user. It can also contain any valid values (not required to be actual means, and can be for instance a result of a convolution with a Gaussian kernel)
+//   - x: Input. Tensor descriptor and pointers in device memory for the layer’s x and means data. Note that the means tensor is expected to be precomputed by the user. It can also contain any valid values (not required to be actual means, and can be for instance a result of a convolution with a Gaussian kernel)
+//   - means: Input. Tensor descriptor and pointers in device memory for the layer’s x and means data. Note that the means tensor is expected to be precomputed by the user. It can also contain any valid values (not required to be actual means, and can be for instance a result of a convolution with a Gaussian kernel)
+//   - dy: Input. Tensor pointer in device memory for the layer’s dy cumulative loss differential data (error backpropagation)
+//   - temp: Workspace. Temporary tensors in device memory. These are used for computing intermediate values during the backward pass. These tensors do not have to be preserved from forward to backward pass. Both use xDesc as a descriptor
+//   - temp2: Workspace. Temporary tensors in device memory. These are used for computing intermediate values during the backward pass. These tensors do not have to be preserved from forward to backward pass. Both use xDesc as a descriptor
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dx: Output. Tensor pointers (in device memory) for the layers resulting in cumulative gradients dx and dMeans ( dLoss/dx and dLoss/dMeans). Both share the same descriptor
+//   - dMeans: Output. Tensor pointers (in device memory) for the layers resulting in cumulative gradients dx and dMeans ( dLoss/dx and dLoss/dMeans). Both share the same descriptor
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the tensor pointers x, dx, temp, tmep2, and dy is NULL. Number of any of the input or output tensor dimensions is not within the [4,5] range. Either alpha or beta pointer is NULL. A mismatch in dimensions between xDesc and dxDesc. LRN descriptor parameters are outside of their valid ranges. Any of the tensor strides is negative.
 //   - [Success]: The computation was performed successfully.
 //   - CUDNN_STATUS_UNSUPPORTED: The function does not support the provided configuration, for example, any of the input and output tensor strides mismatch (for the same dimension) is a non-supported configuration.
 //
@@ -403,15 +524,23 @@ func (h Handle) DivisiveNormalizationBackward(normDesc LRNDescriptor, mode DivNo
 
 // DivisiveNormalizationForward performs the forward spatial DivisiveNormalization layer computation.
 //
-// The full LCN (Local Contrastive Normalization) computation can be implemented as a two-step process: The x-mean(x) which is often referred to as “subtractive normalization” portion of the computation can be implemented using cuDNN average pooling layer followed by a call to addTensor. Supported tensor formats are NCHW for 4D and NCDHW for 5D with any non-overlapping non-negative strides. Only 4D and 5D tensors are supported.
+// The full LCN (Local Contrastive Normalization) computation can be implemented as a two-step process:
+// The x-mean(x) which is often referred to as “subtractive normalization” portion of the computation can be implemented using cuDNN average pooling layer followed by a call to addTensor.
+// Supported tensor formats are NCHW for 4D and NCDHW for 5D with any non-overlapping non-negative strides. Only 4D and 5D tensors are supported.
 //
-//   - xDesc: as their descriptor
+//   - normDesc: Input. Handle to a previously initialized LRN parameter descriptor. This descriptor is used for both LRN and DivisiveNormalization layers
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Tensor descriptor objects for the input and output tensors. Note that xDesc is shared between x, means, temp, and temp2 tensors
 //   - x: Input. Input tensor data pointer in device memory
-//   - means: these can be any values, a frequently used variation is a result of convolution with a normalized positive kernel (such as Gaussian)
-//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
+//   - means: Input. Input means tensor data pointer in device memory. Note that this tensor can be NULL (in that case its values are assumed to be zero during the computation). This tensor also doesn’t have to contain means, these can be any values, a frequently used variation is a result of convolution with a normalized positive kernel (such as Gaussian)
+//   - temp: Workspace. Temporary tensors in device memory. These are used for computing intermediate values during the forward pass. These tensors do not have to be preserved as inputs from forward to the backward pass. Both use xDesc as their descriptor
+//   - temp2: Workspace. Temporary tensors in device memory. These are used for computing intermediate values during the forward pass. These tensors do not have to be preserved as inputs from forward to the backward pass. Both use xDesc as their descriptor
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Tensor descriptor objects for the input and output tensors. Note that xDesc is shared between x, means, temp, and temp2 tensors
+//   - y: Output. Pointer in device memory to a tensor for the result of the forward DivisiveNormalization computation
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the tensor pointers x, y, temp, and temp2 is NULL. Number of input tensor or output tensor dimensions is outside of [4,5] range. A mismatch in dimensions between any two of the input or output tensors. For in-place computation when pointers x == y, a mismatch in strides between the input data and output data tensors. alpha or beta pointer is NULL. LRN descriptor parameters are outside of their valid ranges. Any of the tensor strides are negative.
 //   - [Success]: The computation was performed successfully.
 //   - CUDNN_STATUS_UNSUPPORTED: The function does not support the provided configuration, for example, any of the input and output tensor strides mismatch (for the same dimension) is a non-supported configuration.
 //
@@ -425,11 +554,13 @@ func (h Handle) DivisiveNormalizationForward(normDesc LRNDescriptor, mode DivNor
 // Better performance is obtained for fully packed tensors.
 //
 //   - dropoutDesc: Input. Previously created dropout descriptor object
-//   - reserveSpace: was populated during a call to
+//   - dy: Input. Pointer to data of the tensor described by the dyDesc descriptor
+//   - dx: Output. Pointer to data of the tensor described by the dxDesc descriptor
+//   - reserveSpace: Input. Pointer to user-allocated GPU memory used by this function. It is expected that reserveSpace was populated during a call to [Handle.DropoutForward] and has not been changed
 //   - reserveSpaceSizeInBytes: Input. Specifies the size in bytes of the provided memory for the reserve space
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The number of elements of input tensor and output tensors differ. The datatype of the input tensor and output tensors differs. The strides of the input tensor and output tensors differ and in-place operation is used (meaning, x and y pointers are equal). The provided reserveSpaceSizeInBytes is less than the value returned by [TensorDescriptor.DropoutGetReserveSpaceSize]. [DropoutDescriptor.Set] has not been called on dropoutDesc with non- NULL states argument.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The call was successful.
@@ -444,11 +575,13 @@ func (h Handle) DropoutBackward(dropoutDesc DropoutDescriptor, dydesc TensorDesc
 // If dropout was used as a parameter to [DropoutDescriptor.Set], the approximate dropout fraction of x values will be replaced by a 0, and the rest will be scaled by 1/(1-dropout). This function should not be running concurrently with another [Handle.DropoutForward] function using the same states.
 //
 //   - dropoutDesc: Input. Previously created dropout descriptor object
-//   - reserveSpace: does not change between
+//   - x: Input. Pointer to data of the tensor described by the xDesc descriptor
+//   - y: Output. Pointer to data of the tensor described by the yDesc descriptor
+//   - reserveSpace: Output. Pointer to user-allocated GPU memory used by this function. It is expected that the contents of reserveSpace does not change between [Handle.DropoutForward] and [Handle.DropoutBackward] calls
 //   - reserveSpaceSizeInBytes: Input. Specifies the size in bytes of the provided memory for the reserve space
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The number of elements of input tensor and output tensors differ. The datatype of the input tensor and output tensors differs. The strides of the input tensor and output tensors differ and in-place operation is used (meaning, x and y pointers are equal). The provided reserveSpaceSizeInBytes is less than the value returned by [TensorDescriptor.DropoutGetReserveSpaceSize]. [DropoutDescriptor.Set] has not been called on dropoutDesc with non- NULL states argument.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The call was successful.
@@ -470,17 +603,20 @@ func (h Handle) DropoutGetStatesSize() (sizeInBytes int, err error) {
 
 // FindConvolutionBackwardDataAlgorithm attempts all algorithms available for [Handle.ConvolutionBackwardData].
 //
-// This function attempts all algorithms available for [Handle.ConvolutionBackwardData]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdDataAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionBackwardDataAlgorithmMaxCount].
+// This function attempts all algorithms available for [Handle.ConvolutionBackwardData]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ).
+// Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such.
+// Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdDataAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionBackwardDataAlgorithmMaxCount].
 //
 //   - wDesc: Input. Handle to a previously initialized filter descriptor
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //
 // Returns:
 //   - [ErrAllocFailed]: This function was unable to allocate memory to store sample input, filters, and output.
-//   - [ErrBadParam]: At least one of the following conditions are met:
-//   - [ErrInternalError]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is not allocated properly wDesc, dyDesc, or dxDesc is not allocated properly wDesc, dyDesc, or dxDesc has fewer than 1 dimension Either returnedCount or perfResults is NIL requestedCount is less than 1
+//   - [ErrInternalError]: At least one of the following conditions are met: The function was unable to allocate necessary timing objects The function was unable to deallocate necessary timing objects The function was unable to deallocate sample input, filters, and output
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -492,14 +628,24 @@ func (h Handle) FindConvolutionBackwardDataAlgorithm(wDesc FilterDescriptor, dyD
 
 // FindConvolutionBackwardDataAlgorithmEx attempts all algorithms available for [Handle.ConvolutionBackwardData].
 //
-// This function attempts all algorithms available for [Handle.ConvolutionBackwardData]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdDataAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionBackwardDataAlgorithmMaxCount].
+// This function attempts all algorithms available for [Handle.ConvolutionBackwardData]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ).
+// Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such.
+// Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdDataAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionBackwardDataAlgorithmMaxCount].
 //
+//   - wDesc: Input. Handle to a previously initialized filter descriptor
+//   - w: Input. Data pointer to GPU memory associated with the filter descriptor wDesc
+//   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
+//   - dy: Input. Data pointer to GPU memory associated with the filter descriptor dyDesc
 //   - convDesc: Input. Previously initialized convolution descriptor
-//   - dxDesc: The content of this tensor will be overwritten with arbitrary values
+//   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - dx: Input. / Output. Data pointer to GPU memory associated with the tensor descriptor dxDesc. The content of this tensor will be overwritten with arbitrary values
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
+//   - workSpace: Input. Data pointer to GPU memory is a necessary workspace for some algorithms. The size of this workspace will determine the availability of algorithms. A NIL pointer is considered a workSpace of 0 bytes
+//   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
-//   - [ErrInternalError]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is not allocated properly wDesc, dyDesc, or dxDesc is not allocated properly wDesc, dyDesc, or dxDesc has fewer than 1 dimension Either returnedCount or perfResults is NIL requestedCount is less than 1
+//   - [ErrInternalError]: At least one of the following conditions are met: The function was unable to allocate necessary timing objects The function was unable to deallocate necessary timing objects The function was unable to deallocate sample input, filters, and output
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -511,15 +657,20 @@ func (h Handle) FindConvolutionBackwardDataAlgorithmEx(wDesc FilterDescriptor, w
 
 // FindConvolutionBackwardFilterAlgorithm attempts all algorithms available for [Handle.ConvolutionBackwardFilter].
 //
-// This function attempts all algorithms available for [Handle.ConvolutionBackwardFilter]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdFilterAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionBackwardFilterAlgorithmMaxCount].
+// This function attempts all algorithms available for [Handle.ConvolutionBackwardFilter]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ).
+// Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such.
+// Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdFilterAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionBackwardFilterAlgorithmMaxCount].
 //
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dwDesc: Input. Handle to a previously initialized filter descriptor
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met: [ErrAllocFailed] This function was unable to allocate memory to store sample input, filters and output. [ErrInternalError] At least one of the following conditions are met:
+//   - [ErrAllocFailed]: This function was unable to allocate memory to store sample input, filters and output.
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is not allocated properly xDesc, dyDesc, or dwDesc are not allocated properly xDesc, dyDesc, or dwDesc has fewer than 1 dimension Either returnedCount or perfResults is NIL requestedCount is less than 1
+//   - [ErrInternalError]: At least one of the following conditions are met: The function was unable to allocate necessary timing objects. The function was unable to deallocate necessary timing objects. The function was unable to deallocate sample input, filters, and output.
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -531,14 +682,23 @@ func (h Handle) FindConvolutionBackwardFilterAlgorithm(xDesc TensorDescriptor, d
 
 // FindConvolutionBackwardFilterAlgorithmEx attempts all algorithms available for [Handle.ConvolutionBackwardFilter].
 //
-// This function attempts all algorithms available for [Handle.ConvolutionBackwardFilter]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdFilterAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionBackwardFilterAlgorithmMaxCount].
+// This function attempts all algorithms available for [Handle.ConvolutionBackwardFilter]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ).
+// Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such.
+// Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdFilterAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionBackwardFilterAlgorithmMaxCount].
 //
+//   - xDesc: Input. Handle to the previously initialized input tensor descriptor
+//   - x: Input. Data pointer to GPU memory associated with the filter descriptor xDesc
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
-//   - dwDesc: The content of this tensor will be overwritten with arbitrary values
+//   - dwDesc: Input. Handle to a previously initialized filter descriptor
+//   - dw: Input. / Output. Data pointer to GPU memory associated with the filter descriptor dwDesc. The content of this tensor will be overwritten with arbitrary values
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
+//   - workSpace: Input. Data pointer to GPU memory is a necessary workspace for some algorithms. The size of this workspace will determine the availability of algorithms. A NIL pointer is considered a workSpace of 0 bytes
+//   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met: [ErrInternalError] At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is not allocated properly xDesc, dyDesc, or dwDesc are not allocated properly xDesc, dyDesc, or dwDesc has fewer than 1 dimension x, dy, or dw is NIL Either returnedCount or perfResults is NIL requestedCount is less than 1
+//   - [ErrInternalError]: At least one of the following conditions are met: The function was unable to allocate necessary timing objects. The function was unable to deallocate necessary timing objects. The function was unable to deallocate sample input, filters, and output.
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -550,16 +710,20 @@ func (h Handle) FindConvolutionBackwardFilterAlgorithmEx(xDesc TensorDescriptor,
 
 // FindConvolutionForwardAlgorithm attempts all algorithms available for [Handle.ConvolutionForward].
 //
-// This function attempts all algorithms available for [Handle.ConvolutionForward]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionFwdAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionForwardAlgorithmMaxCount].
+// This function attempts all algorithms available for [Handle.ConvolutionForward]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ).
+// Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such.
+// Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionFwdAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionForwardAlgorithmMaxCount].
 //
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
 //   - wDesc: Input. Handle to a previously initialized filter descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - yDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //
 // Returns:
-//   - [ErrAllocFailed]: This function was unable to allocate memory to store sample input, filters, and output. [ErrInternalError] At least one of the following conditions are met:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrAllocFailed]: This function was unable to allocate memory to store sample input, filters, and output.
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is not allocated properly xDesc, dyDesc, or dwDesc are not allocated properly xDesc, dyDesc, or dwDesc has fewer than 1 dimension Either returnedCount or perfResults is NIL requestedCount is less than 1
+//   - [ErrInternalError]: At least one of the following conditions are met: The function was unable to allocate necessary timing objects. The function was unable to deallocate necessary timing objects. The function was unable to deallocate sample input, filters, and output.
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -571,13 +735,24 @@ func (h Handle) FindConvolutionForwardAlgorithm(xDesc TensorDescriptor, wDesc Fi
 
 // FindConvolutionForwardAlgorithmEx attempts all algorithms available for [Handle.ConvolutionForward].
 //
-// This function attempts all algorithms available for [Handle.ConvolutionForward]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionFwdAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionForwardAlgorithmMaxCount].
+// This function attempts all algorithms available for [Handle.ConvolutionForward]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ).
+// Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such.
+// Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionFwdAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.ConvolutionForwardAlgorithmMaxCount].
 //
+//   - xDesc: Input. Handle to the previously initialized input tensor descriptor
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
+//   - wDesc: Input. Handle to a previously initialized filter descriptor
+//   - w: Input. Data pointer to GPU memory associated with the filter descriptor wDesc
 //   - convDesc: Input. Previously initialized convolution descriptor
-//   - yDesc: The content of this tensor will be overwritten with arbitrary values
+//   - yDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - y: Input. / Output. Data pointer to GPU memory associated with the tensor descriptor yDesc. The content of this tensor will be overwritten with arbitrary values
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
+//   - workSpace: Input. Data pointer to GPU memory is a necessary workspace for some algorithms. The size of this workspace will determine the availability of algorithms. A NIL pointer is considered a workSpace of 0 bytes
+//   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met: [ErrInternalError] At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is not allocated properly xDesc, dyDesc, or dwDesc are not allocated properly xDesc, dyDesc, or dwDesc has fewer than 1 dimension x, w, or y is NIL Either returnedCount or perfResults is NIL requestedCount is less than 1
+//   - [ErrInternalError]: At least one of the following conditions are met: The function was unable to allocate necessary timing objects. The function was unable to deallocate necessary timing objects. The function was unable to deallocate sample input, filters, and output.
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -607,10 +782,17 @@ func (h Handle) FusedOpsExecute(plan FusedOpsPlan, varPack FusedOpsVariantParamP
 // The workspace allocated will then be passed to the function [Handle.BatchNormalizationBackwardExWorkspaceSize].
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - bnOps: input setting
+//   - bnOps: Input. Mode of operation for the fast NHWC kernel. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
+//   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - dyDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - dzDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - dxDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - dBnScaleBiasDesc: Input. Shared tensor descriptor for the following six tensors: bnScaleData, bnBiasData, dBnScaleData, dBnBiasData, savedMean, and savedInvVariance. This is the shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on normalization mode. Note that the data type of this tensor descriptor must be float for FP16 and FP32 input tensors, and double for FP64 input tensors
+//   - activationDesc: Input. Descriptor for the activation operation. When the bnOps input is set to either [BatchnormOpsBnActivation] or [BatchnormOpsBnAddActivation], then this activation is used, otherwise user may pass NULL
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: Number of xDesc, yDesc, or dxDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). dBnScaleBiasDesc dimensions not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Dimensions or data types mismatch for any pair of xDesc, dyDesc, or dxDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -626,11 +808,15 @@ func (h Handle) BatchNormalizationBackwardExWorkspaceSize(mode BatchNormMode, bn
 // This function returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.BatchNormalizationForwardTrainingExWorkspaceSize] function for the specified bnOps input setting. The workspace allocated should then be passed by the user to the function [Handle.BatchNormalizationForwardTrainingExWorkspaceSize].
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - bnOps: input setting
-//   - zDesc: is only needed when
+//   - bnOps: Input. Mode of operation for the fast NHWC kernel. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
+//   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, the optional z input data, and the y output. zDesc is only needed when bnOps is [BatchnormOpsBnAddActivation], otherwise the user may pass NULL. For more information, refer to [TensorDescriptor]
+//   - zDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, the optional z input data, and the y output. zDesc is only needed when bnOps is [BatchnormOpsBnAddActivation], otherwise the user may pass NULL. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, the optional z input data, and the y output. zDesc is only needed when bnOps is [BatchnormOpsBnAddActivation], otherwise the user may pass NULL. For more information, refer to [TensorDescriptor]
+//   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor for the following six tensors: bnScaleData, bnBiasData, dBnScaleData, dBnBiasData, savedMean, and savedInvVariance. This is the shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on normalization mode. Note that the data type of this tensor descriptor must be float for FP16 and FP32 input tensors, and double for FP64 input tensors
+//   - activationDesc: Input. Descriptor for the activation operation. When the bnOps input is set to either [BatchnormOpsBnActivation] or [BatchnormOpsBnAddActivation], then this activation is used, otherwise user may pass NULL
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: Number of xDesc, yDesc, or dxDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). dBnScaleBiasDesc dimensions not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Dimensions or data types mismatch for any pair of xDesc or dyDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -646,10 +832,12 @@ func (h Handle) BatchNormalizationForwardTrainingExWorkspaceSize(mode BatchNormM
 // This function returns the amount of reserve GPU memory workspace the user should allocate for the batch normalization operation, for the specified bnOps input setting. In contrast to the workspace, the reserved space should be preserved between the forward and backward calls, and the data should not be altered.
 //
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
-//   - bnOps: input is set to either
+//   - bnOps: Input. Mode of operation for the fast NHWC kernel. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
+//   - activationDesc: Input. Descriptor for the activation operation. When the bnOps input is set to either [BatchnormOpsBnActivation] or [BatchnormOpsBnAddActivation], then this activation is used, otherwise user may pass NULL
+//   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data. For more information, refer to [TensorDescriptor]
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The xDesc tensor descriptor dimension is not within the [4,5] range (only 4D and 5D tensors are supported).
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -669,10 +857,11 @@ func (h Handle) BatchNormalizationTrainingExReserveSpaceSize(mode BatchNormMode,
 //   - labels: Input. Pointer to a previously initialized labels list
 //   - labelLengths: Input. Pointer to a previously initialized lengths list, to walk the above labels list
 //   - inputLengths: Input. Pointer to a previously initialized list of the lengths of the timing steps in each batch
+//   - algo: Input. Enumerant that specifies the chosen CTC loss algorithm
 //   - ctcLossDesc: Input. Handle to the previously initialized CTC loss descriptor
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The dimensions of probsDesc do not match the dimensions of gradientsDesc The inputLengths do not agree with the first dimension of probsDesc The workSpaceSizeInBytes is not sufficient The labelLengths is greater than 256
 //   - [ErrNotSupported]: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
 //   - [Success]: The query was successful.
 //
@@ -685,12 +874,13 @@ func (h Handle) CTCLossWorkspaceSize(probsDesc TensorDescriptor, gradientsDesc T
 //
 // The workspace allocated will then be passed to the routine [Handle.CTCLossV8].
 //
+//   - algo: Input. Enumerant that specifies the chosen CTC loss algorithm
 //   - ctcLossDesc: Input. Handle to the previously initialized CTC loss descriptor
 //   - probsDesc: Input. Handle to the previously initialized probabilities tensor descriptor
 //   - gradientsDesc: Input. Handle to a previously initialized gradient tensor descriptor
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The dimensions of probsDesc do not match the dimensions of gradientsDesc
 //   - [ErrNotSupported]: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
 //   - [Success]: The query was successful.
 //
@@ -719,9 +909,10 @@ func (h Handle) ConvolutionBackwardDataAlgorithmMaxCount() (count int32, err err
 // This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardData] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionBackwardDataAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - convDesc: Input. Previously initialized convolution descriptor
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the parameters handle, wDesc, dyDesc, convDesc, dxDesc, perfResults, or returnedAlgoCount is NULL. The numbers of feature maps of the input tensor and output tensor differ. The dataType of the two tensor descriptors or the filters are different. requestedAlgoCount is less than or equal to 0.
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -739,9 +930,10 @@ func (h Handle) ConvolutionBackwardDataAlgorithm(filterDesc FilterDescriptor, di
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - algo: Input. Enumerant that specifies the chosen convolution algorithm
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The numbers of feature maps of the input tensor and output tensor differ. The dataType of the two tensor descriptors or the filter are different.
 //   - [ErrNotSupported]: The combination of the tensor descriptors, filter descriptor, and convolution descriptor is not supported for the specified algorithm.
 //   - [Success]: The query was successful.
 //
@@ -772,9 +964,10 @@ func (h Handle) ConvolutionBackwardFilterAlgorithmMaxCount() (count int32, err e
 // This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardFilter] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionBackwardFilterAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - convDesc: Input. Previously initialized convolution descriptor
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the parameters handle, xDesc, dyDesc, convDesc, dwDesc, perfResults, or returnedAlgoCount is NULL. The numbers of feature maps of the input tensor and output tensor differ. The dataType of the two tensor descriptors or the filter are different. requestedAlgoCount is less than or equal to 0.
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -791,9 +984,10 @@ func (h Handle) ConvolutionBackwardFilterAlgorithm(srcDesc TensorDescriptor, dif
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
+//   - algo: Input. Enumerant that specifies the chosen convolution algorithm
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The numbers of feature maps of the input tensor and output tensor differ. The dataType of the two tensor descriptors or the filter are different.
 //   - [ErrNotSupported]: The combination of the tensor descriptors, filter descriptor and convolution descriptor is not supported for the specified algorithm.
 //   - [Success]: The query was successful.
 //
@@ -824,9 +1018,10 @@ func (h Handle) ConvolutionForwardAlgorithmMaxCount() (count int32, err error) {
 // This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionForward] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionForwardAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - convDesc: Input. Previously initialized convolution descriptor
+//   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the parameters handle, xDesc, wDesc, convDesc, yDesc, perfResults, or returnedAlgoCount is NULL. Either yDesc or wDesc have different dimensions from xDesc. The data types of tensors xDesc, yDesc, or wDesc are not all the same. The number of feature maps in xDesc and wDesc differs. The tensor xDesc has a dimension smaller than 3. requestedAlgoCount is less than or equal to 0.
 //   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -840,11 +1035,14 @@ func (h Handle) ConvolutionForwardAlgorithm(srcDesc TensorDescriptor, filterDesc
 //
 // This function returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionForward] with the specified algorithm. The workspace allocated will then be passed to the routine [Handle.ConvolutionForward]. The specified algorithm can be the result of the call to [Handle.ConvolutionForwardAlgorithm] or can be chosen arbitrarily by the user. Note that not every algorithm is available for every configuration of the input tensor and/or every configuration of the convolution descriptor.
 //
+//   - xDesc: Input. Handle to the previously initialized x tensor descriptor
 //   - wDesc: Input. Handle to a previously initialized filter descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
+//   - yDesc: Input. Handle to the previously initialized y tensor descriptor
+//   - algo: Input. Enumerant that specifies the chosen convolution algorithm
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the parameters handle, xDesc, wDesc, convDesc, or yDesc is NULL. The tensor yDesc or wDesc are not of the same dimension as xDesc. The tensor xDesc, yDesc, or wDesc are not of the same data type. The numbers of feature maps of the tensor xDesc and wDesc differ. The tensor xDesc has a dimension smaller than 3.
 //   - [ErrNotSupported]: The combination of the tensor descriptors, filter descriptor, and convolution descriptor is not supported for the specified algorithm.
 //   - [Success]: The query was successful.
 //
@@ -860,13 +1058,16 @@ func (h Handle) ConvolutionForwardWorkspaceSize(xDesc TensorDescriptor, wDesc Fi
 // It takes as input the data descriptors along with the convolution descriptor and computes the folded data descriptors and the folding transform descriptors. These can then be used to do the actual folding transform.
 //
 //   - filterDesc: Input. Filter descriptor before folding
+//   - diffDesc: Input. Diff descriptor before folding
 //   - convDesc: Input. Convolution descriptor before folding
 //   - gradDesc: Input. Gradient descriptor before folding
 //   - transformFormat: Input. Transform format for folding
 //   - foldedFilterDesc: Output. Folded filter descriptor
+//   - paddedDiffDesc: Output. Padded Diff descriptor
 //   - foldedConvDesc: Output. Folded convolution descriptor
 //   - foldedGradDesc: Output. Folded gradient descriptor
 //   - filterFoldTransDesc: Output. Folding transform descriptor for filter
+//   - diffPadTransDesc: Output. Folding transform descriptor for Desc
 //   - gradFoldTransDesc: Output. Folding transform descriptor for gradient
 //   - gradUnfoldTransDesc: Output. Unfolding transform descriptor for folded gradient
 //
@@ -882,9 +1083,13 @@ func (h Handle) FoldedConvBackwardDataDescriptors(filterDesc FilterDescriptor, d
 	return getFoldedConvBackwardDataDescriptors(h, filterDesc, diffDesc, convDesc, gradDesc, transformFormat, foldedFilterDesc, paddedDiffDesc, foldedConvDesc, foldedGradDesc, filterFoldTransDesc, diffPadTransDesc, gradFoldTransDesc, gradUnfoldTransDesc)
 }
 
-// MultiHeadAttnBuffers computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights].
+// MultiHeadAttnBuffers computes weight, work, and reserve space buffer sizes used by the following functions:
 //
-// This function computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights]. This situation occurs in the inference mode. The user must allocate weight, work, and reserve space buffer sizes in the GPU memory using cudaMalloc() with the reported buffer sizes. The buffers can be also carved out from a larger chunk of allocated memory but the buffer addresses must be at least 16B aligned. The workspace buffer is used for temporary storage. Its content can be discarded or modified after all GPU kernels launched by the corresponding API complete. The reserve-space buffer is used to transfer intermediate results from [Handle.MultiHeadAttnForward] to [Handle.MultiHeadAttnBackwardData], and from [Handle.MultiHeadAttnBackwardData] to [Handle.MultiHeadAttnBackwardWeights]. The content of the reserve-space buffer cannot be modified until all GPU kernels launched by the above three multihead attention API functions finish. All multihead attention weight and bias tensors are stored in a single weight buffer. For speed optimizations, the cuDNN API may change tensor layouts and their relative locations in the weight buffer based on the provided attention parameters. Use the [Handle.MultiHeadAttnWeights] function to obtain the start address and the shape of each weight or bias tensor.
+// This function computes weight, work, and reserve space buffer sizes used by the following functions:
+// Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights]. This situation occurs in the inference mode.
+// The user must allocate weight, work, and reserve space buffer sizes in the GPU memory using cudaMalloc() with the reported buffer sizes. The buffers can be also carved out from a larger chunk of allocated memory but the buffer addresses must be at least 16B aligned.
+// The workspace buffer is used for temporary storage. Its content can be discarded or modified after all GPU kernels launched by the corresponding API complete. The reserve-space buffer is used to transfer intermediate results from [Handle.MultiHeadAttnForward] to [Handle.MultiHeadAttnBackwardData], and from [Handle.MultiHeadAttnBackwardData] to [Handle.MultiHeadAttnBackwardWeights]. The content of the reserve-space buffer cannot be modified until all GPU kernels launched by the above three multihead attention API functions finish.
+// All multihead attention weight and bias tensors are stored in a single weight buffer. For speed optimizations, the cuDNN API may change tensor layouts and their relative locations in the weight buffer based on the provided attention parameters. Use the [Handle.MultiHeadAttnWeights] function to obtain the start address and the shape of each weight or bias tensor.
 //
 //   - attnDesc: Input. Pointer to a previously initialized attention descriptor
 //
@@ -901,11 +1106,16 @@ func (h Handle) MultiHeadAttnBuffers(attnDesc AttnDescriptor) (weightSizeInBytes
 
 // MultiHeadAttnWeights obtains the shape of the weight or bias tensor.
 //
-// This function obtains the shape of the weight or bias tensor. It also retrieves the start address of tensor data located in the weight buffer. Use the wKind argument to select a particular tensor. For more information, refer to [MultiHeadAttnWeightKind] for the description of the enumerant type. Biases are used in the input and output projections when the CUDNN_ATTN_ENABLE_PROJ_BIASES flag is set in the attention descriptor. Refer to [AttnDescriptor.Set] for the description of flags to control projection biases. When the corresponding weight or bias tensor does not exist, the function writes NULL to the storage location pointed by wAddr and returns zeros in the wDesc tensor descriptor. The return status of the [Handle.MultiHeadAttnWeights] function is [Success] in this case. The cuDNN multiHeadAttention sample code demonstrates how to access multihead attention weights. Although the buffer with weights and biases should be allocated in the GPU memory, the user can copy it to the host memory and invoke the [Handle.MultiHeadAttnWeights] function with the host weights address to obtain tensor pointers in the host memory. This scheme allows the user to inspect trainable parameters directly in the CPU memory.
+// This function obtains the shape of the weight or bias tensor. It also retrieves the start address of tensor data located in the weight buffer. Use the wKind argument to select a particular tensor. For more information, refer to [MultiHeadAttnWeightKind] for the description of the enumerant type.
+// Biases are used in the input and output projections when the CUDNN_ATTN_ENABLE_PROJ_BIASES flag is set in the attention descriptor. Refer to [AttnDescriptor.Set] for the description of flags to control projection biases.
+// When the corresponding weight or bias tensor does not exist, the function writes NULL to the storage location pointed by wAddr and returns zeros in the wDesc tensor descriptor. The return status of the [Handle.MultiHeadAttnWeights] function is [Success] in this case.
+// The cuDNN multiHeadAttention sample code demonstrates how to access multihead attention weights. Although the buffer with weights and biases should be allocated in the GPU memory, the user can copy it to the host memory and invoke the [Handle.MultiHeadAttnWeights] function with the host weights address to obtain tensor pointers in the host memory. This scheme allows the user to inspect trainable parameters directly in the CPU memory.
 //
 //   - attnDesc: Input. A previously configured attention descriptor
 //   - wKind: Input. Enumerant type to specify which weight or bias tensor should be retrieved
 //   - weightSizeInBytes: Input. Buffer size that stores all multihead attention weights and biases
+//   - weights: Input. Pointer to the weight buffer in the host or device memory
+//   - wDesc: Output. The descriptor specifying weight or bias tensor shape. For weights, the wDesc.dimA[] array has three elements: [nHeads, projected size, original size]. For biases, the wDesc.dimA[] array also has three elements: [nHeads, projected size, 1]. The wDesc.strideA[] array describes how tensor elements are arranged in memory
 //
 // Returns:
 //   - [ErrBadParam]: An invalid or incompatible input argument was encountered. For example, wKind did not have a valid value or weightSizeInBytes was too small.
@@ -923,11 +1133,19 @@ func (h Handle) MultiHeadAttnWeights(attnDesc AttnDescriptor, wKind MultiHeadAtt
 // The workspace allocated will then be passed to the function [Handle.NormalizationBackward].
 //
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
-//   - normOps: input setting
+//   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
+//   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - dyDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - dzDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - dxDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - dNormScaleBiasDesc: Input. Shared tensor descriptor for the following four tensors: normScaleData, normBiasData, dNormScaleData, dNormBiasData. The dimensions for this tensor descriptor are dependent on normalization mode. Note that the data type of this tensor descriptor must be float for FP16 and FP32 input tensors, and double for FP64 input tensors
+//   - activationDesc: Input. Descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation], then this activation is used, otherwise the user may pass NULL
+//   - normMeanVarDesc: Input. Shared tensor descriptor for the following tensors: savedMean and savedInvVariance. The dimensions for this tensor descriptor are dependent on normalization mode. Note that the data type of this tensor descriptor must be float for FP16 and FP32 input tensors, and double for FP64 input tensors
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: Number of xDesc, yDesc, or dxDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). dNormScaleBiasDesc dimensions not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for per-channel, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Dimensions or data types mismatch for any pair of xDesc, dyDesc, or dxDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -943,11 +1161,17 @@ func (h Handle) NormalizationBackwardWorkspaceSize(mode NormMode, normOps NormOp
 // The workspace allocated should then be passed by the user to the function [Handle.NormalizationForwardTraining].
 //
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
-//   - normOps: input setting
+//   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
+//   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - zDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, back propagated differential dy (inputs), the optional y input data, the optional dz output, and the dx output, which is the resulting differential with respect to x. For more information, refer to [TensorDescriptor]
+//   - normScaleBiasDesc: Input. Shared tensor descriptor for the following four tensors: normScaleData and normBiasData. The dimensions for this tensor descriptor are dependent on normalization mode. Note that the data type of this tensor descriptor must be float for FP16 and FP32 input tensors, and double for FP64 input tensors
+//   - activationDesc: Input. Descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation], then this activation is used, otherwise the user may pass NULL
+//   - normMeanVarDesc: Input. Shared tensor descriptor for the following tensors: savedMean and savedInvVariance. The dimensions for this tensor descriptor are dependent on normalization mode. Note that the data type of this tensor descriptor must be float for FP16 and FP32 input tensors, and double for FP64 input tensors
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: Number of xDesc, yDesc, or zDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). normScaleBiasDesc dimensions not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for per-channel, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Dimensions or data types mismatch for any pair of xDesc or yDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -963,11 +1187,13 @@ func (h Handle) NormalizationForwardTrainingWorkspaceSize(mode NormMode, normOps
 // In contrast to the workspace, the reserved space should be preserved between the forward and backward calls, and the data should not be altered.
 //
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
-//   - normOps: input is set to either
+//   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
+//   - activationDesc: Input. Descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation], then this activation is used, otherwise the user may pass NULL
+//   - xDesc: Input. Tensor descriptors for the layer’s x data. For more information, refer to [TensorDescriptor]
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The xDesc tensor descriptor dimension is not within the [4,5] range (only 4D and 5D tensors are supported).
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -983,6 +1209,7 @@ func (h Handle) NormalizationTrainingReserveSpaceSize(mode NormMode, normOps Nor
 // The user can assign NULL to workSpaceSize or reserveSpaceSize pointers when the corresponding value is not needed.
 //
 //   - rnnDesc: Input. A previously initialized RNN descriptor
+//   - xDesc: Input. A single RNN data descriptor that specifies current RNN data dimensions: maxSeqLength and batchSize
 //
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was detected.
@@ -996,9 +1223,13 @@ func (h Handle) RNNTempSpaceSizes(rnnDesc RNNDescriptor, fwdMode ForwardMode, xD
 
 // RNNWeightParams is used to obtain the start address and shape of every RNN weight matrix and bias vector in each pseudo-layer within the recurrent neural network model.
 //
-//   - rnnDesc: was set to
+//   - rnnDesc: Input. A previously initialized RNN descriptor
+//   - pseudoLayer: Input. The pseudo-layer to query. In unidirectional RNNs, a pseudo-layer is the same as a physical layer ( pseudoLayer=0 is the RNN input layer, pseudoLayer=1 is the first hidden layer). In bidirectional RNNs, there are twice as many pseudo-layers in comparison to physical layers:
+//   - weightSpaceSize: Input. Address of the weight space buffer. Starting from cuDNN version 9.1, this parameter can be NULL. This allows you to retrieve weight/bias offsets instead of the actual pointers within the buffer. For best performance, the recommended alignment of the weight space buffer should be 256 B or the same as returned by cudaMalloc()
 //   - weightSpace: Input. Pointer to the weight space buffer
-//   - linLayerID: Input. Weight matrix or bias vector linear ID index
+//   - linLayerID: Input. Weight matrix or bias vector linear ID index. If cellMode in rnnDesc was set to [RnnRelu] or [RnnTanh]: If cellMode in rnnDesc was set to [Lstm]: If cellMode in rnnDesc was set to [Gru]: For more information on modes and bias modes, refer to [RNNMode]
+//   - mDesc: Output. Handle to a previously created tensor descriptor. The shape of the corresponding weight matrix is returned in this descriptor in the following format: dimA [3] = {1, rows, cols}. The reported number of tensor dimensions is zero when the weight matrix does not exist. This situation occurs for input GEMM matrices of the first layer when [SkipInput] is selected or for the LSTM projection matrix when the feature is disabled
+//   - bDesc: Output. Handle to a previously created tensor descriptor. The shape of the corresponding bias vector is returned in this descriptor in the following format: dimA [3] = {1, rows, 1}. The reported number of tensor dimensions is zero when the bias vector does not exist
 //
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was encountered. For example, the value of pseudoLayer is out of range or linLayerID is negative or larger than 8.
@@ -1072,7 +1303,9 @@ func (h Handle) Stream() (driver.Stream, error) {
 
 // Im2Col constructs the A matrix necessary to perform a forward pass of GEMM convolution.
 //
-// This function constructs the A matrix necessary to perform a forward pass of GEMM convolution. This A matrix has a height of batch_size*y_height*y_width and width of input_channels*filter_height*filter_width, where: The A matrix is stored in format HW fully-packed in GPU memory.
+// This function constructs the A matrix necessary to perform a forward pass of GEMM convolution.
+// This A matrix has a height of batch_size*y_height*y_width and width of input_channels*filter_height*filter_width, where:
+// The A matrix is stored in format HW fully-packed in GPU memory.
 //
 //   - convDesc: Input. Handle to a previously initialized convolution descriptor
 //   - colBuffer: Output. Data pointer to GPU memory storing the output matrix
@@ -1095,15 +1328,21 @@ func (h Handle) Im2Col(xDesc TensorDescriptor, x driver.DevicePtr, wDesc FilterD
 // Supported formats are: positive-strided, NCHW and NHWC for 4D x and y, and only NCDHW DHW-packed for 5D (for both x and y). Only non-overlapping 4D and 5D tensors are supported. NCHW layout is preferred for performance.
 //
 //   - normDesc: Input. Handle to a previously initialized LRN parameter descriptor
-//   - y: data
-//   - dy: (including error backpropagation)
-//   - x: data. Note that these values are not modified during backpropagation
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - dx: (including error backpropagation)
+//   - lrnMode: Input. LRN layer mode of operation. Currently only [LrnCrossChannelDIM1] is implemented. Normalization is performed along the tensor’s dimA [1]
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Tensor descriptor and pointer in device memory for the layer’s y data
+//   - y: Input. Tensor descriptor and pointer in device memory for the layer’s y data
+//   - dyDesc: Input. Tensor descriptor and pointer in device memory for the layer’s input cumulative loss differential data dy (including error backpropagation)
+//   - dy: Input. Tensor descriptor and pointer in device memory for the layer’s input cumulative loss differential data dy (including error backpropagation)
+//   - xDesc: Input. Tensor descriptor and pointer in device memory for the layer’s x data. Note that these values are not modified during backpropagation
+//   - x: Input. Tensor descriptor and pointer in device memory for the layer’s x data. Note that these values are not modified during backpropagation
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dxDesc: Output. Tensor descriptor and pointer in device memory for the layer’s resulting cumulative loss differential data dx (including error backpropagation)
+//   - dx: Output. Tensor descriptor and pointer in device memory for the layer’s resulting cumulative loss differential data dx (including error backpropagation)
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the tensor pointers x, y is NULL. Number of input tensor dimensions is 2 or less. LRN descriptor parameters are outside of their valid ranges. One of the tensor parameters is 5D but is not in NCDHW DHW-packed format.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include: Any of the input tensor datatypes is not the same as any of the output tensor datatype. Any pairwise tensor dimensions mismatch for x, y, dx, or dy. Any tensor parameters strides are negative.
 //   - [Success]: The computation was performed successfully.
 //
 // Wraps cudnnLRNCrossChannelBackward.
@@ -1116,14 +1355,17 @@ func (h Handle) LRNCrossChannelBackward(normDesc LRNDescriptor, lrnMode LRNMode,
 // Supported formats are: positive-strided, NCHW and NHWC for 4D x and y, and only NCDHW DHW-packed for 5D (for both x and y). Only non-overlapping 4D and 5D tensors are supported. NCHW layout is preferred for performance.
 //
 //   - normDesc: Input. Handle to a previously initialized LRN parameter descriptor
+//   - lrnMode: Input. LRN layer mode of operation. Currently only [LrnCrossChannelDIM1] is implemented. Normalization is performed along the tensor’s dimA [1]
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Tensor descriptor objects for the input and output tensors
 //   - x: Input. Input tensor data pointer in device memory
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - yDesc: Input. s. Tensor descriptor objects for the input and output tensors
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Tensor descriptor objects for the input and output tensors
 //   - y: Output. Output tensor data pointer in device memory
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the tensor pointers x, y is NULL. Number of input tensor dimensions is 2 or less. LRN descriptor parameters are outside of their valid ranges. One of the tensor parameters is 5D but is not in NCDHW DHW-packed format.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include: Any of the input tensor datatypes is not the same as any of the output tensor datatype. x and y tensor dimensions mismatch. Any tensor parameters strides are negative.
 //   - [Success]: The computation was performed successfully.
 //
 // Wraps cudnnLRNCrossChannelForward.
@@ -1151,14 +1393,24 @@ func (h Handle) MakeFusedOpsPlan(plan FusedOpsPlan, constPack FusedOpsConstParam
 
 // MultiHeadAttnBackwardData computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V.
 //
-// This function computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn as an input (with all other parameters and inputs constant), and outputs vector χϵRm, then [Handle.MultiHeadAttnBackwardData] computes the result of (∂yi/∂xj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂xj is the mxn Jacobian matrix of F(x). The input is supplied via the dout argument and gradient results for Q, K, V are written to the dqueries, dkeys, and dvalues buffers. The [Handle.MultiHeadAttnBackwardData] function does not output partial derivatives for residual connections because this result is equal to δout. If the multihead attention model enables residual connections sourced directly from Q, then the dout tensor needs to be added to dqueries to obtain the correct result of the latter. This operation is demonstrated in the cuDNN multiHeadAttention sample code. The [Handle.MultiHeadAttnBackwardData] function must be invoked after [Handle.MultiHeadAttnForward]. The loWinIdx[], hiWinIdx[], queries, keys, values, weights, and reserveSpace arguments should be the same as in the [Handle.MultiHeadAttnForward] call. devSeqLengthsDQDO[] and devSeqLengthsDKDV[] device arrays should contain the same start and end attention window indices as devSeqLengthsQO[] and devSeqLengthsKV[] arrays in the forward function invocation.
+// This function computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn as an input (with all other parameters and inputs constant), and outputs vector χϵRm, then [Handle.MultiHeadAttnBackwardData] computes the result of (∂yi/∂xj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂xj is the mxn Jacobian matrix of F(x). The input is supplied via the dout argument and gradient results for Q, K, V are written to the dqueries, dkeys, and dvalues buffers.
+// The [Handle.MultiHeadAttnBackwardData] function does not output partial derivatives for residual connections because this result is equal to δout. If the multihead attention model enables residual connections sourced directly from Q, then the dout tensor needs to be added to dqueries to obtain the correct result of the latter. This operation is demonstrated in the cuDNN multiHeadAttention sample code.
+// The [Handle.MultiHeadAttnBackwardData] function must be invoked after [Handle.MultiHeadAttnForward]. The loWinIdx[], hiWinIdx[], queries, keys, values, weights, and reserveSpace arguments should be the same as in the [Handle.MultiHeadAttnForward] call. devSeqLengthsDQDO[] and devSeqLengthsDKDV[] device arrays should contain the same start and end attention window indices as devSeqLengthsQO[] and devSeqLengthsKV[] arrays in the forward function invocation.
 //
 //   - attnDesc: Input. A previously initialized attention descriptor
 //   - doDesc: Input. Descriptor for the δout gradients (vectors of partial derivatives of the loss function with respect to the multihead attention outputs)
 //   - dout: Input. Pointer to the δout gradient data in the device memory
-//   - queries: data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
-//   - keys: data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
-//   - values: data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
+//   - dqDesc: Input. Descriptor for queries and dqueries sequence data
+//   - dqueries: Output. Device pointer to gradients of the loss function computed with respect to queries vectors
+//   - queries: Input. Pointer to queries data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
+//   - dkDesc: Input. Descriptor for keys and dkeys sequence data
+//   - dkeys: Output. Device pointer to gradients of the loss function computed with respect to keys vectors
+//   - keys: Input. Pointer to keys data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
+//   - dvDesc: Input. Descriptor for values and dvalues sequence data
+//   - dvalues: Output. Device pointer to gradients of the loss function computed with respect to values vectors
+//   - values: Input. Pointer to values data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
+//   - weightSizeInBytes: Input. Size of the weight buffer in bytes where all multihead attention trainable parameters are stored
+//   - weights: Input. Address of the weight buffer in the device memory
 //   - workSpaceSizeInBytes: Input. Size of the workspace buffer in bytes used for temporary API storage
 //   - workSpace: Input. / Output. Address of the workspace buffer in the device memory
 //   - reserveSpaceSizeInBytes: Input. Size of the reserve-space buffer in bytes used for data exchange between forward and backward (gradient) API calls
@@ -1181,16 +1433,23 @@ func (h Handle) MultiHeadAttnBackwardData(attnDesc AttnDescriptor, loWinIdx *int
 
 // MultiHeadAttnBackwardWeights computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases.
 //
-// This function computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn of “flatten” weights or biases as an input (with all other parameters and inputs fixed), and outputs vector χϵRm, then [Handle.MultiHeadAttnBackwardWeights] computes the result of (∂yi/∂wj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂wj is the mxn Jacobian matrix of F(w). The δout input is supplied via the dout argument. All gradient results with respect to weights and biases are written to the dweights buffer. The size and the organization of the dweights buffer is the same as the weights buffer that holds multihead attention weights and biases. The cuDNN multiHeadAttention sample code demonstrates how to access those weights. Gradient of the loss function with respect to weights or biases is typically computed over multiple batches. In such a case, partial results computed for each batch should be summed together. The addGrad argument specifies if the gradients from the current batch should be added to previously computed results or the dweights buffer should be overwritten with the new results. The [Handle.MultiHeadAttnBackwardWeights] function should be invoked after [Handle.MultiHeadAttnBackwardData]. The queries, keys, values, weights, and reserveSpace arguments should be the same as in [Handle.MultiHeadAttnForward] and [Handle.MultiHeadAttnBackwardData] calls. The dout argument should be the same as in [Handle.MultiHeadAttnBackwardData].
+// This function computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn of “flatten” weights or biases as an input (with all other parameters and inputs fixed), and outputs vector χϵRm, then [Handle.MultiHeadAttnBackwardWeights] computes the result of (∂yi/∂wj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂wj is the mxn Jacobian matrix of F(w). The δout input is supplied via the dout argument.
+// All gradient results with respect to weights and biases are written to the dweights buffer. The size and the organization of the dweights buffer is the same as the weights buffer that holds multihead attention weights and biases. The cuDNN multiHeadAttention sample code demonstrates how to access those weights.
+// Gradient of the loss function with respect to weights or biases is typically computed over multiple batches. In such a case, partial results computed for each batch should be summed together. The addGrad argument specifies if the gradients from the current batch should be added to previously computed results or the dweights buffer should be overwritten with the new results.
+// The [Handle.MultiHeadAttnBackwardWeights] function should be invoked after [Handle.MultiHeadAttnBackwardData]. The queries, keys, values, weights, and reserveSpace arguments should be the same as in [Handle.MultiHeadAttnForward] and [Handle.MultiHeadAttnBackwardData] calls. The dout argument should be the same as in [Handle.MultiHeadAttnBackwardData].
 //
 //   - attnDesc: Input. A previously initialized attention descriptor
 //   - addGrad: Input. Weight gradient output mode
 //   - qDesc: Input. Descriptor for the query sequence data
-//   - queries: sequence data in the device memory
-//   - keys: sequence data in the device memory
-//   - values: sequence data in the device memory
+//   - queries: Input. Pointer to queries sequence data in the device memory
+//   - kDesc: Input. Descriptor for the keys sequence data
+//   - keys: Input. Pointer to keys sequence data in the device memory
+//   - vDesc: Input. Descriptor for the values sequence data
+//   - values: Input. Pointer to values sequence data in the device memory
 //   - doDesc: Input. Descriptor for the δout gradients (vectors of partial derivatives of the loss function with respect to the multihead attention outputs)
 //   - dout: Input. Pointer to the δout gradient vectors in the device memory
+//   - weightSizeInBytes: Input. Size of the weights and dweights buffers in bytes
+//   - weights: Input. Address of the weight buffer in the device memory
 //   - dweights: Output. Address of the weight gradient buffer in the device memory
 //   - workSpaceSizeInBytes: Input. Size of the workspace buffer in bytes used for temporary API storage
 //   - workSpace: Input. / Output. Address of the workspace buffer in the device memory
@@ -1213,24 +1472,42 @@ func (h Handle) MultiHeadAttnBackwardWeights(attnDesc AttnDescriptor, addGrad Wg
 
 // MultiHeadAttnForward The [Handle.MultiHeadAttnForward] function computes the forward responses of the multihead attention layer.
 //
-// When reserveSpaceSizeInBytes=0 and reserveSpace=NULL, the function operates in the inference mode in which backward (gradient) functions are not invoked, otherwise, the training mode is assumed. In the training mode, the reserve space is used to pass intermediate results from [Handle.MultiHeadAttnForward] to [Handle.MultiHeadAttnBackwardData] and from [Handle.MultiHeadAttnBackwardData] to [Handle.MultiHeadAttnBackwardWeights]. In the inference mode, the currIdx specifies the time-step or sequence index of the embedding vectors to be processed. In this mode, the user can perform one iteration for time-step zero ( currIdx=0), then update Q, K, V vectors and the attention window, and execute the next step ( currIdx=1). The iterative process can be repeated for all time-steps. When all Q time-steps are available (for example, in the training mode or in the inference mode on the encoder side in self-attention), the user can assign a negative value to currIdx and the [Handle.MultiHeadAttnForward] API will automatically sweep through all Q time-steps. The loWinIdx[] and hiWinIdx[] host arrays specify the attention window size for each Q time-step. In a typical self-attention case, the user must include all previously visited embedding vectors but not the current or future vectors. In this situation, the user should set: When currIdx is negative in [Handle.MultiHeadAttnForward], the loWinIdx[] and hiWinIdx[] arrays must be fully initialized for all time-steps. When [Handle.MultiHeadAttnForward] is invoked with currIdx=0, currIdx=1, currIdx=2, and so on, then the user can update loWinIdxcurrIdx and hiWinIdxcurrIdx elements only before invoking the forward response function. All other elements in the loWinIdx[] and hiWinIdx[] arrays will not be accessed. Any adaptive attention window scheme can be implemented that way. Use the following settings when the attention window should be the maximum size, for example, in cross-attention: The maxSeqLenK value above should be equal to or larger than dimA[[SeqdataTimeDim]] in the kDesc descriptor. A good choice is to use maxSeqLenK=INT_MAX from limits.h. devSeqLengthsQO[] and devSeqLengthsKV[] are pointers to device (not host) arrays with Q, O, and K, V sequence lengths. Note that the same information is also passed in the corresponding descriptors of type [SeqDataDescriptor] on the host side. The need for extra device arrays comes from the asynchronous nature of cuDNN calls and limited size of the constant memory dedicated to GPU kernel arguments. When the [Handle.MultiHeadAttnForward] API returns, the sequence length arrays stored in the descriptors can be immediately modified for the next iteration. However, the GPU kernels launched by the forward call may not have started at this point. For this reason, copies of sequence arrays are needed on the device side to be accessed directly by GPU kernels. Those copies cannot be created inside the [Handle.MultiHeadAttnForward] function for very large K, V inputs without the device memory allocation and CUDA stream synchronization. To reduce the [Handle.MultiHeadAttnForward] API overhead, devSeqLengthsQO[] and devSeqLengthsKV[] device arrays are not validated to contain the same settings as seqLengthArray[] in the sequence data descriptors. Sequence lengths in the kDesc and vDesc descriptors should be the same. Similarly, sequence lengths in the qDesc and oDesc descriptors should match. The user can define six different data layouts in the qDesc, kDesc, vDesc, and oDesc descriptors. Refer to the [SeqDataDescriptor.Set] function for the discussion of those layouts. All multihead attention API calls require that the same layout is used in all sequence data descriptors. In the transformer model, the multihead attention block is tightly coupled with the layer normalization and residual connections. [Handle.MultiHeadAttnForward] does not encompass the layer normalization but it can be used to handle residual connections as depicted in the following figure. Multihead Attention Block is Tightly Coupled with the Layer Normalization and Residual Connections Queries and residuals share the same qDesc descriptor in [Handle.MultiHeadAttnForward]. When residual connections are disabled, the residuals pointer should be NULL. When residual connections are enabled, the vector length in qDesc should match the vector length specified in the oDesc descriptor, so that a vector addition is feasible. The queries, keys, and values pointers are not allowed to be NULL, even when K and V are the same inputs or Q, K, V are the same inputs.
+// When reserveSpaceSizeInBytes=0 and reserveSpace=NULL, the function operates in the inference mode in which backward (gradient) functions are not invoked, otherwise, the training mode is assumed. In the training mode, the reserve space is used to pass intermediate results from [Handle.MultiHeadAttnForward] to [Handle.MultiHeadAttnBackwardData] and from [Handle.MultiHeadAttnBackwardData] to [Handle.MultiHeadAttnBackwardWeights].
+// In the inference mode, the currIdx specifies the time-step or sequence index of the embedding vectors to be processed. In this mode, the user can perform one iteration for time-step zero ( currIdx=0), then update Q, K, V vectors and the attention window, and execute the next step ( currIdx=1). The iterative process can be repeated for all time-steps.
+// When all Q time-steps are available (for example, in the training mode or in the inference mode on the encoder side in self-attention), the user can assign a negative value to currIdx and the [Handle.MultiHeadAttnForward] API will automatically sweep through all Q time-steps.
+// The loWinIdx[] and hiWinIdx[] host arrays specify the attention window size for each Q time-step. In a typical self-attention case, the user must include all previously visited embedding vectors but not the current or future vectors. In this situation, the user should set:
+// When currIdx is negative in [Handle.MultiHeadAttnForward], the loWinIdx[] and hiWinIdx[] arrays must be fully initialized for all time-steps. When [Handle.MultiHeadAttnForward] is invoked with currIdx=0, currIdx=1, currIdx=2, and so on, then the user can update loWinIdxcurrIdx and hiWinIdxcurrIdx elements only before invoking the forward response function. All other elements in the loWinIdx[] and hiWinIdx[] arrays will not be accessed. Any adaptive attention window scheme can be implemented that way.
+// Use the following settings when the attention window should be the maximum size, for example, in cross-attention:
+// The maxSeqLenK value above should be equal to or larger than dimA [SeqdataTimeDim] in the kDesc descriptor. A good choice is to use maxSeqLenK=INT_MAX from limits.h.
+// devSeqLengthsQO[] and devSeqLengthsKV[] are pointers to device (not host) arrays with Q, O, and K, V sequence lengths. Note that the same information is also passed in the corresponding descriptors of type [SeqDataDescriptor] on the host side. The need for extra device arrays comes from the asynchronous nature of cuDNN calls and limited size of the constant memory dedicated to GPU kernel arguments. When the [Handle.MultiHeadAttnForward] API returns, the sequence length arrays stored in the descriptors can be immediately modified for the next iteration. However, the GPU kernels launched by the forward call may not have started at this point. For this reason, copies of sequence arrays are needed on the device side to be accessed directly by GPU kernels. Those copies cannot be created inside the [Handle.MultiHeadAttnForward] function for very large K, V inputs without the device memory allocation and CUDA stream synchronization.
+// To reduce the [Handle.MultiHeadAttnForward] API overhead, devSeqLengthsQO[] and devSeqLengthsKV[] device arrays are not validated to contain the same settings as seqLengthArray[] in the sequence data descriptors.
+// Sequence lengths in the kDesc and vDesc descriptors should be the same. Similarly, sequence lengths in the qDesc and oDesc descriptors should match. The user can define six different data layouts in the qDesc, kDesc, vDesc, and oDesc descriptors. Refer to the [SeqDataDescriptor.Set] function for the discussion of those layouts. All multihead attention API calls require that the same layout is used in all sequence data descriptors.
+// In the transformer model, the multihead attention block is tightly coupled with the layer normalization and residual connections. [Handle.MultiHeadAttnForward] does not encompass the layer normalization but it can be used to handle residual connections as depicted in the following figure.
+// Multihead Attention Block is Tightly Coupled with the Layer Normalization and Residual Connections
+// Queries and residuals share the same qDesc descriptor in [Handle.MultiHeadAttnForward]. When residual connections are disabled, the residuals pointer should be NULL. When residual connections are enabled, the vector length in qDesc should match the vector length specified in the oDesc descriptor, so that a vector addition is feasible.
+// The queries, keys, and values pointers are not allowed to be NULL, even when K and V are the same inputs or Q, K, V are the same inputs.
 //
 //   - attnDesc: Input. A previously initialized attention descriptor
-//   - currIdx: is zero or positive, the forward response is computed for the selected time-step only. The latter input can be used in inference mode only, to process one time-step while updating the next attention window and Q , R , K , V inputs in-between calls
+//   - currIdx: Input. Time-step in queries to process. When the currIdx argument is negative, all Q time-steps are processed. When currIdx is zero or positive, the forward response is computed for the selected time-step only. The latter input can be used in inference mode only, to process one time-step while updating the next attention window and Q, R, K, V inputs in-between calls
 //   - qDesc: Input. Descriptor for the query and residual sequence data
 //   - queries: Input. Pointer to queries data in the device memory
+//   - residuals: Input. Pointer to residual data in device memory. Set this argument to NULL if no residual connections are required
 //   - kDesc: Input. Descriptor for the keys sequence data
-//   - keys: data in the device memory
-//   - values: data in the device memory
+//   - keys: Input. Pointer to keys data in the device memory
+//   - vDesc: Input. Descriptor for the values sequence data
+//   - values: Input. Pointer to values data in the device memory
 //   - oDesc: Input. Descriptor for the multihead attention output sequence data
 //   - out: Output. Pointer to device memory where the output response should be written
+//   - weightSizeInBytes: Input. Size of the weight buffer in bytes where all multihead attention trainable parameters are stored
+//   - weights: Input. Pointer to the weight buffer in device memory
 //   - workSpaceSizeInBytes: Input. Size of the workspace buffer in bytes used for temporary API storage
 //   - workSpace: Input. / Output. Pointer to the workspace buffer in device memory
 //   - reserveSpaceSizeInBytes: Input. Size of the reserve-space buffer in bytes used for data exchange between forward and backward (gradient) API calls. This parameter should be zero in the inference mode and non-zero in the training mode
+//   - reserveSpace: Input. / Output. Pointer to the reserve-space buffer in device memory. This argument should be NULL in inference mode and non-NULL in the training mode
 //
 // Returns:
 //   - [ErrAllocFailed]: Insufficient amount of shared memory to launch a GPU kernel.
-//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include:
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include: a required input pointer was NULL currIdx was out of bound the descriptor value for attention, query, key, value, and output were incompatible with one another
 //   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
 //   - [ErrInternalError]: An inconsistent internal state was encountered.
 //   - [ErrNotSupported]: A requested option or a combination of input arguments is not supported.
@@ -1245,22 +1522,31 @@ func (h Handle) MultiHeadAttnForward(attnDesc AttnDescriptor, currIdx int32, loW
 
 // NormalizationBackward performs backward normalization layer computation that is specified by mode.
 //
-// This function performs backward normalization layer computation that is specified by mode. Per-channel normalization layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The normOps input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, dx. Higher performance for [NormPerChannel] mode can be obtained when the following conditions are true:
+// This function performs backward normalization layer computation that is specified by mode. Per-channel normalization layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper.
+// Only 4D and 5D tensors are supported.
+// The epsilon value has to be the same during training, backpropagation, and inference. This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information.
+// This function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user.
+// The normOps input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation.
+// When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, dx.
+// Higher performance for [NormPerChannel] mode can be obtained when the following conditions are true:
 //
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
-//   - normOps: input is set to either
+//   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
-//   - yData: are not needed if
-//   - dzDesc: is not needed when
-//   - normBiasData: data has to remain unchanged until this backward function is called. Note that both these parameters can be
-//   - dNormBiasData: The dimensions for this tensor descriptor are dependent on normalization mode
+//   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dyDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dzDesc: Input. Tensor descriptors and pointers in the device memory for the computed gradient output dz and dx. dzDesc is not needed when normOps is [NormOpsNorm] or [NormOpsNormActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dxDesc: Input. Tensor descriptors and pointers in the device memory for the computed gradient output dz and dx. dzDesc is not needed when normOps is [NormOpsNorm] or [NormOpsNormActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dNormScaleBiasDesc: Input. Shared tensor descriptor for the following six tensors: normScaleData, normBiasData, dNormScaleData, and dNormBiasData. The dimensions for this tensor descriptor are dependent on normalization mode. The data type of this tensor descriptor must be float for FP16 and FP32 input tensors and double for FP64 input tensors. For more information, refer to [TensorDescriptor]
 //   - epsilon: Input. Epsilon value used in normalization formula. Its value should be equal to or greater than zero. The same epsilon value should be used in forward and backward functions
-//   - savedInvVariance: The dimensions for this tensor descriptor are dependent on normalization mode
+//   - normMeanVarDesc: Input. Shared tensor descriptor for the following tensors: savedMean and savedInvVariance. The dimensions for this tensor descriptor are dependent on normalization mode. The data type of this tensor descriptor must be float for FP16 and FP32 input tensors and double for FP64 input tensors. For more information, refer to [TensorDescriptor]
+//   - activationDesc: Input. Descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation] then this activation is used, otherwise the user may pass NULL
 //   - workSpaceSizeInBytes: Input. The size of the workspace. It must be large enough to trigger the fast NHWC semi-persistent kernel by this function
-//   - reserveSpace: It must be equal or larger than the amount required by [Handle.NormalizationTrainingReserveSpaceSize]
+//   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. It must be equal or larger than the amount required by [Handle.NormalizationTrainingReserveSpaceSize]
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: Any of the pointers alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xData, dyData, dxData, normScaleData, dNormScaleData, and dNormBiasData is NULL. The number of xDesc, yDesc, or dxDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). dNormScaleBiasDesc dimensions not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for per-channel, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of savedMean, savedInvVariance pointers is NULL. epsilon value is less than zero. Dimensions or data types mismatch for any pair of xDesc, dyDesc, dxDesc, dNormScaleBiasDesc, or normMeanVarDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -1273,22 +1559,30 @@ func (h Handle) NormalizationBackward(mode NormMode, normOps NormOps, algo NormA
 
 // NormalizationForwardInference performs the forward normalization layer computation for the inference phase.
 //
-// This function performs the forward normalization layer computation for the inference phase. Per-channel normalization layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The input transformation performed by this function is defined as: The epsilon value has to be the same during training, backpropagation, and inference. For the training phase, refer to [Handle.NormalizationForwardTraining]. Higher performance can be obtained when HW-packed tensors are used for all of x and y.
+// This function performs the forward normalization layer computation for the inference phase. Per-channel normalization layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper.
+// Only 4D and 5D tensors are supported.
+// The input transformation performed by this function is defined as:
+// The epsilon value has to be the same during training, backpropagation, and inference.
+// For the training phase, refer to [Handle.NormalizationForwardTraining].
+// Higher performance can be obtained when HW-packed tensors are used for all of x and y.
 //
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
-//   - normOps: is only supported for
+//   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
-//   - xDesc: for the layer’s
-//   - x: and the final output
-//   - normBias: Input. s. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
-//   - estimatedVariance: inputs, accumulated during the training phase from the [Handle.NormalizationForwardTraining] call, should be passed as inputs here
-//   - z: should have exactly the same dimension as
-//   - yDesc: for the
-//   - y: For more information, refer to [TensorDescriptor]
+//   - xDesc: Input. Handles to the previously initialized tensor descriptors
+//   - normScaleBiasDesc: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
+//   - normScale: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
+//   - normBias: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
+//   - normMeanVarDesc: Input. Mean and variance tensors and their tensor descriptors. The estimatedMean and estimatedVariance inputs, accumulated during the training phase from the [Handle.NormalizationForwardTraining] call, should be passed as inputs here
+//   - estimatedMean: Input. Mean and variance tensors and their tensor descriptors. The estimatedMean and estimatedVariance inputs, accumulated during the training phase from the [Handle.NormalizationForwardTraining] call, should be passed as inputs here
+//   - estimatedVariance: Input. Mean and variance tensors and their tensor descriptors. The estimatedMean and estimatedVariance inputs, accumulated during the training phase from the [Handle.NormalizationForwardTraining] call, should be passed as inputs here
+//   - zDesc: Input. Tensor descriptors and pointers in device memory for residual addition to the result of the normalization operation, prior to the activation. zDesc and *z are optional and are only used when normOps is [NormOpsNormAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]. Since normOps is only supported for [NormOpsNorm], we can set these to NULL for now
+//   - activationDesc: Input. Descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation] then this activation is used, otherwise the user may pass NULL. Since normOps is only supported for [NormOpsNorm], we can set these to NULL for now
+//   - yDesc: Input. Handles to the previously initialized tensor descriptors
 //   - epsilon: Input. Epsilon value used in the normalization formula. Its value should be equal to or greater than zero
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the pointers alpha, beta, x, y, normScale, normBias, estimatedMean, and estimatedInvVariance is NULL. The number of xDesc or yDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). normScaleBiasDesc and normMeanVarDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for per-channel, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. epsilon value is less than zero. Dimensions or data types mismatch for xDesc and yDesc.
 //   - [ErrNotSupported]: A compute or data type other than what is supported was chosen, or an unknown algorithm type was chosen.
 //   - [Success]: The computation was performed successfully.
 //
@@ -1301,24 +1595,35 @@ func (h Handle) NormalizationForwardInference(mode NormMode, normOps NormOps, al
 
 // NormalizationForwardTraining performs the forward normalization layer computation for the training phase.
 //
-// This function performs the forward normalization layer computation for the training phase. Depending on mode, different normalization operations will be performed. Per-channel layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, back propagation, and inference. For the inference phase, refer to [Handle.NormalizationForwardInference]. Higher performance can be obtained when HW-packed tensors are used for both x and y. This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The normOps input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for xData, yData.
+// This function performs the forward normalization layer computation for the training phase. Depending on mode, different normalization operations will be performed. Per-channel layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper.
+// Only 4D and 5D tensors are supported.
+// The epsilon value has to be the same during training, back propagation, and inference.
+// For the inference phase, refer to [Handle.NormalizationForwardInference].
+// Higher performance can be obtained when HW-packed tensors are used for both x and y.
+// This API will trigger the new semi-persistent NHWC kernel when the following conditions are true:
+// This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user.
+// The normOps input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation.
+// Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference.
+// When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for xData, yData.
 //
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
-//   - normOps: input is set to either
+//   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
-//   - xDesc: for the layer’s
-//   - xData: and the final output
-//   - normBias: data has to remain unchanged until this backward function is called. Note that both these parameters can be
-//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows:
-//   - resultRunningVariance: (or passed as an input in inference mode) is the sample variance and is the moving average of
+//   - xDesc: Input. Handles to the previously initialized tensor descriptors
+//   - normScaleBiasDesc: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
+//   - normScale: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
+//   - normBias: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
+//   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get Cumulative Moving Average (CMA) behavior such that: CMAn = (x [1]+...+xn)/n. This is proved below:
+//   - normMeanVarDesc: Input. Tensor descriptor used for following tensors: resultRunningMean, resultRunningVariance, resultSaveMean, resultSaveInvVariance
 //   - epsilon: Input. Epsilon value used in the normalization formula. Its value should be equal to or greater than zero
-//   - yDesc: for the
-//   - yData: For more information, refer to [TensorDescriptor]
-//   - workSpaceSizeInBytes: is the size of the workspace. When
-//   - reserveSpace: Must be equal or larger than the amount required by [Handle.NormalizationTrainingReserveSpaceSize]
+//   - activationDesc: Input. The tensor descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation] then this activation is used, otherwise the user may pass NULL
+//   - zDesc: Input. Tensor descriptors and pointers in device memory for residual addition to the result of the normalization operation, prior to the activation. zDesc and *zData are optional and are only used when normOps is [NormOpsNormAddActivation], otherwise the user may pass NULL. When in use, z should have exactly the same dimension as xData and the final output yData. For more information, refer to [TensorDescriptor]
+//   - yDesc: Input. Handles to the previously initialized tensor descriptors
+//   - workSpaceSizeInBytes: Input. *workspace is a pointer to the GPU workspace, and workSpaceSizeInBytes is the size of the workspace. When *workspace is not NULL and *workSpaceSizeInBytes is large enough, and the tensor layout is NHWC and the data type configuration is supported, then this function will trigger a semi-persistent NHWC kernel for normalization. The workspace is not required to be clean. Also, the workspace does not need to remain unchanged between the forward and backward passes
+//   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. Must be equal or larger than the amount required by [Handle.NormalizationTrainingReserveSpaceSize]
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: One of the pointers alpha, beta, xData, yData, normScale, and normBias is NULL. The number of xDesc or yDesc tensor descriptor dimensions is not within the [4,5] range (only 4D and 5D tensors are supported). normScaleBiasDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for per-channel mode, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of resultSaveMean, resultSaveInvVariance pointers are NULL. Exactly one of resultRunningMean, resultRunningInvVariance pointers are NULL. epsilon value is less than zero. Dimensions or data types mismatch for xDesc or yDesc.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The computation was performed successfully.
 //
@@ -1329,19 +1634,27 @@ func (h Handle) NormalizationForwardTraining(mode NormMode, normOps NormOps, alg
 	return normalizationForwardTraining(h, mode, normOps, algo, alpha, beta, xDesc, xData, normScaleBiasDesc, normScale, normBias, exponentialAverageFactor, normMeanVarDesc, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance, activationDesc, zDesc, zData, yDesc, yData, workspace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes, groupCnt)
 }
 
-// OpTensor [TensorNchwVectC] is not supported as input tensor format.
+// OpTensor implements the equation C = op(alpha1 [0] * A, alpha2 [0] * B) + beta [0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta.
 //
-// All tensors up to dimension five (5) are supported. This routine does not support tensor formats beyond these dimensions.
+// This function implements the equation C = op(alpha1 [0] * A, alpha2 [0] * B) + beta [0] * C, given the tensors A, B, and C and the scaling factors alpha1, alpha2, and beta. The op to use is indicated by the descriptor [OpTensorDescriptor], meaning, the type of opTensorDesc. Currently-supported ops are listed by the [OpTensorOp] enum.
+// The following restrictions on the input and destination tensors apply:
+// [TensorNchwVectC] is not supported as input tensor format. All tensors up to dimension five (5) are supported. This routine does not support tensor formats beyond these dimensions.
 //
 //   - opTensorDesc: Input. Handle to a previously initialized op tensor descriptor
-//   - bDesc: descriptors, respectively
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - cDesc: descriptor
+//   - alpha1: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - aDesc: Input. Handle to a previously initialized tensor descriptor
+//   - a: Input. Pointer to data of the tensors described by the aDesc and bDesc descriptors, respectively
+//   - alpha2: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - bDesc: Input. Handle to a previously initialized tensor descriptor
+//   - b: Input. Pointer to data of the tensors described by the aDesc and bDesc descriptors, respectively
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - cDesc: Input. Handle to a previously initialized tensor descriptor
+//   - c: Input. / Output. Pointer to data of the tensor described by the cDesc descriptor
 //
 // Returns:
 //   - [ErrBadParam]: The data type of the destination tensor C is unrecognized, or the restrictions on the input and destination tensors, stated above, are not met.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include: The dimensions of the bias tensor and the output tensor dimensions are above 5. opTensorCompType is not set as stated above.
 //   - [Success]: The function executed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -1353,17 +1666,26 @@ func (h Handle) OpTensor(opTensorDesc OpTensorDescriptor, alpha1 unsafe.Pointer,
 
 // PoolingBackward computes the gradient of a pooling operation.
 //
-// This function computes the gradient of a pooling operation. As of cuDNN version 6.0, a deterministic algorithm is implemented for max backwards pooling. This algorithm can be chosen via the pooling mode enum of poolingDesc. The deterministic algorithm has been measured to be up to 50% slower than the legacy max backwards pooling algorithm, or up to 20% faster, depending upon the use case. Tensor vectorization is not supported for any tensor descriptor arguments in this function. Best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are supported.
+// This function computes the gradient of a pooling operation.
+// As of cuDNN version 6.0, a deterministic algorithm is implemented for max backwards pooling. This algorithm can be chosen via the pooling mode enum of poolingDesc. The deterministic algorithm has been measured to be up to 50% slower than the legacy max backwards pooling algorithm, or up to 20% faster, depending upon the use case.
+// Tensor vectorization is not supported for any tensor descriptor arguments in this function. Best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are supported.
 //
 //   - poolingDesc: Input. Handle to the previously initialized pooling descriptor
-//   - yDesc: Can be
-//   - xDesc: Can be
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to the previously initialized input tensor descriptor. Can be NULL for avg pooling
+//   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc. Can be NULL for avg pooling
+//   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor. Must be of type FLOAT, DOUBLE, HALF, or BFLOAT16. For more information, refer to [DataType]
+//   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyData
+//   - xDesc: Input. Handle to the previously initialized output tensor descriptor. Can be NULL for avg pooling
+//   - x: Input. Data pointer to GPU memory associated with the output tensor descriptor xDesc. Can be NULL for avg pooling
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dxDesc: Input. Handle to the previously initialized output differential tensor descriptor. Must be of type FLOAT, DOUBLE, HALF, or BFLOAT16. For more information, refer to [DataType]
+//   - dx: Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The dimensions n, c, h, w of the yDesc and dyDesc tensors differ. The strides nStride, cStride, hStride, wStride of the yDesc and dyDesc tensors differ. The dimensions n, c, h, w of the dxDesc and dxDesc tensors differ. The strides nStride, cStride, hStride, wStride of the xDesc and dxDesc tensors differ. The datatype of the four tensors differ.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples includes:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples includes: The wStride of input tensor or output tensor is not 1.
 //   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
@@ -1375,13 +1697,21 @@ func (h Handle) PoolingBackward(poolingDesc PoolingDescriptor, alpha unsafe.Poin
 
 // PoolingForward computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width.
 //
-// This function computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width. All tensor formats are supported, best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are allowed. Vectorized tensors are only supported if they have 2 spatial dimensions. The dimensions of the output tensor yDesc can be smaller or bigger than the dimensions advised by the routine [PoolingDescriptor.ForwardOutputDim2D] or [PoolingDescriptor.ForwardOutputDims]. For average pooling, the compute type is float even for integer input and output data type. Output round is nearest-even and clamp to the most negative or most positive value of type if out of range.
+// This function computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width.
+// All tensor formats are supported, best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are allowed. Vectorized tensors are only supported if they have 2 spatial dimensions.
+// The dimensions of the output tensor yDesc can be smaller or bigger than the dimensions advised by the routine [PoolingDescriptor.ForwardOutputDim2D] or [PoolingDescriptor.ForwardOutputDims].
+// For average pooling, the compute type is float even for integer input and output data type. Output round is nearest-even and clamp to the most negative or most positive value of type if out of range.
 //
 //   - poolingDesc: Input. Handle to a previously initialized pooling descriptor
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to the previously initialized input tensor descriptor. Must be of type FLOAT, DOUBLE, HALF, INT8, INT8x4, INT8x32, or BFLOAT16. For more information, refer to [DataType]
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to the previously initialized output tensor descriptor. Must be of type FLOAT, DOUBLE, HALF, INT8, INT8x4, INT8x32, or BFLOAT16. For more information, refer to [DataType]
+//   - y: Output. Data pointer to GPU memory associated with the output tensor descriptor yDesc
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The dimensions n, c of the input tensor and output tensors differ. The datatype of the input tensor and output tensors differs.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The function launched successfully.
@@ -1395,9 +1725,17 @@ func (h Handle) PoolingForward(poolingDesc PoolingDescriptor, alpha unsafe.Point
 
 // QueryRuntimeError cuDNN library functions perform extensive input argument checking before launching GPU kernels.
 //
-// When the [BatchnormSpatialPersistent] mode is selected in [Handle.BatchNormalizationForwardTraining] or [Handle.BatchNormalizationBackward], the algorithm may encounter numerical overflows where [BatchnormSpatial] performs just fine albeit at a slower speed. The user can invoke [Handle.QueryRuntimeError] to make sure numerical overflows did not occur during the kernel execution. Those issues are reported by the kernel that performs computations. [Handle.QueryRuntimeError] can be used in polling and blocking software control flows. There are two polling modes ( [ErrqueryRawcode] and [ErrqueryNonblocking]) and one blocking mode [ErrqueryBlocking]. [ErrqueryRawcode] reads the error storage location regardless of the kernel completion status. The kernel might not even start and the error storage (allocated per cuDNN handle) might be used by an earlier call. [ErrqueryNonblocking] checks if all tasks in the user stream are completed. The [Handle.QueryRuntimeError] function will return immediately and report [ErrRuntimeInProgress] in rstatus if some tasks in the user stream are pending. Otherwise, the function will copy the remote kernel error code to rstatus. In the blocking mode ( [ErrqueryBlocking]), the function waits for all tasks to drain in the user stream before reporting the remote kernel error code. The blocking flavor can be further adjusted by calling cudaSetDeviceFlags with the cudaDeviceScheduleSpin, cudaDeviceScheduleYield, or cudaDeviceScheduleBlockingSync flag. [ErrqueryNonblocking] and [ErrqueryBlocking] modes should not be used when the user stream is changed in the cuDNN handle, meaning, [Handle.SetStream] is invoked between functions that report runtime kernel errors and the [Handle.QueryRuntimeError] function. The remote error status reported in rstatus can be set to: [Success], [ErrRuntimeInProgress], or [ErrRuntimeFpOverflow]. The remote kernel error is automatically cleared by [Handle.QueryRuntimeError]. The [Handle.QueryRuntimeError] function should be used in conjunction with [Handle.BatchNormalizationForwardTraining] and [Handle.BatchNormalizationBackward] when the [BatchNormMode] argument is [BatchnormSpatialPersistent].
+// When the [BatchnormSpatialPersistent] mode is selected in [Handle.BatchNormalizationForwardTraining] or [Handle.BatchNormalizationBackward], the algorithm may encounter numerical overflows where [BatchnormSpatial] performs just fine albeit at a slower speed. The user can invoke [Handle.QueryRuntimeError] to make sure numerical overflows did not occur during the kernel execution. Those issues are reported by the kernel that performs computations.
+// [Handle.QueryRuntimeError] can be used in polling and blocking software control flows. There are two polling modes ( [ErrqueryRawcode] and [ErrqueryNonblocking]) and one blocking mode [ErrqueryBlocking].
+// [ErrqueryRawcode] reads the error storage location regardless of the kernel completion status. The kernel might not even start and the error storage (allocated per cuDNN handle) might be used by an earlier call.
+// [ErrqueryNonblocking] checks if all tasks in the user stream are completed. The [Handle.QueryRuntimeError] function will return immediately and report [ErrRuntimeInProgress] in rstatus if some tasks in the user stream are pending. Otherwise, the function will copy the remote kernel error code to rstatus.
+// In the blocking mode ( [ErrqueryBlocking]), the function waits for all tasks to drain in the user stream before reporting the remote kernel error code. The blocking flavor can be further adjusted by calling cudaSetDeviceFlags with the cudaDeviceScheduleSpin, cudaDeviceScheduleYield, or cudaDeviceScheduleBlockingSync flag.
+// [ErrqueryNonblocking] and [ErrqueryBlocking] modes should not be used when the user stream is changed in the cuDNN handle, meaning, [Handle.SetStream] is invoked between functions that report runtime kernel errors and the [Handle.QueryRuntimeError] function.
+// The remote error status reported in rstatus can be set to: [Success], [ErrRuntimeInProgress], or [ErrRuntimeFpOverflow]. The remote kernel error is automatically cleared by [Handle.QueryRuntimeError].
+// The [Handle.QueryRuntimeError] function should be used in conjunction with [Handle.BatchNormalizationForwardTraining] and [Handle.BatchNormalizationBackward] when the [BatchNormMode] argument is [BatchnormSpatialPersistent].
 //
 //   - mode: Input. Remote error query mode
+//   - tag: Input. /Output. Currently, this argument should be NULL
 //
 // Returns:
 //   - [ErrBadParam]: Invalid input argument.
@@ -1414,21 +1752,33 @@ func (h Handle) QueryRuntimeError(mode ErrQueryMode, tag *RuntimeTag) (rstatus R
 
 // RNNBackwardData computes exact, first-order derivatives of the RNN model with respect to its inputs: x, hx and for the LSTM cell type also cx.
 //
-// Locations of x, y, hx, cx, hy, cy, dx, dy, dhx, dcx, dhy, and dcy signals a multi-layer RNN model are shown in the following figure. Note that internal RNN signals (between time-steps and between layers) are not exposed by the [Handle.RNNBackwardData] function. Locations of x, y, hx, cx, hy, cy, dx, dy, dhx, dcx, dhy, and dcy Signals a Multi-Layer RNN Model Memory addresses to the primary RNN output y, the initial hidden state hx, and the initial cell state cx (for LSTM only) should point to the same data as in the preceding [Handle.RNNForward] call. The dy and dx pointers cannot be NULL. The [Handle.RNNBackwardData] function accepts any combination of dhy, dhx, dcy, dcx buffer addresses being NULL. When dhy or dcy are NULL, it is assumed that those inputs are zero. When dhx or dcx pointers are NULL, then the corresponding results are not written by [Handle.RNNBackwardData]. When all hx, dhy, dhx pointers are NULL, then the corresponding tensor descriptor hDesc can be NULL too. The same rule applies to the cx, dcy, dcx pointers and the cDesc tensor descriptor. The [Handle.RNNBackwardData] function allows the user to use padded layouts for inputs y, dy, and output dx. In padded or unpacked layouts ( [RnnDataLayoutSeqMajorUnpacked], [RnnDataLayoutBatchMajorUnpacked]) each sequence of vectors in a mini-batch has a fixed length defined by the maxSeqLength argument in the [RNNDataDescriptor.Set] function. The term “unpacked” refers here to the presence of padding vectors, and not unused address ranges between contiguous vectors. Each padded, fixed-length sequence starts from a segment of valid vectors. The valid vector count is stored in seqLengthArray passed to [RNNDataDescriptor.Set], such that 0 < seqLengthArrayi <= maxSeqLength for all sequences in a mini-batch, that is, for i=0..batchSize-1. The remaining, padding vectors make the combined sequence length equal to maxSeqLength. Both sequence-major and batch-major padded layouts are supported. In addition, a packed sequence-major layout is supported: [RnnDataLayoutSeqMajorPacked]. In the latter layout, sequences of vectors in a mini-batch are sorted in the descending order according to the sequence lengths. First all vectors for time step zero are stored. They are followed by all vectors for time step one, and so on. This layout uses no padding vectors. The same layout type must be specified in xDesc and yDesc descriptors. Two host arrays named seqLengthArray in xDesc and yDesc RNN data descriptors must be the same. In addition, a copy of seqLengthArray in the device memory must be passed via the devSeqLengths argument. This array is supplied directly to GPU kernels. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNBackwardData] function. The [Handle.RNNBackwardData] function does not verify that sequence lengths stored in devSeqLengths in GPU memory are the same as in xDesc and yDesc descriptors in CPU memory. Sequence length arrays from xDesc and yDesc descriptors are checked for consistency, however. The [Handle.RNNBackwardData] function must be called after [Handle.RNNForward]. The [Handle.RNNForward] function should be invoked with the fwdMode argument of type [ForwardMode] set to [FwdModeTraining].
+// Locations of x, y, hx, cx, hy, cy, dx, dy, dhx, dcx, dhy, and dcy signals a multi-layer RNN model are shown in the following figure. Note that internal RNN signals (between time-steps and between layers) are not exposed by the [Handle.RNNBackwardData] function.
+// Locations of x, y, hx, cx, hy, cy, dx, dy, dhx, dcx, dhy, and dcy Signals a Multi-Layer RNN Model
+// Memory addresses to the primary RNN output y, the initial hidden state hx, and the initial cell state cx (for LSTM only) should point to the same data as in the preceding [Handle.RNNForward] call. The dy and dx pointers cannot be NULL.
+// The [Handle.RNNBackwardData] function accepts any combination of dhy, dhx, dcy, dcx buffer addresses being NULL. When dhy or dcy are NULL, it is assumed that those inputs are zero. When dhx or dcx pointers are NULL, then the corresponding results are not written by [Handle.RNNBackwardData]. When all hx, dhy, dhx pointers are NULL, then the corresponding tensor descriptor hDesc can be NULL too. The same rule applies to the cx, dcy, dcx pointers and the cDesc tensor descriptor.
+// The [Handle.RNNBackwardData] function allows the user to use padded layouts for inputs y, dy, and output dx. In padded or unpacked layouts ( [RnnDataLayoutSeqMajorUnpacked], [RnnDataLayoutBatchMajorUnpacked]) each sequence of vectors in a mini-batch has a fixed length defined by the maxSeqLength argument in the [RNNDataDescriptor.Set] function. The term “unpacked” refers here to the presence of padding vectors, and not unused address ranges between contiguous vectors.
+// Each padded, fixed-length sequence starts from a segment of valid vectors. The valid vector count is stored in seqLengthArray passed to [RNNDataDescriptor.Set], such that 0 < seqLengthArrayi <= maxSeqLength for all sequences in a mini-batch, that is, for i=0..batchSize-1. The remaining, padding vectors make the combined sequence length equal to maxSeqLength. Both sequence-major and batch-major padded layouts are supported. In addition, a packed sequence-major layout is supported: [RnnDataLayoutSeqMajorPacked].
+// In the latter layout, sequences of vectors in a mini-batch are sorted in the descending order according to the sequence lengths. First all vectors for time step zero are stored. They are followed by all vectors for time step one, and so on. This layout uses no padding vectors.
+// The same layout type must be specified in xDesc and yDesc descriptors.
+// Two host arrays named seqLengthArray in xDesc and yDesc RNN data descriptors must be the same. In addition, a copy of seqLengthArray in the device memory must be passed via the devSeqLengths argument. This array is supplied directly to GPU kernels. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNBackwardData] function.
+// The [Handle.RNNBackwardData] function does not verify that sequence lengths stored in devSeqLengths in GPU memory are the same as in xDesc and yDesc descriptors in CPU memory. Sequence length arrays from xDesc and yDesc descriptors are checked for consistency, however.
+// The [Handle.RNNBackwardData] function must be called after [Handle.RNNForward]. The [Handle.RNNForward] function should be invoked with the fwdMode argument of type [ForwardMode] set to [FwdModeTraining].
 //
 //   - rnnDesc: Input. A previously initialized RNN descriptor
-//   - devSeqLengths: should be
-//   - yDesc: The parameter
-//   - dy: arguments cannot be
-//   - xDesc: The third dimension must match the
-//   - hDesc: tensor descriptor. If a
-//   - hx: or
-//   - dhy: arguments, the corresponding buffer is assumed to contain all zeros
-//   - dhx: the back-propagated derivatives are not saved
-//   - cDesc: tensor descriptor. If a
-//   - cx: or
-//   - dcy: arguments, the corresponding buffer is assumed to contain all zeros
-//   - dcx: the back-propagated derivatives are not saved
+//   - devSeqLengths: Input. A copy of seqLengthArray from xDesc or yDesc RNN data descriptors. The devSeqLengths array must be stored in GPU memory as it is accessed asynchronously by GPU kernels, possibly after the [Handle.RNNBackwardData] function exists. In cuDNN 8.9.1 and later versions, devSeqLengths should be NULL
+//   - yDesc: Input. A previously initialized descriptor corresponding to the RNN model primary output. The dataType, layout, maxSeqLength, batchSize, and seqLengthArray need to match that of xDesc
+//   - y: Input. Data pointers to GPU buffers holding the RNN model primary output and gradient deltas (gradient of the loss function with respect to y). The y output should be produced by the preceding [Handle.RNNForward] call. The y and dy vectors are expected to be laid out in memory according to the layout specified by yDesc. The elements in the tensor (including elements in padding vectors) must be densely packed. The y and dy arguments cannot be NULL
+//   - dy: Input. Data pointers to GPU buffers holding the RNN model primary output and gradient deltas (gradient of the loss function with respect to y). The y output should be produced by the preceding [Handle.RNNForward] call. The y and dy vectors are expected to be laid out in memory according to the layout specified by yDesc. The elements in the tensor (including elements in padding vectors) must be densely packed. The y and dy arguments cannot be NULL
+//   - xDesc: Input. A previously initialized RNN data descriptor corresponding to the gradient of the loss function with respect to the RNN primary model input. The dataType, layout, maxSeqLength, batchSize, and seqLengthArray must match that of yDesc. The parameter vectorSize must match the inputSize argument passed to the [RNNDescriptor.Set] function
+//   - dx: Output. Data pointer to GPU memory where back-propagated gradients of the loss function with respect to the RNN primary input x should be stored. The vectors are expected to be arranged in memory according to the layout specified by xDesc. The elements in the tensor (including padding vectors) must be densely packed. This argument cannot be NULL
+//   - hDesc: Input. A tensor descriptor describing the initial RNN hidden state hx and gradients of the loss function with respect to the initial of the final hidden state. Hidden state data and the corresponding gradients are fully packed. The first dimension of the tensor depends on the dirMode argument passed to the [RNNDescriptor.Set] function. The second dimension must match the batchSize parameter described in xDesc. The third dimension depends on whether RNN mode is [Lstm] and whether the LSTM projection is enabled. Specifically:
+//   - hx: Input. Addresses of GPU buffers with the RNN initial hidden state hx and gradient deltas dhy. Data dimensions are described by the hDesc tensor descriptor. If a NULL pointer is passed in hx or dhy arguments, the corresponding buffer is assumed to contain all zeros
+//   - dhy: Input. Addresses of GPU buffers with the RNN initial hidden state hx and gradient deltas dhy. Data dimensions are described by the hDesc tensor descriptor. If a NULL pointer is passed in hx or dhy arguments, the corresponding buffer is assumed to contain all zeros
+//   - dhx: Output. Pointer to the GPU buffer where first-order derivatives corresponding to initial hidden state variables should be stored. Data dimensions are described by the hDesc tensor descriptor. If a NULL pointer is assigned to dhx, the back-propagated derivatives are not saved
+//   - cDesc: Input. For LSTM networks only. A tensor descriptor describing the initial cell state cx and gradients of the loss function with respect to the initial of the final cell state. Cell state data are fully packed. The first dimension of the tensor depends on the dirMode argument passed to the [RNNDescriptor.Set] call. The second tensor dimension must match the batchSize parameter in xDesc. The third dimension must match the hiddenSize argument passed to the [RNNDescriptor.Set] call
+//   - cx: Input. For LSTM networks only. Addresses of GPU buffers with the initial LSTM state data and gradient deltas dcy. Data dimensions are described by the cDesc tensor descriptor. If a NULL pointer is passed in cx or dcy arguments, the corresponding buffer is assumed to contain all zeros
+//   - dcy: Input. For LSTM networks only. Addresses of GPU buffers with the initial LSTM state data and gradient deltas dcy. Data dimensions are described by the cDesc tensor descriptor. If a NULL pointer is passed in cx or dcy arguments, the corresponding buffer is assumed to contain all zeros
+//   - dcx: Output. For LSTM networks only. Pointer to the GPU buffer where first-order derivatives corresponding to initial LSTM state variables should be stored. Data dimensions are described by the cDesc tensor descriptor. If a NULL pointer is assigned to dcx, the back-propagated derivatives are not saved
 //   - weightSpaceSize: Input. Specifies the size in bytes of the provided weight space buffer
 //   - weightSpace: Input. Address of the weight space buffer in GPU memory
 //   - workSpaceSize: Input. Specifies the size in bytes of the provided workspace buffer
@@ -1438,10 +1788,10 @@ func (h Handle) QueryRuntimeError(mode ErrQueryMode, tag *RuntimeTag) (rstatus R
 //
 // Returns:
 //   - [ErrAllocFailed]: The function was unable to allocate CPU memory.
-//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include:
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include: some descriptors or data buffer addresses are NULL settings in rnnDesc, xDesc, yDesc, hDesc, or cDesc descriptors are invalid weightSpaceSize, workSpaceSize, or reserveSpaceSize is too small
 //   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
 //   - [ErrMappingError]: A GPU/CUDA resource, such as a texture object, shared memory, or zero-copy memory is not available in the required size or there is a mismatch between the user resource and cuDNN internal resources. A resource mismatch may occur, for example, when calling [Handle.SetStream]. There could be a mismatch between the user provided CUDA stream and the internal CUDA events instantiated in the cuDNN handle when [Create] was invoked. This error status may not be correctable when it is related to texture dimensions, shared memory size, or zero-copy memory availability. If [ErrMappingError] is returned by [Handle.SetStream], then it is typically correctable, however, it means that the cuDNN handle was created on one GPU and the user stream passed to this function is associated with another GPU.
-//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: At least one of the following conditions are met: variable sequence length input is passed while [RnnAlgoPersistStatic] or [RnnAlgoPersistDynamic] is specified [RnnAlgoPersistStatic] or [RnnAlgoPersistDynamic] is requested on pre-Pascal devices the ‘double’ floating point type is used for input/output and the [RnnAlgoPersistStatic] algo
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNBackwardData_v8.
@@ -1451,16 +1801,20 @@ func (h Handle) RNNBackwardData(rnnDesc RNNDescriptor, devSeqLengths driver.Devi
 
 // RNNBackwardWeights computes exact, first-order derivatives of the RNN model with respect to all trainable parameters: weights and biases.
 //
-// All gradient results (∂oi/∂wj)Tδout with respect to weights and biases are written to the dweightSpace buffer. The size and the organization of the dweightSpace buffer is the same as the weightSpace buffer that holds RNN weights and biases. Gradient of the loss function with respect to weights and biases is typically computed over multiple mini-batches. In such a case, partial results computed for each mini-batch should be aggregated. The addGrad argument specifies if gradients from the current mini-batch should be added to previously computed results ( [WgradModeAdd]) or the dweightSpace buffer should be overwritten with the new results ( [WgradModeSet]). Currently, the [Handle.RNNBackwardWeights] function supports the [WgradModeAdd] mode only so the dweightSpace buffer should be zeroed by the user before invoking the routine for the first time. The same sequence lengths must be specified in the xDesc descriptor and in the device array devSeqLengths. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNBackwardWeights] function. The [Handle.RNNBackwardWeights] function should be invoked after [Handle.RNNBackwardData].
+// All gradient results (∂oi/∂wj)Tδout with respect to weights and biases are written to the dweightSpace buffer. The size and the organization of the dweightSpace buffer is the same as the weightSpace buffer that holds RNN weights and biases.
+// Gradient of the loss function with respect to weights and biases is typically computed over multiple mini-batches. In such a case, partial results computed for each mini-batch should be aggregated. The addGrad argument specifies if gradients from the current mini-batch should be added to previously computed results ( [WgradModeAdd]) or the dweightSpace buffer should be overwritten with the new results ( [WgradModeSet]). Currently, the [Handle.RNNBackwardWeights] function supports the [WgradModeAdd] mode only so the dweightSpace buffer should be zeroed by the user before invoking the routine for the first time.
+// The same sequence lengths must be specified in the xDesc descriptor and in the device array devSeqLengths. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNBackwardWeights] function.
+// The [Handle.RNNBackwardWeights] function should be invoked after [Handle.RNNBackwardData].
 //
 //   - rnnDesc: Input. A previously initialized RNN descriptor
-//   - devSeqLengths: should be
+//   - addGrad: Input. Weight gradient output mode. For more details, refer to the description of the [WgradMode] enumerated type. Currently, only the [WgradModeAdd] mode is supported by the [Handle.RNNBackwardWeights] function
+//   - devSeqLengths: Input. A copy of seqLengthArray from the xDesc RNN data descriptor. The devSeqLengths array must be stored in GPU memory as it is accessed asynchronously by GPU kernels, possibly after the [Handle.RNNBackwardWeights] function exists. In cuDNN 8.9.1 and later versions, devSeqLengths should be NULL
 //   - xDesc: Input. A previously initialized descriptor corresponding to the RNN model input data. This is the same RNN data descriptor as used in the preceding [Handle.RNNForward] and [Handle.RNNBackwardData] calls
-//   - x: should be provided in prior [Handle.RNNForward] and [Handle.RNNBackwardData] calls
+//   - x: Input. Pointer to the GPU buffer with the primary RNN input. The same buffer address x should be provided in prior [Handle.RNNForward] and [Handle.RNNBackwardData] calls
 //   - hDesc: Input. A tensor descriptor describing the initial RNN hidden state. Hidden state data are fully packed. This is the same tensor descriptor as used in prior [Handle.RNNForward] and [Handle.RNNBackwardData] calls
-//   - hx: should be provided in prior [Handle.RNNForward] and [Handle.RNNBackwardData] calls
-//   - yDesc: descriptor. Elements in the
-//   - y: tensor (including elements in padding vectors) must be densely packed
+//   - hx: Input. Pointer to the GPU buffer with the RNN initial hidden state. The same buffer address hx should be provided in prior [Handle.RNNForward] and [Handle.RNNBackwardData] calls
+//   - yDesc: Input. A previously initialized descriptor corresponding to the RNN model output data. This is the same RNN data descriptor as used in prior [Handle.RNNForward] and [Handle.RNNBackwardData] calls
+//   - y: Output. Pointer to the GPU buffer with the primary RNN output as generated by the prior [Handle.RNNForward] call. Data in the y buffer are described by the yDesc descriptor. Elements in the y tensor (including elements in padding vectors) must be densely packed
 //   - weightSpaceSize: Input. Specifies the size in bytes of the provided weight space buffer
 //   - dweightSpace: Output. Address of the weight space buffer in GPU memory
 //   - workSpaceSize: Input. Specifies the size in bytes of the provided workspace buffer
@@ -1470,7 +1824,7 @@ func (h Handle) RNNBackwardData(rnnDesc RNNDescriptor, devSeqLengths driver.Devi
 //
 // Returns:
 //   - [ErrAllocFailed]: The function was unable to allocate CPU memory
-//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include:
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include: some descriptors or data buffer addresses are NULL settings in rnnDesc, xDesc, yDesc, or hDesc descriptors are invalid weightSpaceSize, workSpaceSize, or reserveSpaceSize values are too small the addGrad argument is not equal to [WgradModeAdd]
 //   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
@@ -1482,14 +1836,26 @@ func (h Handle) RNNBackwardWeights(rnnDesc RNNDescriptor, addGrad WgradMode, dev
 
 // RNNForward This routine computes the forward response of the recurrent neural network described by rnnDesc with inputs in x, hx, cx, and weights/biases in the weightSpace buffer.
 //
-// Locations of x, y, hx, cx, hy, and cy signals in the multi-layer RNN model The next figure depicts data flow when the RNN model is bidirectional. In this mode, each RNN physical layer consists of two consecutive pseudo-layers, each with its own weights, biases, the initial hidden state hx, and for LSTM, also the initial cell state cx. Even pseudo-layers 0, 2, 4 process input vectors from left to right or in the forward ( F) direction. Odd pseudo-layers 1, 3, 5 process input vectors from right to left or in the reverse ( R) direction. Two successive pseudo-layers operate on the same input vectors, just in a different order. Pseudo-layers 0 and 1 access the original sequences stored in the x buffer. Outputs of F and R cells are concatenated so vectors fed to the next two pseudo-layers have lengths of 2x hiddenSize or 2x projSize. Input GEMMs in subsequent pseudo-layers adjust vector lengths to 1x hiddenSize. Data flow when the RNN model is bidirectional When the fwdMode parameter is set to [FwdModeTraining], the [Handle.RNNForward] function stores intermediate data required to compute first order derivatives in the reserve space buffer. Work and reserve space buffer sizes should be computed by the [Handle.RNNTempSpaceSizes] function with the same fwdMode setting as used in the [Handle.RNNForward] call. The same layout type must be specified in xDesc and yDesc descriptors. The same sequence lengths must be configured in xDesc, yDesc and in the device array devSeqLengths. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNForward] function. The [Handle.RNNForward] function does not verify that sequence lengths stored in devSeqLengths in GPU memory are the same as in xDesc and yDesc descriptors in CPU memory. Sequence length arrays from xDesc and yDesc descriptors are checked for consistency, however.
+// Locations of x, y, hx, cx, hy, and cy signals in the multi-layer RNN model
+// The next figure depicts data flow when the RNN model is bidirectional. In this mode, each RNN physical layer consists of two consecutive pseudo-layers, each with its own weights, biases, the initial hidden state hx, and for LSTM, also the initial cell state cx. Even pseudo-layers 0, 2, 4 process input vectors from left to right or in the forward ( F) direction. Odd pseudo-layers 1, 3, 5 process input vectors from right to left or in the reverse ( R) direction. Two successive pseudo-layers operate on the same input vectors, just in a different order. Pseudo-layers 0 and 1 access the original sequences stored in the x buffer. Outputs of F and R cells are concatenated so vectors fed to the next two pseudo-layers have lengths of 2x hiddenSize or 2x projSize. Input GEMMs in subsequent pseudo-layers adjust vector lengths to 1x hiddenSize.
+// Data flow when the RNN model is bidirectional
+// When the fwdMode parameter is set to [FwdModeTraining], the [Handle.RNNForward] function stores intermediate data required to compute first order derivatives in the reserve space buffer. Work and reserve space buffer sizes should be computed by the [Handle.RNNTempSpaceSizes] function with the same fwdMode setting as used in the [Handle.RNNForward] call.
+// The same layout type must be specified in xDesc and yDesc descriptors. The same sequence lengths must be configured in xDesc, yDesc and in the device array devSeqLengths. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNForward] function.
+// The [Handle.RNNForward] function does not verify that sequence lengths stored in devSeqLengths in GPU memory are the same as in xDesc and yDesc descriptors in CPU memory. Sequence length arrays from xDesc and yDesc descriptors are checked for consistency, however.
 //
 //   - rnnDesc: Input. A previously initialized RNN descriptor
-//   - devSeqLengths: should be
-//   - xDesc: The third dimension must match the
-//   - yDesc: The elements in the tensor (including elements in the padding vector) must be densely packed, and no strides are supported
-//   - hDesc: tensor descriptor. If a
-//   - cDesc: tensor descriptor. If a
+//   - fwdMode: Input. Specifies inference or training mode ( [FwdModeInference] and [FwdModeTraining]). In the training mode, additional data is stored in the reserve space buffer. This information is used in the backward pass to compute derivatives
+//   - devSeqLengths: Input. A copy of seqLengthArray from xDesc or yDesc RNN data descriptor. The devSeqLengths array must be stored in GPU memory as it is accessed asynchronously by GPU kernels, possibly after the [Handle.RNNForward] function exists. In cuDNN 8.9.1 and later versions, devSeqLengths should be NULL
+//   - xDesc: Input. A previously initialized descriptor corresponding to the RNN model primary input. The dataType, layout, maxSeqLength, batchSize, and seqLengthArray must match that of yDesc. The parameter vectorSize must match the inputSize argument passed to the [RNNDescriptor.Set] function
+//   - x: Input. Data pointer to the GPU memory associated with the RNN data descriptor xDesc. The vectors are expected to be arranged in memory according to the layout specified by xDesc. The elements in the tensor (including padding vectors) must be densely packed
+//   - yDesc: Input. A previously initialized RNN data descriptor. The dataType, layout, maxSeqLength, batchSize, and seqLengthArray must match that of xDesc. The parameter vectorSize depends on whether LSTM projection is enabled and whether the network is bidirectional. Specifically:
+//   - y: Output. Data pointer to the GPU memory associated with the RNN data descriptor yDesc. The vectors are expected to be laid out in memory according to the layout specified by yDesc. The elements in the tensor (including elements in the padding vector) must be densely packed, and no strides are supported
+//   - hDesc: Input. A tensor descriptor describing the initial or final hidden state of RNN. Hidden state data are fully packed. The first dimension of the tensor depends on the dirMode argument passed to the [RNNDescriptor.Set] function. The second dimension must match the batchSize parameter described in xDesc. The third dimension depends on whether RNN mode is [Lstm] and whether the LSTM projection is enabled. Specifically:
+//   - hx: Input. Pointer to the GPU buffer with the RNN initial hidden state. Data dimensions are described by the hDesc tensor descriptor. If a NULL pointer is passed, the initial hidden state of the network will be initialized to zero
+//   - hy: Output. Pointer to the GPU buffer where the final RNN hidden state should be stored. Data dimensions are described by the hDesc tensor descriptor. If a NULL pointer is passed, the final hidden state of the network will not be saved
+//   - cDesc: Input. For LSTM networks only. A tensor descriptor describing the initial or final cell state for LSTM networks only. Cell state data are fully packed. The first dimension of the tensor depends on the dirMode argument passed to the [RNNDescriptor.Set] call. The second tensor dimension must match the batchSize parameter in xDesc. The third dimension must match the hiddenSize argument passed to the [RNNDescriptor.Set] call
+//   - cx: Input. For LSTM networks only. Pointer to the GPU buffer with the initial LSTM state data. Data dimensions are described by the cDesc tensor descriptor. If a NULL pointer is passed, the initial cell state of the network will be initialized to zero
+//   - cy: Output. For LSTM networks only. Pointer to the GPU buffer where final LSTM state data should be stored. Data dimensions are described by the cDesc tensor descriptor. If a NULL pointer is passed, the final LSTM cell state will not be saved
 //   - weightSpaceSize: Input. Specifies the size in bytes of the provided weight space buffer
 //   - weightSpace: Input. Address of the weight space buffer in GPU memory
 //   - workSpaceSize: Input. Specifies the size in bytes of the provided workspace buffer
@@ -1499,9 +1865,9 @@ func (h Handle) RNNBackwardWeights(rnnDesc RNNDescriptor, addGrad WgradMode, dev
 //
 // Returns:
 //   - [ErrAllocFailed]: The function was unable to allocate CPU memory.
-//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include:
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include: some input descriptors are NULL at least one of the settings in rnnDesc, xDesc, yDesc, hDesc, or cDesc descriptors is invalid weightSpaceSize, workSpaceSize, or reserveSpaceSize is too small
 //   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
-//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: At least one of the following conditions are met: variable sequence length input is passed while [RnnAlgoPersistStatic] or [RnnAlgoPersistDynamic] is specified [RnnAlgoPersistStatic] or [RnnAlgoPersistDynamic] is requested on pre-Pascal devices the ‘double’ floating point type is used for input/output and the [RnnAlgoPersistStatic] algo
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNForward.
@@ -1511,16 +1877,25 @@ func (h Handle) RNNForward(rnnDesc RNNDescriptor, fwdMode ForwardMode, devSeqLen
 
 // ReduceTensor reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta.
 //
-// This function reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta. The reduction op to use is indicated by the descriptor reduceTensorDesc. Currently-supported ops are listed by the [ReduceTensorOp] enum. Each dimension of the output tensor C must match the corresponding dimension of the input tensor A or must be equal to 1. The dimensions equal to 1 indicate the dimensions of A to be reduced. The implementation will generate indices for the min and max ops only, as indicated by the [ReduceTensorIndices] enum of the reduceTensorDesc. Requesting indices for the other reduction ops results in an error. The data type of the indices is indicated by the [IndicesType] enum; currently only the 32-bit (unsigned int) type is supported. The indices returned by the implementation are not absolute indices but relative to the dimensions being reduced. The indices are also flattened, meaning, not coordinate tuples. The data types of the tensors A and C must match if of type double. In this case, alpha and beta and the computation enum of reduceTensorDesc are all assumed to be of type double. The HALF and INT8 data types may be mixed with the FLOAT data types. In these cases, the computation enum of reduceTensorDesc is required to be of type FLOAT. Up to dimension 8, all tensor formats are supported. Beyond those dimensions, this routine is not supported.
+// This function reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta. The reduction op to use is indicated by the descriptor reduceTensorDesc. Currently-supported ops are listed by the [ReduceTensorOp] enum.
+// Each dimension of the output tensor C must match the corresponding dimension of the input tensor A or must be equal to 1. The dimensions equal to 1 indicate the dimensions of A to be reduced.
+// The implementation will generate indices for the min and max ops only, as indicated by the [ReduceTensorIndices] enum of the reduceTensorDesc. Requesting indices for the other reduction ops results in an error. The data type of the indices is indicated by the [IndicesType] enum; currently only the 32-bit (unsigned int) type is supported.
+// The indices returned by the implementation are not absolute indices but relative to the dimensions being reduced. The indices are also flattened, meaning, not coordinate tuples.
+// The data types of the tensors A and C must match if of type double. In this case, alpha and beta and the computation enum of reduceTensorDesc are all assumed to be of type double.
+// The HALF and INT8 data types may be mixed with the FLOAT data types. In these cases, the computation enum of reduceTensorDesc is required to be of type FLOAT.
+// Up to dimension 8, all tensor formats are supported. Beyond those dimensions, this routine is not supported.
 //
 //   - reduceTensorDesc: Input. Handle to a previously initialized reduce tensor descriptor
 //   - indices: Output. Handle to a previously allocated space for writing indices
 //   - indicesSizeInBytes: Input. Size of the above previously allocated space
 //   - workspace: Input. Handle to a previously allocated space for the reduction implementation
 //   - workspaceSizeInBytes: Input. Size of the above previously allocated space
-//   - aDesc: descriptor
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - cDesc: descriptor
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - aDesc: Input. Handle to a previously initialized tensor descriptor
+//   - a: Input. Pointer to data of the tensor described by the aDesc descriptor
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - cDesc: Input. Handle to a previously initialized tensor descriptor
+//   - c: Input. / Output. Pointer to data of the tensor described by the cDesc descriptor
 //
 // Returns:
 //   - CUDNN_INVALID_VALUE: The allocations for the indices or workspace are insufficient.
@@ -1538,10 +1913,17 @@ func (h Handle) ReduceTensor(reduceTensorDesc ReduceTensorDescriptor, indices dr
 
 // ReorderFilterAndBias reorders the filter and bias values for tensors with data type CUDNN_DATA_INT8x32 and tensor format [TensorNchwVectC].
 //
-// This function reorders the filter and bias values for tensors with data type CUDNN_DATA_INT8x32 and tensor format [TensorNchwVectC]. It can be used to enhance the inference time by separating the reordering operation from convolution. Filter and bias tensors with data type CUDNN_DATA_INT8x32 (also implying tensor format [TensorNchwVectC]) requires permutation of output channel axes in order to take advantage of the Tensor Core IMMA instruction. This is done in every [Handle.ConvolutionForward] and [Handle.ConvolutionBiasActivationForward] call when the reorder type attribute of the convolution descriptor is set to [DefaultReorder]. Users can avoid the repeated reordering kernel call by first using this call to reorder the filter and bias tensor and call the convolution forward APIs with reorder type set to [NoReorder]. For example, convolutions in a neural network of multiple layers can require reordering of kernels at every layer, which can take up a significant fraction of the total inference time. Using this function, the reordering can be done one time on the filter and bias data. This is followed by the convolution operations at the multiple layers, which enhance the inference time.
+// This function reorders the filter and bias values for tensors with data type CUDNN_DATA_INT8x32 and tensor format [TensorNchwVectC]. It can be used to enhance the inference time by separating the reordering operation from convolution.
+// Filter and bias tensors with data type CUDNN_DATA_INT8x32 (also implying tensor format [TensorNchwVectC]) requires permutation of output channel axes in order to take advantage of the Tensor Core IMMA instruction. This is done in every [Handle.ConvolutionForward] and [Handle.ConvolutionBiasActivationForward] call when the reorder type attribute of the convolution descriptor is set to [DefaultReorder]. Users can avoid the repeated reordering kernel call by first using this call to reorder the filter and bias tensor and call the convolution forward APIs with reorder type set to [NoReorder].
+// For example, convolutions in a neural network of multiple layers can require reordering of kernels at every layer, which can take up a significant fraction of the total inference time. Using this function, the reordering can be done one time on the filter and bias data. This is followed by the convolution operations at the multiple layers, which enhance the inference time.
 //
 //   - filterDesc: Input. Descriptor for the kernel dataset
 //   - reorderType: Input. Setting to either perform reordering or not. For more information, refer to [ReorderType]
+//   - filterData: Input. Pointer to the filter (kernel) data location in the device memory
+//   - reorderedFilterData: Output. Pointer to the location in the device memory where the reordered filter data will be written to, by this function. This tensor has the same dimensions as filterData
+//   - reorderBias: Input. If > 0, then reorders the biasData also. If <= 0 then does not perform reordering operations on the biasData
+//   - biasData: Input. Pointer to the bias data location in the device memory
+//   - reorderedBiasData: Output. Pointer to the location in the device memory where the reordered biasData will be written to, by this function. This tensor has the same dimensions as biasData
 //
 // Returns:
 //   - [ErrBadParam]: The handle, filter descriptor, filter data, or reordered data is NULL. Or, if the bias reordering is requested ( reorderBias > 0), the biasData or reordered biasData is NULL. This status can also be returned if the filter dimension size is not 4.
@@ -1560,7 +1942,8 @@ func (h Handle) ReorderFilterAndBias(filterDesc FilterDescriptor, reorderType Re
 //
 // This function scales all the elements of a tensor by a given factor.
 //
-//   - yDesc: descriptor
+//   - yDesc: Input. Handle to a previously initialized tensor descriptor
+//   - y: Input. / Output. Pointer to data of the tensor described by the yDesc descriptor
 //   - alpha: Input. Pointer in Host memory to a single value that all elements of the tensor will be scaled with. For more information, refer to Scaling Parameters
 //
 // Returns:
@@ -1594,7 +1977,9 @@ func (h Handle) SetStream(streamId driver.Stream) error {
 
 // SetTensor sets all the elements of a tensor to a given value.
 //
-//   - yDesc: descriptor
+//   - yDesc: Input. Handle to a previously initialized tensor descriptor
+//   - y: Input. / Output. Pointer to data of the tensor described by the yDesc descriptor
+//   - valuePtr: Input. Pointer in host memory to a single value. All elements of the y tensor will be set to value [0]. The data type of the element in value [0] has to match the data type of tensor y
 //
 // Returns:
 //   - [ErrBadParam]: One of the provided pointers is NIL.
@@ -1609,14 +1994,21 @@ func (h Handle) SetTensor(yDesc TensorDescriptor, y driver.DevicePtr, valuePtr u
 
 // SoftmaxBackward This routine computes the gradient of the softmax function.
 //
-// In-place operation is allowed for this routine; meaning, dy and dx pointers may be equal. However, this requires dyDesc and dxDesc descriptors to be identical (particularly, the strides of the input and output must match for in-place operation to be allowed). All tensor formats are supported for all modes and algorithms with 4 and 5D tensors. Performance is expected to be highest with NCHW fully-packed tensors. For more than 5 dimensions tensors must be packed in their spatial dimensions.
+// In-place operation is allowed for this routine; meaning, dy and dx pointers may be equal. However, this requires dyDesc and dxDesc descriptors to be identical (particularly, the strides of the input and output must match for in-place operation to be allowed).
+// All tensor formats are supported for all modes and algorithms with 4 and 5D tensors. Performance is expected to be highest with NCHW fully-packed tensors. For more than 5 dimensions tensors must be packed in their spatial dimensions.
 //
 //   - mode: Input. Enumerant to specify the softmax mode
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to the previously initialized input tensor descriptor
+//   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyData
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dxDesc: Input. Handle to the previously initialized output differential tensor descriptor
+//   - dx: Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: The dimensions n, c, h, w of the yDesc, dyDesc and dxDesc tensors differ. The strides nStride, cStride, hStride, wStride of the yDesc and dyDesc tensors differ. The datatype of the three tensors differs.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The function launched successfully.
@@ -1628,13 +2020,20 @@ func (h Handle) SoftmaxBackward(algo SoftmaxAlgorithm, mode SoftmaxMode, alpha u
 
 // SoftmaxForward This routine computes the softmax function.
 //
-// In-place operation is allowed for this routine; meaning, x and y pointers may be equal. However, this requires xDesc and yDesc descriptors to be identical (particularly, the strides of the input and output must match for in-place operation to be allowed). All tensor formats are supported for all modes and algorithms with 4 and 5D tensors. Performance is expected to be highest with NCHW fully-packed tensors. For more than 5 dimensions tensors must be packed in their spatial dimensions.
+// In-place operation is allowed for this routine; meaning, x and y pointers may be equal. However, this requires xDesc and yDesc descriptors to be identical (particularly, the strides of the input and output must match for in-place operation to be allowed).
+// All tensor formats are supported for all modes and algorithms with 4 and 5D tensors. Performance is expected to be highest with NCHW fully-packed tensors. For more than 5 dimensions tensors must be packed in their spatial dimensions.
 //
 //   - mode: Input. Enumerant to specify the softmax mode
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to the previously initialized input tensor descriptor
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - y: Output. Data pointer to GPU memory associated with the output tensor descriptor yDesc
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met: [ErrExecutionFailed] The function failed to launch on the GPU.
+//   - [ErrBadParam]: At least one of the following conditions are met: The dimensions n, c, h, w of the input tensor and output tensors differ. The datatype of the input tensor and output tensors differ. The parameters algorithm or mode have an invalid enumerant value.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
 //   - [ErrNotSupported]: The function does not support the provided configuration.
 //   - [Success]: The function launched successfully.
 //
@@ -1652,9 +2051,9 @@ func (h Handle) SoftmaxForward(algo SoftmaxAlgorithm, mode SoftmaxMode, alpha un
 //   - dtheta: Output. Data pointer to GPU memory contains the output differential data
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is NULL. One of the parameters dgrid or dtheta is NULL.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples incldue:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples incldue: The dimension of the transformed tensor specified in stDesc > 4.
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfGridGeneratorBackward.
@@ -1666,12 +2065,14 @@ func (h Handle) SpatialTfGridGeneratorBackward(stDesc SpatialTransformerDescript
 //
 // Only 2D transformation is supported.
 //
-//   - stDesc: In the 4th dimension, the first coordinate is
+//   - stDesc: Input. Previously created spatial transformer descriptor object
+//   - theta: Input. Affine transformation matrix. It should be of size n*2*3 for a 2D transformation, where n is the number of images specified in stDesc
+//   - grid: Output. A grid of coordinates. It is of size n*h*w*2 for a 2D transformation, where n, h, w is specified in stDesc. In the 4th dimension, the first coordinate is x, and the second coordinate is y
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is NULL. One of the parameters grid or theta is NULL.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include: The dimension of the transformed tensor specified in stDesc > 4.
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfGridGeneratorForward.
@@ -1684,15 +2085,23 @@ func (h Handle) SpatialTfGridGeneratorForward(stDesc SpatialTransformerDescripto
 // Only 2D transformation is supported.
 //
 //   - stDesc: Input. Previously created spatial transformer descriptor object
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to the previously initialized input tensor descriptor
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dxDesc: Input. Handle to the previously initialized output differential tensor descriptor
+//   - dx: Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc
+//   - alphaDgrid: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dgrid with prior value in the destination pointer as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
+//   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyDesc
 //   - grid: Input. A grid of coordinates generated by [Handle.SpatialTfGridGeneratorForward]
-//   - betaDgrid: Input. s. Pointers to scaling factors (in host memory) used to blend the gradient outputs dgrid with prior value in the destination pointer as follows: For more information, refer to Scaling Parameters
+//   - betaDgrid: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dgrid with prior value in the destination pointer as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dgrid: Output. Data pointer to GPU memory contains the output differential data
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is NULL. One of the parameters x, dx, y, dy, grid, and dgrid is NULL. The dimension of dy differs from those specified in stDesc.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include: The dimension of transformed tensor > 4.
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfSamplerBackward.
@@ -1705,13 +2114,18 @@ func (h Handle) SpatialTfSamplerBackward(stDesc SpatialTransformerDescriptor, al
 // Only 2D transformation is supported.
 //
 //   - stDesc: Input. Previously created spatial transformer descriptor object
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to the previously initialized input tensor descriptor
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc
 //   - grid: Input. A grid of coordinates generated by [Handle.SpatialTfGridGeneratorForward]
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to the previously initialized output tensor descriptor
+//   - y: Output. Data pointer to GPU memory associated with the output tensor descriptor yDesc
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: handle is NULL. One of the parameters x, y, or grid is NULL. The dimension of dy differs from those specified in stDesc.
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU.
-//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include: The dimension of transformed tensor > 4.
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfSamplerForward.
@@ -1721,11 +2135,18 @@ func (h Handle) SpatialTfSamplerForward(stDesc SpatialTransformerDescriptor, alp
 
 // TransformFilter converts the filter between different formats, data types, or dimensions based on the described transformation.
 //
-// This function converts the filter between different formats, data types, or dimensions based on the described transformation. It can be used to convert a filter with an unsupported layout format to a filter with a supported layout format. This function copies the scaled data from the input filter srcDesc to the output tensor destDesc with a different layout. If the filter descriptors of srcDesc and destDesc have different dimensions, they must be consistent with folding and padding amount and order specified in transDesc. The srcDesc and destDesc tensors must not overlap in any way (meaning, tensors cannot be transformed in place). When performing a folding transform or a zero-padding transform, the scaling factors ( alpha, beta) should be set to (1, 0). However, unfolding transforms support any ( alpha, beta) values. This function is thread safe.
+// This function converts the filter between different formats, data types, or dimensions based on the described transformation. It can be used to convert a filter with an unsupported layout format to a filter with a supported layout format.
+// This function copies the scaled data from the input filter srcDesc to the output tensor destDesc with a different layout. If the filter descriptors of srcDesc and destDesc have different dimensions, they must be consistent with folding and padding amount and order specified in transDesc.
+// The srcDesc and destDesc tensors must not overlap in any way (meaning, tensors cannot be transformed in place).
+// When performing a folding transform or a zero-padding transform, the scaling factors ( alpha, beta) should be set to (1, 0). However, unfolding transforms support any ( alpha, beta) values. This function is thread safe.
 //
 //   - transDesc: Input. A descriptor containing the details of the requested filter transformation. For more information, refer to [TensorTransformDescriptor]
-//   - beta: )
-//   - destDesc: respectively
+//   - alpha: Input. Pointers, in the host memory, to the scaling factors used to scale the data in the input tensor srcDesc. beta is used to scale the destination tensor, while alpha is used to scale the source tensor. For more information, refer to Scaling Parameters. The beta scaling value is not honored in the folding and zero-padding cases. Unfolding supports any ( alpha, beta)
+//   - srcDesc: Input. Handles to the previously initiated filter descriptors. srcDesc and destDesc must not overlap. For more information, refer to [TensorDescriptor]
+//   - srcData: Input. Pointers, in the host memory, to the data of the tensor described by srcDesc and destDesc respectively
+//   - beta: Input. Pointers, in the host memory, to the scaling factors used to scale the data in the input tensor srcDesc. beta is used to scale the destination tensor, while alpha is used to scale the source tensor. For more information, refer to Scaling Parameters. The beta scaling value is not honored in the folding and zero-padding cases. Unfolding supports any ( alpha, beta)
+//   - destDesc: Input. Handles to the previously initiated filter descriptors. srcDesc and destDesc must not overlap. For more information, refer to [TensorDescriptor]
+//   - destData: Input. Pointers, in the host memory, to the data of the tensor described by srcDesc and destDesc respectively
 //
 // Returns:
 //   - [ErrBadParam]: A parameter is uninitialized or initialized incorrectly, or the number of dimensions is different between srcDesc and destDesc.
@@ -1744,9 +2165,12 @@ func (h Handle) TransformFilter(transDesc TensorTransformDescriptor, alpha unsaf
 //
 // This function copies the scaled data from one tensor to another tensor with a different layout. Those descriptors need to have the same dimensions but not necessarily the same strides. The input and output tensors must not overlap in any way (meaning, tensors cannot be transformed in place). This function can be used to convert a tensor with an unsupported format to a supported one.
 //
-//   - xDesc: descriptor
-//   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
-//   - yDesc: descriptor
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - xDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - x: Input. Pointer to data of the tensor described by the xDesc descriptor
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*srcValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - yDesc: Input. Handle to a previously initialized tensor descriptor. For more information, refer to [TensorDescriptor]
+//   - y: Output. Pointer to data of the tensor described by the yDesc descriptor
 //
 // Returns:
 //   - [ErrBadParam]: The dimensions n, c, h, w or the dataType of the two tensor descriptors are different.
@@ -1763,11 +2187,18 @@ func (h Handle) TransformTensor(alpha unsafe.Pointer, xDesc TensorDescriptor, x 
 
 // TransformTensorEx converts the tensor layouts between different formats.
 //
-// This function converts the tensor layouts between different formats. It can be used to convert a tensor with an unsupported layout format to a tensor with a supported layout format. This function copies the scaled data from the input tensor srcDesc to the output tensor destDesc with a different layout. The tensor descriptors of srcDesc and destDesc should have the same dimensions but need not have the same strides. The srcDesc and destDesc tensors must not overlap in any way (meaning, tensors cannot be transformed in place). When performing a folding transform or a zero-padding transform, the scaling factors ( alpha, beta) should be set to (1, 0). However, unfolding transforms support any ( alpha, beta) values. This function is thread safe.
+// This function converts the tensor layouts between different formats. It can be used to convert a tensor with an unsupported layout format to a tensor with a supported layout format.
+// This function copies the scaled data from the input tensor srcDesc to the output tensor destDesc with a different layout. The tensor descriptors of srcDesc and destDesc should have the same dimensions but need not have the same strides.
+// The srcDesc and destDesc tensors must not overlap in any way (meaning, tensors cannot be transformed in place).
+// When performing a folding transform or a zero-padding transform, the scaling factors ( alpha, beta) should be set to (1, 0). However, unfolding transforms support any ( alpha, beta) values. This function is thread safe.
 //
 //   - transDesc: Input. A descriptor containing the details of the requested tensor transformation. For more information, refer to [TensorTransformDescriptor]
-//   - beta: )
-//   - destDesc: respectively
+//   - alpha: Input. Pointers, in the host memory, to the scaling factors used to scale the data in the input tensor srcDesc. beta is used to scale the destination tensor, while alpha is used to scale the source tensor. For more information, refer to Scaling Parameters. The beta scaling value is not honored in the folding and zero-padding cases. Unfolding supports any ( alpha, beta)
+//   - srcDesc: Input. Handles to the previously initiated tensor descriptors. srcDesc and destDesc must not overlap. For more information, refer to [TensorDescriptor]
+//   - srcData: Input. Pointers, in the host memory, to the data of the tensor described by srcDesc and destDesc respectively
+//   - beta: Input. Pointers, in the host memory, to the scaling factors used to scale the data in the input tensor srcDesc. beta is used to scale the destination tensor, while alpha is used to scale the source tensor. For more information, refer to Scaling Parameters. The beta scaling value is not honored in the folding and zero-padding cases. Unfolding supports any ( alpha, beta)
+//   - destDesc: Input. Handles to the previously initiated tensor descriptors. srcDesc and destDesc must not overlap. For more information, refer to [TensorDescriptor]
+//   - destData: Input. Pointers, in the host memory, to the data of the tensor described by srcDesc and destDesc respectively
 //
 // Returns:
 //   - [ErrBadParam]: A parameter is uninitialized or initialized incorrectly, or the number of dimensions is different between srcDesc and destDesc.

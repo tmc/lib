@@ -16,9 +16,10 @@ func (s SpatialTransformerDescriptor) Destroy() error {
 //
 //   - samplerType: Input. Enumerant to specify the sampler type
 //   - dataType: Input. Data type
+//   - dimA: Input. Array of dimension nbDims containing the size of the transformed tensor for every dimension
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: Either stDesc or dimA is NULL. Either dataType or samplerType has an invalid enumerant value.
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSetSpatialTransformerNdDescriptor.

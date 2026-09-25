@@ -89,6 +89,7 @@ func (u Unit) Info() (UnitInfo, error) {
 //
 // For S-class products.
 // See [LedState] for details on allowed states.
+//
 // See also: [Unit.SetLedState]
 //
 //   - state: Reference in which to return the current LED state
@@ -121,6 +122,7 @@ func (u Unit) PsuInfo(psu *PSUInfo) error {
 // This operation takes effect immediately.
 // Current S-Class products don’t provide unique LEDs for each unit. As such, both front and back LEDs will be toggled in unison regardless of which unit is specified with this command.
 // See [LedColor] for available colors.
+//
 // See also: [Unit.LedState]
 //
 //   - color: The target LED color

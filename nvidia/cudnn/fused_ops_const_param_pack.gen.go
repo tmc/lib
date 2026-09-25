@@ -21,8 +21,8 @@ func (f FusedOpsConstParamPack) Destroy() error {
 //
 // The type of the descriptor is indicated by the enum value of paramLabel input.
 //
-//   - paramLabel: is by default
-//   - param: For more information, refer to the table in [FusedOpsConstParamLabel]
+//   - paramLabel: Input. Several types of descriptors can be retrieved by this getter function. The param input points to the descriptor itself, and this input indicates the type of the descriptor pointed to by the param input. The [FusedOpsConstParamLabel] enumerant type enables the selection of the type of the descriptor. Refer to the param description below
+//   - param: Input. Data pointer to the host memory associated with the descriptor that should be retrieved. The type of this descriptor depends on the value of paramLabel. For the given paramLabel, if the associated value inside the constPack is set to NULL or by default NULL, then cuDNN will copy the value or the opaque structure in the constPack to the host memory buffer pointed to by param. For more information, refer to the table in [FusedOpsConstParamLabel]
 //
 // Returns:
 //   - [ErrBadParam]: If either constPack, param, or isNULL is NULL; or if paramLabel is invalid.
@@ -39,7 +39,8 @@ func (f FusedOpsConstParamPack) Attribute(paramLabel FusedOpsConstParamLabel, pa
 //
 // This function sets the descriptor pointed to by the param pointer input. The type of the descriptor to be set is indicated by the enum value of the paramLabel input.
 //
-//   - paramLabel: For more information, refer to the table in [FusedOpsConstParamPack]
+//   - paramLabel: Input. Several types of descriptors can be set by this setter function. The param input points to the descriptor itself, and this input indicates the type of the descriptor pointed to by the param input. The [FusedOpsConstParamPack] enumerant type enables the selection of the type of the descriptor
+//   - param: Input. Data pointer to the host memory, associated with the specific descriptor. The type of the descriptor depends on the value of paramLabel. For more information, refer to the table in [FusedOpsConstParamPack]. If this pointer is set to NULL, then the cuDNN library will record as such. If not, then the values pointed to by this pointer (meaning, the value or the opaque structure underneath) will be copied into the constPack during [FusedOpsConstParamPack.SetAttribute] operation
 //
 // Returns:
 //   - [ErrBadParam]: If constPack is NULL, or if paramLabel or the ops setting for constPack is invalid.

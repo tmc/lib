@@ -17,52 +17,52 @@
 //
 // # BLAS3
 //
-//   - [Handle.Cgemm3m]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgemm3mStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgemm3mStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgemm3m64]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemmEx]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemmEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemmStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemmStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgemm]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgemm64]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemmGroupedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemmGroupedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemmStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemmStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dgemm]: supports the 64-bit Integer Interface.
-//   - [Handle.Dgemm64]: supports the 64-bit Integer Interface.
-//   - [Handle.DtrsmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.DtrsmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtrsm]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtrsm64]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemmEx]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemmEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemmGroupedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemmGroupedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemmStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemmStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sgemm]: supports the 64-bit Integer Interface.
-//   - [Handle.Sgemm64]: supports the 64-bit Integer Interface.
-//   - [Handle.StrsmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.StrsmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Strsm]: supports the 64-bit Integer Interface.
-//   - [Handle.Strsm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgemm3m]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgemm3m64]: supports the 64-bit Integer Interface.
-//   - [Handle.ZgemmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.ZgemmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.ZgemmStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.ZgemmStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgemm]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgemm64]: supports the 64-bit Integer Interface.
+//   - [Handle.Cgemm3m]: performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
+//   - [Handle.Cgemm3mStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.Cgemm3mStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.Cgemm3m64]: performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
+//   - [Handle.CgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.CgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.CgemmEx]: is an extension of cublasgemm().
+//   - [Handle.CgemmEx64]: is an extension of cublasgemm().
+//   - [Handle.CgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.CgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.Cgemm]: performs the matrix-matrix multiplication
+//   - [Handle.Cgemm64]: performs the matrix-matrix multiplication
+//   - [Handle.DgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.DgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.DgemmGroupedBatched]: performs the matrix-matrix multiplication on groups of matrices.
+//   - [Handle.DgemmGroupedBatched64]: performs the matrix-matrix multiplication on groups of matrices.
+//   - [Handle.DgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.DgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.Dgemm]: performs the matrix-matrix multiplication
+//   - [Handle.Dgemm64]: performs the matrix-matrix multiplication
+//   - [Handle.DtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides
+//   - [Handle.DtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides
+//   - [Handle.Dtrsm]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Dtrsm64]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.SgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.SgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.SgemmEx]: is an extension of cublasgemm().
+//   - [Handle.SgemmEx64]: is an extension of cublasgemm().
+//   - [Handle.SgemmGroupedBatched]: performs the matrix-matrix multiplication on groups of matrices.
+//   - [Handle.SgemmGroupedBatched64]: performs the matrix-matrix multiplication on groups of matrices.
+//   - [Handle.SgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.SgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.Sgemm]: performs the matrix-matrix multiplication
+//   - [Handle.Sgemm64]: performs the matrix-matrix multiplication
+//   - [Handle.StrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides
+//   - [Handle.StrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides
+//   - [Handle.Strsm]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Strsm64]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Zgemm3m]: performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
+//   - [Handle.Zgemm3m64]: performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
+//   - [Handle.ZgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.ZgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.ZgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.ZgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.Zgemm]: performs the matrix-matrix multiplication
+//   - [Handle.Zgemm64]: performs the matrix-matrix multiplication
 //
 // # Lifecycle
 //
@@ -71,33 +71,33 @@
 //
 // # BLAS1
 //
-//   - [Handle.Daxpy]: supports the 64-bit Integer Interface.
-//   - [Handle.Daxpy64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dnrm2]: supports the 64-bit Integer Interface.
-//   - [Handle.Dnrm264]: supports the 64-bit Integer Interface.
-//   - [Handle.Dscal]: supports the 64-bit Integer Interface.
-//   - [Handle.Dscal64]: supports the 64-bit Integer Interface.
-//   - [Handle.Saxpy]: supports the 64-bit Integer Interface.
-//   - [Handle.Saxpy64]: supports the 64-bit Integer Interface.
-//   - [Handle.Snrm2]: supports the 64-bit Integer Interface.
-//   - [Handle.Snrm264]: supports the 64-bit Integer Interface.
-//   - [Handle.Sscal]: supports the 64-bit Integer Interface.
-//   - [Handle.Sscal64]: supports the 64-bit Integer Interface.
+//   - [Handle.Daxpy]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
+//   - [Handle.Daxpy64]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
+//   - [Handle.Dnrm2]: computes the Euclidean norm of the vector x.
+//   - [Handle.Dnrm264]: computes the Euclidean norm of the vector x.
+//   - [Handle.Dscal]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Dscal64]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Saxpy]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
+//   - [Handle.Saxpy64]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
+//   - [Handle.Snrm2]: computes the Euclidean norm of the vector x.
+//   - [Handle.Snrm264]: computes the Euclidean norm of the vector x.
+//   - [Handle.Sscal]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Sscal64]: scales the vector x by the scalar α and overwrites it with the result.
 //
 // # BLAS2
 //
-//   - [Handle.DgemvBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemvBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemvStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.DgemvStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dgemv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dgemv64]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemvBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemvBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemvStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.SgemvStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sgemv]: supports the 64-bit Integer Interface.
-//   - [Handle.Sgemv64]: supports the 64-bit Integer Interface.
+//   - [Handle.DgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.DgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.DgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.DgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.Dgemv]: performs the matrix-vector multiplication
+//   - [Handle.Dgemv64]: performs the matrix-vector multiplication
+//   - [Handle.SgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.SgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.SgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.SgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.Sgemv]: performs the matrix-vector multiplication
+//   - [Handle.Sgemv64]: performs the matrix-vector multiplication
 //
 // # Configuration
 //
@@ -113,195 +113,195 @@
 //
 // # Other
 //
-//   - [Handle.AxpyEx]: supports the 64-bit Integer Interface.
-//   - [Handle.AxpyEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Caxpy]: supports the 64-bit Integer Interface.
-//   - [Handle.Caxpy64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ccopy]: supports the 64-bit Integer Interface.
-//   - [Handle.Ccopy64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cdgmm]: supports the 64-bit Integer Interface.
-//   - [Handle.Cdgmm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cdotc]: supports the 64-bit Integer Interface.
-//   - [Handle.Cdotc64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cdotu]: supports the 64-bit Integer Interface.
-//   - [Handle.Cdotu64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgeam]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgeam64]: supports the 64-bit Integer Interface.
+//   - [Handle.AxpyEx]: is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
+//   - [Handle.AxpyEx64]: is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
+//   - [Handle.Caxpy]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
+//   - [Handle.Caxpy64]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
+//   - [Handle.Ccopy]: copies the vector x into the vector y.
+//   - [Handle.Ccopy64]: copies the vector x into the vector y.
+//   - [Handle.Cdgmm]: performs the matrix-matrix multiplication
+//   - [Handle.Cdgmm64]: performs the matrix-matrix multiplication
+//   - [Handle.Cdotc]: computes the dot product of vectors x and y.
+//   - [Handle.Cdotc64]: computes the dot product of vectors x and y.
+//   - [Handle.Cdotu]: computes the dot product of vectors x and y.
+//   - [Handle.Cdotu64]: computes the dot product of vectors x and y.
+//   - [Handle.Cgbmv]: performs the banded matrix-vector multiplication
+//   - [Handle.Cgbmv64]: performs the banded matrix-vector multiplication
+//   - [Handle.Cgeam]: performs the matrix-matrix addition/transposition
+//   - [Handle.Cgeam64]: performs the matrix-matrix addition/transposition
 //   - [Handle.CgelsBatched]: Aarray is an array of pointers to matrices stored in column-major format.
-//   - [Handle.CgemvBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemvBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemvStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.CgemvStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgemv]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgemv64]: supports the 64-bit Integer Interface.
+//   - [Handle.CgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.CgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.CgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.CgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.Cgemv]: performs the matrix-vector multiplication
+//   - [Handle.Cgemv64]: performs the matrix-vector multiplication
 //   - [Handle.CgeqrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
-//   - [Handle.Cgerc]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgerc64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgeru]: supports the 64-bit Integer Interface.
-//   - [Handle.Cgeru64]: supports the 64-bit Integer Interface.
+//   - [Handle.Cgerc]: performs the rank-1 update
+//   - [Handle.Cgerc64]: performs the rank-1 update
+//   - [Handle.Cgeru]: performs the rank-1 update
+//   - [Handle.Cgeru64]: performs the rank-1 update
 //   - [Handle.CgetrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //   - [Handle.CgetriBatched]: Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //   - [Handle.CgetrsBatched]: solves an array of systems of linear equations of the form:
-//   - [Handle.Chbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Chbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Chemm]: supports the 64-bit Integer Interface.
-//   - [Handle.Chemm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Chemv]: supports the 64-bit Integer Interface.
-//   - [Handle.Chemv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cher2]: supports the 64-bit Integer Interface.
-//   - [Handle.Cher264]: supports the 64-bit Integer Interface.
-//   - [Handle.Cher2k]: supports the 64-bit Integer Interface.
-//   - [Handle.Cher2k64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cher]: supports the 64-bit Integer Interface.
-//   - [Handle.Cher64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cherk3mEx]: supports the 64-bit Integer Interface.
-//   - [Handle.Cherk3mEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.CherkEx]: supports the 64-bit Integer Interface.
-//   - [Handle.CherkEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cherk]: supports the 64-bit Integer Interface.
-//   - [Handle.Cherk64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cherkx]: supports the 64-bit Integer Interface.
-//   - [Handle.Cherkx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Chpmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Chpmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Chpr2]: supports the 64-bit Integer Interface.
-//   - [Handle.Chpr264]: supports the 64-bit Integer Interface.
-//   - [Handle.Chpr]: supports the 64-bit Integer Interface.
-//   - [Handle.Chpr64]: supports the 64-bit Integer Interface.
+//   - [Handle.Chbmv]: performs the Hermitian banded matrix-vector multiplication
+//   - [Handle.Chbmv64]: performs the Hermitian banded matrix-vector multiplication
+//   - [Handle.Chemm]: performs the Hermitian matrix-matrix multiplication
+//   - [Handle.Chemm64]: performs the Hermitian matrix-matrix multiplication
+//   - [Handle.Chemv]: performs the Hermitian matrix-vector multiplication
+//   - [Handle.Chemv64]: performs the Hermitian matrix-vector multiplication
+//   - [Handle.Cher2]: performs the Hermitian rank-2 update
+//   - [Handle.Cher264]: performs the Hermitian rank-2 update
+//   - [Handle.Cher2k]: performs the Hermitian rank- 2k update
+//   - [Handle.Cher2k64]: performs the Hermitian rank- 2k update
+//   - [Handle.Cher]: performs the Hermitian rank-1 update
+//   - [Handle.Cher64]: performs the Hermitian rank-1 update
+//   - [Handle.Cherk3mEx]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
+//   - [Handle.Cherk3mEx64]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
+//   - [Handle.CherkEx]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+//   - [Handle.CherkEx64]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+//   - [Handle.Cherk]: performs the Hermitian rank- k update
+//   - [Handle.Cherk64]: performs the Hermitian rank- k update
+//   - [Handle.Cherkx]: performs a variation of the Hermitian rank- k update
+//   - [Handle.Cherkx64]: performs a variation of the Hermitian rank- k update
+//   - [Handle.Chpmv]: performs the Hermitian packed matrix-vector multiplication
+//   - [Handle.Chpmv64]: performs the Hermitian packed matrix-vector multiplication
+//   - [Handle.Chpr2]: performs the packed Hermitian rank-2 update
+//   - [Handle.Chpr264]: performs the packed Hermitian rank-2 update
+//   - [Handle.Chpr]: performs the packed Hermitian rank-1 update
+//   - [Handle.Chpr64]: performs the packed Hermitian rank-1 update
 //   - [Handle.CmatinvBatched]: A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
-//   - [Handle.Crot]: supports the 64-bit Integer Interface.
-//   - [Handle.Crot64]: supports the 64-bit Integer Interface.
-//   - [Handle.Crotg]: supports the 64-bit Integer Interface.
-//   - [Handle.Cscal]: supports the 64-bit Integer Interface.
-//   - [Handle.Cscal64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csrot]: supports the 64-bit Integer Interface.
-//   - [Handle.Csrot64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csscal]: supports the 64-bit Integer Interface.
-//   - [Handle.Csscal64]: supports the 64-bit Integer Interface.
-//   - [Handle.Cswap]: supports the 64-bit Integer Interface.
-//   - [Handle.Cswap64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csymm]: supports the 64-bit Integer Interface.
-//   - [Handle.Csymm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csymv]: supports the 64-bit Integer Interface.
-//   - [Handle.Csymv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyr2]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyr264]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyr2k]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyr2k64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyr]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyr64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyrk3mEx]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyrk3mEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.CsyrkEx]: supports the 64-bit Integer Interface.
-//   - [Handle.CsyrkEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyrk]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyrk64]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyrkx]: supports the 64-bit Integer Interface.
-//   - [Handle.Csyrkx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctbsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctbsv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctpmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctpmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctpsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctpsv64]: supports the 64-bit Integer Interface.
+//   - [Handle.Crot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Crot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Crotg]: constructs the Givens rotation matrix
+//   - [Handle.Cscal]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Cscal64]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Csrot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Csrot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Csscal]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Csscal64]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Cswap]: interchanges the elements of vector x and y.
+//   - [Handle.Cswap64]: interchanges the elements of vector x and y.
+//   - [Handle.Csymm]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Csymm64]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Csymv]: performs the symmetric matrix-vector multiplication.
+//   - [Handle.Csymv64]: performs the symmetric matrix-vector multiplication.
+//   - [Handle.Csyr2]: performs the symmetric rank-2 update
+//   - [Handle.Csyr264]: performs the symmetric rank-2 update
+//   - [Handle.Csyr2k]: performs the symmetric rank- 2k update
+//   - [Handle.Csyr2k64]: performs the symmetric rank- 2k update
+//   - [Handle.Csyr]: performs the symmetric rank-1 update
+//   - [Handle.Csyr64]: performs the symmetric rank-1 update
+//   - [Handle.Csyrk3mEx]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
+//   - [Handle.Csyrk3mEx64]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
+//   - [Handle.CsyrkEx]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+//   - [Handle.CsyrkEx64]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+//   - [Handle.Csyrk]: performs the symmetric rank- k update
+//   - [Handle.Csyrk64]: performs the symmetric rank- k update
+//   - [Handle.Csyrkx]: performs a variation of the symmetric rank- k update
+//   - [Handle.Csyrkx64]: performs a variation of the symmetric rank- k update
+//   - [Handle.Ctbmv]: performs the triangular banded matrix-vector multiplication
+//   - [Handle.Ctbmv64]: performs the triangular banded matrix-vector multiplication
+//   - [Handle.Ctbsv]: solves the triangular banded linear system with a single right-hand-side
+//   - [Handle.Ctbsv64]: solves the triangular banded linear system with a single right-hand-side
+//   - [Handle.Ctpmv]: performs the triangular packed matrix-vector multiplication
+//   - [Handle.Ctpmv64]: performs the triangular packed matrix-vector multiplication
+//   - [Handle.Ctpsv]: solves the packed triangular linear system with a single right-hand-side
+//   - [Handle.Ctpsv64]: solves the packed triangular linear system with a single right-hand-side
 //   - [Handle.Ctpttr]: performs the conversion from the triangular packed format to the triangular format
-//   - [Handle.Ctrmm]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctrmm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctrmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctrmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.CtrsmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.CtrsmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctrsm]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctrsm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctrsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ctrsv64]: supports the 64-bit Integer Interface.
+//   - [Handle.Ctrmm]: performs the triangular matrix-matrix multiplication
+//   - [Handle.Ctrmm64]: performs the triangular matrix-matrix multiplication
+//   - [Handle.Ctrmv]: performs the triangular matrix-vector multiplication
+//   - [Handle.Ctrmv64]: performs the triangular matrix-vector multiplication
+//   - [Handle.CtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides
+//   - [Handle.CtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides
+//   - [Handle.Ctrsm]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Ctrsm64]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Ctrsv]: solves the triangular linear system with a single right-hand-side
+//   - [Handle.Ctrsv64]: solves the triangular linear system with a single right-hand-side
 //   - [Handle.Ctrttp]: performs the conversion from the triangular format to the triangular packed format
-//   - [Handle.Dasum]: supports the 64-bit Integer Interface.
-//   - [Handle.Dasum64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dcopy]: supports the 64-bit Integer Interface.
-//   - [Handle.Dcopy64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ddgmm]: supports the 64-bit Integer Interface.
-//   - [Handle.Ddgmm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ddot]: supports the 64-bit Integer Interface.
-//   - [Handle.Ddot64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dgbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dgbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dgeam]: supports the 64-bit Integer Interface.
-//   - [Handle.Dgeam64]: supports the 64-bit Integer Interface.
+//   - [Handle.Dasum]: computes the sum of the absolute values of the elements of vector x.
+//   - [Handle.Dasum64]: computes the sum of the absolute values of the elements of vector x.
+//   - [Handle.Dcopy]: copies the vector x into the vector y.
+//   - [Handle.Dcopy64]: copies the vector x into the vector y.
+//   - [Handle.Ddgmm]: performs the matrix-matrix multiplication
+//   - [Handle.Ddgmm64]: performs the matrix-matrix multiplication
+//   - [Handle.Ddot]: computes the dot product of vectors x and y.
+//   - [Handle.Ddot64]: computes the dot product of vectors x and y.
+//   - [Handle.Dgbmv]: performs the banded matrix-vector multiplication
+//   - [Handle.Dgbmv64]: performs the banded matrix-vector multiplication
+//   - [Handle.Dgeam]: performs the matrix-matrix addition/transposition
+//   - [Handle.Dgeam64]: performs the matrix-matrix addition/transposition
 //   - [Handle.DgelsBatched]: Aarray is an array of pointers to matrices stored in column-major format.
 //   - [Handle.DgeqrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
-//   - [Handle.Dger]: supports the 64-bit Integer Interface.
-//   - [Handle.Dger64]: supports the 64-bit Integer Interface.
+//   - [Handle.Dger]: performs the rank-1 update
+//   - [Handle.Dger64]: performs the rank-1 update
 //   - [Handle.DgetrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //   - [Handle.DgetriBatched]: Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //   - [Handle.DgetrsBatched]: solves an array of systems of linear equations of the form:
 //   - [Handle.DmatinvBatched]: A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
-//   - [Handle.DotEx]: These functions support the 64-bit Integer Interface.
-//   - [Handle.DotEx64]: These functions support the 64-bit Integer Interface.
-//   - [Handle.DotcEx]: These functions support the 64-bit Integer Interface.
-//   - [Handle.DotcEx64]: These functions support the 64-bit Integer Interface.
-//   - [Handle.Drot]: supports the 64-bit Integer Interface.
-//   - [Handle.Drot64]: supports the 64-bit Integer Interface.
-//   - [Handle.Drotg]: supports the 64-bit Integer Interface.
-//   - [Handle.Drotm]: supports the 64-bit Integer Interface.
-//   - [Handle.Drotm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Drotmg]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dspmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dspmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dspr2]: supports the 64-bit Integer Interface.
-//   - [Handle.Dspr264]: supports the 64-bit Integer Interface.
-//   - [Handle.Dspr]: supports the 64-bit Integer Interface.
-//   - [Handle.Dspr64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dswap]: supports the 64-bit Integer Interface.
-//   - [Handle.Dswap64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsymm]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsymm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsymv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsymv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyr2]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyr264]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyr2k]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyr2k64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyr]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyr64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyrk]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyrk64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyrkx]: supports the 64-bit Integer Interface.
-//   - [Handle.Dsyrkx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtbsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtbsv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtpmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtpmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtpsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtpsv64]: supports the 64-bit Integer Interface.
+//   - [Handle.DotEx]: These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
+//   - [Handle.DotEx64]: These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
+//   - [Handle.DotcEx]: These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
+//   - [Handle.DotcEx64]: These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
+//   - [Handle.Drot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Drot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Drotg]: constructs the Givens rotation matrix
+//   - [Handle.Drotm]: applies the modified Givens transformation
+//   - [Handle.Drotm64]: applies the modified Givens transformation
+//   - [Handle.Drotmg]: constructs the modified Givens transformation
+//   - [Handle.Dsbmv]: performs the symmetric banded matrix-vector multiplication
+//   - [Handle.Dsbmv64]: performs the symmetric banded matrix-vector multiplication
+//   - [Handle.Dspmv]: performs the symmetric packed matrix-vector multiplication
+//   - [Handle.Dspmv64]: performs the symmetric packed matrix-vector multiplication
+//   - [Handle.Dspr2]: performs the packed symmetric rank-2 update
+//   - [Handle.Dspr264]: performs the packed symmetric rank-2 update
+//   - [Handle.Dspr]: performs the packed symmetric rank-1 update
+//   - [Handle.Dspr64]: performs the packed symmetric rank-1 update
+//   - [Handle.Dswap]: interchanges the elements of vector x and y.
+//   - [Handle.Dswap64]: interchanges the elements of vector x and y.
+//   - [Handle.Dsymm]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Dsymm64]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Dsymv]: performs the symmetric matrix-vector multiplication.
+//   - [Handle.Dsymv64]: performs the symmetric matrix-vector multiplication.
+//   - [Handle.Dsyr2]: performs the symmetric rank-2 update
+//   - [Handle.Dsyr264]: performs the symmetric rank-2 update
+//   - [Handle.Dsyr2k]: performs the symmetric rank- 2k update
+//   - [Handle.Dsyr2k64]: performs the symmetric rank- 2k update
+//   - [Handle.Dsyr]: performs the symmetric rank-1 update
+//   - [Handle.Dsyr64]: performs the symmetric rank-1 update
+//   - [Handle.Dsyrk]: performs the symmetric rank- k update
+//   - [Handle.Dsyrk64]: performs the symmetric rank- k update
+//   - [Handle.Dsyrkx]: performs a variation of the symmetric rank- k update
+//   - [Handle.Dsyrkx64]: performs a variation of the symmetric rank- k update
+//   - [Handle.Dtbmv]: performs the triangular banded matrix-vector multiplication
+//   - [Handle.Dtbmv64]: performs the triangular banded matrix-vector multiplication
+//   - [Handle.Dtbsv]: solves the triangular banded linear system with a single right-hand-side
+//   - [Handle.Dtbsv64]: solves the triangular banded linear system with a single right-hand-side
+//   - [Handle.Dtpmv]: performs the triangular packed matrix-vector multiplication
+//   - [Handle.Dtpmv64]: performs the triangular packed matrix-vector multiplication
+//   - [Handle.Dtpsv]: solves the packed triangular linear system with a single right-hand-side
+//   - [Handle.Dtpsv64]: solves the packed triangular linear system with a single right-hand-side
 //   - [Handle.Dtpttr]: performs the conversion from the triangular packed format to the triangular format
-//   - [Handle.Dtrmm]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtrmm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtrmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtrmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtrsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Dtrsv64]: supports the 64-bit Integer Interface.
+//   - [Handle.Dtrmm]: performs the triangular matrix-matrix multiplication
+//   - [Handle.Dtrmm64]: performs the triangular matrix-matrix multiplication
+//   - [Handle.Dtrmv]: performs the triangular matrix-vector multiplication
+//   - [Handle.Dtrmv64]: performs the triangular matrix-vector multiplication
+//   - [Handle.Dtrsv]: solves the triangular linear system with a single right-hand-side
+//   - [Handle.Dtrsv64]: solves the triangular linear system with a single right-hand-side
 //   - [Handle.Dtrttp]: performs the conversion from the triangular format to the triangular packed format
-//   - [Handle.Dzasum]: supports the 64-bit Integer Interface.
-//   - [Handle.Dzasum64]: supports the 64-bit Integer Interface.
-//   - [Handle.Dznrm2]: supports the 64-bit Integer Interface.
-//   - [Handle.Dznrm264]: supports the 64-bit Integer Interface.
-//   - [Handle.GemmBatchedEx]: supports the 64-bit Integer Interface.
-//   - [Handle.GemmBatchedEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.GemmEx]: supports the 64-bit Integer Interface.
-//   - [Handle.GemmEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.GemmGroupedBatchedEx]: supports the 64-bit Integer Interface.
-//   - [Handle.GemmGroupedBatchedEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.GemmStridedBatchedEx]: supports the 64-bit Integer Interface.
-//   - [Handle.GemmStridedBatchedEx64]: supports the 64-bit Integer Interface.
+//   - [Handle.Dzasum]: computes the sum of the absolute values of the elements of vector x.
+//   - [Handle.Dzasum64]: computes the sum of the absolute values of the elements of vector x.
+//   - [Handle.Dznrm2]: computes the Euclidean norm of the vector x.
+//   - [Handle.Dznrm264]: computes the Euclidean norm of the vector x.
+//   - [Handle.GemmBatchedEx]: is an extension of cublasgemmBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrix arrays, the precision of computation and the GEMM algorithm to be run.
+//   - [Handle.GemmBatchedEx64]: is an extension of cublasgemmBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrix arrays, the precision of computation and the GEMM algorithm to be run.
+//   - [Handle.GemmEx]: is an extension of cublasgemm() that allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
+//   - [Handle.GemmEx64]: is an extension of cublasgemm() that allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
+//   - [Handle.GemmGroupedBatchedEx]: performs the matrix-matrix multiplication on groups of matrices.
+//   - [Handle.GemmGroupedBatchedEx64]: performs the matrix-matrix multiplication on groups of matrices.
+//   - [Handle.GemmStridedBatchedEx]: is an extension of cublasgemmStridedBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
+//   - [Handle.GemmStridedBatchedEx64]: is an extension of cublasgemmStridedBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //   - [Handle.AtomicsMode]: queries the atomic mode of a specific cuBLAS context.
 //   - [Handle.EmulationSpecialValuesSupport]: obtains the value previously programmed to the library handle.
 //   - [Handle.EmulationStrategy]: obtains the value previously programmed to the library handle.
@@ -310,66 +310,66 @@
 //   - [Handle.FixedPointEmulationMantissaControl]: obtains the value previously programmed to the library handle.
 //   - [Handle.FixedPointEmulationMaxMantissaBitCount]: obtains the value previously programmed to the library handle.
 //   - [GetLoggerCallback]: retrieves function pointer to previously installed custom user defined callback function via [SetLoggerCallback] or zero otherwise.
-//   - [GetMatrix]: supports the 64-bit Integer Interface.
-//   - [GetMatrixAsync]: supports the 64-bit Integer Interface.
-//   - [GetMatrixAsync64]: supports the 64-bit Integer Interface.
-//   - [GetMatrix64]: supports the 64-bit Integer Interface.
+//   - [GetMatrix]: copies a tile of rows x cols elements from a matrix A in GPU memory space to a matrix B in host memory space.
+//   - [GetMatrixAsync]: has the same functionality as [GetMatrix], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
+//   - [GetMatrixAsync64]: has the same functionality as [GetMatrix], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
+//   - [GetMatrix64]: copies a tile of rows x cols elements from a matrix A in GPU memory space to a matrix B in host memory space.
 //   - [GetProperty]: returns the value of the requested property in memory pointed to by value.
 //   - [Handle.SmCountTarget]: obtains the value previously programmed to the library handle.
-//   - [GetVector]: supports the 64-bit Integer Interface.
-//   - [GetVectorAsync]: supports the 64-bit Integer Interface.
-//   - [GetVectorAsync64]: supports the 64-bit Integer Interface.
-//   - [GetVector64]: supports the 64-bit Integer Interface.
+//   - [GetVector]: copies n elements from a vector x in GPU memory space to a vector y in host memory space.
+//   - [GetVectorAsync]: has the same functionality as [GetVector], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
+//   - [GetVectorAsync64]: has the same functionality as [GetVector], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
+//   - [GetVector64]: copies n elements from a vector x in GPU memory space to a vector y in host memory space.
 //   - [Handle.Version]: returns the version number of the cuBLAS library.
-//   - [Handle.HSHgemvBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.HSHgemvBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.HSHgemvStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.HSHgemvStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.HSSgemvBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.HSSgemvBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.HSSgemvStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.HSSgemvStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Hgemm]: supports the 64-bit Integer Interface.
-//   - [Handle.HgemmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.HgemmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.HgemmStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.HgemmStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Hgemm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Icamax]: supports the 64-bit Integer Interface.
-//   - [Handle.Icamax64]: supports the 64-bit Integer Interface.
-//   - [Handle.Icamin]: supports the 64-bit Integer Interface.
-//   - [Handle.Icamin64]: supports the 64-bit Integer Interface.
-//   - [Handle.Idamax]: supports the 64-bit Integer Interface.
-//   - [Handle.Idamax64]: supports the 64-bit Integer Interface.
-//   - [Handle.Idamin]: supports the 64-bit Integer Interface.
-//   - [Handle.Idamin64]: supports the 64-bit Integer Interface.
-//   - [Handle.Isamax]: supports the 64-bit Integer Interface.
-//   - [Handle.Isamax64]: supports the 64-bit Integer Interface.
-//   - [Handle.Isamin]: supports the 64-bit Integer Interface.
-//   - [Handle.Isamin64]: supports the 64-bit Integer Interface.
-//   - [Handle.Izamax]: supports the 64-bit Integer Interface.
-//   - [Handle.Izamax64]: supports the 64-bit Integer Interface.
-//   - [Handle.Izamin]: supports the 64-bit Integer Interface.
-//   - [Handle.Izamin64]: supports the 64-bit Integer Interface.
+//   - [Handle.HSHgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.HSHgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.HSHgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.HSHgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.HSSgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.HSSgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.HSSgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.HSSgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.Hgemm]: performs the matrix-matrix multiplication
+//   - [Handle.HgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.HgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.HgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.HgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
+//   - [Handle.Hgemm64]: performs the matrix-matrix multiplication
+//   - [Handle.Icamax]: finds the (smallest) index of the element of the maximum magnitude.
+//   - [Handle.Icamax64]: finds the (smallest) index of the element of the maximum magnitude.
+//   - [Handle.Icamin]: finds the (smallest) index of the element of the minimum magnitude.
+//   - [Handle.Icamin64]: finds the (smallest) index of the element of the minimum magnitude.
+//   - [Handle.Idamax]: finds the (smallest) index of the element of the maximum magnitude.
+//   - [Handle.Idamax64]: finds the (smallest) index of the element of the maximum magnitude.
+//   - [Handle.Idamin]: finds the (smallest) index of the element of the minimum magnitude.
+//   - [Handle.Idamin64]: finds the (smallest) index of the element of the minimum magnitude.
+//   - [Handle.Isamax]: finds the (smallest) index of the element of the maximum magnitude.
+//   - [Handle.Isamax64]: finds the (smallest) index of the element of the maximum magnitude.
+//   - [Handle.Isamin]: finds the (smallest) index of the element of the minimum magnitude.
+//   - [Handle.Isamin64]: finds the (smallest) index of the element of the minimum magnitude.
+//   - [Handle.Izamax]: finds the (smallest) index of the element of the maximum magnitude.
+//   - [Handle.Izamax64]: finds the (smallest) index of the element of the maximum magnitude.
+//   - [Handle.Izamin]: finds the (smallest) index of the element of the minimum magnitude.
+//   - [Handle.Izamin64]: finds the (smallest) index of the element of the minimum magnitude.
 //   - [LoggerConfigure]: configures logging during runtime.
-//   - [Handle.Nrm2Ex]: supports the 64-bit Integer Interface.
-//   - [Handle.Nrm2Ex64]: supports the 64-bit Integer Interface.
-//   - [Handle.RotEx]: supports the 64-bit Integer Interface.
-//   - [Handle.RotEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sasum]: supports the 64-bit Integer Interface.
-//   - [Handle.Sasum64]: supports the 64-bit Integer Interface.
-//   - [Handle.ScalEx]: supports the 64-bit Integer Interface.
-//   - [Handle.ScalEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Scasum]: supports the 64-bit Integer Interface.
-//   - [Handle.Scasum64]: supports the 64-bit Integer Interface.
-//   - [Handle.Scnrm2]: supports the 64-bit Integer Interface.
-//   - [Handle.Scnrm264]: supports the 64-bit Integer Interface.
-//   - [Handle.Scopy]: supports the 64-bit Integer Interface.
-//   - [Handle.Scopy64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sdgmm]: supports the 64-bit Integer Interface.
-//   - [Handle.Sdgmm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sdot]: supports the 64-bit Integer Interface.
-//   - [Handle.Sdot64]: supports the 64-bit Integer Interface.
+//   - [Handle.Nrm2Ex]: is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
+//   - [Handle.Nrm2Ex64]: is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
+//   - [Handle.RotEx]: is an extension to the routine cublasrot() where input data, output data, cosine/sine type, and compute type can be specified independently.
+//   - [Handle.RotEx64]: is an extension to the routine cublasrot() where input data, output data, cosine/sine type, and compute type can be specified independently.
+//   - [Handle.Sasum]: computes the sum of the absolute values of the elements of vector x.
+//   - [Handle.Sasum64]: computes the sum of the absolute values of the elements of vector x.
+//   - [Handle.ScalEx]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.ScalEx64]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Scasum]: computes the sum of the absolute values of the elements of vector x.
+//   - [Handle.Scasum64]: computes the sum of the absolute values of the elements of vector x.
+//   - [Handle.Scnrm2]: computes the Euclidean norm of the vector x.
+//   - [Handle.Scnrm264]: computes the Euclidean norm of the vector x.
+//   - [Handle.Scopy]: copies the vector x into the vector y.
+//   - [Handle.Scopy64]: copies the vector x into the vector y.
+//   - [Handle.Sdgmm]: performs the matrix-matrix multiplication
+//   - [Handle.Sdgmm64]: performs the matrix-matrix multiplication
+//   - [Handle.Sdot]: computes the dot product of vectors x and y.
+//   - [Handle.Sdot64]: computes the dot product of vectors x and y.
 //   - [Handle.SetAtomicsMode]: Some routines like cublassymv() and cublashemv() have an alternate implementation that use atomics to cumulate results.
 //   - [Handle.SetEmulationSpecialValuesSupport]: sets the value previously programmed to the library handle.
 //   - [Handle.SetEmulationStrategy]: The [Handle.SetEmulationStrategy] function enables you to select how the library should make use of floating point emulation.
@@ -378,178 +378,178 @@
 //   - [Handle.SetFixedPointEmulationMantissaControl]: sets the value previously programmed to the library handle.
 //   - [Handle.SetFixedPointEmulationMaxMantissaBitCount]: sets the value previously programmed to the library handle.
 //   - [SetLoggerCallback]: installs a custom user defined callback function via cublas C public API.
-//   - [SetMatrix]: supports the 64-bit Integer Interface.
-//   - [SetMatrixAsync]: supports the 64-bit Integer Interface.
-//   - [SetMatrixAsync64]: supports the 64-bit Integer Interface.
-//   - [SetMatrix64]: supports the 64-bit Integer Interface.
+//   - [SetMatrix]: copies a tile of rows x cols elements from a matrix A in host memory space to a matrix B in GPU memory space.
+//   - [SetMatrixAsync]: has the same functionality as [SetMatrix], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
+//   - [SetMatrixAsync64]: has the same functionality as [SetMatrix], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
+//   - [SetMatrix64]: copies a tile of rows x cols elements from a matrix A in host memory space to a matrix B in GPU memory space.
 //   - [Handle.SetSmCountTarget]: The [Handle.SetSmCountTarget] function allows overriding the number of multiprocessors available to the library during kernels execution.
-//   - [SetVector]: supports the 64-bit Integer Interface.
-//   - [SetVectorAsync]: supports the 64-bit Integer Interface.
-//   - [SetVectorAsync64]: supports the 64-bit Integer Interface.
-//   - [SetVector64]: supports the 64-bit Integer Interface.
+//   - [SetVector]: copies n elements from a vector x in host memory space to a vector y in GPU memory space.
+//   - [SetVectorAsync]: has the same functionality as [SetVector], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
+//   - [SetVectorAsync64]: has the same functionality as [SetVector], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
+//   - [SetVector64]: copies n elements from a vector x in host memory space to a vector y in GPU memory space.
 //   - [Handle.SetWorkspace]: sets the cuBLAS library workspace to a user-owned device buffer, which will be used to execute all subsequent calls to the cuBLAS library functions (on the currently set stream).
-//   - [Handle.Sgbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Sgbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sgeam]: supports the 64-bit Integer Interface.
-//   - [Handle.Sgeam64]: supports the 64-bit Integer Interface.
+//   - [Handle.Sgbmv]: performs the banded matrix-vector multiplication
+//   - [Handle.Sgbmv64]: performs the banded matrix-vector multiplication
+//   - [Handle.Sgeam]: performs the matrix-matrix addition/transposition
+//   - [Handle.Sgeam64]: performs the matrix-matrix addition/transposition
 //   - [Handle.SgelsBatched]: Aarray is an array of pointers to matrices stored in column-major format.
 //   - [Handle.SgeqrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
-//   - [Handle.Sger]: supports the 64-bit Integer Interface.
-//   - [Handle.Sger64]: supports the 64-bit Integer Interface.
+//   - [Handle.Sger]: performs the rank-1 update
+//   - [Handle.Sger64]: performs the rank-1 update
 //   - [Handle.SgetrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //   - [Handle.SgetriBatched]: Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //   - [Handle.SgetrsBatched]: solves an array of systems of linear equations of the form:
 //   - [Handle.SmatinvBatched]: A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
-//   - [Handle.Srot]: supports the 64-bit Integer Interface.
-//   - [Handle.Srot64]: supports the 64-bit Integer Interface.
-//   - [Handle.Srotg]: supports the 64-bit Integer Interface.
-//   - [Handle.Srotm]: supports the 64-bit Integer Interface.
-//   - [Handle.Srotm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Srotmg]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sspmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Sspmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sspr2]: supports the 64-bit Integer Interface.
-//   - [Handle.Sspr264]: supports the 64-bit Integer Interface.
-//   - [Handle.Sspr]: supports the 64-bit Integer Interface.
-//   - [Handle.Sspr64]: supports the 64-bit Integer Interface.
-//   - [Handle.Sswap]: supports the 64-bit Integer Interface.
-//   - [Handle.Sswap64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssymm]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssymm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssymv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssymv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyr2]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyr264]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyr2k]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyr2k64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyr]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyr64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyrk]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyrk64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyrkx]: supports the 64-bit Integer Interface.
-//   - [Handle.Ssyrkx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Stbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Stbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Stbsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Stbsv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Stpmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Stpmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Stpsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Stpsv64]: supports the 64-bit Integer Interface.
+//   - [Handle.Srot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Srot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Srotg]: constructs the Givens rotation matrix
+//   - [Handle.Srotm]: applies the modified Givens transformation
+//   - [Handle.Srotm64]: applies the modified Givens transformation
+//   - [Handle.Srotmg]: constructs the modified Givens transformation
+//   - [Handle.Ssbmv]: performs the symmetric banded matrix-vector multiplication
+//   - [Handle.Ssbmv64]: performs the symmetric banded matrix-vector multiplication
+//   - [Handle.Sspmv]: performs the symmetric packed matrix-vector multiplication
+//   - [Handle.Sspmv64]: performs the symmetric packed matrix-vector multiplication
+//   - [Handle.Sspr2]: performs the packed symmetric rank-2 update
+//   - [Handle.Sspr264]: performs the packed symmetric rank-2 update
+//   - [Handle.Sspr]: performs the packed symmetric rank-1 update
+//   - [Handle.Sspr64]: performs the packed symmetric rank-1 update
+//   - [Handle.Sswap]: interchanges the elements of vector x and y.
+//   - [Handle.Sswap64]: interchanges the elements of vector x and y.
+//   - [Handle.Ssymm]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Ssymm64]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Ssymv]: performs the symmetric matrix-vector multiplication.
+//   - [Handle.Ssymv64]: performs the symmetric matrix-vector multiplication.
+//   - [Handle.Ssyr2]: performs the symmetric rank-2 update
+//   - [Handle.Ssyr264]: performs the symmetric rank-2 update
+//   - [Handle.Ssyr2k]: performs the symmetric rank- 2k update
+//   - [Handle.Ssyr2k64]: performs the symmetric rank- 2k update
+//   - [Handle.Ssyr]: performs the symmetric rank-1 update
+//   - [Handle.Ssyr64]: performs the symmetric rank-1 update
+//   - [Handle.Ssyrk]: performs the symmetric rank- k update
+//   - [Handle.Ssyrk64]: performs the symmetric rank- k update
+//   - [Handle.Ssyrkx]: performs a variation of the symmetric rank- k update
+//   - [Handle.Ssyrkx64]: performs a variation of the symmetric rank- k update
+//   - [Handle.Stbmv]: performs the triangular banded matrix-vector multiplication
+//   - [Handle.Stbmv64]: performs the triangular banded matrix-vector multiplication
+//   - [Handle.Stbsv]: solves the triangular banded linear system with a single right-hand-side
+//   - [Handle.Stbsv64]: solves the triangular banded linear system with a single right-hand-side
+//   - [Handle.Stpmv]: performs the triangular packed matrix-vector multiplication
+//   - [Handle.Stpmv64]: performs the triangular packed matrix-vector multiplication
+//   - [Handle.Stpsv]: solves the packed triangular linear system with a single right-hand-side
+//   - [Handle.Stpsv64]: solves the packed triangular linear system with a single right-hand-side
 //   - [Handle.Stpttr]: performs the conversion from the triangular packed format to the triangular format
-//   - [Handle.Strmm]: supports the 64-bit Integer Interface.
-//   - [Handle.Strmm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Strmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Strmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Strsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Strsv64]: supports the 64-bit Integer Interface.
+//   - [Handle.Strmm]: performs the triangular matrix-matrix multiplication
+//   - [Handle.Strmm64]: performs the triangular matrix-matrix multiplication
+//   - [Handle.Strmv]: performs the triangular matrix-vector multiplication
+//   - [Handle.Strmv64]: performs the triangular matrix-vector multiplication
+//   - [Handle.Strsv]: solves the triangular linear system with a single right-hand-side
+//   - [Handle.Strsv64]: solves the triangular linear system with a single right-hand-side
 //   - [Handle.Strttp]: performs the conversion from the triangular format to the triangular packed format
-//   - [Handle.TSSgemvBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.TSSgemvBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.TSSgemvStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.TSSgemvStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.TSTgemvBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.TSTgemvBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.TSTgemvStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.TSTgemvStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zaxpy]: supports the 64-bit Integer Interface.
-//   - [Handle.Zaxpy64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zcopy]: supports the 64-bit Integer Interface.
-//   - [Handle.Zcopy64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdgmm]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdgmm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdotc]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdotc64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdotu]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdotu64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdrot]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdrot64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdscal]: supports the 64-bit Integer Interface.
-//   - [Handle.Zdscal64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgeam]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgeam64]: supports the 64-bit Integer Interface.
+//   - [Handle.TSSgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.TSSgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.TSSgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.TSSgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.TSTgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.TSTgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.TSTgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.TSTgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.Zaxpy]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
+//   - [Handle.Zaxpy64]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
+//   - [Handle.Zcopy]: copies the vector x into the vector y.
+//   - [Handle.Zcopy64]: copies the vector x into the vector y.
+//   - [Handle.Zdgmm]: performs the matrix-matrix multiplication
+//   - [Handle.Zdgmm64]: performs the matrix-matrix multiplication
+//   - [Handle.Zdotc]: computes the dot product of vectors x and y.
+//   - [Handle.Zdotc64]: computes the dot product of vectors x and y.
+//   - [Handle.Zdotu]: computes the dot product of vectors x and y.
+//   - [Handle.Zdotu64]: computes the dot product of vectors x and y.
+//   - [Handle.Zdrot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Zdrot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Zdscal]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Zdscal64]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Zgbmv]: performs the banded matrix-vector multiplication
+//   - [Handle.Zgbmv64]: performs the banded matrix-vector multiplication
+//   - [Handle.Zgeam]: performs the matrix-matrix addition/transposition
+//   - [Handle.Zgeam64]: performs the matrix-matrix addition/transposition
 //   - [Handle.ZgelsBatched]: Aarray is an array of pointers to matrices stored in column-major format.
-//   - [Handle.ZgemvBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.ZgemvBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.ZgemvStridedBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.ZgemvStridedBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgemv]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgemv64]: supports the 64-bit Integer Interface.
+//   - [Handle.ZgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.ZgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.ZgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.ZgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
+//   - [Handle.Zgemv]: performs the matrix-vector multiplication
+//   - [Handle.Zgemv64]: performs the matrix-vector multiplication
 //   - [Handle.ZgeqrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
-//   - [Handle.Zgerc]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgerc64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgeru]: supports the 64-bit Integer Interface.
-//   - [Handle.Zgeru64]: supports the 64-bit Integer Interface.
+//   - [Handle.Zgerc]: performs the rank-1 update
+//   - [Handle.Zgerc64]: performs the rank-1 update
+//   - [Handle.Zgeru]: performs the rank-1 update
+//   - [Handle.Zgeru64]: performs the rank-1 update
 //   - [Handle.ZgetrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //   - [Handle.ZgetriBatched]: Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //   - [Handle.ZgetrsBatched]: solves an array of systems of linear equations of the form:
-//   - [Handle.Zhbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhemm]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhemm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhemv]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhemv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zher2]: supports the 64-bit Integer Interface.
-//   - [Handle.Zher264]: supports the 64-bit Integer Interface.
-//   - [Handle.Zher2k]: supports the 64-bit Integer Interface.
-//   - [Handle.Zher2k64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zher]: supports the 64-bit Integer Interface.
-//   - [Handle.Zher64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zherk]: supports the 64-bit Integer Interface.
-//   - [Handle.Zherk64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zherkx]: supports the 64-bit Integer Interface.
-//   - [Handle.Zherkx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhpmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhpmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhpr2]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhpr264]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhpr]: supports the 64-bit Integer Interface.
-//   - [Handle.Zhpr64]: supports the 64-bit Integer Interface.
+//   - [Handle.Zhbmv]: performs the Hermitian banded matrix-vector multiplication
+//   - [Handle.Zhbmv64]: performs the Hermitian banded matrix-vector multiplication
+//   - [Handle.Zhemm]: performs the Hermitian matrix-matrix multiplication
+//   - [Handle.Zhemm64]: performs the Hermitian matrix-matrix multiplication
+//   - [Handle.Zhemv]: performs the Hermitian matrix-vector multiplication
+//   - [Handle.Zhemv64]: performs the Hermitian matrix-vector multiplication
+//   - [Handle.Zher2]: performs the Hermitian rank-2 update
+//   - [Handle.Zher264]: performs the Hermitian rank-2 update
+//   - [Handle.Zher2k]: performs the Hermitian rank- 2k update
+//   - [Handle.Zher2k64]: performs the Hermitian rank- 2k update
+//   - [Handle.Zher]: performs the Hermitian rank-1 update
+//   - [Handle.Zher64]: performs the Hermitian rank-1 update
+//   - [Handle.Zherk]: performs the Hermitian rank- k update
+//   - [Handle.Zherk64]: performs the Hermitian rank- k update
+//   - [Handle.Zherkx]: performs a variation of the Hermitian rank- k update
+//   - [Handle.Zherkx64]: performs a variation of the Hermitian rank- k update
+//   - [Handle.Zhpmv]: performs the Hermitian packed matrix-vector multiplication
+//   - [Handle.Zhpmv64]: performs the Hermitian packed matrix-vector multiplication
+//   - [Handle.Zhpr2]: performs the packed Hermitian rank-2 update
+//   - [Handle.Zhpr264]: performs the packed Hermitian rank-2 update
+//   - [Handle.Zhpr]: performs the packed Hermitian rank-1 update
+//   - [Handle.Zhpr64]: performs the packed Hermitian rank-1 update
 //   - [Handle.ZmatinvBatched]: A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
-//   - [Handle.Zrot]: supports the 64-bit Integer Interface.
-//   - [Handle.Zrot64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zrotg]: supports the 64-bit Integer Interface.
-//   - [Handle.Zscal]: supports the 64-bit Integer Interface.
-//   - [Handle.Zscal64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zswap]: supports the 64-bit Integer Interface.
-//   - [Handle.Zswap64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsymm]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsymm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsymv]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsymv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyr2]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyr264]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyr2k]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyr2k64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyr]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyr64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyrk]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyrk64]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyrkx]: supports the 64-bit Integer Interface.
-//   - [Handle.Zsyrkx64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztbmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztbmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztbsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztbsv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztpmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztpmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztpsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztpsv64]: supports the 64-bit Integer Interface.
+//   - [Handle.Zrot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Zrot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+//   - [Handle.Zrotg]: constructs the Givens rotation matrix
+//   - [Handle.Zscal]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Zscal64]: scales the vector x by the scalar α and overwrites it with the result.
+//   - [Handle.Zswap]: interchanges the elements of vector x and y.
+//   - [Handle.Zswap64]: interchanges the elements of vector x and y.
+//   - [Handle.Zsymm]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Zsymm64]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Zsymv]: performs the symmetric matrix-vector multiplication.
+//   - [Handle.Zsymv64]: performs the symmetric matrix-vector multiplication.
+//   - [Handle.Zsyr2]: performs the symmetric rank-2 update
+//   - [Handle.Zsyr264]: performs the symmetric rank-2 update
+//   - [Handle.Zsyr2k]: performs the symmetric rank- 2k update
+//   - [Handle.Zsyr2k64]: performs the symmetric rank- 2k update
+//   - [Handle.Zsyr]: performs the symmetric rank-1 update
+//   - [Handle.Zsyr64]: performs the symmetric rank-1 update
+//   - [Handle.Zsyrk]: performs the symmetric rank- k update
+//   - [Handle.Zsyrk64]: performs the symmetric rank- k update
+//   - [Handle.Zsyrkx]: performs a variation of the symmetric rank- k update
+//   - [Handle.Zsyrkx64]: performs a variation of the symmetric rank- k update
+//   - [Handle.Ztbmv]: performs the triangular banded matrix-vector multiplication
+//   - [Handle.Ztbmv64]: performs the triangular banded matrix-vector multiplication
+//   - [Handle.Ztbsv]: solves the triangular banded linear system with a single right-hand-side
+//   - [Handle.Ztbsv64]: solves the triangular banded linear system with a single right-hand-side
+//   - [Handle.Ztpmv]: performs the triangular packed matrix-vector multiplication
+//   - [Handle.Ztpmv64]: performs the triangular packed matrix-vector multiplication
+//   - [Handle.Ztpsv]: solves the packed triangular linear system with a single right-hand-side
+//   - [Handle.Ztpsv64]: solves the packed triangular linear system with a single right-hand-side
 //   - [Handle.Ztpttr]: performs the conversion from the triangular packed format to the triangular format
-//   - [Handle.Ztrmm]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztrmm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztrmv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztrmv64]: supports the 64-bit Integer Interface.
-//   - [Handle.ZtrsmBatched]: supports the 64-bit Integer Interface.
-//   - [Handle.ZtrsmBatched64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztrsm]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztrsm64]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztrsv]: supports the 64-bit Integer Interface.
-//   - [Handle.Ztrsv64]: supports the 64-bit Integer Interface.
+//   - [Handle.Ztrmm]: performs the triangular matrix-matrix multiplication
+//   - [Handle.Ztrmm64]: performs the triangular matrix-matrix multiplication
+//   - [Handle.Ztrmv]: performs the triangular matrix-vector multiplication
+//   - [Handle.Ztrmv64]: performs the triangular matrix-vector multiplication
+//   - [Handle.ZtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides
+//   - [Handle.ZtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides
+//   - [Handle.Ztrsm]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Ztrsm64]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Ztrsv]: solves the triangular linear system with a single right-hand-side
+//   - [Handle.Ztrsv64]: solves the triangular linear system with a single right-hand-side
 //   - [Handle.Ztrttp]: performs the conversion from the triangular format to the triangular packed format
 //
 // [cuBLAS Documentation]: https://docs.nvidia.com/cuda/cublas/

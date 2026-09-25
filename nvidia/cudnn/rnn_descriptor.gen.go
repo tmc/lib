@@ -45,10 +45,12 @@ func (r RNNDescriptor) Clip() (clipMode RNNClipMode, lclip float64, rclip float6
 //
 // The LSTM clipping is disabled by default. When enabled, clipping is applied to all layers. This cudnnRNNSetClip_v8() function does not affect the work, reserve, and weight-space buffer sizes and may be called multiple times.
 //
-//   - clipMode: is
+//   - clipMode: Input. Enables or disables the LSTM cell clipping. When clipMode is set to [RnnClipNone] no LSTM cell state clipping is performed. When clipMode is [RnnClipMinmax] the cell state activation to other units is clipped
+//   - lclip: Input. The range [lclip, rclip] to which the LSTM cell clipping should be set
+//   - rclip: Input. The range [lclip, rclip] to which the LSTM cell clipping should be set
 //
 // Returns:
-//   - [ErrBadParam]: An invalid input argument was found, for example:
+//   - [ErrBadParam]: An invalid input argument was found, for example: rnnDesc was NULL lclip > rclip either lclip or rclip is NaN
 //   - [Success]: The function completed successfully.
 //
 // Wraps cudnnRNNSetClip_v9.
@@ -60,14 +62,20 @@ func (r RNNDescriptor) SetClip(clipMode RNNClipMode, lclip float64, rclip float6
 //
 // The RNN descriptor configured by [RNNDescriptor.Set] was enhanced to store all information needed to compute the total number of adjustable weights/biases in the RNN model.
 //
-//   - inputMode: is
+//   - algo: Input. RNN algo ( [RnnAlgoStandard], [RnnAlgoPersistStatic], or [RnnAlgoPersistDynamic])
+//   - cellMode: Input. Specifies the RNN cell type in the entire model ( [RnnRelu], [RnnTanh], CUDNN_RNN_LSTM, CUDNN_RNN_GRU)
+//   - biasMode: Input. Sets the number of bias vectors ( [RnnNoBias], [RnnSingleInpBias], [RnnSingleRecBias], [RnnDoubleBias]). The two single bias settings are functionally the same for RELU, TANH, and LSTM cell types. For differences in GRU cells, refer to the description of [Gru] in the [RNNMode] enumerated type
+//   - dirMode: Input. Specifies the recurrence pattern: [Unidirectional] or [Bidirectional]. In bidirectional RNNs, the hidden states passed between physical layers are concatenations of forward and backward hidden states
+//   - inputMode: Input. Specifies how the input to the RNN model is processed by the first layer. When inputMode is [LinearInput], original input vectors of size inputSize are multiplied by the weight matrix to obtain vectors of hiddenSize. When inputMode is [SkipInput], the original input vectors to the first layer are used as is without multiplying them by the weight matrix
 //   - dataType: Input. Specifies data type for RNN weights/biases and input and output data
 //   - mathPrec: Input. This parameter is used to control the compute math precision in the RNN model. The following applies:
 //   - mathType: Input. Sets the preferred option to use NVIDIA Tensor Cores accelerators on Volta (SM 7.0) or higher GPUs. This option has an advisory status meaning Tensor Cores may not be always utilized, for example, due to specific GEMM dimensions restrictions
-//   - inputSize: should match the
-//   - hiddenSize: columns. When the recurrent projection is enabled, the output of the LSTM cell (both to the next layer and unrolled in-time) is r t instead of h t. The recurrent projection can be enabled for LSTM cells and
-//   - projSize: rows and
+//   - inputSize: Input. Size of the input vector in the RNN model. When the inputMode=[SkipInput], the inputSize should match the hiddenSize value
+//   - hiddenSize: Input. Size of the hidden state vector in the RNN model. The same hidden size is used in all RNN layers
+//   - projSize: Input. The size of the LSTM cell output after the recurrent projection. When the LSTM projection is enabled, this value should be smaller than hiddenSize. When the LSTM projection is disabled, and for all other RNN cell types ( [RnnRelu], [RnnTanh], and CUDNN_RNN_GRU), projSize must be equal to hiddenSize. The recurrent projection is an additional matrix multiplication in the LSTM cell to project (compress) hidden state vectors h t into smaller vectors r t = W r h t, where W r is a rectangular matrix with projSize rows and hiddenSize columns. When the recurrent projection is enabled, the output of the LSTM cell (both to the next layer and unrolled in-time) is r t instead of h t. The recurrent projection can be enabled for LSTM cells and [RnnAlgoStandard] only
+//   - numLayers: Input. Number of stacked, physical layers in the deep RNN model. When dirMode= [Bidirectional], the physical layer consists of two pseudo-layers corresponding to forward and backward directions
 //   - dropoutDesc: Input. Handle to a previously created and initialized dropout descriptor. Dropout operation will be applied between physical layers. A single layer network will have no dropout applied. Dropout is used in the training mode only
+//   - auxFlags: Input. This argument is used to pass miscellaneous switches that do not require additional numerical values to configure the corresponding feature. In future cuDNN releases, this parameter will be used to extend the RNN functionality without adding new API functions (applicable options should be bitwise OR-ed). Currently, this parameter is used to enable or disable padded input/output ( CUDNN_RNN_PADDED_IO_DISABLED, CUDNN_RNN_PADDED_IO_ENABLED). When the padded I/O is enabled, layouts [RnnDataLayoutSeqMajorUnpacked] and [RnnDataLayoutBatchMajorUnpacked] are permitted in RNN data descriptors
 //
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was detected.

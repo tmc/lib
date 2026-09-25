@@ -3,14 +3,14 @@
 package cusolver
 
 const (
-	// Version is CUSOLVER_VERSION. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// Version is CUSOLVER_VERSION. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	Version = 12100
-	// VerBuild is CUSOLVER_VER_BUILD. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// VerBuild is CUSOLVER_VER_BUILD. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	VerBuild = 51
-	// VerMajor is CUSOLVER_VER_MAJOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// VerMajor is CUSOLVER_VER_MAJOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	VerMajor = 12
-	// VerMinor is CUSOLVER_VER_MINOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// VerMinor is CUSOLVER_VER_MINOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	VerMinor = 1
-	// VerPatch is CUSOLVER_VER_PATCH. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// VerPatch is CUSOLVER_VER_PATCH. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	VerPatch = 0
 )

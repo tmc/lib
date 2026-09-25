@@ -43,7 +43,7 @@ func (p PoolingDescriptor) ForwardOutputDim2D(inputTensorDesc TensorDescriptor) 
 
 // Get queries a previously initialized generic PoolingNd descriptor object.
 //
-//   - nbDimsRequested: that will be filled with the stride parameters from the provided pooling descriptor
+//   - nbDimsRequested: Input. Dimension of the expected pooling descriptor. It is also the minimum size of the arrays windowDimA, paddingA, and strideA in order to be able to hold the results
 //
 // Returns:
 //   - [ErrNotSupported]: The parameter nbDimsRequested is greater than CUDNN_DIM_MAX.
@@ -60,10 +60,10 @@ func (p PoolingDescriptor) Get(nbDimsRequested int) (PoolingConfig, error) {
 //
 // Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows:
 //
-//   - nbDims: output dimensions
+//   - nbDims: Input. Number of dimensions in which pooling is to be applied
 //
 // Returns:
-//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met: poolingDesc has not been initialized. The value of nbDims is inconsistent with the dimensionality of poolingDesc and inputDesc.
 //   - [Success]: The function launched successfully.
 //
 // Deprecated: This function is deprecated.
@@ -99,6 +99,9 @@ func (p PoolingDescriptor) Set2D(mode PoolingMode, maxpoolingNanOpt NanPropagati
 //
 //   - mode: Input. Enumerant to specify the pooling mode
 //   - maxpoolingNanOpt: Input. Enumerant to specify the Nan propagation mode
+//   - windowDimA: Input. Array of dimension nbDims containing the window size for each dimension. The value of array elements must be greater than zero
+//   - paddingA: Input. Array of dimension nbDims containing the padding size for each dimension. Negative padding is allowed
+//   - strideA: Input. Array of dimension nbDims containing the striding size for each dimension. The value of array elements must be greater than zero (meaning, negative striding size is not allowed)
 //
 // Returns:
 //   - [ErrBadParam]: Either nbDims, or at least one of the elements of the arrays windowDimA or strideA is negative, or mode or maxpoolingNanOpt has an invalid enumerate value.

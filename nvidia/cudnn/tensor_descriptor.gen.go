@@ -4,8 +4,11 @@ package cudnn
 
 // DeriveBN derives a secondary tensor descriptor for the batch normalization scale, invVariance, bnBias, and bnScale subtensors from the layer’s x data descriptor.
 //
-// Use the tensor descriptor produced by this function as the bnScaleBiasMeanVarDesc parameter for the [Handle.BatchNormalizationForwardInference] and [Handle.BatchNormalizationForwardTraining] functions, and as the bnScaleBiasDiffDesc parameter in the [Handle.BatchNormalizationBackward] function. The resulting dimensions will be: For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
+// Use the tensor descriptor produced by this function as the bnScaleBiasMeanVarDesc parameter for the [Handle.BatchNormalizationForwardInference] and [Handle.BatchNormalizationForwardTraining] functions, and as the bnScaleBiasDiffDesc parameter in the [Handle.BatchNormalizationBackward] function.
+// The resulting dimensions will be:
+// For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
 //
+//   - xDesc: Input. Handle to a previously created and initialized layer’s x data descriptor
 //   - mode: Input. Batch normalization layer mode of operation
 //
 // Returns:
@@ -21,9 +24,12 @@ func (t TensorDescriptor) DeriveBN(xDesc TensorDescriptor, mode BatchNormMode) e
 
 // DeriveNorm derives tensor descriptors for the normalization mean, invariance, normBias, and normScale subtensors from the layer’s x data descriptor and norm mode.
 //
-// Use the tensor descriptor produced by this function as the normScaleBiasDesc or normMeanVarDesc parameter for the [Handle.NormalizationForwardInference] and [Handle.NormalizationForwardTraining] functions, and as the dNormScaleBiasDesc and normMeanVarDesc parameters in the [Handle.NormalizationBackward] function. The resulting dimensions will be: For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
+// Use the tensor descriptor produced by this function as the normScaleBiasDesc or normMeanVarDesc parameter for the [Handle.NormalizationForwardInference] and [Handle.NormalizationForwardTraining] functions, and as the dNormScaleBiasDesc and normMeanVarDesc parameters in the [Handle.NormalizationBackward] function.
+// The resulting dimensions will be:
+// For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
 //
 //   - derivedNormMeanVarDesc: Output. Handle to a previously created tensor descriptor
+//   - xDesc: Input. Handle to a previously created and initialized layer’s x data descriptor
 //   - mode: Input. Batch normalization layer mode of operation
 //
 // Returns:
@@ -73,7 +79,7 @@ func (t TensorDescriptor) Get4D() (Tensor4DConfig, error) {
 
 // Get retrieves values stored in a previously initialized TensorNd descriptor object.
 //
-//   - nbDimsRequested: that will be filled with the strides from the provided tensor descriptor
+//   - nbDimsRequested: Input. Number of dimensions to extract from a given tensor descriptor. It is also the minimum size of the arrays dimA and strideA. If this number is greater than the resulting nbDims [0], only nbDims [0] dimensions will be returned
 //
 // Returns:
 //   - [ErrBadParam]: Either tensorDesc or nbDims pointer is NULL.
@@ -118,7 +124,8 @@ func (t TensorDescriptor) Set4D(format TensorFormat, dataType DataType, n int32,
 
 // Set4DEx initializes a previously created generic tensor descriptor object into a 4D tensor, similarly to [TensorDescriptor.Set4D] but with the strides explicitly passed as parameters.
 //
-// At present, some cuDNN routines have limited support for strides. Those routines will return [ErrNotSupported] if a 4D tensor object with an unsupported stride is used. [Handle.TransformTensor] can be used to convert the data to a supported layout. The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
+// At present, some cuDNN routines have limited support for strides. Those routines will return [ErrNotSupported] if a 4D tensor object with an unsupported stride is used. [Handle.TransformTensor] can be used to convert the data to a supported layout.
+// The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
 //   - n: Input. Number of images
 //   - c: Input. Number of feature maps per image
@@ -142,6 +149,9 @@ func (t TensorDescriptor) Set4DEx(dataType DataType, n int32, c int32, h int32, 
 // Set initializes a previously created generic tensor descriptor object.
 //
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype. Tensors are restricted to having at least 4 dimensions, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h). When working with lower dimensional data, it is recommended that the user create a 4D tensor, and set the size along unused dimensions to 1.
+//
+//   - dimA: Input. Array of dimension nbDims that contain the size of the tensor for every dimension. The size along unused dimensions should be set to 1. By convention, the ordering of dimensions in the array follows the format - [N, C, D, H, W], with W occupying the smallest index in the array
+//   - strideA: Input. Array of dimension nbDims that contain the stride of the tensor for every dimension. By convention, the ordering of the strides in the array follows the format - [Nstride, Cstride, Dstride, Hstride, Wstride], with Wstride occupying the smallest index in the array
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the elements of the array dimA was negative or zero, or dataType has an invalid enumerant value.

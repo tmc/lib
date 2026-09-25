@@ -25,9 +25,9 @@ func (h Handle) AtomicsMode() (AtomicsMode, error) {
 	return getAtomicsMode(h)
 }
 
-// AxpyEx supports the 64-bit Integer Interface.
+// AxpyEx is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
 //
-// This function is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
+// This function supports the 64-bit Integer Interface.
 // This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
 // The possible error values returned by this function and their meanings are listed below.
@@ -56,9 +56,9 @@ func (h Handle) AxpyEx(n int32, alpha uintptr, alphaType DataType, x driver.Devi
 	return axpyEx(h, n, alpha, alphaType, x, xType, incx, y, yType, incy, executiontype)
 }
 
-// AxpyEx64 supports the 64-bit Integer Interface.
+// AxpyEx64 is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
 //
-// This function is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
+// This function supports the 64-bit Integer Interface.
 // This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
 // The possible error values returned by this function and their meanings are listed below.
@@ -87,9 +87,9 @@ func (h Handle) AxpyEx64(n int64, alpha uintptr, alphaType DataType, x driver.De
 	return axpyEx64(h, n, alpha, alphaType, x, xType, incx, y, yType, incy, executiontype)
 }
 
-// Caxpy supports the 64-bit Integer Interface.
+// Caxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -111,9 +111,9 @@ func (h Handle) Caxpy(n int32, alpha *Complex64, x driver.DevicePtr, incx int32,
 	return caxpy(h, n, alpha, x, incx, y, incy)
 }
 
-// Caxpy64 supports the 64-bit Integer Interface.
+// Caxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -135,9 +135,9 @@ func (h Handle) Caxpy64(n int64, alpha *Complex64, x driver.DevicePtr, incx int6
 	return caxpy64(h, n, alpha, x, incx, y, incy)
 }
 
-// Ccopy supports the 64-bit Integer Interface.
+// Ccopy copies the vector x into the vector y.
 //
-// This function copies the vector x into the vector y. Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
@@ -158,9 +158,9 @@ func (h Handle) Ccopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return ccopy(h, n, x, incx, y, incy)
 }
 
-// Ccopy64 supports the 64-bit Integer Interface.
+// Ccopy64 copies the vector x into the vector y.
 //
-// This function copies the vector x into the vector y. Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
@@ -181,9 +181,9 @@ func (h Handle) Ccopy64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return ccopy64(h, n, x, incx, y, incy)
 }
 
-// Cdgmm supports the 64-bit Integer Interface.
+// Cdgmm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
 // X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
@@ -214,9 +214,9 @@ func (h Handle) Cdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda i
 	return cdgmm(h, mode, m, n, a, lda, x, incx, c, ldc)
 }
 
-// Cdgmm64 supports the 64-bit Integer Interface.
+// Cdgmm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
 // X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
@@ -247,9 +247,9 @@ func (h Handle) Cdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 	return cdgmm64(h, mode, m, n, a, lda, x, incx, c, ldc)
 }
 
-// Cdotc supports the 64-bit Integer Interface.
+// Cdotc computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -272,9 +272,9 @@ func (h Handle) Cdotc(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return cdotc(h, n, x, incx, y, incy)
 }
 
-// Cdotc64 supports the 64-bit Integer Interface.
+// Cdotc64 computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -297,9 +297,9 @@ func (h Handle) Cdotc64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return cdotc64(h, n, x, incx, y, incy)
 }
 
-// Cdotu supports the 64-bit Integer Interface.
+// Cdotu computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -322,9 +322,9 @@ func (h Handle) Cdotu(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return cdotu(h, n, x, incx, y, incy)
 }
 
-// Cdotu64 supports the 64-bit Integer Interface.
+// Cdotu64 computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -347,9 +347,9 @@ func (h Handle) Cdotu64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return cdotu64(h, n, x, incx, y, incy)
 }
 
-// Cgbmv supports the 64-bit Integer Interface.
+// Cgbmv performs the banded matrix-vector multiplication
 //
-// This function performs the banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -383,9 +383,9 @@ func (h Handle) Cgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alp
 	return cgbmv(h, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Cgbmv64 supports the 64-bit Integer Interface.
+// Cgbmv64 performs the banded matrix-vector multiplication
 //
-// This function performs the banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -419,9 +419,9 @@ func (h Handle) Cgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, a
 	return cgbmv64(h, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Cgeam supports the 64-bit Integer Interface.
+// Cgeam performs the matrix-matrix addition/transposition
 //
-// This function performs the matrix-matrix addition/transposition
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)+βop(B)
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -460,9 +460,9 @@ func (h Handle) Cgeam(transa Operation, transb Operation, m int32, n int32, alph
 	return cgeam(h, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc)
 }
 
-// Cgeam64 supports the 64-bit Integer Interface.
+// Cgeam64 performs the matrix-matrix addition/transposition
 //
-// This function performs the matrix-matrix addition/transposition
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)+βop(B)
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -536,9 +536,9 @@ func (h Handle) CgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarr
 	return cgelsBatched(h, trans, m, n, nrhs, aarray, lda, carray, ldc, info, devInfoArray, batchSize)
 }
 
-// Cgemm supports the 64-bit Integer Interface.
+// Cgemm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -573,15 +573,15 @@ func (h Handle) Cgemm(transa Operation, transb Operation, m int32, n int32, k in
 	return cgemm(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Cgemm3m supports the 64-bit Integer Interface.
+// Cgemm3m performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //
-// This function performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm. This can lead to an increase in performance up to 25%
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
-// Note
-// These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
 // cgemm(), zgemm()
@@ -612,15 +612,15 @@ func (h Handle) Cgemm3m(transa Operation, transb Operation, m int32, n int32, k 
 	return cgemm3m(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Cgemm3m64 supports the 64-bit Integer Interface.
+// Cgemm3m64 performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //
-// This function performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm. This can lead to an increase in performance up to 25%
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
-// Note
-// These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
 // cgemm(), zgemm()
@@ -671,18 +671,18 @@ func (h Handle) Cgemm3mEx64(transa Operation, transb Operation, m int64, n int64
 	return cgemm3mEx64(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc)
 }
 
-// Cgemm3mStridedBatched supports the 64-bit Integer Interface.
+// Cgemm3mStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -715,18 +715,18 @@ func (h Handle) Cgemm3mStridedBatched(transa Operation, transb Operation, m int3
 	return cgemm3mStridedBatched(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// Cgemm3mStridedBatched64 supports the 64-bit Integer Interface.
+// Cgemm3mStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -759,9 +759,9 @@ func (h Handle) Cgemm3mStridedBatched64(transa Operation, transb Operation, m in
 	return cgemm3mStridedBatched64(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// Cgemm64 supports the 64-bit Integer Interface.
+// Cgemm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -796,15 +796,15 @@ func (h Handle) Cgemm64(transa Operation, transb Operation, m int64, n int64, k 
 	return cgemm64(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// CgemmBatched supports the 64-bit Integer Interface.
+// CgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -836,15 +836,15 @@ func (h Handle) CgemmBatched(transa Operation, transb Operation, m int32, n int3
 	return cgemmBatched(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// CgemmBatched64 supports the 64-bit Integer Interface.
+// CgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -876,9 +876,9 @@ func (h Handle) CgemmBatched64(transa Operation, transb Operation, m int64, n in
 	return cgemmBatched64(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// CgemmEx supports the 64-bit Integer Interface.
+// CgemmEx is an extension of cublasgemm().
 //
-// This function is an extension of cublasgemm(). In this function the input matrices and output matrices can have a lower precision but the computation is still done in the type . For example, in the type float for [Handle.SgemmEx] and in the type cuComplex for [Handle.CgemmEx].
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -920,9 +920,9 @@ func (h Handle) CgemmEx(transa Operation, transb Operation, m int32, n int32, k 
 	return cgemmEx(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc)
 }
 
-// CgemmEx64 supports the 64-bit Integer Interface.
+// CgemmEx64 is an extension of cublasgemm().
 //
-// This function is an extension of cublasgemm(). In this function the input matrices and output matrices can have a lower precision but the computation is still done in the type . For example, in the type float for [Handle.SgemmEx] and in the type cuComplex for [Handle.CgemmEx].
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -964,18 +964,18 @@ func (h Handle) CgemmEx64(transa Operation, transb Operation, m int64, n int64, 
 	return cgemmEx64(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc)
 }
 
-// CgemmStridedBatched supports the 64-bit Integer Interface.
+// CgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -1008,18 +1008,18 @@ func (h Handle) CgemmStridedBatched(transa Operation, transb Operation, m int32,
 	return cgemmStridedBatched(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// CgemmStridedBatched64 supports the 64-bit Integer Interface.
+// CgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -1052,9 +1052,9 @@ func (h Handle) CgemmStridedBatched64(transa Operation, transb Operation, m int6
 	return cgemmStridedBatched64(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// Cgemv supports the 64-bit Integer Interface.
+// Cgemv performs the matrix-vector multiplication
 //
-// This function performs the matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -1085,9 +1085,9 @@ func (h Handle) Cgemv(trans Operation, m int32, n int32, alpha *Complex64, a dri
 	return cgemv(h, trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Cgemv64 supports the 64-bit Integer Interface.
+// Cgemv64 performs the matrix-vector multiplication
 //
-// This function performs the matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -1118,14 +1118,14 @@ func (h Handle) Cgemv64(trans Operation, m int64, n int64, alpha *Complex64, a d
 	return cgemv64(h, trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// CgemvBatched supports the 64-bit Integer Interface.
+// CgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -1154,14 +1154,14 @@ func (h Handle) CgemvBatched(trans Operation, m int32, n int32, alpha *Complex64
 	return cgemvBatched(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// CgemvBatched64 supports the 64-bit Integer Interface.
+// CgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -1190,17 +1190,17 @@ func (h Handle) CgemvBatched64(trans Operation, m int64, n int64, alpha *Complex
 	return cgemvBatched64(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// CgemvStridedBatched supports the 64-bit Integer Interface.
+// CgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -1230,17 +1230,17 @@ func (h Handle) CgemvStridedBatched(trans Operation, m int32, n int32, alpha *Co
 	return cgemvStridedBatched(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// CgemvStridedBatched64 supports the 64-bit Integer Interface.
+// CgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -1301,9 +1301,9 @@ func (h Handle) CgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int
 	return cgeqrfBatched(h, m, n, aarray, lda, tauArray, info, batchSize)
 }
 
-// Cgerc supports the 64-bit Integer Interface.
+// Cgerc performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1331,9 +1331,9 @@ func (h Handle) Cgerc(m int32, n int32, alpha *Complex64, x driver.DevicePtr, in
 	return cgerc(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Cgerc64 supports the 64-bit Integer Interface.
+// Cgerc64 performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1361,9 +1361,9 @@ func (h Handle) Cgerc64(m int64, n int64, alpha *Complex64, x driver.DevicePtr, 
 	return cgerc64(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Cgeru supports the 64-bit Integer Interface.
+// Cgeru performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1391,9 +1391,9 @@ func (h Handle) Cgeru(m int32, n int32, alpha *Complex64, x driver.DevicePtr, in
 	return cgeru(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Cgeru64 supports the 64-bit Integer Interface.
+// Cgeru64 performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1516,9 +1516,9 @@ func (h Handle) CgetrsBatched(trans Operation, n int32, nrhs int32, aarray drive
 	return cgetrsBatched(h, trans, n, nrhs, aarray, lda, devIpiv, barray, ldb, info, batchSize)
 }
 
-// Chbmv supports the 64-bit Integer Interface.
+// Chbmv performs the Hermitian banded matrix-vector multiplication
 //
-// This function performs the Hermitian banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -1550,9 +1550,9 @@ func (h Handle) Chbmv(uplo FillMode, n int32, k int32, alpha *Complex64, a drive
 	return chbmv(h, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Chbmv64 supports the 64-bit Integer Interface.
+// Chbmv64 performs the Hermitian banded matrix-vector multiplication
 //
-// This function performs the Hermitian banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -1584,9 +1584,9 @@ func (h Handle) Chbmv64(uplo FillMode, n int64, k int64, alpha *Complex64, a dri
 	return chbmv64(h, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Chemm supports the 64-bit Integer Interface.
+// Chemm performs the Hermitian matrix-matrix multiplication
 //
-// This function performs the Hermitian matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a Hermitian matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1617,9 +1617,9 @@ func (h Handle) Chemm(side SideMode, uplo FillMode, m int32, n int32, alpha *Com
 	return chemm(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Chemm64 supports the 64-bit Integer Interface.
+// Chemm64 performs the Hermitian matrix-matrix multiplication
 //
-// This function performs the Hermitian matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a Hermitian matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1650,9 +1650,9 @@ func (h Handle) Chemm64(side SideMode, uplo FillMode, m int64, n int64, alpha *C
 	return chemm64(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Chemv supports the 64-bit Integer Interface.
+// Chemv performs the Hermitian matrix-vector multiplication
 //
-// This function performs the Hermitian matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with
@@ -1683,9 +1683,9 @@ func (h Handle) Chemv(uplo FillMode, n int32, alpha *Complex64, a driver.DeviceP
 	return chemv(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Chemv64 supports the 64-bit Integer Interface.
+// Chemv64 performs the Hermitian matrix-vector multiplication
 //
-// This function performs the Hermitian matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with
@@ -1716,9 +1716,9 @@ func (h Handle) Chemv64(uplo FillMode, n int64, alpha *Complex64, a driver.Devic
 	return chemv64(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Cher supports the 64-bit Integer Interface.
+// Cher performs the Hermitian rank-1 update
 //
-// This function performs the Hermitian rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxH+A
 // where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1744,9 +1744,9 @@ func (h Handle) Cher(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr,
 	return cher(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Cher2 supports the 64-bit Integer Interface.
+// Cher2 performs the Hermitian rank-2 update
 //
-// This function performs the Hermitian rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=αxyH+αˉyxH+A
 // where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1774,9 +1774,9 @@ func (h Handle) Cher2(uplo FillMode, n int32, alpha *Complex64, x driver.DeviceP
 	return cher2(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Cher264 supports the 64-bit Integer Interface.
+// Cher264 performs the Hermitian rank-2 update
 //
-// This function performs the Hermitian rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=αxyH+αˉyxH+A
 // where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1804,9 +1804,9 @@ func (h Handle) Cher264(uplo FillMode, n int64, alpha *Complex64, x driver.Devic
 	return cher264(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Cher2k supports the 64-bit Integer Interface.
+// Cher2k performs the Hermitian rank- 2k update
 //
-// This function performs the Hermitian rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)H+αˉop(B)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
@@ -1838,9 +1838,9 @@ func (h Handle) Cher2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return cher2k(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Cher2k64 supports the 64-bit Integer Interface.
+// Cher2k64 performs the Hermitian rank- 2k update
 //
-// This function performs the Hermitian rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)H+αˉop(B)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
@@ -1872,9 +1872,9 @@ func (h Handle) Cher2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return cher2k64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Cher64 supports the 64-bit Integer Interface.
+// Cher64 performs the Hermitian rank-1 update
 //
-// This function performs the Hermitian rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxH+A
 // where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -1900,9 +1900,9 @@ func (h Handle) Cher64(uplo FillMode, n int64, alpha *float32, x driver.DevicePt
 	return cher64(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Cherk supports the 64-bit Integer Interface.
+// Cherk performs the Hermitian rank- k update
 //
-// This function performs the Hermitian rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
@@ -1932,15 +1932,15 @@ func (h Handle) Cherk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 	return cherk(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Cherk3mEx supports the 64-bit Integer Interface.
+// Cherk3mEx is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
-// This function is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex. This routine is implemented using the Gauss complexity reduction algorithm which can lead to an increase in performance up to 25%
+// This function supports the 64-bit Integer Interface.
 // This function performs the Hermitian rank- k update
 // C=αop(A)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
-// Note
-// This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Cherk3mEx] are listed in the following table:
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -1972,15 +1972,15 @@ func (h Handle) Cherk3mEx(uplo FillMode, trans Operation, n int32, k int32, alph
 	return cherk3mEx(h, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc)
 }
 
-// Cherk3mEx64 supports the 64-bit Integer Interface.
+// Cherk3mEx64 is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
-// This function is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex. This routine is implemented using the Gauss complexity reduction algorithm which can lead to an increase in performance up to 25%
+// This function supports the 64-bit Integer Interface.
 // This function performs the Hermitian rank- k update
 // C=αop(A)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
-// Note
-// This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Cherk3mEx] are listed in the following table:
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -2012,9 +2012,9 @@ func (h Handle) Cherk3mEx64(uplo FillMode, trans Operation, n int64, k int64, al
 	return cherk3mEx64(h, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc)
 }
 
-// Cherk64 supports the 64-bit Integer Interface.
+// Cherk64 performs the Hermitian rank- k update
 //
-// This function performs the Hermitian rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
@@ -2044,15 +2044,15 @@ func (h Handle) Cherk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 	return cherk64(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// CherkEx supports the 64-bit Integer Interface.
+// CherkEx is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
 //
-// This function is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+// This function supports the 64-bit Integer Interface.
 // This function performs the Hermitian rank- k update
 // C=αop(A)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
-// Note
-// This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CherkEx] are listed in the following table:
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -2084,15 +2084,15 @@ func (h Handle) CherkEx(uplo FillMode, trans Operation, n int32, k int32, alpha 
 	return cherkEx(h, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc)
 }
 
-// CherkEx64 supports the 64-bit Integer Interface.
+// CherkEx64 is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
 //
-// This function is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+// This function supports the 64-bit Integer Interface.
 // This function performs the Hermitian rank- k update
 // C=αop(A)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
-// Note
-// This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CherkEx] are listed in the following table:
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -2124,9 +2124,9 @@ func (h Handle) CherkEx64(uplo FillMode, trans Operation, n int64, k int64, alph
 	return cherkEx64(h, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc)
 }
 
-// Cherkx supports the 64-bit Integer Interface.
+// Cherkx performs a variation of the Hermitian rank- k update
 //
-// This function performs a variation of the Hermitian rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
@@ -2160,9 +2160,9 @@ func (h Handle) Cherkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return cherkx(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Cherkx64 supports the 64-bit Integer Interface.
+// Cherkx64 performs a variation of the Hermitian rank- k update
 //
-// This function performs a variation of the Hermitian rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
@@ -2196,9 +2196,9 @@ func (h Handle) Cherkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return cherkx64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Chpmv supports the 64-bit Integer Interface.
+// Chpmv performs the Hermitian packed matrix-vector multiplication
 //
-// This function performs the Hermitian packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -2228,9 +2228,9 @@ func (h Handle) Chpmv(uplo FillMode, n int32, alpha *Complex64, ap driver.Device
 	return chpmv(h, uplo, n, alpha, ap, x, incx, beta, y, incy)
 }
 
-// Chpmv64 supports the 64-bit Integer Interface.
+// Chpmv64 performs the Hermitian packed matrix-vector multiplication
 //
-// This function performs the Hermitian packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -2260,9 +2260,9 @@ func (h Handle) Chpmv64(uplo FillMode, n int64, alpha *Complex64, ap driver.Devi
 	return chpmv64(h, uplo, n, alpha, ap, x, incx, beta, y, incy)
 }
 
-// Chpr supports the 64-bit Integer Interface.
+// Chpr performs the packed Hermitian rank-1 update
 //
-// This function performs the packed Hermitian rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxH+A
 // where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -2289,9 +2289,9 @@ func (h Handle) Chpr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr,
 	return chpr(h, uplo, n, alpha, x, incx, ap)
 }
 
-// Chpr2 supports the 64-bit Integer Interface.
+// Chpr2 performs the packed Hermitian rank-2 update
 //
-// This function performs the packed Hermitian rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=αxyH+αˉyxH+A
 // where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -2320,9 +2320,9 @@ func (h Handle) Chpr2(uplo FillMode, n int32, alpha *Complex64, x driver.DeviceP
 	return chpr2(h, uplo, n, alpha, x, incx, y, incy, ap)
 }
 
-// Chpr264 supports the 64-bit Integer Interface.
+// Chpr264 performs the packed Hermitian rank-2 update
 //
-// This function performs the packed Hermitian rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=αxyH+αˉyxH+A
 // where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -2351,9 +2351,9 @@ func (h Handle) Chpr264(uplo FillMode, n int64, alpha *Complex64, x driver.Devic
 	return chpr264(h, uplo, n, alpha, x, incx, y, incy, ap)
 }
 
-// Chpr64 supports the 64-bit Integer Interface.
+// Chpr64 performs the packed Hermitian rank-1 update
 //
-// This function performs the packed Hermitian rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxH+A
 // where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -2416,9 +2416,9 @@ func (h Handle) CopyEx64(n int64, x driver.DevicePtr, xType DataType, incx int64
 	return copyEx64(h, n, x, xType, incx, y, yType, incy)
 }
 
-// Crot supports the 64-bit Integer Interface.
+// Crot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -2444,9 +2444,9 @@ func (h Handle) Crot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 	return crot(h, n, x, incx, y, incy, c, s)
 }
 
-// Crot64 supports the 64-bit Integer Interface.
+// Crot64 applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -2472,9 +2472,9 @@ func (h Handle) Crot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 	return crot64(h, n, x, incx, y, incy, c, s)
 }
 
-// Crotg supports the 64-bit Integer Interface.
+// Crotg constructs the Givens rotation matrix
 //
-// This function constructs the Givens rotation matrix
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // that zeros out the second entry of a 2×1 vector (a,b)T .
 // Then, for real numbers we can write
@@ -2503,11 +2503,10 @@ func (h Handle) Crotg(a *Complex64, b *Complex64, c *float32, s *Complex64) erro
 	return crotg(h, a, b, c, s)
 }
 
-// Cscal supports the 64-bit Integer Interface.
+// Cscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -2526,11 +2525,10 @@ func (h Handle) Cscal(n int32, alpha *Complex64, x driver.DevicePtr, incx int32)
 	return cscal(h, n, alpha, x, incx)
 }
 
-// Cscal64 supports the 64-bit Integer Interface.
+// Cscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -2549,9 +2547,9 @@ func (h Handle) Cscal64(n int64, alpha *Complex64, x driver.DevicePtr, incx int6
 	return cscal64(h, n, alpha, x, incx)
 }
 
-// Csrot supports the 64-bit Integer Interface.
+// Csrot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -2577,9 +2575,9 @@ func (h Handle) Csrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return csrot(h, n, x, incx, y, incy, c, s)
 }
 
-// Csrot64 supports the 64-bit Integer Interface.
+// Csrot64 applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -2605,11 +2603,10 @@ func (h Handle) Csrot64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return csrot64(h, n, x, incx, y, incy, c, s)
 }
 
-// Csscal supports the 64-bit Integer Interface.
+// Csscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -2628,11 +2625,10 @@ func (h Handle) Csscal(n int32, alpha *float32, x driver.DevicePtr, incx int32) 
 	return csscal(h, n, alpha, x, incx)
 }
 
-// Csscal64 supports the 64-bit Integer Interface.
+// Csscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -2651,9 +2647,9 @@ func (h Handle) Csscal64(n int64, alpha *float32, x driver.DevicePtr, incx int64
 	return csscal64(h, n, alpha, x, incx)
 }
 
-// Cswap supports the 64-bit Integer Interface.
+// Cswap interchanges the elements of vector x and y.
 //
-// This function interchanges the elements of vector x and y. Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
@@ -2674,9 +2670,9 @@ func (h Handle) Cswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return cswap(h, n, x, incx, y, incy)
 }
 
-// Cswap64 supports the 64-bit Integer Interface.
+// Cswap64 interchanges the elements of vector x and y.
 //
-// This function interchanges the elements of vector x and y. Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
@@ -2697,9 +2693,9 @@ func (h Handle) Cswap64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return cswap64(h, n, x, incx, y, incy)
 }
 
-// Csymm supports the 64-bit Integer Interface.
+// Csymm performs the symmetric matrix-matrix multiplication
 //
-// This function performs the symmetric matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a symmetric matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -2730,9 +2726,9 @@ func (h Handle) Csymm(side SideMode, uplo FillMode, m int32, n int32, alpha *Com
 	return csymm(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Csymm64 supports the 64-bit Integer Interface.
+// Csymm64 performs the symmetric matrix-matrix multiplication
 //
-// This function performs the symmetric matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a symmetric matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -2763,9 +2759,9 @@ func (h Handle) Csymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *C
 	return csymm64(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Csymv supports the 64-bit Integer Interface.
+// Csymv performs the symmetric matrix-vector multiplication.
 //
-// This function performs the symmetric matrix-vector multiplication.
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy where A is a n×n symmetric matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with [Handle.SetAtomicsMode].
 // Please see the section on the function [Handle.SetAtomicsMode] for more details about the usage of atomics.
@@ -2795,9 +2791,9 @@ func (h Handle) Csymv(uplo FillMode, n int32, alpha *Complex64, a driver.DeviceP
 	return csymv(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Csymv64 supports the 64-bit Integer Interface.
+// Csymv64 performs the symmetric matrix-vector multiplication.
 //
-// This function performs the symmetric matrix-vector multiplication.
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy where A is a n×n symmetric matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with [Handle.SetAtomicsMode].
 // Please see the section on the function [Handle.SetAtomicsMode] for more details about the usage of atomics.
@@ -2827,9 +2823,9 @@ func (h Handle) Csymv64(uplo FillMode, n int64, alpha *Complex64, a driver.Devic
 	return csymv64(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Csyr supports the 64-bit Integer Interface.
+// Csyr performs the symmetric rank-1 update
 //
-// This function performs the symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -2855,9 +2851,9 @@ func (h Handle) Csyr(uplo FillMode, n int32, alpha *Complex64, x driver.DevicePt
 	return csyr(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Csyr2 supports the 64-bit Integer Interface.
+// Csyr2 performs the symmetric rank-2 update
 //
-// This function performs the symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -2885,9 +2881,9 @@ func (h Handle) Csyr2(uplo FillMode, n int32, alpha *Complex64, x driver.DeviceP
 	return csyr2(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Csyr264 supports the 64-bit Integer Interface.
+// Csyr264 performs the symmetric rank-2 update
 //
-// This function performs the symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -2915,9 +2911,9 @@ func (h Handle) Csyr264(uplo FillMode, n int64, alpha *Complex64, x driver.Devic
 	return csyr264(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Csyr2k supports the 64-bit Integer Interface.
+// Csyr2k performs the symmetric rank- 2k update
 //
-// This function performs the symmetric rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=α(op(A)op(B)T+op(B)op(A)T)+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -2949,9 +2945,9 @@ func (h Handle) Csyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return csyr2k(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Csyr2k64 supports the 64-bit Integer Interface.
+// Csyr2k64 performs the symmetric rank- 2k update
 //
-// This function performs the symmetric rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=α(op(A)op(B)T+op(B)op(A)T)+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -2983,9 +2979,9 @@ func (h Handle) Csyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return csyr2k64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Csyr64 supports the 64-bit Integer Interface.
+// Csyr64 performs the symmetric rank-1 update
 //
-// This function performs the symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -3011,9 +3007,9 @@ func (h Handle) Csyr64(uplo FillMode, n int64, alpha *Complex64, x driver.Device
 	return csyr64(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Csyrk supports the 64-bit Integer Interface.
+// Csyrk performs the symmetric rank- k update
 //
-// This function performs the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
@@ -3043,15 +3039,15 @@ func (h Handle) Csyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *C
 	return csyrk(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Csyrk3mEx supports the 64-bit Integer Interface.
+// Csyrk3mEx is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
-// This function is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex. This routine is implemented using the Gauss complexity reduction algorithm which can lead to an increase in performance up to 25%
+// This function supports the 64-bit Integer Interface.
 // This function performs the symmetric rank- k update
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
-// Note
-// This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Csyrk3mEx] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3083,15 +3079,15 @@ func (h Handle) Csyrk3mEx(uplo FillMode, trans Operation, n int32, k int32, alph
 	return csyrk3mEx(h, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc)
 }
 
-// Csyrk3mEx64 supports the 64-bit Integer Interface.
+// Csyrk3mEx64 is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
-// This function is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex. This routine is implemented using the Gauss complexity reduction algorithm which can lead to an increase in performance up to 25%
+// This function supports the 64-bit Integer Interface.
 // This function performs the symmetric rank- k update
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
-// Note
-// This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Csyrk3mEx] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3123,9 +3119,9 @@ func (h Handle) Csyrk3mEx64(uplo FillMode, trans Operation, n int64, k int64, al
 	return csyrk3mEx64(h, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc)
 }
 
-// Csyrk64 supports the 64-bit Integer Interface.
+// Csyrk64 performs the symmetric rank- k update
 //
-// This function performs the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
@@ -3155,15 +3151,15 @@ func (h Handle) Csyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 	return csyrk64(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// CsyrkEx supports the 64-bit Integer Interface.
+// CsyrkEx is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
 //
-// This function is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+// This function supports the 64-bit Integer Interface.
 // This function performs the symmetric rank- k update
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
-// Note
-// This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CsyrkEx] are listed below:
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3195,15 +3191,15 @@ func (h Handle) CsyrkEx(uplo FillMode, trans Operation, n int32, k int32, alpha 
 	return csyrkEx(h, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc)
 }
 
-// CsyrkEx64 supports the 64-bit Integer Interface.
+// CsyrkEx64 is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
 //
-// This function is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+// This function supports the 64-bit Integer Interface.
 // This function performs the symmetric rank- k update
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
-// Note
-// This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CsyrkEx] are listed below:
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3235,9 +3231,9 @@ func (h Handle) CsyrkEx64(uplo FillMode, trans Operation, n int64, k int64, alph
 	return csyrkEx64(h, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc)
 }
 
-// Csyrkx supports the 64-bit Integer Interface.
+// Csyrkx performs a variation of the symmetric rank- k update
 //
-// This function performs a variation of the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -3271,9 +3267,9 @@ func (h Handle) Csyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return csyrkx(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Csyrkx64 supports the 64-bit Integer Interface.
+// Csyrkx64 performs a variation of the symmetric rank- k update
 //
-// This function performs a variation of the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -3307,9 +3303,9 @@ func (h Handle) Csyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return csyrkx64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Ctbmv supports the 64-bit Integer Interface.
+// Ctbmv performs the triangular banded matrix-vector multiplication
 //
-// This function performs the triangular banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular banded matrix, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3341,9 +3337,9 @@ func (h Handle) Ctbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 	return ctbmv(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Ctbmv64 supports the 64-bit Integer Interface.
+// Ctbmv64 performs the triangular banded matrix-vector multiplication
 //
-// This function performs the triangular banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular banded matrix, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3375,9 +3371,9 @@ func (h Handle) Ctbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return ctbmv64(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Ctbsv supports the 64-bit Integer Interface.
+// Ctbsv solves the triangular banded linear system with a single right-hand-side
 //
-// This function solves the triangular banded linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3410,9 +3406,9 @@ func (h Handle) Ctbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 	return ctbsv(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Ctbsv64 supports the 64-bit Integer Interface.
+// Ctbsv64 solves the triangular banded linear system with a single right-hand-side
 //
-// This function solves the triangular banded linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3445,9 +3441,9 @@ func (h Handle) Ctbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return ctbsv64(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Ctpmv supports the 64-bit Integer Interface.
+// Ctpmv performs the triangular packed matrix-vector multiplication
 //
-// This function performs the triangular packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3477,9 +3473,9 @@ func (h Handle) Ctpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 	return ctpmv(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Ctpmv64 supports the 64-bit Integer Interface.
+// Ctpmv64 performs the triangular packed matrix-vector multiplication
 //
-// This function performs the triangular packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3509,9 +3505,9 @@ func (h Handle) Ctpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return ctpmv64(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Ctpsv supports the 64-bit Integer Interface.
+// Ctpsv solves the packed triangular linear system with a single right-hand-side
 //
-// This function solves the packed triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3542,9 +3538,9 @@ func (h Handle) Ctpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 	return ctpsv(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Ctpsv64 supports the 64-bit Integer Interface.
+// Ctpsv64 solves the packed triangular linear system with a single right-hand-side
 //
-// This function solves the packed triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3599,9 +3595,9 @@ func (h Handle) Ctpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.Dev
 	return ctpttr(h, uplo, n, ap, a, lda)
 }
 
-// Ctrmm supports the 64-bit Integer Interface.
+// Ctrmm performs the triangular matrix-matrix multiplication
 //
-// This function performs the triangular matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -3635,9 +3631,9 @@ func (h Handle) Ctrmm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 	return ctrmm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc)
 }
 
-// Ctrmm64 supports the 64-bit Integer Interface.
+// Ctrmm64 performs the triangular matrix-matrix multiplication
 //
-// This function performs the triangular matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -3671,9 +3667,9 @@ func (h Handle) Ctrmm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 	return ctrmm64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc)
 }
 
-// Ctrmv supports the 64-bit Integer Interface.
+// Ctrmv performs the triangular matrix-vector multiplication
 //
-// This function performs the triangular matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3702,9 +3698,9 @@ func (h Handle) Ctrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 	return ctrmv(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Ctrmv64 supports the 64-bit Integer Interface.
+// Ctrmv64 performs the triangular matrix-vector multiplication
 //
-// This function performs the triangular matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -3733,9 +3729,9 @@ func (h Handle) Ctrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return ctrmv64(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Ctrsm supports the 64-bit Integer Interface.
+// Ctrsm solves the triangular linear system with multiple right-hand-sides
 //
-// This function solves the triangular linear system with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -3768,9 +3764,9 @@ func (h Handle) Ctrsm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 	return ctrsm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb)
 }
 
-// Ctrsm64 supports the 64-bit Integer Interface.
+// Ctrsm64 solves the triangular linear system with multiple right-hand-sides
 //
-// This function solves the triangular linear system with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -3803,9 +3799,9 @@ func (h Handle) Ctrsm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 	return ctrsm64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb)
 }
 
-// CtrsmBatched supports the 64-bit Integer Interface.
+// CtrsmBatched solves an array of triangular linear systems with multiple right-hand-sides
 //
-// This function solves an array of triangular linear systems with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
@@ -3841,9 +3837,9 @@ func (h Handle) CtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag
 	return ctrsmBatched(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount)
 }
 
-// CtrsmBatched64 supports the 64-bit Integer Interface.
+// CtrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides
 //
-// This function solves an array of triangular linear systems with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
@@ -3879,9 +3875,9 @@ func (h Handle) CtrsmBatched64(side SideMode, uplo FillMode, trans Operation, di
 	return ctrsmBatched64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount)
 }
 
-// Ctrsv supports the 64-bit Integer Interface.
+// Ctrsv solves the triangular linear system with a single right-hand-side
 //
-// This function solves the triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -3911,9 +3907,9 @@ func (h Handle) Ctrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 	return ctrsv(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Ctrsv64 supports the 64-bit Integer Interface.
+// Ctrsv64 solves the triangular linear system with a single right-hand-side
 //
-// This function solves the triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -3967,9 +3963,9 @@ func (h Handle) Ctrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap
 	return ctrttp(h, uplo, n, a, lda, ap)
 }
 
-// Dasum supports the 64-bit Integer Interface.
+// Dasum computes the sum of the absolute values of the elements of vector x.
 //
-// This function computes the sum of the absolute values of the elements of vector x. Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)∗incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
@@ -3991,9 +3987,9 @@ func (h Handle) Dasum(n int32, x driver.DevicePtr, incx int32) (float64, error) 
 	return dasum(h, n, x, incx)
 }
 
-// Dasum64 supports the 64-bit Integer Interface.
+// Dasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// This function computes the sum of the absolute values of the elements of vector x. Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)∗incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
@@ -4015,9 +4011,9 @@ func (h Handle) Dasum64(n int64, x driver.DevicePtr, incx int64) (float64, error
 	return dasum64(h, n, x, incx)
 }
 
-// Daxpy supports the 64-bit Integer Interface.
+// Daxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -4039,9 +4035,9 @@ func (h Handle) Daxpy(n int32, alpha *float64, x driver.DevicePtr, incx int32, y
 	return daxpy(h, n, alpha, x, incx, y, incy)
 }
 
-// Daxpy64 supports the 64-bit Integer Interface.
+// Daxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -4063,9 +4059,9 @@ func (h Handle) Daxpy64(n int64, alpha *float64, x driver.DevicePtr, incx int64,
 	return daxpy64(h, n, alpha, x, incx, y, incy)
 }
 
-// Dcopy supports the 64-bit Integer Interface.
+// Dcopy copies the vector x into the vector y.
 //
-// This function copies the vector x into the vector y. Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
@@ -4086,9 +4082,9 @@ func (h Handle) Dcopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return dcopy(h, n, x, incx, y, incy)
 }
 
-// Dcopy64 supports the 64-bit Integer Interface.
+// Dcopy64 copies the vector x into the vector y.
 //
-// This function copies the vector x into the vector y. Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
@@ -4109,9 +4105,9 @@ func (h Handle) Dcopy64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return dcopy64(h, n, x, incx, y, incy)
 }
 
-// Ddgmm supports the 64-bit Integer Interface.
+// Ddgmm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
 // X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
@@ -4142,9 +4138,9 @@ func (h Handle) Ddgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda i
 	return ddgmm(h, mode, m, n, a, lda, x, incx, c, ldc)
 }
 
-// Ddgmm64 supports the 64-bit Integer Interface.
+// Ddgmm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
 // X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
@@ -4175,9 +4171,9 @@ func (h Handle) Ddgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 	return ddgmm64(h, mode, m, n, a, lda, x, incx, c, ldc)
 }
 
-// Ddot supports the 64-bit Integer Interface.
+// Ddot computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -4200,9 +4196,9 @@ func (h Handle) Ddot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 	return ddot(h, n, x, incx, y, incy)
 }
 
-// Ddot64 supports the 64-bit Integer Interface.
+// Ddot64 computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -4232,9 +4228,9 @@ func (h Handle) Destroy() error {
 	return destroy(h)
 }
 
-// Dgbmv supports the 64-bit Integer Interface.
+// Dgbmv performs the banded matrix-vector multiplication
 //
-// This function performs the banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -4268,9 +4264,9 @@ func (h Handle) Dgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alp
 	return dgbmv(h, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Dgbmv64 supports the 64-bit Integer Interface.
+// Dgbmv64 performs the banded matrix-vector multiplication
 //
-// This function performs the banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -4304,9 +4300,9 @@ func (h Handle) Dgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, a
 	return dgbmv64(h, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Dgeam supports the 64-bit Integer Interface.
+// Dgeam performs the matrix-matrix addition/transposition
 //
-// This function performs the matrix-matrix addition/transposition
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)+βop(B)
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -4345,9 +4341,9 @@ func (h Handle) Dgeam(transa Operation, transb Operation, m int32, n int32, alph
 	return dgeam(h, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc)
 }
 
-// Dgeam64 supports the 64-bit Integer Interface.
+// Dgeam64 performs the matrix-matrix addition/transposition
 //
-// This function performs the matrix-matrix addition/transposition
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)+βop(B)
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -4421,9 +4417,9 @@ func (h Handle) DgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarr
 	return dgelsBatched(h, trans, m, n, nrhs, aarray, lda, carray, ldc, info, devInfoArray, batchSize)
 }
 
-// Dgemm supports the 64-bit Integer Interface.
+// Dgemm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -4458,9 +4454,9 @@ func (h Handle) Dgemm(transa Operation, transb Operation, m int32, n int32, k in
 	return dgemm(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Dgemm64 supports the 64-bit Integer Interface.
+// Dgemm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -4495,15 +4491,15 @@ func (h Handle) Dgemm64(transa Operation, transb Operation, m int64, n int64, k 
 	return dgemm64(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// DgemmBatched supports the 64-bit Integer Interface.
+// DgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -4535,15 +4531,15 @@ func (h Handle) DgemmBatched(transa Operation, transb Operation, m int32, n int3
 	return dgemmBatched(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// DgemmBatched64 supports the 64-bit Integer Interface.
+// DgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -4575,17 +4571,17 @@ func (h Handle) DgemmBatched64(transa Operation, transb Operation, m int64, n in
 	return dgemmBatched64(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// DgemmGroupedBatched supports the 64-bit Integer Interface.
+// DgemmGroupedBatched performs the matrix-matrix multiplication on groups of matrices.
 //
-// This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+// This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
-// Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+//
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
-// Note
-// C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -4618,17 +4614,17 @@ func (h Handle) DgemmGroupedBatched(transaArray *Operation, transbArray *Operati
 	return dgemmGroupedBatched(h, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, ldaArray, barray, ldbArray, betaArray, carray, ldcArray, groupCount, groupSize)
 }
 
-// DgemmGroupedBatched64 supports the 64-bit Integer Interface.
+// DgemmGroupedBatched64 performs the matrix-matrix multiplication on groups of matrices.
 //
-// This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+// This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
-// Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+//
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
-// Note
-// C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -4661,18 +4657,18 @@ func (h Handle) DgemmGroupedBatched64(transaArray *Operation, transbArray *Opera
 	return dgemmGroupedBatched64(h, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, ldaArray, barray, ldbArray, betaArray, carray, ldcArray, groupCount, groupSize)
 }
 
-// DgemmStridedBatched supports the 64-bit Integer Interface.
+// DgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -4705,18 +4701,18 @@ func (h Handle) DgemmStridedBatched(transa Operation, transb Operation, m int32,
 	return dgemmStridedBatched(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// DgemmStridedBatched64 supports the 64-bit Integer Interface.
+// DgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -4749,9 +4745,9 @@ func (h Handle) DgemmStridedBatched64(transa Operation, transb Operation, m int6
 	return dgemmStridedBatched64(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// Dgemv supports the 64-bit Integer Interface.
+// Dgemv performs the matrix-vector multiplication
 //
-// This function performs the matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -4782,9 +4778,9 @@ func (h Handle) Dgemv(trans Operation, m int32, n int32, alpha *float64, a drive
 	return dgemv(h, trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Dgemv64 supports the 64-bit Integer Interface.
+// Dgemv64 performs the matrix-vector multiplication
 //
-// This function performs the matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -4815,14 +4811,14 @@ func (h Handle) Dgemv64(trans Operation, m int64, n int64, alpha *float64, a dri
 	return dgemv64(h, trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// DgemvBatched supports the 64-bit Integer Interface.
+// DgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -4851,14 +4847,14 @@ func (h Handle) DgemvBatched(trans Operation, m int32, n int32, alpha *float64, 
 	return dgemvBatched(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// DgemvBatched64 supports the 64-bit Integer Interface.
+// DgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -4887,17 +4883,17 @@ func (h Handle) DgemvBatched64(trans Operation, m int64, n int64, alpha *float64
 	return dgemvBatched64(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// DgemvStridedBatched supports the 64-bit Integer Interface.
+// DgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -4927,17 +4923,17 @@ func (h Handle) DgemvStridedBatched(trans Operation, m int32, n int32, alpha *fl
 	return dgemvStridedBatched(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// DgemvStridedBatched64 supports the 64-bit Integer Interface.
+// DgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -4998,9 +4994,9 @@ func (h Handle) DgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int
 	return dgeqrfBatched(h, m, n, aarray, lda, tauArray, info, batchSize)
 }
 
-// Dger supports the 64-bit Integer Interface.
+// Dger performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -5028,9 +5024,9 @@ func (h Handle) Dger(m int32, n int32, alpha *float64, x driver.DevicePtr, incx 
 	return dger(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Dger64 supports the 64-bit Integer Interface.
+// Dger64 performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -5179,9 +5175,9 @@ func (h Handle) DmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driv
 	return dmatinvBatched(h, n, a, lda, ainv, ldaInv, info, batchSize)
 }
 
-// Dnrm2 supports the 64-bit Integer Interface.
+// Dnrm2 computes the Euclidean norm of the vector x.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -5203,9 +5199,9 @@ func (h Handle) Dnrm2(n int32, x driver.DevicePtr, incx int32) (float64, error) 
 	return dnrm2(h, n, x, incx)
 }
 
-// Dnrm264 supports the 64-bit Integer Interface.
+// Dnrm264 computes the Euclidean norm of the vector x.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -5227,9 +5223,9 @@ func (h Handle) Dnrm264(n int64, x driver.DevicePtr, incx int64) (float64, error
 	return dnrm264(h, n, x, incx)
 }
 
-// DotEx These functions support the 64-bit Integer Interface.
+// DotEx These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //
-// These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently. Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
+// These functions support the 64-bit Integer Interface.
 // This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 // The possible error values returned by this function and their meanings are listed in the following table:
@@ -5260,9 +5256,9 @@ func (h Handle) DotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y
 	return dotEx(h, n, x, xType, incx, y, yType, incy, result, resultType, executionType)
 }
 
-// DotEx64 These functions support the 64-bit Integer Interface.
+// DotEx64 These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //
-// These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently. Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
+// These functions support the 64-bit Integer Interface.
 // This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 // The possible error values returned by this function and their meanings are listed in the following table:
@@ -5293,9 +5289,9 @@ func (h Handle) DotEx64(n int64, x driver.DevicePtr, xType DataType, incx int64,
 	return dotEx64(h, n, x, xType, incx, y, yType, incy, result, resultType, executionType)
 }
 
-// DotcEx These functions support the 64-bit Integer Interface.
+// DotcEx These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //
-// These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently. Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
+// These functions support the 64-bit Integer Interface.
 // This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 // The possible error values returned by this function and their meanings are listed in the following table:
@@ -5326,9 +5322,9 @@ func (h Handle) DotcEx(n int32, x driver.DevicePtr, xType DataType, incx int32, 
 	return dotcEx(h, n, x, xType, incx, y, yType, incy, result, resultType, executionType)
 }
 
-// DotcEx64 These functions support the 64-bit Integer Interface.
+// DotcEx64 These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //
-// These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently. Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
+// These functions support the 64-bit Integer Interface.
 // This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 // The possible error values returned by this function and their meanings are listed in the following table:
@@ -5359,9 +5355,9 @@ func (h Handle) DotcEx64(n int64, x driver.DevicePtr, xType DataType, incx int64
 	return dotcEx64(h, n, x, xType, incx, y, yType, incy, result, resultType, executionType)
 }
 
-// Drot supports the 64-bit Integer Interface.
+// Drot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -5387,9 +5383,9 @@ func (h Handle) Drot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 	return drot(h, n, x, incx, y, incy, c, s)
 }
 
-// Drot64 supports the 64-bit Integer Interface.
+// Drot64 applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -5415,9 +5411,9 @@ func (h Handle) Drot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 	return drot64(h, n, x, incx, y, incy, c, s)
 }
 
-// Drotg supports the 64-bit Integer Interface.
+// Drotg constructs the Givens rotation matrix
 //
-// This function constructs the Givens rotation matrix
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // that zeros out the second entry of a 2×1 vector (a,b)T .
 // Then, for real numbers we can write
@@ -5446,9 +5442,9 @@ func (h Handle) Drotg(a *float64, b *float64, c *float64, s *float64) error {
 	return drotg(h, a, b, c, s)
 }
 
-// Drotm supports the 64-bit Integer Interface.
+// Drotm applies the modified Givens transformation
 //
-// This function applies the modified Givens transformation
+// This function supports the 64-bit Integer Interface.
 // H=(h11h12h21h22)
 // to vectors x and y.
 // Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -5475,9 +5471,9 @@ func (h Handle) Drotm(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return drotm(h, n, x, incx, y, incy, param)
 }
 
-// Drotm64 supports the 64-bit Integer Interface.
+// Drotm64 applies the modified Givens transformation
 //
-// This function applies the modified Givens transformation
+// This function supports the 64-bit Integer Interface.
 // H=(h11h12h21h22)
 // to vectors x and y.
 // Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -5504,9 +5500,9 @@ func (h Handle) Drotm64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return drotm64(h, n, x, incx, y, incy, param)
 }
 
-// Drotmg supports the 64-bit Integer Interface.
+// Drotmg constructs the modified Givens transformation
 //
-// This function constructs the modified Givens transformation
+// This function supports the 64-bit Integer Interface.
 // H=(h11h12h21h22)
 // that zeros out the second entry of a 2×1 vector (d1∗x1,d2∗y1)T .
 // The flag = param [0] defines the following predefined values for the matrix H entries
@@ -5531,9 +5527,9 @@ func (h Handle) Drotmg(d1 *float64, d2 *float64, x1 *float64, y1 *float64, param
 	return drotmg(h, d1, d2, x1, y1, param)
 }
 
-// Dsbmv supports the 64-bit Integer Interface.
+// Dsbmv performs the symmetric banded matrix-vector multiplication
 //
-// This function performs the symmetric banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -5565,9 +5561,9 @@ func (h Handle) Dsbmv(uplo FillMode, n int32, k int32, alpha *float64, a driver.
 	return dsbmv(h, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Dsbmv64 supports the 64-bit Integer Interface.
+// Dsbmv64 performs the symmetric banded matrix-vector multiplication
 //
-// This function performs the symmetric banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -5599,11 +5595,10 @@ func (h Handle) Dsbmv64(uplo FillMode, n int64, k int64, alpha *float64, a drive
 	return dsbmv64(h, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Dscal supports the 64-bit Integer Interface.
+// Dscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -5622,11 +5617,10 @@ func (h Handle) Dscal(n int32, alpha *float64, x driver.DevicePtr, incx int32) e
 	return dscal(h, n, alpha, x, incx)
 }
 
-// Dscal64 supports the 64-bit Integer Interface.
+// Dscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -5645,9 +5639,9 @@ func (h Handle) Dscal64(n int64, alpha *float64, x driver.DevicePtr, incx int64)
 	return dscal64(h, n, alpha, x, incx)
 }
 
-// Dspmv supports the 64-bit Integer Interface.
+// Dspmv performs the symmetric packed matrix-vector multiplication
 //
-// This function performs the symmetric packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -5677,9 +5671,9 @@ func (h Handle) Dspmv(uplo FillMode, n int32, alpha *float64, ap driver.DevicePt
 	return dspmv(h, uplo, n, alpha, ap, x, incx, beta, y, incy)
 }
 
-// Dspmv64 supports the 64-bit Integer Interface.
+// Dspmv64 performs the symmetric packed matrix-vector multiplication
 //
-// This function performs the symmetric packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -5709,9 +5703,9 @@ func (h Handle) Dspmv64(uplo FillMode, n int64, alpha *float64, ap driver.Device
 	return dspmv64(h, uplo, n, alpha, ap, x, incx, beta, y, incy)
 }
 
-// Dspr supports the 64-bit Integer Interface.
+// Dspr performs the packed symmetric rank-1 update
 //
-// This function performs the packed symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -5738,9 +5732,9 @@ func (h Handle) Dspr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr,
 	return dspr(h, uplo, n, alpha, x, incx, ap)
 }
 
-// Dspr2 supports the 64-bit Integer Interface.
+// Dspr2 performs the packed symmetric rank-2 update
 //
-// This function performs the packed symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -5769,9 +5763,9 @@ func (h Handle) Dspr2(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr
 	return dspr2(h, uplo, n, alpha, x, incx, y, incy, ap)
 }
 
-// Dspr264 supports the 64-bit Integer Interface.
+// Dspr264 performs the packed symmetric rank-2 update
 //
-// This function performs the packed symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -5800,9 +5794,9 @@ func (h Handle) Dspr264(uplo FillMode, n int64, alpha *float64, x driver.DeviceP
 	return dspr264(h, uplo, n, alpha, x, incx, y, incy, ap)
 }
 
-// Dspr64 supports the 64-bit Integer Interface.
+// Dspr64 performs the packed symmetric rank-1 update
 //
-// This function performs the packed symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -5829,9 +5823,9 @@ func (h Handle) Dspr64(uplo FillMode, n int64, alpha *float64, x driver.DevicePt
 	return dspr64(h, uplo, n, alpha, x, incx, ap)
 }
 
-// Dswap supports the 64-bit Integer Interface.
+// Dswap interchanges the elements of vector x and y.
 //
-// This function interchanges the elements of vector x and y. Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
@@ -5852,9 +5846,9 @@ func (h Handle) Dswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return dswap(h, n, x, incx, y, incy)
 }
 
-// Dswap64 supports the 64-bit Integer Interface.
+// Dswap64 interchanges the elements of vector x and y.
 //
-// This function interchanges the elements of vector x and y. Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
@@ -5875,9 +5869,9 @@ func (h Handle) Dswap64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return dswap64(h, n, x, incx, y, incy)
 }
 
-// Dsymm supports the 64-bit Integer Interface.
+// Dsymm performs the symmetric matrix-matrix multiplication
 //
-// This function performs the symmetric matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a symmetric matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -5908,9 +5902,9 @@ func (h Handle) Dsymm(side SideMode, uplo FillMode, m int32, n int32, alpha *flo
 	return dsymm(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Dsymm64 supports the 64-bit Integer Interface.
+// Dsymm64 performs the symmetric matrix-matrix multiplication
 //
-// This function performs the symmetric matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a symmetric matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -5941,9 +5935,9 @@ func (h Handle) Dsymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *f
 	return dsymm64(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Dsymv supports the 64-bit Integer Interface.
+// Dsymv performs the symmetric matrix-vector multiplication.
 //
-// This function performs the symmetric matrix-vector multiplication.
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy where A is a n×n symmetric matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with [Handle.SetAtomicsMode].
 // Please see the section on the function [Handle.SetAtomicsMode] for more details about the usage of atomics.
@@ -5973,9 +5967,9 @@ func (h Handle) Dsymv(uplo FillMode, n int32, alpha *float64, a driver.DevicePtr
 	return dsymv(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Dsymv64 supports the 64-bit Integer Interface.
+// Dsymv64 performs the symmetric matrix-vector multiplication.
 //
-// This function performs the symmetric matrix-vector multiplication.
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy where A is a n×n symmetric matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with [Handle.SetAtomicsMode].
 // Please see the section on the function [Handle.SetAtomicsMode] for more details about the usage of atomics.
@@ -6005,9 +5999,9 @@ func (h Handle) Dsymv64(uplo FillMode, n int64, alpha *float64, a driver.DeviceP
 	return dsymv64(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Dsyr supports the 64-bit Integer Interface.
+// Dsyr performs the symmetric rank-1 update
 //
-// This function performs the symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6033,9 +6027,9 @@ func (h Handle) Dsyr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr,
 	return dsyr(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Dsyr2 supports the 64-bit Integer Interface.
+// Dsyr2 performs the symmetric rank-2 update
 //
-// This function performs the symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6063,9 +6057,9 @@ func (h Handle) Dsyr2(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr
 	return dsyr2(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Dsyr264 supports the 64-bit Integer Interface.
+// Dsyr264 performs the symmetric rank-2 update
 //
-// This function performs the symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6093,9 +6087,9 @@ func (h Handle) Dsyr264(uplo FillMode, n int64, alpha *float64, x driver.DeviceP
 	return dsyr264(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Dsyr2k supports the 64-bit Integer Interface.
+// Dsyr2k performs the symmetric rank- 2k update
 //
-// This function performs the symmetric rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=α(op(A)op(B)T+op(B)op(A)T)+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -6127,9 +6121,9 @@ func (h Handle) Dsyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return dsyr2k(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Dsyr2k64 supports the 64-bit Integer Interface.
+// Dsyr2k64 performs the symmetric rank- 2k update
 //
-// This function performs the symmetric rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=α(op(A)op(B)T+op(B)op(A)T)+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -6161,9 +6155,9 @@ func (h Handle) Dsyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return dsyr2k64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Dsyr64 supports the 64-bit Integer Interface.
+// Dsyr64 performs the symmetric rank-1 update
 //
-// This function performs the symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6189,9 +6183,9 @@ func (h Handle) Dsyr64(uplo FillMode, n int64, alpha *float64, x driver.DevicePt
 	return dsyr64(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Dsyrk supports the 64-bit Integer Interface.
+// Dsyrk performs the symmetric rank- k update
 //
-// This function performs the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
@@ -6221,9 +6215,9 @@ func (h Handle) Dsyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 	return dsyrk(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Dsyrk64 supports the 64-bit Integer Interface.
+// Dsyrk64 performs the symmetric rank- k update
 //
-// This function performs the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
@@ -6253,9 +6247,9 @@ func (h Handle) Dsyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 	return dsyrk64(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Dsyrkx supports the 64-bit Integer Interface.
+// Dsyrkx performs a variation of the symmetric rank- k update
 //
-// This function performs a variation of the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -6289,9 +6283,9 @@ func (h Handle) Dsyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return dsyrkx(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Dsyrkx64 supports the 64-bit Integer Interface.
+// Dsyrkx64 performs a variation of the symmetric rank- k update
 //
-// This function performs a variation of the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -6325,9 +6319,9 @@ func (h Handle) Dsyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return dsyrkx64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Dtbmv supports the 64-bit Integer Interface.
+// Dtbmv performs the triangular banded matrix-vector multiplication
 //
-// This function performs the triangular banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular banded matrix, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6359,9 +6353,9 @@ func (h Handle) Dtbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 	return dtbmv(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Dtbmv64 supports the 64-bit Integer Interface.
+// Dtbmv64 performs the triangular banded matrix-vector multiplication
 //
-// This function performs the triangular banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular banded matrix, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6393,9 +6387,9 @@ func (h Handle) Dtbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return dtbmv64(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Dtbsv supports the 64-bit Integer Interface.
+// Dtbsv solves the triangular banded linear system with a single right-hand-side
 //
-// This function solves the triangular banded linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6428,9 +6422,9 @@ func (h Handle) Dtbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 	return dtbsv(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Dtbsv64 supports the 64-bit Integer Interface.
+// Dtbsv64 solves the triangular banded linear system with a single right-hand-side
 //
-// This function solves the triangular banded linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6463,9 +6457,9 @@ func (h Handle) Dtbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return dtbsv64(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Dtpmv supports the 64-bit Integer Interface.
+// Dtpmv performs the triangular packed matrix-vector multiplication
 //
-// This function performs the triangular packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6495,9 +6489,9 @@ func (h Handle) Dtpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 	return dtpmv(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Dtpmv64 supports the 64-bit Integer Interface.
+// Dtpmv64 performs the triangular packed matrix-vector multiplication
 //
-// This function performs the triangular packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6527,9 +6521,9 @@ func (h Handle) Dtpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return dtpmv64(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Dtpsv supports the 64-bit Integer Interface.
+// Dtpsv solves the packed triangular linear system with a single right-hand-side
 //
-// This function solves the packed triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6560,9 +6554,9 @@ func (h Handle) Dtpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 	return dtpsv(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Dtpsv64 supports the 64-bit Integer Interface.
+// Dtpsv64 solves the packed triangular linear system with a single right-hand-side
 //
-// This function solves the packed triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6617,9 +6611,9 @@ func (h Handle) Dtpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.Dev
 	return dtpttr(h, uplo, n, ap, a, lda)
 }
 
-// Dtrmm supports the 64-bit Integer Interface.
+// Dtrmm performs the triangular matrix-matrix multiplication
 //
-// This function performs the triangular matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -6653,9 +6647,9 @@ func (h Handle) Dtrmm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 	return dtrmm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc)
 }
 
-// Dtrmm64 supports the 64-bit Integer Interface.
+// Dtrmm64 performs the triangular matrix-matrix multiplication
 //
-// This function performs the triangular matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -6689,9 +6683,9 @@ func (h Handle) Dtrmm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 	return dtrmm64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc)
 }
 
-// Dtrmv supports the 64-bit Integer Interface.
+// Dtrmv performs the triangular matrix-vector multiplication
 //
-// This function performs the triangular matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6720,9 +6714,9 @@ func (h Handle) Dtrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 	return dtrmv(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Dtrmv64 supports the 64-bit Integer Interface.
+// Dtrmv64 performs the triangular matrix-vector multiplication
 //
-// This function performs the triangular matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -6751,9 +6745,9 @@ func (h Handle) Dtrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return dtrmv64(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Dtrsm supports the 64-bit Integer Interface.
+// Dtrsm solves the triangular linear system with multiple right-hand-sides
 //
-// This function solves the triangular linear system with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -6786,9 +6780,9 @@ func (h Handle) Dtrsm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 	return dtrsm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb)
 }
 
-// Dtrsm64 supports the 64-bit Integer Interface.
+// Dtrsm64 solves the triangular linear system with multiple right-hand-sides
 //
-// This function solves the triangular linear system with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -6821,9 +6815,9 @@ func (h Handle) Dtrsm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 	return dtrsm64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb)
 }
 
-// DtrsmBatched supports the 64-bit Integer Interface.
+// DtrsmBatched solves an array of triangular linear systems with multiple right-hand-sides
 //
-// This function solves an array of triangular linear systems with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
@@ -6859,9 +6853,9 @@ func (h Handle) DtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag
 	return dtrsmBatched(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount)
 }
 
-// DtrsmBatched64 supports the 64-bit Integer Interface.
+// DtrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides
 //
-// This function solves an array of triangular linear systems with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
@@ -6897,9 +6891,9 @@ func (h Handle) DtrsmBatched64(side SideMode, uplo FillMode, trans Operation, di
 	return dtrsmBatched64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount)
 }
 
-// Dtrsv supports the 64-bit Integer Interface.
+// Dtrsv solves the triangular linear system with a single right-hand-side
 //
-// This function solves the triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -6929,9 +6923,9 @@ func (h Handle) Dtrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 	return dtrsv(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Dtrsv64 supports the 64-bit Integer Interface.
+// Dtrsv64 solves the triangular linear system with a single right-hand-side
 //
-// This function solves the triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -6985,9 +6979,9 @@ func (h Handle) Dtrttp(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ap
 	return dtrttp(h, uplo, n, a, lda, ap)
 }
 
-// Dzasum supports the 64-bit Integer Interface.
+// Dzasum computes the sum of the absolute values of the elements of vector x.
 //
-// This function computes the sum of the absolute values of the elements of vector x. Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)∗incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
@@ -7009,9 +7003,9 @@ func (h Handle) Dzasum(n int32, x driver.DevicePtr, incx int32) (float64, error)
 	return dzasum(h, n, x, incx)
 }
 
-// Dzasum64 supports the 64-bit Integer Interface.
+// Dzasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// This function computes the sum of the absolute values of the elements of vector x. Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)∗incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
@@ -7033,9 +7027,9 @@ func (h Handle) Dzasum64(n int64, x driver.DevicePtr, incx int64) (float64, erro
 	return dzasum64(h, n, x, incx)
 }
 
-// Dznrm2 supports the 64-bit Integer Interface.
+// Dznrm2 computes the Euclidean norm of the vector x.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -7057,9 +7051,9 @@ func (h Handle) Dznrm2(n int32, x driver.DevicePtr, incx int32) (float64, error)
 	return dznrm2(h, n, x, incx)
 }
 
-// Dznrm264 supports the 64-bit Integer Interface.
+// Dznrm264 computes the Euclidean norm of the vector x.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -7123,22 +7117,22 @@ func (h Handle) FixedPointEmulationMaxMantissaBitCount() (int32, error) {
 	return getFixedPointEmulationMaxMantissaBitCount(h)
 }
 
-// GemmBatchedEx supports the 64-bit Integer Interface.
+// GemmBatchedEx is an extension of cublasgemmBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrix arrays, the precision of computation and the GEMM algorithm to be run.
 //
-// This function is an extension of cublasgemmBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrix arrays, the precision of computation and the GEMM algorithm to be run. Like cublasgemmBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. Supported combinations of arguments are listed further down in this section.
-// Note
-// The second variant of [Handle.GemmBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
+// This function supports the 64-bit Integer Interface.
+//
+// Note: The second variant of [Handle.GemmBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // [Handle.GemmBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 // If Atype is CUDA_R_16F or CUDA_R_16BF, or computeType is any of the FAST options, or when math mode or algo enable fast math modes, pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
-// Note
-// Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
+//
+// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // The possible error values returned by this function and their meanings are listed below.
 // Also refer to: sgemm.()
 //
@@ -7175,22 +7169,22 @@ func (h Handle) GemmBatchedEx(transa Operation, transb Operation, m int32, n int
 	return gemmBatchedEx(h, transa, transb, m, n, k, alpha, aarray, atype, lda, barray, btype, ldb, beta, carray, ctype, ldc, batchCount, computeType, algo)
 }
 
-// GemmBatchedEx64 supports the 64-bit Integer Interface.
+// GemmBatchedEx64 is an extension of cublasgemmBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrix arrays, the precision of computation and the GEMM algorithm to be run.
 //
-// This function is an extension of cublasgemmBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrix arrays, the precision of computation and the GEMM algorithm to be run. Like cublasgemmBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. Supported combinations of arguments are listed further down in this section.
-// Note
-// The second variant of [Handle.GemmBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
+// This function supports the 64-bit Integer Interface.
+//
+// Note: The second variant of [Handle.GemmBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // [Handle.GemmBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 // If Atype is CUDA_R_16F or CUDA_R_16BF, or computeType is any of the FAST options, or when math mode or algo enable fast math modes, pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
-// Note
-// Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
+//
+// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // The possible error values returned by this function and their meanings are listed below.
 // Also refer to: sgemm.()
 //
@@ -7227,19 +7221,19 @@ func (h Handle) GemmBatchedEx64(transa Operation, transb Operation, m int64, n i
 	return gemmBatchedEx64(h, transa, transb, m, n, k, alpha, aarray, atype, lda, barray, btype, ldb, beta, carray, ctype, ldc, batchCount, computeType, algo)
 }
 
-// GemmEx supports the 64-bit Integer Interface.
+// GemmEx is an extension of cublasgemm() that allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //
-// This function is an extension of cublasgemm() that allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run. Supported combinations of arguments are listed further down in this section.
-// Note
-// The second variant of [Handle.GemmEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
+// This function supports the 64-bit Integer Interface.
+//
+// Note: The second variant of [Handle.GemmEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
 // This function is only supported on devices with compute capability 5.0 or later.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // [Handle.GemmEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
-// Note
-// [Compute32I] and [Compute32IPedantic] compute types are only supported with A, B being 4-byte aligned and lda, ldb being multiples of 4. For better performance, it is also recommended that IMMA kernels requirements for a regular data ordering listed here are met.
+//
+// Note: [Compute32I] and [Compute32IPedantic] compute types are only supported with A, B being 4-byte aligned and lda, ldb being multiples of 4. For better performance, it is also recommended that IMMA kernels requirements for a regular data ordering listed here are met.
 // The possible error values returned by this function and their meanings are listed in the following table.
 // Starting with release 11.2, using the typed functions instead of the extension functions (cublas**Ex()) helps in reducing the binary size when linking to static cuBLAS Library.
 // Also refer to: sgemm.()
@@ -7277,19 +7271,19 @@ func (h Handle) GemmEx(transa Operation, transb Operation, m int32, n int32, k i
 	return gemmEx(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc, computeType, algo)
 }
 
-// GemmEx64 supports the 64-bit Integer Interface.
+// GemmEx64 is an extension of cublasgemm() that allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //
-// This function is an extension of cublasgemm() that allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run. Supported combinations of arguments are listed further down in this section.
-// Note
-// The second variant of [Handle.GemmEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
+// This function supports the 64-bit Integer Interface.
+//
+// Note: The second variant of [Handle.GemmEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
 // This function is only supported on devices with compute capability 5.0 or later.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // [Handle.GemmEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
-// Note
-// [Compute32I] and [Compute32IPedantic] compute types are only supported with A, B being 4-byte aligned and lda, ldb being multiples of 4. For better performance, it is also recommended that IMMA kernels requirements for a regular data ordering listed here are met.
+//
+// Note: [Compute32I] and [Compute32IPedantic] compute types are only supported with A, B being 4-byte aligned and lda, ldb being multiples of 4. For better performance, it is also recommended that IMMA kernels requirements for a regular data ordering listed here are met.
 // The possible error values returned by this function and their meanings are listed in the following table.
 // Starting with release 11.2, using the typed functions instead of the extension functions (cublas**Ex()) helps in reducing the binary size when linking to static cuBLAS Library.
 // Also refer to: sgemm.()
@@ -7327,17 +7321,17 @@ func (h Handle) GemmEx64(transa Operation, transb Operation, m int64, n int64, k
 	return gemmEx64(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc, computeType, algo)
 }
 
-// GemmGroupedBatchedEx supports the 64-bit Integer Interface.
+// GemmGroupedBatchedEx performs the matrix-matrix multiplication on groups of matrices.
 //
-// This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+// This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
-// Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+//
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
-// Note
-// C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to [Handle.GemmBatchedEx] in different CUDA streams, rather than use this API.
 // [Handle.GemmGroupedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 // If Atype is CUDA_R_16F or CUDA_R_16BF or if the computeType is any of the FAST options, pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
@@ -7375,17 +7369,17 @@ func (h Handle) GemmGroupedBatchedEx(transaArray *Operation, transbArray *Operat
 	return gemmGroupedBatchedEx(h, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, atype, ldaArray, barray, btype, ldbArray, betaArray, carray, ctype, ldcArray, groupCount, groupSize, computeType)
 }
 
-// GemmGroupedBatchedEx64 supports the 64-bit Integer Interface.
+// GemmGroupedBatchedEx64 performs the matrix-matrix multiplication on groups of matrices.
 //
-// This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+// This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
-// Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+//
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
-// Note
-// C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to [Handle.GemmBatchedEx] in different CUDA streams, rather than use this API.
 // [Handle.GemmGroupedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 // If Atype is CUDA_R_16F or CUDA_R_16BF or if the computeType is any of the FAST options, pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
@@ -7423,23 +7417,23 @@ func (h Handle) GemmGroupedBatchedEx64(transaArray *Operation, transbArray *Oper
 	return gemmGroupedBatchedEx64(h, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, atype, ldaArray, barray, btype, ldbArray, betaArray, carray, ctype, ldcArray, groupCount, groupSize, computeType)
 }
 
-// GemmStridedBatchedEx supports the 64-bit Integer Interface.
+// GemmStridedBatchedEx is an extension of cublasgemmStridedBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //
-// This function is an extension of cublasgemmStridedBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run. Like cublasgemmStridedBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with the offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
-// Note
-// The second variant of [Handle.GemmStridedBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType_t instead of [ComputeType]. C applications would still compile with the updated function signature.
+// This function supports the 64-bit Integer Interface.
+//
+// Note: The second variant of [Handle.GemmStridedBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType_t instead of [ComputeType]. C applications would still compile with the updated function signature.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // [Handle.GemmStridedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
-// Note
-// Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
+//
+// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // The possible error values returned by this function and their meanings are listed below.
 // Also refer to: sgemm.()
 //
@@ -7479,23 +7473,23 @@ func (h Handle) GemmStridedBatchedEx(transa Operation, transb Operation, m int32
 	return gemmStridedBatchedEx(h, transa, transb, m, n, k, alpha, a, atype, lda, strideA, b, btype, ldb, strideB, beta, c, ctype, ldc, strideC, batchCount, computeType, algo)
 }
 
-// GemmStridedBatchedEx64 supports the 64-bit Integer Interface.
+// GemmStridedBatchedEx64 is an extension of cublasgemmStridedBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //
-// This function is an extension of cublasgemmStridedBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run. Like cublasgemmStridedBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with the offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
-// Note
-// The second variant of [Handle.GemmStridedBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType_t instead of [ComputeType]. C applications would still compile with the updated function signature.
+// This function supports the 64-bit Integer Interface.
+//
+// Note: The second variant of [Handle.GemmStridedBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType_t instead of [ComputeType]. C applications would still compile with the updated function signature.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // [Handle.GemmStridedBatchedEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
-// Note
-// Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
+//
+// Note: Compute types [Compute32I] and [Compute32IPedantic] are only supported with all pointers A [i], B [i] being 4-byte aligned and lda, ldb being multiples of 4. For a better performance, it is also recommended that IMMA kernels requirements for the regular data ordering listed here are met.
 // The possible error values returned by this function and their meanings are listed below.
 // Also refer to: sgemm.()
 //
@@ -7535,14 +7529,14 @@ func (h Handle) GemmStridedBatchedEx64(transa Operation, transb Operation, m int
 	return gemmStridedBatchedEx64(h, transa, transb, m, n, k, alpha, a, atype, lda, strideA, b, btype, ldb, strideB, beta, c, ctype, ldc, strideC, batchCount, computeType, algo)
 }
 
-// HSHgemvBatched supports the 64-bit Integer Interface.
+// HSHgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -7571,14 +7565,14 @@ func (h Handle) HSHgemvBatched(trans Operation, m int32, n int32, alpha *float32
 	return hSHgemvBatched(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// HSHgemvBatched64 supports the 64-bit Integer Interface.
+// HSHgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -7607,17 +7601,17 @@ func (h Handle) HSHgemvBatched64(trans Operation, m int64, n int64, alpha *float
 	return hSHgemvBatched64(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// HSHgemvStridedBatched supports the 64-bit Integer Interface.
+// HSHgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -7647,17 +7641,17 @@ func (h Handle) HSHgemvStridedBatched(trans Operation, m int32, n int32, alpha *
 	return hSHgemvStridedBatched(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// HSHgemvStridedBatched64 supports the 64-bit Integer Interface.
+// HSHgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -7687,14 +7681,14 @@ func (h Handle) HSHgemvStridedBatched64(trans Operation, m int64, n int64, alpha
 	return hSHgemvStridedBatched64(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// HSSgemvBatched supports the 64-bit Integer Interface.
+// HSSgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -7723,14 +7717,14 @@ func (h Handle) HSSgemvBatched(trans Operation, m int32, n int32, alpha *float32
 	return hSSgemvBatched(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// HSSgemvBatched64 supports the 64-bit Integer Interface.
+// HSSgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -7759,17 +7753,17 @@ func (h Handle) HSSgemvBatched64(trans Operation, m int64, n int64, alpha *float
 	return hSSgemvBatched64(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// HSSgemvStridedBatched supports the 64-bit Integer Interface.
+// HSSgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -7799,17 +7793,17 @@ func (h Handle) HSSgemvStridedBatched(trans Operation, m int32, n int32, alpha *
 	return hSSgemvStridedBatched(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// HSSgemvStridedBatched64 supports the 64-bit Integer Interface.
+// HSSgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -7839,9 +7833,9 @@ func (h Handle) HSSgemvStridedBatched64(trans Operation, m int64, n int64, alpha
 	return hSSgemvStridedBatched64(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// Hgemm supports the 64-bit Integer Interface.
+// Hgemm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -7876,9 +7870,9 @@ func (h Handle) Hgemm(transa Operation, transb Operation, m int32, n int32, k in
 	return hgemm(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Hgemm64 supports the 64-bit Integer Interface.
+// Hgemm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -7913,15 +7907,15 @@ func (h Handle) Hgemm64(transa Operation, transb Operation, m int64, n int64, k 
 	return hgemm64(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// HgemmBatched supports the 64-bit Integer Interface.
+// HgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -7953,15 +7947,15 @@ func (h Handle) HgemmBatched(transa Operation, transb Operation, m int32, n int3
 	return hgemmBatched(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// HgemmBatched64 supports the 64-bit Integer Interface.
+// HgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -7993,18 +7987,18 @@ func (h Handle) HgemmBatched64(transa Operation, transb Operation, m int64, n in
 	return hgemmBatched64(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// HgemmStridedBatched supports the 64-bit Integer Interface.
+// HgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -8037,18 +8031,18 @@ func (h Handle) HgemmStridedBatched(transa Operation, transb Operation, m int32,
 	return hgemmStridedBatched(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// HgemmStridedBatched64 supports the 64-bit Integer Interface.
+// HgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -8101,9 +8095,9 @@ func (h Handle) IaminEx64(n int64, x driver.DevicePtr, xType DataType, incx int6
 	return iaminEx64(h, n, x, xType, incx)
 }
 
-// Icamax supports the 64-bit Integer Interface.
+// Icamax finds the (smallest) index of the element of the maximum magnitude.
 //
-// This function finds the (smallest) index of the element of the maximum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)∗ incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
@@ -8125,9 +8119,9 @@ func (h Handle) Icamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 	return icamax(h, n, x, incx)
 }
 
-// Icamax64 supports the 64-bit Integer Interface.
+// Icamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
-// This function finds the (smallest) index of the element of the maximum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)∗ incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
@@ -8149,9 +8143,9 @@ func (h Handle) Icamax64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 	return icamax64(h, n, x, incx)
 }
 
-// Icamin supports the 64-bit Integer Interface.
+// Icamin finds the (smallest) index of the element of the minimum magnitude.
 //
-// This function finds the (smallest) index of the element of the minimum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)∗incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamin()
@@ -8173,9 +8167,9 @@ func (h Handle) Icamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 	return icamin(h, n, x, incx)
 }
 
-// Icamin64 supports the 64-bit Integer Interface.
+// Icamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
-// This function finds the (smallest) index of the element of the minimum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)∗incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamin()
@@ -8197,9 +8191,9 @@ func (h Handle) Icamin64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 	return icamin64(h, n, x, incx)
 }
 
-// Idamax supports the 64-bit Integer Interface.
+// Idamax finds the (smallest) index of the element of the maximum magnitude.
 //
-// This function finds the (smallest) index of the element of the maximum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)∗ incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
@@ -8221,9 +8215,9 @@ func (h Handle) Idamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 	return idamax(h, n, x, incx)
 }
 
-// Idamax64 supports the 64-bit Integer Interface.
+// Idamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
-// This function finds the (smallest) index of the element of the maximum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)∗ incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
@@ -8245,9 +8239,9 @@ func (h Handle) Idamax64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 	return idamax64(h, n, x, incx)
 }
 
-// Idamin supports the 64-bit Integer Interface.
+// Idamin finds the (smallest) index of the element of the minimum magnitude.
 //
-// This function finds the (smallest) index of the element of the minimum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)∗incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamin()
@@ -8269,9 +8263,9 @@ func (h Handle) Idamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 	return idamin(h, n, x, incx)
 }
 
-// Idamin64 supports the 64-bit Integer Interface.
+// Idamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
-// This function finds the (smallest) index of the element of the minimum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)∗incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamin()
@@ -8293,9 +8287,9 @@ func (h Handle) Idamin64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 	return idamin64(h, n, x, incx)
 }
 
-// Isamax supports the 64-bit Integer Interface.
+// Isamax finds the (smallest) index of the element of the maximum magnitude.
 //
-// This function finds the (smallest) index of the element of the maximum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)∗ incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
@@ -8317,9 +8311,9 @@ func (h Handle) Isamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 	return isamax(h, n, x, incx)
 }
 
-// Isamax64 supports the 64-bit Integer Interface.
+// Isamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
-// This function finds the (smallest) index of the element of the maximum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)∗ incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
@@ -8341,9 +8335,9 @@ func (h Handle) Isamax64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 	return isamax64(h, n, x, incx)
 }
 
-// Isamin supports the 64-bit Integer Interface.
+// Isamin finds the (smallest) index of the element of the minimum magnitude.
 //
-// This function finds the (smallest) index of the element of the minimum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)∗incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamin()
@@ -8365,9 +8359,9 @@ func (h Handle) Isamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 	return isamin(h, n, x, incx)
 }
 
-// Isamin64 supports the 64-bit Integer Interface.
+// Isamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
-// This function finds the (smallest) index of the element of the minimum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)∗incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamin()
@@ -8389,9 +8383,9 @@ func (h Handle) Isamin64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 	return isamin64(h, n, x, incx)
 }
 
-// Izamax supports the 64-bit Integer Interface.
+// Izamax finds the (smallest) index of the element of the maximum magnitude.
 //
-// This function finds the (smallest) index of the element of the maximum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)∗ incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
@@ -8413,9 +8407,9 @@ func (h Handle) Izamax(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 	return izamax(h, n, x, incx)
 }
 
-// Izamax64 supports the 64-bit Integer Interface.
+// Izamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
-// This function finds the (smallest) index of the element of the maximum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)∗ incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamax(), idamax(), icamax(), izamax()
@@ -8437,9 +8431,9 @@ func (h Handle) Izamax64(n int64, x driver.DevicePtr, incx int64) (int64, error)
 	return izamax64(h, n, x, incx)
 }
 
-// Izamin supports the 64-bit Integer Interface.
+// Izamin finds the (smallest) index of the element of the minimum magnitude.
 //
-// This function finds the (smallest) index of the element of the minimum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)∗incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamin()
@@ -8461,9 +8455,9 @@ func (h Handle) Izamin(n int32, x driver.DevicePtr, incx int32) (int32, error) {
 	return izamin(h, n, x, incx)
 }
 
-// Izamin64 supports the 64-bit Integer Interface.
+// Izamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
-// This function finds the (smallest) index of the element of the minimum magnitude. Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)∗incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // isamin()
@@ -8492,9 +8486,9 @@ func (h Handle) MathMode() (Math, error) {
 	return getMathMode(h)
 }
 
-// Nrm2Ex supports the 64-bit Integer Interface.
+// Nrm2Ex is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
 //
-// This function is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
+// This function supports the 64-bit Integer Interface.
 // This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
@@ -8522,9 +8516,9 @@ func (h Handle) Nrm2Ex(n int32, x driver.DevicePtr, xType DataType, incx int32, 
 	return nrm2Ex(h, n, x, xType, incx, result, resultType, executionType)
 }
 
-// Nrm2Ex64 supports the 64-bit Integer Interface.
+// Nrm2Ex64 is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
 //
-// This function is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
+// This function supports the 64-bit Integer Interface.
 // This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
@@ -8559,9 +8553,9 @@ func (h Handle) PointerMode() (PointerMode, error) {
 	return getPointerMode(h)
 }
 
-// RotEx supports the 64-bit Integer Interface.
+// RotEx is an extension to the routine cublasrot() where input data, output data, cosine/sine type, and compute type can be specified independently.
 //
-// This function is an extension to the routine cublasrot() where input data, output data, cosine/sine type, and compute type can be specified independently.
+// This function supports the 64-bit Integer Interface.
 // This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 // G=(cs−sc)
 // to vectors x and y.
@@ -8592,9 +8586,9 @@ func (h Handle) RotEx(n int32, x driver.DevicePtr, xType DataType, incx int32, y
 	return rotEx(h, n, x, xType, incx, y, yType, incy, c, s, csType, executiontype)
 }
 
-// RotEx64 supports the 64-bit Integer Interface.
+// RotEx64 is an extension to the routine cublasrot() where input data, output data, cosine/sine type, and compute type can be specified independently.
 //
-// This function is an extension to the routine cublasrot() where input data, output data, cosine/sine type, and compute type can be specified independently.
+// This function supports the 64-bit Integer Interface.
 // This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 // G=(cs−sc)
 // to vectors x and y.
@@ -8645,9 +8639,9 @@ func (h Handle) RotmgEx(d1 uintptr, d1Type DataType, d2 uintptr, d2Type DataType
 	return rotmgEx(h, d1, d1Type, d2, d2Type, x1, x1Type, y1, y1Type, param, paramType, executiontype)
 }
 
-// Sasum supports the 64-bit Integer Interface.
+// Sasum computes the sum of the absolute values of the elements of vector x.
 //
-// This function computes the sum of the absolute values of the elements of vector x. Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)∗incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
@@ -8669,9 +8663,9 @@ func (h Handle) Sasum(n int32, x driver.DevicePtr, incx int32) (float32, error) 
 	return sasum(h, n, x, incx)
 }
 
-// Sasum64 supports the 64-bit Integer Interface.
+// Sasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// This function computes the sum of the absolute values of the elements of vector x. Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)∗incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
@@ -8693,9 +8687,9 @@ func (h Handle) Sasum64(n int64, x driver.DevicePtr, incx int64) (float32, error
 	return sasum64(h, n, x, incx)
 }
 
-// Saxpy supports the 64-bit Integer Interface.
+// Saxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -8717,9 +8711,9 @@ func (h Handle) Saxpy(n int32, alpha *float32, x driver.DevicePtr, incx int32, y
 	return saxpy(h, n, alpha, x, incx, y, incy)
 }
 
-// Saxpy64 supports the 64-bit Integer Interface.
+// Saxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -8741,9 +8735,9 @@ func (h Handle) Saxpy64(n int64, alpha *float32, x driver.DevicePtr, incx int64,
 	return saxpy64(h, n, alpha, x, incx, y, incy)
 }
 
-// ScalEx supports the 64-bit Integer Interface.
+// ScalEx scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -8769,9 +8763,9 @@ func (h Handle) ScalEx(n int32, alpha uintptr, alphaType DataType, x driver.Devi
 	return scalEx(h, n, alpha, alphaType, x, xType, incx, executionType)
 }
 
-// ScalEx64 supports the 64-bit Integer Interface.
+// ScalEx64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -8797,9 +8791,9 @@ func (h Handle) ScalEx64(n int64, alpha uintptr, alphaType DataType, x driver.De
 	return scalEx64(h, n, alpha, alphaType, x, xType, incx, executionType)
 }
 
-// Scasum supports the 64-bit Integer Interface.
+// Scasum computes the sum of the absolute values of the elements of vector x.
 //
-// This function computes the sum of the absolute values of the elements of vector x. Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)∗incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
@@ -8821,9 +8815,9 @@ func (h Handle) Scasum(n int32, x driver.DevicePtr, incx int32) (float32, error)
 	return scasum(h, n, x, incx)
 }
 
-// Scasum64 supports the 64-bit Integer Interface.
+// Scasum64 computes the sum of the absolute values of the elements of vector x.
 //
-// This function computes the sum of the absolute values of the elements of vector x. Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)∗incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sasum(), dasum(), scasum(), dzasum()
@@ -8845,9 +8839,9 @@ func (h Handle) Scasum64(n int64, x driver.DevicePtr, incx int64) (float32, erro
 	return scasum64(h, n, x, incx)
 }
 
-// Scnrm2 supports the 64-bit Integer Interface.
+// Scnrm2 computes the Euclidean norm of the vector x.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -8869,9 +8863,9 @@ func (h Handle) Scnrm2(n int32, x driver.DevicePtr, incx int32) (float32, error)
 	return scnrm2(h, n, x, incx)
 }
 
-// Scnrm264 supports the 64-bit Integer Interface.
+// Scnrm264 computes the Euclidean norm of the vector x.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -8893,9 +8887,9 @@ func (h Handle) Scnrm264(n int64, x driver.DevicePtr, incx int64) (float32, erro
 	return scnrm264(h, n, x, incx)
 }
 
-// Scopy supports the 64-bit Integer Interface.
+// Scopy copies the vector x into the vector y.
 //
-// This function copies the vector x into the vector y. Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
@@ -8916,9 +8910,9 @@ func (h Handle) Scopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return scopy(h, n, x, incx, y, incy)
 }
 
-// Scopy64 supports the 64-bit Integer Interface.
+// Scopy64 copies the vector x into the vector y.
 //
-// This function copies the vector x into the vector y. Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
@@ -8939,9 +8933,9 @@ func (h Handle) Scopy64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return scopy64(h, n, x, incx, y, incy)
 }
 
-// Sdgmm supports the 64-bit Integer Interface.
+// Sdgmm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
 // X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
@@ -8972,9 +8966,9 @@ func (h Handle) Sdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda i
 	return sdgmm(h, mode, m, n, a, lda, x, incx, c, ldc)
 }
 
-// Sdgmm64 supports the 64-bit Integer Interface.
+// Sdgmm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
 // X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
@@ -9005,9 +8999,9 @@ func (h Handle) Sdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 	return sdgmm64(h, mode, m, n, a, lda, x, incx, c, ldc)
 }
 
-// Sdot supports the 64-bit Integer Interface.
+// Sdot computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -9030,9 +9024,9 @@ func (h Handle) Sdot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 	return sdot(h, n, x, incx, y, incy)
 }
 
-// Sdot64 supports the 64-bit Integer Interface.
+// Sdot64 computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -9143,13 +9137,12 @@ func (h Handle) SetStream(streamId driver.Stream) error {
 
 // SetWorkspace sets the cuBLAS library workspace to a user-owned device buffer, which will be used to execute all subsequent calls to the cuBLAS library functions (on the currently set stream).
 //
-// Note
-// If the stream set by [Handle.SetStream] is cudaStreamPerThread and there are multiple threads using the same cuBLAS library handle, then users must manually manage synchronization to avoid possible race conditions in the user provided workspace. Alternatively, users may rely on the default workspace pool which safely guards against race conditions.
-// Warning
-// cuBLAS functions may invoke more than one CUDA kernel, and rely on workspace being intact between the invocations. Hence, if cuBLAS handle is configured with user-provided workspace and is being used from multiple threads, it is user’s responsibility to serialize cuBLAS calls between threads, as otherwise the kernels from different cuBLAS invocations might interleave and invalidate the assumptions each of them makes regarding workspace intactness. The default workspace pool managed by cuBLAS is thread safe.
+// Note: If the stream set by [Handle.SetStream] is cudaStreamPerThread and there are multiple threads using the same cuBLAS library handle, then users must manually manage synchronization to avoid possible race conditions in the user provided workspace. Alternatively, users may rely on the default workspace pool which safely guards against race conditions.
+//
+// Warning: cuBLAS functions may invoke more than one CUDA kernel, and rely on workspace being intact between the invocations. Hence, if cuBLAS handle is configured with user-provided workspace and is being used from multiple threads, it is user’s responsibility to serialize cuBLAS calls between threads, as otherwise the kernels from different cuBLAS invocations might interleave and invalidate the assumptions each of them makes regarding workspace intactness. The default workspace pool managed by cuBLAS is thread safe.
 // The table below shows the recommended size of user-provided workspace. This is based on the cuBLAS default workspace pool size which is GPU architecture dependent.
-// Note
-// If the cuBLAS library is configured to utilize fixed-point emulation, which can be done by setting the corresponding math mode in [Handle.SetMathMode] or calling APIs with [Compute64FEmulatedFixedpoint], it can be beneficial to provide more workspace than recommended for the GPU architecture. See Fixed-Point Workspace Requirements for more details.
+//
+// Note: If the cuBLAS library is configured to utilize fixed-point emulation, which can be done by setting the corresponding math mode in [Handle.SetMathMode] or calling APIs with [Compute64FEmulatedFixedpoint], it can be beneficial to provide more workspace than recommended for the GPU architecture. See Fixed-Point Workspace Requirements for more details.
 // The possible error values returned by this function and their meanings are listed below.
 //
 // Wraps cublasSetWorkspace_v2.
@@ -9157,9 +9150,9 @@ func (h Handle) SetWorkspace(workspace driver.DevicePtr, workspaceSizeInBytes ui
 	return setWorkspace(h, workspace, workspaceSizeInBytes)
 }
 
-// Sgbmv supports the 64-bit Integer Interface.
+// Sgbmv performs the banded matrix-vector multiplication
 //
-// This function performs the banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -9193,9 +9186,9 @@ func (h Handle) Sgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alp
 	return sgbmv(h, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Sgbmv64 supports the 64-bit Integer Interface.
+// Sgbmv64 performs the banded matrix-vector multiplication
 //
-// This function performs the banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -9229,9 +9222,9 @@ func (h Handle) Sgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, a
 	return sgbmv64(h, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Sgeam supports the 64-bit Integer Interface.
+// Sgeam performs the matrix-matrix addition/transposition
 //
-// This function performs the matrix-matrix addition/transposition
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)+βop(B)
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -9270,9 +9263,9 @@ func (h Handle) Sgeam(transa Operation, transb Operation, m int32, n int32, alph
 	return sgeam(h, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc)
 }
 
-// Sgeam64 supports the 64-bit Integer Interface.
+// Sgeam64 performs the matrix-matrix addition/transposition
 //
-// This function performs the matrix-matrix addition/transposition
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)+βop(B)
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -9346,9 +9339,9 @@ func (h Handle) SgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarr
 	return sgelsBatched(h, trans, m, n, nrhs, aarray, lda, carray, ldc, info, devInfoArray, batchSize)
 }
 
-// Sgemm supports the 64-bit Integer Interface.
+// Sgemm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -9383,9 +9376,9 @@ func (h Handle) Sgemm(transa Operation, transb Operation, m int32, n int32, k in
 	return sgemm(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Sgemm64 supports the 64-bit Integer Interface.
+// Sgemm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -9420,15 +9413,15 @@ func (h Handle) Sgemm64(transa Operation, transb Operation, m int64, n int64, k 
 	return sgemm64(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// SgemmBatched supports the 64-bit Integer Interface.
+// SgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -9460,15 +9453,15 @@ func (h Handle) SgemmBatched(transa Operation, transb Operation, m int32, n int3
 	return sgemmBatched(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// SgemmBatched64 supports the 64-bit Integer Interface.
+// SgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -9500,9 +9493,9 @@ func (h Handle) SgemmBatched64(transa Operation, transb Operation, m int64, n in
 	return sgemmBatched64(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// SgemmEx supports the 64-bit Integer Interface.
+// SgemmEx is an extension of cublasgemm().
 //
-// This function is an extension of cublasgemm(). In this function the input matrices and output matrices can have a lower precision but the computation is still done in the type . For example, in the type float for [Handle.SgemmEx] and in the type cuComplex for [Handle.CgemmEx].
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -9544,9 +9537,9 @@ func (h Handle) SgemmEx(transa Operation, transb Operation, m int32, n int32, k 
 	return sgemmEx(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc)
 }
 
-// SgemmEx64 supports the 64-bit Integer Interface.
+// SgemmEx64 is an extension of cublasgemm().
 //
-// This function is an extension of cublasgemm(). In this function the input matrices and output matrices can have a lower precision but the computation is still done in the type . For example, in the type float for [Handle.SgemmEx] and in the type cuComplex for [Handle.CgemmEx].
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -9588,17 +9581,17 @@ func (h Handle) SgemmEx64(transa Operation, transb Operation, m int64, n int64, 
 	return sgemmEx64(h, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc)
 }
 
-// SgemmGroupedBatched supports the 64-bit Integer Interface.
+// SgemmGroupedBatched performs the matrix-matrix multiplication on groups of matrices.
 //
-// This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+// This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
-// Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+//
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
-// Note
-// C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -9631,17 +9624,17 @@ func (h Handle) SgemmGroupedBatched(transaArray *Operation, transbArray *Operati
 	return sgemmGroupedBatched(h, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, ldaArray, barray, ldbArray, betaArray, carray, ldcArray, groupCount, groupSize)
 }
 
-// SgemmGroupedBatched64 supports the 64-bit Integer Interface.
+// SgemmGroupedBatched64 performs the matrix-matrix multiplication on groups of matrices.
 //
-// This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
+// This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
-// Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+//
+// Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
 // op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
-// Note
-// C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemmBatched() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmGroupedBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is required that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -9674,18 +9667,18 @@ func (h Handle) SgemmGroupedBatched64(transaArray *Operation, transbArray *Opera
 	return sgemmGroupedBatched64(h, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, ldaArray, barray, ldbArray, betaArray, carray, ldcArray, groupCount, groupSize)
 }
 
-// SgemmStridedBatched supports the 64-bit Integer Interface.
+// SgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -9718,18 +9711,18 @@ func (h Handle) SgemmStridedBatched(transa Operation, transb Operation, m int32,
 	return sgemmStridedBatched(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// SgemmStridedBatched64 supports the 64-bit Integer Interface.
+// SgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -9762,9 +9755,9 @@ func (h Handle) SgemmStridedBatched64(transa Operation, transb Operation, m int6
 	return sgemmStridedBatched64(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// Sgemv supports the 64-bit Integer Interface.
+// Sgemv performs the matrix-vector multiplication
 //
-// This function performs the matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -9795,9 +9788,9 @@ func (h Handle) Sgemv(trans Operation, m int32, n int32, alpha *float32, a drive
 	return sgemv(h, trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Sgemv64 supports the 64-bit Integer Interface.
+// Sgemv64 performs the matrix-vector multiplication
 //
-// This function performs the matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -9828,14 +9821,14 @@ func (h Handle) Sgemv64(trans Operation, m int64, n int64, alpha *float32, a dri
 	return sgemv64(h, trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// SgemvBatched supports the 64-bit Integer Interface.
+// SgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -9864,14 +9857,14 @@ func (h Handle) SgemvBatched(trans Operation, m int32, n int32, alpha *float32, 
 	return sgemvBatched(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// SgemvBatched64 supports the 64-bit Integer Interface.
+// SgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -9900,17 +9893,17 @@ func (h Handle) SgemvBatched64(trans Operation, m int64, n int64, alpha *float32
 	return sgemvBatched64(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// SgemvStridedBatched supports the 64-bit Integer Interface.
+// SgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -9940,17 +9933,17 @@ func (h Handle) SgemvStridedBatched(trans Operation, m int32, n int32, alpha *fl
 	return sgemvStridedBatched(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// SgemvStridedBatched64 supports the 64-bit Integer Interface.
+// SgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -10011,9 +10004,9 @@ func (h Handle) SgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int
 	return sgeqrfBatched(h, m, n, aarray, lda, tauArray, info, batchSize)
 }
 
-// Sger supports the 64-bit Integer Interface.
+// Sger performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -10041,9 +10034,9 @@ func (h Handle) Sger(m int32, n int32, alpha *float32, x driver.DevicePtr, incx 
 	return sger(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Sger64 supports the 64-bit Integer Interface.
+// Sger64 performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -10199,9 +10192,9 @@ func (h Handle) SmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driv
 	return smatinvBatched(h, n, a, lda, ainv, ldaInv, info, batchSize)
 }
 
-// Snrm2 supports the 64-bit Integer Interface.
+// Snrm2 computes the Euclidean norm of the vector x.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -10223,9 +10216,9 @@ func (h Handle) Snrm2(n int32, x driver.DevicePtr, incx int32) (float32, error) 
 	return snrm2(h, n, x, incx)
 }
 
-// Snrm264 supports the 64-bit Integer Interface.
+// Snrm264 computes the Euclidean norm of the vector x.
 //
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // snrm2(), dnrm2(), scnrm2(), dznrm2()
@@ -10247,9 +10240,9 @@ func (h Handle) Snrm264(n int64, x driver.DevicePtr, incx int64) (float32, error
 	return snrm264(h, n, x, incx)
 }
 
-// Srot supports the 64-bit Integer Interface.
+// Srot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -10275,9 +10268,9 @@ func (h Handle) Srot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 	return srot(h, n, x, incx, y, incy, c, s)
 }
 
-// Srot64 supports the 64-bit Integer Interface.
+// Srot64 applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -10303,9 +10296,9 @@ func (h Handle) Srot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 	return srot64(h, n, x, incx, y, incy, c, s)
 }
 
-// Srotg supports the 64-bit Integer Interface.
+// Srotg constructs the Givens rotation matrix
 //
-// This function constructs the Givens rotation matrix
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // that zeros out the second entry of a 2×1 vector (a,b)T .
 // Then, for real numbers we can write
@@ -10334,9 +10327,9 @@ func (h Handle) Srotg(a *float32, b *float32, c *float32, s *float32) error {
 	return srotg(h, a, b, c, s)
 }
 
-// Srotm supports the 64-bit Integer Interface.
+// Srotm applies the modified Givens transformation
 //
-// This function applies the modified Givens transformation
+// This function supports the 64-bit Integer Interface.
 // H=(h11h12h21h22)
 // to vectors x and y.
 // Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -10363,9 +10356,9 @@ func (h Handle) Srotm(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return srotm(h, n, x, incx, y, incy, param)
 }
 
-// Srotm64 supports the 64-bit Integer Interface.
+// Srotm64 applies the modified Givens transformation
 //
-// This function applies the modified Givens transformation
+// This function supports the 64-bit Integer Interface.
 // H=(h11h12h21h22)
 // to vectors x and y.
 // Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -10392,9 +10385,9 @@ func (h Handle) Srotm64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return srotm64(h, n, x, incx, y, incy, param)
 }
 
-// Srotmg supports the 64-bit Integer Interface.
+// Srotmg constructs the modified Givens transformation
 //
-// This function constructs the modified Givens transformation
+// This function supports the 64-bit Integer Interface.
 // H=(h11h12h21h22)
 // that zeros out the second entry of a 2×1 vector (d1∗x1,d2∗y1)T .
 // The flag = param [0] defines the following predefined values for the matrix H entries
@@ -10419,9 +10412,9 @@ func (h Handle) Srotmg(d1 *float32, d2 *float32, x1 *float32, y1 *float32, param
 	return srotmg(h, d1, d2, x1, y1, param)
 }
 
-// Ssbmv supports the 64-bit Integer Interface.
+// Ssbmv performs the symmetric banded matrix-vector multiplication
 //
-// This function performs the symmetric banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -10453,9 +10446,9 @@ func (h Handle) Ssbmv(uplo FillMode, n int32, k int32, alpha *float32, a driver.
 	return ssbmv(h, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Ssbmv64 supports the 64-bit Integer Interface.
+// Ssbmv64 performs the symmetric banded matrix-vector multiplication
 //
-// This function performs the symmetric banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -10487,11 +10480,10 @@ func (h Handle) Ssbmv64(uplo FillMode, n int64, k int64, alpha *float32, a drive
 	return ssbmv64(h, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Sscal supports the 64-bit Integer Interface.
+// Sscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -10510,11 +10502,10 @@ func (h Handle) Sscal(n int32, alpha *float32, x driver.DevicePtr, incx int32) e
 	return sscal(h, n, alpha, x, incx)
 }
 
-// Sscal64 supports the 64-bit Integer Interface.
+// Sscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -10533,9 +10524,9 @@ func (h Handle) Sscal64(n int64, alpha *float32, x driver.DevicePtr, incx int64)
 	return sscal64(h, n, alpha, x, incx)
 }
 
-// Sspmv supports the 64-bit Integer Interface.
+// Sspmv performs the symmetric packed matrix-vector multiplication
 //
-// This function performs the symmetric packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -10565,9 +10556,9 @@ func (h Handle) Sspmv(uplo FillMode, n int32, alpha *float32, ap driver.DevicePt
 	return sspmv(h, uplo, n, alpha, ap, x, incx, beta, y, incy)
 }
 
-// Sspmv64 supports the 64-bit Integer Interface.
+// Sspmv64 performs the symmetric packed matrix-vector multiplication
 //
-// This function performs the symmetric packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -10597,9 +10588,9 @@ func (h Handle) Sspmv64(uplo FillMode, n int64, alpha *float32, ap driver.Device
 	return sspmv64(h, uplo, n, alpha, ap, x, incx, beta, y, incy)
 }
 
-// Sspr supports the 64-bit Integer Interface.
+// Sspr performs the packed symmetric rank-1 update
 //
-// This function performs the packed symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -10626,9 +10617,9 @@ func (h Handle) Sspr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr,
 	return sspr(h, uplo, n, alpha, x, incx, ap)
 }
 
-// Sspr2 supports the 64-bit Integer Interface.
+// Sspr2 performs the packed symmetric rank-2 update
 //
-// This function performs the packed symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -10657,9 +10648,9 @@ func (h Handle) Sspr2(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr
 	return sspr2(h, uplo, n, alpha, x, incx, y, incy, ap)
 }
 
-// Sspr264 supports the 64-bit Integer Interface.
+// Sspr264 performs the packed symmetric rank-2 update
 //
-// This function performs the packed symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -10688,9 +10679,9 @@ func (h Handle) Sspr264(uplo FillMode, n int64, alpha *float32, x driver.DeviceP
 	return sspr264(h, uplo, n, alpha, x, incx, y, incy, ap)
 }
 
-// Sspr64 supports the 64-bit Integer Interface.
+// Sspr64 performs the packed symmetric rank-1 update
 //
-// This function performs the packed symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -10717,9 +10708,9 @@ func (h Handle) Sspr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePt
 	return sspr64(h, uplo, n, alpha, x, incx, ap)
 }
 
-// Sswap supports the 64-bit Integer Interface.
+// Sswap interchanges the elements of vector x and y.
 //
-// This function interchanges the elements of vector x and y. Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
@@ -10740,9 +10731,9 @@ func (h Handle) Sswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return sswap(h, n, x, incx, y, incy)
 }
 
-// Sswap64 supports the 64-bit Integer Interface.
+// Sswap64 interchanges the elements of vector x and y.
 //
-// This function interchanges the elements of vector x and y. Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
@@ -10763,9 +10754,9 @@ func (h Handle) Sswap64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return sswap64(h, n, x, incx, y, incy)
 }
 
-// Ssymm supports the 64-bit Integer Interface.
+// Ssymm performs the symmetric matrix-matrix multiplication
 //
-// This function performs the symmetric matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a symmetric matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -10796,9 +10787,9 @@ func (h Handle) Ssymm(side SideMode, uplo FillMode, m int32, n int32, alpha *flo
 	return ssymm(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Ssymm64 supports the 64-bit Integer Interface.
+// Ssymm64 performs the symmetric matrix-matrix multiplication
 //
-// This function performs the symmetric matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a symmetric matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -10829,9 +10820,9 @@ func (h Handle) Ssymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *f
 	return ssymm64(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Ssymv supports the 64-bit Integer Interface.
+// Ssymv performs the symmetric matrix-vector multiplication.
 //
-// This function performs the symmetric matrix-vector multiplication.
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy where A is a n×n symmetric matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with [Handle.SetAtomicsMode].
 // Please see the section on the function [Handle.SetAtomicsMode] for more details about the usage of atomics.
@@ -10861,9 +10852,9 @@ func (h Handle) Ssymv(uplo FillMode, n int32, alpha *float32, a driver.DevicePtr
 	return ssymv(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Ssymv64 supports the 64-bit Integer Interface.
+// Ssymv64 performs the symmetric matrix-vector multiplication.
 //
-// This function performs the symmetric matrix-vector multiplication.
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy where A is a n×n symmetric matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with [Handle.SetAtomicsMode].
 // Please see the section on the function [Handle.SetAtomicsMode] for more details about the usage of atomics.
@@ -10893,9 +10884,9 @@ func (h Handle) Ssymv64(uplo FillMode, n int64, alpha *float32, a driver.DeviceP
 	return ssymv64(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Ssyr supports the 64-bit Integer Interface.
+// Ssyr performs the symmetric rank-1 update
 //
-// This function performs the symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -10921,9 +10912,9 @@ func (h Handle) Ssyr(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr,
 	return ssyr(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Ssyr2 supports the 64-bit Integer Interface.
+// Ssyr2 performs the symmetric rank-2 update
 //
-// This function performs the symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -10951,9 +10942,9 @@ func (h Handle) Ssyr2(uplo FillMode, n int32, alpha *float32, x driver.DevicePtr
 	return ssyr2(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Ssyr264 supports the 64-bit Integer Interface.
+// Ssyr264 performs the symmetric rank-2 update
 //
-// This function performs the symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -10981,9 +10972,9 @@ func (h Handle) Ssyr264(uplo FillMode, n int64, alpha *float32, x driver.DeviceP
 	return ssyr264(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Ssyr2k supports the 64-bit Integer Interface.
+// Ssyr2k performs the symmetric rank- 2k update
 //
-// This function performs the symmetric rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=α(op(A)op(B)T+op(B)op(A)T)+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -11015,9 +11006,9 @@ func (h Handle) Ssyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return ssyr2k(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Ssyr2k64 supports the 64-bit Integer Interface.
+// Ssyr2k64 performs the symmetric rank- 2k update
 //
-// This function performs the symmetric rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=α(op(A)op(B)T+op(B)op(A)T)+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -11049,9 +11040,9 @@ func (h Handle) Ssyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return ssyr2k64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Ssyr64 supports the 64-bit Integer Interface.
+// Ssyr64 performs the symmetric rank-1 update
 //
-// This function performs the symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -11077,9 +11068,9 @@ func (h Handle) Ssyr64(uplo FillMode, n int64, alpha *float32, x driver.DevicePt
 	return ssyr64(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Ssyrk supports the 64-bit Integer Interface.
+// Ssyrk performs the symmetric rank- k update
 //
-// This function performs the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
@@ -11109,9 +11100,9 @@ func (h Handle) Ssyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 	return ssyrk(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Ssyrk64 supports the 64-bit Integer Interface.
+// Ssyrk64 performs the symmetric rank- k update
 //
-// This function performs the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
@@ -11141,9 +11132,9 @@ func (h Handle) Ssyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 	return ssyrk64(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Ssyrkx supports the 64-bit Integer Interface.
+// Ssyrkx performs a variation of the symmetric rank- k update
 //
-// This function performs a variation of the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -11177,9 +11168,9 @@ func (h Handle) Ssyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return ssyrkx(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Ssyrkx64 supports the 64-bit Integer Interface.
+// Ssyrkx64 performs a variation of the symmetric rank- k update
 //
-// This function performs a variation of the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -11213,9 +11204,9 @@ func (h Handle) Ssyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return ssyrkx64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Stbmv supports the 64-bit Integer Interface.
+// Stbmv performs the triangular banded matrix-vector multiplication
 //
-// This function performs the triangular banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular banded matrix, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11247,9 +11238,9 @@ func (h Handle) Stbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 	return stbmv(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Stbmv64 supports the 64-bit Integer Interface.
+// Stbmv64 performs the triangular banded matrix-vector multiplication
 //
-// This function performs the triangular banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular banded matrix, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11281,9 +11272,9 @@ func (h Handle) Stbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return stbmv64(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Stbsv supports the 64-bit Integer Interface.
+// Stbsv solves the triangular banded linear system with a single right-hand-side
 //
-// This function solves the triangular banded linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11316,9 +11307,9 @@ func (h Handle) Stbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 	return stbsv(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Stbsv64 supports the 64-bit Integer Interface.
+// Stbsv64 solves the triangular banded linear system with a single right-hand-side
 //
-// This function solves the triangular banded linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11351,9 +11342,9 @@ func (h Handle) Stbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return stbsv64(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Stpmv supports the 64-bit Integer Interface.
+// Stpmv performs the triangular packed matrix-vector multiplication
 //
-// This function performs the triangular packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11383,9 +11374,9 @@ func (h Handle) Stpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 	return stpmv(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Stpmv64 supports the 64-bit Integer Interface.
+// Stpmv64 performs the triangular packed matrix-vector multiplication
 //
-// This function performs the triangular packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11415,9 +11406,9 @@ func (h Handle) Stpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return stpmv64(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Stpsv supports the 64-bit Integer Interface.
+// Stpsv solves the packed triangular linear system with a single right-hand-side
 //
-// This function solves the packed triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11448,9 +11439,9 @@ func (h Handle) Stpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 	return stpsv(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Stpsv64 supports the 64-bit Integer Interface.
+// Stpsv64 solves the packed triangular linear system with a single right-hand-side
 //
-// This function solves the packed triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11512,9 +11503,9 @@ func (h Handle) Stream() (driver.Stream, error) {
 	return getStream(h)
 }
 
-// Strmm supports the 64-bit Integer Interface.
+// Strmm performs the triangular matrix-matrix multiplication
 //
-// This function performs the triangular matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -11548,9 +11539,9 @@ func (h Handle) Strmm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 	return strmm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc)
 }
 
-// Strmm64 supports the 64-bit Integer Interface.
+// Strmm64 performs the triangular matrix-matrix multiplication
 //
-// This function performs the triangular matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -11584,9 +11575,9 @@ func (h Handle) Strmm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 	return strmm64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc)
 }
 
-// Strmv supports the 64-bit Integer Interface.
+// Strmv performs the triangular matrix-vector multiplication
 //
-// This function performs the triangular matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11615,9 +11606,9 @@ func (h Handle) Strmv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 	return strmv(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Strmv64 supports the 64-bit Integer Interface.
+// Strmv64 performs the triangular matrix-vector multiplication
 //
-// This function performs the triangular matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -11646,9 +11637,9 @@ func (h Handle) Strmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return strmv64(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Strsm supports the 64-bit Integer Interface.
+// Strsm solves the triangular linear system with multiple right-hand-sides
 //
-// This function solves the triangular linear system with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -11681,9 +11672,9 @@ func (h Handle) Strsm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 	return strsm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb)
 }
 
-// Strsm64 supports the 64-bit Integer Interface.
+// Strsm64 solves the triangular linear system with multiple right-hand-sides
 //
-// This function solves the triangular linear system with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -11716,9 +11707,9 @@ func (h Handle) Strsm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 	return strsm64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb)
 }
 
-// StrsmBatched supports the 64-bit Integer Interface.
+// StrsmBatched solves an array of triangular linear systems with multiple right-hand-sides
 //
-// This function solves an array of triangular linear systems with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
@@ -11754,9 +11745,9 @@ func (h Handle) StrsmBatched(side SideMode, uplo FillMode, trans Operation, diag
 	return strsmBatched(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount)
 }
 
-// StrsmBatched64 supports the 64-bit Integer Interface.
+// StrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides
 //
-// This function solves an array of triangular linear systems with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
@@ -11792,9 +11783,9 @@ func (h Handle) StrsmBatched64(side SideMode, uplo FillMode, trans Operation, di
 	return strsmBatched64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount)
 }
 
-// Strsv supports the 64-bit Integer Interface.
+// Strsv solves the triangular linear system with a single right-hand-side
 //
-// This function solves the triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -11824,9 +11815,9 @@ func (h Handle) Strsv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 	return strsv(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Strsv64 supports the 64-bit Integer Interface.
+// Strsv64 solves the triangular linear system with a single right-hand-side
 //
-// This function solves the triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -11890,14 +11881,14 @@ func (h Handle) SwapEx64(n int64, x driver.DevicePtr, xType DataType, incx int64
 	return swapEx64(h, n, x, xType, incx, y, yType, incy)
 }
 
-// TSSgemvBatched supports the 64-bit Integer Interface.
+// TSSgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -11926,14 +11917,14 @@ func (h Handle) TSSgemvBatched(trans Operation, m int32, n int32, alpha *float32
 	return tSSgemvBatched(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// TSSgemvBatched64 supports the 64-bit Integer Interface.
+// TSSgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -11962,17 +11953,17 @@ func (h Handle) TSSgemvBatched64(trans Operation, m int64, n int64, alpha *float
 	return tSSgemvBatched64(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// TSSgemvStridedBatched supports the 64-bit Integer Interface.
+// TSSgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -12002,17 +11993,17 @@ func (h Handle) TSSgemvStridedBatched(trans Operation, m int32, n int32, alpha *
 	return tSSgemvStridedBatched(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// TSSgemvStridedBatched64 supports the 64-bit Integer Interface.
+// TSSgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -12042,14 +12033,14 @@ func (h Handle) TSSgemvStridedBatched64(trans Operation, m int64, n int64, alpha
 	return tSSgemvStridedBatched64(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// TSTgemvBatched supports the 64-bit Integer Interface.
+// TSTgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -12078,14 +12069,14 @@ func (h Handle) TSTgemvBatched(trans Operation, m int32, n int32, alpha *float32
 	return tSTgemvBatched(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// TSTgemvBatched64 supports the 64-bit Integer Interface.
+// TSTgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -12114,17 +12105,17 @@ func (h Handle) TSTgemvBatched64(trans Operation, m int64, n int64, alpha *float
 	return tSTgemvBatched64(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// TSTgemvStridedBatched supports the 64-bit Integer Interface.
+// TSTgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -12154,17 +12145,17 @@ func (h Handle) TSTgemvStridedBatched(trans Operation, m int32, n int32, alpha *
 	return tSTgemvStridedBatched(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// TSTgemvStridedBatched64 supports the 64-bit Integer Interface.
+// TSTgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -12201,17 +12192,16 @@ func (h Handle) Uint8gemmBias(transa Operation, transb Operation, transc Operati
 
 // Version returns the version number of the cuBLAS library.
 //
-// Note
-// This function can be safely called with handle set to NULL. This allows users to get the version of the library without a handle. Another way to do this is with [GetProperty].
+// Note: This function can be safely called with handle set to NULL. This allows users to get the version of the library without a handle. Another way to do this is with [GetProperty].
 //
 // Wraps cublasGetVersion_v2.
 func (h Handle) Version() (int32, error) {
 	return getVersion(h)
 }
 
-// Zaxpy supports the 64-bit Integer Interface.
+// Zaxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -12233,9 +12223,9 @@ func (h Handle) Zaxpy(n int32, alpha *Complex128, x driver.DevicePtr, incx int32
 	return zaxpy(h, n, alpha, x, incx, y, incy)
 }
 
-// Zaxpy64 supports the 64-bit Integer Interface.
+// Zaxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // saxpy(), daxpy(), caxpy(), zaxpy()
@@ -12257,9 +12247,9 @@ func (h Handle) Zaxpy64(n int64, alpha *Complex128, x driver.DevicePtr, incx int
 	return zaxpy64(h, n, alpha, x, incx, y, incy)
 }
 
-// Zcopy supports the 64-bit Integer Interface.
+// Zcopy copies the vector x into the vector y.
 //
-// This function copies the vector x into the vector y. Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
@@ -12280,9 +12270,9 @@ func (h Handle) Zcopy(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return zcopy(h, n, x, incx, y, incy)
 }
 
-// Zcopy64 supports the 64-bit Integer Interface.
+// Zcopy64 copies the vector x into the vector y.
 //
-// This function copies the vector x into the vector y. Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // scopy(), dcopy(), ccopy(), zcopy()
@@ -12303,9 +12293,9 @@ func (h Handle) Zcopy64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return zcopy64(h, n, x, incx, y, incy)
 }
 
-// Zdgmm supports the 64-bit Integer Interface.
+// Zdgmm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
 // X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
@@ -12336,9 +12326,9 @@ func (h Handle) Zdgmm(mode SideMode, m int32, n int32, a driver.DevicePtr, lda i
 	return zdgmm(h, mode, m, n, a, lda, x, incx, c, ldc)
 }
 
-// Zdgmm64 supports the 64-bit Integer Interface.
+// Zdgmm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
 // where A and C are matrices stored in column-major format with dimensions m×n . X is a vector of size n if mode == [SideRight] and of size m if mode == [SideLeft]. X is gathered from one-dimensional array x with stride incx. The absolute value of incx is the stride and the sign of incx is direction of the stride. If incx is positive, then we forward x from the first element. Otherwise, we backward x from the last element. The formula of X is
 // X [j]={x [j×incx]if incx≥0x[(χ−1)×|incx|−j×|incx|]if incx<0
@@ -12369,9 +12359,9 @@ func (h Handle) Zdgmm64(mode SideMode, m int64, n int64, a driver.DevicePtr, lda
 	return zdgmm64(h, mode, m, n, a, lda, x, incx, c, ldc)
 }
 
-// Zdotc supports the 64-bit Integer Interface.
+// Zdotc computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -12394,9 +12384,9 @@ func (h Handle) Zdotc(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return zdotc(h, n, x, incx, y, incy)
 }
 
-// Zdotc64 supports the 64-bit Integer Interface.
+// Zdotc64 computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -12419,9 +12409,9 @@ func (h Handle) Zdotc64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return zdotc64(h, n, x, incx, y, incy)
 }
 
-// Zdotu supports the 64-bit Integer Interface.
+// Zdotu computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -12444,9 +12434,9 @@ func (h Handle) Zdotu(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return zdotu(h, n, x, incx, y, incy)
 }
 
-// Zdotu64 supports the 64-bit Integer Interface.
+// Zdotu64 computes the dot product of vectors x and y.
 //
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sdot(), ddot(), cdotu(), cdotc(), zdotu(), zdotc()
@@ -12469,9 +12459,9 @@ func (h Handle) Zdotu64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return zdotu64(h, n, x, incx, y, incy)
 }
 
-// Zdrot supports the 64-bit Integer Interface.
+// Zdrot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -12497,9 +12487,9 @@ func (h Handle) Zdrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return zdrot(h, n, x, incx, y, incy, c, s)
 }
 
-// Zdrot64 supports the 64-bit Integer Interface.
+// Zdrot64 applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -12525,11 +12515,10 @@ func (h Handle) Zdrot64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return zdrot64(h, n, x, incx, y, incy, c, s)
 }
 
-// Zdscal supports the 64-bit Integer Interface.
+// Zdscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -12548,11 +12537,10 @@ func (h Handle) Zdscal(n int32, alpha *float64, x driver.DevicePtr, incx int32) 
 	return zdscal(h, n, alpha, x, incx)
 }
 
-// Zdscal64 supports the 64-bit Integer Interface.
+// Zdscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -12571,9 +12559,9 @@ func (h Handle) Zdscal64(n int64, alpha *float64, x driver.DevicePtr, incx int64
 	return zdscal64(h, n, alpha, x, incx)
 }
 
-// Zgbmv supports the 64-bit Integer Interface.
+// Zgbmv performs the banded matrix-vector multiplication
 //
-// This function performs the banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -12607,9 +12595,9 @@ func (h Handle) Zgbmv(trans Operation, m int32, n int32, kl int32, ku int32, alp
 	return zgbmv(h, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zgbmv64 supports the 64-bit Integer Interface.
+// Zgbmv64 performs the banded matrix-vector multiplication
 //
-// This function performs the banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -12643,9 +12631,9 @@ func (h Handle) Zgbmv64(trans Operation, m int64, n int64, kl int64, ku int64, a
 	return zgbmv64(h, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zgeam supports the 64-bit Integer Interface.
+// Zgeam performs the matrix-matrix addition/transposition
 //
-// This function performs the matrix-matrix addition/transposition
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)+βop(B)
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -12684,9 +12672,9 @@ func (h Handle) Zgeam(transa Operation, transb Operation, m int32, n int32, alph
 	return zgeam(h, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc)
 }
 
-// Zgeam64 supports the 64-bit Integer Interface.
+// Zgeam64 performs the matrix-matrix addition/transposition
 //
-// This function performs the matrix-matrix addition/transposition
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)+βop(B)
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -12760,9 +12748,9 @@ func (h Handle) ZgelsBatched(trans Operation, m int32, n int32, nrhs int32, aarr
 	return zgelsBatched(h, trans, m, n, nrhs, aarray, lda, carray, ldc, info, devInfoArray, batchSize)
 }
 
-// Zgemm supports the 64-bit Integer Interface.
+// Zgemm performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -12797,15 +12785,15 @@ func (h Handle) Zgemm(transa Operation, transb Operation, m int32, n int32, k in
 	return zgemm(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zgemm3m supports the 64-bit Integer Interface.
+// Zgemm3m performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //
-// This function performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm. This can lead to an increase in performance up to 25%
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
-// Note
-// These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
 // cgemm(), zgemm()
@@ -12836,15 +12824,15 @@ func (h Handle) Zgemm3m(transa Operation, transb Operation, m int32, n int32, k 
 	return zgemm3m(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zgemm3m64 supports the 64-bit Integer Interface.
+// Zgemm3m64 performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //
-// This function performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm. This can lead to an increase in performance up to 25%
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
-// Note
-// These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
+//
+// Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
 // cgemm(), zgemm()
@@ -12875,9 +12863,9 @@ func (h Handle) Zgemm3m64(transa Operation, transb Operation, m int64, n int64, 
 	return zgemm3m64(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zgemm64 supports the 64-bit Integer Interface.
+// Zgemm64 performs the matrix-matrix multiplication
 //
-// This function performs the matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -12912,15 +12900,15 @@ func (h Handle) Zgemm64(transa Operation, transb Operation, m int64, n int64, k 
 	return zgemm64(h, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// ZgemmBatched supports the 64-bit Integer Interface.
+// ZgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -12952,15 +12940,15 @@ func (h Handle) ZgemmBatched(transa Operation, transb Operation, m int32, n int3
 	return zgemmBatched(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// ZgemmBatched64 supports the 64-bit Integer Interface.
+// ZgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemmBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -12992,18 +12980,18 @@ func (h Handle) ZgemmBatched64(transa Operation, transb Operation, m int64, n in
 	return zgemmBatched64(h, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount)
 }
 
-// ZgemmStridedBatched supports the 64-bit Integer Interface.
+// ZgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -13036,18 +13024,18 @@ func (h Handle) ZgemmStridedBatched(transa Operation, transb Operation, m int32,
 	return zgemmStridedBatched(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// ZgemmStridedBatched64 supports the 64-bit Integer Interface.
+// ZgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
-// This function performs the matrix-matrix multiplication of a batch of matrices. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
+// This function supports the 64-bit Integer Interface.
 // C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
-// Note
-// C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemm() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], B [i], C [i] as notation for A, B and C matrices in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, strideB, strideC away from A [i-1], B [i-1], C [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - transa: Operation op( A [i]) that is non- or (conj.) transpose
@@ -13080,9 +13068,9 @@ func (h Handle) ZgemmStridedBatched64(transa Operation, transb Operation, m int6
 	return zgemmStridedBatched64(h, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount)
 }
 
-// Zgemv supports the 64-bit Integer Interface.
+// Zgemv performs the matrix-vector multiplication
 //
-// This function performs the matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -13113,9 +13101,9 @@ func (h Handle) Zgemv(trans Operation, m int32, n int32, alpha *Complex128, a dr
 	return zgemv(h, trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zgemv64 supports the 64-bit Integer Interface.
+// Zgemv64 performs the matrix-vector multiplication
 //
-// This function performs the matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=α op(A)x+βy
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
 // op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
@@ -13146,14 +13134,14 @@ func (h Handle) Zgemv64(trans Operation, m int64, n int64, alpha *Complex128, a 
 	return zgemv64(h, trans, m, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// ZgemvBatched supports the 64-bit Integer Interface.
+// ZgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -13182,14 +13170,14 @@ func (h Handle) ZgemvBatched(trans Operation, m int32, n int32, alpha *Complex12
 	return zgemvBatched(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// ZgemvBatched64 supports the 64-bit Integer Interface.
+// ZgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
+// This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
 // If math mode enables fast math modes when using [Handle.SgemvBatched], pointers (not the pointer arrays) placed in the GPU memory must be properly aligned to avoid misaligned memory access errors. Ideally all pointers are aligned to at least 16 Bytes. Otherwise it is recommended that they meet the following rule:
 // The possible error values returned by this function and their meanings are listed below.
@@ -13218,17 +13206,17 @@ func (h Handle) ZgemvBatched64(trans Operation, m int64, n int64, alpha *Complex
 	return zgemvBatched64(h, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount)
 }
 
-// ZgemvStridedBatched supports the 64-bit Integer Interface.
+// ZgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -13258,17 +13246,17 @@ func (h Handle) ZgemvStridedBatched(trans Operation, m int32, n int32, alpha *Co
 	return zgemvStridedBatched(h, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount)
 }
 
-// ZgemvStridedBatched64 supports the 64-bit Integer Interface.
+// ZgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
-// This function performs the matrix-vector multiplication of a batch of matrices and vectors. The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
+// This function supports the 64-bit Integer Interface.
 // y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
 // op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
-// Note
-// y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
+//
+// Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
-// Note
-// In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
+//
+// Note: In the table below, we use A [i], x [i], y [i] as notation for A matrix, and x and y vectors in the ith instance of the batch, implicitly assuming they are respectively offsets in number of elements strideA, stridex, stridey away from A [i-1], x [i-1], y [i-1]. The unit for the offset is number of elements and must not be zero .
 // The possible error values returned by this function and their meanings are listed below.
 //
 //   - trans: Operation op( A [i]) that is non- or (conj.) transpose
@@ -13329,9 +13317,9 @@ func (h Handle) ZgeqrfBatched(m int32, n int32, aarray driver.DevicePtr, lda int
 	return zgeqrfBatched(h, m, n, aarray, lda, tauArray, info, batchSize)
 }
 
-// Zgerc supports the 64-bit Integer Interface.
+// Zgerc performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13359,9 +13347,9 @@ func (h Handle) Zgerc(m int32, n int32, alpha *Complex128, x driver.DevicePtr, i
 	return zgerc(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Zgerc64 supports the 64-bit Integer Interface.
+// Zgerc64 performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13389,9 +13377,9 @@ func (h Handle) Zgerc64(m int64, n int64, alpha *Complex128, x driver.DevicePtr,
 	return zgerc64(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Zgeru supports the 64-bit Integer Interface.
+// Zgeru performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13419,9 +13407,9 @@ func (h Handle) Zgeru(m int32, n int32, alpha *Complex128, x driver.DevicePtr, i
 	return zgeru(h, m, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Zgeru64 supports the 64-bit Integer Interface.
+// Zgeru64 performs the rank-1 update
 //
-// This function performs the rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13544,9 +13532,9 @@ func (h Handle) ZgetrsBatched(trans Operation, n int32, nrhs int32, aarray drive
 	return zgetrsBatched(h, trans, n, nrhs, aarray, lda, devIpiv, barray, ldb, info, batchSize)
 }
 
-// Zhbmv supports the 64-bit Integer Interface.
+// Zhbmv performs the Hermitian banded matrix-vector multiplication
 //
-// This function performs the Hermitian banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -13578,9 +13566,9 @@ func (h Handle) Zhbmv(uplo FillMode, n int32, k int32, alpha *Complex128, a driv
 	return zhbmv(h, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zhbmv64 supports the 64-bit Integer Interface.
+// Zhbmv64 performs the Hermitian banded matrix-vector multiplication
 //
-// This function performs the Hermitian banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -13612,9 +13600,9 @@ func (h Handle) Zhbmv64(uplo FillMode, n int64, k int64, alpha *Complex128, a dr
 	return zhbmv64(h, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zhemm supports the 64-bit Integer Interface.
+// Zhemm performs the Hermitian matrix-matrix multiplication
 //
-// This function performs the Hermitian matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a Hermitian matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13645,9 +13633,9 @@ func (h Handle) Zhemm(side SideMode, uplo FillMode, m int32, n int32, alpha *Com
 	return zhemm(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zhemm64 supports the 64-bit Integer Interface.
+// Zhemm64 performs the Hermitian matrix-matrix multiplication
 //
-// This function performs the Hermitian matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a Hermitian matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13678,9 +13666,9 @@ func (h Handle) Zhemm64(side SideMode, uplo FillMode, m int64, n int64, alpha *C
 	return zhemm64(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zhemv supports the 64-bit Integer Interface.
+// Zhemv performs the Hermitian matrix-vector multiplication
 //
-// This function performs the Hermitian matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with
@@ -13711,9 +13699,9 @@ func (h Handle) Zhemv(uplo FillMode, n int32, alpha *Complex128, a driver.Device
 	return zhemv(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zhemv64 supports the 64-bit Integer Interface.
+// Zhemv64 performs the Hermitian matrix-vector multiplication
 //
-// This function performs the Hermitian matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with
@@ -13744,9 +13732,9 @@ func (h Handle) Zhemv64(uplo FillMode, n int64, alpha *Complex128, a driver.Devi
 	return zhemv64(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zher supports the 64-bit Integer Interface.
+// Zher performs the Hermitian rank-1 update
 //
-// This function performs the Hermitian rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxH+A
 // where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13772,9 +13760,9 @@ func (h Handle) Zher(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr,
 	return zher(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Zher2 supports the 64-bit Integer Interface.
+// Zher2 performs the Hermitian rank-2 update
 //
-// This function performs the Hermitian rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=αxyH+αˉyxH+A
 // where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13802,9 +13790,9 @@ func (h Handle) Zher2(uplo FillMode, n int32, alpha *Complex128, x driver.Device
 	return zher2(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Zher264 supports the 64-bit Integer Interface.
+// Zher264 performs the Hermitian rank-2 update
 //
-// This function performs the Hermitian rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=αxyH+αˉyxH+A
 // where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13832,9 +13820,9 @@ func (h Handle) Zher264(uplo FillMode, n int64, alpha *Complex128, x driver.Devi
 	return zher264(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Zher2k supports the 64-bit Integer Interface.
+// Zher2k performs the Hermitian rank- 2k update
 //
-// This function performs the Hermitian rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)H+αˉop(B)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
@@ -13866,9 +13854,9 @@ func (h Handle) Zher2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return zher2k(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zher2k64 supports the 64-bit Integer Interface.
+// Zher2k64 performs the Hermitian rank- 2k update
 //
-// This function performs the Hermitian rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)H+αˉop(B)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
@@ -13900,9 +13888,9 @@ func (h Handle) Zher2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return zher2k64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zher64 supports the 64-bit Integer Interface.
+// Zher64 performs the Hermitian rank-1 update
 //
-// This function performs the Hermitian rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxH+A
 // where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13928,9 +13916,9 @@ func (h Handle) Zher64(uplo FillMode, n int64, alpha *float64, x driver.DevicePt
 	return zher64(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Zherk supports the 64-bit Integer Interface.
+// Zherk performs the Hermitian rank- k update
 //
-// This function performs the Hermitian rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
@@ -13960,9 +13948,9 @@ func (h Handle) Zherk(uplo FillMode, trans Operation, n int32, k int32, alpha *f
 	return zherk(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Zherk64 supports the 64-bit Integer Interface.
+// Zherk64 performs the Hermitian rank- k update
 //
-// This function performs the Hermitian rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
@@ -13992,9 +13980,9 @@ func (h Handle) Zherk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 	return zherk64(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Zherkx supports the 64-bit Integer Interface.
+// Zherkx performs a variation of the Hermitian rank- k update
 //
-// This function performs a variation of the Hermitian rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
@@ -14028,9 +14016,9 @@ func (h Handle) Zherkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return zherkx(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zherkx64 supports the 64-bit Integer Interface.
+// Zherkx64 performs a variation of the Hermitian rank- k update
 //
-// This function performs a variation of the Hermitian rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)H+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
@@ -14064,9 +14052,9 @@ func (h Handle) Zherkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return zherkx64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zhpmv supports the 64-bit Integer Interface.
+// Zhpmv performs the Hermitian packed matrix-vector multiplication
 //
-// This function performs the Hermitian packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -14096,9 +14084,9 @@ func (h Handle) Zhpmv(uplo FillMode, n int32, alpha *Complex128, ap driver.Devic
 	return zhpmv(h, uplo, n, alpha, ap, x, incx, beta, y, incy)
 }
 
-// Zhpmv64 supports the 64-bit Integer Interface.
+// Zhpmv64 performs the Hermitian packed matrix-vector multiplication
 //
-// This function performs the Hermitian packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy
 // where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -14128,9 +14116,9 @@ func (h Handle) Zhpmv64(uplo FillMode, n int64, alpha *Complex128, ap driver.Dev
 	return zhpmv64(h, uplo, n, alpha, ap, x, incx, beta, y, incy)
 }
 
-// Zhpr supports the 64-bit Integer Interface.
+// Zhpr performs the packed Hermitian rank-1 update
 //
-// This function performs the packed Hermitian rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxH+A
 // where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -14157,9 +14145,9 @@ func (h Handle) Zhpr(uplo FillMode, n int32, alpha *float64, x driver.DevicePtr,
 	return zhpr(h, uplo, n, alpha, x, incx, ap)
 }
 
-// Zhpr2 supports the 64-bit Integer Interface.
+// Zhpr2 performs the packed Hermitian rank-2 update
 //
-// This function performs the packed Hermitian rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=αxyH+αˉyxH+A
 // where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -14188,9 +14176,9 @@ func (h Handle) Zhpr2(uplo FillMode, n int32, alpha *Complex128, x driver.Device
 	return zhpr2(h, uplo, n, alpha, x, incx, y, incy, ap)
 }
 
-// Zhpr264 supports the 64-bit Integer Interface.
+// Zhpr264 performs the packed Hermitian rank-2 update
 //
-// This function performs the packed Hermitian rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=αxyH+αˉyxH+A
 // where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -14219,9 +14207,9 @@ func (h Handle) Zhpr264(uplo FillMode, n int64, alpha *Complex128, x driver.Devi
 	return zhpr264(h, uplo, n, alpha, x, incx, y, incy, ap)
 }
 
-// Zhpr64 supports the 64-bit Integer Interface.
+// Zhpr64 performs the packed Hermitian rank-1 update
 //
-// This function performs the packed Hermitian rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxH+A
 // where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -14274,9 +14262,9 @@ func (h Handle) ZmatinvBatched(n int32, a driver.DevicePtr, lda int32, ainv driv
 	return zmatinvBatched(h, n, a, lda, ainv, ldaInv, info, batchSize)
 }
 
-// Zrot supports the 64-bit Integer Interface.
+// Zrot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -14302,9 +14290,9 @@ func (h Handle) Zrot(n int32, x driver.DevicePtr, incx int32, y driver.DevicePtr
 	return zrot(h, n, x, incx, y, incy, c, s)
 }
 
-// Zrot64 supports the 64-bit Integer Interface.
+// Zrot64 applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
-// This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
 // Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
@@ -14330,9 +14318,9 @@ func (h Handle) Zrot64(n int64, x driver.DevicePtr, incx int64, y driver.DeviceP
 	return zrot64(h, n, x, incx, y, incy, c, s)
 }
 
-// Zrotg supports the 64-bit Integer Interface.
+// Zrotg constructs the Givens rotation matrix
 //
-// This function constructs the Givens rotation matrix
+// This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // that zeros out the second entry of a 2×1 vector (a,b)T .
 // Then, for real numbers we can write
@@ -14361,11 +14349,10 @@ func (h Handle) Zrotg(a *Complex128, b *Complex128, c *float64, s *Complex128) e
 	return zrotg(h, a, b, c, s)
 }
 
-// Zscal supports the 64-bit Integer Interface.
+// Zscal scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -14384,11 +14371,10 @@ func (h Handle) Zscal(n int32, alpha *Complex128, x driver.DevicePtr, incx int32
 	return zscal(h, n, alpha, x, incx)
 }
 
-// Zscal64 supports the 64-bit Integer Interface.
+// Zscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
-// This function scales the vector x by the scalar α and overwrites it with the result. Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)∗incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
-// :class: table-no-stripes
 // For references please refer to NETLIB documentation:
 // sscal(), dscal(), csscal(), cscal(), zdscal(), zscal()
 //
@@ -14407,9 +14393,9 @@ func (h Handle) Zscal64(n int64, alpha *Complex128, x driver.DevicePtr, incx int
 	return zscal64(h, n, alpha, x, incx)
 }
 
-// Zswap supports the 64-bit Integer Interface.
+// Zswap interchanges the elements of vector x and y.
 //
-// This function interchanges the elements of vector x and y. Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
@@ -14430,9 +14416,9 @@ func (h Handle) Zswap(n int32, x driver.DevicePtr, incx int32, y driver.DevicePt
 	return zswap(h, n, x, incx, y, incy)
 }
 
-// Zswap64 supports the 64-bit Integer Interface.
+// Zswap64 interchanges the elements of vector x and y.
 //
-// This function interchanges the elements of vector x and y. Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sswap(), dswap(), cswap(), zswap()
@@ -14453,9 +14439,9 @@ func (h Handle) Zswap64(n int64, x driver.DevicePtr, incx int64, y driver.Device
 	return zswap64(h, n, x, incx, y, incy)
 }
 
-// Zsymm supports the 64-bit Integer Interface.
+// Zsymm performs the symmetric matrix-matrix multiplication
 //
-// This function performs the symmetric matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a symmetric matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14486,9 +14472,9 @@ func (h Handle) Zsymm(side SideMode, uplo FillMode, m int32, n int32, alpha *Com
 	return zsymm(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zsymm64 supports the 64-bit Integer Interface.
+// Zsymm64 performs the symmetric matrix-matrix multiplication
 //
-// This function performs the symmetric matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
 // where A is a symmetric matrix stored in lower or upper mode, B and C are m×n matrices, and α and β are scalars.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14519,9 +14505,9 @@ func (h Handle) Zsymm64(side SideMode, uplo FillMode, m int64, n int64, alpha *C
 	return zsymm64(h, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zsymv supports the 64-bit Integer Interface.
+// Zsymv performs the symmetric matrix-vector multiplication.
 //
-// This function performs the symmetric matrix-vector multiplication.
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy where A is a n×n symmetric matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with [Handle.SetAtomicsMode].
 // Please see the section on the function [Handle.SetAtomicsMode] for more details about the usage of atomics.
@@ -14551,9 +14537,9 @@ func (h Handle) Zsymv(uplo FillMode, n int32, alpha *Complex128, a driver.Device
 	return zsymv(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zsymv64 supports the 64-bit Integer Interface.
+// Zsymv64 performs the symmetric matrix-vector multiplication.
 //
-// This function performs the symmetric matrix-vector multiplication.
+// This function supports the 64-bit Integer Interface.
 // y=αAx+βy where A is a n×n symmetric matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with [Handle.SetAtomicsMode].
 // Please see the section on the function [Handle.SetAtomicsMode] for more details about the usage of atomics.
@@ -14583,9 +14569,9 @@ func (h Handle) Zsymv64(uplo FillMode, n int64, alpha *Complex128, a driver.Devi
 	return zsymv64(h, uplo, n, alpha, a, lda, x, incx, beta, y, incy)
 }
 
-// Zsyr supports the 64-bit Integer Interface.
+// Zsyr performs the symmetric rank-1 update
 //
-// This function performs the symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14611,9 +14597,9 @@ func (h Handle) Zsyr(uplo FillMode, n int32, alpha *Complex128, x driver.DeviceP
 	return zsyr(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Zsyr2 supports the 64-bit Integer Interface.
+// Zsyr2 performs the symmetric rank-2 update
 //
-// This function performs the symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14641,9 +14627,9 @@ func (h Handle) Zsyr2(uplo FillMode, n int32, alpha *Complex128, x driver.Device
 	return zsyr2(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Zsyr264 supports the 64-bit Integer Interface.
+// Zsyr264 performs the symmetric rank-2 update
 //
-// This function performs the symmetric rank-2 update
+// This function supports the 64-bit Integer Interface.
 // A=α(xyT+yxT)+A
 // where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14671,9 +14657,9 @@ func (h Handle) Zsyr264(uplo FillMode, n int64, alpha *Complex128, x driver.Devi
 	return zsyr264(h, uplo, n, alpha, x, incx, y, incy, a, lda)
 }
 
-// Zsyr2k supports the 64-bit Integer Interface.
+// Zsyr2k performs the symmetric rank- 2k update
 //
-// This function performs the symmetric rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=α(op(A)op(B)T+op(B)op(A)T)+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -14705,9 +14691,9 @@ func (h Handle) Zsyr2k(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return zsyr2k(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zsyr2k64 supports the 64-bit Integer Interface.
+// Zsyr2k64 performs the symmetric rank- 2k update
 //
-// This function performs the symmetric rank- 2k update
+// This function supports the 64-bit Integer Interface.
 // C=α(op(A)op(B)T+op(B)op(A)T)+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -14739,9 +14725,9 @@ func (h Handle) Zsyr2k64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return zsyr2k64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zsyr64 supports the 64-bit Integer Interface.
+// Zsyr64 performs the symmetric rank-1 update
 //
-// This function performs the symmetric rank-1 update
+// This function supports the 64-bit Integer Interface.
 // A=αxxT+A
 // where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14767,9 +14753,9 @@ func (h Handle) Zsyr64(uplo FillMode, n int64, alpha *Complex128, x driver.Devic
 	return zsyr64(h, uplo, n, alpha, x, incx, a, lda)
 }
 
-// Zsyrk supports the 64-bit Integer Interface.
+// Zsyrk performs the symmetric rank- k update
 //
-// This function performs the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
@@ -14799,9 +14785,9 @@ func (h Handle) Zsyrk(uplo FillMode, trans Operation, n int32, k int32, alpha *C
 	return zsyrk(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Zsyrk64 supports the 64-bit Integer Interface.
+// Zsyrk64 performs the symmetric rank- k update
 //
-// This function performs the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(A)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
@@ -14831,9 +14817,9 @@ func (h Handle) Zsyrk64(uplo FillMode, trans Operation, n int64, k int64, alpha 
 	return zsyrk64(h, uplo, trans, n, k, alpha, a, lda, beta, c, ldc)
 }
 
-// Zsyrkx supports the 64-bit Integer Interface.
+// Zsyrkx performs a variation of the symmetric rank- k update
 //
-// This function performs a variation of the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -14867,9 +14853,9 @@ func (h Handle) Zsyrkx(uplo FillMode, trans Operation, n int32, k int32, alpha *
 	return zsyrkx(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Zsyrkx64 supports the 64-bit Integer Interface.
+// Zsyrkx64 performs a variation of the symmetric rank- k update
 //
-// This function performs a variation of the symmetric rank- k update
+// This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)T+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
 // op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
@@ -14903,9 +14889,9 @@ func (h Handle) Zsyrkx64(uplo FillMode, trans Operation, n int64, k int64, alpha
 	return zsyrkx64(h, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
 }
 
-// Ztbmv supports the 64-bit Integer Interface.
+// Ztbmv performs the triangular banded matrix-vector multiplication
 //
-// This function performs the triangular banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular banded matrix, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -14937,9 +14923,9 @@ func (h Handle) Ztbmv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 	return ztbmv(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Ztbmv64 supports the 64-bit Integer Interface.
+// Ztbmv64 performs the triangular banded matrix-vector multiplication
 //
-// This function performs the triangular banded matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular banded matrix, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -14971,9 +14957,9 @@ func (h Handle) Ztbmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return ztbmv64(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Ztbsv supports the 64-bit Integer Interface.
+// Ztbsv solves the triangular banded linear system with a single right-hand-side
 //
-// This function solves the triangular banded linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -15006,9 +14992,9 @@ func (h Handle) Ztbsv(uplo FillMode, trans Operation, diag DiagType, n int32, k 
 	return ztbsv(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Ztbsv64 supports the 64-bit Integer Interface.
+// Ztbsv64 solves the triangular banded linear system with a single right-hand-side
 //
-// This function solves the triangular banded linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -15041,9 +15027,9 @@ func (h Handle) Ztbsv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return ztbsv64(h, uplo, trans, diag, n, k, a, lda, x, incx)
 }
 
-// Ztpmv supports the 64-bit Integer Interface.
+// Ztpmv performs the triangular packed matrix-vector multiplication
 //
-// This function performs the triangular packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -15073,9 +15059,9 @@ func (h Handle) Ztpmv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 	return ztpmv(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Ztpmv64 supports the 64-bit Integer Interface.
+// Ztpmv64 performs the triangular packed matrix-vector multiplication
 //
-// This function performs the triangular packed matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -15105,9 +15091,9 @@ func (h Handle) Ztpmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return ztpmv64(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Ztpsv supports the 64-bit Integer Interface.
+// Ztpsv solves the packed triangular linear system with a single right-hand-side
 //
-// This function solves the packed triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -15138,9 +15124,9 @@ func (h Handle) Ztpsv(uplo FillMode, trans Operation, diag DiagType, n int32, ap
 	return ztpsv(h, uplo, trans, diag, n, ap, x, incx)
 }
 
-// Ztpsv64 supports the 64-bit Integer Interface.
+// Ztpsv64 solves the packed triangular linear system with a single right-hand-side
 //
-// This function solves the packed triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -15195,9 +15181,9 @@ func (h Handle) Ztpttr(uplo FillMode, n int32, ap driver.DevicePtr, a driver.Dev
 	return ztpttr(h, uplo, n, ap, a, lda)
 }
 
-// Ztrmm supports the 64-bit Integer Interface.
+// Ztrmm performs the triangular matrix-matrix multiplication
 //
-// This function performs the triangular matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -15231,9 +15217,9 @@ func (h Handle) Ztrmm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 	return ztrmm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc)
 }
 
-// Ztrmm64 supports the 64-bit Integer Interface.
+// Ztrmm64 performs the triangular matrix-matrix multiplication
 //
-// This function performs the triangular matrix-matrix multiplication
+// This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -15267,9 +15253,9 @@ func (h Handle) Ztrmm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 	return ztrmm64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc)
 }
 
-// Ztrmv supports the 64-bit Integer Interface.
+// Ztrmv performs the triangular matrix-vector multiplication
 //
-// This function performs the triangular matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -15298,9 +15284,9 @@ func (h Handle) Ztrmv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 	return ztrmv(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Ztrmv64 supports the 64-bit Integer Interface.
+// Ztrmv64 performs the triangular matrix-vector multiplication
 //
-// This function performs the triangular matrix-vector multiplication
+// This function supports the 64-bit Integer Interface.
 // x=op(A)x
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
 // op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
@@ -15329,9 +15315,9 @@ func (h Handle) Ztrmv64(uplo FillMode, trans Operation, diag DiagType, n int64, 
 	return ztrmv64(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Ztrsm supports the 64-bit Integer Interface.
+// Ztrsm solves the triangular linear system with multiple right-hand-sides
 //
-// This function solves the triangular linear system with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -15364,9 +15350,9 @@ func (h Handle) Ztrsm(side SideMode, uplo FillMode, trans Operation, diag DiagTy
 	return ztrsm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb)
 }
 
-// Ztrsm64 supports the 64-bit Integer Interface.
+// Ztrsm64 solves the triangular linear system with multiple right-hand-sides
 //
-// This function solves the triangular linear system with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -15399,9 +15385,9 @@ func (h Handle) Ztrsm64(side SideMode, uplo FillMode, trans Operation, diag Diag
 	return ztrsm64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb)
 }
 
-// ZtrsmBatched supports the 64-bit Integer Interface.
+// ZtrsmBatched solves an array of triangular linear systems with multiple right-hand-sides
 //
-// This function solves an array of triangular linear systems with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
@@ -15437,9 +15423,9 @@ func (h Handle) ZtrsmBatched(side SideMode, uplo FillMode, trans Operation, diag
 	return ztrsmBatched(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount)
 }
 
-// ZtrsmBatched64 supports the 64-bit Integer Interface.
+// ZtrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides
 //
-// This function solves an array of triangular linear systems with multiple right-hand-sides
+// This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
 // op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
@@ -15475,9 +15461,9 @@ func (h Handle) ZtrsmBatched64(side SideMode, uplo FillMode, trans Operation, di
 	return ztrsmBatched64(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount)
 }
 
-// Ztrsv supports the 64-bit Integer Interface.
+// Ztrsv solves the triangular linear system with a single right-hand-side
 //
-// This function solves the triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
@@ -15507,9 +15493,9 @@ func (h Handle) Ztrsv(uplo FillMode, trans Operation, diag DiagType, n int32, a 
 	return ztrsv(h, uplo, trans, diag, n, a, lda, x, incx)
 }
 
-// Ztrsv64 supports the 64-bit Integer Interface.
+// Ztrsv64 solves the triangular linear system with a single right-hand-side
 //
-// This function solves the triangular linear system with a single right-hand-side
+// This function supports the 64-bit Integer Interface.
 // op(A)x=b
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
 // op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
