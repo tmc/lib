@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -19,11 +19,11 @@ func severityRank(s Severity) int {
 	}
 }
 
-func finalizeAndRankFindings(report *AdviceReport, kernelTimes map[string]int64, totalTime int64) {
+func finalizeAndRankFindings(report *Report, kernelTimes map[string]int64, totalTime int64) {
 	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, true)
 }
 
-func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[string]int64, totalTime int64, hasTiming bool) {
+func finalizeAndRankFindingsWithTiming(report *Report, kernelTimes map[string]int64, totalTime int64, hasTiming bool) {
 	if report == nil || len(report.Items) == 0 {
 		return
 	}
@@ -111,7 +111,7 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 // takesKernelTime reports whether item is a pattern in one kernel's code
 // whose size is that kernel's time, filled in when the report is ranked.
 // A dispatch finding names a kernel for how it is launched, not for its code.
-func takesKernelTime(item AdviceItem) bool {
+func takesKernelTime(item Item) bool {
 	return item.Location.Kernel != "" && !strings.Contains(item.Location.Kernel, " -> ") &&
 		!isDispatch(item.Category) &&
 		item.DeviceTimeNanos == 0 && item.HostTimeNanos == 0 && item.ShareOfProfile == 0 &&
@@ -127,14 +127,14 @@ func isDispatch(c Category) bool {
 // would otherwise be charged the kernel's whole time, and a kernel showing
 // five patterns ranked as five findings each worth all of it. A kernel with
 // one such finding keeps it as it is.
-func foldKernelPatterns(items []AdviceItem) []AdviceItem {
-	byKernel := make(map[string][]AdviceItem)
+func foldKernelPatterns(items []Item) []Item {
+	byKernel := make(map[string][]Item)
 	for _, item := range items {
 		if takesKernelTime(item) {
 			byKernel[item.Location.Kernel] = append(byKernel[item.Location.Kernel], item)
 		}
 	}
-	var out []AdviceItem
+	var out []Item
 	folded := make(map[string]bool)
 	for _, item := range items {
 		k := item.Location.Kernel
@@ -147,7 +147,7 @@ func foldKernelPatterns(items []AdviceItem) []AdviceItem {
 			continue
 		}
 		folded[k] = true
-		kernel := AdviceItem{
+		kernel := Item{
 			Severity: SeverityContext,
 			Category: CategoryKernel,
 			Location: Location{Kernel: k},

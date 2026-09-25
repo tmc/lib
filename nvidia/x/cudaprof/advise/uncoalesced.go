@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 
 var sassRegisterRE = regexp.MustCompile(`\bR[0-9]+\b`)
 
-func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disasm *cudasass.Disassembly) {
+func auditUncoalescedMemory(cap *cudacapture.Capture, report *Report, disasm *cudasass.Disassembly) {
 	if cap == nil {
 		return
 	}
@@ -233,9 +233,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 					if ratio > 0.35 {
 						opUpper := strings.ToUpper(opcode)
 						if strings.HasPrefix(opUpper, "LDG.E") || strings.HasPrefix(opUpper, "LDG") || strings.Contains(opUpper, "LDG") {
-							sev := SeverityWarning
+							sev := SeverityCost
 							if ratio >= 0.50 {
-								sev = SeverityCritical
+								sev = SeverityReadFirst
 							}
 							memCands = append(memCands, stallCand{
 								pc: pc, opcode: opcode, file: file, line: line,
@@ -249,9 +249,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 				if stat.scoreboardStalls > 0 {
 					sbRatio := float64(stat.scoreboardStalls) / float64(stat.totalStalls)
 					if sbRatio >= 0.25 && stat.scoreboardStalls >= 50 {
-						sev := SeverityWarning
+						sev := SeverityCost
 						if sbRatio >= 0.50 {
-							sev = SeverityCritical
+							sev = SeverityReadFirst
 						}
 						defPC, usePC, distance, register := nearestLoadUse(fn, pc)
 						sbCands = append(sbCands, stallCand{
@@ -266,9 +266,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 				if stat.branchStalls > 0 {
 					brRatio := float64(stat.branchStalls) / float64(stat.totalStalls)
 					if brRatio >= 0.20 && stat.branchStalls >= 50 {
-						sev := SeverityWarning
+						sev := SeverityCost
 						if brRatio >= 0.50 {
-							sev = SeverityCritical
+							sev = SeverityReadFirst
 						}
 						branchPC, branchOpcode := precedingControlFlowBranch(fn, pc)
 						brCands = append(brCands, stallCand{
@@ -286,7 +286,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 					if wtRatio >= 0.35 && stat.waitStalls >= 50 {
 						wtCands = append(wtCands, stallCand{
 							pc: pc, opcode: opcode, file: file, line: line,
-							ratio: wtRatio, stalls: stat.waitStalls, sev: SeverityWarning,
+							ratio: wtRatio, stalls: stat.waitStalls, sev: SeverityCost,
 						})
 					}
 				}
@@ -310,7 +310,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 				}
 				locKey := fmt.Sprintf("%s:0x%x", kName, c.pc)
 				reportedLocations[locKey] = true
-				report.Items = append(report.Items, AdviceItem{
+				report.Items = append(report.Items, Item{
 					Severity:      c.sev,
 					Category:      CategoryMemory,
 					EvidenceLevel: EvidenceSuspected,
@@ -341,8 +341,8 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 						maxPC = c.pc
 					}
 				}
-				report.Items = append(report.Items, AdviceItem{
-					Severity:      SeverityWarning,
+				report.Items = append(report.Items, Item{
+					Severity:      SeverityCost,
 					Category:      CategoryMemory,
 					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
@@ -365,7 +365,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 				if c.defUseDistance > 0 {
 					distance = fmt.Sprintf("; %s loaded at PC 0x%04x is first consumed at PC 0x%04x (%d instructions later)", c.defRegister, c.defPC, c.usePC, c.defUseDistance)
 				}
-				report.Items = append(report.Items, AdviceItem{
+				report.Items = append(report.Items, Item{
 					Severity:      c.sev,
 					Category:      CategoryMemoryCompute,
 					EvidenceLevel: EvidenceSuspected,
@@ -396,8 +396,8 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 						maxRatio = c.ratio
 					}
 				}
-				report.Items = append(report.Items, AdviceItem{
-					Severity:                 SeverityWarning,
+				report.Items = append(report.Items, Item{
+					Severity:                 SeverityCost,
 					Category:                 CategoryMemoryCompute,
 					EvidenceLevel:            EvidenceSuspected,
 					Location:                 Location{Kernel: kName, PC: minPC},
@@ -420,7 +420,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 					locationPC = c.branchPC
 					attribution = fmt.Sprintf("created by preceding %s at PC 0x%04x; sampled at %s at PC 0x%04x, which is awaiting warp reconvergence", c.branchOpcode, c.branchPC, c.opcode, c.pc)
 				}
-				report.Items = append(report.Items, AdviceItem{
+				report.Items = append(report.Items, Item{
 					Severity:      c.sev,
 					Category:      CategoryArchitectureCompute,
 					EvidenceLevel: EvidenceSuspected,
@@ -451,8 +451,8 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 						maxRatio = c.ratio
 					}
 				}
-				report.Items = append(report.Items, AdviceItem{
-					Severity:                 SeverityWarning,
+				report.Items = append(report.Items, Item{
+					Severity:                 SeverityCost,
 					Category:                 CategoryArchitectureCompute,
 					EvidenceLevel:            EvidenceSuspected,
 					Location:                 Location{Kernel: kName, PC: minPC},
@@ -469,7 +469,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 				wtLimit = 3
 			}
 			for _, c := range wtCands[:wtLimit] {
-				report.Items = append(report.Items, AdviceItem{
+				report.Items = append(report.Items, Item{
 					Severity:      c.sev,
 					Category:      CategoryArchitectureDispatch,
 					EvidenceLevel: EvidenceSuspected,
@@ -503,8 +503,8 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 				if rmk.Reason != "" {
 					finding += fmt.Sprintf(" (reason: %s)", rmk.Reason)
 				}
-				report.Items = append(report.Items, AdviceItem{
-					Severity:      SeverityWarning,
+				report.Items = append(report.Items, Item{
+					Severity:      SeverityCost,
 					Category:      CategoryMemory,
 					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
@@ -544,8 +544,8 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 					if strideVal != "" {
 						finding = fmt.Sprintf("Threads within the warp generate strided or disparate 128-byte cache line requests, generating up to 32 cache transactions per instruction (stride %s in kernel %q)", strideVal, kName)
 					}
-					report.Items = append(report.Items, AdviceItem{
-						Severity:      SeverityWarning,
+					report.Items = append(report.Items, Item{
+						Severity:      SeverityCost,
 						Category:      CategoryMemory,
 						EvidenceLevel: EvidenceSuspected,
 						Location: Location{

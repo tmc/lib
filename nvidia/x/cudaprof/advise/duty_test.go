@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/internal/journaltest"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
@@ -61,17 +62,17 @@ func TestIdleDominatedCaptureSaysSoFirst(t *testing.T) {
 			Sample:     samples,
 		}}
 	}
-	idleFinding := func(t *testing.T, cap *cudacapture.Capture) *AdviceItem {
+	idleFinding := func(t *testing.T, cap *cudacapture.Capture) *Item {
 		t.Helper()
-		report, err := AnalyzeCapture(cap)
+		report, err := Analyze(cap)
 		if err != nil {
-			t.Fatalf("AnalyzeCapture: %v", err)
+			t.Fatalf("Analyze: %v", err)
 		}
 		for i := range report.Items {
 			if strings.Contains(report.Items[i].Finding, "The device was idle for") {
 				// It has to be readable before the findings it qualifies.
 				for j := 0; j < i; j++ {
-					if report.Items[j].Severity != SeverityCritical {
+					if report.Items[j].Severity != SeverityReadFirst {
 						t.Errorf("idle finding ranks below a %s finding: %s", report.Items[j].Severity, report.Items[j].Finding)
 					}
 				}
@@ -87,7 +88,7 @@ func TestIdleDominatedCaptureSaysSoFirst(t *testing.T) {
 	if got == nil {
 		t.Fatal("a capture that is mostly device idle carried no idle finding")
 	}
-	if got.Severity != SeverityCritical {
+	if got.Severity != SeverityReadFirst {
 		t.Errorf("severity = %s, want Critical", got.Severity)
 	}
 	streams, _ := timeline.Events(idle)
@@ -224,11 +225,11 @@ func TestDutyCycleCountsAnUnrecordedGraphReplay(t *testing.T) {
 // record, a replay counts as busy for its whole envelope, so the idle it
 // reports is a floor and not a measurement.
 func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
-	b := newJournalBuilder()
-	b.kernelOn(0, 1, 1_000, 2_000, 1)
-	b.graphTrace(0, 3_000, 4_000, 5, 3)
-	b.kernelOn(0, 1, 90_000, 91_000, 2)
-	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+	b := journaltest.New()
+	b.KernelOn(0, 1, 1_000, 2_000, 1)
+	b.GraphTrace(0, 3_000, 4_000, 5, 3)
+	b.KernelOn(0, 1, 90_000, 91_000, 2)
+	cap := testCapture(map[string][]byte{"capture.journal": b.Finalize()}, journaltest.CompleteStatus())
 
 	streams, opaque := timeline.Events(cap)
 	if !opaque {
@@ -238,7 +239,7 @@ func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
 		t.Fatalf("busy = %d (ok %v), want 3000: the envelope is on the timeline", busy, ok)
 	}
 
-	report := &AdviceReport{}
+	report := &Report{}
 	auditDeviceDutyCycle(cap, report)
 	if !strings.Contains(dutyCycleFinding(t, report), "lower bound") {
 		t.Errorf("finding does not carry the opacity caveat: %q", dutyCycleFinding(t, report))
@@ -246,13 +247,13 @@ func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
 
 	// A capture whose replays are described by their nodes must not carry it:
 	// a caveat printed on every capture is one a reader learns to skip.
-	c := newJournalBuilder()
-	c.kernelOn(0, 1, 1_000, 2_000, 1)
-	c.graphNode(0, 1, 3_000, 4_000, 4, 5)
-	c.graphTrace(0, 3_000, 4_000, 5, 3)
-	c.kernelOn(0, 1, 90_000, 91_000, 2)
-	plain := &AdviceReport{}
-	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": c.finalize()}, completeStatus()), plain)
+	c := journaltest.New()
+	c.KernelOn(0, 1, 1_000, 2_000, 1)
+	c.GraphNode(0, 1, 3_000, 4_000, 4, 5)
+	c.GraphTrace(0, 3_000, 4_000, 5, 3)
+	c.KernelOn(0, 1, 90_000, 91_000, 2)
+	plain := &Report{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": c.Finalize()}, journaltest.CompleteStatus()), plain)
 	if strings.Contains(dutyCycleFinding(t, plain), "lower bound") {
 		t.Errorf("opacity caveat on a capture whose nodes name their graph: %q", dutyCycleFinding(t, plain))
 	}
@@ -262,7 +263,7 @@ func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
 // than indexing: auditDeviceDutyCycle also emits the idle attribution, and a
 // test that asserts on Items[0] asserts on whichever of the two happened to
 // be appended first.
-func dutyCycleFinding(t *testing.T, report *AdviceReport) string {
+func dutyCycleFinding(t *testing.T, report *Report) string {
 	t.Helper()
 	for _, it := range report.Items {
 		if strings.Contains(it.Finding, "The device was idle for") {
@@ -275,7 +276,7 @@ func dutyCycleFinding(t *testing.T, report *AdviceReport) string {
 
 // idleFinding returns the idle-attribution finding's text, selected rather
 // than indexed for the reason dutyCycleFinding is.
-func idleFinding(t *testing.T, report *AdviceReport) string {
+func idleFinding(t *testing.T, report *Report) string {
 	t.Helper()
 	for _, it := range report.Items {
 		if strings.Contains(it.Finding, "Idle attribution:") {
@@ -291,14 +292,14 @@ func idleFinding(t *testing.T, report *AdviceReport) string {
 // to that kernel's start, which is the only thing that decides which idle arm
 // the gap lands in.
 func idleJournal(apiAt func(kernelStart uint64) (start, end uint64)) []byte {
-	b := newJournalBuilder()
+	b := journaltest.New()
 	for i := uint32(1); i <= 5; i++ {
 		start := uint64(10_000) + uint64(i-1)*10_000
-		b.kernel(start, start+1_000, i)
+		b.Kernel(start, start+1_000, i)
 		s, e := apiAt(start)
-		b.api(s, e, i)
+		b.API(s, e, i)
 	}
-	return b.finalize()
+	return b.Finalize()
 }
 
 // TestIdleAttributionNamesTheMechanismItMeasured is a double dissociation: the
@@ -345,8 +346,8 @@ func TestIdleAttributionNamesTheMechanismItMeasured(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cap := testCapture(map[string][]byte{"capture.journal": tt.journal}, completeStatus())
-			report := &AdviceReport{}
+			cap := testCapture(map[string][]byte{"capture.journal": tt.journal}, journaltest.CompleteStatus())
+			report := &Report{}
 			if !auditIdleAttribution(cap, report) {
 				t.Fatal("auditIdleAttribution reported no finding on a 12% duty cycle capture")
 			}
@@ -397,28 +398,28 @@ func TestIdleAttributionNamesTheMechanismItMeasured(t *testing.T) {
 // mixedIdleJournal gives each of the four idle arms one gap, so no arm holds a
 // majority: hardware queue 14500 ns of 36000 ns.
 func mixedIdleJournal() []byte {
-	b := newJournalBuilder()
+	b := journaltest.New()
 	kstart := func(i uint32) uint64 { return uint64(10_000) + uint64(i-1)*10_000 }
 	for i := uint32(1); i <= 5; i++ {
-		b.kernel(kstart(i), kstart(i)+1_000, i)
+		b.Kernel(kstart(i), kstart(i)+1_000, i)
 	}
-	b.api(kstart(1)-5_000, kstart(1)-4_000, 1)
+	b.API(kstart(1)-5_000, kstart(1)-4_000, 1)
 	// Host ahead: the call returned before the previous kernel ended.
-	b.api(kstart(2)-10_000, kstart(2)-9_500, 2)
+	b.API(kstart(2)-10_000, kstart(2)-9_500, 2)
 	// Host behind: the call started 8000 ns after the device went idle.
-	b.api(kstart(3)-1_000, kstart(3)-500, 3)
+	b.API(kstart(3)-1_000, kstart(3)-500, 3)
 	// Correlation 4 is deliberately absent: unattributed.
 	// Host during: the previous kernel ended inside the call.
-	b.api(kstart(5)-9_100, kstart(5)-5_000, 5)
-	return b.finalize()
+	b.API(kstart(5)-9_100, kstart(5)-5_000, 5)
+	return b.Finalize()
 }
 
 // TestNoIdleAttributionOnABusyCapture keeps the finding off a capture whose
 // device was working. Without this the gate is untested in the direction that
 // matters: a finding that fires on every capture ranks nothing.
 func TestNoIdleAttributionOnABusyCapture(t *testing.T) {
-	cap := testCapture(map[string][]byte{"capture.journal": uniformJournal()}, completeStatus())
-	report := &AdviceReport{}
+	cap := testCapture(map[string][]byte{"capture.journal": uniformJournal()}, journaltest.CompleteStatus())
+	report := &Report{}
 	if auditIdleAttribution(cap, report) || len(report.Items) != 0 {
 		t.Errorf("attribution finding on an 83%% duty cycle capture: %+v", report.Items)
 	}
@@ -430,11 +431,11 @@ func TestNoIdleAttributionOnABusyCapture(t *testing.T) {
 // span that remains.
 func TestIdleAttributionOutranksAKernelTimeFinding(t *testing.T) {
 	journal := idleJournal(func(k uint64) (uint64, uint64) { return k - 10_000, k - 9_500 })
-	cap := testCapture(map[string][]byte{"capture.journal": journal}, completeStatus())
-	report := &AdviceReport{}
+	cap := testCapture(map[string][]byte{"capture.journal": journal}, journaltest.CompleteStatus())
+	report := &Report{}
 	// A kernel finding holding every nanosecond the device was actually busy.
-	report.Items = append(report.Items, AdviceItem{
-		Severity:        SeverityCritical,
+	report.Items = append(report.Items, Item{
+		Severity:        SeverityReadFirst,
 		Category:        CategoryCompute,
 		EvidenceLevel:   EvidenceObserved,
 		DeviceTimeNanos: 5_000,
@@ -453,7 +454,7 @@ func TestIdleAttributionOutranksAKernelTimeFinding(t *testing.T) {
 	}
 	// The duty cycle finding must stop telling the reader to go attribute the
 	// idle time once this report has attributed it.
-	var duty AdviceItem
+	var duty Item
 	for _, it := range report.Items {
 		if strings.Contains(it.Finding, "The device was idle for") {
 			duty = it
@@ -477,8 +478,8 @@ func TestIdleAttributionOutranksAKernelTimeFinding(t *testing.T) {
 // kernel ran.
 func TestIdleMagnitudeIsNotLabelledGPUTime(t *testing.T) {
 	journal := idleJournal(func(k uint64) (uint64, uint64) { return k - 10_000, k - 9_500 })
-	cap := testCapture(map[string][]byte{"capture.journal": journal}, completeStatus())
-	report := &AdviceReport{}
+	cap := testCapture(map[string][]byte{"capture.journal": journal}, journaltest.CompleteStatus())
+	report := &Report{}
 	if !auditIdleAttribution(cap, report) {
 		t.Fatal("no attribution finding")
 	}
@@ -512,24 +513,24 @@ func TestIdleAttributionSeparatesUnseenFromAbsent(t *testing.T) {
 
 	// Same kernels and same idle in both arms: only the replay records differ.
 	plain := idleJournal(func(k uint64) (uint64, uint64) { return k - 5_000, k - 100 })
-	report := &AdviceReport{}
-	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": plain}, completeStatus()), report)
+	report := &Report{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": plain}, journaltest.CompleteStatus()), report)
 	if got := idleFinding(t, report); strings.Contains(got, opaque) {
 		t.Errorf("a capture with no graph replays claims replay opacity:\n%s", got)
 	}
 
-	b := newJournalBuilder()
+	b := journaltest.New()
 	for i := uint32(1); i <= 5; i++ {
 		start := uint64(10_000) + uint64(i-1)*10_000
-		b.kernel(start, start+1_000, i)
-		b.api(start-5_000, start-100, i)
+		b.Kernel(start, start+1_000, i)
+		b.API(start-5_000, start-100, i)
 	}
 	// An envelope with no nodes inside it: the shape that hides the census.
-	b.graphTrace(0, 60_000, 69_000, 7, 100)
-	withReplays := b.finalize()
+	b.GraphTrace(0, 60_000, 69_000, 7, 100)
+	withReplays := b.Finalize()
 
-	report = &AdviceReport{}
-	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": withReplays}, completeStatus()), report)
+	report = &Report{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": withReplays}, journaltest.CompleteStatus()), report)
 	idle := idleFinding(t, report)
 	if !strings.Contains(idle, opaque) {
 		t.Errorf("idle finding does not name replay opacity:\n%s", idle)
@@ -550,17 +551,17 @@ func TestOpaqueDutyCycleIsReportedAsACeiling(t *testing.T) {
 	// A span whose busy time is almost entirely one replay envelope: 98%
 	// busy as measured, 2% on the records the capture can resolve.
 	opaqueJournal := func() []byte {
-		b := newJournalBuilder()
-		b.kernel(1_000, 2_000, 1)
-		b.api(500, 900, 1)
-		b.graphTrace(0, 3_000, 98_000, 7, 2)
-		b.kernel(99_000, 100_000, 3)
-		b.api(98_500, 98_900, 3)
-		return b.finalize()
+		b := journaltest.New()
+		b.Kernel(1_000, 2_000, 1)
+		b.API(500, 900, 1)
+		b.GraphTrace(0, 3_000, 98_000, 7, 2)
+		b.Kernel(99_000, 100_000, 3)
+		b.API(98_500, 98_900, 3)
+		return b.Finalize()
 	}
 
-	report := &AdviceReport{}
-	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": opaqueJournal()}, completeStatus()), report)
+	report := &Report{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": opaqueJournal()}, journaltest.CompleteStatus()), report)
 	ceiling := ceilingFinding(t, report)
 	if !strings.Contains(ceiling, "ceiling, not a measurement") {
 		t.Errorf("finding does not call the duty cycle a ceiling:\n%s", ceiling)
@@ -573,15 +574,15 @@ func TestOpaqueDutyCycleIsReportedAsACeiling(t *testing.T) {
 
 	// Control 1: the same envelope, resolved into nodes. Nothing is hidden,
 	// so there is nothing to warn about.
-	b := newJournalBuilder()
-	b.kernel(1_000, 2_000, 1)
-	b.api(500, 900, 1)
-	b.graphTrace(0, 3_000, 98_000, 7, 2)
-	b.graphNode(0, 1, 3_000, 98_000, 4, 7)
-	b.kernel(99_000, 100_000, 3)
-	b.api(98_500, 98_900, 3)
-	report = &AdviceReport{}
-	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus()), report)
+	b := journaltest.New()
+	b.Kernel(1_000, 2_000, 1)
+	b.API(500, 900, 1)
+	b.GraphTrace(0, 3_000, 98_000, 7, 2)
+	b.GraphNode(0, 1, 3_000, 98_000, 4, 7)
+	b.Kernel(99_000, 100_000, 3)
+	b.API(98_500, 98_900, 3)
+	report = &Report{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": b.Finalize()}, journaltest.CompleteStatus()), report)
 	if got := findingContaining(report, "ceiling, not a measurement"); got != "" {
 		t.Errorf("ceiling warning on a capture whose nodes are resolved:\n%s", got)
 	}
@@ -589,20 +590,20 @@ func TestOpaqueDutyCycleIsReportedAsACeiling(t *testing.T) {
 	// Control 2: opaque replays, but the capture is busy on its resolved
 	// records alone. Resolving the envelopes cannot change the answer, so
 	// saying anything would be noise.
-	b = newJournalBuilder()
-	b.kernel(1_000, 60_000, 1)
-	b.api(500, 900, 1)
-	b.graphTrace(0, 61_000, 70_000, 7, 2)
-	b.kernel(71_000, 99_000, 3)
-	b.api(70_500, 70_900, 3)
-	report = &AdviceReport{}
-	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus()), report)
+	b = journaltest.New()
+	b.Kernel(1_000, 60_000, 1)
+	b.API(500, 900, 1)
+	b.GraphTrace(0, 61_000, 70_000, 7, 2)
+	b.Kernel(71_000, 99_000, 3)
+	b.API(70_500, 70_900, 3)
+	report = &Report{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": b.Finalize()}, journaltest.CompleteStatus()), report)
 	if got := findingContaining(report, "ceiling, not a measurement"); got != "" {
 		t.Errorf("ceiling warning where the resolved records are already busy:\n%s", got)
 	}
 }
 
-func findingContaining(report *AdviceReport, want string) string {
+func findingContaining(report *Report, want string) string {
 	for _, it := range report.Items {
 		if strings.Contains(it.Finding, want) {
 			return it.Finding
@@ -611,7 +612,7 @@ func findingContaining(report *AdviceReport, want string) string {
 	return ""
 }
 
-func ceilingFinding(t *testing.T, report *AdviceReport) string {
+func ceilingFinding(t *testing.T, report *Report) string {
 	t.Helper()
 	if got := findingContaining(report, "ceiling, not a measurement"); got != "" {
 		return got
@@ -643,7 +644,7 @@ func dominanceCapture(count int, eachNanos int64, journal []byte) *cudacapture.C
 	if journal != nil {
 		files["capture.journal"] = journal
 	}
-	cap := testCapture(files, completeStatus())
+	cap := testCapture(files, journaltest.CompleteStatus())
 	cap.Profile = &profile.Profile{
 		SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
 		Sample:     samples,
@@ -655,22 +656,22 @@ func dominanceCapture(count int, eachNanos int64, journal []byte) *cudacapture.C
 // call: the host was already in the API when the device went idle, which is the
 // driver submission arm and the only arm that per-launch batching recovers.
 func submissionIdleJournal() []byte {
-	b := newJournalBuilder()
+	b := journaltest.New()
 	t := uint64(10_000)
 	for i := uint32(1); i <= 12; i++ {
 		start := t
 		end := start + 1_000
-		b.kernel(start, end, i)
+		b.Kernel(start, end, i)
 		if i > 1 {
 			// Opened before the previous kernel ended, closed 9000 ns into
 			// the 10000 ns gap that follows it.
-			b.api(start-10_500, start-1_000, i)
+			b.API(start-10_500, start-1_000, i)
 		} else {
-			b.api(start-500, start-100, i)
+			b.API(start-500, start-100, i)
 		}
 		t = end + 10_000
 	}
-	return b.finalize()
+	return b.Finalize()
 }
 
 // TestAdvice_DominanceDoesNotBlameLaunchOverheadOnLongDispatches pins the
@@ -723,7 +724,7 @@ func TestAdvice_DominanceDoesNotBlameLaunchOverheadOnLongDispatches(t *testing.T
 		t.Run(tt.name, func(t *testing.T) {
 			cap := dominanceCapture(15, tt.eachNanos, tt.journal)
 			kernelTimes, totalTime := computeProfileTimes(cap)
-			report := &AdviceReport{}
+			report := &Report{}
 			auditKernelFamilyDominance(cap, report, kernelTimes, totalTime, hasDeviceTiming(cap))
 			if len(report.Items) != 1 {
 				t.Fatalf("items = %d, want the dominance finding", len(report.Items))
@@ -751,20 +752,20 @@ func TestAdvice_DominanceDoesNotBlameLaunchOverheadOnLongDispatches(t *testing.T
 // smallGapNs, with one stallNs gap after the first. Every gap is host behind,
 // so the arm is constant and only the concentration and the duty cycle move.
 func concentratedIdleJournal(n int, kernelNs, smallGapNs, stallNs uint64) []byte {
-	b := newJournalBuilder()
+	b := journaltest.New()
 	t := uint64(10_000)
 	for i := 1; i <= n; i++ {
 		start := t
 		end := start + kernelNs
-		b.kernel(start, end, uint32(i))
-		b.api(start-400, start-100, uint32(i))
+		b.Kernel(start, end, uint32(i))
+		b.API(start-400, start-100, uint32(i))
 		if i == 1 {
 			t = end + stallNs
 		} else {
 			t = end + smallGapNs
 		}
 	}
-	return b.finalize()
+	return b.Finalize()
 }
 
 // TestAdvice_DominantIdleGapReportedAtAnyDutyCycle is a double dissociation on
@@ -790,7 +791,7 @@ func TestAdvice_DominantIdleGapReportedAtAnyDutyCycle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			j := concentratedIdleJournal(6, tt.kernelNs, 1_000, 500_000)
-			cap := testCapture(map[string][]byte{"capture.journal": j}, completeStatus())
+			cap := testCapture(map[string][]byte{"capture.journal": j}, journaltest.CompleteStatus())
 			attr, ok := captureIdleAttribution(cap)
 			if !ok {
 				t.Fatal("no idle attribution")
@@ -800,7 +801,7 @@ func TestAdvice_DominantIdleGapReportedAtAnyDutyCycle(t *testing.T) {
 			}
 			// The whole report path, so the routing through the duty-cycle
 			// branches is what is under test rather than the emitter alone.
-			report := &AdviceReport{}
+			report := &Report{}
 			auditDeviceDutyCycle(cap, report)
 			var found bool
 			for _, it := range report.Items {
@@ -828,7 +829,7 @@ func TestAdvice_DominantIdleGapReportedAtAnyDutyCycle(t *testing.T) {
 // four" as a stall. Nothing here is concentrated and nothing should fire.
 func TestAdvice_UniformGapsAreNotASingleStall(t *testing.T) {
 	j := concentratedIdleJournal(6, 1_000, 100_000, 100_000)
-	cap := testCapture(map[string][]byte{"capture.journal": j}, completeStatus())
+	cap := testCapture(map[string][]byte{"capture.journal": j}, journaltest.CompleteStatus())
 	attr, ok := captureIdleAttribution(cap)
 	if !ok {
 		t.Fatal("no idle attribution")
@@ -841,7 +842,7 @@ func TestAdvice_UniformGapsAreNotASingleStall(t *testing.T) {
 	}
 	// The attribution finding still fires: the idle is real, it is just not
 	// one stall.
-	report := &AdviceReport{}
+	report := &Report{}
 	if !auditIdleAttribution(cap, report) {
 		t.Fatal("no idle attribution finding on a uniform-gap capture")
 	}

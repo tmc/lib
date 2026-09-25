@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"bytes"
@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/google/pprof/profile"
+	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/internal/journaltest"
 )
 
 // microKernelSample builds one short kernel activity sample carrying device
@@ -122,4 +124,30 @@ func synthesizeTestELFForAdvise(sections map[string][]byte) []byte {
 	}
 
 	return buf.Bytes()
+}
+
+// testCapture assembles a capture holding the given files plus a status, with
+// every code tier unavailable.
+func testCapture(files map[string][]byte, status map[string]any) *cudacapture.Capture {
+	cap := journaltest.Capture(files, status)
+	cap.CodeUnavailable = map[string]string{
+		"source": "source was not available in this capture",
+		"ptx":    "PTX was not available in this capture",
+		"cubin":  "CUBIN was not available in this capture",
+		"sass":   "SASS was not available in this capture",
+	}
+	return cap
+}
+
+// uniformJournal is a five-kernel run with uniform 1000 ns gaps. Every launch
+// returns before the previous kernel ends, so every gap is Host Ahead.
+func uniformJournal() []byte {
+	b := journaltest.New()
+	start := uint64(10_000)
+	for i := uint32(1); i <= 5; i++ {
+		b.Kernel(start, start+4_000, i)
+		b.API(start-3_000, start-2_000, i)
+		start += 5_000
+	}
+	return b.Finalize()
 }

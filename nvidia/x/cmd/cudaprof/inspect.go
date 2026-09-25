@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/advise"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 	"github.com/tmc/lib/nvidia/x/tileir"
@@ -31,7 +32,7 @@ type inspectReport struct {
 	TileIR        *inspectTileIRSummary          `json:"tileir,omitempty"`
 	Remarks       *inspectRemarksSummary         `json:"remarks,omitempty"`
 	PTX           *inspectPTXSummary             `json:"ptx,omitempty"`
-	Advice        *AdviceReport                  `json:"advice,omitempty"`
+	Advice        *advise.Report                 `json:"advice,omitempty"`
 }
 
 type inspectPTXSummary struct {
@@ -469,7 +470,7 @@ func runInspectAdvise(args []string, limits cudacapture.Limits) error {
 	if err != nil {
 		return fmt.Errorf("read capture: %w", err)
 	}
-	adv, err := AnalyzeCapture(cap)
+	adv, err := advise.Analyze(cap)
 	if err != nil {
 		return fmt.Errorf("analyze capture: %w", err)
 	}

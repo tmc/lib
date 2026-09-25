@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"strings"
@@ -37,9 +37,9 @@ func TestAdvice_ElementwiseExcludesGEMV(t *testing.T) {
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	for _, item := range report.Items {

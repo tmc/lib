@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"encoding/json"
@@ -97,7 +97,7 @@ type hostAPIPayload struct {
 // readHostAPIJournal decodes the API records and copy activities of every
 // journal in cap.
 func readHostAPIJournal(cap *cudacapture.Capture) (hostAPIJournal, error) {
-	journals, err := requireJournals(cap)
+	journals, err := timeline.Journals(cap)
 	if err != nil {
 		return hostAPIJournal{}, err
 	}
@@ -125,7 +125,7 @@ func (j *hostAPIJournal) decode(name string, data []byte) error {
 		return fmt.Errorf("read journal %s: %w", name, err)
 	}
 	defer reader.Close()
-	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: uint32(controllerMaxJournalRecords)})
+	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: uint32(timeline.MaxRecords)})
 	for {
 		r, err := d.Next()
 		if errors.Is(err, io.EOF) {
@@ -328,7 +328,7 @@ type hostCostGroup struct {
 // duration, and when it repeats per iteration that time recurs with every
 // step: the capture records it in the API records while the kernel profile
 // and every device-time finding are blind to it.
-func auditHostAPICost(cap *cudacapture.Capture, report *AdviceReport) {
+func auditHostAPICost(cap *cudacapture.Capture, report *Report) {
 	j, err := readHostAPIJournal(cap)
 	if err != nil || len(j.calls) == 0 {
 		// No journal, or one without API records: the host cost is not in the
@@ -418,7 +418,7 @@ func auditHostAPICost(cap *cudacapture.Capture, report *AdviceReport) {
 	}
 }
 
-func hostCostItem(g *hostCostGroup, launches int, window int64) AdviceItem {
+func hostCostItem(g *hostCostGroup, launches int, window int64) Item {
 	host := float64(g.hostNanos) / 1e6
 	share := math.NaN()
 	if window > 0 {
@@ -428,7 +428,7 @@ func hostCostItem(g *hostCostGroup, launches int, window int64) AdviceItem {
 	if !math.IsNaN(share) {
 		magnitude += fmt.Sprintf(", %.2f%% of the host API window", share)
 	}
-	item := AdviceItem{
+	item := Item{
 		Severity:      SeverityCost,
 		Category:      CategoryDispatch,
 		EvidenceLevel: EvidenceObserved,

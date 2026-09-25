@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -41,7 +41,7 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 			wantWarning:  true,
 			wantKernel:   "decode_gemv",
 			wantCategory: CategoryArchitectureCompute,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Single-warp thread blocks",
 			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
 		},
@@ -58,7 +58,7 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 			wantWarning:  true,
 			wantKernel:   "tiny_kernel",
 			wantCategory: CategoryArchitectureCompute,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Single-warp thread blocks",
 			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
 		},
@@ -80,7 +80,7 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 			wantWarning:  true,
 			wantKernel:   "ptx_warp_kernel",
 			wantCategory: CategoryArchitectureCompute,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Single-warp thread blocks",
 			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
 		},
@@ -144,7 +144,7 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 			wantWarning:  true,
 			wantKernel:   "ada_gemv",
 			wantCategory: CategoryArchitectureCompute,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "reaches 50% theoretical occupancy with 24/48 resident warps/SM across 24 blocks/SM",
 			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
 		},
@@ -172,9 +172,9 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			report, err := AnalyzeCapture(tt.cap)
+			report, err := Analyze(tt.cap)
 			if err != nil {
-				t.Fatalf("AnalyzeCapture failed: %v", err)
+				t.Fatalf("Analyze failed: %v", err)
 			}
 
 			var found bool
@@ -233,7 +233,7 @@ func TestAdvice_SMGridStarvation(t *testing.T) {
 			wantWarning:  true,
 			wantKernel:   "decode_attention",
 			wantCategory: CategoryArchitecture,
-			wantSeverity: SeverityInfo,
+			wantSeverity: SeverityContext,
 			wantFinding:  "launched with fewer grid blocks than the GPU has SMs",
 			wantRec:      "Compare achieved occupancy against these grids before changing any of them",
 		},
@@ -250,7 +250,7 @@ func TestAdvice_SMGridStarvation(t *testing.T) {
 			wantWarning:  true,
 			wantKernel:   "starved_kernel",
 			wantCategory: CategoryArchitecture,
-			wantSeverity: SeverityInfo,
+			wantSeverity: SeverityContext,
 			wantFinding:  "launched with fewer grid blocks than the GPU has SMs",
 			wantRec:      "Compare achieved occupancy against these grids before changing any of them",
 		},
@@ -317,9 +317,9 @@ func TestAdvice_SMGridStarvation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			report, err := AnalyzeCapture(tt.cap)
+			report, err := Analyze(tt.cap)
 			if err != nil {
-				t.Fatalf("AnalyzeCapture failed: %v", err)
+				t.Fatalf("Analyze failed: %v", err)
 			}
 
 			var found bool
@@ -367,9 +367,9 @@ func TestAdvice_MultiWarpReductionStarvation(t *testing.T) {
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	var found bool
@@ -437,7 +437,7 @@ func TestAdvice_UnderSubscribedLaunchGeometry(t *testing.T) {
 				geometrySample("ds4_hc_cached_split", "1,1,1", "1,1,1", 15200),
 				geometrySample("ds4_moe_gemm", "96,1,1", "256,1,1", 100000),
 			},
-			wantSeverity: SeverityCritical,
+			wantSeverity: SeverityReadFirst,
 			wantFindings: []string{
 				"Single-threaded kernel launches leave the device idle",
 				"5 of 6 captured launches (83.3%) ran one thread (grid 1 x block 1)",
@@ -454,7 +454,7 @@ func TestAdvice_UnderSubscribedLaunchGeometry(t *testing.T) {
 				geometrySample("ds4_compressor_indexer", "4,1,1", "32,1,1", 78800),
 				geometrySample("ds4_moe_gemm", "96,1,1", "256,1,1", 100000),
 			},
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFindings: []string{
 				"Launch geometry cannot fill one warp per SM",
 				"2 of 3 captured launches (66.7%) ran fewer than 1536 total threads (48 SMs x 32 threads per warp)",
@@ -490,7 +490,7 @@ func TestAdvice_UnderSubscribedLaunchGeometry(t *testing.T) {
 					Sample:     tt.samples,
 				},
 			}
-			report := &AdviceReport{}
+			report := &Report{}
 			auditUnderSubscribedLaunches(cap, report)
 
 			for _, want := range tt.wantFindings {
@@ -547,7 +547,7 @@ func TestAdvice_UnderSubscribedWithoutSMCount(t *testing.T) {
 		t.Skip("local CUDA device supplies an SM count; degraded path not reachable here")
 	}
 
-	report := &AdviceReport{}
+	report := &Report{}
 	auditUnderSubscribedLaunches(cap, report)
 
 	var found bool
@@ -586,7 +586,7 @@ func TestAdvice_MissingDeviceProvenanceInfoFinding(t *testing.T) {
 		},
 	}
 
-	report := &AdviceReport{}
+	report := &Report{}
 	auditLaunchGeometry(cap, report)
 
 	// If no live device is available (e.g. non-CUDA host), an Info finding must be emitted.
@@ -595,7 +595,7 @@ func TestAdvice_MissingDeviceProvenanceInfoFinding(t *testing.T) {
 	if !hasLimits && !hasSMCount {
 		var found bool
 		for _, item := range report.Items {
-			if item.Severity == SeverityInfo && strings.Contains(item.Finding, "Device architecture and SM count metadata are not recorded") {
+			if item.Severity == SeverityContext && strings.Contains(item.Finding, "Device architecture and SM count metadata are not recorded") {
 				found = true
 				break
 			}
@@ -661,11 +661,11 @@ func TestGridStarvationIsOneFindingWithoutAPrescription(t *testing.T) {
 		Metadata: []byte(`{"device": "NVIDIA B200"}`), // 132 SMs
 		Files:    map[string][]byte{"activities.json": []byte("[" + strings.Join(acts, ",") + "]")},
 	}
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture: %v", err)
+		t.Fatalf("Analyze: %v", err)
 	}
-	var found []AdviceItem
+	var found []Item
 	for _, it := range report.Items {
 		if strings.Contains(it.Finding, "fewer grid blocks than the GPU has SMs") {
 			found = append(found, it)

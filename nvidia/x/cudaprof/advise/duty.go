@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -85,7 +85,7 @@ func dominanceRecommendation(graphReplays int) string {
 	return "Restructure per-row dispatches into batched GEMM / GEMV operations or capture the entire layer sequence into a CUDA Graph."
 }
 
-func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, kernelTimes map[string]int64, totalTime int64, hasTiming bool) {
+func auditKernelFamilyDominance(cap *cudacapture.Capture, report *Report, kernelTimes map[string]int64, totalTime int64, hasTiming bool) {
 	if totalTime <= 0 || len(kernelTimes) == 0 {
 		return
 	}
@@ -144,8 +144,8 @@ func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, 
 		if !hasTiming {
 			deviceNanos = 0
 		}
-		report.Items = append(report.Items, AdviceItem{
-			Severity:        SeverityCritical,
+		report.Items = append(report.Items, Item{
+			Severity:        SeverityReadFirst,
 			Category:        CategoryArchitecture,
 			EvidenceLevel:   EvidenceObserved,
 			DeviceTimeNanos: deviceNanos,
@@ -341,12 +341,12 @@ func dutyCycleFloor(streams map[uint32][]timeline.Event, spanNs uint64) (float64
 // measured duty cycle are the same number and this returns. Asking a second
 // source -- journal record counts rather than the stream events these
 // percentages come from -- would let the two disagree about one capture.
-func auditOpaqueDutyCeiling(streams map[uint32][]timeline.Event, pct float64, spanNs uint64, report *AdviceReport) {
+func auditOpaqueDutyCeiling(streams map[uint32][]timeline.Event, pct float64, spanNs uint64, report *Report) {
 	floor, ok := dutyCycleFloor(streams, spanNs)
 	if !ok || floor >= deviceIdleCriticalPct {
 		return
 	}
-	report.Items = append(report.Items, AdviceItem{
+	report.Items = append(report.Items, Item{
 		// Read first by kind: this finding's whole content is that the
 		// ordering below it ranks a quantity the capture cannot establish.
 		// Ranked by cost it would sort last, having no device time of its
@@ -363,7 +363,7 @@ func auditOpaqueDutyCeiling(streams map[uint32][]timeline.Event, pct float64, sp
 	})
 }
 
-func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
+func auditDeviceDutyCycle(cap *cudacapture.Capture, report *Report) {
 	streams, graphsOpaque := timeline.Events(cap)
 	pct, spanNs, busyNs, ok := profileDutyCycle(streams)
 	if !ok {
@@ -397,8 +397,8 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
 	if auditIdleAttribution(cap, report) {
 		rec = "Act on the idle attribution in this report -- the finding naming where this idle went -- before any kernel finding below it. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies."
 	}
-	report.Items = append(report.Items, AdviceItem{
-		Severity:        SeverityCritical,
+	report.Items = append(report.Items, Item{
+		Severity:        SeverityReadFirst,
 		Category:        CategoryArchitectureDispatch,
 		EvidenceLevel:   EvidenceObserved,
 		severityByKind:  true,
@@ -495,7 +495,7 @@ func idleArms(a gaps.Attribution) []idleArm {
 // capture without them, or whose journals are truncated, yields nothing here
 // rather than an attribution computed from a surviving prefix.
 func captureIdleAttribution(cap *cudacapture.Capture) (idleAttribution, bool) {
-	report, err := analyzeGaps(cap, gapOptions{maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes})
+	report, err := gaps.Analyze(cap, gaps.Options{MaxRecords: timeline.MaxRecords, JournalBytes: cudacapture.MaxCaptureInputBytes})
 	if err != nil {
 		return idleAttribution{}, false
 	}
@@ -610,7 +610,7 @@ func gapClassSplit(classes []gaps.Class) string {
 // that from a mid-run stall on a lock or a fault, and the remedies differ.
 // What it establishes is the shape: the time was spent once, so no per-launch
 // remedy reaches it.
-func reportDominantIdleGap(attr idleAttribution, report *AdviceReport) bool {
+func reportDominantIdleGap(attr idleAttribution, report *Report) bool {
 	share, ok := attr.dominantGap()
 	if !ok {
 		return false
@@ -619,9 +619,9 @@ func reportDominantIdleGap(attr idleAttribution, report *AdviceReport) bool {
 	// A stall that holds a quarter of the whole timeline is the largest
 	// single fact about the run; one that holds a quarter of a small idle
 	// total is worth naming but not worth outranking the kernels.
-	severity := SeverityWarning
+	severity := SeverityCost
 	if spanShare >= dominantIdleGapShare {
-		severity = SeverityCritical
+		severity = SeverityReadFirst
 	}
 	finding := fmt.Sprintf("A single %.3f ms gap holds %.1f%% of device %d's %.3f ms of idle time, and %.1f%% of the %.3f ms captured span.",
 		float64(attr.maxGap)/1e6, share, attr.device, float64(attr.idle)/1e6,
@@ -634,7 +634,7 @@ func reportDominantIdleGap(attr idleAttribution, report *AdviceReport) bool {
 		finding += " Gaps by host concurrency: " + split + "."
 	}
 	finding += " Idle this concentrated was spent once, so it is not a per-launch cost: batching launches, submitting further ahead and replaying the sequence as a CUDA graph all divide a cost that was not paid per launch, and none of them recovers this time."
-	report.Items = append(report.Items, AdviceItem{
+	report.Items = append(report.Items, Item{
 		Severity:       severity,
 		Category:       CategoryArchitectureDispatch,
 		EvidenceLevel:  EvidenceObserved,
@@ -655,7 +655,7 @@ func reportDominantIdleGap(attr idleAttribution, report *AdviceReport) bool {
 // attribution finding does not reach, which is any capture busy enough to be
 // above deviceIdleCriticalPct. A busy capture can still lose a quarter of its
 // span to one stall.
-func auditDominantIdleGap(cap *cudacapture.Capture, report *AdviceReport) bool {
+func auditDominantIdleGap(cap *cudacapture.Capture, report *Report) bool {
 	attr, ok := captureIdleAttribution(cap)
 	if !ok {
 		return false
@@ -673,7 +673,7 @@ func auditDominantIdleGap(cap *cudacapture.Capture, report *AdviceReport) bool {
 // said not to act on first. This finding closes that: it ranks by the idle
 // time it accounts for, so a device idling in the hardware queue outranks the
 // kernel holding the largest share of a much smaller busy total.
-func auditIdleAttribution(cap *cudacapture.Capture, report *AdviceReport) bool {
+func auditIdleAttribution(cap *cudacapture.Capture, report *Report) bool {
 	attr, ok := captureIdleAttribution(cap)
 	if !ok {
 		return false
@@ -736,8 +736,8 @@ func auditIdleAttribution(cap *cudacapture.Capture, report *AdviceReport) bool {
 	if dominant {
 		remedy = "Most of this idle is one gap -- see the single-stall finding, which holds the majority of it. Settle that first: until the stall is excluded or explained, this split describes the remainder and its share of the total is not the quantity to act on. Once it is excluded, the remaining idle admits this arm's remedy: " + top.remedy
 	}
-	report.Items = append(report.Items, AdviceItem{
-		Severity:       SeverityCritical,
+	report.Items = append(report.Items, Item{
+		Severity:       SeverityReadFirst,
 		Category:       CategoryArchitectureDispatch,
 		EvidenceLevel:  EvidenceObserved,
 		severityByKind: true,

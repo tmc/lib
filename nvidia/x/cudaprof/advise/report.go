@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"encoding/json"
@@ -50,14 +50,6 @@ const (
 	// SeverityContext carries findings too small to act on alone and
 	// observations that bound the others.
 	SeverityContext Severity = "Context"
-)
-
-// Prior names for the three tiers. Retained so existing callers and receipts
-// keep compiling; they denote the new vocabulary, not the old one.
-const (
-	SeverityCritical = SeverityReadFirst
-	SeverityWarning  = SeverityCost
-	SeverityInfo     = SeverityContext
 )
 
 // EvidenceLevel classifies the empirical basis of an advice finding.
@@ -130,8 +122,8 @@ func (l Location) String() string {
 	return strings.Join(parts, ", ")
 }
 
-// AdviceItem represents a single diagnosis or performance recommendation.
-type AdviceItem struct {
+// Item represents a single diagnosis or performance recommendation.
+type Item struct {
 	Severity                 Severity      `json:"severity"`
 	Category                 Category      `json:"category"`
 	EvidenceLevel            EvidenceLevel `json:"evidence_level,omitempty"`
@@ -151,7 +143,7 @@ type AdviceItem struct {
 	// Patterns are the findings in one kernel's code that a CategoryKernel
 	// item holds. They carry no time of their own: the kernel's time is the
 	// item's, counted once.
-	Patterns []AdviceItem `json:"patterns,omitempty"`
+	Patterns []Item `json:"patterns,omitempty"`
 
 	// Gap is what the finding could explain of the gap to a base capture,
 	// or nil when there is no base or no term of the comparison it moves.
@@ -177,9 +169,9 @@ type AdviceItem struct {
 	severityByKind bool
 }
 
-// AdviceReport contains all recommendations resulting from analyzing a capture.
-type AdviceReport struct {
-	Items []AdviceItem `json:"items"`
+// Report contains all recommendations resulting from analyzing a capture.
+type Report struct {
+	Items []Item `json:"items"`
 
 	// SampleOnly reports that the capture carries PC samples but no device
 	// timing. A share of samples then says where execution was, never how
@@ -204,8 +196,8 @@ type AdviceReport struct {
 	SourceFusion string `json:"source_fusion_failure,omitempty"`
 
 	// Base is the comparison against a base capture that ranks the items,
-	// when advise was given one.
-	Base *Comparison `json:"base,omitempty"`
+	// when [Report.RankAgainst] was given one. It is marshaled as itself.
+	Base Baseline `json:"base,omitempty"`
 }
 
 // sampleOnlyCaveat names what PC sampling cannot see. Activity tracing is the
@@ -215,14 +207,17 @@ const sampleOnlyCaveat = "> **This capture is PC samples only.** A share of obse
 	"execution was, and is *not a share of elapsed time*. PC sampling cannot observe " +
 	"device idle between launches; capture with activity tracing to measure that.\n\n"
 
+// DefaultLimit is the number of findings [Report.Markdown] prints.
+const DefaultLimit = 10
+
 // Markdown formats the advice report as human-readable Markdown with the default limit of findings.
-func (r *AdviceReport) Markdown() string {
-	return r.MarkdownWithLimit(defaultAdviceLimit)
+func (r *Report) Markdown() string {
+	return r.MarkdownWithLimit(DefaultLimit)
 }
 
 // MarkdownWithLimit formats up to limit findings as human-readable Markdown.
 // If limit <= 0, all findings are printed without truncation.
-func (r *AdviceReport) MarkdownWithLimit(limit int) string {
+func (r *Report) MarkdownWithLimit(limit int) string {
 	if r == nil {
 		return "# CUDA Kernel Advice Report\n\nNo optimization issues or architecture fallbacks identified.\n"
 	}
@@ -320,7 +315,7 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 
 // writeAdviceBody writes the list under a finding's header, each line
 // prefixed by indent.
-func writeAdviceBody(sb *strings.Builder, item AdviceItem, indent string) {
+func writeAdviceBody(sb *strings.Builder, item Item, indent string) {
 	if item.Gap != nil {
 		fmt.Fprintf(sb, "%s- **Gap**: %s\n", indent, gapLine(item.Gap))
 	}
@@ -339,7 +334,7 @@ func writeAdviceBody(sb *strings.Builder, item AdviceItem, indent string) {
 }
 
 // JSON formats the advice report as formatted JSON.
-func (r *AdviceReport) JSON() (string, error) {
+func (r *Report) JSON() (string, error) {
 	if r == nil {
 		return "{\n  \"items\": []\n}", nil
 	}
@@ -348,4 +343,14 @@ func (r *AdviceReport) JSON() (string, error) {
 		return "", fmt.Errorf("marshal advice report: %w", err)
 	}
 	return string(data), nil
+}
+
+// sourceFusionMarkdownCaveat states a source-fusion failure as a report
+// header, in the shape sampleOnlyCaveat established: above the findings, where it is read
+// before the locations it qualifies.
+func sourceFusionMarkdownCaveat(failure string) string {
+	return "> **Source attribution unavailable.** " + failure +
+		"\n>\n> Findings below carry no source file or line: the PTX and SASS of this capture are not from " +
+		"one compilation, so the binding was *refused*, not attempted and lost. Kernel names, PC offsets " +
+		"and SASS text are unaffected.\n\n"
 }

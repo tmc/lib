@@ -1,11 +1,11 @@
-package main
+package advise
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/internal/journaltest"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
@@ -162,10 +162,10 @@ func TestAdvice_WallDurationIsNotDeviceTime(t *testing.T) {
 // therefore reported that the capture carries no timestamps, and recommended a
 // re-capture -- a run under GPU lock to reproduce a file already on disk.
 func TestAdviseReadsTheJournalItWasHanded(t *testing.T) {
-	b := newJournalBuilder()
-	b.kernelOn(0, 1, 1_000, 3_000, 1)
-	b.kernelOn(0, 1, 6_000, 7_000, 2)
-	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+	b := journaltest.New()
+	b.KernelOn(0, 1, 1_000, 3_000, 1)
+	b.KernelOn(0, 1, 6_000, 7_000, 2)
+	cap := testCapture(map[string][]byte{"capture.journal": b.Finalize()}, journaltest.CompleteStatus())
 
 	// The projection is present and useless: samples with names and no
 	// timestamps, which is what a real capture of this shape holds. A guard on
@@ -194,28 +194,5 @@ func TestAdviseReadsTheJournalItWasHanded(t *testing.T) {
 	pct, span, busy, ok := profileDutyCycle(streams)
 	if !ok || span != 6_000 || busy != 3_000 {
 		t.Fatalf("duty = %.2f span/busy = %d/%d (ok %v), want 50.00 6000/3000", pct, span, busy, ok)
-	}
-}
-
-// TestCoverageSpanComesFromTheJournal pins the -top header half of the same
-// defect: "the capture records no measured span" was true of the projection
-// and false of the file.
-func TestCoverageSpanComesFromTheJournal(t *testing.T) {
-	b := newJournalBuilder()
-	b.kernelOn(0, 1, 1_000, 3_000, 1)
-	b.kernelOn(0, 1, 6_000, 7_000, 2)
-	cap := timedCapture(0, 3_000, 0) // a profile with device time and no span
-	status, err := json.Marshal(map[string]any{"status": completeStatus()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	cap.Files = map[string][]byte{"capture.journal": b.finalize(), "capture-status.json": status}
-
-	c := captureCoverage(cap)
-	if !c.Determined() {
-		t.Fatalf("coverage undetermined with a journal attached: %s", c.Reason)
-	}
-	if c.Span != 6_000 {
-		t.Errorf("span = %v, want 6000ns taken from the journal timeline", c.Span)
 	}
 }

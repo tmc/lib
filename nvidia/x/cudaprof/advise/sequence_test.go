@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"bytes"
@@ -44,7 +44,7 @@ func TestAdvice_CUDAGraphCandidate(t *testing.T) {
 			},
 			wantWarning:  true,
 			wantCategory: CategoryArchitectureDispatch,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Driver submission overhead dominates short kernel execution",
 			wantRec:      "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency",
 		},
@@ -154,9 +154,9 @@ func TestAdvice_CUDAGraphCandidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			report, err := AnalyzeCapture(tt.cap)
+			report, err := Analyze(tt.cap)
 			if err != nil {
-				t.Fatalf("AnalyzeCapture failed: %v", err)
+				t.Fatalf("Analyze failed: %v", err)
 			}
 
 			var found bool
@@ -221,7 +221,7 @@ func TestAdvice_PointwiseFusion(t *testing.T) {
 			},
 			wantWarning:  true,
 			wantCategory: CategoryMemoryCompute,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Redundant global memory round-trips for intermediate tensors",
 			wantRec:      "Fuse into a single kernel (e.g. fused SwiGLU + quant)",
 		},
@@ -256,7 +256,7 @@ func TestAdvice_PointwiseFusion(t *testing.T) {
 			},
 			wantWarning:  true,
 			wantCategory: CategoryMemoryCompute,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Redundant global memory round-trips for intermediate tensors",
 			wantRec:      "Fuse into a single kernel",
 		},
@@ -365,9 +365,9 @@ func TestAdvice_PointwiseFusion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			report, err := AnalyzeCapture(tt.cap)
+			report, err := Analyze(tt.cap)
 			if err != nil {
-				t.Fatalf("AnalyzeCapture failed: %v", err)
+				t.Fatalf("Analyze failed: %v", err)
 			}
 
 			var found bool
@@ -475,9 +475,9 @@ deepseek_decode:
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	expectedFindings := []struct {
@@ -565,9 +565,9 @@ func TestAdvice_SequentialRMSNormQuantFusion(t *testing.T) {
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	var found bool
@@ -615,9 +615,9 @@ func TestAdvice_DualGEMVPairedProjections(t *testing.T) {
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	var found bool
@@ -663,9 +663,9 @@ func TestAdvice_CumulativeDriverSubmissionOverhead(t *testing.T) {
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	var found bool
@@ -709,9 +709,9 @@ func TestAdvice_MicroKernelDeterministicTieBreaking(t *testing.T) {
 	}
 
 	for repeat := 0; repeat < 5; repeat++ {
-		report, err := AnalyzeCapture(cap)
+		report, err := Analyze(cap)
 		if err != nil {
-			t.Fatalf("AnalyzeCapture failed: %v", err)
+			t.Fatalf("Analyze failed: %v", err)
 		}
 		var found bool
 		for _, item := range report.Items {
@@ -746,7 +746,7 @@ func TestAdvice_ShortKernelSequenceWithoutTimestamps(t *testing.T) {
 		},
 	}
 
-	report := &AdviceReport{}
+	report := &Report{}
 	auditStreamKernelSequences(cap, report)
 
 	var found bool
@@ -754,7 +754,7 @@ func TestAdvice_ShortKernelSequenceWithoutTimestamps(t *testing.T) {
 		if strings.Contains(item.Finding, "Driver submission overhead") || strings.Contains(item.Finding, "Low GPU duty cycle") {
 			t.Errorf("asserted an unmeasured cause: %+v", item)
 		}
-		if item.Severity == SeverityInfo && strings.Contains(item.Finding, "Short-kernel dispatch sequence with unmeasured GPU duty cycle") {
+		if item.Severity == SeverityContext && strings.Contains(item.Finding, "Short-kernel dispatch sequence with unmeasured GPU duty cycle") {
 			found = true
 		}
 	}
@@ -773,9 +773,9 @@ func TestAdvice_RepeatedHostLoopDispatch(t *testing.T) {
 		Profile: &profile.Profile{Sample: samples},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	var found bool
@@ -810,9 +810,9 @@ func TestAdvice_PCSamplingExcludesGhostSequences(t *testing.T) {
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	for _, item := range report.Items {
@@ -859,9 +859,9 @@ func TestAdvice_PointwiseKernelPairFusion(t *testing.T) {
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	var foundFusion bool
@@ -907,11 +907,11 @@ func TestFusionPairFindingCarriesItsDeviceTime(t *testing.T) {
 		Sample:     samples,
 	}}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture: %v", err)
+		t.Fatalf("Analyze: %v", err)
 	}
-	var pair *AdviceItem
+	var pair *Item
 	for i := range report.Items {
 		if strings.Contains(report.Items[i].Location.Kernel, "->") {
 			pair = &report.Items[i]

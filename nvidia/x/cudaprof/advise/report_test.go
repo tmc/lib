@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"encoding/json"
@@ -7,10 +7,10 @@ import (
 )
 
 func TestAdvice_MarkdownAndJSON(t *testing.T) {
-	report := &AdviceReport{
-		Items: []AdviceItem{
+	report := &Report{
+		Items: []Item{
 			{
-				Severity: SeverityCritical,
+				Severity: SeverityReadFirst,
 				Category: CategoryRegisterPressure,
 				Location: Location{
 					Kernel: "gemm",
@@ -22,7 +22,7 @@ func TestAdvice_MarkdownAndJSON(t *testing.T) {
 				ActionableRecommendation: "Reduce live variable ranges to eliminate local memory spills.",
 			},
 			{
-				Severity: SeverityWarning,
+				Severity: SeverityCost,
 				Category: CategoryMemory,
 				Location: Location{
 					Kernel: "matrix",
@@ -53,7 +53,7 @@ func TestAdvice_MarkdownAndJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("JSON() failed: %v", err)
 	}
-	var decoded AdviceReport
+	var decoded Report
 	if err := json.Unmarshal([]byte(jsonStr), &decoded); err != nil {
 		t.Fatalf("decode JSON failed: %v", err)
 	}
@@ -66,10 +66,10 @@ func TestAdvice_MarkdownAndJSON(t *testing.T) {
 }
 
 func TestAdvice_EvidenceLevels(t *testing.T) {
-	rep := &AdviceReport{
-		Items: []AdviceItem{
+	rep := &Report{
+		Items: []Item{
 			{
-				Severity:                 SeverityCritical,
+				Severity:                 SeverityReadFirst,
 				Category:                 CategoryArchitecture,
 				EvidenceLevel:            EvidenceObserved,
 				Finding:                  "Observed hardware violation",
@@ -77,7 +77,7 @@ func TestAdvice_EvidenceLevels(t *testing.T) {
 				NextMeasurement:          "Verify with hardware timer",
 			},
 			{
-				Severity:                 SeverityWarning,
+				Severity:                 SeverityCost,
 				Category:                 CategoryMemory,
 				EvidenceLevel:            EvidenceSuspected,
 				Finding:                  "Suspected memory stall",
@@ -85,7 +85,7 @@ func TestAdvice_EvidenceLevels(t *testing.T) {
 				NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
 			},
 			{
-				Severity:                 SeverityInfo,
+				Severity:                 SeverityContext,
 				Category:                 CategoryArchitecture,
 				EvidenceLevel:            EvidenceUnmeasured,
 				Finding:                  "Unmeasured launch telemetry",
@@ -136,7 +136,7 @@ func TestAdvice_EvidenceLevels(t *testing.T) {
 // that never established a span has no second number to print, and must not
 // invent one.
 func TestCostHeaderStatesBothDenominators(t *testing.T) {
-	item := AdviceItem{
+	item := Item{
 		Severity:        SeverityCost,
 		Category:        CategoryArchitecture,
 		Finding:         "a family holds the device time",
@@ -144,14 +144,14 @@ func TestCostHeaderStatesBothDenominators(t *testing.T) {
 		ShareOfProfile:  59.74,
 	}
 
-	withSpan := (&AdviceReport{Items: []AdviceItem{item}, SpanNanos: 3_410_950_000}).Markdown()
+	withSpan := (&Report{Items: []Item{item}, SpanNanos: 3_410_950_000}).Markdown()
 	const want = "### 1. [Cost] (59.74% of device time, 202.34 ms, 5.93% of the captured span)"
 	if !strings.Contains(withSpan, want) {
 		t.Errorf("header missing the span share\ngot:  %s\nwant: %s", withSpan, want)
 	}
 
 	// No span measured: one denominator, and no claim about the other.
-	noSpan := (&AdviceReport{Items: []AdviceItem{item}}).Markdown()
+	noSpan := (&Report{Items: []Item{item}}).Markdown()
 	if !strings.Contains(noSpan, "### 1. [Cost] (59.74% of device time, 202.34 ms)") {
 		t.Errorf("header without a span did not state device time alone: %s", noSpan)
 	}

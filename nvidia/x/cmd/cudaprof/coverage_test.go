@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -239,5 +240,28 @@ func TestRankingRefusalNamesWhatTheCaptureHolds(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCoverageSpanComesFromTheJournal pins the -top header half of the
+// defect advise's TestAdviseReadsTheJournalItWasHanded covers: "the capture
+// records no measured span" was true of the projection and false of the file.
+func TestCoverageSpanComesFromTheJournal(t *testing.T) {
+	b := newJournalBuilder()
+	b.kernelOn(0, 1, 1_000, 3_000, 1)
+	b.kernelOn(0, 1, 6_000, 7_000, 2)
+	cap := timedCapture(0, 3_000, 0) // a profile with device time and no span
+	status, err := json.Marshal(map[string]any{"status": completeStatus()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap.Files = map[string][]byte{"capture.journal": b.finalize(), "capture-status.json": status}
+
+	c := captureCoverage(cap)
+	if !c.Determined() {
+		t.Fatalf("coverage undetermined with a journal attached: %s", c.Reason)
+	}
+	if c.Span != 6_000 {
+		t.Errorf("span = %v, want 6000ns taken from the journal timeline", c.Span)
 	}
 }

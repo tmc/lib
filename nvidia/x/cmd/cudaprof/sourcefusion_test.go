@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/advise"
 	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
@@ -128,20 +129,24 @@ func TestPressureStatesSourceFusion(t *testing.T) {
 	}
 }
 
-// TestAdviseStatesSourceFusion covers cmd/cudaprof/advise.go. The finding
+// TestAdviseStatesSourceFusion covers x/cudaprof/advise. The finding
 // bodies cite SourceFile and SourceLine, which are exactly the fields the
 // failure zeroes, so the report has to say so above them.
 func TestAdviseStatesSourceFusion(t *testing.T) {
-	fused := &AdviceReport{}
-	auditUncoalescedMemory(fusionFixture(t, 2), fused, nil)
+	fused, err := advise.Analyze(fusionFixture(t, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if fused.SourceFusion == "" {
 		t.Fatal("advise report carries no source-fusion failure for a fused capture")
 	}
 	if md := fused.MarkdownWithLimit(0); !strings.Contains(md, "Source attribution unavailable") {
 		t.Fatalf("markdown report withheld the caveat:\n%s", md)
 	}
-	clean := &AdviceReport{}
-	auditUncoalescedMemory(fusionFixture(t, 0), clean, nil)
+	clean, err := advise.Analyze(fusionFixture(t, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if clean.SourceFusion != "" {
 		t.Fatalf("clean capture reported a source-fusion failure: %s", clean.SourceFusion)
 	}

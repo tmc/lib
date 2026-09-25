@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -9,15 +9,15 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
-func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
+func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 	if cap == nil {
 		return
 	}
 	launches := extractLaunches(cap)
 
 	if cap.Profile != nil && len(cap.Profile.Sample) > 0 && len(launches) == 0 {
-		report.Items = append(report.Items, AdviceItem{
-			Severity:                 SeverityInfo,
+		report.Items = append(report.Items, Item{
+			Severity:                 SeverityContext,
 			Category:                 CategoryArchitecture,
 			EvidenceLevel:            EvidenceUnmeasured,
 			Finding:                  "Launch geometry labels ('grid', 'block') are absent in this profile (requires profiling with updated cupti_agent); launch geometry and SM occupancy audits skipped.",
@@ -31,8 +31,8 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 	maxWarpsPerSM, maxBlocksPerSM, limitSrc, hasLimits := determineDeviceLimits(cap)
 
 	if !hasLimits && !hasSMCount && cap.Profile != nil && len(launches) > 0 {
-		report.Items = append(report.Items, AdviceItem{
-			Severity:                 SeverityInfo,
+		report.Items = append(report.Items, Item{
+			Severity:                 SeverityContext,
 			Category:                 CategoryArchitecture,
 			EvidenceLevel:            EvidenceUnmeasured,
 			Finding:                  "Device architecture and SM count metadata are not recorded in this capture, and no local CUDA device is available; theoretical SM occupancy and SM grid starvation audits were skipped.",
@@ -80,8 +80,8 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				finding := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches %d%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM%s",
 					launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM, provSuffix)
 
-				report.Items = append(report.Items, AdviceItem{
-					Severity:                 SeverityWarning,
+				report.Items = append(report.Items, Item{
+					Severity:                 SeverityCost,
 					Category:                 CategoryArchitectureCompute,
 					EvidenceLevel:            EvidenceSuspected,
 					Location:                 launch.Location,
@@ -103,8 +103,8 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 					continue
 				}
 				seenChunkReduction[launch.Kernel] = true
-				report.Items = append(report.Items, AdviceItem{
-					Severity:                 SeverityWarning,
+				report.Items = append(report.Items, Item{
+					Severity:                 SeverityCost,
 					Category:                 CategoryArchitectureCompute,
 					EvidenceLevel:            EvidenceSuspected,
 					Location:                 launch.Location,
@@ -176,8 +176,8 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 			if len(list) == 1 {
 				loc = Location{Kernel: list[0].kernel}
 			}
-			report.Items = append(report.Items, AdviceItem{
-				Severity:      SeverityInfo,
+			report.Items = append(report.Items, Item{
+				Severity:      SeverityContext,
 				Category:      CategoryArchitecture,
 				EvidenceLevel: EvidenceObserved,
 				Location:      loc,
@@ -254,7 +254,7 @@ func worstKernel(stats map[string]*underSubscribedStat) (string, uint64) {
 // one warp per SM. The per-SM rule needs the device SM count; when the capture
 // does not record it and no local device answers, only the single-thread rule
 // runs and the finding says so.
-func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport) {
+func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *Report) {
 	if cap == nil {
 		return
 	}
@@ -321,8 +321,8 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport
 			finding += " (device SM count is not recorded in this capture and no local CUDA device answered, so the one-warp-per-SM rule was skipped)"
 		}
 		kernel, _ := worstKernel(single)
-		report.Items = append(report.Items, AdviceItem{
-			Severity:        SeverityCritical,
+		report.Items = append(report.Items, Item{
+			Severity:        SeverityReadFirst,
 			Category:        CategoryArchitectureCompute,
 			EvidenceLevel:   EvidenceObserved,
 			DeviceTimeNanos: int64(singleNs),
@@ -341,8 +341,8 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport
 			provSuffix = " (SM count inferred from local host device, not recorded in capture)"
 		}
 		kernel, _ := worstKernel(subWarp)
-		report.Items = append(report.Items, AdviceItem{
-			Severity:        SeverityWarning,
+		report.Items = append(report.Items, Item{
+			Severity:        SeverityCost,
 			Category:        CategoryArchitectureCompute,
 			EvidenceLevel:   EvidenceSuspected,
 			DeviceTimeNanos: int64(subWarpNs),

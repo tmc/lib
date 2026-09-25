@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/internal/journaltest"
 )
 
 func TestAdvice_HostDispatchOverhead(t *testing.T) {
@@ -20,7 +21,7 @@ func TestAdvice_HostDispatchOverhead(t *testing.T) {
 			},
 		},
 	}
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +51,7 @@ func TestAdvice_HostDispatchOverhead(t *testing.T) {
 // already ahead and the idle is something else.
 func dispatchSpanCapture(t *testing.T, n int, kernelNs, smallGapNs, stallNs uint64, withJournal, submission bool) *cudacapture.Capture {
 	t.Helper()
-	b := newJournalBuilder()
+	b := journaltest.New()
 	samples := make([]*profile.Sample, 0, n)
 	apis := make([]map[string]any, 0, n)
 	at := uint64(10_000)
@@ -60,8 +61,8 @@ func dispatchSpanCapture(t *testing.T, n int, kernelNs, smallGapNs, stallNs uint
 		if submission && i > 1 {
 			apiStart, apiEnd = start-smallGapNs-500, start-1_000
 		}
-		b.kernel(start, end, uint32(i))
-		b.api(apiStart, apiEnd, uint32(i))
+		b.Kernel(start, end, uint32(i))
+		b.API(apiStart, apiEnd, uint32(i))
 		samples = append(samples, microKernelSample("gemm", 1, start, end, i))
 		apis = append(apis, map[string]any{"domain": "driver", "correlation": i, "start": apiStart, "end": apiEnd})
 		if i == 1 {
@@ -70,13 +71,13 @@ func dispatchSpanCapture(t *testing.T, n int, kernelNs, smallGapNs, stallNs uint
 			at = end + smallGapNs
 		}
 	}
-	status, err := json.Marshal(map[string]any{"status": completeStatus(), "api_records": apis})
+	status, err := json.Marshal(map[string]any{"status": journaltest.CompleteStatus(), "api_records": apis})
 	if err != nil {
 		t.Fatalf("marshal status: %v", err)
 	}
 	files := map[string][]byte{"capture-status.json": status}
 	if withJournal {
-		files["capture.journal"] = b.finalize()
+		files["capture.journal"] = b.Finalize()
 	}
 	return &cudacapture.Capture{
 		Files: files,
@@ -124,11 +125,11 @@ func TestAdvice_DispatchOverheadIsNotASingleStall(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cap := dispatchSpanCapture(t, 12, 1_000, tt.smallGapNs, tt.stallNs, tt.withJournal, tt.submission)
-			report, err := AnalyzeCapture(cap)
+			report, err := Analyze(cap)
 			if err != nil {
 				t.Fatal(err)
 			}
-			var got *AdviceItem
+			var got *Item
 			for i, item := range report.Items {
 				if strings.Contains(item.Finding, finding) {
 					got = &report.Items[i]

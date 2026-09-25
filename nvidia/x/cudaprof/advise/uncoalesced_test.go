@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"strings"
@@ -61,7 +61,7 @@ uncoalesced_load:
 			},
 			wantWarning:  true,
 			wantCategory: CategoryMemory,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Memory stalls dominate this load: stall_mem is 45.0% of stalls",
 			wantRec:      "Check whether adjacent lane IDs access contiguous bytes",
 		},
@@ -148,7 +148,7 @@ uncoalesced_load:
 			},
 			wantWarning:  true,
 			wantCategory: CategoryMemory,
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Threads within the warp generate strided or disparate 128-byte cache line requests",
 			wantRec:      "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line",
 		},
@@ -156,9 +156,9 @@ uncoalesced_load:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			report, err := AnalyzeCapture(tt.cap)
+			report, err := Analyze(tt.cap)
 			if err != nil {
-				t.Fatalf("AnalyzeCapture failed: %v", err)
+				t.Fatalf("Analyze failed: %v", err)
 			}
 
 			var found bool
@@ -213,9 +213,9 @@ func TestAdvice_ScoreboardAndBranchStalls(t *testing.T) {
 		},
 	}
 
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
 	var foundScoreboard, foundBranch bool
@@ -263,7 +263,7 @@ Function : ds4_q2_k_selected_q8_1_gather
 			},
 		},
 	}
-	report, err := AnalyzeCapture(cap)
+	report, err := Analyze(cap)
 	if err != nil {
 		t.Fatal(err)
 	}

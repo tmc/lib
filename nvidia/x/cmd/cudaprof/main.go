@@ -591,3 +591,20 @@ func namesFunction(line, name string) bool {
 func isIdentByte(c byte) bool {
 	return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
 }
+
+// preflightCapture refuses an artifact that records its own failure. A failed
+// capture still writes a well-formed pprof -- a couple of kilobytes with zero
+// activity records -- and pprof renders it as an empty but valid profile and
+// exits 0. Nothing on that path says the numbers are missing rather than
+// small, which is the mistake the artifact invites. Reading it fails closed;
+// the status is still reachable through advise, which reports the failure as a
+// finding rather than pretending to measure.
+func preflightCapture(cap *cudacapture.Capture) error {
+	reason, failed := capturefiles.Failure(cap)
+	if !failed {
+		return nil
+	}
+	return fmt.Errorf("this capture records its own failure: %s\n"+
+		"\tIt carries no measurement, and an empty profile is not a fast one.\n"+
+		"\tUse 'cudaprof advise' to see the failure as a finding, or re-run the capture.", reason)
+}

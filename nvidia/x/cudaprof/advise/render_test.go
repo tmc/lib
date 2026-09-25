@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"strings"
@@ -39,12 +39,12 @@ func stallCapNoSASS() *cudacapture.Capture {
 // an instruction belongs. The failure mode is the rendered string, so this
 // asserts on the string.
 func TestFindingNamesItsInstruction(t *testing.T) {
-	rep, err := AnalyzeCapture(stallCapNoSASS())
+	rep, err := Analyze(stallCapNoSASS())
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 
-	var stall *AdviceItem
+	var stall *Item
 	for i := range rep.Items {
 		if strings.Contains(rep.Items[i].Finding, "at PC 0x") {
 			stall = &rep.Items[i]
@@ -97,9 +97,9 @@ stally:
 		},
 	}
 
-	rep, err := AnalyzeCapture(cap)
+	rep, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture failed: %v", err)
+		t.Fatalf("Analyze failed: %v", err)
 	}
 	var found bool
 	for _, it := range rep.Items {

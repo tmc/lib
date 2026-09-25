@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"bytes"
@@ -130,11 +130,11 @@ func findCaptureCUBIN(cap *cudacapture.Capture) ([]byte, bool) {
 // driver ids of the modules it ran from. It is empty when the capture has no
 // readable journal or its records do not name modules.
 func kernelModules(cap *cudacapture.Capture) map[string]map[uint32]bool {
-	journals, err := requireJournals(cap)
+	journals, err := timeline.Journals(cap)
 	if err != nil {
 		return nil
 	}
-	records, err := timeline.Decode(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
+	records, err := timeline.Decode(journals, timeline.MaxRecords, cudacapture.MaxCaptureInputBytes)
 	if err != nil {
 		return nil
 	}
@@ -198,7 +198,7 @@ func formatPCs(insts []cudasass.Instruction) string {
 // the compilation the kernel ran with UNREAD and the reason. A fusion failure
 // applies to every kernel, as view applies it to every line of its listing;
 // unread names the kernels kernelImages could not bind to one image.
-func markUnreadSources(report *AdviceReport, unread map[string]string) {
+func markUnreadSources(report *Report, unread map[string]string) {
 	for i := range report.Items {
 		loc := &report.Items[i].Location
 		if loc.Kernel == "" || loc.File == "" {

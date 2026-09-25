@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -75,7 +75,7 @@ func hostBehindLaunches(seq []timeline.Event, apis map[uint32]timeline.APICall) 
 	return behind, measured
 }
 
-func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) {
+func auditStreamKernelSequences(cap *cudacapture.Capture, report *Report) {
 	if cap == nil {
 		return
 	}
@@ -165,8 +165,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					case !dutyOK:
 						if !seenDutyUnmeasured[streamID] {
 							seenDutyUnmeasured[streamID] = true
-							report.Items = append(report.Items, AdviceItem{
-								Severity:      SeverityInfo,
+							report.Items = append(report.Items, Item{
+								Severity:      SeverityContext,
 								Category:      CategoryArchitectureDispatch,
 								EvidenceLevel: EvidenceUnmeasured,
 								Location: Location{
@@ -182,14 +182,14 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 						// host cost is not costing device time here.
 					default:
 						behind, measured := hostBehindLaunches(kernelSeq, apis)
-						sev := SeverityInfo
+						sev := SeverityContext
 						why, rec := unmeasuredLaunchReason(len(apis))
 						finding := fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%); %s, so the cause of the idle time was not measured", detail, duty, lowDutyCyclePct, why)
 						evLevel := EvidenceSuspected
 						if measured == 0 {
 							evLevel = EvidenceUnmeasured
 						} else if float64(behind) >= hostBehindFraction*float64(measured) {
-							sev = SeverityWarning
+							sev = SeverityCost
 							evLevel = EvidenceObserved
 							finding = fmt.Sprintf("Driver submission overhead dominates short kernel execution: %s, its kernels occupy only %.1f%% of the sequence device span (< %.0f%%), and %d of %d measured launches (%.1f%%) began only after the preceding kernel had already finished", detail, duty, lowDutyCyclePct, behind, measured, float64(behind)*100.0/float64(measured))
 							rec = "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency."
@@ -200,7 +200,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 							finding = fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%), but only %d of %d measured launches began after the preceding kernel had finished, so the host was not behind the device for most of the sequence", detail, duty, lowDutyCyclePct, behind, measured)
 							rec = "Idle device time here is not explained by host launch submission; look for stream dependencies, synchronization, or concurrent work on other streams."
 						}
-						report.Items = append(report.Items, AdviceItem{
+						report.Items = append(report.Items, Item{
 							Severity:      sev,
 							Category:      CategoryArchitectureDispatch,
 							EvidenceLevel: evLevel,
@@ -261,8 +261,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		}
 
 		if maxConsecutive >= 50 && maxKernel != "" {
-			report.Items = append(report.Items, AdviceItem{
-				Severity:      SeverityWarning,
+			report.Items = append(report.Items, Item{
+				Severity:      SeverityCost,
 				Category:      CategoryArchitectureDispatch,
 				EvidenceLevel: EvidenceObserved,
 				Location: Location{
@@ -325,8 +325,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 				}
 				rec := fmt.Sprintf("Fuse into a single kernel (e.g. fused %s + %s) to eliminate intermediate DRAM round-trips.", cleanName1, cleanName2)
 
-				report.Items = append(report.Items, AdviceItem{
-					Severity:      SeverityWarning,
+				report.Items = append(report.Items, Item{
+					Severity:      SeverityCost,
 					Category:      CategoryMemoryCompute,
 					EvidenceLevel: EvidenceSuspected,
 					// The pair is the unit of device time here, so the item carries the
@@ -358,8 +358,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 				}
 				rec := fmt.Sprintf("Fuse normalization and quantization into a single kernel (e.g. fused %s_%s) that normalizes in shared memory/registers and directly stores quantized blocks to eliminate %d DRAM round-trips.", cleanName1, cleanName2, ps.count)
 
-				report.Items = append(report.Items, AdviceItem{
-					Severity:      SeverityWarning,
+				report.Items = append(report.Items, Item{
+					Severity:      SeverityCost,
 					Category:      CategoryMemoryCompute,
 					EvidenceLevel: EvidenceSuspected,
 					// The pair is the unit of device time here, so the item carries the
@@ -399,8 +399,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					}
 					rec := fmt.Sprintf("Fuse into a paired dual-GEMV dispatch (e.g. fused %s + %s) that loads the activation vector into shared memory once and accumulates dual projection outputs.", cleanName1, cleanName2)
 
-					report.Items = append(report.Items, AdviceItem{
-						Severity:      SeverityInfo,
+					report.Items = append(report.Items, Item{
+						Severity:      SeverityContext,
 						Category:      CategoryMemoryCompute,
 						EvidenceLevel: EvidenceSuspected,
 						// The pair is the unit of device time here, so the item carries the
@@ -434,8 +434,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					}
 					rec := fmt.Sprintf("Fuse %s and %s into a single kernel to keep intermediate activations in registers/shared memory, eliminating %d kernel launches and DRAM traffic.", cleanName1, cleanName2, ps.count)
 
-					report.Items = append(report.Items, AdviceItem{
-						Severity:      SeverityWarning,
+					report.Items = append(report.Items, Item{
+						Severity:      SeverityCost,
 						Category:      CategoryMemoryCompute,
 						EvidenceLevel: EvidenceSuspected,
 						// The pair is the unit of device time here, so the item carries the

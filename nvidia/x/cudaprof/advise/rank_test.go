@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"strings"
@@ -43,16 +43,16 @@ func TestAdvice_PCSamplingRankingAndDurationFallback(t *testing.T) {
 		t.Errorf("light_kernel = %d, want its 100 samples", times["light_kernel"])
 	}
 
-	report := &AdviceReport{
-		Items: []AdviceItem{
+	report := &Report{
+		Items: []Item{
 			{
-				Severity: SeverityCritical,
+				Severity: SeverityReadFirst,
 				Category: CategoryMemory,
 				Location: Location{Kernel: "light_kernel"},
 				Finding:  "light finding",
 			},
 			{
-				Severity: SeverityCritical,
+				Severity: SeverityReadFirst,
 				Category: CategoryMemory,
 				Location: Location{Kernel: "heavy_kernel"},
 				Finding:  "heavy finding",
@@ -100,16 +100,16 @@ func TestAdvice_PurePCSampleProfileShareFormatting(t *testing.T) {
 		t.Fatal("hasDeviceTiming returned true for pure PC-sample capture")
 	}
 
-	report := &AdviceReport{
-		Items: []AdviceItem{
+	report := &Report{
+		Items: []Item{
 			{
-				Severity: SeverityWarning,
+				Severity: SeverityCost,
 				Category: CategoryMemory,
 				Location: Location{Kernel: "heavy_kernel"},
 				Finding:  "Heavy load finding",
 			},
 			{
-				Severity: SeverityInfo,
+				Severity: SeverityContext,
 				Category: CategoryMemory,
 				Location: Location{Kernel: "light_kernel"},
 				Finding:  "Light load finding",
@@ -177,10 +177,10 @@ func TestAdvice_PurePCSampleProfileShareFormatting(t *testing.T) {
 	if got := durTimes["heavy_kernel"]; got != 800 {
 		t.Errorf("heavy_kernel = %d, want its 800 samples unscaled by the 100 ms duration", got)
 	}
-	durReport := &AdviceReport{
-		Items: []AdviceItem{
+	durReport := &Report{
+		Items: []Item{
 			{
-				Severity: SeverityWarning,
+				Severity: SeverityCost,
 				Category: CategoryMemory,
 				Location: Location{Kernel: "heavy_kernel"},
 				Finding:  "Heavy load finding",
@@ -217,7 +217,7 @@ func TestAdvice_PurePCSampleProfileShareFormatting(t *testing.T) {
 // less than negligibleDeviceNanos is context, not an expense.
 func TestTopTierIsEarnedByKindNotByCost(t *testing.T) {
 	const total = 1_000_000_000
-	report := &AdviceReport{Items: []AdviceItem{
+	report := &Report{Items: []Item{
 		{Severity: SeverityReadFirst, Category: CategoryArchitectureCompute, Finding: "tiny by cost", DeviceTimeNanos: 6_000},
 		{Severity: SeverityReadFirst, Category: CategoryArchitecture, Finding: "big by cost", DeviceTimeNanos: 536_000_000},
 		{Severity: SeverityReadFirst, Category: CategoryArchitecture, Finding: "wrong architecture", DeviceTimeNanos: 6_000, severityByKind: true},
@@ -248,7 +248,7 @@ func TestTopTierIsEarnedByKindNotByCost(t *testing.T) {
 	// The negligible boundary must not be reachable by rounding: a finding
 	// exactly at it stays a Cost, so the boundary is stated rather than
 	// discovered.
-	at := &AdviceReport{Items: []AdviceItem{
+	at := &Report{Items: []Item{
 		{Severity: SeverityCost, Category: CategoryMemory, Finding: "exactly at the boundary", DeviceTimeNanos: negligibleDeviceNanos},
 	}}
 	finalizeAndRankFindingsWithTiming(at, nil, total, true)
@@ -258,7 +258,7 @@ func TestTopTierIsEarnedByKindNotByCost(t *testing.T) {
 
 	// A finding with no device time of its own is not negligible, it is
 	// unmeasured: it must keep whatever tier its kind gave it.
-	none := &AdviceReport{Items: []AdviceItem{
+	none := &Report{Items: []Item{
 		{Severity: SeverityCost, Category: CategoryDispatch, Finding: "no device time", DeviceTimeNanos: 0},
 	}}
 	finalizeAndRankFindingsWithTiming(none, nil, total, true)

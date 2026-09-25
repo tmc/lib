@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"bytes"
@@ -78,7 +78,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantKernel:   "reg_limited_kernel",
 			wantFinding:  "Microarchitecture theoretical occupancy on sm_121 for kernel \"reg_limited_kernel\"",
 			wantRec:      "Register file capacity (65536 regs/SM) limits residency",
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantEvidence: EvidenceSuspected,
 			wantCaveat:   true,
 		},
@@ -88,7 +88,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantKernel:   "reg_limited_kernel",
 			wantFinding:  "Microarchitecture theoretical occupancy on sm_90 for kernel \"reg_limited_kernel\"",
 			wantRec:      "Register file capacity (65536 regs/SM) limits residency",
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantEvidence: EvidenceSuspected,
 			wantCaveat:   true,
 		},
@@ -98,7 +98,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantKernel:   "smem_limited_kernel",
 			wantFinding:  "constrained by shared_memory",
 			wantRec:      "Static shared memory (65536 bytes/block) limits residency",
-			wantSeverity: SeverityWarning,
+			wantSeverity: SeverityCost,
 			wantEvidence: EvidenceSuspected,
 			wantCaveat:   true,
 		},
@@ -111,7 +111,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 				Code:     cudacapture.CodeFiles{CUBIN: "kernels.cubin"},
 				Files:    map[string][]byte{"kernels.cubin": cubinBytes},
 			}
-			var report AdviceReport
+			var report Report
 			auditCUBINResourceOccupancy(cap, &report, []kernelImage{{cubin: cubinBytes}}, nil)
 			var frameFound bool
 			for _, item := range report.Items {
@@ -140,9 +140,9 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 				},
 			}
 
-			report, err := AnalyzeCapture(cap)
+			report, err := Analyze(cap)
 			if err != nil {
-				t.Fatalf("AnalyzeCapture failed: %v", err)
+				t.Fatalf("Analyze failed: %v", err)
 			}
 
 			var found bool

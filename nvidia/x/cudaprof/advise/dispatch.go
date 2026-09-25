@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 // the corresponding device kernel work. It requires both correlation-matched
 // API timestamps and device activity timestamps; a launch count or a summed
 // kernel duration alone cannot establish host overhead.
-func auditHostDispatchOverhead(cap *cudacapture.Capture, report *AdviceReport) {
+func auditHostDispatchOverhead(cap *cudacapture.Capture, report *Report) {
 	if cap == nil {
 		return
 	}
@@ -86,8 +86,8 @@ func auditHostDispatchOverhead(cap *cudacapture.Capture, report *AdviceReport) {
 	if share, measured := dispatchSubmissionIdleShare(cap); measured && share >= dominanceSubmissionMinIdleShare {
 		rec = fmt.Sprintf("Batch fine-grained launches or capture the dispatch loop in a CUDA Graph and compare end-to-end wall-clock time: the capture attributes %.1f%% of its idle to driver submission, which is the part batching divides. The measured gap is host/driver span, not device kernel time.", share)
 	}
-	report.Items = append(report.Items, AdviceItem{
-		Severity:      SeverityCritical,
+	report.Items = append(report.Items, Item{
+		Severity:      SeverityReadFirst,
 		Category:      CategoryArchitectureDispatch,
 		EvidenceLevel: EvidenceObserved,
 		Finding: fmt.Sprintf("Host dispatch overhead accounts for %.1f%% of the correlation-matched dispatch span (%d launches, %.3f ms host span, %.3f ms GPU execution)",

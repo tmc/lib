@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"strings"
@@ -17,12 +17,12 @@ func TestAdvise_WarnsOnDroppedRecords(t *testing.T) {
 				"capture-status.json": statusBytes,
 			},
 		}
-		report := &AdviceReport{}
+		report := &Report{}
 		auditCaptureStatus(cap, report)
 
 		var found bool
 		for _, item := range report.Items {
-			if item.Severity == SeverityWarning && strings.Contains(item.Finding, "Lossy capture: 48161 records dropped") {
+			if item.Severity == SeverityCost && strings.Contains(item.Finding, "Lossy capture: 48161 records dropped") {
 				found = true
 				break
 			}

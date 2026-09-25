@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/advise"
 )
 
 // manyFindingsCapture writes a capture whose PC samples stall in n distinct
@@ -72,7 +73,7 @@ func TestAdviseJSONIgnoresLimit(t *testing.T) {
 	all := captureStdout(t, func() error {
 		return runAdviseCommand([]string{"--format=json", "-limit", "0", path})
 	})
-	var full AdviceReport
+	var full advise.Report
 	if err := json.Unmarshal([]byte(all), &full); err != nil {
 		t.Fatalf("decode unlimited json: %v", err)
 	}
@@ -83,7 +84,7 @@ func TestAdviseJSONIgnoresLimit(t *testing.T) {
 	limited := captureStdout(t, func() error {
 		return runAdviseCommand([]string{"--format=json", "-limit", "3", path})
 	})
-	var got AdviceReport
+	var got advise.Report
 	if err := json.Unmarshal([]byte(limited), &got); err != nil {
 		t.Fatalf("decode limited json: %v", err)
 	}
@@ -116,7 +117,7 @@ func TestAdviseLimitZeroMeansNoLimit(t *testing.T) {
 	zero := captureStdout(t, func() error {
 		return runAdviseCommand([]string{"--format=json", "-limit", "0", path})
 	})
-	var got AdviceReport
+	var got advise.Report
 	if err := json.Unmarshal([]byte(zero), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}

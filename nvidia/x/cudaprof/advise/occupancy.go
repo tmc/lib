@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 // auditCUBINResourceOccupancy inspects CUBIN ELF .nv.info sections (EIATTR_REG_COUNT,
 // EIATTR_SHARED_SIZE_SYSMEM, EIATTR_FRAME_SIZE, EIATTR_MAXREG_COUNT) using x/cudaoccupancy
 // to calculate target-specific SM warp occupancy, occupancy cliffs, and hardware limiting factors.
-func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport, images []kernelImage, launchesByKernel map[string]launchRecord) {
+func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, images []kernelImage, launchesByKernel map[string]launchRecord) {
 	if cap == nil {
 		return
 	}
@@ -43,8 +43,8 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 
 		// 1. Stack frame size (EIATTR_FRAME_SIZE)
 		if k.FrameSizeBytes > 0 {
-			report.Items = append(report.Items, AdviceItem{
-				Severity:      SeverityCritical,
+			report.Items = append(report.Items, Item{
+				Severity:      SeverityReadFirst,
 				Category:      CategoryRegisterPressure,
 				EvidenceLevel: EvidenceObserved,
 				Location:      Location{Kernel: k.Name},
@@ -57,8 +57,8 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 
 		// 2. Compiler register limit (EIATTR_MAXREG_COUNT)
 		if k.MaxRegCount > 0 && k.Registers >= k.MaxRegCount {
-			report.Items = append(report.Items, AdviceItem{
-				Severity:      SeverityWarning,
+			report.Items = append(report.Items, Item{
+				Severity:      SeverityCost,
 				Category:      CategoryRegisterPressure,
 				EvidenceLevel: EvidenceObserved,
 				Location:      Location{Kernel: k.Name},
@@ -85,7 +85,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 				warpsPerBlock = 1
 			}
 
-			severity := SeverityWarning
+			severity := SeverityCost
 
 			finding := fmt.Sprintf("Microarchitecture theoretical occupancy on %s for kernel %q is %.1f%% (%d/%d active warps, %d blocks/SM) constrained by %s (limits: %d blocks from registers, %d from smem, %d from block count, %d from block size)",
 				dev.Architecture, k.Name, rep.Occupancy*100, rep.TheoreticalWarps, rep.MaxWarps, rep.ActiveBlocks, rep.LimitingFactor, rep.RegLimit, rep.SmemLimit, rep.BlockLimit, rep.WarpLimit)
@@ -113,7 +113,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 				rec = "Tune thread block dimensions and resource consumption to maximize concurrent warp execution." + occupancyCaveat
 			}
 
-			report.Items = append(report.Items, AdviceItem{
+			report.Items = append(report.Items, Item{
 				Severity:                 severity,
 				Category:                 CategoryRegisterPressure,
 				EvidenceLevel:            EvidenceSuspected,

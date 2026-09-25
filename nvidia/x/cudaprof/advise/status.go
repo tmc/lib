@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"fmt"
@@ -7,24 +7,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
-// preflightCapture refuses an artifact that records its own failure. A failed
-// capture still writes a well-formed pprof -- a couple of kilobytes with zero
-// activity records -- and pprof renders it as an empty but valid profile and
-// exits 0. Nothing on that path says the numbers are missing rather than
-// small, which is the mistake the artifact invites. Reading it fails closed;
-// the status is still reachable through advise, which reports the failure as a
-// finding rather than pretending to measure.
-func preflightCapture(cap *cudacapture.Capture) error {
-	reason, failed := capturefiles.Failure(cap)
-	if !failed {
-		return nil
-	}
-	return fmt.Errorf("this capture records its own failure: %s\n"+
-		"\tIt carries no measurement, and an empty profile is not a fast one.\n"+
-		"\tUse 'cudaprof advise' to see the failure as a finding, or re-run the capture.", reason)
-}
-
-func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
+func auditCaptureStatus(cap *cudacapture.Capture, report *Report) {
 	if cap == nil {
 		return
 	}
@@ -33,8 +16,8 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 		return
 	}
 	if errMsg, failed := capturefiles.Failure(cap); failed {
-		report.Items = append(report.Items, AdviceItem{
-			Severity:                 SeverityCritical,
+		report.Items = append(report.Items, Item{
+			Severity:                 SeverityReadFirst,
 			Category:                 CategoryArchitecture,
 			EvidenceLevel:            EvidenceObserved,
 			Finding:                  fmt.Sprintf("Incomplete or failed profile capture: %s", errMsg),
@@ -43,8 +26,8 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 		})
 	}
 	if dropped, ok := status["dropped_records"].(float64); ok && uint64(dropped) > 0 {
-		report.Items = append(report.Items, AdviceItem{
-			Severity:                 SeverityWarning,
+		report.Items = append(report.Items, Item{
+			Severity:                 SeverityCost,
 			Category:                 CategoryArchitecture,
 			EvidenceLevel:            EvidenceObserved,
 			Finding:                  fmt.Sprintf("Lossy capture: %d records dropped due to buffer pressure", uint64(dropped)),

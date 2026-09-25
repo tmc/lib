@@ -1,4 +1,4 @@
-package main
+package advise
 
 import (
 	"strings"
@@ -35,9 +35,9 @@ func TestSampleOnlyReportStatesTheInstrumentLimit(t *testing.T) {
 		t.Fatal("fixture is not sample-only; control cannot fire")
 	}
 
-	rep, err := AnalyzeCapture(cap)
+	rep, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture: %v", err)
+		t.Fatalf("Analyze: %v", err)
 	}
 	if len(rep.Items) == 0 {
 		t.Fatal("no findings produced; control cannot fire")
@@ -76,9 +76,9 @@ func TestTimedReportOmitsSampleOnlyCaveat(t *testing.T) {
 	if !hasDeviceTiming(cap) {
 		t.Fatal("fixture carries no device timing; control cannot fire")
 	}
-	rep, err := AnalyzeCapture(cap)
+	rep, err := Analyze(cap)
 	if err != nil {
-		t.Fatalf("AnalyzeCapture: %v", err)
+		t.Fatalf("Analyze: %v", err)
 	}
 	if strings.Contains(rep.Markdown(), "not a share of elapsed time") {
 		t.Errorf("timed report carries the sample-only caveat:\n%s", rep.Markdown())
