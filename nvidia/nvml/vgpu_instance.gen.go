@@ -203,7 +203,7 @@ func (v VgpuInstance) Metadata(vgpuMetadata *VgpuMetadata, bufferSize *uint32) e
 
 // PlacementId Query the placement ID of active vGPU instance.
 //
-// When in vGPU heterogeneous mode, this function returns a valid placement ID as pPlacement->placementId else NVML_INVALID_VGPU_PLACEMENT_ID is returned. pPlacement->version is the version number of the structure [VgpuPlacementId], the caller should set the correct version number to get placement id of the vGPU instance vgpuInstance.
+// When in vGPU heterogeneous mode, this function returns a valid placement ID as pPlacement->placementId else [InvalidVgpuPlacementId] is returned. pPlacement->version is the version number of the structure [VgpuPlacementId], the caller should set the correct version number to get placement id of the vGPU instance vgpuInstance.
 //
 //   - pPlacement: Pointer to vGPU placement ID structure [VgpuPlacementId]
 //

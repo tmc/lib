@@ -661,7 +661,7 @@ func deviceGetActiveVgpus(device Device, vgpuCount *uint32, vgpuInstances *VgpuI
 // deviceGetAdaptiveClockInfoStatus Gets the device's Adaptive Clock status
 //
 //   - device: The identifier of the target device
-//   - adaptiveClockStatus: The current adaptive clocking status, either NVML_ADAPTIVE_CLOCKING_INFO_STATUS_DISABLED or NVML_ADAPTIVE_CLOCKING_INFO_STATUS_ENABLED
+//   - adaptiveClockStatus: The current adaptive clocking status, either [AdaptiveClockingInfoStatusDisabled] or [AdaptiveClockingInfoStatusEnabled]
 //
 // Wraps nvmlDeviceGetAdaptiveClockInfoStatus.
 func deviceGetAdaptiveClockInfoStatus(device Device) (uint32, error) {
@@ -2286,7 +2286,7 @@ func deviceGetInforomConfigurationChecksum(device Device) (uint32, error) {
 // deviceGetInforomImageVersion Retrieves the global infoROM image version
 //
 // For all products with an inforom.
-// Image version just like VBIOS version uniquely describes the exact version of the infoROM flashed on the board in contrast to infoROM object version which is only an indicator of supported features. Version string will not exceed 16 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
+// Image version just like VBIOS version uniquely describes the exact version of the infoROM flashed on the board in contrast to infoROM object version which is only an indicator of supported features. Version string will not exceed 16 characters in length (including the NULL terminator). See [DeviceInforomVersionBufferSize].
 // See also: [Device.InforomVersion]
 //
 //   - device: The identifier of the target device
@@ -2312,7 +2312,7 @@ func deviceGetInforomImageVersion(device Device) (string, error) {
 // deviceGetInforomVersion Retrieves the version information for the device's infoROM object.
 //
 // For all products with an inforom.
-// Fermi and higher parts have non-volatile on-board memory for persisting device info, such as aggregate ECC counts. The version of the data structures in this memory may change from time to time. It will not exceed 16 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
+// Fermi and higher parts have non-volatile on-board memory for persisting device info, such as aggregate ECC counts. The version of the data structures in this memory may change from time to time. It will not exceed 16 characters in length (including the NULL terminator). See [DeviceInforomVersionBufferSize].
 // See [InforomObject] for details on the available infoROM objects.
 // See also: [Device.InforomImageVersion]
 //
@@ -2689,8 +2689,8 @@ func deviceGetMigDeviceHandleByIndex(device Device, index uint32) (Device, error
 // Changing MIG modes may require device unbind or reset. The "pending" MIG mode refers to the target mode following the next activation trigger.
 //
 //   - device: The identifier of the target device
-//   - currentMode: Returns the current mode, NVML_DEVICE_MIG_DISABLE or NVML_DEVICE_MIG_ENABLE
-//   - pendingMode: Returns the pending mode, NVML_DEVICE_MIG_DISABLE or NVML_DEVICE_MIG_ENABLE
+//   - currentMode: Returns the current mode, [DeviceMigDisable] or [DeviceMigEnable]
+//   - pendingMode: Returns the pending mode, [DeviceMigDisable] or [DeviceMigEnable]
 //
 // Wraps nvmlDeviceGetMigMode.
 func deviceGetMigMode(device Device, pendingMode *uint32) (uint32, error) {
@@ -2809,7 +2809,7 @@ func deviceGetMultiGpuBoard(device Device) (uint32, error) {
 // deviceGetName Retrieves the name of this device.
 //
 // For all products.
-// The name is an alphanumeric string that denotes a particular product, e.g. Tesla C2070. It will not exceed 96 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_NAME_V2_BUFFER_SIZE.
+// The name is an alphanumeric string that denotes a particular product, e.g. Tesla C2070. It will not exceed 96 characters in length (including the NULL terminator). See [DeviceNameV2BufferSize].
 // When used with MIG device handles the API returns MIG device names which can be used to identify devices based on their attributes.
 //
 //   - device: The identifier of the target device
@@ -3533,7 +3533,7 @@ func deviceGetPowerState(device Device) (Pstates, error) {
 //
 // For Fermi or newer fully supported devices.
 // On Fermi and Kepler GPUs the reading is accurate to within +/- 5% of current power draw. On Ampere (except GA100) or newer GPUs, the API returns power averaged over 1 sec interval. On GA100 and older architectures, instantaneous power is returned.
-// See NVML_FI_DEV_POWER_AVERAGE and NVML_FI_DEV_POWER_INSTANT to query specific power values.
+// See [FieldDevPowerAverage] and [FieldDevPowerInstant] to query specific power values.
 // It is only available if power management mode is supported. See [Device.PowerManagementMode].
 //
 //   - device: The identifier of the target device
@@ -3744,7 +3744,7 @@ func deviceGetSamples(device Device, type_ SamplingType, lastSeenTimeStamp uint6
 // deviceGetSerial Retrieves the globally unique board serial number associated with this device's board.
 //
 // For all products with an inforom.
-// The serial number is an alphanumeric string that will not exceed 30 characters (including the NULL terminator). This number matches the serial number tag that is physically attached to the board. See nvmlConstants.NVML_DEVICE_SERIAL_BUFFER_SIZE.
+// The serial number is an alphanumeric string that will not exceed 30 characters (including the NULL terminator). This number matches the serial number tag that is physically attached to the board. See [DeviceSerialBufferSize].
 //
 //   - device: The identifier of the target device
 //   - serial: Reference in which to return the board/module serial number
@@ -3893,7 +3893,7 @@ func deviceGetSupportedMemoryClocks(device Device, count *uint32, clocksMHz *uin
 // deviceGetSupportedPerformanceStates Get all supported Performance States (P-States) for the device.
 //
 // The returned array would contain a contiguous list of valid P-States supported by the device. If the number of supported P-States is fewer than the size of the array supplied missing elements would contain [PstateUnknown].
-// The number of elements in the returned list will never exceed NVML_MAX_GPU_PERF_PSTATES.
+// The number of elements in the returned list will never exceed [MaxGpuPerfPstates].
 //
 //   - device: The identifier of the target device
 //   - pstates: Container to return the list of performance states supported by device
@@ -4094,7 +4094,7 @@ func deviceGetTotalEnergyConsumption(device Device) (uint64, error) {
 // deviceGetUUID Retrieves the globally unique immutable UUID associated with this device, as a 5 part hexadecimal string, that augments the immutable, board serial identifier.
 //
 // For all products.
-// The UUID is a globally unique identifier. It is the only available identifier for pre-Fermi-architecture products. It does NOT correspond to any identifier printed on the board. It will not exceed 96 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_UUID_V2_BUFFER_SIZE.
+// The UUID is a globally unique identifier. It is the only available identifier for pre-Fermi-architecture products. It does NOT correspond to any identifier printed on the board. It will not exceed 96 characters in length (including the NULL terminator). See [DeviceUuidV2BufferSize].
 // When used with MIG device handles the API returns globally unique UUIDs which can be used to identify MIG devices across both GPU and MIG devices. UUIDs are immutable for the lifetime of a MIG device.
 //
 //   - device: The identifier of the target device
@@ -4164,7 +4164,7 @@ func deviceGetUtilizationRates(device Device) (Utilization, error) {
 // deviceGetVbiosVersion Get VBIOS version of the device.
 //
 // For all products.
-// The VBIOS version may change from time to time. It will not exceed 32 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_VBIOS_VERSION_BUFFER_SIZE.
+// The VBIOS version may change from time to time. It will not exceed 32 characters in length (including the NULL terminator). See [DeviceVbiosVersionBufferSize].
 //
 //   - device: The identifier of the target device
 //   - version: Reference to which to return the VBIOS version
@@ -4320,7 +4320,7 @@ func deviceGetVgpuTypeCreatablePlacements(device Device, vgpuTypeId VgpuTypeId, 
 // deviceGetVgpuTypeSupportedPlacements Query the supported vGPU placement ID of the vGPU type.
 //
 // The function returns an array of supported vGPU placement IDs for the specified vGPU type ID in the buffer provided by the caller at pPlacementList->placementIds. The required memory for the placementIds array must be allocated based on the maximum number of vGPU type instances, which is retrievable through [VgpuTypeId.MaxInstances]. If the provided count by the caller is insufficient, the function will return [ErrInsufficientSize] along with the number of required entries in pPlacementList->count. The caller should then reallocate a buffer with the size of pPlacementList->count * sizeof(pPlacementList->placementIds) and invoke the function again.
-// To obtain a list of homogeneous placement IDs, the caller needs to set pPlacementList->mode to NVML_VGPU_PGPU_HOMOGENEOUS_MODE. For heterogeneous placement IDs, pPlacementList->mode should be set to NVML_VGPU_PGPU_HETEROGENEOUS_MODE. By default, a list of heterogeneous placement IDs is returned.
+// To obtain a list of homogeneous placement IDs, the caller needs to set pPlacementList->mode to [VgpuPgpuHomogeneousMode]. For heterogeneous placement IDs, pPlacementList->mode should be set to [VgpuPgpuHeterogeneousMode]. By default, a list of heterogeneous placement IDs is returned.
 //
 //   - device: Identifier of the target device
 //   - vgpuTypeId: Handle to vGPU type. The vGPU type ID
@@ -4351,7 +4351,7 @@ func deviceGetVgpuUtilization(device Device, lastSeenTimeStamp uint64, sampleVal
 // deviceGetViolationStatus Use [Device.FieldValues] to query this data.
 //
 // Translations are as follows:
-// [PerfPolicyPower] -> NVML_FI_DEV_CLOCKS_EVENT_REASON_SW_POWER_CAP [PerfPolicyThermal] -> NVML_FI_DEV_CLOCKS_EVENT_REASON_SW_THERM_SLOWDOWN [PerfPolicySyncBoost] -> NVML_FI_DEV_CLOCKS_EVENT_REASON_SYNC_BOOST [PerfPolicyBoardLimit] -> NVML_FI_DEV_PERF_POLICY_BOARD_LIMIT [PerfPolicyLowUtilization] -> NVML_FI_DEV_PERF_POLICY_LOW_UTILIZATION [PerfPolicyReliability] -> NVML_FI_DEV_PERF_POLICY_RELIABILITY [PerfPolicyTotalAppClocks] -> DEPRECATED, Do not use [PerfPolicyTotalBaseClocks] -> NVML_FI_DEV_PERF_POLICY_TOTAL_BASE_CLOCKS
+// [PerfPolicyPower] -> [FieldDevClocksEventReasonSwPowerCap] [PerfPolicyThermal] -> [FieldDevClocksEventReasonSwThermSlowdown] [PerfPolicySyncBoost] -> [FieldDevClocksEventReasonSyncBoost] [PerfPolicyBoardLimit] -> [FieldDevPerfPolicyBoardLimit] [PerfPolicyLowUtilization] -> [FieldDevPerfPolicyLowUtilization] [PerfPolicyReliability] -> [FieldDevPerfPolicyReliability] [PerfPolicyTotalAppClocks] -> DEPRECATED, Do not use [PerfPolicyTotalBaseClocks] -> [FieldDevPerfPolicyTotalBaseClocks]
 //
 // Deprecated: This function is deprecated.
 //
@@ -4467,7 +4467,7 @@ func devicePowerSmoothingSetState(device Device, state *PowerSmoothingState) err
 // devicePowerSmoothingUpdatePresetProfileParam Update the value of a specific profile parameter contained within [PowerSmoothingProfile].
 //
 // For Blackwell or newer fully supported devices.
-// NVML_POWER_SMOOTHING_PROFILE_PARAM_PERCENT_TMP_FLOOR expects a value as a percentage from 00.00-100.00% NVML_POWER_SMOOTHING_PROFILE_PARAM_RAMP_UP_RATE expects a value in W/s NVML_POWER_SMOOTHING_PROFILE_PARAM_RAMP_DOWN_RATE expects a value in W/s NVML_POWER_SMOOTHING_PROFILE_PARAM_RAMP_DOWN_HYSTERESIS expects a value in ms
+// [PowerSmoothingProfileParamPercentTmpFloor] expects a value as a percentage from 00.00-100.00% [PowerSmoothingProfileParamRampUpRate] expects a value in W/s [PowerSmoothingProfileParamRampDownRate] expects a value in W/s [PowerSmoothingProfileParamRampDownHysteresis] expects a value in ms
 // < Previous | Next >
 //
 //   - device: The identifier of the target device
@@ -5015,7 +5015,7 @@ func deviceSetMemoryLockedClocks(device Device, minMemClockMHz uint32, maxMemClo
 // On Windows, only disabling MIG mode is supported. activationStatus would return [ErrNotSupported] as GPU reset is not supported on Windows through this API.
 //
 //   - device: The identifier of the target device
-//   - mode: The mode to be set, NVML_DEVICE_MIG_DISABLE or NVML_DEVICE_MIG_ENABLE
+//   - mode: The mode to be set, [DeviceMigDisable] or [DeviceMigEnable]
 //   - activationStatus: The activationStatus status
 //
 // Wraps nvmlDeviceSetMigMode.
@@ -5104,12 +5104,11 @@ func deviceSetPersistenceMode(device Device, mode EnableState) error {
 // Note:
 // Limit is not persistent across reboots or driver unloads. Enable persistent mode to prevent driver from unloading when no application is using the device.
 // This API replaces [Device.SetPowerManagementLimit]. It can be used as a drop-in replacement for the older version.
-// See also:
-// NVML_FI_DEV_POWER_AVERAGE
-// NVML_FI_DEV_POWER_INSTANT
-// NVML_FI_DEV_POWER_MIN_LIMIT
-// NVML_FI_DEV_POWER_MAX_LIMIT
-// NVML_FI_DEV_POWER_CURRENT_LIMIT
+// See also: [FieldDevPowerAverage]
+// [FieldDevPowerInstant]
+// [FieldDevPowerMinLimit]
+// [FieldDevPowerMaxLimit]
+// [FieldDevPowerCurrentLimit]
 //
 //   - device: The identifier of the target device
 //   - powerValue: Power management limit in milliwatts to set
@@ -5448,7 +5447,7 @@ func GetVgpuVersion(supported *VgpuVersion, current *VgpuVersion) error {
 // GpmMetricsGet Calculate GPM metrics from two samples.
 //
 // For Hopper or newer fully supported devices.
-// To retrieve metrics, the user must first allocate the two sample buffers at metricsGet->sample1 and metricsGet->sample2 by calling [NewGpmSample]. Next, the user should fill in the ID of each metric in metricsGet->metrics [i].metricId and specify the total number of metrics to retrieve in metricsGet->numMetrics, The version should be set to NVML_GPM_METRICS_GET_VERSION in metricsGet->version. The user then calls the [GpmSample.Get] API twice to obtain 2 samples of counters.
+// To retrieve metrics, the user must first allocate the two sample buffers at metricsGet->sample1 and metricsGet->sample2 by calling [NewGpmSample]. Next, the user should fill in the ID of each metric in metricsGet->metrics [i].metricId and specify the total number of metrics to retrieve in metricsGet->numMetrics, The version should be set to [GpmMetricsGetVersion] in metricsGet->version. The user then calls the [GpmSample.Get] API twice to obtain 2 samples of counters.
 // Note:
 // The interval between these two [GpmSample.Get] calls should be greater than 100ms due to the internal sample refresh rate. Finally, the user calls [GpmMetricsGet] to retrieve the metrics, which will be stored at metricsGet->metrics
 //
@@ -5995,7 +5994,7 @@ func SystemGetConfComputeCapabilities(capabilities *ConfComputeSystemCaps) error
 // For Ampere or newer fully supported devices. Supported on Linux, Windows TCC.
 // return
 //
-//   - isAcceptingWork: Returns GPU current work accepting state, NVML_CC_ACCEPTING_CLIENT_REQUESTS_TRUE or NVML_CC_ACCEPTING_CLIENT_REQUESTS_FALSE
+//   - isAcceptingWork: Returns GPU current work accepting state, [CcAcceptingClientRequestsTrue] or [CcAcceptingClientRequestsFalse]
 //
 // Wraps nvmlSystemGetConfComputeGpusReadyState.
 func SystemGetConfComputeGpusReadyState() (uint32, error) {
@@ -6083,7 +6082,7 @@ func SystemGetCudaDriverVersion() (int32, error) {
 // SystemGetDriverBranch Retrieves the driver branch of the NVIDIA driver installed on the system.
 //
 // For all products.
-// The branch identifier is an alphanumeric string. It will not exceed 80 characters in length (including the NULL terminator). See nvmlConstants.NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE.
+// The branch identifier is an alphanumeric string. It will not exceed 80 characters in length (including the NULL terminator). See [SystemDriverVersionBufferSize].
 //
 //   - branchInfo: Pointer to the driver branch information structure [SystemDriverBranchInfo]
 //   - length: The maximum allowed length of the driver branch string
@@ -6099,7 +6098,7 @@ func SystemGetDriverBranch(branchInfo *SystemDriverBranchInfo, length uint32) er
 // SystemGetDriverVersion Retrieves the version of the system's graphics driver.
 //
 // For all products.
-// The version identifier is an alphanumeric string. It will not exceed 80 characters in length (including the NULL terminator). See nvmlConstants.NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE.
+// The version identifier is an alphanumeric string. It will not exceed 80 characters in length (including the NULL terminator). See [SystemDriverVersionBufferSize].
 //
 //   - version: Reference in which to return the version identifier
 //   - length: The maximum allowed length of the string returned in version
@@ -6139,7 +6138,7 @@ func SystemGetHicVersion(hwbcCount *uint32, hwbcEntries *HwbcEntry) error {
 // SystemGetNVMLVersion Retrieves the version of the NVML library.
 //
 // For all products.
-// The version identifier is an alphanumeric string. It will not exceed 80 characters in length (including the NULL terminator). See nvmlConstants.NVML_SYSTEM_NVML_VERSION_BUFFER_SIZE.
+// The version identifier is an alphanumeric string. It will not exceed 80 characters in length (including the NULL terminator). See [SystemNvmlVersionBufferSize].
 //
 //   - version: Reference in which to return the version identifier
 //   - length: The maximum allowed length of the string returned in version
@@ -6245,7 +6244,7 @@ func SystemRegisterEvents(request *SystemRegisterEventRequest) error {
 // For Ampere or newer fully supported devices. Supported on Linux, Windows TCC.
 // return
 //
-//   - isAcceptingWork: GPU accepting new work, NVML_CC_ACCEPTING_CLIENT_REQUESTS_TRUE or NVML_CC_ACCEPTING_CLIENT_REQUESTS_FALSE
+//   - isAcceptingWork: GPU accepting new work, [CcAcceptingClientRequestsTrue] or [CcAcceptingClientRequestsFalse]
 //
 // Wraps nvmlSystemSetConfComputeGpusReadyState.
 func SystemSetConfComputeGpusReadyState(isAcceptingWork uint32) error {
@@ -6258,7 +6257,7 @@ func SystemSetConfComputeGpusReadyState(isAcceptingWork uint32) error {
 // SystemSetConfComputeKeyRotationThresholdInfo Set Conf Computing key rotation threshold.
 //
 // For Hopper or newer fully supported devices. Supported on Linux, Windows TCC.
-// This function is to set the confidential compute key rotation threshold parameters. pKeyRotationThrInfo->maxAttackerAdvantage should be in the range from NVML_CC_KEY_ROTATION_THRESHOLD_ATTACKER_ADVANTAGE_MIN to NVML_CC_KEY_ROTATION_THRESHOLD_ATTACKER_ADVANTAGE_MAX. Default value is 60.
+// This function is to set the confidential compute key rotation threshold parameters. pKeyRotationThrInfo->maxAttackerAdvantage should be in the range from [CcKeyRotationThresholdAttackerAdvantageMin] to [CcKeyRotationThresholdAttackerAdvantageMax]. Default value is 60.
 // < Previous | Next >
 //
 //   - pKeyRotationThrInfo: Reference to the key rotation threshold data
@@ -6714,7 +6713,7 @@ func vgpuInstanceGetMetadata(vgpuInstance VgpuInstance, vgpuMetadata *VgpuMetada
 
 // vgpuInstanceGetPlacementId Query the placement ID of active vGPU instance.
 //
-// When in vGPU heterogeneous mode, this function returns a valid placement ID as pPlacement->placementId else NVML_INVALID_VGPU_PLACEMENT_ID is returned. pPlacement->version is the version number of the structure [VgpuPlacementId], the caller should set the correct version number to get placement id of the vGPU instance vgpuInstance.
+// When in vGPU heterogeneous mode, this function returns a valid placement ID as pPlacement->placementId else [InvalidVgpuPlacementId] is returned. pPlacement->version is the version number of the structure [VgpuPlacementId], the caller should set the correct version number to get placement id of the vGPU instance vgpuInstance.
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - pPlacement: Pointer to vGPU placement ID structure [VgpuPlacementId]
