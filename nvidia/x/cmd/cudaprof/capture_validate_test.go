@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
 
@@ -143,17 +144,17 @@ func measureSpin(t *testing.T, path string) (*CompareSide, []int64) {
 }
 
 // spinRecords decodes a capture's journals.
-func spinRecords(t *testing.T, path string) gapRecords {
+func spinRecords(t *testing.T, path string) timeline.Records {
 	t.Helper()
 	cap, err := readCapturePath(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	journals, _, err := requireJournals(cap)
+	journals, err := requireJournals(cap)
 	if err != nil {
 		t.Fatal(err)
 	}
-	records, err := decodeJournals(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
+	records, err := timeline.Decode(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,9 +295,9 @@ func TestSpinGraphNodes(t *testing.T) {
 	if side.GraphTraceMode != graphTraceNode || side.UnresolvedNanos != 0 {
 		t.Errorf("node mode: graph trace mode %q, %d ns unresolved; want node and 0", side.GraphTraceMode, side.UnresolvedNanos)
 	}
-	for _, a := range spinRecords(t, path).activities {
-		if a.subtype == "kernel" && a.graphID == 0 {
-			t.Errorf("node mode: kernel %s at %d carries no graph id", a.name, a.start)
+	for _, a := range spinRecords(t, path).Activities {
+		if a.Subtype == "kernel" && a.GraphID == 0 {
+			t.Errorf("node mode: kernel %s at %d carries no graph id", a.Name, a.Start)
 		}
 	}
 	// spin records the nodes of its last replay.
@@ -314,16 +315,16 @@ func TestSpinGraphNodes(t *testing.T) {
 		t.Errorf("graph mode: measure error = %v, want a refusal naming graph replay", refusal)
 	}
 	records := spinRecords(t, path)
-	if len(records.graphs) != replays {
-		t.Errorf("graph mode: %d replay envelopes, want %d", len(records.graphs), replays)
+	if len(records.Graphs) != replays {
+		t.Errorf("graph mode: %d replay envelopes, want %d", len(records.Graphs), replays)
 	}
-	for _, a := range records.activities {
-		if a.subtype == "kernel" && a.name == "spin" {
-			t.Errorf("graph mode: spin kernel record at %d; the envelope mode hides the nodes", a.start)
+	for _, a := range records.Activities {
+		if a.Subtype == "kernel" && a.Name == "spin" {
+			t.Errorf("graph mode: spin kernel record at %d; the envelope mode hides the nodes", a.Start)
 			break
 		}
 	}
-	t.Logf("graph mode: %d envelopes; compare: %v", len(records.graphs), refusal)
+	t.Logf("graph mode: %d envelopes; compare: %v", len(records.Graphs), refusal)
 }
 
 func summary(v []float64) string { return summaryf(v, "%.0f") }

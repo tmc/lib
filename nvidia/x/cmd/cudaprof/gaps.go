@@ -1,13 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // Gap analysis reconstructs the device timeline a pprof profile cannot carry.
@@ -213,35 +209,14 @@ Options:
 // ---------------------------------------------------------------------------
 // journal selection and decoding
 
-// gapJournal is one decoded capture journal member of the capture.
-type gapJournal struct {
-	Name       string `json:"name"`
-	Compressed bool   `json:"compressed"`
-	Bytes      int    `json:"bytes"`
-	Records    int    `json:"records"`
-	// NoCUDA reports a journal that never finalized because its process ran
-	// no CUDA: it contributes nothing to the timeline, and it is listed so
-	// that nothing was set aside silently.
-	NoCUDA bool `json:"no_cuda,omitempty"`
-}
-
-// gapStatus is the part of capture-status.json that says whether the
-// per-record detail of this capture is present at all.
+// gapStatus is the part of capture-status.json that says what a refusal of
+// the capture's journals can offer as a remedy.
 type gapStatus struct {
-	OmittedFiles    []captureOmittedFile `json:"omitted_files"`
-	DetailedRecords string               `json:"detailed_records"`
-	RunCompleteness string               `json:"run_completeness"`
-	DroppedRecords  uint64               `json:"dropped_records"`
-	ActivityRecords uint64               `json:"activity_records"`
-	ActivitySamples int                  `json:"activity_samples"`
+	OmittedFiles []captureOmittedFile `json:"omitted_files"`
 	// RecordLoss is the producer's own breakdown of what it never wrote. It
 	// names the mechanism, which is what a refusal has to report: the one
 	// remedy a reader can reach for, --max-records, addresses none of them.
 	RecordLoss *captureLoss `json:"record_loss"`
-	// UnqualifiedGenerations counts generations that never finalized. Their
-	// activities are absent from the journal entirely, so a timeline built
-	// from what remains has holes no drop count reports.
-	UnqualifiedGenerations uint64 `json:"unqualified_generations"`
 	// Capability is the agent's own configuration block. It decides which
 	// remedy the truncation message may offer, because the largest one --
 	// dropping API attribution -- is only available to a run that collected it.
@@ -262,47 +237,22 @@ func readGapStatus(cap *cudacapture.Capture) (gapStatus, bool) {
 	return envelope.Status, true
 }
 
-// requireJournals returns the journal members of a capture, refusing every
-// capture whose per-record detail is not wholly present. The refusal names the
-// missing artifact and why the analysis cannot proceed; it never falls back to
-// an estimate, and never analyzes the part that survived.
-func requireJournals(cap *cudacapture.Capture) (map[string][]byte, gapStatus, error) {
-	status, haveStatus := readGapStatus(cap)
-	var omitted []string
-	for _, f := range status.OmittedFiles {
-		if cudacapture.IsJournalName(f.Name) {
-			omitted = append(omitted, fmt.Sprintf("%s (%d bytes, sha256 %s: %s)", f.Name, f.Bytes, f.SHA256, f.Reason))
+// requireJournals returns the journal members of a capture as
+// [timeline.Journals] does, adding to a refusal the remedy this command's
+// flags can offer.
+func requireJournals(cap *cudacapture.Capture) (map[string][]byte, error) {
+	journals, err := timeline.Journals(cap)
+	if err != nil {
+		status, _ := readGapStatus(cap)
+		switch {
+		case errors.Is(err, timeline.ErrJournalOmitted):
+			return nil, fmt.Errorf("%w%s", err, budgetRemedy(status.OmittedFiles))
+		case errors.Is(err, timeline.ErrRecordsDropped):
+			return nil, fmt.Errorf("%w%s", err, truncationRemedy(status))
 		}
+		return nil, err
 	}
-	if len(omitted) != 0 {
-		sort.Strings(omitted)
-		return nil, status, fmt.Errorf("capture omits the per-record journal, so the device timeline cannot be reconstructed: %s; capture-status.json reports run_completeness=%q and detailed_records=%q, and gap analysis needs the omitted journal itself, not the pprof projection%s",
-			strings.Join(omitted, ", "), status.RunCompleteness, status.DetailedRecords, budgetRemedy(status.OmittedFiles))
-	}
-	journals := make(map[string][]byte)
-	for name, data := range cap.Files {
-		if cudacapture.IsJournalName(name) {
-			journals[name] = data
-		}
-	}
-	if len(journals) == 0 {
-		detail := "capture-status.json is absent"
-		if haveStatus {
-			detail = fmt.Sprintf("capture-status.json reports run_completeness=%q and detailed_records=%q", status.RunCompleteness, status.DetailedRecords)
-		}
-		return nil, status, fmt.Errorf("capture contains no capture.journal member, so the device timeline cannot be reconstructed: %s; pprof samples are aggregates and carry no timestamps", detail)
-	}
-	if status.DroppedRecords > 0 {
-		return nil, status, fmt.Errorf("capture dropped %d record(s) and retained %d, so the journal is missing activities the gaps would span: a duty cycle computed from the remainder would be wrong, not approximate%s", status.DroppedRecords, status.ActivityRecords, truncationRemedy(status))
-	}
-	// A run can lose whole generations without dropping a record: a generation
-	// that never finalized contributes nothing, and its absence is invisible in
-	// a drop count. capture_success qualifies the target generation alone and
-	// stays true through both, which is why this reads run_completeness.
-	if status.RunCompleteness == runPartial {
-		return nil, status, fmt.Errorf("capture reports run_completeness=%q with %d unqualified generation(s), so activities the idle gaps would span were never recorded: capture_success qualifies the target generation alone and does not report this", status.RunCompleteness, status.UnqualifiedGenerations)
-	}
-	return journals, status, nil
+	return journals, nil
 }
 
 // truncationRemedy names the mechanism that lost the records and what would
@@ -324,420 +274,17 @@ func truncationRemedy(status gapStatus) string {
 	return b.String()
 }
 
-// gapRecords is everything gap analysis reads out of the journals.
-type gapRecords struct {
-	activities []gapActivity
-	apis       map[uint32]gapAPI
-	journals   []gapJournal
-
-	// Spans that explain idle rather than occupy the device. None of the
-	// three is in activities: see the exclusions in decodeJournal.
-	overheads []gapInterval
-	graphs    []gapActivity
-	syncs     []gapInterval
-	rawSyncs  []rawSync
-
-	// graphNodes counts device records that name the graph they ran as a
-	// node of. It is what decides whether excluding the replay envelope is
-	// sound: the exclusion exists because the envelope spans those records,
-	// and with none of them present it spans nothing.
-	graphNodes int
-
-	// contextDevice maps a CUPTI context to the device the records that carry
-	// both reported it on. A synchronization record carries a context and no
-	// device, so this is the only thing that can place one on a device
-	// timeline. Context 0 is never entered: it is the value a record that
-	// named no context leaves behind, and treating it as a context would
-	// resolve every unattributable sync onto whichever device happened to
-	// leave a zero there.
-	contextDevice map[uint32]uint32
-
-	// Syncs whose context no device-carrying record ever named. They are
-	// reported, not placed: assigning them to device 0 would put the
-	// explanation for one device's idle on another device's timeline.
-	unresolvedSyncs int
-	unresolvedNanos int64
-}
-
-type gapActivity struct {
-	device      uint32
-	start, end  int64
-	correlation uint32
-
-	// Carried for consumers that need the launch itself rather than only its
-	// place on the timeline. They are unset for the spans that are not kernel
-	// launches, and nothing in the gap analysis reads them.
-	subtype     string
-	name        string
-	stream      uint32
-	graphID     uint32
-	grid, block [3]int
-
-	// sharedMemory is a kernel's dynamic shared memory in bytes, or nil when
-	// the record does not carry it. Read only by compare.
-	sharedMemory *uint32
-
-	// Set only for a memcpy, and read only by compare.
-	bytes    uint64
-	copyKind uint8
-
-	// module is the driver's id of the module a kernel ran from, or 0 when
-	// the record does not say. Read only by advise.
-	module uint32
-}
-
-// gapInterval is one span on one device's timeline. Overhead spans carry no
-// device -- CUPTI's cost is charged to a host thread -- and are held with
-// device left at zero and applied to every device, which the overlay below
-// states rather than hides.
-type gapInterval struct {
-	device     uint32
-	start, end int64
-}
-
-// rawSync is a synchronization span before its device is known.
-type rawSync struct {
-	context    uint32
-	start, end int64
-}
-
-type gapAPI struct{ start, end int64 }
-
-// gapPayload is the subset of a typed journal payload gap analysis reads.
-type gapPayload struct {
-	Kind         string  `json:"kind"`
-	Subtype      string  `json:"subtype"`
-	Name         string  `json:"name"`
-	Stream       uint32  `json:"stream"`
-	Bytes        uint64  `json:"bytes"`
-	CopyKind     uint8   `json:"copy_kind"`
-	GridX        uint32  `json:"grid_x"`
-	GridY        uint32  `json:"grid_y"`
-	GridZ        uint32  `json:"grid_z"`
-	BlockX       uint32  `json:"block_x"`
-	BlockY       uint32  `json:"block_y"`
-	BlockZ       uint32  `json:"block_z"`
-	SharedMemory *uint32 `json:"dynamic_shared_memory"`
-	State        string  `json:"state"`
-	Domain       string  `json:"domain"`
-	Valid        bool    `json:"valid"`
-	Start        uint64  `json:"start"`
-	End          uint64  `json:"end"`
-	Device       uint32  `json:"device"`
-	Context      uint32  `json:"context"`
-	Correlation  uint32  `json:"correlation"`
-	GraphID      uint32  `json:"graph_id"`
-	ModuleID     uint32  `json:"module_id"`
-	OverheadKind uint32  `json:"overhead_kind"`
-	SyncType     uint32  `json:"sync_type"`
-	Dropped      uint64  `json:"dropped"`
-}
-
-// decodeJournals decodes every journal member. A journal whose frames do not
-// decode to completion, or that never finalized, is refused: both leave a
-// timeline whose end is unknown, and a truncated prefix is indistinguishable
-// from a short run once the records are counted. The one unfinalized journal
-// admitted is a process that ran no CUDA (see noCUDAJournal), which has no
-// timeline to end.
-func decodeJournals(journals map[string][]byte, maxRecords, maxBytes int64) (gapRecords, error) {
-	out := gapRecords{apis: make(map[uint32]gapAPI), contextDevice: make(map[uint32]uint32)}
-	names := make([]string, 0, len(journals))
-	for name := range journals {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		reader, compressed, err := decompressJournal(journals[name], maxBytes)
-		if err != nil {
-			return gapRecords{}, fmt.Errorf("read journal %s: %w", name, err)
-		}
-		summary := gapJournal{Name: name, Compressed: compressed}
-		if err := decodeJournal(name, reader, maxRecords, &out, &summary); err != nil {
-			_ = reader.Close()
-			return gapRecords{}, err
-		}
-		if err := reader.Close(); err != nil {
-			return gapRecords{}, fmt.Errorf("close journal %s: %w", name, err)
-		}
-		summary.Bytes = int(reader.n)
-		if summary.Bytes == 0 {
-			return gapRecords{}, fmt.Errorf("journal %s is empty, so no device timeline was recorded", name)
-		}
-		out.journals = append(out.journals, summary)
-	}
-	if len(out.activities) == 0 {
-		return gapRecords{}, errors.New("journals hold no valid activity records, so there is no device timeline to analyze")
-	}
-	// Resolution runs once every journal has been read, not per journal: the
-	// kernel that names a context and the sync that shares it need not have
-	// been drained into the same journal member.
-	out.resolveSyncDevices()
-	return out, nil
-}
-
-// noCUDAJournal collects what an unfinalized journal must show to be read as
-// a process that ran no CUDA rather than one that lost its records. The test
-// is the controller's (noCUDAGeneration), applied to a journal the artifact
-// carries: the controller admits such a generation as no-cuda and publishes
-// its journal beside the others, and a reader that refuses it refuses a
-// capture the controller called complete. A shell or launcher in front of
-// the CUDA program is the ordinary case.
-type noCUDAJournal struct {
-	state journalState
-	// work counts activity records other than the producer's bookkeeping.
-	// Any one of them means CUPTI delivered a buffer, which a process that
-	// ran no CUDA never has.
-	work uint64
-}
-
-func (j *noCUDAJournal) observe(kind uint16, subtype string, payload []byte) {
-	switch kind {
-	case wire.KindCapability:
-		j.state.capabilityData = append(json.RawMessage(nil), payload...)
-	case wire.KindFailure:
-		j.state.failure = "failure"
-	case wire.KindActivity:
-		switch subtype {
-		case "device_active":
-			j.state.deviceActive = true
-		case "capture_range":
-		default:
-			j.work++
-		}
-	}
-}
-
-func (j *noCUDAJournal) ranNoCUDA() bool {
-	return noCUDAGeneration(j.state, wire.Stats{Records: j.work})
-}
-
-// resolveSyncDevices places each synchronization span on the device its
-// context belongs to.
-//
-// A sync that cannot be resolved is counted and dropped rather than defaulted.
-// Device 0 is the wrong answer twice over: on a single-device run it is
-// indistinguishable from a correct one, so the defect never shows; on a
-// multi-device run it explains one device's idle with another device's wait.
-func (r *gapRecords) resolveSyncDevices() {
-	for _, y := range r.rawSyncs {
-		device, ok := r.contextDevice[y.context]
-		if !ok {
-			r.unresolvedSyncs++
-			r.unresolvedNanos += y.end - y.start
-			continue
-		}
-		r.syncs = append(r.syncs, gapInterval{device: device, start: y.start, end: y.end})
-	}
-}
-
-// decompressJournal returns the journal frames, transparently decompressing a
-// gzip-stored member. Detection is by content, so a journal is read the same
-// way whether or not its name carries the .gz suffix.
-func decompressJournal(data []byte, maxBytes int64) (*boundedJournalReader, bool, error) {
-	if maxBytes <= 0 {
-		return nil, false, fmt.Errorf("invalid journal byte limit %d", maxBytes)
-	}
-	if len(data) < 2 || data[0] != 0x1f || data[1] != 0x8b {
-		return newBoundedJournalReader(io.NopCloser(bytes.NewReader(data)), maxBytes), false, nil
-	}
-	zr, err := gzip.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return nil, true, fmt.Errorf("open gzip journal: %w", err)
-	}
-	return newBoundedJournalReader(zr, maxBytes), true, nil
-}
-
-type boundedJournalReader struct {
-	io.ReadCloser
-	limit int64
-	n     int64
-}
-
-func newBoundedJournalReader(r io.ReadCloser, limit int64) *boundedJournalReader {
-	return &boundedJournalReader{ReadCloser: r, limit: limit}
-}
-
-func (r *boundedJournalReader) Read(p []byte) (int, error) {
-	remaining := r.limit - r.n
-	if remaining < 0 {
-		return 0, fmt.Errorf("journal exceeds %d bytes decompressed", r.limit)
-	}
-	if remaining == 0 {
-		var one [1]byte
-		n, err := r.ReadCloser.Read(one[:])
-		if n > 0 {
-			return 0, fmt.Errorf("journal exceeds %d bytes decompressed", r.limit)
-		}
-		return 0, err
-	}
-	if int64(len(p)) > remaining {
-		p = p[:remaining]
-	}
-	n, err := r.ReadCloser.Read(p)
-	r.n += int64(n)
-	return n, err
-}
-
-func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapRecords, summary *gapJournal) error {
-	limitsMaxRecords := uint32(math.MaxUint32)
-	if maxRecords > 0 && maxRecords < math.MaxUint32 {
-		limitsMaxRecords = uint32(maxRecords)
-	}
-	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: limitsMaxRecords})
-	first, finalized := true, false
-	var noCUDA noCUDAJournal
-	// API records are held until the journal is admitted: a journal set
-	// aside as having run no CUDA must leave nothing behind.
-	apis := make(map[uint32]gapAPI)
-	for {
-		r, err := d.Next()
-		if err != nil {
-			switch {
-			case errors.Is(err, io.EOF):
-				if summary.Records == 0 {
-					return fmt.Errorf("journal %s is empty, so no device timeline was recorded", name)
-				}
-				if !finalized {
-					if noCUDA.ranNoCUDA() {
-						summary.NoCUDA = true
-						return nil
-					}
-					return fmt.Errorf("journal %s decoded %d record(s) but never finalized, so the recorded timeline has no known end", name, summary.Records)
-				}
-				if stats := d.Stats(); stats.Gaps > 0 || stats.Dropped > 0 {
-					return fmt.Errorf("journal %s lost records (%d sequence gap(s), %d dropped), so activities the idle gaps would span are absent", name, stats.Gaps, stats.Dropped)
-				}
-				for c, a := range apis {
-					out.apis[c] = a
-				}
-				return nil
-			case errors.Is(err, io.ErrUnexpectedEOF):
-				return fmt.Errorf("journal %s is truncated after %d record(s): its final frame is incomplete, so the timeline ends at an unknown point", name, summary.Records)
-			default:
-				return fmt.Errorf("decode journal %s after %d record(s): %w", name, summary.Records, err)
-			}
-		}
-		if first {
-			d.ExpectSession(r.Session)
-			first = false
-		}
-		summary.Records++
-		var payload gapPayload
-		if len(r.Payload) > 0 && json.Unmarshal(r.Payload, &payload) != nil {
-			return fmt.Errorf("journal %s record %d is not a typed capture record", name, r.Sequence)
-		}
-		noCUDA.observe(r.Kind, payload.Subtype, r.Payload)
-		switch r.Kind {
-		case wire.KindActivity:
-			if payload.Dropped > 0 {
-				return fmt.Errorf("journal %s reports %d dropped record(s), so the timeline is missing activities", name, payload.Dropped)
-			}
-			if !payload.Valid || payload.Start == 0 || payload.End < payload.Start || payload.End > math.MaxInt64 {
-				continue
-			}
-			// Neither an NVTX marker nor a capture-range edge is device
-			// work: the first is a host annotation, the second is the
-			// producer stating when it started and stopped collecting.
-			// Counting either would inflate Activities, stretch SpanNanos to
-			// whichever one sits furthest from the device timeline, and split
-			// a real device gap in two at its timestamp.
-			if payload.Subtype == "marker" || payload.Subtype == "capture_range" {
-				continue
-			}
-			// The same exclusion, for three more kinds and a sharper reason.
-			// This filter is a denylist -- anything it does not name counts
-			// as device busy -- so a span that merely explains idle, added
-			// upstream and not named here, would be subtracted from the idle
-			// it was added to explain, and nothing would fail. That is the
-			// whole trap:
-			//
-			//   overhead    CUPTI's own cost, paid on a host thread. Counting
-			//               it as busy makes the tool's headline idle number
-			//               shrink in proportion to how much the tool cost.
-			//   sync        the host waiting. This is the reason the device
-			//               was idle; charging it to busy erases the idle it
-			//               explains, exactly.
-			//   graph_trace the replay envelope, which spans the kernel
-			//               records of the nodes replayed inside it. It would
-			//               both double-count their device time and paper
-			//               over the scheduling gaps between them.
-			//
-			// Each is kept as a span instead and intersected with the idle
-			// gaps below, which is attribution rather than occupancy.
-			switch payload.Subtype {
-			case "overhead":
-				out.overheads = append(out.overheads, gapInterval{start: int64(payload.Start), end: int64(payload.End)})
-				continue
-			case "graph_trace":
-				out.graphs = append(out.graphs, gapActivity{
-					device:      payload.Device,
-					start:       int64(payload.Start),
-					end:         int64(payload.End),
-					correlation: payload.Correlation,
-					subtype:     payload.Subtype,
-					name:        payload.Name,
-					stream:      payload.Stream,
-					graphID:     payload.GraphID,
-				})
-				continue
-			case "sync":
-				out.rawSyncs = append(out.rawSyncs, rawSync{context: payload.Context, start: int64(payload.Start), end: int64(payload.End)})
-				continue
-			}
-			// A record that carries both a context and the device it ran on
-			// is the only source for the map a synchronization record has to
-			// be resolved through. First writer wins: a context belongs to
-			// one device for its lifetime, and a later disagreement is a
-			// reused id, not a migration.
-			if payload.GraphID != 0 {
-				out.graphNodes++
-			}
-			if payload.Context != 0 {
-				if _, ok := out.contextDevice[payload.Context]; !ok {
-					out.contextDevice[payload.Context] = payload.Device
-				}
-			}
-			out.activities = append(out.activities, gapActivity{
-				device:       payload.Device,
-				start:        int64(payload.Start),
-				end:          int64(payload.End),
-				correlation:  payload.Correlation,
-				subtype:      payload.Subtype,
-				name:         payload.Name,
-				stream:       payload.Stream,
-				graphID:      payload.GraphID,
-				grid:         [3]int{int(payload.GridX), int(payload.GridY), int(payload.GridZ)},
-				block:        [3]int{int(payload.BlockX), int(payload.BlockY), int(payload.BlockZ)},
-				sharedMemory: payload.SharedMemory,
-				bytes:        payload.Bytes,
-				copyKind:     payload.CopyKind,
-				module:       payload.ModuleID,
-			})
-		case wire.KindAPI:
-			if payload.End < payload.Start || payload.End > math.MaxInt64 {
-				continue
-			}
-			apis[payload.Correlation] = gapAPI{start: int64(payload.Start), end: int64(payload.End)}
-		case wire.KindFinalized:
-			finalized = true
-			if payload.Dropped > 0 {
-				return fmt.Errorf("journal %s finalized with %d dropped record(s), so the timeline is missing activities", name, payload.Dropped)
-			}
-		}
-	}
-}
-
 // ---------------------------------------------------------------------------
 // analysis
 
 // GapReport is the whole result of one gaps run.
 type GapReport struct {
-	Capture    string       `json:"capture"`
-	Journals   []gapJournal `json:"journals"`
-	Activities int          `json:"activities"`
-	APIRecords int          `json:"api_records"`
-	Correlated float64      `json:"correlation_match_pct"`
-	WarmupMS   float64      `json:"warmup_ms"`
+	Capture    string             `json:"capture"`
+	Journals   []timeline.Journal `json:"journals"`
+	Activities int                `json:"activities"`
+	APIRecords int                `json:"api_records"`
+	Correlated float64            `json:"correlation_match_pct"`
+	WarmupMS   float64            `json:"warmup_ms"`
 	// WarmupUntil, when set, replaces WarmupMS: the steady-state window
 	// begins at the first kernel whose name matches it.
 	WarmupUntil string      `json:"warmup_until,omitempty"`
@@ -889,7 +436,7 @@ var classMeaning = map[string]string{
 }
 
 func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) {
-	journals, _, err := requireJournals(cap)
+	journals, err := requireJournals(cap)
 	if err != nil {
 		return nil, err
 	}
@@ -897,7 +444,7 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 	if journalBytes == 0 {
 		journalBytes = cudacapture.MaxCaptureInputBytes
 	}
-	records, err := decodeJournals(journals, opts.maxRecords, journalBytes)
+	records, err := timeline.Decode(journals, opts.maxRecords, journalBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -925,45 +472,45 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 	// 1.4 points apart, the promoted arm high by 107 ms, which is the idle
 	// between nodes that this counts as busy. The control needs a second arm
 	// of the same workload and so is not reproducible from any one capture.
-	graphsAreOpaque := len(records.graphs) != 0 && records.graphNodes == 0
+	graphsAreOpaque := len(records.Graphs) != 0 && records.GraphNodes == 0
 	if graphsAreOpaque {
-		records.activities = append(records.activities, records.graphs...)
-		records.graphs = nil
+		records.Activities = append(records.Activities, records.Graphs...)
+		records.Graphs = nil
 	}
-	sort.SliceStable(records.activities, func(i, j int) bool {
-		a, b := records.activities[i], records.activities[j]
-		if a.start != b.start {
-			return a.start < b.start
+	sort.SliceStable(records.Activities, func(i, j int) bool {
+		a, b := records.Activities[i], records.Activities[j]
+		if a.Start != b.Start {
+			return a.Start < b.Start
 		}
-		return a.end < b.end
+		return a.End < b.End
 	})
 	matched := 0
-	for _, a := range records.activities {
-		if _, ok := records.apis[a.correlation]; ok {
+	for _, a := range records.Activities {
+		if _, ok := records.APIs[a.Correlation]; ok {
 			matched++
 		}
 	}
 	report := &GapReport{
-		Journals:            records.journals,
-		Activities:          len(records.activities),
-		APIRecords:          len(records.apis),
-		Correlated:          float64(matched) / float64(len(records.activities)) * 100,
+		Journals:            records.Journals,
+		Activities:          len(records.Activities),
+		APIRecords:          len(records.APIs),
+		Correlated:          float64(matched) / float64(len(records.Activities)) * 100,
 		WarmupMS:            opts.warmupMS,
 		WarmupUntil:         opts.warmupUntil,
 		OpaqueGraphReplays:  graphsAreOpaque,
 		Cudaprof:            currentBuild(),
-		UnresolvedSyncs:     records.unresolvedSyncs,
-		UnresolvedSyncNanos: records.unresolvedNanos,
+		UnresolvedSyncs:     records.UnresolvedSyncs,
+		UnresolvedSyncNanos: records.UnresolvedNanos,
 	}
 	if status, ok := readGapStatus(cap); ok {
 		if m, ok := captureGraphTraceMode(status.Capability); ok {
 			report.GraphTraceMode = m
 		}
 	}
-	report.Kernels, report.UnnamedKernelRecords = kernelCensus(records.activities)
-	byDevice := make(map[uint32][]gapActivity)
-	for _, a := range records.activities {
-		byDevice[a.device] = append(byDevice[a.device], a)
+	report.Kernels, report.UnnamedKernelRecords = kernelCensus(records.Activities)
+	byDevice := make(map[uint32][]timeline.Activity)
+	for _, a := range records.Activities {
+		byDevice[a.Device] = append(byDevice[a.Device], a)
 	}
 	devices := make([]uint32, 0, len(byDevice))
 	for d := range byDevice {
@@ -984,14 +531,14 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		// Overhead spans carry no device, so every device is offered all of
 		// them; the sync and graph spans are filtered to this one.
 		spans := gapSpans{
-			overhead: records.overheads,
-			sync:     spansForDevice(records.syncs, d),
-			graph:    graphSpansForDevice(records.graphs, d),
+			overhead: records.Overheads,
+			sync:     spansForDevice(records.Syncs, d),
+			graph:    graphSpansForDevice(records.Graphs, d),
 		}
 		steady := steadyActivities(acts, warmupNanos, warmupUntil)
-		entry := GapDevice{Device: d, Overall: computeGapStats(acts, records.apis, "overall", spans), SteadyActivities: len(steady)}
+		entry := GapDevice{Device: d, Overall: computeGapStats(acts, records.APIs, "overall", spans), SteadyActivities: len(steady)}
 		if len(steady) != 0 && len(steady) != len(acts) {
-			entry.SteadyState = computeGapStats(steady, records.apis, "steady-state", spans)
+			entry.SteadyState = computeGapStats(steady, records.APIs, "steady-state", spans)
 		}
 		report.Devices = append(report.Devices, entry)
 	}
@@ -1002,18 +549,18 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 // at or after the first kernel matching until, or, when until is nil, those
 // starting more than warmupNanos after the first activity. acts is sorted by
 // start.
-func steadyActivities(acts []gapActivity, warmupNanos int64, until *regexp.Regexp) []gapActivity {
+func steadyActivities(acts []timeline.Activity, warmupNanos int64, until *regexp.Regexp) []timeline.Activity {
 	if until != nil {
 		for i, a := range acts {
-			if strings.EqualFold(a.subtype, "kernel") && until.MatchString(a.name) {
+			if strings.EqualFold(a.Subtype, "kernel") && until.MatchString(a.Name) {
 				return acts[i:]
 			}
 		}
 		return nil
 	}
-	t0 := acts[0].start
+	t0 := acts[0].Start
 	for i, a := range acts {
-		if a.start-t0 > warmupNanos {
+		if a.Start-t0 > warmupNanos {
 			return acts[i:]
 		}
 	}
@@ -1066,7 +613,7 @@ type KernelCensus struct {
 // the two sources disagree about which records exist -- and that reading is
 // the one a caller acts on, because a launch count that did not move says the
 // kernel itself did not change.
-func kernelCensus(acts []gapActivity) ([]KernelCensus, int) {
+func kernelCensus(acts []timeline.Activity) ([]KernelCensus, int) {
 	byName := make(map[string]*KernelCensus)
 	ranks := make(map[string][]int)
 	unnamed := 0
@@ -1076,23 +623,23 @@ func kernelCensus(acts []gapActivity) ([]KernelCensus, int) {
 	// the capture happened to carry.
 	launches := 0
 	for _, a := range acts {
-		if !strings.EqualFold(a.subtype, "kernel") {
+		if !strings.EqualFold(a.Subtype, "kernel") {
 			continue
 		}
 		rank := launches
 		launches++
-		if a.name == "" {
+		if a.Name == "" {
 			unnamed++
 			continue
 		}
-		c := byName[a.name]
+		c := byName[a.Name]
 		if c == nil {
-			c = &KernelCensus{Name: a.name}
-			byName[a.name] = c
+			c = &KernelCensus{Name: a.Name}
+			byName[a.Name] = c
 		}
 		c.Launches++
-		c.DeviceNanos += a.end - a.start
-		ranks[a.name] = append(ranks[a.name], rank)
+		c.DeviceNanos += a.End - a.Start
+		ranks[a.Name] = append(ranks[a.Name], rank)
 	}
 	out := make([]KernelCensus, 0, len(byName))
 	for _, c := range byName {
@@ -1119,53 +666,53 @@ func kernelCensus(acts []gapActivity) ([]KernelCensus, int) {
 // classified against.
 type mergedInterval struct {
 	start, end int64
-	first      gapActivity
+	first      timeline.Activity
 }
 
 // mergeIntervals collapses overlapping and touching activity intervals into
 // the spans during which the device was busy. Activities must be sorted by
 // start then end. A new activity that starts at or before the running end
 // extends it; anything later opens a new interval.
-func mergeIntervals(acts []gapActivity) []mergedInterval {
+func mergeIntervals(acts []timeline.Activity) []mergedInterval {
 	var merged []mergedInterval
 	for _, a := range acts {
 		if len(merged) == 0 {
-			merged = append(merged, mergedInterval{start: a.start, end: a.end, first: a})
+			merged = append(merged, mergedInterval{start: a.Start, end: a.End, first: a})
 			continue
 		}
 		last := &merged[len(merged)-1]
-		if a.start <= last.end {
-			if a.end > last.end {
-				last.end = a.end
+		if a.Start <= last.end {
+			if a.End > last.end {
+				last.end = a.End
 			}
 			continue
 		}
-		merged = append(merged, mergedInterval{start: a.start, end: a.end, first: a})
+		merged = append(merged, mergedInterval{start: a.Start, end: a.End, first: a})
 	}
 	return merged
 }
 
 // gapSpans are the non-device spans offered to one device's timeline.
 type gapSpans struct {
-	overhead, sync, graph []gapInterval
+	overhead, sync, graph []timeline.Span
 }
 
 // graphSpansForDevice is spansForDevice over the graph envelopes, which are
 // kept as activities so they can be promoted onto the timeline whole.
-func graphSpansForDevice(spans []gapActivity, device uint32) []gapInterval {
-	var out []gapInterval
+func graphSpansForDevice(spans []timeline.Activity, device uint32) []timeline.Span {
+	var out []timeline.Span
 	for _, s := range spans {
-		if s.device == device {
-			out = append(out, gapInterval{device: s.device, start: s.start, end: s.end})
+		if s.Device == device {
+			out = append(out, timeline.Span{Device: s.Device, Start: s.Start, End: s.End})
 		}
 	}
 	return out
 }
 
-func spansForDevice(spans []gapInterval, device uint32) []gapInterval {
-	var out []gapInterval
+func spansForDevice(spans []timeline.Span, device uint32) []timeline.Span {
+	var out []timeline.Span
 	for _, s := range spans {
-		if s.device == device {
+		if s.Device == device {
 			out = append(out, s)
 		}
 	}
@@ -1179,42 +726,42 @@ func spansForDevice(spans []gapInterval, device uint32) []gapInterval {
 // of the intersections, not the sum of them. A CUPTI buffer flush nested
 // inside a graph replay would otherwise be charged twice to one gap, and a
 // figure derived that way can exceed the idle it is a part of.
-func overlayIdle(gaps, spans []gapInterval) (int64, int) {
+func overlayIdle(gaps, spans []timeline.Span) (int64, int) {
 	if len(gaps) == 0 || len(spans) == 0 {
 		return 0, 0
 	}
 	var total int64
 	var touched int
 	for _, g := range gaps {
-		var pieces []gapInterval
+		var pieces []timeline.Span
 		for _, s := range spans {
-			start, end := max64(g.start, s.start), min64(g.end, s.end)
+			start, end := max64(g.Start, s.Start), min64(g.End, s.End)
 			if end > start {
-				pieces = append(pieces, gapInterval{start: start, end: end})
+				pieces = append(pieces, timeline.Span{Start: start, End: end})
 			}
 		}
 		if len(pieces) == 0 {
 			continue
 		}
 		touched++
-		sort.Slice(pieces, func(i, j int) bool { return pieces[i].start < pieces[j].start })
+		sort.Slice(pieces, func(i, j int) bool { return pieces[i].Start < pieces[j].Start })
 		cur := pieces[0]
 		for _, p := range pieces[1:] {
-			if p.start <= cur.end {
-				if p.end > cur.end {
-					cur.end = p.end
+			if p.Start <= cur.End {
+				if p.End > cur.End {
+					cur.End = p.End
 				}
 				continue
 			}
-			total += cur.end - cur.start
+			total += cur.End - cur.Start
 			cur = p
 		}
-		total += cur.end - cur.start
+		total += cur.End - cur.Start
 	}
 	return total, touched
 }
 
-func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string, spans gapSpans) *GapStats {
+func computeGapStats(acts []timeline.Activity, apis map[uint32]timeline.Span, label string, spans gapSpans) *GapStats {
 	if len(acts) == 0 {
 		return nil
 	}
@@ -1232,7 +779,7 @@ func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string, s
 	}
 	classGaps := map[string][]int64{}
 	var gaps []int64
-	var idle []gapInterval
+	var idle []timeline.Span
 	for i := 0; i+1 < len(merged); i++ {
 		prevEnd, nextStart := merged[i].end, merged[i+1].start
 		gap := nextStart - prevEnd
@@ -1240,27 +787,27 @@ func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string, s
 			continue
 		}
 		gaps = append(gaps, gap)
-		idle = append(idle, gapInterval{start: prevEnd, end: nextStart})
-		api, ok := apis[merged[i+1].first.correlation]
+		idle = append(idle, timeline.Span{Start: prevEnd, End: nextStart})
+		api, ok := apis[merged[i+1].first.Correlation]
 		if !ok {
 			classGaps[classUnmatched] = append(classGaps[classUnmatched], gap)
 			stats.Attribution.UnattributedNanos += gap
 			continue
 		}
 		switch {
-		case api.end <= prevEnd:
+		case api.End <= prevEnd:
 			classGaps[classHostAhead] = append(classGaps[classHostAhead], gap)
 			stats.Attribution.HardwareNanos += gap
-		case api.start <= prevEnd:
+		case api.Start <= prevEnd:
 			classGaps[classHostDuring] = append(classGaps[classHostDuring], gap)
-			stats.Attribution.DriverSubmitNanos += min64(api.end-prevEnd, gap)
-			stats.Attribution.HardwareNanos += max64(0, nextStart-api.end)
+			stats.Attribution.DriverSubmitNanos += min64(api.End-prevEnd, gap)
+			stats.Attribution.HardwareNanos += max64(0, nextStart-api.End)
 		default:
 			classGaps[classHostBehind] = append(classGaps[classHostBehind], gap)
-			starved := min64(api.start-prevEnd, gap)
+			starved := min64(api.Start-prevEnd, gap)
 			stats.Attribution.HostBehindNanos += starved
-			stats.Attribution.DriverSubmitNanos += min64(api.end-api.start, max64(0, gap-starved))
-			stats.Attribution.HardwareNanos += max64(0, nextStart-api.end)
+			stats.Attribution.DriverSubmitNanos += min64(api.End-api.Start, max64(0, gap-starved))
+			stats.Attribution.HardwareNanos += max64(0, nextStart-api.End)
 		}
 	}
 	for _, g := range gaps {
@@ -1432,81 +979,4 @@ func pct(part, whole int64) float64 {
 		return 0
 	}
 	return float64(part) / float64(whole) * 100
-}
-
-// journalStreamEvents reconstructs the device timeline from the per-record
-// journal, for consumers that otherwise read the pprof projection.
-//
-// The projection is an aggregate: it carries no activity timestamps, so a
-// reader built on it reports that the capture does not have them. On a capture
-// whose journal is attached that statement is false about the file, and the
-// recommendation it produced -- re-capture with timestamps -- sends someone
-// back under GPU lock for work already on disk. Everything needed is in the
-// member gaps reads by default.
-//
-// The second return says the replay envelopes are the only record of their
-// graphs (see analyzeGaps), so a caller can carry that caveat forward instead
-// of silently reporting envelope time as kernel time.
-func journalStreamEvents(cap *cudacapture.Capture) (events []streamEvent, graphsOpaque bool, err error) {
-	journals, _, err := requireJournals(cap)
-	if err != nil {
-		return nil, false, err
-	}
-	records, err := decodeJournals(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
-	if err != nil {
-		return nil, false, err
-	}
-	acts := records.activities
-	if len(records.graphs) != 0 && records.graphNodes == 0 {
-		graphsOpaque = true
-		acts = append(acts, records.graphs...)
-	}
-	for _, a := range acts {
-		if a.end <= a.start {
-			continue
-		}
-		subtype := a.subtype
-		if subtype == "" {
-			subtype = "kernel"
-		}
-		events = append(events, streamEvent{
-			Subtype:     subtype,
-			Name:        a.name,
-			Stream:      a.stream,
-			DurationNs:  uint64(a.end - a.start),
-			Start:       uint64(a.start),
-			End:         uint64(a.end),
-			Correlation: a.correlation,
-			GraphID:     a.graphID,
-			Grid:        a.grid,
-			Block:       a.block,
-		})
-	}
-	return events, graphsOpaque, nil
-}
-
-// journalAPIRecords reads the host launch API records from the per-record
-// journal, indexed by correlation id.
-//
-// Captures written through compactCaptureStatus omit the per-record arrays, so
-// a reader that looks only in capture-status.json finds none and reports that
-// the capture has no host launch timestamps. The journal that same capture
-// carries held 124834 of them on the run that found this, all correlated.
-func journalAPIRecords(cap *cudacapture.Capture) (map[uint32]apiCall, error) {
-	journals, _, err := requireJournals(cap)
-	if err != nil {
-		return nil, err
-	}
-	records, err := decodeJournals(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
-	if err != nil {
-		return nil, err
-	}
-	res := make(map[uint32]apiCall, len(records.apis))
-	for corr, api := range records.apis {
-		if corr == 0 || api.start <= 0 || api.end < api.start {
-			continue
-		}
-		res[corr] = apiCall{Start: uint64(api.start), End: uint64(api.end)}
-	}
-	return res, nil
 }

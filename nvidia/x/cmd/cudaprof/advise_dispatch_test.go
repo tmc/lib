@@ -149,29 +149,3 @@ func TestAdvice_DispatchOverheadIsNotASingleStall(t *testing.T) {
 		})
 	}
 }
-
-func TestUnionNanos(t *testing.T) {
-	tests := []struct {
-		name string
-		in   []interval
-		want uint64
-	}{
-		{name: "empty", in: nil, want: 0},
-		{name: "single", in: []interval{{10, 20}}, want: 10},
-		{name: "disjoint", in: []interval{{10, 20}, {30, 45}}, want: 25},
-		{name: "unsorted disjoint", in: []interval{{30, 45}, {10, 20}}, want: 25},
-		{name: "touching", in: []interval{{10, 20}, {20, 30}}, want: 20},
-		// Concurrent streams: summing would report 20 and charge the excess to
-		// the host as dispatch overhead on a device that was never idle.
-		{name: "identical overlap", in: []interval{{10, 20}, {10, 20}}, want: 10},
-		{name: "partial overlap", in: []interval{{10, 20}, {15, 30}}, want: 20},
-		{name: "nested", in: []interval{{10, 50}, {20, 30}}, want: 40},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := unionNanos(tt.in); got != tt.want {
-				t.Errorf("unionNanos(%v) = %d, want %d", tt.in, got, tt.want)
-			}
-		})
-	}
-}

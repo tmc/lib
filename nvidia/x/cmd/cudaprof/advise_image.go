@@ -8,6 +8,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
@@ -128,23 +129,23 @@ func findCaptureCUBIN(cap *cudacapture.Capture) ([]byte, bool) {
 // driver ids of the modules it ran from. It is empty when the capture has no
 // readable journal or its records do not name modules.
 func kernelModules(cap *cudacapture.Capture) map[string]map[uint32]bool {
-	journals, _, err := requireJournals(cap)
+	journals, err := requireJournals(cap)
 	if err != nil {
 		return nil
 	}
-	records, err := decodeJournals(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
+	records, err := timeline.Decode(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
 	if err != nil {
 		return nil
 	}
 	ran := make(map[string]map[uint32]bool)
-	for _, a := range records.activities {
-		if a.subtype != "kernel" || a.module == 0 || a.name == "" {
+	for _, a := range records.Activities {
+		if a.Subtype != "kernel" || a.Module == 0 || a.Name == "" {
 			continue
 		}
-		if ran[a.name] == nil {
-			ran[a.name] = make(map[uint32]bool)
+		if ran[a.Name] == nil {
+			ran[a.Name] = make(map[uint32]bool)
 		}
-		ran[a.name][a.module] = true
+		ran[a.Name][a.Module] = true
 	}
 	return ran
 }

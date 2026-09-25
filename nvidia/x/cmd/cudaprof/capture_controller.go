@@ -13,6 +13,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/journal"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 type captureHandshake struct {
@@ -367,7 +368,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		// the note is present exactly when records were there to lose. A shell
 		// that starts a CUDA program is the ordinary case, and refusing the
 		// run over the shell discards every record the program collected.
-		if err != nil && errors.Is(err, errJournalNotFinalized) && noCUDAGeneration(state, records) && state.generation == f.h.Generation {
+		if err != nil && errors.Is(err, errJournalNotFinalized) && state.ranNoCUDA(records) && state.generation == f.h.Generation {
 			targetNoCUDA = true
 			targetObservedState, targetObservedTransport = state, f.h.TransportReady
 			workers = append(workers, captureWorker{Process: f.h.Process, Generation: f.h.Generation, Records: state.records, Disposition: captureWorkerNoCUDA})
@@ -609,25 +610,6 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 // its counts are a floor, not a total.
 const captureWorkerUnfinalizedPartial = "unfinalized-partial"
 
-// noCUDAGeneration reports a generation that ran no CUDA at all.
-//
-// The evidence is the absence of the producer's device_active note, and that
-// absence means nothing unless the producer writes one -- an agent built
-// before the note leaves the same journal for a process that lost every
-// record as for one that had none, and reading the first as the second turns
-// a failed capture into a silently empty success. So the capability record is
-// asked whether this producer reports the note at all, and a producer that
-// does not gets the refusal it got before.
-func noCUDAGeneration(state journalState, records wire.Stats) bool {
-	if state.deviceActive || state.failure != "" || records.Records != 0 {
-		return false
-	}
-	var capability struct {
-		DeviceActiveNote bool `json:"device_active_note"`
-	}
-	return json.Unmarshal(state.capabilityData, &capability) == nil && capability.DeviceActiveNote
-}
-
 // captureWorkerNoCUDA labels a generation that ran no CUDA: the agent loaded,
 // CUPTI never asked it for an activity buffer, and the process ended without
 // finalizing a journal that had nothing in it to publish.
@@ -741,6 +723,18 @@ type journalState struct {
 	failure       string
 	failureError  string
 }
+
+// ranNoCUDA reports whether the generation this state describes ran no CUDA
+// at all, by the rule of [timeline.NoCUDA.Proven].
+func (s journalState) ranNoCUDA(records wire.Stats) bool {
+	return timeline.NoCUDA{
+		DeviceActive: s.deviceActive,
+		Failed:       s.failure != "",
+		Work:         records.Records,
+		Capability:   s.capabilityData,
+	}.Proven()
+}
+
 type journalMetrics struct {
 	duration, copyBytes, external, hostSamples uint64
 	loss                                       captureLoss
@@ -848,7 +842,7 @@ func unfinalizedHint(err error, result captureResult) string {
 // Serving workers can legitimately emit more than the transport decoder's
 // small default record bound. Keep an explicit finite controller bound while
 // allowing representative framework bursts to be inspected.
-const controllerMaxJournalRecords = 1 << 20
+const controllerMaxJournalRecords = timeline.MaxRecords
 
 func observeJournal(path, session string, targetPID int, maxRecords int64) (wire.Stats, journalState, journalMetrics, []captureActivity, []captureAPI, []captureWorker, error) {
 	state, metrics := journalState{}, journalMetrics{}

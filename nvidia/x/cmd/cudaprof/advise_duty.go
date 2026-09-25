@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // dominanceRecommendation words the dominance advisory for what the capture
@@ -193,7 +194,7 @@ func deviceWorkSubtype(subtype string, graphTraceIsWork bool) bool {
 	return true
 }
 
-func profileDutyCycle(streams map[uint32][]streamEvent) (pct float64, spanNs, busyNs uint64, ok bool) {
+func profileDutyCycle(streams map[uint32][]timeline.Event) (pct float64, spanNs, busyNs uint64, ok bool) {
 	// Decided from the capture, not assumed: a replay envelope is redundant
 	// with its node records and is the only evidence of the replay without
 	// them. See deviceWorkSubtype.
@@ -279,7 +280,7 @@ func profileDutyCycle(streams map[uint32][]streamEvent) (pct float64, spanNs, bu
 // measured duty cycle is therefore a ceiling. This is the floor beneath it:
 // the busy time the capture can actually show. The truth is somewhere in
 // between and this capture cannot say where.
-func dutyCycleFloor(streams map[uint32][]streamEvent, spanNs uint64) (float64, bool) {
+func dutyCycleFloor(streams map[uint32][]timeline.Event, spanNs uint64) (float64, bool) {
 	if spanNs == 0 {
 		return 0, false
 	}
@@ -339,7 +340,7 @@ func dutyCycleFloor(streams map[uint32][]streamEvent, spanNs uint64) (float64, b
 // measured duty cycle are the same number and this returns. Asking a second
 // source -- journal record counts rather than the stream events these
 // percentages come from -- would let the two disagree about one capture.
-func auditOpaqueDutyCeiling(streams map[uint32][]streamEvent, pct float64, spanNs uint64, report *AdviceReport) {
+func auditOpaqueDutyCeiling(streams map[uint32][]timeline.Event, pct float64, spanNs uint64, report *AdviceReport) {
 	floor, ok := dutyCycleFloor(streams, spanNs)
 	if !ok || floor >= deviceIdleCriticalPct {
 		return
@@ -362,7 +363,7 @@ func auditOpaqueDutyCeiling(streams map[uint32][]streamEvent, pct float64, spanN
 }
 
 func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
-	streams, graphsOpaque := extractStreamEventsDetail(cap)
+	streams, graphsOpaque := timeline.Events(cap)
 	pct, spanNs, busyNs, ok := profileDutyCycle(streams)
 	if !ok {
 		return

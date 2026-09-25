@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 func TestAdvice_DetermineSMCountPrecedence(t *testing.T) {
@@ -177,8 +178,8 @@ func TestAdviseReadsTheJournalItWasHanded(t *testing.T) {
 		},
 	}
 
-	streams := extractStreamEvents(cap)
-	var got []streamEvent
+	streams, _ := timeline.Events(cap)
+	var got []timeline.Event
 	for _, evs := range streams {
 		got = append(got, evs...)
 	}
@@ -193,18 +194,6 @@ func TestAdviseReadsTheJournalItWasHanded(t *testing.T) {
 	pct, span, busy, ok := profileDutyCycle(streams)
 	if !ok || span != 6_000 || busy != 3_000 {
 		t.Fatalf("duty = %.2f span/busy = %d/%d (ok %v), want 50.00 6000/3000", pct, span, busy, ok)
-	}
-
-	// The predicate is asserted directly on a zero-origin activity because no
-	// journal can supply one: the decoder treats start == 0 as unset and drops
-	// the record, so the only way to pin which field is the sentinel is here.
-	// Testing Start would read a device timeline that begins at zero as having
-	// no timestamps, and send the reader back to the projection.
-	if !anyEventTimed([]streamEvent{{Start: 0, End: 500}}) {
-		t.Error("an activity starting at 0 read as untimed: End is the sentinel, not Start")
-	}
-	if anyEventTimed([]streamEvent{{Start: 0, End: 0}, {Start: 100, End: 100}}) {
-		t.Error("an event with no interval read as timed")
 	}
 }
 
@@ -228,34 +217,5 @@ func TestCoverageSpanComesFromTheJournal(t *testing.T) {
 	}
 	if c.Span != 6_000 {
 		t.Errorf("span = %v, want 6000ns taken from the journal timeline", c.Span)
-	}
-}
-
-// TestAPIRecordsComeFromTheJournal covers the sibling of the timeline defect,
-// one layer in.
-//
-// recaptureOrRead was conditioned on the file; this sentence was still
-// conditioned on what the projection read. A capture written through
-// compactCaptureStatus omits the per-record arrays, so a reader looking only
-// at capture-status.json finds no host launch records and reports that the
-// capture has none -- while its journal held 124834, all correlated.
-func TestAPIRecordsComeFromTheJournal(t *testing.T) {
-	b := newJournalBuilder()
-	b.kernelOn(0, 1, 5_000, 6_000, 1)
-	b.api(1_000, 2_000, 1)
-	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
-
-	apis := extractAPIRecords(cap)
-	if len(apis) != 1 {
-		t.Fatalf("api records = %d, want the journal's 1", len(apis))
-	}
-	if got := apis[1]; got.Start != 1_000 || got.End != 2_000 {
-		t.Errorf("api record = %+v, want start 1000 end 2000", got)
-	}
-
-	// A capture with no journal and no per-record array still reports none:
-	// the point is to stop the false claim, not every claim.
-	if got := extractAPIRecords(&cudacapture.Capture{}); len(got) != 0 {
-		t.Errorf("api records = %d for an empty capture, want 0", len(got))
 	}
 }

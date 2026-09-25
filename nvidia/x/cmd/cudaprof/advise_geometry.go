@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
@@ -257,7 +258,7 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport
 	if cap == nil {
 		return
 	}
-	streamEvents := extractStreamEvents(cap)
+	streamEvents, _ := timeline.Events(cap)
 	if len(streamEvents) == 0 {
 		return
 	}
@@ -273,7 +274,7 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport
 	var singleCount, subWarpCount, geometryLaunches int
 	var singleNs, subWarpNs uint64
 
-	accumulate := func(stats map[string]*underSubscribedStat, ev streamEvent, threads int) {
+	accumulate := func(stats map[string]*underSubscribedStat, ev timeline.Event, threads int) {
 		st := stats[ev.Name]
 		if st == nil {
 			st = &underSubscribedStat{kernel: ev.Name, threads: threads}

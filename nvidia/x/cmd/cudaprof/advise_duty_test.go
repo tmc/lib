@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // TestDominanceRecommendationDropsGraphAdviceUnderReplay pins the defect
@@ -89,7 +90,8 @@ func TestIdleDominatedCaptureSaysSoFirst(t *testing.T) {
 	if got.Severity != SeverityCritical {
 		t.Errorf("severity = %s, want Critical", got.Severity)
 	}
-	duty, _, _, ok := profileDutyCycle(extractStreamEvents(idle))
+	streams, _ := timeline.Events(idle)
+	duty, _, _, ok := profileDutyCycle(streams)
 	if !ok {
 		t.Fatal("duty cycle not computable for the fixture the finding fired on")
 	}
@@ -118,7 +120,7 @@ func TestIdleDominatedCaptureSaysSoFirst(t *testing.T) {
 // Summing durations across concurrent streams produces more busy time than
 // there is span, which is how a duty cycle exceeds 100%.
 func TestProfileDutyCycleUnionsOverlappingStreams(t *testing.T) {
-	streams := map[uint32][]streamEvent{
+	streams := map[uint32][]timeline.Event{
 		7: {{Start: 100, End: 200, DurationNs: 100}, {Start: 300, End: 400, DurationNs: 100}},
 		9: {{Start: 100, End: 200, DurationNs: 100}, {Start: 150, End: 250, DurationNs: 100}},
 	}
@@ -140,7 +142,7 @@ func TestProfileDutyCycleUnionsOverlappingStreams(t *testing.T) {
 	// A timeline whose first activity starts at 0. Exact values, because the
 	// span is what a zero-start sentinel gets wrong, and deriving the
 	// expectation from the same function would hide it.
-	zero := map[uint32][]streamEvent{7: {
+	zero := map[uint32][]timeline.Event{7: {
 		{Start: 0, End: 1000, DurationNs: 1000},
 		{Start: 9000, End: 10000, DurationNs: 1000},
 	}}
@@ -164,7 +166,7 @@ func TestProfileDutyCycleUnionsOverlappingStreams(t *testing.T) {
 // it explains, and the duty-cycle finding that ranks every other finding goes
 // quiet on the captures that need it most.
 func TestDutyCycleCountsOnlyDeviceWork(t *testing.T) {
-	streams := map[uint32][]streamEvent{
+	streams := map[uint32][]timeline.Event{
 		0: {
 			{Subtype: "kernel", Start: 0, End: 1_000},
 			{Subtype: "sync", Start: 1_000, End: 8_000},
@@ -189,7 +191,7 @@ func TestDutyCycleCountsOnlyDeviceWork(t *testing.T) {
 // holds no such record has had its whole replay deleted from the timeline and
 // republished as idle. One real capture read 14.54% where the work was ~71%.
 func TestDutyCycleCountsAnUnrecordedGraphReplay(t *testing.T) {
-	opaque := map[uint32][]streamEvent{
+	opaque := map[uint32][]timeline.Event{
 		0: {
 			{Subtype: "kernel", Start: 0, End: 1_000},
 			{Subtype: "graph_trace", GraphID: 5, Start: 2_000, End: 9_000},
@@ -203,7 +205,7 @@ func TestDutyCycleCountsAnUnrecordedGraphReplay(t *testing.T) {
 
 	// One kernel naming its graph makes the envelope the span of something,
 	// and counting both would charge that device time twice.
-	recorded := map[uint32][]streamEvent{
+	recorded := map[uint32][]timeline.Event{
 		0: {
 			{Subtype: "kernel", Start: 0, End: 1_000},
 			{Subtype: "graph_trace", GraphID: 5, Start: 2_000, End: 9_000},
@@ -228,7 +230,7 @@ func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
 	b.kernelOn(0, 1, 90_000, 91_000, 2)
 	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
 
-	streams, opaque := extractStreamEventsDetail(cap)
+	streams, opaque := timeline.Events(cap)
 	if !opaque {
 		t.Fatal("journal with envelopes and no graph-tagged record did not report opaque replays")
 	}

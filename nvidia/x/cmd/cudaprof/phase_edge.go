@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 const maxPhaseEdges = 64
@@ -167,15 +169,15 @@ func measurePhase(result captureResult, start, stop capturePhaseEdge) (capturePh
 		StopTimestamp:  stop.Timestamp,
 		DurationNanos:  stop.Timestamp - start.Timestamp,
 	}
-	busy := make([]interval, 0, len(result.Activities))
-	var replays []interval
+	busy := make([]timeline.Interval, 0, len(result.Activities))
+	var replays []timeline.Interval
 	for _, activity := range result.Activities {
 		if !activity.Valid || activity.End < activity.Start {
 			continue
 		}
 		if activity.Subtype == "graph_trace" {
 			if lo, hi := max(activity.Start, start.Timestamp), min(activity.End, stop.Timestamp); lo < hi {
-				replays = append(replays, interval{lo, hi})
+				replays = append(replays, timeline.Interval{Start: lo, End: hi})
 			}
 			continue
 		}
@@ -196,10 +198,10 @@ func measurePhase(result captureResult, start, stop capturePhaseEdge) (capturePh
 		default:
 			continue
 		}
-		busy = append(busy, interval{activity.Start, activity.End})
+		busy = append(busy, timeline.Interval{Start: activity.Start, End: activity.End})
 	}
-	m.DeviceBusyNanos = unionNanos(busy)
-	covered := unionNanos(append(busy, replays...))
+	m.DeviceBusyNanos = timeline.Union(busy)
+	covered := timeline.Union(append(busy, replays...))
 	m.DeviceUnresolvedNanos = covered - m.DeviceBusyNanos
 	m.DeviceIdleNanos = m.DurationNanos - covered
 	m.DeviceIdleStatus = "MEASURED"

@@ -1,8 +1,12 @@
 package main
 
-import "strings"
+import (
+	"strings"
 
-func isElementwise(ev streamEvent) bool {
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
+)
+
+func isElementwise(ev timeline.Event) bool {
 	name := strings.ToLower(ev.Name)
 	if strings.Contains(name, "gemm") || strings.Contains(name, "matmul") ||
 		strings.Contains(name, "matvec") || strings.Contains(name, "gemv") ||
@@ -47,7 +51,7 @@ func isGEMVKernel(name string) bool {
 	return strings.Contains(n, "matvec") || strings.Contains(n, "gemv")
 }
 
-func matchingShapesOrBuffers(ev1, ev2 streamEvent) bool {
+func matchingShapesOrBuffers(ev1, ev2 timeline.Event) bool {
 	if ev1.Shape != "" && ev2.Shape != "" {
 		return ev1.Shape == ev2.Shape
 	}

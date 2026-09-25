@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // allowUnknownCoverageFlag lets a caller render a ranking whose denominator the
@@ -142,7 +143,7 @@ func captureCoverage(cap *cudacapture.Capture) coverage {
 	// while holding the file that does is how a reader gets told to re-run
 	// work already on disk.
 	if c.Span <= 0 {
-		if events, _, err := journalStreamEvents(cap); err == nil {
+		if events, _, err := timeline.JournalEvents(cap); err == nil {
 			var first, last uint64
 			var have bool
 			for _, ev := range events {

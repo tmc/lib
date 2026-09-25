@@ -16,6 +16,7 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
@@ -62,7 +63,7 @@ func runExportCommand(args []string) error {
 	if err != nil {
 		return fmt.Errorf("read capture %s: %w", opts.capturePath, err)
 	}
-	journals, _, err := requireJournals(cap)
+	journals, err := requireJournals(cap)
 	if err != nil {
 		return err
 	}
@@ -256,7 +257,7 @@ type traceRecord struct {
 }
 
 // decodeTraceJournals decodes every journal member into activities and API
-// calls. The refusals mirror decodeJournals: a journal that never finalized,
+// calls. The refusals mirror timeline.Decode: a journal that never finalized,
 // lost records, or decoded short leaves a timeline whose missing spans read as
 // idle device, which is a wrong answer rather than a partial one.
 func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64) ([]traceRecord, nvtxSummary, externalSummary, error) {
@@ -269,7 +270,7 @@ func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64)
 	var nvtx nvtxSummary
 	var ext externalSummary
 	for _, name := range names {
-		reader, _, err := decompressJournal(journals[name], maxBytes)
+		reader, err := timeline.OpenJournal(journals[name], maxBytes)
 		if err != nil {
 			return nil, nvtx, ext, fmt.Errorf("read journal %s: %w", name, err)
 		}
@@ -492,7 +493,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 	}
 	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: limit})
 	first, finalized, decoded := true, false, 0
-	var noCUDA noCUDAJournal
+	var noCUDA timeline.NoCUDA
 	var markers []tracePayload
 	var externals []cuptiactivity.Record
 	var session string
@@ -506,7 +507,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 					return fmt.Errorf("journal %s is empty, so no timeline was recorded", name)
 				}
 				if !finalized {
-					if noCUDA.ranNoCUDA() {
+					if noCUDA.Proven() {
 						// Host records are all it can hold, and they
 						// belong to no device timeline.
 						*out = (*out)[:base]
@@ -538,7 +539,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 		if len(r.Payload) > 0 && json.Unmarshal(r.Payload, &p) != nil {
 			return fmt.Errorf("journal %s record %d is not a typed capture record", name, r.Sequence)
 		}
-		noCUDA.observe(r.Kind, p.Subtype, r.Payload)
+		noCUDA.Observe(r.Kind, p.Subtype, r.Payload)
 		switch r.Kind {
 		case wire.KindActivity:
 			if p.Dropped > 0 {

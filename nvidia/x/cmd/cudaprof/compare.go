@@ -19,6 +19,7 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // Compare answers "why is target slower than base" for two captures of one
@@ -584,18 +585,18 @@ func (c LaunchConfig) String() string {
 // launchConfigOf returns a kernel record's launch configuration, or false
 // when the record does not carry one. No launch has a zero dimension, so a
 // zero is a record without the field.
-func launchConfigOf(a gapActivity) (LaunchConfig, bool) {
+func launchConfigOf(a timeline.Activity) (LaunchConfig, bool) {
 	var c LaunchConfig
-	if a.sharedMemory == nil {
+	if a.SharedMemory == nil {
 		return c, false
 	}
 	for i := range 3 {
-		if a.grid[i] <= 0 || a.block[i] <= 0 {
+		if a.Grid[i] <= 0 || a.Block[i] <= 0 {
 			return c, false
 		}
-		c.Grid[i], c.Block[i] = uint32(a.grid[i]), uint32(a.block[i])
+		c.Grid[i], c.Block[i] = uint32(a.Grid[i]), uint32(a.Block[i])
 	}
-	c.SharedMemory = *a.sharedMemory
+	c.SharedMemory = *a.SharedMemory
 	return c, true
 }
 
@@ -1165,11 +1166,11 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 	if l := status.RecordLoss; l != nil && l.Offered != l.Retained {
 		return nil, fmt.Errorf("capture lost records: %d offered, %d retained", l.Offered, l.Retained)
 	}
-	journals, _, err := requireJournals(cap)
+	journals, err := requireJournals(cap)
 	if err != nil {
 		return nil, err
 	}
-	records, err := decodeJournals(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
+	records, err := timeline.Decode(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -1200,7 +1201,7 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 
 // selectWindow takes the window from the phase receipt, or from the device
 // span of the whole capture when there is no qualified receipt.
-func (s *CompareSide) selectWindow(r *capturePhaseReceipt, phase int, records gapRecords) error {
+func (s *CompareSide) selectWindow(r *capturePhaseReceipt, phase int, records timeline.Records) error {
 	top := r
 	switch {
 	case r != nil && len(r.Phases) > 0:
@@ -1224,15 +1225,15 @@ func (s *CompareSide) selectWindow(r *capturePhaseReceipt, phase int, records ga
 		s.Clocks = &compareClocks{NotRecorded: "the window is not a capture range"}
 		s.WindowNote = fmt.Sprintf("phase receipt %s; window is first to last device activity", r)
 		first := true
-		for _, a := range append(records.activities, records.graphs...) {
-			if activityClass(a.subtype) < 0 && a.subtype != "graph_trace" {
+		for _, a := range append(records.Activities, records.Graphs...) {
+			if activityClass(a.Subtype) < 0 && a.Subtype != "graph_trace" {
 				continue
 			}
-			if first || a.start < s.StartTimestamp {
-				s.StartTimestamp = a.start
+			if first || a.Start < s.StartTimestamp {
+				s.StartTimestamp = a.Start
 			}
-			if first || a.end > s.StopTimestamp {
-				s.StopTimestamp = a.end
+			if first || a.End > s.StopTimestamp {
+				s.StopTimestamp = a.End
 			}
 			first = false
 		}
@@ -1251,7 +1252,7 @@ func (s *CompareSide) selectWindow(r *capturePhaseReceipt, phase int, records ga
 // state, chosen by steadyActivities from the device records inside the
 // window. A record that began before the new start is then an edge
 // straddler or outside the window, so the prologue drops out of every total.
-func (s *CompareSide) cutWarmup(records gapRecords, opts gapOptions) error {
+func (s *CompareSide) cutWarmup(records timeline.Records, opts gapOptions) error {
 	var until *regexp.Regexp
 	if opts.warmupUntil != "" {
 		re, err := regexp.Compile(opts.warmupUntil)
@@ -1260,9 +1261,9 @@ func (s *CompareSide) cutWarmup(records gapRecords, opts gapOptions) error {
 		}
 		until = re
 	}
-	var acts []gapActivity
-	for _, a := range records.activities {
-		if activityClass(a.subtype) < 0 || a.end < a.start || a.start < s.StartTimestamp || a.end > s.StopTimestamp {
+	var acts []timeline.Activity
+	for _, a := range records.Activities {
+		if activityClass(a.Subtype) < 0 || a.End < a.Start || a.Start < s.StartTimestamp || a.End > s.StopTimestamp {
 			continue
 		}
 		acts = append(acts, a)
@@ -1271,18 +1272,18 @@ func (s *CompareSide) cutWarmup(records gapRecords, opts gapOptions) error {
 		return fmt.Errorf("no kernel, memcpy or memset lies inside the window [%d,%d)", s.StartTimestamp, s.StopTimestamp)
 	}
 	sort.SliceStable(acts, func(i, j int) bool {
-		if acts[i].start != acts[j].start {
-			return acts[i].start < acts[j].start
+		if acts[i].Start != acts[j].Start {
+			return acts[i].Start < acts[j].Start
 		}
-		return acts[i].end < acts[j].end
+		return acts[i].End < acts[j].End
 	})
 	s.Warmup = describeWarmup(opts)
 	steady := steadyActivities(acts, int64(opts.warmupMS*1e6), until)
 	if len(steady) == 0 {
 		return fmt.Errorf("no steady state in the window [%d,%d): the warmup (%s) never ended", s.StartTimestamp, s.StopTimestamp, s.Warmup)
 	}
-	s.WarmupNanos = steady[0].start - s.StartTimestamp
-	s.StartTimestamp = steady[0].start
+	s.WarmupNanos = steady[0].Start - s.StartTimestamp
+	s.StartTimestamp = steady[0].Start
 	return nil
 }
 
@@ -1312,28 +1313,28 @@ type compareRecord struct {
 // measure partitions the window. Device records count only when they fall
 // entirely inside it and graph replay envelopes are clipped to it, the rule
 // measurePhase applies to the phase receipt.
-func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBoundaries, templates bool) error {
+func (s *CompareSide) measure(records timeline.Records, rules opRules, stages stageBoundaries, templates bool) error {
 	lo, hi := s.StartTimestamp, s.StopTimestamp
 	s.WindowNanos = hi - lo
 	s.ops = make(map[string]*opTotals)
 	s.launches = make(map[string]*opLaunches)
 	used := make([]bool, len(rules))
 	var recs []compareRecord
-	for _, a := range records.activities {
-		class := activityClass(a.subtype)
-		if class < 0 || a.end < a.start {
+	for _, a := range records.Activities {
+		class := activityClass(a.Subtype)
+		if class < 0 || a.End < a.Start {
 			continue
 		}
-		if a.start < lo || a.end > hi {
-			if a.end > lo && a.start < hi {
+		if a.Start < lo || a.End > hi {
+			if a.End > lo && a.Start < hi {
 				s.EdgeStraddlers++
 			}
 			continue
 		}
-		r := compareRecord{start: a.start, end: a.end, class: class}
+		r := compareRecord{start: a.Start, end: a.End, class: class}
 		switch class {
 		case classKernel:
-			key := opKey(a.name, templates)
+			key := opKey(a.Name, templates)
 			op, rule := rules.kernelOp(key)
 			if rule >= 0 {
 				used[rule] = true
@@ -1344,17 +1345,17 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 				s.ops[op] = t
 			}
 			t.launches++
-			t.summed += a.end - a.start
+			t.summed += a.End - a.Start
 			r.op, r.key = op, key
 			r.config, r.configKnown = launchConfigOf(a)
 			s.KernelCount++
 		case classMemcpy:
 			s.MemcpyCount++
-			s.MemcpyBytes += a.bytes
+			s.MemcpyBytes += a.Bytes
 			if s.MemcpyKinds == nil {
 				s.MemcpyKinds = make(map[string]int)
 			}
-			s.MemcpyKinds[strings.TrimPrefix(cupti.ActivityMemcpyKind(a.copyKind).String(), "ActivityMemcpyKind")]++
+			s.MemcpyKinds[strings.TrimPrefix(cupti.ActivityMemcpyKind(a.CopyKind).String(), "ActivityMemcpyKind")]++
 		case classMemset:
 			s.MemsetCount++
 		}
@@ -1379,10 +1380,10 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 		s.stageEntries = stages.assign(recs, owned)
 		s.stages = byStage(s.stageEntries)
 	}
-	busy := make([]interval, len(recs))
+	busy := make([]timeline.Interval, len(recs))
 	first, last := recs[0].start, recs[0].end
 	for i, r := range recs {
-		busy[i] = interval{uint64(r.start), uint64(r.end)}
+		busy[i] = timeline.Interval{Start: uint64(r.start), End: uint64(r.end)}
 		last = max(last, r.end)
 		switch r.class {
 		case classKernel:
@@ -1406,17 +1407,17 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 			s.MemsetNanos += owned[i]
 		}
 	}
-	s.BusyNanos = int64(unionNanos(busy))
+	s.BusyNanos = int64(timeline.Union(busy))
 	if parts := s.KernelNanos + s.MemcpyNanos + s.MemsetNanos; parts != s.BusyNanos {
 		return fmt.Errorf("partition charged %d ns, but the busy union is %d ns", parts, s.BusyNanos)
 	}
-	var replays []interval
-	for _, g := range records.graphs {
-		if l, h := max(g.start, lo), min(g.end, hi); l < h {
-			replays = append(replays, interval{uint64(l), uint64(h)})
+	var replays []timeline.Interval
+	for _, g := range records.Graphs {
+		if l, h := max(g.Start, lo), min(g.End, hi); l < h {
+			replays = append(replays, timeline.Interval{Start: uint64(l), End: uint64(h)})
 		}
 	}
-	covered := int64(unionNanos(append(busy, replays...)))
+	covered := int64(timeline.Union(append(busy, replays...)))
 	s.UnresolvedNanos = covered - s.BusyNanos
 	s.IdleNanos = s.WindowNanos - covered
 	s.LeadInNanos, s.TailNanos = first-lo, hi-last

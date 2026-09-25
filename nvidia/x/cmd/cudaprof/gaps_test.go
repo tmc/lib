@@ -13,6 +13,7 @@ import (
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // journalBuilder writes a synthetic CDW1 journal. Fixtures are built in full
@@ -192,30 +193,30 @@ func uniformJournal() []byte {
 }
 
 func TestGapsMergeIntervals(t *testing.T) {
-	act := func(start, end int64) gapActivity { return gapActivity{start: start, end: end} }
+	act := func(start, end int64) timeline.Activity { return timeline.Activity{Start: start, End: end} }
 	tests := []struct {
 		name string
-		in   []gapActivity
+		in   []timeline.Activity
 		want []mergedInterval
 	}{
 		{
 			name: "disjoint",
-			in:   []gapActivity{act(0, 10), act(20, 30)},
+			in:   []timeline.Activity{act(0, 10), act(20, 30)},
 			want: []mergedInterval{{start: 0, end: 10}, {start: 20, end: 30}},
 		},
 		{
 			name: "overlapping across streams",
-			in:   []gapActivity{act(0, 30), act(10, 20)},
+			in:   []timeline.Activity{act(0, 30), act(10, 20)},
 			want: []mergedInterval{{start: 0, end: 30}},
 		},
 		{
 			name: "touching intervals merge",
-			in:   []gapActivity{act(0, 10), act(10, 20)},
+			in:   []timeline.Activity{act(0, 10), act(10, 20)},
 			want: []mergedInterval{{start: 0, end: 20}},
 		},
 		{
 			name: "later end extends running interval",
-			in:   []gapActivity{act(0, 10), act(5, 25), act(30, 40)},
+			in:   []timeline.Activity{act(0, 10), act(5, 25), act(30, 40)},
 			want: []mergedInterval{{start: 0, end: 25}, {start: 30, end: 40}},
 		},
 		{
@@ -285,10 +286,10 @@ func TestGapsDistribution(t *testing.T) {
 func TestGapsHostClassification(t *testing.T) {
 	// Two merged intervals: [0,100) and [200,300), so one 100 ns gap whose
 	// class depends on where the second launch call sits relative to 100.
-	acts := []gapActivity{{start: 0, end: 100, correlation: 1}, {start: 200, end: 300, correlation: 2}}
+	acts := []timeline.Activity{{Start: 0, End: 100, Correlation: 1}, {Start: 200, End: 300, Correlation: 2}}
 	tests := []struct {
 		name         string
-		api          *gapAPI
+		api          *timeline.Span
 		wantClass    string
 		wantIdle     int64
 		wantBehind   int64
@@ -298,14 +299,14 @@ func TestGapsHostClassification(t *testing.T) {
 	}{
 		{
 			name:         "host ahead",
-			api:          &gapAPI{start: 10, end: 50},
+			api:          &timeline.Span{Start: 10, End: 50},
 			wantClass:    classHostAhead,
 			wantIdle:     100,
 			wantHardware: 100,
 		},
 		{
 			name:         "host during",
-			api:          &gapAPI{start: 60, end: 140},
+			api:          &timeline.Span{Start: 60, End: 140},
 			wantClass:    classHostDuring,
 			wantIdle:     100,
 			wantDriver:   40,
@@ -313,7 +314,7 @@ func TestGapsHostClassification(t *testing.T) {
 		},
 		{
 			name:         "host behind",
-			api:          &gapAPI{start: 130, end: 170},
+			api:          &timeline.Span{Start: 130, End: 170},
 			wantClass:    classHostBehind,
 			wantIdle:     100,
 			wantBehind:   30,
@@ -333,7 +334,7 @@ func TestGapsHostClassification(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			apis := map[uint32]gapAPI{}
+			apis := map[uint32]timeline.Span{}
 			if tt.api != nil {
 				apis[2] = *tt.api
 			}
@@ -623,51 +624,6 @@ func TestGapsParseArgs(t *testing.T) {
 	}
 }
 
-func TestDecompressJournalLimit(t *testing.T) {
-	raw := []byte("12345678")
-	var compressed bytes.Buffer
-	zw := gzip.NewWriter(&compressed)
-	if _, err := zw.Write(raw); err != nil {
-		t.Fatal(err)
-	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	for _, tt := range []struct {
-		name  string
-		data  []byte
-		limit int64
-		want  string
-	}{
-		{"plain exact", raw, int64(len(raw)), string(raw)},
-		{"gzip exact", compressed.Bytes(), int64(len(raw)), string(raw)},
-		{"plain over", raw, int64(len(raw) - 1), "journal exceeds"},
-		{"gzip over", compressed.Bytes(), int64(len(raw) - 1), "journal exceeds"},
-		{"invalid", raw, 0, "invalid journal byte limit"},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			r, _, err := decompressJournal(tt.data, tt.limit)
-			var got []byte
-			if err == nil {
-				got, err = io.ReadAll(r)
-				_ = r.Close()
-			}
-			if strings.Contains(tt.want, "journal exceeds") || strings.Contains(tt.want, "invalid") {
-				if err == nil || !strings.Contains(err.Error(), tt.want) {
-					t.Fatalf("error = %v, want %q", err, tt.want)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(got) != tt.want {
-				t.Errorf("journal = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestGapsCLI(t *testing.T) {
 	dir := t.TempDir()
 	capPath := filepath.Join(dir, "gaps.pprof")
@@ -910,7 +866,7 @@ func TestGapsSpanCoversContainedActivities(t *testing.T) {
 
 // TestGapsCountsMemsetsAsBusy pins the consequence the MEMSET tier exists for.
 //
-// The subtype filter in decodeJournals is a denylist -- markers and capture
+// The subtype filter in timeline.Decode is a denylist -- markers and capture
 // range edges are dropped and everything else is device work -- so this passes
 // the moment memsets reach the journal at all. That is exactly why it is here:
 // the whole defect was upstream of any filter. CUPTI was never asked for the
@@ -1217,12 +1173,12 @@ func TestGapsOverlayDoesNotDoubleCountOverlappingSpans(t *testing.T) {
 func TestUnattributedIdleNamesNoMechanism(t *testing.T) {
 	// Three activities, 100 us apart. The middle one correlates; the last
 	// does not, so one gap is attributable and one is not.
-	acts := []gapActivity{
-		{start: 0, end: 100_000, correlation: 1},
-		{start: 200_000, end: 300_000, correlation: 2},
-		{start: 400_000, end: 500_000, correlation: 3},
+	acts := []timeline.Activity{
+		{Start: 0, End: 100_000, Correlation: 1},
+		{Start: 200_000, End: 300_000, Correlation: 2},
+		{Start: 400_000, End: 500_000, Correlation: 3},
 	}
-	apis := map[uint32]gapAPI{2: {start: 10_000, end: 50_000}} // host ahead
+	apis := map[uint32]timeline.Span{2: {Start: 10_000, End: 50_000}} // host ahead
 	s := computeGapStats(acts, apis, "overall", gapSpans{})
 	if s.GapCount != 2 || s.IdleNanos != 200_000 {
 		t.Fatalf("gaps/idle = %d/%d, want 2/200000", s.GapCount, s.IdleNanos)
@@ -1571,31 +1527,15 @@ func TestUnfinalizedNoCUDAJournal(t *testing.T) {
 				"worker-a-capture.journal": tt.journal,
 				"worker-b-capture.journal": newJournalBuilder().kernel(100, 200, 1).api(90, 95, 1).finalize(),
 			}
-			got, err := decodeJournals(journals, controllerMaxJournalRecords, 1<<20)
 			_, _, _, exportErr := decodeTraceJournals(journals, controllerMaxJournalRecords, 1<<20)
 			if tt.wantErr != "" {
-				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-					t.Errorf("gaps error = %v, want %q", err, tt.wantErr)
-				}
 				if exportErr == nil || !strings.Contains(exportErr.Error(), tt.wantErr) {
 					t.Errorf("export error = %v, want %q", exportErr, tt.wantErr)
 				}
 				return
 			}
-			if err != nil {
-				t.Fatalf("gaps refused a no-CUDA journal: %v", err)
-			}
 			if exportErr != nil {
 				t.Fatalf("export refused a no-CUDA journal: %v", exportErr)
-			}
-			if len(got.journals) != 2 || !got.journals[0].NoCUDA || got.journals[1].NoCUDA {
-				t.Errorf("journals = %+v, want worker-a marked no-CUDA and worker-b not", got.journals)
-			}
-			if len(got.activities) != 1 {
-				t.Errorf("activities = %d, want 1: the no-CUDA journal contributes none", len(got.activities))
-			}
-			if _, ok := got.apis[99]; ok || len(got.apis) != 1 {
-				t.Errorf("apis = %v, want only worker-b's: a set-aside journal leaves nothing behind", got.apis)
 			}
 		})
 	}

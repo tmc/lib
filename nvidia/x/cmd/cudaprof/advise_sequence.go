@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 // sequenceDutyCycle returns the percentage of the sequence's device span spent
 // executing its kernels. ok is false when the capture does not carry usable
 // timestamps for every kernel in the sequence.
-func sequenceDutyCycle(seq []streamEvent) (pct float64, ok bool) {
+func sequenceDutyCycle(seq []timeline.Event) (pct float64, ok bool) {
 	if len(seq) == 0 {
 		return 0, false
 	}
@@ -56,7 +57,7 @@ func sequenceDutyCycle(seq []streamEvent) (pct float64, ok bool) {
 // only after the preceding kernel had already finished on the device, i.e. the
 // launches for which the device waited on the host. measured counts the
 // launches for which both timestamps were available.
-func hostBehindLaunches(seq []streamEvent, apis map[uint32]apiCall) (behind, measured int) {
+func hostBehindLaunches(seq []timeline.Event, apis map[uint32]timeline.APICall) (behind, measured int) {
 	if len(apis) == 0 {
 		return 0, 0
 	}
@@ -79,11 +80,11 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		return
 	}
 
-	streamEvents := extractStreamEvents(cap)
+	streamEvents, _ := timeline.Events(cap)
 	if len(streamEvents) == 0 {
 		return
 	}
-	apis := extractAPIRecords(cap)
+	apis := timeline.APIRecords(cap)
 	graphReplays := capturedGraphReplays(cap)
 	seenDutyUnmeasured := make(map[uint32]bool)
 
@@ -113,7 +114,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		}
 
 		// 1. Heuristic 4: CUDA Graph Launch Sequence Candidates
-		var kernelSeq []streamEvent
+		var kernelSeq []timeline.Event
 		checkGraphCandidate := func() {
 			if len(kernelSeq) >= 5 {
 				durations := make([]uint64, len(kernelSeq))
@@ -277,8 +278,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		type pairStat struct {
 			count    int
 			totalDur uint64
-			ev1      streamEvent
-			ev2      streamEvent
+			ev1      timeline.Event
+			ev2      timeline.Event
 		}
 		var pairKeys []string
 		pairStats := make(map[string]*pairStat)

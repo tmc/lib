@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // auditHostDispatchOverhead compares a complete host API dispatch span with
@@ -16,13 +16,13 @@ func auditHostDispatchOverhead(cap *cudacapture.Capture, report *AdviceReport) {
 	if cap == nil {
 		return
 	}
-	apis := extractAPIRecords(cap)
+	apis := timeline.APIRecords(cap)
 	if len(apis) == 0 {
 		return
 	}
-	events := extractStreamEvents(cap)
+	events, _ := timeline.Events(cap)
 	var hostStart, hostEnd uint64
-	var busy []interval
+	var busy []timeline.Interval
 	seen := make(map[uint32]bool)
 	measured := 0
 	for _, stream := range events {
@@ -39,7 +39,7 @@ func auditHostDispatchOverhead(cap *cudacapture.Capture, report *AdviceReport) {
 			}
 			seen[ev.Correlation] = true
 			measured++
-			busy = append(busy, interval{start: ev.Start, end: ev.End})
+			busy = append(busy, timeline.Interval{Start: ev.Start, End: ev.End})
 			if hostStart == 0 || api.Start < hostStart {
 				hostStart = api.Start
 			}
@@ -53,7 +53,7 @@ func auditHostDispatchOverhead(cap *cudacapture.Capture, report *AdviceReport) {
 	// from host overhead in the subtraction below: two streams each busy for the
 	// whole span would report the span's worth of overhead on a device that was
 	// never idle.
-	deviceNanos := unionNanos(busy)
+	deviceNanos := timeline.Union(busy)
 	if measured == 0 || hostEnd <= hostStart || hostEnd-hostStart <= deviceNanos {
 		return
 	}
@@ -95,32 +95,4 @@ func auditHostDispatchOverhead(cap *cudacapture.Capture, report *AdviceReport) {
 		ActionableRecommendation: rec,
 		NextMeasurement:          "repeat with CUDA Graph capture or batched launches and retain correlation-matched host/API and device timestamps",
 	})
-}
-
-// interval is a half-open device-busy window.
-type interval struct {
-	start, end uint64
-}
-
-// unionNanos totals the time covered by at least one interval. Overlapping
-// intervals are counted once.
-func unionNanos(in []interval) uint64 {
-	if len(in) == 0 {
-		return 0
-	}
-	sorted := append([]interval(nil), in...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].start < sorted[j].start })
-	var total uint64
-	cur := sorted[0]
-	for _, iv := range sorted[1:] {
-		if iv.start > cur.end {
-			total += cur.end - cur.start
-			cur = iv
-			continue
-		}
-		if iv.end > cur.end {
-			cur.end = iv.end
-		}
-	}
-	return total + cur.end - cur.start
 }

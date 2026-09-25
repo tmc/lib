@@ -13,6 +13,7 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
 // hostAPIClass is the kind of host API call a host-cost finding names.
@@ -96,7 +97,7 @@ type hostAPIPayload struct {
 // readHostAPIJournal decodes the API records and copy activities of every
 // journal in cap.
 func readHostAPIJournal(cap *cudacapture.Capture) (hostAPIJournal, error) {
-	journals, _, err := requireJournals(cap)
+	journals, err := requireJournals(cap)
 	if err != nil {
 		return hostAPIJournal{}, err
 	}
@@ -119,7 +120,7 @@ func readHostAPIJournal(cap *cudacapture.Capture) (hostAPIJournal, error) {
 }
 
 func (j *hostAPIJournal) decode(name string, data []byte) error {
-	reader, _, err := decompressJournal(data, cudacapture.MaxCaptureInputBytes)
+	reader, err := timeline.OpenJournal(data, cudacapture.MaxCaptureInputBytes)
 	if err != nil {
 		return fmt.Errorf("read journal %s: %w", name, err)
 	}
