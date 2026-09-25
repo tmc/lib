@@ -46,6 +46,8 @@ func (e CollapseOp) String() string {
 }
 
 // ComputeType specifies the minimal accuracy of the arithmetic a call uses.
+//
+// Only three combinations of state vector, matrix and compute type are accepted; see the package documentation.
 type ComputeType int32
 
 const (

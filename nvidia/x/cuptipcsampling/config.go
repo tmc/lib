@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 type samplingOptions struct {
@@ -21,7 +22,7 @@ type samplingOptions struct {
 // samplingConfig and its output buffer remain pinned until native teardown,
 // including after a failed apply: configuration may have been partly accepted.
 type samplingConfig struct {
-	ctx                                    cupti.Context
+	ctx                                    driver.Context
 	output                                 *samplingBuffer
 	attrs                                  []cupti.PCSamplingConfigurationInfo
 	effective                              []cupti.PCSamplingConfigurationInfo
@@ -75,7 +76,7 @@ func newSamplingConfig(o samplingOptions, inventory ReasonInventory, output *sam
 	return c, nil
 }
 
-func (c *samplingConfig) apply(ctx cupti.Context, query func(*cupti.PCSamplingConfigurationInfoParams) error) error {
+func (c *samplingConfig) apply(ctx driver.Context, query func(*cupti.PCSamplingConfigurationInfoParams) error) error {
 	if c.released || c.attempted || ctx == 0 || query == nil {
 		return errors.New("cuptipcsampling: invalid configuration application")
 	}

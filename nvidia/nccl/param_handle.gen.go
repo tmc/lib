@@ -2,52 +2,100 @@
 
 package nccl
 
-// Get wraps ncclParamGet.
+// Get copies the raw binary representation of the parameter bound to h into the caller-allocated buffer out.
+//
+// maxLen is the size of out in bytes. The number of bytes actually written is returned in *len. If the parameter’s native representation is larger than maxLen, the function returns ncclInvalidArgument and *len is set to the required size.
+//
+// Wraps ncclParamGet.
 func (p ParamHandle) Get(out uintptr, maxLen int32, len_ *int32) error {
 	return paramGet(p, out, maxLen, len_)
 }
 
-// I16 wraps ncclParamGetI16.
+// I16 reads the value of the parameter bound to h as the type T and store it in *out.
+//
+// Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
+// This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
+//
+// Wraps ncclParamGetI16.
 func (p ParamHandle) I16(out *int16) error {
 	return paramGetI16(p, out)
 }
 
-// I32 wraps ncclParamGetI32.
+// I32 reads the value of the parameter bound to h as the type T and store it in *out.
+//
+// Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
+// This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
+//
+// Wraps ncclParamGetI32.
 func (p ParamHandle) I32() (int32, error) {
 	return paramGetI32(p)
 }
 
-// I64 wraps ncclParamGetI64.
+// I64 reads the value of the parameter bound to h as the type T and store it in *out.
+//
+// Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
+// This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
+//
+// Wraps ncclParamGetI64.
 func (p ParamHandle) I64() (int64, error) {
 	return paramGetI64(p)
 }
 
-// I8 wraps ncclParamGetI8.
+// I8 reads the value of the parameter bound to h as the type T and store it in *out.
+//
+// Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
+// This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
+//
+// Wraps ncclParamGetI8.
 func (p ParamHandle) I8(out *int8) error {
 	return paramGetI8(p, out)
 }
 
-// Str wraps ncclParamGetStr.
+// Str returns a C-style string representation of the parameter bound to h.
+//
+// The pointer written to *out is owned by the parameter system and is valid until the next call to [ParamHandle.Str] on the same thread. Callers that need to retain the value across calls must copy it.
+//
+// Wraps ncclParamGetStr.
 func (p ParamHandle) Str(out **byte) error {
 	return paramGetStr(p, out)
 }
 
-// U16 wraps ncclParamGetU16.
+// U16 reads the value of the parameter bound to h as the type T and store it in *out.
+//
+// Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
+// This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
+//
+// Wraps ncclParamGetU16.
 func (p ParamHandle) U16(out *uint16) error {
 	return paramGetU16(p, out)
 }
 
-// U32 wraps ncclParamGetU32.
+// U32 reads the value of the parameter bound to h as the type T and store it in *out.
+//
+// Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
+// This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
+//
+// Wraps ncclParamGetU32.
 func (p ParamHandle) U32() (uint32, error) {
 	return paramGetU32(p)
 }
 
-// U64 wraps ncclParamGetU64.
+// U64 reads the value of the parameter bound to h as the type T and store it in *out.
+//
+// Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
+// This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
+//
+// Wraps ncclParamGetU64.
 func (p ParamHandle) U64() (uint64, error) {
 	return paramGetU64(p)
 }
 
-// U8 wraps ncclParamGetU8.
+// U8 reads the value of the parameter bound to h as the type T and store it in *out.
+//
+// Returns ncclInvalidArgument if the parameter value cannot be converted to the requested type. These functions will also return ncclInvalidArgument if h or out is NULL.
+// This function family comes in all combinations of signed (I) and unsigned (U) for 8-, 16-, 32-, and 64-bit integers.
+//
+// Wraps ncclParamGetU8.
 func (p ParamHandle) U8(out *uint8) error {
 	return paramGetU8(p, out)
 }

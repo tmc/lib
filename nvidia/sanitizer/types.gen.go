@@ -5,14 +5,8 @@ package sanitizer
 // Array is an opaque handle to a CUDA array.
 type Array uintptr
 
-// Context is an opaque handle to a CUDA context.
-type Context uintptr
-
 // Device is a CUDA device ordinal.
 type Device int32
-
-// Event is an opaque handle to a CUDA event.
-type Event uintptr
 
 // ExternalMemory is an opaque handle to imported external memory.
 type ExternalMemory uintptr
@@ -29,7 +23,9 @@ type GraphExec uintptr
 // GraphNode is an opaque handle to a node in a CUDA graph.
 type GraphNode uintptr
 
-// GraphNodeType discriminates the union in [GraphNodeLaunchData]. Its values come from cuda.h, not from the sanitizer headers.
+// GraphNodeType discriminates the union in [GraphNodeLaunchData].
+//
+// Its values come from cuda.h, not from the sanitizer headers.
 type GraphNodeType int32
 
 // GreenContext is an opaque handle to a CUDA green context.
@@ -38,7 +34,9 @@ type GreenContext uintptr
 // Library is an opaque handle to a loaded CUDA library.
 type Library uintptr
 
-// LogLevel is a CUDA driver log level. Its values come from cuda.h, not from the sanitizer headers.
+// LogLevel is a CUDA driver log level.
+//
+// Its values come from cuda.h, not from the sanitizer headers.
 type LogLevel int32
 
 // MemoryPool is an opaque handle to a CUDA memory pool.
@@ -46,6 +44,3 @@ type MemoryPool uintptr
 
 // Module is an opaque handle to a loaded CUDA module.
 type Module uintptr
-
-// Stream is an opaque handle to a CUDA stream. It is not interchangeable with [StreamHandle]; convert with [GetStreamHandle] and [StreamHandle.GetStream].
-type Stream uintptr

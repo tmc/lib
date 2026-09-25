@@ -6,7 +6,7 @@ import (
 	"github.com/tmc/lib/nvidia/cublas"
 )
 
-// NewMatrixDescriptor Creates and initializes a matrix descriptor.
+// NewMatrixDescriptor creates and initializes a matrix descriptor.
 //
 // This function creates and initializes a new [MatrixDescriptor] object that
 // describes a distributed matrix using 2D block-cyclic distribution.
@@ -33,7 +33,7 @@ func NewMatrixDescriptor(m int64, n int64, mb int64, nb int64, rsrc int64, csrc 
 	return MatrixDescriptorCreate(m, n, mb, nb, rsrc, csrc, lld, type_, grid)
 }
 
-// Destroy Destroys a matrix descriptor.
+// Destroy destroys a matrix descriptor.
 //
 // This function destroys a [MatrixDescriptor] object.
 //
@@ -42,7 +42,7 @@ func (m MatrixDescriptor) Destroy() error {
 	return MatrixDescriptorDestroy(m)
 }
 
-// Init Initializes the values of an existing matrix descriptor.
+// Init initializes the values of an existing matrix descriptor.
 //
 // This function initializes the values of a [MatrixDescriptor] object.
 // Unlike [NewMatrixDescriptor], this function does not allocate

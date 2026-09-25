@@ -5,24 +5,164 @@
 
 package gdrcopy
 
-import "unsafe"
+import (
+	"sync"
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/internal/ffi"
+)
 
 // Generated function pointer variables.
 var (
-	fnClose                func(Handle) int32
-	fnCopyFromMapping      func(MemHandle, unsafe.Pointer, uintptr, uint) int32
-	fnCopyToMapping        func(MemHandle, uintptr, unsafe.Pointer, uint) int32
-	fnDriverGetVersion     func(Handle, *int32, *int32) int32
-	fnGetAttribute         func(Handle, Attr, *int32) int32
-	fnGetCallbackFlag      func(Handle, MemHandle, *int32) int32
-	fnGetInfoV2            func(Handle, MemHandle, *Info) int32
-	fnGetMappingTypeString func(MappingType, **byte) int32
-	fnMap                  func(Handle, MemHandle, *uintptr, uint) int32
-	fnMapV2                func(Handle, MemHandle, *uintptr, uint, int32) int32
-	fnOpen                 func() Handle
-	fnPinBuffer            func(Handle, uint, uint, uint64, uint32, *MemHandle) int32
-	fnPinBufferV2          func(Handle, uint, uint, uint32, *MemHandle) int32
-	fnRuntimeGetVersion    func(*int32, *int32)
-	fnUnmap                func(Handle, MemHandle, uintptr, uint) int32
-	fnUnpinBuffer          func(Handle, MemHandle) int32
+	symClose                uintptr
+	fnCopyFromMapping       func(MemHandle, unsafe.Pointer, uintptr, uint) int32
+	fnCopyToMapping         func(MemHandle, uintptr, unsafe.Pointer, uint) int32
+	symDriverGetVersion     uintptr
+	symGetAttribute         uintptr
+	fnGetCallbackFlag       func(Handle, MemHandle, *int32) int32
+	fnGetInfoV2             func(Handle, MemHandle, *Info) int32
+	symGetMappingTypeString uintptr
+	fnMap                   func(Handle, MemHandle, *uintptr, uint) int32
+	fnMapV2                 func(Handle, MemHandle, *uintptr, uint, int32) int32
+	symOpen                 uintptr
+	symPinBuffer            uintptr
+	symPinBufferV2          uintptr
+	symRuntimeGetVersion    uintptr
+	fnUnmap                 func(Handle, MemHandle, uintptr, uint) int32
+	fnUnpinBuffer           func(Handle, MemHandle) int32
 )
+
+// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnClose calls gdr_close.
+func fnClose(a0 Handle) int32 {
+	r1, _ := ffiCall1(symClose, 0, uintptr(a0))
+	return int32(r1)
+}
+
+// fnDriverGetVersion calls gdr_driver_get_version.
+func fnDriverGetVersion(a0 Handle, a1 *int32, a2 *int32) int32 {
+	r1, _ := ffiCall3(symDriverGetVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return int32(r1)
+}
+
+// fnGetAttribute calls gdr_get_attribute.
+func fnGetAttribute(a0 Handle, a1 Attr, a2 *int32) int32 {
+	r1, _ := ffiCall3(symGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return int32(r1)
+}
+
+// fnGetMappingTypeString calls gdr_get_mapping_type_string.
+func fnGetMappingTypeString(a0 MappingType, a1 **byte) int32 {
+	r1, _ := ffiCall2(symGetMappingTypeString, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return int32(r1)
+}
+
+// fnOpen calls gdr_open.
+func fnOpen() Handle {
+	r1, _ := ffiCall0(symOpen, 0)
+	return Handle(r1)
+}
+
+// fnPinBuffer calls gdr_pin_buffer.
+func fnPinBuffer(a0 Handle, a1 uint, a2 uint, a3 uint64, a4 uint32, a5 *MemHandle) int32 {
+	r1, _ := ffiCall6(symPinBuffer, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return int32(r1)
+}
+
+// fnPinBufferV2 calls gdr_pin_buffer_v2.
+func fnPinBufferV2(a0 Handle, a1 uint, a2 uint, a3 uint32, a4 *MemHandle) int32 {
+	r1, _ := ffiCall5(symPinBufferV2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return int32(r1)
+}
+
+// fnRuntimeGetVersion calls gdr_runtime_get_version.
+func fnRuntimeGetVersion(a0 *int32, a1 *int32) {
+	ffiCall2(symRuntimeGetVersion, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+}

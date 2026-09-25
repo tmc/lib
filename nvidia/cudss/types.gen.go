@@ -14,6 +14,3 @@ const (
 	MinorVersion LibraryPropertyType = 1
 	PatchLevel   LibraryPropertyType = 2
 )
-
-// Stream is a CUDA runtime stream handle (cudaStream_t).
-type Stream uintptr

@@ -2,6 +2,10 @@
 
 package custatevec
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // NewSVSwapWorker [Create] state vector swap worker.
 //
 //   - handle: in the handle to cuStateVec library
@@ -16,7 +20,7 @@ package custatevec
 //   - minTransferWorkspaceSizeInBytes: out the minimum-required size of the transfer workspace
 //
 // Wraps custatevecSVSwapWorkerCreate.
-func NewSVSwapWorker(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgEvent Event, svDataType DataType, stream Stream) (SVSwapWorker, uint, uint, error) {
+func NewSVSwapWorker(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgEvent driver.Event, svDataType DataType, stream driver.Stream) (SVSwapWorker, uint, uint, error) {
 	return sVSwapWorkerCreate(handle, communicator, orgSubSV, orgSubSVIndex, orgEvent, svDataType, stream)
 }
 
@@ -34,7 +38,7 @@ func NewSVSwapWorker(handle Handle, communicator Communicator, orgSubSV uintptr,
 //   - minTransferWorkspaceSizeInBytes: out the minimum-required size of the transfer workspace
 //
 // Wraps custatevecSVSwapWorkerCreateWithSemaphore.
-func NewSVSwapWorkerWithSemaphore(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgSemaphore uintptr, svDataType DataType, stream Stream) (SVSwapWorker, uint, uint, error) {
+func NewSVSwapWorkerWithSemaphore(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgSemaphore uintptr, svDataType DataType, stream driver.Stream) (SVSwapWorker, uint, uint, error) {
 	return sVSwapWorkerCreateWithSemaphore(handle, communicator, orgSubSV, orgSubSVIndex, orgSemaphore, svDataType, stream)
 }
 
@@ -47,7 +51,7 @@ func (s SVSwapWorker) Destroy(handle Handle) error {
 	return sVSwapWorkerDestroy(handle, s)
 }
 
-// Execute Execute the data transfer.
+// Execute executes the data transfer.
 //
 //   - handle: in the handle to cuStateVec library
 //   - begin: in the index to start transfer
@@ -58,7 +62,7 @@ func (s SVSwapWorker) Execute(handle Handle, begin Index, end Index) error {
 	return sVSwapWorkerExecute(handle, s, begin, end)
 }
 
-// SetExtraWorkspace Set extra workspace.
+// SetExtraWorkspace sets extra workspace.
 //
 //   - handle: in the handle to cuStateVec library
 //   - extraWorkspace: in pointer to the user-owned workspace
@@ -69,7 +73,7 @@ func (s SVSwapWorker) SetExtraWorkspace(handle Handle, extraWorkspace uintptr, e
 	return sVSwapWorkerSetExtraWorkspace(handle, s, extraWorkspace, extraWorkspaceSizeInBytes)
 }
 
-// SetParameters Set state vector swap parameters.
+// SetParameters sets state vector swap parameters.
 //
 //   - handle: in the handle to cuStateVec library
 //   - parameters: in data transfer parameters
@@ -80,7 +84,7 @@ func (s SVSwapWorker) SetParameters(handle Handle, parameters *SVSwapParameters,
 	return sVSwapWorkerSetParameters(handle, s, parameters, peer)
 }
 
-// SetSubSVsP2P Set sub state vector pointers accessible via GPUDirect P2P with CUDA IPC events
+// SetSubSVsP2P sets sub state vector pointers accessible via GPUDirect P2P with CUDA IPC events
 //
 //   - handle: in the handle to cuStateVec library
 //   - dstSubSVsP2P: in an array of pointers to sub state vectors that are accessed by GPUDirect P2P
@@ -89,11 +93,11 @@ func (s SVSwapWorker) SetParameters(handle Handle, parameters *SVSwapParameters,
 //   - nDstSubSVsP2P: in the number of sub state vector pointers specified by the dstSubSVsP2P argument
 //
 // Wraps custatevecSVSwapWorkerSetSubSVsP2P.
-func (s SVSwapWorker) SetSubSVsP2P(handle Handle, dstSubSVsP2P *uintptr, dstSubSVIndicesP2P *int32, dstEvents *Event, nDstSubSVsP2P uint32) error {
+func (s SVSwapWorker) SetSubSVsP2P(handle Handle, dstSubSVsP2P *uintptr, dstSubSVIndicesP2P *int32, dstEvents *driver.Event, nDstSubSVsP2P uint32) error {
 	return sVSwapWorkerSetSubSVsP2P(handle, s, dstSubSVsP2P, dstSubSVIndicesP2P, dstEvents, nDstSubSVsP2P)
 }
 
-// SetSubSVsP2PWithSemaphores Set sub state vector pointers accessible via GPUDirect P2P with semaphores
+// SetSubSVsP2PWithSemaphores sets sub state vector pointers accessible via GPUDirect P2P with semaphores
 //
 //   - handle: in the handle to cuStateVec library
 //   - dstSubSVsP2P: in an array of pointers to sub state vectors that are accessed by GPUDirect P2P
@@ -106,7 +110,7 @@ func (s SVSwapWorker) SetSubSVsP2PWithSemaphores(handle Handle, dstSubSVsP2P *ui
 	return sVSwapWorkerSetSubSVsP2PWithSemaphores(handle, s, dstSubSVsP2P, dstSubSVIndicesP2P, dstSemaphores, nDstSubSVsP2P)
 }
 
-// SetTransferWorkspace Set transfer workspace.
+// SetTransferWorkspace sets transfer workspace.
 //
 //   - handle: in the handle to cuStateVec library
 //   - transferWorkspace: in pointer to the user-owned workspace

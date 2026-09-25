@@ -2,7 +2,7 @@
 
 package driver
 
-// AddCallback Add a callback to a compute stream.
+// AddCallback adds a callback to a compute stream.
 //
 // Adds a callback to be called on the host after all currently enqueued items in the stream have completed. For each [Stream.AddCallback] call, the callback will be executed exactly once. The callback will block later work in the stream until it is finished.
 // The callback may be passed [Success] or an error code. In the event of a device error, all subsequently executed callbacks will receive an appropriate [Result].
@@ -26,7 +26,7 @@ func (s Stream) AddCallback(callback uintptr, userData uintptr, flags uint32) er
 	return streamAddCallback(s, callback, userData, flags)
 }
 
-// AttachMemAsync Attach memory to a stream asynchronously.
+// AttachMemAsync attaches memory to a stream asynchronously.
 //
 // Enqueues an operation in hStream to specify stream association of length bytes of memory starting from dptr. This function is a stream-ordered operation, meaning that it is dependent on, and will only take effect when, previous work in stream has completed. Any previous association is automatically replaced.
 // dptr must point to one of the following types of memories:
@@ -74,7 +74,7 @@ func (s Stream) BatchMemOp(count uint32, paramArray *[6]uint64, flags uint32) er
 	return streamBatchMemOp(s, count, paramArray, flags)
 }
 
-// BeginCapture Begins graph capture on a stream.
+// BeginCapture begins graph capture on a stream.
 //
 // Begin graph capture on hStream. When a stream is in capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graph, which will be returned via [Stream.EndCapture]. Capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in capture mode. The capture mode may be queried via [Stream.IsCapturing]. A unique id representing the capture sequence may be queried via [Stream.CaptureInfo].
 // If mode is not [StreamCaptureModeRelaxed], [Stream.EndCapture] must be called on this stream from the same thread.
@@ -92,7 +92,7 @@ func (s Stream) BeginCapture(mode StreamCaptureMode) error {
 	return streamBeginCapture(s, mode)
 }
 
-// BeginCaptureToCig Begins capture to CIG on a stream.
+// BeginCaptureToCig begins capture to CIG on a stream.
 //
 // Support for CIG streams with D3D12 can be determined using [Device.Attribute] with CU_DEVICE_ATTRIBUTE_D3D12_CIG_STREAMS_SUPPORTED.
 // Begin CIG (CUDA in Graphics) capture on hStream for the graphics API as provided in streamCigCaptureParams. When a stream is in CIG capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graphics API command list/command buffer. All kernel launches and memory copy/memory set operations on the CIG stream will be recorded. When the command list is executed by the graphics API, all the stream’s operations will execute in order along with other graphics API commands in the command list.
@@ -115,7 +115,7 @@ func (s Stream) BeginCaptureToCig(streamCigCaptureParams *StreamCigCaptureParams
 	return streamBeginCaptureToCig(s, streamCigCaptureParams)
 }
 
-// BeginCaptureToGraph Begins graph capture on a stream to an existing graph.
+// BeginCaptureToGraph begins graph capture on a stream to an existing graph.
 //
 // Begin graph capture on hStream, placing new nodes into an existing graph. When a stream is in capture mode, all operations pushed into the stream will not be executed, but will instead be captured into hGraph. The graph will not be instantiable until the user calls [Stream.EndCapture].
 // Capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in capture mode. The capture mode may be queried via [Stream.IsCapturing]. A unique id representing the capture sequence may be queried via [Stream.CaptureInfo].
@@ -138,7 +138,7 @@ func (s Stream) BeginCaptureToGraph(hGraph Graph, dependencies *GraphNode, depen
 	return streamBeginCaptureToGraph(s, hGraph, dependencies, dependencyData, numDependencies, mode)
 }
 
-// CopyAttributes Copies attributes from source stream to destination stream.
+// CopyAttributes copies attributes from source stream to destination stream.
 //
 // Copies attributes from source stream src to destination stream dst. Both streams must have the same context.
 //
@@ -153,7 +153,7 @@ func (s Stream) CopyAttributes(src Stream) error {
 	return streamCopyAttributes(s, src)
 }
 
-// Destroy Destroys a stream.
+// Destroy destroys a stream.
 //
 // Destroys the stream specified by hStream.
 // In case the device is still doing work in the stream hStream when [Stream.Destroy] is called, the function will return immediately and the resources associated with hStream will be released automatically once the device has completed all work in hStream.
@@ -167,7 +167,7 @@ func (s Stream) Destroy() error {
 	return streamDestroy(s)
 }
 
-// EndCapture Ends capture on a stream, returning the captured graph.
+// EndCapture ends capture on a stream, returning the captured graph.
 //
 // End capture on hStream, returning the captured graph via phGraph. Capture must have been initiated on hStream via a call to [Stream.BeginCapture]. If capture was invalidated, due to a violation of the rules of stream capture, then a NULL graph will be returned.
 // If the mode argument to [Stream.BeginCapture] was not [StreamCaptureModeRelaxed], this call must be from the same thread as [Stream.BeginCapture].
@@ -181,7 +181,7 @@ func (s Stream) EndCapture() (Graph, error) {
 	return streamEndCapture(s)
 }
 
-// EndCaptureToCig Ends CIG capture on a stream.
+// EndCaptureToCig ends CIG capture on a stream.
 //
 // End CIG capture on hStream. Capture must have been initiated on hStream via a call to [Stream.BeginCaptureToCig]. Once this function is called, hStream will exit CIG capture mode and return to its original state, thus removing all CIG stream restrictions. Also, the command list/command buffer that was associated with hStream in the previous call to [Stream.BeginCaptureToCig] is now allowed to be submitted for execution on the graphics API. However, the stream may not be destroyed until execution of the command list is fully done on the GPU. This requirements extends also to all streams dependant on the CIG stream (e.g. via event waits).
 //
@@ -194,7 +194,7 @@ func (s Stream) EndCaptureToCig() error {
 	return streamEndCaptureToCig(s)
 }
 
-// Attribute Queries stream attribute.
+// Attribute queries stream attribute.
 //
 // Queries attribute attr from hStream and stores it in corresponding member of valueOut.
 //
@@ -207,7 +207,7 @@ func (s Stream) Attribute(attr int32) ([8]uint64, error) {
 	return streamGetAttribute(s, attr)
 }
 
-// CaptureInfo Query a stream’s capture state.
+// CaptureInfo queries a stream’s capture state.
 //
 // Query stream state related to stream capture.
 // If called on CU_STREAM_LEGACY (the “null stream”) while a stream not created with [StreamNonBlocking] is capturing, returns [ErrStreamCaptureImplicit].
@@ -232,7 +232,7 @@ func (s Stream) CaptureInfo(captureStatusOut *StreamCaptureStatus, idOut *uint64
 	return streamGetCaptureInfo(s, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut)
 }
 
-// Ctx Query the contexts associated with a stream.
+// Ctx queries the contexts associated with a stream.
 //
 // Returns the contexts that the stream is associated with.
 // If the stream is associated with a green context, the API returns the green context in pGreenCtx and the primary context of the associated device in pCtx.
@@ -248,7 +248,7 @@ func (s Stream) Ctx() (pCtx Context, pGreenCtx GreenCtx, err error) {
 	return streamGetCtx(s)
 }
 
-// DevResource Get stream resources.
+// DevResource gets stream resources.
 //
 // Get the type resources available to the hStream and store them in resource.
 //
@@ -263,7 +263,7 @@ func (s Stream) DevResource(type_ DevResourceType) (DevResource, error) {
 	return streamGetDevResource(s, type_)
 }
 
-// Device Returns the device handle of the stream.
+// Device returns the device handle of the stream.
 //
 // Returns in *device the device handle of the stream
 //
@@ -276,7 +276,7 @@ func (s Stream) Device() (Device, error) {
 	return streamGetDevice(s)
 }
 
-// Flags Query the flags of a given stream.
+// Flags queries the flags of a given stream.
 //
 // Query the flags of a stream created using [NewStream], [StreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the flags in flags.
 //
@@ -289,7 +289,7 @@ func (s Stream) Flags() (uint32, error) {
 	return streamGetFlags(s)
 }
 
-// GreenCtx Query the green context associated with a stream.
+// GreenCtx queries the green context associated with a stream.
 //
 // Returns the CUDA green context that the stream is associated with, or NULL if the stream is not associated with any green context.
 // The stream handle hStream can refer to any of the following:
@@ -304,7 +304,7 @@ func (s Stream) GreenCtx() (GreenCtx, error) {
 	return streamGetGreenCtx(s)
 }
 
-// Id Returns the unique Id associated with the stream handle supplied.
+// Id returns the unique Id associated with the stream handle supplied.
 //
 // Returns in streamId the unique Id which is associated with the given stream handle. The Id is unique for the life of the program.
 // The stream handle hStream can refer to any of the following:
@@ -318,7 +318,7 @@ func (s Stream) Id() (uint64, error) {
 	return streamGetId(s)
 }
 
-// Priority Query the priority of a given stream.
+// Priority queries the priority of a given stream.
 //
 // Query the priority of a stream created using [NewStream], [StreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the priority in priority. Note that if the stream was created with a priority outside the numerical range returned by [CtxGetStreamPriorityRange], this function returns the clamped priority. See [StreamCreateWithPriority] for details about priority clamping.
 //
@@ -331,7 +331,7 @@ func (s Stream) Priority() (int32, error) {
 	return streamGetPriority(s)
 }
 
-// IsCapturing Returns a stream’s capture status.
+// IsCapturing returns a stream’s capture status.
 //
 // Return the capture status of hStream via captureStatus. After a successful call, *captureStatus will contain one of the following:
 // Note that, if this is called on CU_STREAM_LEGACY (the “null stream”) while a blocking stream in the same context is capturing, it will return [ErrStreamCaptureImplicit] and *captureStatus is unspecified after the call. The blocking stream capture is not invalidated.
@@ -346,7 +346,7 @@ func (s Stream) IsCapturing() (StreamCaptureStatus, error) {
 	return streamIsCapturing(s)
 }
 
-// Query Determine status of a compute stream.
+// Query determines status of a compute stream.
 //
 // Returns [Success] if all operations in the stream specified by hStream have completed, or [ErrNotReady] if not.
 // For the purposes of Unified Memory, a return value of [Success] is equivalent to having called [Stream.Synchronize].
@@ -362,7 +362,7 @@ func (s Stream) Query() error {
 	return streamQuery(s)
 }
 
-// SetAttribute Sets stream attribute.
+// SetAttribute sets stream attribute.
 //
 // Sets attribute attr on hStream from corresponding attribute of value. The updated attribute will be applied to subsequent work submitted to the stream. It will not affect previously submitted work.
 //
@@ -375,7 +375,7 @@ func (s Stream) SetAttribute(attr int32, value *[8]uint64) error {
 	return streamSetAttribute(s, attr, value)
 }
 
-// Synchronize Wait until a stream’s tasks are completed.
+// Synchronize waits until a stream’s tasks are completed.
 //
 // Waits until the device has completed all operations in the stream specified by hStream. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the stream is finished with all of its tasks.
 //
@@ -390,7 +390,7 @@ func (s Stream) Synchronize() error {
 	return streamSynchronize(s)
 }
 
-// UpdateCaptureDependencies Update the set of dependencies in a capturing stream.
+// UpdateCaptureDependencies updates the set of dependencies in a capturing stream.
 //
 // Modifies the dependency set of a capturing stream. The dependency set is the set of nodes that the next captured node in the stream will depend on along with the edge data for those dependencies.
 // Valid flags are [StreamAddCaptureDependencies] and [StreamSetCaptureDependencies]. These control whether the set passed to the API is added to the existing set or replaces it. A flags value of 0 defaults to [StreamAddCaptureDependencies].
@@ -409,7 +409,7 @@ func (s Stream) UpdateCaptureDependencies(dependencies *GraphNode, dependencyDat
 	return streamUpdateCaptureDependencies(s, dependencies, dependencyData, numDependencies, flags)
 }
 
-// WaitEvent Make a compute stream wait on an event.
+// WaitEvent makes a compute stream wait on an event.
 //
 // Makes all future work submitted to hStream wait for all work captured in hEvent. See [Event.Record] for details on what is captured by an event. The synchronization will be performed efficiently on the device when applicable. hEvent may be from a different context or device than hStream.
 // flags include:
@@ -428,7 +428,7 @@ func (s Stream) WaitEvent(hEvent Event, flags EventWaitFlags) error {
 	return streamWaitEvent(s, hEvent, flags)
 }
 
-// WaitValue32 Wait on a memory location.
+// WaitValue32 waits on a memory location.
 //
 // Enqueues a synchronization of the stream on the given memory location. Work ordered after the operation will block until the given condition on the memory is satisfied. By default, the condition is to wait for (int32_t)(*addr - value) >= 0, a cyclic greater-or-equal. Other condition types can be specified via flags.
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer]. This function cannot be used with managed memory ( [MemAllocManaged]).
@@ -449,7 +449,7 @@ func (s Stream) WaitValue32(addr DevicePtr, value uint32, flags StreamwaitvalueF
 	return streamWaitValue32(s, addr, value, flags)
 }
 
-// WaitValue64 Wait on a memory location.
+// WaitValue64 waits on a memory location.
 //
 // Enqueues a synchronization of the stream on the given memory location. Work ordered after the operation will block until the given condition on the memory is satisfied. By default, the condition is to wait for (int64_t)(*addr - value) >= 0, a cyclic greater-or-equal. Other condition types can be specified via flags.
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer].
@@ -470,7 +470,7 @@ func (s Stream) WaitValue64(addr DevicePtr, value uint64, flags StreamwaitvalueF
 	return streamWaitValue64(s, addr, value, flags)
 }
 
-// WriteValue32 Write a value to memory.
+// WriteValue32 writes a value to memory.
 //
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer]. This function cannot be used with managed memory ( [MemAllocManaged]).
 //
@@ -487,7 +487,7 @@ func (s Stream) WriteValue32(addr DevicePtr, value uint32, flags Streamwritevalu
 	return streamWriteValue32(s, addr, value, flags)
 }
 
-// WriteValue64 Write a value to memory.
+// WriteValue64 writes a value to memory.
 //
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer].
 // Support for this can be queried with [Device.Attribute] and [DevAttrCanUse64BitStreamMemOps].
@@ -505,7 +505,7 @@ func (s Stream) WriteValue64(addr DevicePtr, value uint64, flags Streamwritevalu
 	return streamWriteValue64(s, addr, value, flags)
 }
 
-// GraphicsMapResources Map graphics resources for access by CUDA.
+// GraphicsMapResources maps graphics resources for access by CUDA.
 //
 // Maps the count graphics resources in resources for access by CUDA.
 // The resources in resources may be accessed by CUDA until they are unmapped. The graphics API from which resources were registered should not access any resources while they are mapped by CUDA. If an application does so, the results are undefined.
@@ -526,7 +526,7 @@ func (s Stream) GraphicsMapResources(count uint32, resources *GraphicsResource) 
 	return graphicsMapResources(count, resources, s)
 }
 
-// GraphicsUnmapResources Unmap graphics resources.
+// GraphicsUnmapResources unmaps graphics resources.
 //
 // Unmaps the count graphics resources in resources.
 // Once unmapped, the resources in resources may not be accessed by CUDA until they are mapped again.
@@ -547,7 +547,7 @@ func (s Stream) GraphicsUnmapResources(count uint32, resources *GraphicsResource
 	return graphicsUnmapResources(count, resources, s)
 }
 
-// LaunchHostFunc Enqueues a host function call in a stream.
+// LaunchHostFunc enqueues a host function call in a stream.
 //
 // Enqueues a host function to run in a stream. The function will be called after currently enqueued work and will block work added after it.
 // The host function must not make any CUDA API calls. Attempting to use a CUDA API may result in [ErrNotPermitted], but this is not required. The host function must not perform any synchronization that may depend on outstanding CUDA work not mandated to run earlier. Host functions without a mandated order (such as in independent streams) execute in undefined order and may be serialized.
@@ -569,7 +569,7 @@ func (s Stream) LaunchHostFunc(fn uintptr, userData uintptr, syncMode uint32) er
 	return launchHostFunc(s, fn, userData, syncMode)
 }
 
-// MemAllocAsync Allocates memory with stream ordered semantics.
+// MemAllocAsync allocates memory with stream ordered semantics.
 //
 // Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the memory pool current to the stream’s device.
 //
@@ -603,7 +603,7 @@ func (s Stream) MemAllocAsyncBytes(bytesize uint) (DevicePtr, error) {
 	return memAllocAsync(bytesize, s)
 }
 
-// MemBatchDecompressAsync Submit a batch of count independent decompression operations.
+// MemBatchDecompressAsync submits a batch of count independent decompression operations.
 //
 // Each of the count decompression operations is described by a single entry in the paramsArray array. Once the batch has been submitted, the function will return, and decompression will happen asynchronously w.r.t. the CPU. To the work completion tracking mechanisms in the CUDA driver, the batch will be considered a single unit of work and processed according to stream semantics, i.e., it is not possible to query the completion of individual decompression operations within a batch.
 // The memory pointed to by each of [MemDecompressParams].src, [MemDecompressParams].dst, and [MemDecompressParams].dstActBytes, must be capable of usage with the hardware decompress feature. That is, for each of said pointers, the pointer attribute [PointerAttributeIsHwDecompressCapable] should give a non-zero value. To ensure this, the memory backing the pointers should have been allocated using one of the following CUDA memory allocators:
@@ -625,7 +625,7 @@ func (s Stream) MemBatchDecompressAsync(paramsArray *MemDecompressParams, count 
 	return memBatchDecompressAsync(paramsArray, count, flags, s)
 }
 
-// MemDiscardAndPrefetchBatchAsync Performs a batch of memory discards and prefetches asynchronously.
+// MemDiscardAndPrefetchBatchAsync performs a batch of memory discards and prefetches asynchronously.
 //
 // Performs a batch of memory discards followed by prefetches. The batch as a whole executes in stream order but operations within a batch are not guaranteed to execute in any specific order. All devices in the system must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess] otherwise the API will return an error.
 // Calling [Stream.MemDiscardAndPrefetchBatchAsync] is semantically equivalent to calling [Stream.MemDiscardBatchAsync] followed by [Stream.MemPrefetchBatchAsync], but is more optimal. For more details on what discarding and prefetching imply, please refer to [Stream.MemDiscardBatchAsync] and [Stream.MemPrefetchBatchAsync] respectively. Note that any reads, writes or prefetches to any part of the memory range that occur simultaneously with this combined discard+prefetch operation result in undefined behavior.
@@ -644,7 +644,7 @@ func (s Stream) MemDiscardAndPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, c
 	return memDiscardAndPrefetchBatchAsync(dptrs, sizes, count, prefetchLocs, prefetchLocIdxs, numPrefetchLocs, flags, s)
 }
 
-// MemDiscardBatchAsync Performs a batch of memory discards asynchronously.
+// MemDiscardBatchAsync performs a batch of memory discards asynchronously.
 //
 // Performs a batch of memory discards. The batch as a whole executes in stream order but operations within a batch are not guaranteed to execute in any specific order. All devices in the system must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess] otherwise the API will return an error.
 // Discarding a memory range informs the driver that the contents of that range are no longer useful. Discarding memory ranges allows the driver to optimize certain data migrations and can also help reduce memory pressure. This operation can be undone on any part of the range by either writing to it or prefetching it via [DevicePtr.MemPrefetchAsync] or [Stream.MemPrefetchBatchAsync]. Reading from a discarded range, without a subsequent write or prefetch to that part of the range, will return an indeterminate value. Note that any reads, writes or prefetches to any part of the memory range that occur simultaneously with the discard operation result in undefined behavior.
@@ -660,7 +660,7 @@ func (s Stream) MemDiscardBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, 
 	return memDiscardBatchAsync(dptrs, sizes, count, flags, s)
 }
 
-// MemMapArrayAsync Maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
+// MemMapArrayAsync maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
 //
 // Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count. The structure [ArrayMapInfo] is defined as follow:
 // where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resourcearray must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resourcemipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
@@ -685,7 +685,7 @@ func (s Stream) MemMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32) error 
 	return memMapArrayAsync(mapInfoList, count, s)
 }
 
-// MemPrefetchBatchAsync Performs a batch of memory prefetches asynchronously.
+// MemPrefetchBatchAsync performs a batch of memory prefetches asynchronously.
 //
 // Performs a batch of memory prefetches. The batch as a whole executes in stream order but operations within a batch are not guaranteed to execute in any specific order. All devices in the system must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess] otherwise the API will return an error.
 // The semantics of the individual prefetch operations are as described in [DevicePtr.MemPrefetchAsync].
@@ -704,7 +704,7 @@ func (s Stream) MemPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint,
 	return memPrefetchBatchAsync(dptrs, sizes, count, prefetchLocs, prefetchLocIdxs, numPrefetchLocs, flags, s)
 }
 
-// Memcpy2DAsync Copies memory for 2D arrays.
+// Memcpy2DAsync copies memory for 2D arrays.
 //
 // Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
 // where:
@@ -740,7 +740,7 @@ func (s Stream) Memcpy2DAsync(pCopy *Memcpy2d) error {
 	return memcpy2DAsync(pCopy, s)
 }
 
-// Memcpy3DAsync Copies memory for 3D arrays.
+// Memcpy3DAsync copies memory for 3D arrays.
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as:
 // where:
@@ -776,7 +776,7 @@ func (s Stream) Memcpy3DAsync(pCopy *Memcpy3d) error {
 	return memcpy3DAsync(pCopy, s)
 }
 
-// Memcpy3DBatchAsync Performs a batch of 3D memory copies asynchronously.
+// Memcpy3DBatchAsync performs a batch of 3D memory copies asynchronously.
 //
 // Performs a batch of memory copies. The batch as a whole executes in stream order but copies within a batch are not guaranteed to execute in any specific order. Note that this means specifying any dependent copies within a batch will result in undefined behavior.
 // Performs memory copies as specified in the opList array. The length of this array is specified in numOps. Each entry in this array describes a copy operation. This includes among other things, the source and destination operands for the copy as specified in [Memcpy3dBatchOp].src and [Memcpy3dBatchOp].dst respectively. The source and destination operands of a copy can either be a pointer or a CUDA array. The width, height and depth of a copy is specified in [Memcpy3dBatchOp].extent. The width, height and depth of a copy are specified in elements and must not be zero. For pointer-to-pointer copies, the element size is considered to be 1. For pointer to CUDA array or vice versa copies, the element size is determined by the CUDA array. For CUDA array to CUDA array copies, the element size of the two CUDA arrays must match.
@@ -800,7 +800,7 @@ func (s Stream) Memcpy3DBatchAsync(numOps uint, opList *Memcpy3dBatchOp, flags u
 	return memcpy3DBatchAsync(numOps, opList, flags, s)
 }
 
-// Memcpy3DPeerAsync Copies memory between contexts asynchronously.
+// Memcpy3DPeerAsync copies memory between contexts asynchronously.
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. See the definition of the [Memcpy3dPeer] structure for documentation of its parameters.
 //
@@ -819,7 +819,7 @@ func (s Stream) Memcpy3DPeerAsync(pCopy *Memcpy3dPeer) error {
 	return memcpy3DPeerAsync(pCopy, s)
 }
 
-// Memcpy3DWithAttributesAsync Performs 3D memory copy with attributes asynchronously.
+// Memcpy3DWithAttributesAsync performs 3D memory copy with attributes asynchronously.
 //
 // Performs the copy operation specified in op. flags specifies the flags for the copy and hStream specifies the stream to enqueue the operation in.
 // For more information regarding the operation, please refer to [Memcpy3dBatchOp] and it’s usage desciption in [Stream.Memcpy3DBatchAsync]
@@ -840,7 +840,7 @@ func (s Stream) Memcpy3DWithAttributesAsync(op *Memcpy3dBatchOp, flags uint64) e
 	return memcpy3DWithAttributesAsync(op, flags, s)
 }
 
-// MemcpyBatchAsync Performs a batch of memory copies asynchronously.
+// MemcpyBatchAsync performs a batch of memory copies asynchronously.
 //
 // Performs a batch of memory copies. The batch as a whole executes in stream order but copies within a batch are not guaranteed to execute in any specific order. This API only supports pointer-to-pointer copies. For copies involving CUDA arrays, please see [Stream.Memcpy3DBatchAsync].
 // Performs memory copies from source buffers specified in srcs to destination buffers specified in dsts. The size of each copy is specified in sizes. All three arrays must be of the same length as specified by count. Since there are no ordering guarantees for copies within a batch, specifying any dependent copies within a batch will result in undefined behavior.
@@ -868,7 +868,7 @@ func (s Stream) MemcpyBatchAsync(dsts *DevicePtr, srcs *DevicePtr, sizes *uint, 
 	return memcpyBatchAsync(dsts, srcs, sizes, count, attrs, attrsIdxs, numAttrs, s)
 }
 
-// SignalExternalSemaphoresAsync Signals a set of external semaphore objects.
+// SignalExternalSemaphoresAsync signals a set of external semaphore objects.
 //
 // Enqueues a signal operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete.
 // The exact semantics of signaling a semaphore depends on the type of the object.
@@ -890,7 +890,7 @@ func (s Stream) SignalExternalSemaphoresAsync(extSemArray *ExternalSemaphore, pa
 	return signalExternalSemaphoresAsync(extSemArray, paramsArray, numExtSems, s)
 }
 
-// WaitExternalSemaphoresAsync Waits on a set of external semaphore objects.
+// WaitExternalSemaphoresAsync waits on a set of external semaphore objects.
 //
 // Enqueues a wait operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete.
 // The exact semantics of waiting on a semaphore depends on the type of the object.
@@ -912,7 +912,7 @@ func (s Stream) WaitExternalSemaphoresAsync(extSemArray *ExternalSemaphore, para
 	return waitExternalSemaphoresAsync(extSemArray, paramsArray, numExtSems, s)
 }
 
-// NewStream Create a stream.
+// NewStream creates a stream.
 //
 // Creates a stream and returns a handle in phStream. The Flags argument determines behaviors of the stream.
 // Valid values for Flags are:
@@ -928,7 +928,7 @@ func NewStream(flags StreamFlags) (Stream, error) {
 	return streamCreate(flags)
 }
 
-// StreamCreateWithPriority Create a stream with the given priority.
+// StreamCreateWithPriority creates a stream with the given priority.
 //
 // Creates a stream with the specified priority and returns a handle in phStream. This affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order.
 // priority follows a convention where lower numbers represent higher priorities. ‘0’ represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range.

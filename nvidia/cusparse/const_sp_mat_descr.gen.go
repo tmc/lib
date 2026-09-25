@@ -2,57 +2,158 @@
 
 package cusparse
 
-// BlockedEllGet wraps cusparseConstBlockedEllGet.
+// BlockedEllGet returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - ellBlockSize: Size of the ELL-Block
+//   - ellCols: Actual number of columns of the Blocked-Ellpack format
+//   - ellColInd: Column indices for the ELL-Block. Array with [cols / ellBlockSize][rows / ellBlockSize] elements
+//   - ellValue: Values of the sparse matrix. Array with rows * ellCols elements
+//   - ellIdxType: Data type of ellColInd
+//   - idxBase: Index base of ellColInd
+//   - valueType: Datatype of ellValue
+//
+// Wraps cusparseConstBlockedEllGet.
 func (c ConstSpMatDescr) BlockedEllGet(rows *int64, cols *int64, ellBlockSize *int64, ellCols *int64, ellColInd *uintptr, ellValue *uintptr, ellIdxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return constBlockedEllGet(c, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType)
 }
 
-// CooGet wraps cusparseConstCooGet.
+// CooGet returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cooRowInd: Row indices of the sparse matrix. Array nnz elements
+//   - cooColInd: Column indices of the sparse matrix. Array nnz elements
+//   - cooValues: Values of the sparse matrix. Array nnz elements
+//   - idxBase: Index base of cooRowInd and cooColInd
+//   - valueType: Datatype of cooValues
+//
+// Wraps cusparseConstCooGet.
 func (c ConstSpMatDescr) CooGet(rows *int64, cols *int64, nnz *int64, cooRowInd *uintptr, cooColInd *uintptr, cooValues *uintptr, idxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return constCooGet(c, rows, cols, nnz, cooRowInd, cooColInd, cooValues, idxType, idxBase, valueType)
 }
 
-// CscGet wraps cusparseConstCscGet.
+// CscGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSC format.
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cscColOffsets: Col offsets of the sparse matrix. Array with cols + 1 elements
+//   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cscValues: Values of the sparse matrix. Array with nnz elements
+//   - cscColOffsetsType: Data type of cscColOffsets
+//   - cscRowIndType: Data type of cscRowInd
+//   - idxBase: Index base of cscColOffsets and cscRowInd
+//   - valueType: Datatype of cscValues
+//
+// Wraps cusparseConstCscGet.
 func (c ConstSpMatDescr) CscGet(rows *int64, cols *int64, nnz *int64, cscColOffsets *uintptr, cscRowInd *uintptr, cscValues *uintptr, cscColOffsetsType *IndexType, cscRowIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return constCscGet(c, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType)
 }
 
-// CsrGet wraps cusparseConstCsrGet.
+// CsrGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSR format.
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
+//   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - csrValues: Values of the sparse matrix. Array with nnz elements
+//   - csrRowOffsetsType: Data type of csrRowOffsets
+//   - csrColIndType: Data type of csrColInd
+//   - idxBase: Index base of csrRowOffsets and csrColInd
+//   - valueType: Datatype of csrValues
+//
+// Wraps cusparseConstCsrGet.
 func (c ConstSpMatDescr) CsrGet(rows *int64, cols *int64, nnz *int64, csrRowOffsets *uintptr, csrColInd *uintptr, csrValues *uintptr, csrRowOffsetsType *IndexType, csrColIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return constCsrGet(c, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType)
 }
 
-// DestroySpMat wraps cusparseDestroySpMat.
+// DestroySpMat releases the host memory allocated for the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+// Wraps cusparseDestroySpMat.
 func (c ConstSpMatDescr) DestroySpMat() error {
 	return destroySpMat(c)
 }
 
-// SpMatGetAttribute wraps cusparseSpMatGetAttribute.
+// SpMatGetAttribute gets the attributes of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - attribute: Attribute enumerator
+//   - data: Attribute value
+//   - dataSize: Size of the attribute in bytes for safety
+//
+// Wraps cusparseSpMatGetAttribute.
 func (c ConstSpMatDescr) SpMatGetAttribute(attribute SpMatAttribute, data uintptr, dataSize uint) error {
 	return spMatGetAttribute(c, attribute, data, dataSize)
 }
 
-// SpMatGetFormat wraps cusparseSpMatGetFormat.
+// SpMatGetFormat returns the format field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - format: Storage format of the sparse matrix
+//
+// Wraps cusparseSpMatGetFormat.
 func (c ConstSpMatDescr) SpMatGetFormat() (Format, error) {
 	return spMatGetFormat(c)
 }
 
-// SpMatGetIndexBase wraps cusparseSpMatGetIndexBase.
+// SpMatGetIndexBase returns the idxBase field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - idxBase: Index base of the sparse matrix
+//
+// Wraps cusparseSpMatGetIndexBase.
 func (c ConstSpMatDescr) SpMatGetIndexBase() (IndexBase, error) {
 	return spMatGetIndexBase(c)
 }
 
-// SpMatGetSize wraps cusparseSpMatGetSize.
+// SpMatGetSize returns the sizes of the sparse matrix spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//
+// Wraps cusparseSpMatGetSize.
 func (c ConstSpMatDescr) SpMatGetSize() (rows int64, cols int64, nnz int64, err error) {
 	return spMatGetSize(c)
 }
 
-// SpMatGetStridedBatch wraps cusparseSpMatGetStridedBatch.
+// SpMatGetStridedBatch returns the batchCount field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - batchCount: Number of batches of the sparse matrix
+//
+// Wraps cusparseSpMatGetStridedBatch.
 func (c ConstSpMatDescr) SpMatGetStridedBatch() (int32, error) {
 	return spMatGetStridedBatch(c)
 }
 
-// SpMatGetValues wraps cusparseConstSpMatGetValues.
+// SpMatGetValues returns the values field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - values: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseConstSpMatGetValues.
 func (c ConstSpMatDescr) SpMatGetValues(values *uintptr) error {
 	return constSpMatGetValues(c, values)
 }

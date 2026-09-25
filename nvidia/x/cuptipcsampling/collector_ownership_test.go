@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
 )
 
@@ -13,7 +14,7 @@ func TestMetricCollectorExclusion(t *testing.T) {
 	for _, name := range []string{"start", "enable"} {
 		t.Run(name, func(t *testing.T) {
 			api := testPublicControlAPI()
-			api.device = func(cupti.Context) (uint32, error) { return 7, nil }
+			api.device = func(driver.Context) (uint32, error) { return 7, nil }
 			api.enable = func(*cupti.PCSamplingEnableParams) error {
 				t.Fatal("conflicting collector enabled sampling")
 				return nil
@@ -42,7 +43,7 @@ func TestSamplingConstructionCleanupRetry(t *testing.T) {
 	for _, name := range []string{"inventory", "enable output"} {
 		t.Run(name, func(t *testing.T) {
 			api := testPublicControlAPI()
-			api.device = func(cupti.Context) (uint32, error) { return 7, nil }
+			api.device = func(driver.Context) (uint32, error) { return 7, nil }
 			failure := errors.New("disable failed")
 			fail := true
 			api.disable = func(*cupti.PCSamplingDisableParams) error {
@@ -53,7 +54,7 @@ func TestSamplingConstructionCleanupRetry(t *testing.T) {
 			}
 			inventory := testPublicInventory
 			if name == "inventory" {
-				inventory = func(cupti.Context, int) (ReasonInventory, error) {
+				inventory = func(driver.Context, int) (ReasonInventory, error) {
 					return ReasonInventory{}, errors.New("inventory failed")
 				}
 			} else {

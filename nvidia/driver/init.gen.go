@@ -325,6 +325,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -412,944 +427,944 @@ func checkLibSym(symbol string) error {
 func registerFuncs() {
 	register(&fnGetErrorName, "cuGetErrorName")
 	register(&fnGetErrorString, "cuGetErrorString")
-	register(&fnarray3DCreate, "cuArray3DCreate_v2")
-	register(&fnarray3DGetDescriptor, "cuArray3DGetDescriptor_v2")
-	register(&fnarrayCreate, "cuArrayCreate_v2")
-	register(&fnarrayDestroy, "cuArrayDestroy")
-	register(&fnarrayGetDescriptor, "cuArrayGetDescriptor_v2")
-	register(&fnarrayGetMemoryRequirements, "cuArrayGetMemoryRequirements")
-	register(&fnarrayGetPlane, "cuArrayGetPlane")
-	register(&fnarrayGetSparseProperties, "cuArrayGetSparseProperties")
-	register(&fnCheckpointProcessCheckpoint, "cuCheckpointProcessCheckpoint")
-	register(&fnCheckpointProcessGetRestoreThreadId, "cuCheckpointProcessGetRestoreThreadId")
-	register(&fnCheckpointProcessGetState, "cuCheckpointProcessGetState")
-	register(&fnCheckpointProcessLock, "cuCheckpointProcessLock")
-	register(&fnCheckpointProcessRestore, "cuCheckpointProcessRestore")
-	register(&fnCheckpointProcessUnlock, "cuCheckpointProcessUnlock")
-	register(&fncoredumpDeregisterCompleteCallback, "cuCoredumpDeregisterCompleteCallback")
-	register(&fncoredumpDeregisterStartCallback, "cuCoredumpDeregisterStartCallback")
-	register(&fnCoredumpGetAttribute, "cuCoredumpGetAttribute")
-	register(&fnCoredumpGetAttributeGlobal, "cuCoredumpGetAttributeGlobal")
-	register(&fnCoredumpRegisterCompleteCallback, "cuCoredumpRegisterCompleteCallback")
-	register(&fnCoredumpRegisterStartCallback, "cuCoredumpRegisterStartCallback")
-	register(&fnCoredumpSetAttribute, "cuCoredumpSetAttribute")
-	register(&fnCoredumpSetAttributeGlobal, "cuCoredumpSetAttributeGlobal")
-	register(&fnctxAttach, "cuCtxAttach")
-	register(&fnctxCreate, "cuCtxCreate_v4")
-	register(&fnctxDestroy, "cuCtxDestroy_v2")
-	register(&fnctxDetach, "cuCtxDetach")
-	register(&fnctxDisablePeerAccess, "cuCtxDisablePeerAccess")
-	register(&fnctxEnablePeerAccess, "cuCtxEnablePeerAccess")
-	register(&fnctxFromGreenCtx, "cuCtxFromGreenCtx")
-	register(&fnctxGetApiVersion, "cuCtxGetApiVersion")
-	register(&fnCtxGetCacheConfig, "cuCtxGetCacheConfig")
-	register(&fnctxGetCurrent, "cuCtxGetCurrent")
-	register(&fnctxGetDevResource, "cuCtxGetDevResource")
-	register(&fnCtxGetDevice, "cuCtxGetDevice")
-	register(&fnctxGetDeviceV2, "cuCtxGetDevice_v2")
-	register(&fnCtxGetExecAffinity, "cuCtxGetExecAffinity")
-	register(&fnCtxGetFlags, "cuCtxGetFlags")
-	register(&fnctxGetId, "cuCtxGetId")
-	register(&fnCtxGetLimit, "cuCtxGetLimit")
-	register(&fnCtxGetSharedMemConfig, "cuCtxGetSharedMemConfig")
-	register(&fnCtxGetStreamPriorityRange, "cuCtxGetStreamPriorityRange")
-	register(&fnctxPopCurrent, "cuCtxPopCurrent_v2")
-	register(&fnctxPushCurrent, "cuCtxPushCurrent_v2")
-	register(&fnctxRecordEvent, "cuCtxRecordEvent")
-	register(&fnCtxResetPersistingL2Cache, "cuCtxResetPersistingL2Cache")
-	register(&fnCtxSetCacheConfig, "cuCtxSetCacheConfig")
-	register(&fnctxSetCurrent, "cuCtxSetCurrent")
-	register(&fnCtxSetFlags, "cuCtxSetFlags")
-	register(&fnCtxSetLimit, "cuCtxSetLimit")
-	register(&fnCtxSetSharedMemConfig, "cuCtxSetSharedMemConfig")
-	register(&fnCtxSynchronize, "cuCtxSynchronize")
-	register(&fnctxSynchronizeV2, "cuCtxSynchronize_v2")
-	register(&fnctxWaitEvent, "cuCtxWaitEvent")
-	register(&fndestroyExternalMemory, "cuDestroyExternalMemory")
-	register(&fndestroyExternalSemaphore, "cuDestroyExternalSemaphore")
-	register(&fnDevResourceGenerateDesc, "cuDevResourceGenerateDesc")
-	register(&fnDevSmResourceSplit, "cuDevSmResourceSplit")
-	register(&fnDevSmResourceSplitByCount, "cuDevSmResourceSplitByCount")
-	register(&fndeviceCanAccessPeer, "cuDeviceCanAccessPeer")
-	register(&fndeviceComputeCapability, "cuDeviceComputeCapability")
-	register(&fndeviceGet, "cuDeviceGet")
-	register(&fndeviceGetAttribute, "cuDeviceGetAttribute")
-	register(&fndeviceGetByPCIBusId, "cuDeviceGetByPCIBusId")
-	register(&fnDeviceGetCount, "cuDeviceGetCount")
-	register(&fndeviceGetDefaultMemPool, "cuDeviceGetDefaultMemPool")
-	register(&fndeviceGetDevResource, "cuDeviceGetDevResource")
-	register(&fndeviceGetExecAffinitySupport, "cuDeviceGetExecAffinitySupport")
-	register(&fndeviceGetGraphMemAttribute, "cuDeviceGetGraphMemAttribute")
-	register(&fndeviceGetHostAtomicCapabilities, "cuDeviceGetHostAtomicCapabilities")
-	register(&fndeviceGetLuid, "cuDeviceGetLuid")
-	register(&fndeviceGetMemPool, "cuDeviceGetMemPool")
-	register(&fndeviceGetName, "cuDeviceGetName")
-	register(&fndeviceGetNvSciSyncAttributes, "cuDeviceGetNvSciSyncAttributes")
-	register(&fndeviceGetP2PAtomicCapabilities, "cuDeviceGetP2PAtomicCapabilities")
-	register(&fndeviceGetP2PAttribute, "cuDeviceGetP2PAttribute")
-	register(&fndeviceGetPCIBusId, "cuDeviceGetPCIBusId")
-	register(&fndeviceGetProperties, "cuDeviceGetProperties")
-	register(&fndeviceGetTexture1DLinearMaxWidth, "cuDeviceGetTexture1DLinearMaxWidth")
-	register(&fndeviceGetUuid, "cuDeviceGetUuid_v2")
-	register(&fndeviceGraphMemTrim, "cuDeviceGraphMemTrim")
-	register(&fndevicePrimaryCtxGetState, "cuDevicePrimaryCtxGetState")
-	register(&fndevicePrimaryCtxRelease, "cuDevicePrimaryCtxRelease_v2")
-	register(&fndevicePrimaryCtxReset, "cuDevicePrimaryCtxReset_v2")
-	register(&fndevicePrimaryCtxRetain, "cuDevicePrimaryCtxRetain")
-	register(&fndevicePrimaryCtxSetFlags, "cuDevicePrimaryCtxSetFlags_v2")
-	register(&fndeviceRegisterAsyncNotification, "cuDeviceRegisterAsyncNotification")
-	register(&fndeviceSetGraphMemAttribute, "cuDeviceSetGraphMemAttribute")
-	register(&fndeviceSetMemPool, "cuDeviceSetMemPool")
-	register(&fndeviceTotalMem, "cuDeviceTotalMem_v2")
-	register(&fndeviceUnregisterAsyncNotification, "cuDeviceUnregisterAsyncNotification")
-	register(&fnDriverGetVersion, "cuDriverGetVersion")
-	register(&fneventCreate, "cuEventCreate")
-	register(&fneventDestroy, "cuEventDestroy_v2")
-	register(&fneventElapsedTime, "cuEventElapsedTime_v2")
-	register(&fneventQuery, "cuEventQuery")
-	register(&fneventRecord, "cuEventRecord")
-	register(&fneventRecordWithFlags, "cuEventRecordWithFlags")
-	register(&fneventSynchronize, "cuEventSynchronize")
-	register(&fnexternalMemoryGetMappedBuffer, "cuExternalMemoryGetMappedBuffer")
-	register(&fnexternalMemoryGetMappedMipmappedArray, "cuExternalMemoryGetMappedMipmappedArray")
-	register(&fnFlushGPUDirectRDMAWrites, "cuFlushGPUDirectRDMAWrites")
-	register(&fnfuncGetAttribute, "cuFuncGetAttribute")
-	register(&fnfuncGetModule, "cuFuncGetModule")
-	register(&fnfuncGetName, "cuFuncGetName")
-	register(&fnfuncGetParamCount, "cuFuncGetParamCount")
-	register(&fnfuncGetParamInfo, "cuFuncGetParamInfo")
-	register(&fnfuncIsLoaded, "cuFuncIsLoaded")
-	register(&fnfuncLoad, "cuFuncLoad")
-	register(&fnfuncSetAttribute, "cuFuncSetAttribute")
-	register(&fnfuncSetBlockShape, "cuFuncSetBlockShape")
-	register(&fnfuncSetCacheConfig, "cuFuncSetCacheConfig")
-	register(&fnfuncSetSharedMemConfig, "cuFuncSetSharedMemConfig")
-	register(&fnfuncSetSharedSize, "cuFuncSetSharedSize")
-	register(&fnGetExportTable, "cuGetExportTable")
-	register(&fnGetProcAddress, "cuGetProcAddress_v2")
-	register(&fngraphAddBatchMemOpNode, "cuGraphAddBatchMemOpNode")
-	register(&fngraphAddChildGraphNode, "cuGraphAddChildGraphNode")
-	register(&fngraphAddDependencies, "cuGraphAddDependencies_v2")
-	register(&fngraphAddEmptyNode, "cuGraphAddEmptyNode")
-	register(&fngraphAddEventRecordNode, "cuGraphAddEventRecordNode")
-	register(&fngraphAddEventWaitNode, "cuGraphAddEventWaitNode")
-	register(&fngraphAddExternalSemaphoresSignalNode, "cuGraphAddExternalSemaphoresSignalNode")
-	register(&fngraphAddExternalSemaphoresWaitNode, "cuGraphAddExternalSemaphoresWaitNode")
-	register(&fngraphAddHostNode, "cuGraphAddHostNode")
-	register(&fngraphAddKernelNode, "cuGraphAddKernelNode_v2")
-	register(&fngraphAddMemAllocNode, "cuGraphAddMemAllocNode")
-	register(&fngraphAddMemFreeNode, "cuGraphAddMemFreeNode")
-	register(&fngraphAddMemcpyNode, "cuGraphAddMemcpyNode")
-	register(&fngraphAddMemsetNode, "cuGraphAddMemsetNode")
-	register(&fngraphAddNode, "cuGraphAddNode_v2")
-	register(&fngraphBatchMemOpNodeGetParams, "cuGraphBatchMemOpNodeGetParams")
-	register(&fngraphBatchMemOpNodeSetParams, "cuGraphBatchMemOpNodeSetParams")
-	register(&fngraphChildGraphNodeGetGraph, "cuGraphChildGraphNodeGetGraph")
-	register(&fngraphClone, "cuGraphClone")
-	register(&fngraphConditionalHandleCreate, "cuGraphConditionalHandleCreate")
-	register(&fngraphCreate, "cuGraphCreate")
-	register(&fngraphDebugDotPrint, "cuGraphDebugDotPrint")
-	register(&fngraphDestroy, "cuGraphDestroy")
-	register(&fngraphDestroyNode, "cuGraphDestroyNode")
-	register(&fngraphEventRecordNodeGetEvent, "cuGraphEventRecordNodeGetEvent")
-	register(&fngraphEventRecordNodeSetEvent, "cuGraphEventRecordNodeSetEvent")
-	register(&fngraphEventWaitNodeGetEvent, "cuGraphEventWaitNodeGetEvent")
-	register(&fngraphEventWaitNodeSetEvent, "cuGraphEventWaitNodeSetEvent")
-	register(&fngraphExecBatchMemOpNodeSetParams, "cuGraphExecBatchMemOpNodeSetParams")
-	register(&fngraphExecChildGraphNodeSetParams, "cuGraphExecChildGraphNodeSetParams")
-	register(&fngraphExecDestroy, "cuGraphExecDestroy")
-	register(&fngraphExecEventRecordNodeSetEvent, "cuGraphExecEventRecordNodeSetEvent")
-	register(&fngraphExecEventWaitNodeSetEvent, "cuGraphExecEventWaitNodeSetEvent")
-	register(&fngraphExecExternalSemaphoresSignalNodeSetParams, "cuGraphExecExternalSemaphoresSignalNodeSetParams")
-	register(&fngraphExecExternalSemaphoresWaitNodeSetParams, "cuGraphExecExternalSemaphoresWaitNodeSetParams")
-	register(&fngraphExecGetFlags, "cuGraphExecGetFlags")
-	register(&fngraphExecGetId, "cuGraphExecGetId")
-	register(&fngraphExecHostNodeSetParams, "cuGraphExecHostNodeSetParams")
-	register(&fngraphExecKernelNodeSetParams, "cuGraphExecKernelNodeSetParams_v2")
-	register(&fngraphExecMemcpyNodeSetParams, "cuGraphExecMemcpyNodeSetParams")
-	register(&fngraphExecMemsetNodeSetParams, "cuGraphExecMemsetNodeSetParams")
-	register(&fngraphExecNodeSetParams, "cuGraphExecNodeSetParams")
-	register(&fngraphExecUpdate, "cuGraphExecUpdate_v2")
-	register(&fngraphExternalSemaphoresSignalNodeGetParams, "cuGraphExternalSemaphoresSignalNodeGetParams")
-	register(&fngraphExternalSemaphoresSignalNodeSetParams, "cuGraphExternalSemaphoresSignalNodeSetParams")
-	register(&fngraphExternalSemaphoresWaitNodeGetParams, "cuGraphExternalSemaphoresWaitNodeGetParams")
-	register(&fngraphExternalSemaphoresWaitNodeSetParams, "cuGraphExternalSemaphoresWaitNodeSetParams")
-	register(&fngraphGetEdges, "cuGraphGetEdges_v2")
-	register(&fngraphGetId, "cuGraphGetId")
-	register(&fngraphGetNodes, "cuGraphGetNodes")
-	register(&fngraphGetRootNodes, "cuGraphGetRootNodes")
-	register(&fngraphHostNodeGetParams, "cuGraphHostNodeGetParams")
-	register(&fngraphHostNodeSetParams, "cuGraphHostNodeSetParams")
-	register(&fngraphInstantiate, "cuGraphInstantiateWithFlags")
-	register(&fngraphInstantiateWithParams, "cuGraphInstantiateWithParams")
-	register(&fngraphKernelNodeCopyAttributes, "cuGraphKernelNodeCopyAttributes")
-	register(&fngraphKernelNodeGetAttribute, "cuGraphKernelNodeGetAttribute")
-	register(&fngraphKernelNodeGetParams, "cuGraphKernelNodeGetParams_v2")
-	register(&fngraphKernelNodeSetAttribute, "cuGraphKernelNodeSetAttribute")
-	register(&fngraphKernelNodeSetParams, "cuGraphKernelNodeSetParams_v2")
-	register(&fngraphLaunch, "cuGraphLaunch")
-	register(&fngraphMemAllocNodeGetParams, "cuGraphMemAllocNodeGetParams")
-	register(&fngraphMemFreeNodeGetParams, "cuGraphMemFreeNodeGetParams")
-	register(&fngraphMemcpyNodeGetParams, "cuGraphMemcpyNodeGetParams")
-	register(&fngraphMemcpyNodeSetParams, "cuGraphMemcpyNodeSetParams")
-	register(&fngraphMemsetNodeGetParams, "cuGraphMemsetNodeGetParams")
-	register(&fngraphMemsetNodeSetParams, "cuGraphMemsetNodeSetParams")
-	register(&fngraphNodeFindInClone, "cuGraphNodeFindInClone")
-	register(&fngraphNodeGetContainingGraph, "cuGraphNodeGetContainingGraph")
-	register(&fngraphNodeGetDependencies, "cuGraphNodeGetDependencies_v2")
-	register(&fngraphNodeGetDependentNodes, "cuGraphNodeGetDependentNodes_v2")
-	register(&fngraphNodeGetEnabled, "cuGraphNodeGetEnabled")
-	register(&fngraphNodeGetLocalId, "cuGraphNodeGetLocalId")
-	register(&fngraphNodeGetParams, "cuGraphNodeGetParams")
-	register(&fngraphNodeGetToolsId, "cuGraphNodeGetToolsId")
-	register(&fngraphNodeGetType, "cuGraphNodeGetType")
-	register(&fngraphNodeSetEnabled, "cuGraphNodeSetEnabled")
-	register(&fngraphNodeSetParams, "cuGraphNodeSetParams")
-	register(&fngraphReleaseUserObject, "cuGraphReleaseUserObject")
-	register(&fngraphRemoveDependencies, "cuGraphRemoveDependencies_v2")
-	register(&fngraphRetainUserObject, "cuGraphRetainUserObject")
-	register(&fngraphUpload, "cuGraphUpload")
-	register(&fngraphicsMapResources, "cuGraphicsMapResources")
-	register(&fngraphicsResourceGetMappedMipmappedArray, "cuGraphicsResourceGetMappedMipmappedArray")
-	register(&fngraphicsResourceGetMappedPointer, "cuGraphicsResourceGetMappedPointer_v2")
-	register(&fngraphicsResourceSetMapFlags, "cuGraphicsResourceSetMapFlags_v2")
-	register(&fngraphicsSubResourceGetMappedArray, "cuGraphicsSubResourceGetMappedArray")
-	register(&fngraphicsUnmapResources, "cuGraphicsUnmapResources")
-	register(&fngraphicsUnregisterResource, "cuGraphicsUnregisterResource")
-	register(&fngreenCtxCreate, "cuGreenCtxCreate")
-	register(&fngreenCtxDestroy, "cuGreenCtxDestroy")
-	register(&fngreenCtxGetDevResource, "cuGreenCtxGetDevResource")
-	register(&fngreenCtxGetId, "cuGreenCtxGetId")
-	register(&fngreenCtxRecordEvent, "cuGreenCtxRecordEvent")
-	register(&fngreenCtxStreamCreate, "cuGreenCtxStreamCreate")
-	register(&fngreenCtxWaitEvent, "cuGreenCtxWaitEvent")
-	register(&fnImportExternalMemory, "cuImportExternalMemory")
-	register(&fnImportExternalSemaphore, "cuImportExternalSemaphore")
-	register(&fnInit, "cuInit")
-	register(&fnipcCloseMemHandle, "cuIpcCloseMemHandle")
-	register(&fnipcGetEventHandle, "cuIpcGetEventHandle")
-	register(&fnipcGetMemHandle, "cuIpcGetMemHandle")
+	symarray3DCreate = registerSym("cuArray3DCreate_v2")
+	symarray3DGetDescriptor = registerSym("cuArray3DGetDescriptor_v2")
+	symarrayCreate = registerSym("cuArrayCreate_v2")
+	symarrayDestroy = registerSym("cuArrayDestroy")
+	symarrayGetDescriptor = registerSym("cuArrayGetDescriptor_v2")
+	symarrayGetMemoryRequirements = registerSym("cuArrayGetMemoryRequirements")
+	symarrayGetPlane = registerSym("cuArrayGetPlane")
+	symarrayGetSparseProperties = registerSym("cuArrayGetSparseProperties")
+	symCheckpointProcessCheckpoint = registerSym("cuCheckpointProcessCheckpoint")
+	symCheckpointProcessGetRestoreThreadId = registerSym("cuCheckpointProcessGetRestoreThreadId")
+	symCheckpointProcessGetState = registerSym("cuCheckpointProcessGetState")
+	symCheckpointProcessLock = registerSym("cuCheckpointProcessLock")
+	symCheckpointProcessRestore = registerSym("cuCheckpointProcessRestore")
+	symCheckpointProcessUnlock = registerSym("cuCheckpointProcessUnlock")
+	symcoredumpDeregisterCompleteCallback = registerSym("cuCoredumpDeregisterCompleteCallback")
+	symcoredumpDeregisterStartCallback = registerSym("cuCoredumpDeregisterStartCallback")
+	symCoredumpGetAttribute = registerSym("cuCoredumpGetAttribute")
+	symCoredumpGetAttributeGlobal = registerSym("cuCoredumpGetAttributeGlobal")
+	symCoredumpRegisterCompleteCallback = registerSym("cuCoredumpRegisterCompleteCallback")
+	symCoredumpRegisterStartCallback = registerSym("cuCoredumpRegisterStartCallback")
+	symCoredumpSetAttribute = registerSym("cuCoredumpSetAttribute")
+	symCoredumpSetAttributeGlobal = registerSym("cuCoredumpSetAttributeGlobal")
+	symctxAttach = registerSym("cuCtxAttach")
+	symctxCreate = registerSym("cuCtxCreate_v4")
+	symctxDestroy = registerSym("cuCtxDestroy_v2")
+	symctxDetach = registerSym("cuCtxDetach")
+	symctxDisablePeerAccess = registerSym("cuCtxDisablePeerAccess")
+	symctxEnablePeerAccess = registerSym("cuCtxEnablePeerAccess")
+	symctxFromGreenCtx = registerSym("cuCtxFromGreenCtx")
+	symctxGetApiVersion = registerSym("cuCtxGetApiVersion")
+	symCtxGetCacheConfig = registerSym("cuCtxGetCacheConfig")
+	symctxGetCurrent = registerSym("cuCtxGetCurrent")
+	symctxGetDevResource = registerSym("cuCtxGetDevResource")
+	symCtxGetDevice = registerSym("cuCtxGetDevice")
+	symctxGetDeviceV2 = registerSym("cuCtxGetDevice_v2")
+	symCtxGetExecAffinity = registerSym("cuCtxGetExecAffinity")
+	symCtxGetFlags = registerSym("cuCtxGetFlags")
+	symctxGetId = registerSym("cuCtxGetId")
+	symCtxGetLimit = registerSym("cuCtxGetLimit")
+	symCtxGetSharedMemConfig = registerSym("cuCtxGetSharedMemConfig")
+	symCtxGetStreamPriorityRange = registerSym("cuCtxGetStreamPriorityRange")
+	symctxPopCurrent = registerSym("cuCtxPopCurrent_v2")
+	symctxPushCurrent = registerSym("cuCtxPushCurrent_v2")
+	symctxRecordEvent = registerSym("cuCtxRecordEvent")
+	symCtxResetPersistingL2Cache = registerSym("cuCtxResetPersistingL2Cache")
+	symCtxSetCacheConfig = registerSym("cuCtxSetCacheConfig")
+	symctxSetCurrent = registerSym("cuCtxSetCurrent")
+	symCtxSetFlags = registerSym("cuCtxSetFlags")
+	symCtxSetLimit = registerSym("cuCtxSetLimit")
+	symCtxSetSharedMemConfig = registerSym("cuCtxSetSharedMemConfig")
+	symCtxSynchronize = registerSym("cuCtxSynchronize")
+	symctxSynchronizeV2 = registerSym("cuCtxSynchronize_v2")
+	symctxWaitEvent = registerSym("cuCtxWaitEvent")
+	symdestroyExternalMemory = registerSym("cuDestroyExternalMemory")
+	symdestroyExternalSemaphore = registerSym("cuDestroyExternalSemaphore")
+	symDevResourceGenerateDesc = registerSym("cuDevResourceGenerateDesc")
+	symDevSmResourceSplit = registerSym("cuDevSmResourceSplit")
+	symDevSmResourceSplitByCount = registerSym("cuDevSmResourceSplitByCount")
+	symdeviceCanAccessPeer = registerSym("cuDeviceCanAccessPeer")
+	symdeviceComputeCapability = registerSym("cuDeviceComputeCapability")
+	symdeviceGet = registerSym("cuDeviceGet")
+	symdeviceGetAttribute = registerSym("cuDeviceGetAttribute")
+	symdeviceGetByPCIBusId = registerSym("cuDeviceGetByPCIBusId")
+	symDeviceGetCount = registerSym("cuDeviceGetCount")
+	symdeviceGetDefaultMemPool = registerSym("cuDeviceGetDefaultMemPool")
+	symdeviceGetDevResource = registerSym("cuDeviceGetDevResource")
+	symdeviceGetExecAffinitySupport = registerSym("cuDeviceGetExecAffinitySupport")
+	symdeviceGetGraphMemAttribute = registerSym("cuDeviceGetGraphMemAttribute")
+	symdeviceGetHostAtomicCapabilities = registerSym("cuDeviceGetHostAtomicCapabilities")
+	symdeviceGetLuid = registerSym("cuDeviceGetLuid")
+	symdeviceGetMemPool = registerSym("cuDeviceGetMemPool")
+	symdeviceGetName = registerSym("cuDeviceGetName")
+	symdeviceGetNvSciSyncAttributes = registerSym("cuDeviceGetNvSciSyncAttributes")
+	symdeviceGetP2PAtomicCapabilities = registerSym("cuDeviceGetP2PAtomicCapabilities")
+	symdeviceGetP2PAttribute = registerSym("cuDeviceGetP2PAttribute")
+	symdeviceGetPCIBusId = registerSym("cuDeviceGetPCIBusId")
+	symdeviceGetProperties = registerSym("cuDeviceGetProperties")
+	symdeviceGetTexture1DLinearMaxWidth = registerSym("cuDeviceGetTexture1DLinearMaxWidth")
+	symdeviceGetUuid = registerSym("cuDeviceGetUuid_v2")
+	symdeviceGraphMemTrim = registerSym("cuDeviceGraphMemTrim")
+	symdevicePrimaryCtxGetState = registerSym("cuDevicePrimaryCtxGetState")
+	symdevicePrimaryCtxRelease = registerSym("cuDevicePrimaryCtxRelease_v2")
+	symdevicePrimaryCtxReset = registerSym("cuDevicePrimaryCtxReset_v2")
+	symdevicePrimaryCtxRetain = registerSym("cuDevicePrimaryCtxRetain")
+	symdevicePrimaryCtxSetFlags = registerSym("cuDevicePrimaryCtxSetFlags_v2")
+	symdeviceRegisterAsyncNotification = registerSym("cuDeviceRegisterAsyncNotification")
+	symdeviceSetGraphMemAttribute = registerSym("cuDeviceSetGraphMemAttribute")
+	symdeviceSetMemPool = registerSym("cuDeviceSetMemPool")
+	symdeviceTotalMem = registerSym("cuDeviceTotalMem_v2")
+	symdeviceUnregisterAsyncNotification = registerSym("cuDeviceUnregisterAsyncNotification")
+	symDriverGetVersion = registerSym("cuDriverGetVersion")
+	symeventCreate = registerSym("cuEventCreate")
+	symeventDestroy = registerSym("cuEventDestroy_v2")
+	symeventElapsedTime = registerSym("cuEventElapsedTime_v2")
+	symeventQuery = registerSym("cuEventQuery")
+	symeventRecord = registerSym("cuEventRecord")
+	symeventRecordWithFlags = registerSym("cuEventRecordWithFlags")
+	symeventSynchronize = registerSym("cuEventSynchronize")
+	symexternalMemoryGetMappedBuffer = registerSym("cuExternalMemoryGetMappedBuffer")
+	symexternalMemoryGetMappedMipmappedArray = registerSym("cuExternalMemoryGetMappedMipmappedArray")
+	symFlushGPUDirectRDMAWrites = registerSym("cuFlushGPUDirectRDMAWrites")
+	symfuncGetAttribute = registerSym("cuFuncGetAttribute")
+	symfuncGetModule = registerSym("cuFuncGetModule")
+	symfuncGetName = registerSym("cuFuncGetName")
+	symfuncGetParamCount = registerSym("cuFuncGetParamCount")
+	symfuncGetParamInfo = registerSym("cuFuncGetParamInfo")
+	symfuncIsLoaded = registerSym("cuFuncIsLoaded")
+	symfuncLoad = registerSym("cuFuncLoad")
+	symfuncSetAttribute = registerSym("cuFuncSetAttribute")
+	symfuncSetBlockShape = registerSym("cuFuncSetBlockShape")
+	symfuncSetCacheConfig = registerSym("cuFuncSetCacheConfig")
+	symfuncSetSharedMemConfig = registerSym("cuFuncSetSharedMemConfig")
+	symfuncSetSharedSize = registerSym("cuFuncSetSharedSize")
+	symGetExportTable = registerSym("cuGetExportTable")
+	symGetProcAddress = registerSym("cuGetProcAddress_v2")
+	symgraphAddBatchMemOpNode = registerSym("cuGraphAddBatchMemOpNode")
+	symgraphAddChildGraphNode = registerSym("cuGraphAddChildGraphNode")
+	symgraphAddDependencies = registerSym("cuGraphAddDependencies_v2")
+	symgraphAddEmptyNode = registerSym("cuGraphAddEmptyNode")
+	symgraphAddEventRecordNode = registerSym("cuGraphAddEventRecordNode")
+	symgraphAddEventWaitNode = registerSym("cuGraphAddEventWaitNode")
+	symgraphAddExternalSemaphoresSignalNode = registerSym("cuGraphAddExternalSemaphoresSignalNode")
+	symgraphAddExternalSemaphoresWaitNode = registerSym("cuGraphAddExternalSemaphoresWaitNode")
+	symgraphAddHostNode = registerSym("cuGraphAddHostNode")
+	symgraphAddKernelNode = registerSym("cuGraphAddKernelNode_v2")
+	symgraphAddMemAllocNode = registerSym("cuGraphAddMemAllocNode")
+	symgraphAddMemFreeNode = registerSym("cuGraphAddMemFreeNode")
+	symgraphAddMemcpyNode = registerSym("cuGraphAddMemcpyNode")
+	symgraphAddMemsetNode = registerSym("cuGraphAddMemsetNode")
+	symgraphAddNode = registerSym("cuGraphAddNode_v2")
+	symgraphBatchMemOpNodeGetParams = registerSym("cuGraphBatchMemOpNodeGetParams")
+	symgraphBatchMemOpNodeSetParams = registerSym("cuGraphBatchMemOpNodeSetParams")
+	symgraphChildGraphNodeGetGraph = registerSym("cuGraphChildGraphNodeGetGraph")
+	symgraphClone = registerSym("cuGraphClone")
+	symgraphConditionalHandleCreate = registerSym("cuGraphConditionalHandleCreate")
+	symgraphCreate = registerSym("cuGraphCreate")
+	symgraphDebugDotPrint = registerSym("cuGraphDebugDotPrint")
+	symgraphDestroy = registerSym("cuGraphDestroy")
+	symgraphDestroyNode = registerSym("cuGraphDestroyNode")
+	symgraphEventRecordNodeGetEvent = registerSym("cuGraphEventRecordNodeGetEvent")
+	symgraphEventRecordNodeSetEvent = registerSym("cuGraphEventRecordNodeSetEvent")
+	symgraphEventWaitNodeGetEvent = registerSym("cuGraphEventWaitNodeGetEvent")
+	symgraphEventWaitNodeSetEvent = registerSym("cuGraphEventWaitNodeSetEvent")
+	symgraphExecBatchMemOpNodeSetParams = registerSym("cuGraphExecBatchMemOpNodeSetParams")
+	symgraphExecChildGraphNodeSetParams = registerSym("cuGraphExecChildGraphNodeSetParams")
+	symgraphExecDestroy = registerSym("cuGraphExecDestroy")
+	symgraphExecEventRecordNodeSetEvent = registerSym("cuGraphExecEventRecordNodeSetEvent")
+	symgraphExecEventWaitNodeSetEvent = registerSym("cuGraphExecEventWaitNodeSetEvent")
+	symgraphExecExternalSemaphoresSignalNodeSetParams = registerSym("cuGraphExecExternalSemaphoresSignalNodeSetParams")
+	symgraphExecExternalSemaphoresWaitNodeSetParams = registerSym("cuGraphExecExternalSemaphoresWaitNodeSetParams")
+	symgraphExecGetFlags = registerSym("cuGraphExecGetFlags")
+	symgraphExecGetId = registerSym("cuGraphExecGetId")
+	symgraphExecHostNodeSetParams = registerSym("cuGraphExecHostNodeSetParams")
+	symgraphExecKernelNodeSetParams = registerSym("cuGraphExecKernelNodeSetParams_v2")
+	symgraphExecMemcpyNodeSetParams = registerSym("cuGraphExecMemcpyNodeSetParams")
+	symgraphExecMemsetNodeSetParams = registerSym("cuGraphExecMemsetNodeSetParams")
+	symgraphExecNodeSetParams = registerSym("cuGraphExecNodeSetParams")
+	symgraphExecUpdate = registerSym("cuGraphExecUpdate_v2")
+	symgraphExternalSemaphoresSignalNodeGetParams = registerSym("cuGraphExternalSemaphoresSignalNodeGetParams")
+	symgraphExternalSemaphoresSignalNodeSetParams = registerSym("cuGraphExternalSemaphoresSignalNodeSetParams")
+	symgraphExternalSemaphoresWaitNodeGetParams = registerSym("cuGraphExternalSemaphoresWaitNodeGetParams")
+	symgraphExternalSemaphoresWaitNodeSetParams = registerSym("cuGraphExternalSemaphoresWaitNodeSetParams")
+	symgraphGetEdges = registerSym("cuGraphGetEdges_v2")
+	symgraphGetId = registerSym("cuGraphGetId")
+	symgraphGetNodes = registerSym("cuGraphGetNodes")
+	symgraphGetRootNodes = registerSym("cuGraphGetRootNodes")
+	symgraphHostNodeGetParams = registerSym("cuGraphHostNodeGetParams")
+	symgraphHostNodeSetParams = registerSym("cuGraphHostNodeSetParams")
+	symgraphInstantiate = registerSym("cuGraphInstantiateWithFlags")
+	symgraphInstantiateWithParams = registerSym("cuGraphInstantiateWithParams")
+	symgraphKernelNodeCopyAttributes = registerSym("cuGraphKernelNodeCopyAttributes")
+	symgraphKernelNodeGetAttribute = registerSym("cuGraphKernelNodeGetAttribute")
+	symgraphKernelNodeGetParams = registerSym("cuGraphKernelNodeGetParams_v2")
+	symgraphKernelNodeSetAttribute = registerSym("cuGraphKernelNodeSetAttribute")
+	symgraphKernelNodeSetParams = registerSym("cuGraphKernelNodeSetParams_v2")
+	symgraphLaunch = registerSym("cuGraphLaunch")
+	symgraphMemAllocNodeGetParams = registerSym("cuGraphMemAllocNodeGetParams")
+	symgraphMemFreeNodeGetParams = registerSym("cuGraphMemFreeNodeGetParams")
+	symgraphMemcpyNodeGetParams = registerSym("cuGraphMemcpyNodeGetParams")
+	symgraphMemcpyNodeSetParams = registerSym("cuGraphMemcpyNodeSetParams")
+	symgraphMemsetNodeGetParams = registerSym("cuGraphMemsetNodeGetParams")
+	symgraphMemsetNodeSetParams = registerSym("cuGraphMemsetNodeSetParams")
+	symgraphNodeFindInClone = registerSym("cuGraphNodeFindInClone")
+	symgraphNodeGetContainingGraph = registerSym("cuGraphNodeGetContainingGraph")
+	symgraphNodeGetDependencies = registerSym("cuGraphNodeGetDependencies_v2")
+	symgraphNodeGetDependentNodes = registerSym("cuGraphNodeGetDependentNodes_v2")
+	symgraphNodeGetEnabled = registerSym("cuGraphNodeGetEnabled")
+	symgraphNodeGetLocalId = registerSym("cuGraphNodeGetLocalId")
+	symgraphNodeGetParams = registerSym("cuGraphNodeGetParams")
+	symgraphNodeGetToolsId = registerSym("cuGraphNodeGetToolsId")
+	symgraphNodeGetType = registerSym("cuGraphNodeGetType")
+	symgraphNodeSetEnabled = registerSym("cuGraphNodeSetEnabled")
+	symgraphNodeSetParams = registerSym("cuGraphNodeSetParams")
+	symgraphReleaseUserObject = registerSym("cuGraphReleaseUserObject")
+	symgraphRemoveDependencies = registerSym("cuGraphRemoveDependencies_v2")
+	symgraphRetainUserObject = registerSym("cuGraphRetainUserObject")
+	symgraphUpload = registerSym("cuGraphUpload")
+	symgraphicsMapResources = registerSym("cuGraphicsMapResources")
+	symgraphicsResourceGetMappedMipmappedArray = registerSym("cuGraphicsResourceGetMappedMipmappedArray")
+	symgraphicsResourceGetMappedPointer = registerSym("cuGraphicsResourceGetMappedPointer_v2")
+	symgraphicsResourceSetMapFlags = registerSym("cuGraphicsResourceSetMapFlags_v2")
+	symgraphicsSubResourceGetMappedArray = registerSym("cuGraphicsSubResourceGetMappedArray")
+	symgraphicsUnmapResources = registerSym("cuGraphicsUnmapResources")
+	symgraphicsUnregisterResource = registerSym("cuGraphicsUnregisterResource")
+	symgreenCtxCreate = registerSym("cuGreenCtxCreate")
+	symgreenCtxDestroy = registerSym("cuGreenCtxDestroy")
+	symgreenCtxGetDevResource = registerSym("cuGreenCtxGetDevResource")
+	symgreenCtxGetId = registerSym("cuGreenCtxGetId")
+	symgreenCtxRecordEvent = registerSym("cuGreenCtxRecordEvent")
+	symgreenCtxStreamCreate = registerSym("cuGreenCtxStreamCreate")
+	symgreenCtxWaitEvent = registerSym("cuGreenCtxWaitEvent")
+	symImportExternalMemory = registerSym("cuImportExternalMemory")
+	symImportExternalSemaphore = registerSym("cuImportExternalSemaphore")
+	symInit = registerSym("cuInit")
+	symipcCloseMemHandle = registerSym("cuIpcCloseMemHandle")
+	symipcGetEventHandle = registerSym("cuIpcGetEventHandle")
+	symipcGetMemHandle = registerSym("cuIpcGetMemHandle")
 	register(&fnIpcOpenEventHandle, "cuIpcOpenEventHandle")
 	register(&fnIpcOpenMemHandle, "cuIpcOpenMemHandle_v2")
-	register(&fnkernelGetAttribute, "cuKernelGetAttribute")
-	register(&fnkernelGetFunction, "cuKernelGetFunction")
-	register(&fnkernelGetLibrary, "cuKernelGetLibrary")
-	register(&fnkernelGetName, "cuKernelGetName")
-	register(&fnkernelGetParamCount, "cuKernelGetParamCount")
-	register(&fnkernelGetParamInfo, "cuKernelGetParamInfo")
-	register(&fnkernelSetAttribute, "cuKernelSetAttribute")
-	register(&fnkernelSetCacheConfig, "cuKernelSetCacheConfig")
-	register(&fnlaunch, "cuLaunch")
-	register(&fnlaunchCooperativeKernel, "cuLaunchCooperativeKernel")
-	register(&fnLaunchCooperativeKernelMultiDevice, "cuLaunchCooperativeKernelMultiDevice")
-	register(&fnlaunchGrid, "cuLaunchGrid")
-	register(&fnlaunchGridAsync, "cuLaunchGridAsync")
-	register(&fnlaunchHostFunc, "cuLaunchHostFunc_v2")
-	register(&fnlaunchKernel, "cuLaunchKernel")
-	register(&fnlaunchKernelEx, "cuLaunchKernelEx")
-	register(&fnlibraryEnumerateKernels, "cuLibraryEnumerateKernels")
-	register(&fnlibraryGetGlobal, "cuLibraryGetGlobal")
-	register(&fnlibraryGetKernel, "cuLibraryGetKernel")
-	register(&fnlibraryGetKernelCount, "cuLibraryGetKernelCount")
-	register(&fnlibraryGetManaged, "cuLibraryGetManaged")
-	register(&fnlibraryGetModule, "cuLibraryGetModule")
-	register(&fnlibraryGetUnifiedFunction, "cuLibraryGetUnifiedFunction")
-	register(&fnlibraryLoadData, "cuLibraryLoadData")
-	register(&fnlibraryLoadFromFile, "cuLibraryLoadFromFile")
-	register(&fnlibraryUnload, "cuLibraryUnload")
-	register(&fnlinkAddData, "cuLinkAddData_v2")
-	register(&fnlinkAddFile, "cuLinkAddFile_v2")
-	register(&fnlinkComplete, "cuLinkComplete")
-	register(&fnLinkCreate, "cuLinkCreate_v2")
-	register(&fnlinkDestroy, "cuLinkDestroy")
-	register(&fnLogsCurrent, "cuLogsCurrent")
-	register(&fnLogsDumpToFile, "cuLogsDumpToFile")
-	register(&fnLogsDumpToMemory, "cuLogsDumpToMemory")
-	register(&fnLogsRegisterCallback, "cuLogsRegisterCallback")
-	register(&fnlogsUnregisterCallback, "cuLogsUnregisterCallback")
-	register(&fnmemAddressFree, "cuMemAddressFree")
-	register(&fnmemAddressReserve, "cuMemAddressReserve")
+	symkernelGetAttribute = registerSym("cuKernelGetAttribute")
+	symkernelGetFunction = registerSym("cuKernelGetFunction")
+	symkernelGetLibrary = registerSym("cuKernelGetLibrary")
+	symkernelGetName = registerSym("cuKernelGetName")
+	symkernelGetParamCount = registerSym("cuKernelGetParamCount")
+	symkernelGetParamInfo = registerSym("cuKernelGetParamInfo")
+	symkernelSetAttribute = registerSym("cuKernelSetAttribute")
+	symkernelSetCacheConfig = registerSym("cuKernelSetCacheConfig")
+	symlaunch = registerSym("cuLaunch")
+	symlaunchCooperativeKernel = registerSym("cuLaunchCooperativeKernel")
+	symLaunchCooperativeKernelMultiDevice = registerSym("cuLaunchCooperativeKernelMultiDevice")
+	symlaunchGrid = registerSym("cuLaunchGrid")
+	symlaunchGridAsync = registerSym("cuLaunchGridAsync")
+	symlaunchHostFunc = registerSym("cuLaunchHostFunc_v2")
+	symlaunchKernel = registerSym("cuLaunchKernel")
+	symlaunchKernelEx = registerSym("cuLaunchKernelEx")
+	symlibraryEnumerateKernels = registerSym("cuLibraryEnumerateKernels")
+	symlibraryGetGlobal = registerSym("cuLibraryGetGlobal")
+	symlibraryGetKernel = registerSym("cuLibraryGetKernel")
+	symlibraryGetKernelCount = registerSym("cuLibraryGetKernelCount")
+	symlibraryGetManaged = registerSym("cuLibraryGetManaged")
+	symlibraryGetModule = registerSym("cuLibraryGetModule")
+	symlibraryGetUnifiedFunction = registerSym("cuLibraryGetUnifiedFunction")
+	symlibraryLoadData = registerSym("cuLibraryLoadData")
+	symlibraryLoadFromFile = registerSym("cuLibraryLoadFromFile")
+	symlibraryUnload = registerSym("cuLibraryUnload")
+	symlinkAddData = registerSym("cuLinkAddData_v2")
+	symlinkAddFile = registerSym("cuLinkAddFile_v2")
+	symlinkComplete = registerSym("cuLinkComplete")
+	symLinkCreate = registerSym("cuLinkCreate_v2")
+	symlinkDestroy = registerSym("cuLinkDestroy")
+	symLogsCurrent = registerSym("cuLogsCurrent")
+	symLogsDumpToFile = registerSym("cuLogsDumpToFile")
+	symLogsDumpToMemory = registerSym("cuLogsDumpToMemory")
+	symLogsRegisterCallback = registerSym("cuLogsRegisterCallback")
+	symlogsUnregisterCallback = registerSym("cuLogsUnregisterCallback")
+	symmemAddressFree = registerSym("cuMemAddressFree")
+	symmemAddressReserve = registerSym("cuMemAddressReserve")
 	register(&fnmemAdvise, "cuMemAdvise_v2")
-	register(&fnMemAlloc, "cuMemAlloc_v2")
-	register(&fnmemAllocAsync, "cuMemAllocAsync")
-	register(&fnmemAllocFromPoolAsync, "cuMemAllocFromPoolAsync")
-	register(&fnMemAllocHost, "cuMemAllocHost_v2")
-	register(&fnMemAllocManaged, "cuMemAllocManaged")
-	register(&fnMemAllocPitch, "cuMemAllocPitch_v2")
-	register(&fnmemBatchDecompressAsync, "cuMemBatchDecompressAsync")
-	register(&fnMemCreate, "cuMemCreate")
-	register(&fnmemDiscardAndPrefetchBatchAsync, "cuMemDiscardAndPrefetchBatchAsync")
-	register(&fnmemDiscardBatchAsync, "cuMemDiscardBatchAsync")
-	register(&fnMemExportToShareableHandle, "cuMemExportToShareableHandle")
-	register(&fnmemFree, "cuMemFree_v2")
-	register(&fnmemFreeAsync, "cuMemFreeAsync")
-	register(&fnMemFreeHost, "cuMemFreeHost")
-	register(&fnmemGetAccess, "cuMemGetAccess")
-	register(&fnmemGetAddressRange, "cuMemGetAddressRange_v2")
-	register(&fnMemGetAllocationGranularity, "cuMemGetAllocationGranularity")
-	register(&fnMemGetAllocationPropertiesFromHandle, "cuMemGetAllocationPropertiesFromHandle")
-	register(&fnMemGetDefaultMemPool, "cuMemGetDefaultMemPool")
-	register(&fnmemGetHandleForAddressRange, "cuMemGetHandleForAddressRange")
-	register(&fnMemGetInfo, "cuMemGetInfo_v2")
-	register(&fnMemGetMemPool, "cuMemGetMemPool")
-	register(&fnMemHostAlloc, "cuMemHostAlloc")
-	register(&fnMemHostGetDevicePointer, "cuMemHostGetDevicePointer_v2")
-	register(&fnMemHostGetFlags, "cuMemHostGetFlags")
-	register(&fnMemHostRegister, "cuMemHostRegister_v2")
-	register(&fnMemHostUnregister, "cuMemHostUnregister")
-	register(&fnMemImportFromShareableHandle, "cuMemImportFromShareableHandle")
-	register(&fnmemMap, "cuMemMap")
-	register(&fnmemMapArrayAsync, "cuMemMapArrayAsync")
-	register(&fnmemPoolCreate, "cuMemPoolCreate")
-	register(&fnmemPoolDestroy, "cuMemPoolDestroy")
-	register(&fnmemPoolExportPointer, "cuMemPoolExportPointer")
-	register(&fnmemPoolExportToShareableHandle, "cuMemPoolExportToShareableHandle")
-	register(&fnmemPoolGetAccess, "cuMemPoolGetAccess")
-	register(&fnmemPoolGetAttribute, "cuMemPoolGetAttribute")
-	register(&fnmemPoolImportFromShareableHandle, "cuMemPoolImportFromShareableHandle")
-	register(&fnmemPoolImportPointer, "cuMemPoolImportPointer")
-	register(&fnmemPoolSetAccess, "cuMemPoolSetAccess")
-	register(&fnmemPoolSetAttribute, "cuMemPoolSetAttribute")
-	register(&fnmemPoolTrimTo, "cuMemPoolTrimTo")
+	symMemAlloc = registerSym("cuMemAlloc_v2")
+	symmemAllocAsync = registerSym("cuMemAllocAsync")
+	symmemAllocFromPoolAsync = registerSym("cuMemAllocFromPoolAsync")
+	symMemAllocHost = registerSym("cuMemAllocHost_v2")
+	symMemAllocManaged = registerSym("cuMemAllocManaged")
+	symMemAllocPitch = registerSym("cuMemAllocPitch_v2")
+	symmemBatchDecompressAsync = registerSym("cuMemBatchDecompressAsync")
+	symMemCreate = registerSym("cuMemCreate")
+	symmemDiscardAndPrefetchBatchAsync = registerSym("cuMemDiscardAndPrefetchBatchAsync")
+	symmemDiscardBatchAsync = registerSym("cuMemDiscardBatchAsync")
+	symMemExportToShareableHandle = registerSym("cuMemExportToShareableHandle")
+	symmemFree = registerSym("cuMemFree_v2")
+	symmemFreeAsync = registerSym("cuMemFreeAsync")
+	symMemFreeHost = registerSym("cuMemFreeHost")
+	symmemGetAccess = registerSym("cuMemGetAccess")
+	symmemGetAddressRange = registerSym("cuMemGetAddressRange_v2")
+	symMemGetAllocationGranularity = registerSym("cuMemGetAllocationGranularity")
+	symMemGetAllocationPropertiesFromHandle = registerSym("cuMemGetAllocationPropertiesFromHandle")
+	symMemGetDefaultMemPool = registerSym("cuMemGetDefaultMemPool")
+	symmemGetHandleForAddressRange = registerSym("cuMemGetHandleForAddressRange")
+	symMemGetInfo = registerSym("cuMemGetInfo_v2")
+	symMemGetMemPool = registerSym("cuMemGetMemPool")
+	symMemHostAlloc = registerSym("cuMemHostAlloc")
+	symMemHostGetDevicePointer = registerSym("cuMemHostGetDevicePointer_v2")
+	symMemHostGetFlags = registerSym("cuMemHostGetFlags")
+	symMemHostRegister = registerSym("cuMemHostRegister_v2")
+	symMemHostUnregister = registerSym("cuMemHostUnregister")
+	symMemImportFromShareableHandle = registerSym("cuMemImportFromShareableHandle")
+	symmemMap = registerSym("cuMemMap")
+	symmemMapArrayAsync = registerSym("cuMemMapArrayAsync")
+	symmemPoolCreate = registerSym("cuMemPoolCreate")
+	symmemPoolDestroy = registerSym("cuMemPoolDestroy")
+	symmemPoolExportPointer = registerSym("cuMemPoolExportPointer")
+	symmemPoolExportToShareableHandle = registerSym("cuMemPoolExportToShareableHandle")
+	symmemPoolGetAccess = registerSym("cuMemPoolGetAccess")
+	symmemPoolGetAttribute = registerSym("cuMemPoolGetAttribute")
+	symmemPoolImportFromShareableHandle = registerSym("cuMemPoolImportFromShareableHandle")
+	symmemPoolImportPointer = registerSym("cuMemPoolImportPointer")
+	symmemPoolSetAccess = registerSym("cuMemPoolSetAccess")
+	symmemPoolSetAttribute = registerSym("cuMemPoolSetAttribute")
+	symmemPoolTrimTo = registerSym("cuMemPoolTrimTo")
 	register(&fnmemPrefetchAsync, "cuMemPrefetchAsync_v2")
-	register(&fnmemPrefetchBatchAsync, "cuMemPrefetchBatchAsync")
-	register(&fnmemRangeGetAttribute, "cuMemRangeGetAttribute")
-	register(&fnmemRangeGetAttributes, "cuMemRangeGetAttributes")
-	register(&fnMemRelease, "cuMemRelease")
-	register(&fnMemRetainAllocationHandle, "cuMemRetainAllocationHandle")
-	register(&fnmemSetAccess, "cuMemSetAccess")
-	register(&fnmemSetMemPool, "cuMemSetMemPool")
-	register(&fnmemUnmap, "cuMemUnmap")
-	register(&fnmemcpy, "cuMemcpy")
-	register(&fnMemcpy2D, "cuMemcpy2D_v2")
-	register(&fnmemcpy2DAsync, "cuMemcpy2DAsync_v2")
-	register(&fnMemcpy2DUnaligned, "cuMemcpy2DUnaligned_v2")
-	register(&fnMemcpy3D, "cuMemcpy3D_v2")
-	register(&fnmemcpy3DAsync, "cuMemcpy3DAsync_v2")
-	register(&fnmemcpy3DBatchAsync, "cuMemcpy3DBatchAsync_v2")
-	register(&fnMemcpy3DPeer, "cuMemcpy3DPeer")
-	register(&fnmemcpy3DPeerAsync, "cuMemcpy3DPeerAsync")
-	register(&fnmemcpy3DWithAttributesAsync, "cuMemcpy3DWithAttributesAsync")
-	register(&fnmemcpyAsync, "cuMemcpyAsync")
-	register(&fnmemcpyAtoA, "cuMemcpyAtoA_v2")
-	register(&fnmemcpyAtoD, "cuMemcpyAtoD_v2")
-	register(&fnmemcpyAtoH, "cuMemcpyAtoH_v2")
-	register(&fnmemcpyAtoHAsync, "cuMemcpyAtoHAsync_v2")
-	register(&fnmemcpyBatchAsync, "cuMemcpyBatchAsync_v2")
-	register(&fnmemcpyDtoA, "cuMemcpyDtoA_v2")
-	register(&fnmemcpyDtoD, "cuMemcpyDtoD_v2")
-	register(&fnmemcpyDtoDAsync, "cuMemcpyDtoDAsync_v2")
-	register(&fnmemcpyDtoH, "cuMemcpyDtoH_v2")
-	register(&fnmemcpyDtoHAsync, "cuMemcpyDtoHAsync_v2")
-	register(&fnmemcpyHtoA, "cuMemcpyHtoA_v2")
-	register(&fnmemcpyHtoAAsync, "cuMemcpyHtoAAsync_v2")
-	register(&fnmemcpyHtoD, "cuMemcpyHtoD_v2")
-	register(&fnmemcpyHtoDAsync, "cuMemcpyHtoDAsync_v2")
-	register(&fnmemcpyPeer, "cuMemcpyPeer")
-	register(&fnmemcpyPeerAsync, "cuMemcpyPeerAsync")
-	register(&fnmemcpyWithAttributesAsync, "cuMemcpyWithAttributesAsync")
-	register(&fnmemsetD16, "cuMemsetD16_v2")
-	register(&fnmemsetD16Async, "cuMemsetD16Async")
-	register(&fnmemsetD2D16, "cuMemsetD2D16_v2")
-	register(&fnmemsetD2D16Async, "cuMemsetD2D16Async")
-	register(&fnmemsetD2D32, "cuMemsetD2D32_v2")
-	register(&fnmemsetD2D32Async, "cuMemsetD2D32Async")
-	register(&fnmemsetD2D8, "cuMemsetD2D8_v2")
-	register(&fnmemsetD2D8Async, "cuMemsetD2D8Async")
-	register(&fnmemsetD32, "cuMemsetD32_v2")
-	register(&fnmemsetD32Async, "cuMemsetD32Async")
-	register(&fnmemsetD8, "cuMemsetD8_v2")
-	register(&fnmemsetD8Async, "cuMemsetD8Async")
-	register(&fnmipmappedArrayCreate, "cuMipmappedArrayCreate")
-	register(&fnmipmappedArrayDestroy, "cuMipmappedArrayDestroy")
-	register(&fnmipmappedArrayGetLevel, "cuMipmappedArrayGetLevel")
-	register(&fnmipmappedArrayGetMemoryRequirements, "cuMipmappedArrayGetMemoryRequirements")
-	register(&fnmipmappedArrayGetSparseProperties, "cuMipmappedArrayGetSparseProperties")
-	register(&fnmoduleEnumerateFunctions, "cuModuleEnumerateFunctions")
-	register(&fnmoduleGetFunction, "cuModuleGetFunction")
-	register(&fnmoduleGetFunctionCount, "cuModuleGetFunctionCount")
-	register(&fnmoduleGetGlobal, "cuModuleGetGlobal_v2")
-	register(&fnModuleGetLoadingMode, "cuModuleGetLoadingMode")
-	register(&fnmoduleGetSurfRef, "cuModuleGetSurfRef")
-	register(&fnmoduleGetTexRef, "cuModuleGetTexRef")
-	register(&fnmoduleLoad, "cuModuleLoad")
-	register(&fnmoduleLoadData, "cuModuleLoadData")
-	register(&fnmoduleLoadDataEx, "cuModuleLoadDataEx")
-	register(&fnmoduleLoadFatBinary, "cuModuleLoadFatBinary")
-	register(&fnmoduleUnload, "cuModuleUnload")
-	register(&fnmulticastAddDevice, "cuMulticastAddDevice")
-	register(&fnmulticastBindAddr, "cuMulticastBindAddr")
-	register(&fnmulticastBindAddrV2, "cuMulticastBindAddr_v2")
-	register(&fnMulticastBindMem, "cuMulticastBindMem")
-	register(&fnmulticastBindMemV2, "cuMulticastBindMem_v2")
-	register(&fnMulticastCreate, "cuMulticastCreate")
-	register(&fnMulticastGetGranularity, "cuMulticastGetGranularity")
-	register(&fnmulticastUnbind, "cuMulticastUnbind")
-	register(&fnoccupancyAvailableDynamicSMemPerBlock, "cuOccupancyAvailableDynamicSMemPerBlock")
-	register(&fnoccupancyMaxActiveBlocksPerMultiprocessor, "cuOccupancyMaxActiveBlocksPerMultiprocessor")
-	register(&fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags, "cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags")
-	register(&fnoccupancyMaxActiveClusters, "cuOccupancyMaxActiveClusters")
-	register(&fnoccupancyMaxPotentialBlockSize, "cuOccupancyMaxPotentialBlockSize")
-	register(&fnoccupancyMaxPotentialBlockSizeWithFlags, "cuOccupancyMaxPotentialBlockSizeWithFlags")
-	register(&fnoccupancyMaxPotentialClusterSize, "cuOccupancyMaxPotentialClusterSize")
-	register(&fnparamSetSize, "cuParamSetSize")
-	register(&fnparamSetTexRef, "cuParamSetTexRef")
-	register(&fnparamSetf, "cuParamSetf")
-	register(&fnparamSeti, "cuParamSeti")
-	register(&fnparamSetv, "cuParamSetv")
-	register(&fnpointerGetAttribute, "cuPointerGetAttribute")
-	register(&fnpointerGetAttributes, "cuPointerGetAttributes")
-	register(&fnpointerSetAttribute, "cuPointerSetAttribute")
-	register(&fnsignalExternalSemaphoresAsync, "cuSignalExternalSemaphoresAsync")
-	register(&fnstreamAddCallback, "cuStreamAddCallback")
-	register(&fnstreamAttachMemAsync, "cuStreamAttachMemAsync")
-	register(&fnstreamBatchMemOp, "cuStreamBatchMemOp_v2")
-	register(&fnstreamBeginCapture, "cuStreamBeginCapture_v2")
-	register(&fnstreamBeginCaptureToCig, "cuStreamBeginCaptureToCig")
-	register(&fnstreamBeginCaptureToGraph, "cuStreamBeginCaptureToGraph")
-	register(&fnstreamCopyAttributes, "cuStreamCopyAttributes")
-	register(&fnstreamCreate, "cuStreamCreate")
-	register(&fnstreamCreateWithPriority, "cuStreamCreateWithPriority")
-	register(&fnstreamDestroy, "cuStreamDestroy_v2")
-	register(&fnstreamEndCapture, "cuStreamEndCapture")
-	register(&fnstreamEndCaptureToCig, "cuStreamEndCaptureToCig")
-	register(&fnstreamGetAttribute, "cuStreamGetAttribute")
-	register(&fnstreamGetCaptureInfo, "cuStreamGetCaptureInfo_v3")
-	register(&fnstreamGetCtx, "cuStreamGetCtx_v2")
-	register(&fnstreamGetDevResource, "cuStreamGetDevResource")
-	register(&fnstreamGetDevice, "cuStreamGetDevice")
-	register(&fnstreamGetFlags, "cuStreamGetFlags")
-	register(&fnstreamGetGreenCtx, "cuStreamGetGreenCtx")
-	register(&fnstreamGetId, "cuStreamGetId")
-	register(&fnstreamGetPriority, "cuStreamGetPriority")
-	register(&fnstreamIsCapturing, "cuStreamIsCapturing")
-	register(&fnstreamQuery, "cuStreamQuery")
-	register(&fnstreamSetAttribute, "cuStreamSetAttribute")
-	register(&fnstreamSynchronize, "cuStreamSynchronize")
-	register(&fnstreamUpdateCaptureDependencies, "cuStreamUpdateCaptureDependencies_v2")
-	register(&fnstreamWaitEvent, "cuStreamWaitEvent")
-	register(&fnstreamWaitValue32, "cuStreamWaitValue32_v2")
-	register(&fnstreamWaitValue64, "cuStreamWaitValue64_v2")
-	register(&fnstreamWriteValue32, "cuStreamWriteValue32_v2")
-	register(&fnstreamWriteValue64, "cuStreamWriteValue64_v2")
-	register(&fnSurfObjectCreate, "cuSurfObjectCreate")
-	register(&fnSurfObjectDestroy, "cuSurfObjectDestroy")
-	register(&fnSurfObjectGetResourceDesc, "cuSurfObjectGetResourceDesc")
-	register(&fnsurfRefGetArray, "cuSurfRefGetArray")
-	register(&fnsurfRefSetArray, "cuSurfRefSetArray")
-	register(&fnTensorMapEncodeIm2col, "cuTensorMapEncodeIm2col")
-	register(&fnTensorMapEncodeIm2colWide, "cuTensorMapEncodeIm2colWide")
-	register(&fnTensorMapEncodeTiled, "cuTensorMapEncodeTiled")
-	register(&fnTensorMapReplaceAddress, "cuTensorMapReplaceAddress")
-	register(&fnTexObjectCreate, "cuTexObjectCreate")
-	register(&fnTexObjectDestroy, "cuTexObjectDestroy")
-	register(&fnTexObjectGetResourceDesc, "cuTexObjectGetResourceDesc")
-	register(&fnTexObjectGetResourceViewDesc, "cuTexObjectGetResourceViewDesc")
-	register(&fnTexObjectGetTextureDesc, "cuTexObjectGetTextureDesc")
-	register(&fntexRefCreate, "cuTexRefCreate")
-	register(&fntexRefDestroy, "cuTexRefDestroy")
-	register(&fntexRefGetAddress, "cuTexRefGetAddress_v2")
-	register(&fntexRefGetAddressMode, "cuTexRefGetAddressMode")
-	register(&fntexRefGetArray, "cuTexRefGetArray")
-	register(&fntexRefGetBorderColor, "cuTexRefGetBorderColor")
-	register(&fntexRefGetFilterMode, "cuTexRefGetFilterMode")
-	register(&fntexRefGetFlags, "cuTexRefGetFlags")
-	register(&fntexRefGetFormat, "cuTexRefGetFormat")
-	register(&fntexRefGetMaxAnisotropy, "cuTexRefGetMaxAnisotropy")
-	register(&fntexRefGetMipmapFilterMode, "cuTexRefGetMipmapFilterMode")
-	register(&fntexRefGetMipmapLevelBias, "cuTexRefGetMipmapLevelBias")
-	register(&fntexRefGetMipmapLevelClamp, "cuTexRefGetMipmapLevelClamp")
-	register(&fntexRefGetMipmappedArray, "cuTexRefGetMipmappedArray")
-	register(&fntexRefSetAddress, "cuTexRefSetAddress_v2")
-	register(&fntexRefSetAddress2D, "cuTexRefSetAddress2D_v3")
-	register(&fntexRefSetAddressMode, "cuTexRefSetAddressMode")
-	register(&fntexRefSetArray, "cuTexRefSetArray")
-	register(&fntexRefSetBorderColor, "cuTexRefSetBorderColor")
-	register(&fntexRefSetFilterMode, "cuTexRefSetFilterMode")
-	register(&fntexRefSetFlags, "cuTexRefSetFlags")
-	register(&fntexRefSetFormat, "cuTexRefSetFormat")
-	register(&fntexRefSetMaxAnisotropy, "cuTexRefSetMaxAnisotropy")
-	register(&fntexRefSetMipmapFilterMode, "cuTexRefSetMipmapFilterMode")
-	register(&fntexRefSetMipmapLevelBias, "cuTexRefSetMipmapLevelBias")
-	register(&fntexRefSetMipmapLevelClamp, "cuTexRefSetMipmapLevelClamp")
-	register(&fntexRefSetMipmappedArray, "cuTexRefSetMipmappedArray")
-	register(&fnThreadExchangeStreamCaptureMode, "cuThreadExchangeStreamCaptureMode")
-	register(&fnuserObjectCreate, "cuUserObjectCreate")
-	register(&fnuserObjectRelease, "cuUserObjectRelease")
-	register(&fnuserObjectRetain, "cuUserObjectRetain")
-	register(&fnwaitExternalSemaphoresAsync, "cuWaitExternalSemaphoresAsync")
+	symmemPrefetchBatchAsync = registerSym("cuMemPrefetchBatchAsync")
+	symmemRangeGetAttribute = registerSym("cuMemRangeGetAttribute")
+	symmemRangeGetAttributes = registerSym("cuMemRangeGetAttributes")
+	symMemRelease = registerSym("cuMemRelease")
+	symMemRetainAllocationHandle = registerSym("cuMemRetainAllocationHandle")
+	symmemSetAccess = registerSym("cuMemSetAccess")
+	symmemSetMemPool = registerSym("cuMemSetMemPool")
+	symmemUnmap = registerSym("cuMemUnmap")
+	symmemcpy = registerSym("cuMemcpy")
+	symMemcpy2D = registerSym("cuMemcpy2D_v2")
+	symmemcpy2DAsync = registerSym("cuMemcpy2DAsync_v2")
+	symMemcpy2DUnaligned = registerSym("cuMemcpy2DUnaligned_v2")
+	symMemcpy3D = registerSym("cuMemcpy3D_v2")
+	symmemcpy3DAsync = registerSym("cuMemcpy3DAsync_v2")
+	symmemcpy3DBatchAsync = registerSym("cuMemcpy3DBatchAsync_v2")
+	symMemcpy3DPeer = registerSym("cuMemcpy3DPeer")
+	symmemcpy3DPeerAsync = registerSym("cuMemcpy3DPeerAsync")
+	symmemcpy3DWithAttributesAsync = registerSym("cuMemcpy3DWithAttributesAsync")
+	symmemcpyAsync = registerSym("cuMemcpyAsync")
+	symmemcpyAtoA = registerSym("cuMemcpyAtoA_v2")
+	symmemcpyAtoD = registerSym("cuMemcpyAtoD_v2")
+	symmemcpyAtoH = registerSym("cuMemcpyAtoH_v2")
+	symmemcpyAtoHAsync = registerSym("cuMemcpyAtoHAsync_v2")
+	symmemcpyBatchAsync = registerSym("cuMemcpyBatchAsync_v2")
+	symmemcpyDtoA = registerSym("cuMemcpyDtoA_v2")
+	symmemcpyDtoD = registerSym("cuMemcpyDtoD_v2")
+	symmemcpyDtoDAsync = registerSym("cuMemcpyDtoDAsync_v2")
+	symmemcpyDtoH = registerSym("cuMemcpyDtoH_v2")
+	symmemcpyDtoHAsync = registerSym("cuMemcpyDtoHAsync_v2")
+	symmemcpyHtoA = registerSym("cuMemcpyHtoA_v2")
+	symmemcpyHtoAAsync = registerSym("cuMemcpyHtoAAsync_v2")
+	symmemcpyHtoD = registerSym("cuMemcpyHtoD_v2")
+	symmemcpyHtoDAsync = registerSym("cuMemcpyHtoDAsync_v2")
+	symmemcpyPeer = registerSym("cuMemcpyPeer")
+	symmemcpyPeerAsync = registerSym("cuMemcpyPeerAsync")
+	symmemcpyWithAttributesAsync = registerSym("cuMemcpyWithAttributesAsync")
+	symmemsetD16 = registerSym("cuMemsetD16_v2")
+	symmemsetD16Async = registerSym("cuMemsetD16Async")
+	symmemsetD2D16 = registerSym("cuMemsetD2D16_v2")
+	symmemsetD2D16Async = registerSym("cuMemsetD2D16Async")
+	symmemsetD2D32 = registerSym("cuMemsetD2D32_v2")
+	symmemsetD2D32Async = registerSym("cuMemsetD2D32Async")
+	symmemsetD2D8 = registerSym("cuMemsetD2D8_v2")
+	symmemsetD2D8Async = registerSym("cuMemsetD2D8Async")
+	symmemsetD32 = registerSym("cuMemsetD32_v2")
+	symmemsetD32Async = registerSym("cuMemsetD32Async")
+	symmemsetD8 = registerSym("cuMemsetD8_v2")
+	symmemsetD8Async = registerSym("cuMemsetD8Async")
+	symmipmappedArrayCreate = registerSym("cuMipmappedArrayCreate")
+	symmipmappedArrayDestroy = registerSym("cuMipmappedArrayDestroy")
+	symmipmappedArrayGetLevel = registerSym("cuMipmappedArrayGetLevel")
+	symmipmappedArrayGetMemoryRequirements = registerSym("cuMipmappedArrayGetMemoryRequirements")
+	symmipmappedArrayGetSparseProperties = registerSym("cuMipmappedArrayGetSparseProperties")
+	symmoduleEnumerateFunctions = registerSym("cuModuleEnumerateFunctions")
+	symmoduleGetFunction = registerSym("cuModuleGetFunction")
+	symmoduleGetFunctionCount = registerSym("cuModuleGetFunctionCount")
+	symmoduleGetGlobal = registerSym("cuModuleGetGlobal_v2")
+	symModuleGetLoadingMode = registerSym("cuModuleGetLoadingMode")
+	symmoduleGetSurfRef = registerSym("cuModuleGetSurfRef")
+	symmoduleGetTexRef = registerSym("cuModuleGetTexRef")
+	symmoduleLoad = registerSym("cuModuleLoad")
+	symmoduleLoadData = registerSym("cuModuleLoadData")
+	symmoduleLoadDataEx = registerSym("cuModuleLoadDataEx")
+	symmoduleLoadFatBinary = registerSym("cuModuleLoadFatBinary")
+	symmoduleUnload = registerSym("cuModuleUnload")
+	symmulticastAddDevice = registerSym("cuMulticastAddDevice")
+	symmulticastBindAddr = registerSym("cuMulticastBindAddr")
+	symmulticastBindAddrV2 = registerSym("cuMulticastBindAddr_v2")
+	symMulticastBindMem = registerSym("cuMulticastBindMem")
+	symmulticastBindMemV2 = registerSym("cuMulticastBindMem_v2")
+	symMulticastCreate = registerSym("cuMulticastCreate")
+	symMulticastGetGranularity = registerSym("cuMulticastGetGranularity")
+	symmulticastUnbind = registerSym("cuMulticastUnbind")
+	symoccupancyAvailableDynamicSMemPerBlock = registerSym("cuOccupancyAvailableDynamicSMemPerBlock")
+	symoccupancyMaxActiveBlocksPerMultiprocessor = registerSym("cuOccupancyMaxActiveBlocksPerMultiprocessor")
+	symoccupancyMaxActiveBlocksPerMultiprocessorWithFlags = registerSym("cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags")
+	symoccupancyMaxActiveClusters = registerSym("cuOccupancyMaxActiveClusters")
+	symoccupancyMaxPotentialBlockSize = registerSym("cuOccupancyMaxPotentialBlockSize")
+	symoccupancyMaxPotentialBlockSizeWithFlags = registerSym("cuOccupancyMaxPotentialBlockSizeWithFlags")
+	symoccupancyMaxPotentialClusterSize = registerSym("cuOccupancyMaxPotentialClusterSize")
+	symparamSetSize = registerSym("cuParamSetSize")
+	symparamSetTexRef = registerSym("cuParamSetTexRef")
+	symparamSetf = registerSym("cuParamSetf")
+	symparamSeti = registerSym("cuParamSeti")
+	symparamSetv = registerSym("cuParamSetv")
+	sympointerGetAttribute = registerSym("cuPointerGetAttribute")
+	sympointerGetAttributes = registerSym("cuPointerGetAttributes")
+	sympointerSetAttribute = registerSym("cuPointerSetAttribute")
+	symsignalExternalSemaphoresAsync = registerSym("cuSignalExternalSemaphoresAsync")
+	symstreamAddCallback = registerSym("cuStreamAddCallback")
+	symstreamAttachMemAsync = registerSym("cuStreamAttachMemAsync")
+	symstreamBatchMemOp = registerSym("cuStreamBatchMemOp_v2")
+	symstreamBeginCapture = registerSym("cuStreamBeginCapture_v2")
+	symstreamBeginCaptureToCig = registerSym("cuStreamBeginCaptureToCig")
+	symstreamBeginCaptureToGraph = registerSym("cuStreamBeginCaptureToGraph")
+	symstreamCopyAttributes = registerSym("cuStreamCopyAttributes")
+	symstreamCreate = registerSym("cuStreamCreate")
+	symstreamCreateWithPriority = registerSym("cuStreamCreateWithPriority")
+	symstreamDestroy = registerSym("cuStreamDestroy_v2")
+	symstreamEndCapture = registerSym("cuStreamEndCapture")
+	symstreamEndCaptureToCig = registerSym("cuStreamEndCaptureToCig")
+	symstreamGetAttribute = registerSym("cuStreamGetAttribute")
+	symstreamGetCaptureInfo = registerSym("cuStreamGetCaptureInfo_v3")
+	symstreamGetCtx = registerSym("cuStreamGetCtx_v2")
+	symstreamGetDevResource = registerSym("cuStreamGetDevResource")
+	symstreamGetDevice = registerSym("cuStreamGetDevice")
+	symstreamGetFlags = registerSym("cuStreamGetFlags")
+	symstreamGetGreenCtx = registerSym("cuStreamGetGreenCtx")
+	symstreamGetId = registerSym("cuStreamGetId")
+	symstreamGetPriority = registerSym("cuStreamGetPriority")
+	symstreamIsCapturing = registerSym("cuStreamIsCapturing")
+	symstreamQuery = registerSym("cuStreamQuery")
+	symstreamSetAttribute = registerSym("cuStreamSetAttribute")
+	symstreamSynchronize = registerSym("cuStreamSynchronize")
+	symstreamUpdateCaptureDependencies = registerSym("cuStreamUpdateCaptureDependencies_v2")
+	symstreamWaitEvent = registerSym("cuStreamWaitEvent")
+	symstreamWaitValue32 = registerSym("cuStreamWaitValue32_v2")
+	symstreamWaitValue64 = registerSym("cuStreamWaitValue64_v2")
+	symstreamWriteValue32 = registerSym("cuStreamWriteValue32_v2")
+	symstreamWriteValue64 = registerSym("cuStreamWriteValue64_v2")
+	symSurfObjectCreate = registerSym("cuSurfObjectCreate")
+	symSurfObjectDestroy = registerSym("cuSurfObjectDestroy")
+	symSurfObjectGetResourceDesc = registerSym("cuSurfObjectGetResourceDesc")
+	symsurfRefGetArray = registerSym("cuSurfRefGetArray")
+	symsurfRefSetArray = registerSym("cuSurfRefSetArray")
+	symTensorMapEncodeIm2col = registerSym("cuTensorMapEncodeIm2col")
+	symTensorMapEncodeIm2colWide = registerSym("cuTensorMapEncodeIm2colWide")
+	symTensorMapEncodeTiled = registerSym("cuTensorMapEncodeTiled")
+	symTensorMapReplaceAddress = registerSym("cuTensorMapReplaceAddress")
+	symTexObjectCreate = registerSym("cuTexObjectCreate")
+	symTexObjectDestroy = registerSym("cuTexObjectDestroy")
+	symTexObjectGetResourceDesc = registerSym("cuTexObjectGetResourceDesc")
+	symTexObjectGetResourceViewDesc = registerSym("cuTexObjectGetResourceViewDesc")
+	symTexObjectGetTextureDesc = registerSym("cuTexObjectGetTextureDesc")
+	symtexRefCreate = registerSym("cuTexRefCreate")
+	symtexRefDestroy = registerSym("cuTexRefDestroy")
+	symtexRefGetAddress = registerSym("cuTexRefGetAddress_v2")
+	symtexRefGetAddressMode = registerSym("cuTexRefGetAddressMode")
+	symtexRefGetArray = registerSym("cuTexRefGetArray")
+	symtexRefGetBorderColor = registerSym("cuTexRefGetBorderColor")
+	symtexRefGetFilterMode = registerSym("cuTexRefGetFilterMode")
+	symtexRefGetFlags = registerSym("cuTexRefGetFlags")
+	symtexRefGetFormat = registerSym("cuTexRefGetFormat")
+	symtexRefGetMaxAnisotropy = registerSym("cuTexRefGetMaxAnisotropy")
+	symtexRefGetMipmapFilterMode = registerSym("cuTexRefGetMipmapFilterMode")
+	symtexRefGetMipmapLevelBias = registerSym("cuTexRefGetMipmapLevelBias")
+	symtexRefGetMipmapLevelClamp = registerSym("cuTexRefGetMipmapLevelClamp")
+	symtexRefGetMipmappedArray = registerSym("cuTexRefGetMipmappedArray")
+	symtexRefSetAddress = registerSym("cuTexRefSetAddress_v2")
+	symtexRefSetAddress2D = registerSym("cuTexRefSetAddress2D_v3")
+	symtexRefSetAddressMode = registerSym("cuTexRefSetAddressMode")
+	symtexRefSetArray = registerSym("cuTexRefSetArray")
+	symtexRefSetBorderColor = registerSym("cuTexRefSetBorderColor")
+	symtexRefSetFilterMode = registerSym("cuTexRefSetFilterMode")
+	symtexRefSetFlags = registerSym("cuTexRefSetFlags")
+	symtexRefSetFormat = registerSym("cuTexRefSetFormat")
+	symtexRefSetMaxAnisotropy = registerSym("cuTexRefSetMaxAnisotropy")
+	symtexRefSetMipmapFilterMode = registerSym("cuTexRefSetMipmapFilterMode")
+	symtexRefSetMipmapLevelBias = registerSym("cuTexRefSetMipmapLevelBias")
+	symtexRefSetMipmapLevelClamp = registerSym("cuTexRefSetMipmapLevelClamp")
+	symtexRefSetMipmappedArray = registerSym("cuTexRefSetMipmappedArray")
+	symThreadExchangeStreamCaptureMode = registerSym("cuThreadExchangeStreamCaptureMode")
+	symuserObjectCreate = registerSym("cuUserObjectCreate")
+	symuserObjectRelease = registerSym("cuUserObjectRelease")
+	symuserObjectRetain = registerSym("cuUserObjectRetain")
+	symwaitExternalSemaphoresAsync = registerSym("cuWaitExternalSemaphoresAsync")
 }
 
 // clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
 	fnGetErrorName = nil
 	fnGetErrorString = nil
-	fnarray3DCreate = nil
-	fnarray3DGetDescriptor = nil
-	fnarrayCreate = nil
-	fnarrayDestroy = nil
-	fnarrayGetDescriptor = nil
-	fnarrayGetMemoryRequirements = nil
-	fnarrayGetPlane = nil
-	fnarrayGetSparseProperties = nil
-	fnCheckpointProcessCheckpoint = nil
-	fnCheckpointProcessGetRestoreThreadId = nil
-	fnCheckpointProcessGetState = nil
-	fnCheckpointProcessLock = nil
-	fnCheckpointProcessRestore = nil
-	fnCheckpointProcessUnlock = nil
-	fncoredumpDeregisterCompleteCallback = nil
-	fncoredumpDeregisterStartCallback = nil
-	fnCoredumpGetAttribute = nil
-	fnCoredumpGetAttributeGlobal = nil
-	fnCoredumpRegisterCompleteCallback = nil
-	fnCoredumpRegisterStartCallback = nil
-	fnCoredumpSetAttribute = nil
-	fnCoredumpSetAttributeGlobal = nil
-	fnctxAttach = nil
-	fnctxCreate = nil
-	fnctxDestroy = nil
-	fnctxDetach = nil
-	fnctxDisablePeerAccess = nil
-	fnctxEnablePeerAccess = nil
-	fnctxFromGreenCtx = nil
-	fnctxGetApiVersion = nil
-	fnCtxGetCacheConfig = nil
-	fnctxGetCurrent = nil
-	fnctxGetDevResource = nil
-	fnCtxGetDevice = nil
-	fnctxGetDeviceV2 = nil
-	fnCtxGetExecAffinity = nil
-	fnCtxGetFlags = nil
-	fnctxGetId = nil
-	fnCtxGetLimit = nil
-	fnCtxGetSharedMemConfig = nil
-	fnCtxGetStreamPriorityRange = nil
-	fnctxPopCurrent = nil
-	fnctxPushCurrent = nil
-	fnctxRecordEvent = nil
-	fnCtxResetPersistingL2Cache = nil
-	fnCtxSetCacheConfig = nil
-	fnctxSetCurrent = nil
-	fnCtxSetFlags = nil
-	fnCtxSetLimit = nil
-	fnCtxSetSharedMemConfig = nil
-	fnCtxSynchronize = nil
-	fnctxSynchronizeV2 = nil
-	fnctxWaitEvent = nil
-	fndestroyExternalMemory = nil
-	fndestroyExternalSemaphore = nil
-	fnDevResourceGenerateDesc = nil
-	fnDevSmResourceSplit = nil
-	fnDevSmResourceSplitByCount = nil
-	fndeviceCanAccessPeer = nil
-	fndeviceComputeCapability = nil
-	fndeviceGet = nil
-	fndeviceGetAttribute = nil
-	fndeviceGetByPCIBusId = nil
-	fnDeviceGetCount = nil
-	fndeviceGetDefaultMemPool = nil
-	fndeviceGetDevResource = nil
-	fndeviceGetExecAffinitySupport = nil
-	fndeviceGetGraphMemAttribute = nil
-	fndeviceGetHostAtomicCapabilities = nil
-	fndeviceGetLuid = nil
-	fndeviceGetMemPool = nil
-	fndeviceGetName = nil
-	fndeviceGetNvSciSyncAttributes = nil
-	fndeviceGetP2PAtomicCapabilities = nil
-	fndeviceGetP2PAttribute = nil
-	fndeviceGetPCIBusId = nil
-	fndeviceGetProperties = nil
-	fndeviceGetTexture1DLinearMaxWidth = nil
-	fndeviceGetUuid = nil
-	fndeviceGraphMemTrim = nil
-	fndevicePrimaryCtxGetState = nil
-	fndevicePrimaryCtxRelease = nil
-	fndevicePrimaryCtxReset = nil
-	fndevicePrimaryCtxRetain = nil
-	fndevicePrimaryCtxSetFlags = nil
-	fndeviceRegisterAsyncNotification = nil
-	fndeviceSetGraphMemAttribute = nil
-	fndeviceSetMemPool = nil
-	fndeviceTotalMem = nil
-	fndeviceUnregisterAsyncNotification = nil
-	fnDriverGetVersion = nil
-	fneventCreate = nil
-	fneventDestroy = nil
-	fneventElapsedTime = nil
-	fneventQuery = nil
-	fneventRecord = nil
-	fneventRecordWithFlags = nil
-	fneventSynchronize = nil
-	fnexternalMemoryGetMappedBuffer = nil
-	fnexternalMemoryGetMappedMipmappedArray = nil
-	fnFlushGPUDirectRDMAWrites = nil
-	fnfuncGetAttribute = nil
-	fnfuncGetModule = nil
-	fnfuncGetName = nil
-	fnfuncGetParamCount = nil
-	fnfuncGetParamInfo = nil
-	fnfuncIsLoaded = nil
-	fnfuncLoad = nil
-	fnfuncSetAttribute = nil
-	fnfuncSetBlockShape = nil
-	fnfuncSetCacheConfig = nil
-	fnfuncSetSharedMemConfig = nil
-	fnfuncSetSharedSize = nil
-	fnGetExportTable = nil
-	fnGetProcAddress = nil
-	fngraphAddBatchMemOpNode = nil
-	fngraphAddChildGraphNode = nil
-	fngraphAddDependencies = nil
-	fngraphAddEmptyNode = nil
-	fngraphAddEventRecordNode = nil
-	fngraphAddEventWaitNode = nil
-	fngraphAddExternalSemaphoresSignalNode = nil
-	fngraphAddExternalSemaphoresWaitNode = nil
-	fngraphAddHostNode = nil
-	fngraphAddKernelNode = nil
-	fngraphAddMemAllocNode = nil
-	fngraphAddMemFreeNode = nil
-	fngraphAddMemcpyNode = nil
-	fngraphAddMemsetNode = nil
-	fngraphAddNode = nil
-	fngraphBatchMemOpNodeGetParams = nil
-	fngraphBatchMemOpNodeSetParams = nil
-	fngraphChildGraphNodeGetGraph = nil
-	fngraphClone = nil
-	fngraphConditionalHandleCreate = nil
-	fngraphCreate = nil
-	fngraphDebugDotPrint = nil
-	fngraphDestroy = nil
-	fngraphDestroyNode = nil
-	fngraphEventRecordNodeGetEvent = nil
-	fngraphEventRecordNodeSetEvent = nil
-	fngraphEventWaitNodeGetEvent = nil
-	fngraphEventWaitNodeSetEvent = nil
-	fngraphExecBatchMemOpNodeSetParams = nil
-	fngraphExecChildGraphNodeSetParams = nil
-	fngraphExecDestroy = nil
-	fngraphExecEventRecordNodeSetEvent = nil
-	fngraphExecEventWaitNodeSetEvent = nil
-	fngraphExecExternalSemaphoresSignalNodeSetParams = nil
-	fngraphExecExternalSemaphoresWaitNodeSetParams = nil
-	fngraphExecGetFlags = nil
-	fngraphExecGetId = nil
-	fngraphExecHostNodeSetParams = nil
-	fngraphExecKernelNodeSetParams = nil
-	fngraphExecMemcpyNodeSetParams = nil
-	fngraphExecMemsetNodeSetParams = nil
-	fngraphExecNodeSetParams = nil
-	fngraphExecUpdate = nil
-	fngraphExternalSemaphoresSignalNodeGetParams = nil
-	fngraphExternalSemaphoresSignalNodeSetParams = nil
-	fngraphExternalSemaphoresWaitNodeGetParams = nil
-	fngraphExternalSemaphoresWaitNodeSetParams = nil
-	fngraphGetEdges = nil
-	fngraphGetId = nil
-	fngraphGetNodes = nil
-	fngraphGetRootNodes = nil
-	fngraphHostNodeGetParams = nil
-	fngraphHostNodeSetParams = nil
-	fngraphInstantiate = nil
-	fngraphInstantiateWithParams = nil
-	fngraphKernelNodeCopyAttributes = nil
-	fngraphKernelNodeGetAttribute = nil
-	fngraphKernelNodeGetParams = nil
-	fngraphKernelNodeSetAttribute = nil
-	fngraphKernelNodeSetParams = nil
-	fngraphLaunch = nil
-	fngraphMemAllocNodeGetParams = nil
-	fngraphMemFreeNodeGetParams = nil
-	fngraphMemcpyNodeGetParams = nil
-	fngraphMemcpyNodeSetParams = nil
-	fngraphMemsetNodeGetParams = nil
-	fngraphMemsetNodeSetParams = nil
-	fngraphNodeFindInClone = nil
-	fngraphNodeGetContainingGraph = nil
-	fngraphNodeGetDependencies = nil
-	fngraphNodeGetDependentNodes = nil
-	fngraphNodeGetEnabled = nil
-	fngraphNodeGetLocalId = nil
-	fngraphNodeGetParams = nil
-	fngraphNodeGetToolsId = nil
-	fngraphNodeGetType = nil
-	fngraphNodeSetEnabled = nil
-	fngraphNodeSetParams = nil
-	fngraphReleaseUserObject = nil
-	fngraphRemoveDependencies = nil
-	fngraphRetainUserObject = nil
-	fngraphUpload = nil
-	fngraphicsMapResources = nil
-	fngraphicsResourceGetMappedMipmappedArray = nil
-	fngraphicsResourceGetMappedPointer = nil
-	fngraphicsResourceSetMapFlags = nil
-	fngraphicsSubResourceGetMappedArray = nil
-	fngraphicsUnmapResources = nil
-	fngraphicsUnregisterResource = nil
-	fngreenCtxCreate = nil
-	fngreenCtxDestroy = nil
-	fngreenCtxGetDevResource = nil
-	fngreenCtxGetId = nil
-	fngreenCtxRecordEvent = nil
-	fngreenCtxStreamCreate = nil
-	fngreenCtxWaitEvent = nil
-	fnImportExternalMemory = nil
-	fnImportExternalSemaphore = nil
-	fnInit = nil
-	fnipcCloseMemHandle = nil
-	fnipcGetEventHandle = nil
-	fnipcGetMemHandle = nil
+	symarray3DCreate = 0
+	symarray3DGetDescriptor = 0
+	symarrayCreate = 0
+	symarrayDestroy = 0
+	symarrayGetDescriptor = 0
+	symarrayGetMemoryRequirements = 0
+	symarrayGetPlane = 0
+	symarrayGetSparseProperties = 0
+	symCheckpointProcessCheckpoint = 0
+	symCheckpointProcessGetRestoreThreadId = 0
+	symCheckpointProcessGetState = 0
+	symCheckpointProcessLock = 0
+	symCheckpointProcessRestore = 0
+	symCheckpointProcessUnlock = 0
+	symcoredumpDeregisterCompleteCallback = 0
+	symcoredumpDeregisterStartCallback = 0
+	symCoredumpGetAttribute = 0
+	symCoredumpGetAttributeGlobal = 0
+	symCoredumpRegisterCompleteCallback = 0
+	symCoredumpRegisterStartCallback = 0
+	symCoredumpSetAttribute = 0
+	symCoredumpSetAttributeGlobal = 0
+	symctxAttach = 0
+	symctxCreate = 0
+	symctxDestroy = 0
+	symctxDetach = 0
+	symctxDisablePeerAccess = 0
+	symctxEnablePeerAccess = 0
+	symctxFromGreenCtx = 0
+	symctxGetApiVersion = 0
+	symCtxGetCacheConfig = 0
+	symctxGetCurrent = 0
+	symctxGetDevResource = 0
+	symCtxGetDevice = 0
+	symctxGetDeviceV2 = 0
+	symCtxGetExecAffinity = 0
+	symCtxGetFlags = 0
+	symctxGetId = 0
+	symCtxGetLimit = 0
+	symCtxGetSharedMemConfig = 0
+	symCtxGetStreamPriorityRange = 0
+	symctxPopCurrent = 0
+	symctxPushCurrent = 0
+	symctxRecordEvent = 0
+	symCtxResetPersistingL2Cache = 0
+	symCtxSetCacheConfig = 0
+	symctxSetCurrent = 0
+	symCtxSetFlags = 0
+	symCtxSetLimit = 0
+	symCtxSetSharedMemConfig = 0
+	symCtxSynchronize = 0
+	symctxSynchronizeV2 = 0
+	symctxWaitEvent = 0
+	symdestroyExternalMemory = 0
+	symdestroyExternalSemaphore = 0
+	symDevResourceGenerateDesc = 0
+	symDevSmResourceSplit = 0
+	symDevSmResourceSplitByCount = 0
+	symdeviceCanAccessPeer = 0
+	symdeviceComputeCapability = 0
+	symdeviceGet = 0
+	symdeviceGetAttribute = 0
+	symdeviceGetByPCIBusId = 0
+	symDeviceGetCount = 0
+	symdeviceGetDefaultMemPool = 0
+	symdeviceGetDevResource = 0
+	symdeviceGetExecAffinitySupport = 0
+	symdeviceGetGraphMemAttribute = 0
+	symdeviceGetHostAtomicCapabilities = 0
+	symdeviceGetLuid = 0
+	symdeviceGetMemPool = 0
+	symdeviceGetName = 0
+	symdeviceGetNvSciSyncAttributes = 0
+	symdeviceGetP2PAtomicCapabilities = 0
+	symdeviceGetP2PAttribute = 0
+	symdeviceGetPCIBusId = 0
+	symdeviceGetProperties = 0
+	symdeviceGetTexture1DLinearMaxWidth = 0
+	symdeviceGetUuid = 0
+	symdeviceGraphMemTrim = 0
+	symdevicePrimaryCtxGetState = 0
+	symdevicePrimaryCtxRelease = 0
+	symdevicePrimaryCtxReset = 0
+	symdevicePrimaryCtxRetain = 0
+	symdevicePrimaryCtxSetFlags = 0
+	symdeviceRegisterAsyncNotification = 0
+	symdeviceSetGraphMemAttribute = 0
+	symdeviceSetMemPool = 0
+	symdeviceTotalMem = 0
+	symdeviceUnregisterAsyncNotification = 0
+	symDriverGetVersion = 0
+	symeventCreate = 0
+	symeventDestroy = 0
+	symeventElapsedTime = 0
+	symeventQuery = 0
+	symeventRecord = 0
+	symeventRecordWithFlags = 0
+	symeventSynchronize = 0
+	symexternalMemoryGetMappedBuffer = 0
+	symexternalMemoryGetMappedMipmappedArray = 0
+	symFlushGPUDirectRDMAWrites = 0
+	symfuncGetAttribute = 0
+	symfuncGetModule = 0
+	symfuncGetName = 0
+	symfuncGetParamCount = 0
+	symfuncGetParamInfo = 0
+	symfuncIsLoaded = 0
+	symfuncLoad = 0
+	symfuncSetAttribute = 0
+	symfuncSetBlockShape = 0
+	symfuncSetCacheConfig = 0
+	symfuncSetSharedMemConfig = 0
+	symfuncSetSharedSize = 0
+	symGetExportTable = 0
+	symGetProcAddress = 0
+	symgraphAddBatchMemOpNode = 0
+	symgraphAddChildGraphNode = 0
+	symgraphAddDependencies = 0
+	symgraphAddEmptyNode = 0
+	symgraphAddEventRecordNode = 0
+	symgraphAddEventWaitNode = 0
+	symgraphAddExternalSemaphoresSignalNode = 0
+	symgraphAddExternalSemaphoresWaitNode = 0
+	symgraphAddHostNode = 0
+	symgraphAddKernelNode = 0
+	symgraphAddMemAllocNode = 0
+	symgraphAddMemFreeNode = 0
+	symgraphAddMemcpyNode = 0
+	symgraphAddMemsetNode = 0
+	symgraphAddNode = 0
+	symgraphBatchMemOpNodeGetParams = 0
+	symgraphBatchMemOpNodeSetParams = 0
+	symgraphChildGraphNodeGetGraph = 0
+	symgraphClone = 0
+	symgraphConditionalHandleCreate = 0
+	symgraphCreate = 0
+	symgraphDebugDotPrint = 0
+	symgraphDestroy = 0
+	symgraphDestroyNode = 0
+	symgraphEventRecordNodeGetEvent = 0
+	symgraphEventRecordNodeSetEvent = 0
+	symgraphEventWaitNodeGetEvent = 0
+	symgraphEventWaitNodeSetEvent = 0
+	symgraphExecBatchMemOpNodeSetParams = 0
+	symgraphExecChildGraphNodeSetParams = 0
+	symgraphExecDestroy = 0
+	symgraphExecEventRecordNodeSetEvent = 0
+	symgraphExecEventWaitNodeSetEvent = 0
+	symgraphExecExternalSemaphoresSignalNodeSetParams = 0
+	symgraphExecExternalSemaphoresWaitNodeSetParams = 0
+	symgraphExecGetFlags = 0
+	symgraphExecGetId = 0
+	symgraphExecHostNodeSetParams = 0
+	symgraphExecKernelNodeSetParams = 0
+	symgraphExecMemcpyNodeSetParams = 0
+	symgraphExecMemsetNodeSetParams = 0
+	symgraphExecNodeSetParams = 0
+	symgraphExecUpdate = 0
+	symgraphExternalSemaphoresSignalNodeGetParams = 0
+	symgraphExternalSemaphoresSignalNodeSetParams = 0
+	symgraphExternalSemaphoresWaitNodeGetParams = 0
+	symgraphExternalSemaphoresWaitNodeSetParams = 0
+	symgraphGetEdges = 0
+	symgraphGetId = 0
+	symgraphGetNodes = 0
+	symgraphGetRootNodes = 0
+	symgraphHostNodeGetParams = 0
+	symgraphHostNodeSetParams = 0
+	symgraphInstantiate = 0
+	symgraphInstantiateWithParams = 0
+	symgraphKernelNodeCopyAttributes = 0
+	symgraphKernelNodeGetAttribute = 0
+	symgraphKernelNodeGetParams = 0
+	symgraphKernelNodeSetAttribute = 0
+	symgraphKernelNodeSetParams = 0
+	symgraphLaunch = 0
+	symgraphMemAllocNodeGetParams = 0
+	symgraphMemFreeNodeGetParams = 0
+	symgraphMemcpyNodeGetParams = 0
+	symgraphMemcpyNodeSetParams = 0
+	symgraphMemsetNodeGetParams = 0
+	symgraphMemsetNodeSetParams = 0
+	symgraphNodeFindInClone = 0
+	symgraphNodeGetContainingGraph = 0
+	symgraphNodeGetDependencies = 0
+	symgraphNodeGetDependentNodes = 0
+	symgraphNodeGetEnabled = 0
+	symgraphNodeGetLocalId = 0
+	symgraphNodeGetParams = 0
+	symgraphNodeGetToolsId = 0
+	symgraphNodeGetType = 0
+	symgraphNodeSetEnabled = 0
+	symgraphNodeSetParams = 0
+	symgraphReleaseUserObject = 0
+	symgraphRemoveDependencies = 0
+	symgraphRetainUserObject = 0
+	symgraphUpload = 0
+	symgraphicsMapResources = 0
+	symgraphicsResourceGetMappedMipmappedArray = 0
+	symgraphicsResourceGetMappedPointer = 0
+	symgraphicsResourceSetMapFlags = 0
+	symgraphicsSubResourceGetMappedArray = 0
+	symgraphicsUnmapResources = 0
+	symgraphicsUnregisterResource = 0
+	symgreenCtxCreate = 0
+	symgreenCtxDestroy = 0
+	symgreenCtxGetDevResource = 0
+	symgreenCtxGetId = 0
+	symgreenCtxRecordEvent = 0
+	symgreenCtxStreamCreate = 0
+	symgreenCtxWaitEvent = 0
+	symImportExternalMemory = 0
+	symImportExternalSemaphore = 0
+	symInit = 0
+	symipcCloseMemHandle = 0
+	symipcGetEventHandle = 0
+	symipcGetMemHandle = 0
 	fnIpcOpenEventHandle = nil
 	fnIpcOpenMemHandle = nil
-	fnkernelGetAttribute = nil
-	fnkernelGetFunction = nil
-	fnkernelGetLibrary = nil
-	fnkernelGetName = nil
-	fnkernelGetParamCount = nil
-	fnkernelGetParamInfo = nil
-	fnkernelSetAttribute = nil
-	fnkernelSetCacheConfig = nil
-	fnlaunch = nil
-	fnlaunchCooperativeKernel = nil
-	fnLaunchCooperativeKernelMultiDevice = nil
-	fnlaunchGrid = nil
-	fnlaunchGridAsync = nil
-	fnlaunchHostFunc = nil
-	fnlaunchKernel = nil
-	fnlaunchKernelEx = nil
-	fnlibraryEnumerateKernels = nil
-	fnlibraryGetGlobal = nil
-	fnlibraryGetKernel = nil
-	fnlibraryGetKernelCount = nil
-	fnlibraryGetManaged = nil
-	fnlibraryGetModule = nil
-	fnlibraryGetUnifiedFunction = nil
-	fnlibraryLoadData = nil
-	fnlibraryLoadFromFile = nil
-	fnlibraryUnload = nil
-	fnlinkAddData = nil
-	fnlinkAddFile = nil
-	fnlinkComplete = nil
-	fnLinkCreate = nil
-	fnlinkDestroy = nil
-	fnLogsCurrent = nil
-	fnLogsDumpToFile = nil
-	fnLogsDumpToMemory = nil
-	fnLogsRegisterCallback = nil
-	fnlogsUnregisterCallback = nil
-	fnmemAddressFree = nil
-	fnmemAddressReserve = nil
+	symkernelGetAttribute = 0
+	symkernelGetFunction = 0
+	symkernelGetLibrary = 0
+	symkernelGetName = 0
+	symkernelGetParamCount = 0
+	symkernelGetParamInfo = 0
+	symkernelSetAttribute = 0
+	symkernelSetCacheConfig = 0
+	symlaunch = 0
+	symlaunchCooperativeKernel = 0
+	symLaunchCooperativeKernelMultiDevice = 0
+	symlaunchGrid = 0
+	symlaunchGridAsync = 0
+	symlaunchHostFunc = 0
+	symlaunchKernel = 0
+	symlaunchKernelEx = 0
+	symlibraryEnumerateKernels = 0
+	symlibraryGetGlobal = 0
+	symlibraryGetKernel = 0
+	symlibraryGetKernelCount = 0
+	symlibraryGetManaged = 0
+	symlibraryGetModule = 0
+	symlibraryGetUnifiedFunction = 0
+	symlibraryLoadData = 0
+	symlibraryLoadFromFile = 0
+	symlibraryUnload = 0
+	symlinkAddData = 0
+	symlinkAddFile = 0
+	symlinkComplete = 0
+	symLinkCreate = 0
+	symlinkDestroy = 0
+	symLogsCurrent = 0
+	symLogsDumpToFile = 0
+	symLogsDumpToMemory = 0
+	symLogsRegisterCallback = 0
+	symlogsUnregisterCallback = 0
+	symmemAddressFree = 0
+	symmemAddressReserve = 0
 	fnmemAdvise = nil
-	fnMemAlloc = nil
-	fnmemAllocAsync = nil
-	fnmemAllocFromPoolAsync = nil
-	fnMemAllocHost = nil
-	fnMemAllocManaged = nil
-	fnMemAllocPitch = nil
-	fnmemBatchDecompressAsync = nil
-	fnMemCreate = nil
-	fnmemDiscardAndPrefetchBatchAsync = nil
-	fnmemDiscardBatchAsync = nil
-	fnMemExportToShareableHandle = nil
-	fnmemFree = nil
-	fnmemFreeAsync = nil
-	fnMemFreeHost = nil
-	fnmemGetAccess = nil
-	fnmemGetAddressRange = nil
-	fnMemGetAllocationGranularity = nil
-	fnMemGetAllocationPropertiesFromHandle = nil
-	fnMemGetDefaultMemPool = nil
-	fnmemGetHandleForAddressRange = nil
-	fnMemGetInfo = nil
-	fnMemGetMemPool = nil
-	fnMemHostAlloc = nil
-	fnMemHostGetDevicePointer = nil
-	fnMemHostGetFlags = nil
-	fnMemHostRegister = nil
-	fnMemHostUnregister = nil
-	fnMemImportFromShareableHandle = nil
-	fnmemMap = nil
-	fnmemMapArrayAsync = nil
-	fnmemPoolCreate = nil
-	fnmemPoolDestroy = nil
-	fnmemPoolExportPointer = nil
-	fnmemPoolExportToShareableHandle = nil
-	fnmemPoolGetAccess = nil
-	fnmemPoolGetAttribute = nil
-	fnmemPoolImportFromShareableHandle = nil
-	fnmemPoolImportPointer = nil
-	fnmemPoolSetAccess = nil
-	fnmemPoolSetAttribute = nil
-	fnmemPoolTrimTo = nil
+	symMemAlloc = 0
+	symmemAllocAsync = 0
+	symmemAllocFromPoolAsync = 0
+	symMemAllocHost = 0
+	symMemAllocManaged = 0
+	symMemAllocPitch = 0
+	symmemBatchDecompressAsync = 0
+	symMemCreate = 0
+	symmemDiscardAndPrefetchBatchAsync = 0
+	symmemDiscardBatchAsync = 0
+	symMemExportToShareableHandle = 0
+	symmemFree = 0
+	symmemFreeAsync = 0
+	symMemFreeHost = 0
+	symmemGetAccess = 0
+	symmemGetAddressRange = 0
+	symMemGetAllocationGranularity = 0
+	symMemGetAllocationPropertiesFromHandle = 0
+	symMemGetDefaultMemPool = 0
+	symmemGetHandleForAddressRange = 0
+	symMemGetInfo = 0
+	symMemGetMemPool = 0
+	symMemHostAlloc = 0
+	symMemHostGetDevicePointer = 0
+	symMemHostGetFlags = 0
+	symMemHostRegister = 0
+	symMemHostUnregister = 0
+	symMemImportFromShareableHandle = 0
+	symmemMap = 0
+	symmemMapArrayAsync = 0
+	symmemPoolCreate = 0
+	symmemPoolDestroy = 0
+	symmemPoolExportPointer = 0
+	symmemPoolExportToShareableHandle = 0
+	symmemPoolGetAccess = 0
+	symmemPoolGetAttribute = 0
+	symmemPoolImportFromShareableHandle = 0
+	symmemPoolImportPointer = 0
+	symmemPoolSetAccess = 0
+	symmemPoolSetAttribute = 0
+	symmemPoolTrimTo = 0
 	fnmemPrefetchAsync = nil
-	fnmemPrefetchBatchAsync = nil
-	fnmemRangeGetAttribute = nil
-	fnmemRangeGetAttributes = nil
-	fnMemRelease = nil
-	fnMemRetainAllocationHandle = nil
-	fnmemSetAccess = nil
-	fnmemSetMemPool = nil
-	fnmemUnmap = nil
-	fnmemcpy = nil
-	fnMemcpy2D = nil
-	fnmemcpy2DAsync = nil
-	fnMemcpy2DUnaligned = nil
-	fnMemcpy3D = nil
-	fnmemcpy3DAsync = nil
-	fnmemcpy3DBatchAsync = nil
-	fnMemcpy3DPeer = nil
-	fnmemcpy3DPeerAsync = nil
-	fnmemcpy3DWithAttributesAsync = nil
-	fnmemcpyAsync = nil
-	fnmemcpyAtoA = nil
-	fnmemcpyAtoD = nil
-	fnmemcpyAtoH = nil
-	fnmemcpyAtoHAsync = nil
-	fnmemcpyBatchAsync = nil
-	fnmemcpyDtoA = nil
-	fnmemcpyDtoD = nil
-	fnmemcpyDtoDAsync = nil
-	fnmemcpyDtoH = nil
-	fnmemcpyDtoHAsync = nil
-	fnmemcpyHtoA = nil
-	fnmemcpyHtoAAsync = nil
-	fnmemcpyHtoD = nil
-	fnmemcpyHtoDAsync = nil
-	fnmemcpyPeer = nil
-	fnmemcpyPeerAsync = nil
-	fnmemcpyWithAttributesAsync = nil
-	fnmemsetD16 = nil
-	fnmemsetD16Async = nil
-	fnmemsetD2D16 = nil
-	fnmemsetD2D16Async = nil
-	fnmemsetD2D32 = nil
-	fnmemsetD2D32Async = nil
-	fnmemsetD2D8 = nil
-	fnmemsetD2D8Async = nil
-	fnmemsetD32 = nil
-	fnmemsetD32Async = nil
-	fnmemsetD8 = nil
-	fnmemsetD8Async = nil
-	fnmipmappedArrayCreate = nil
-	fnmipmappedArrayDestroy = nil
-	fnmipmappedArrayGetLevel = nil
-	fnmipmappedArrayGetMemoryRequirements = nil
-	fnmipmappedArrayGetSparseProperties = nil
-	fnmoduleEnumerateFunctions = nil
-	fnmoduleGetFunction = nil
-	fnmoduleGetFunctionCount = nil
-	fnmoduleGetGlobal = nil
-	fnModuleGetLoadingMode = nil
-	fnmoduleGetSurfRef = nil
-	fnmoduleGetTexRef = nil
-	fnmoduleLoad = nil
-	fnmoduleLoadData = nil
-	fnmoduleLoadDataEx = nil
-	fnmoduleLoadFatBinary = nil
-	fnmoduleUnload = nil
-	fnmulticastAddDevice = nil
-	fnmulticastBindAddr = nil
-	fnmulticastBindAddrV2 = nil
-	fnMulticastBindMem = nil
-	fnmulticastBindMemV2 = nil
-	fnMulticastCreate = nil
-	fnMulticastGetGranularity = nil
-	fnmulticastUnbind = nil
-	fnoccupancyAvailableDynamicSMemPerBlock = nil
-	fnoccupancyMaxActiveBlocksPerMultiprocessor = nil
-	fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags = nil
-	fnoccupancyMaxActiveClusters = nil
-	fnoccupancyMaxPotentialBlockSize = nil
-	fnoccupancyMaxPotentialBlockSizeWithFlags = nil
-	fnoccupancyMaxPotentialClusterSize = nil
-	fnparamSetSize = nil
-	fnparamSetTexRef = nil
-	fnparamSetf = nil
-	fnparamSeti = nil
-	fnparamSetv = nil
-	fnpointerGetAttribute = nil
-	fnpointerGetAttributes = nil
-	fnpointerSetAttribute = nil
-	fnsignalExternalSemaphoresAsync = nil
-	fnstreamAddCallback = nil
-	fnstreamAttachMemAsync = nil
-	fnstreamBatchMemOp = nil
-	fnstreamBeginCapture = nil
-	fnstreamBeginCaptureToCig = nil
-	fnstreamBeginCaptureToGraph = nil
-	fnstreamCopyAttributes = nil
-	fnstreamCreate = nil
-	fnstreamCreateWithPriority = nil
-	fnstreamDestroy = nil
-	fnstreamEndCapture = nil
-	fnstreamEndCaptureToCig = nil
-	fnstreamGetAttribute = nil
-	fnstreamGetCaptureInfo = nil
-	fnstreamGetCtx = nil
-	fnstreamGetDevResource = nil
-	fnstreamGetDevice = nil
-	fnstreamGetFlags = nil
-	fnstreamGetGreenCtx = nil
-	fnstreamGetId = nil
-	fnstreamGetPriority = nil
-	fnstreamIsCapturing = nil
-	fnstreamQuery = nil
-	fnstreamSetAttribute = nil
-	fnstreamSynchronize = nil
-	fnstreamUpdateCaptureDependencies = nil
-	fnstreamWaitEvent = nil
-	fnstreamWaitValue32 = nil
-	fnstreamWaitValue64 = nil
-	fnstreamWriteValue32 = nil
-	fnstreamWriteValue64 = nil
-	fnSurfObjectCreate = nil
-	fnSurfObjectDestroy = nil
-	fnSurfObjectGetResourceDesc = nil
-	fnsurfRefGetArray = nil
-	fnsurfRefSetArray = nil
-	fnTensorMapEncodeIm2col = nil
-	fnTensorMapEncodeIm2colWide = nil
-	fnTensorMapEncodeTiled = nil
-	fnTensorMapReplaceAddress = nil
-	fnTexObjectCreate = nil
-	fnTexObjectDestroy = nil
-	fnTexObjectGetResourceDesc = nil
-	fnTexObjectGetResourceViewDesc = nil
-	fnTexObjectGetTextureDesc = nil
-	fntexRefCreate = nil
-	fntexRefDestroy = nil
-	fntexRefGetAddress = nil
-	fntexRefGetAddressMode = nil
-	fntexRefGetArray = nil
-	fntexRefGetBorderColor = nil
-	fntexRefGetFilterMode = nil
-	fntexRefGetFlags = nil
-	fntexRefGetFormat = nil
-	fntexRefGetMaxAnisotropy = nil
-	fntexRefGetMipmapFilterMode = nil
-	fntexRefGetMipmapLevelBias = nil
-	fntexRefGetMipmapLevelClamp = nil
-	fntexRefGetMipmappedArray = nil
-	fntexRefSetAddress = nil
-	fntexRefSetAddress2D = nil
-	fntexRefSetAddressMode = nil
-	fntexRefSetArray = nil
-	fntexRefSetBorderColor = nil
-	fntexRefSetFilterMode = nil
-	fntexRefSetFlags = nil
-	fntexRefSetFormat = nil
-	fntexRefSetMaxAnisotropy = nil
-	fntexRefSetMipmapFilterMode = nil
-	fntexRefSetMipmapLevelBias = nil
-	fntexRefSetMipmapLevelClamp = nil
-	fntexRefSetMipmappedArray = nil
-	fnThreadExchangeStreamCaptureMode = nil
-	fnuserObjectCreate = nil
-	fnuserObjectRelease = nil
-	fnuserObjectRetain = nil
-	fnwaitExternalSemaphoresAsync = nil
+	symmemPrefetchBatchAsync = 0
+	symmemRangeGetAttribute = 0
+	symmemRangeGetAttributes = 0
+	symMemRelease = 0
+	symMemRetainAllocationHandle = 0
+	symmemSetAccess = 0
+	symmemSetMemPool = 0
+	symmemUnmap = 0
+	symmemcpy = 0
+	symMemcpy2D = 0
+	symmemcpy2DAsync = 0
+	symMemcpy2DUnaligned = 0
+	symMemcpy3D = 0
+	symmemcpy3DAsync = 0
+	symmemcpy3DBatchAsync = 0
+	symMemcpy3DPeer = 0
+	symmemcpy3DPeerAsync = 0
+	symmemcpy3DWithAttributesAsync = 0
+	symmemcpyAsync = 0
+	symmemcpyAtoA = 0
+	symmemcpyAtoD = 0
+	symmemcpyAtoH = 0
+	symmemcpyAtoHAsync = 0
+	symmemcpyBatchAsync = 0
+	symmemcpyDtoA = 0
+	symmemcpyDtoD = 0
+	symmemcpyDtoDAsync = 0
+	symmemcpyDtoH = 0
+	symmemcpyDtoHAsync = 0
+	symmemcpyHtoA = 0
+	symmemcpyHtoAAsync = 0
+	symmemcpyHtoD = 0
+	symmemcpyHtoDAsync = 0
+	symmemcpyPeer = 0
+	symmemcpyPeerAsync = 0
+	symmemcpyWithAttributesAsync = 0
+	symmemsetD16 = 0
+	symmemsetD16Async = 0
+	symmemsetD2D16 = 0
+	symmemsetD2D16Async = 0
+	symmemsetD2D32 = 0
+	symmemsetD2D32Async = 0
+	symmemsetD2D8 = 0
+	symmemsetD2D8Async = 0
+	symmemsetD32 = 0
+	symmemsetD32Async = 0
+	symmemsetD8 = 0
+	symmemsetD8Async = 0
+	symmipmappedArrayCreate = 0
+	symmipmappedArrayDestroy = 0
+	symmipmappedArrayGetLevel = 0
+	symmipmappedArrayGetMemoryRequirements = 0
+	symmipmappedArrayGetSparseProperties = 0
+	symmoduleEnumerateFunctions = 0
+	symmoduleGetFunction = 0
+	symmoduleGetFunctionCount = 0
+	symmoduleGetGlobal = 0
+	symModuleGetLoadingMode = 0
+	symmoduleGetSurfRef = 0
+	symmoduleGetTexRef = 0
+	symmoduleLoad = 0
+	symmoduleLoadData = 0
+	symmoduleLoadDataEx = 0
+	symmoduleLoadFatBinary = 0
+	symmoduleUnload = 0
+	symmulticastAddDevice = 0
+	symmulticastBindAddr = 0
+	symmulticastBindAddrV2 = 0
+	symMulticastBindMem = 0
+	symmulticastBindMemV2 = 0
+	symMulticastCreate = 0
+	symMulticastGetGranularity = 0
+	symmulticastUnbind = 0
+	symoccupancyAvailableDynamicSMemPerBlock = 0
+	symoccupancyMaxActiveBlocksPerMultiprocessor = 0
+	symoccupancyMaxActiveBlocksPerMultiprocessorWithFlags = 0
+	symoccupancyMaxActiveClusters = 0
+	symoccupancyMaxPotentialBlockSize = 0
+	symoccupancyMaxPotentialBlockSizeWithFlags = 0
+	symoccupancyMaxPotentialClusterSize = 0
+	symparamSetSize = 0
+	symparamSetTexRef = 0
+	symparamSetf = 0
+	symparamSeti = 0
+	symparamSetv = 0
+	sympointerGetAttribute = 0
+	sympointerGetAttributes = 0
+	sympointerSetAttribute = 0
+	symsignalExternalSemaphoresAsync = 0
+	symstreamAddCallback = 0
+	symstreamAttachMemAsync = 0
+	symstreamBatchMemOp = 0
+	symstreamBeginCapture = 0
+	symstreamBeginCaptureToCig = 0
+	symstreamBeginCaptureToGraph = 0
+	symstreamCopyAttributes = 0
+	symstreamCreate = 0
+	symstreamCreateWithPriority = 0
+	symstreamDestroy = 0
+	symstreamEndCapture = 0
+	symstreamEndCaptureToCig = 0
+	symstreamGetAttribute = 0
+	symstreamGetCaptureInfo = 0
+	symstreamGetCtx = 0
+	symstreamGetDevResource = 0
+	symstreamGetDevice = 0
+	symstreamGetFlags = 0
+	symstreamGetGreenCtx = 0
+	symstreamGetId = 0
+	symstreamGetPriority = 0
+	symstreamIsCapturing = 0
+	symstreamQuery = 0
+	symstreamSetAttribute = 0
+	symstreamSynchronize = 0
+	symstreamUpdateCaptureDependencies = 0
+	symstreamWaitEvent = 0
+	symstreamWaitValue32 = 0
+	symstreamWaitValue64 = 0
+	symstreamWriteValue32 = 0
+	symstreamWriteValue64 = 0
+	symSurfObjectCreate = 0
+	symSurfObjectDestroy = 0
+	symSurfObjectGetResourceDesc = 0
+	symsurfRefGetArray = 0
+	symsurfRefSetArray = 0
+	symTensorMapEncodeIm2col = 0
+	symTensorMapEncodeIm2colWide = 0
+	symTensorMapEncodeTiled = 0
+	symTensorMapReplaceAddress = 0
+	symTexObjectCreate = 0
+	symTexObjectDestroy = 0
+	symTexObjectGetResourceDesc = 0
+	symTexObjectGetResourceViewDesc = 0
+	symTexObjectGetTextureDesc = 0
+	symtexRefCreate = 0
+	symtexRefDestroy = 0
+	symtexRefGetAddress = 0
+	symtexRefGetAddressMode = 0
+	symtexRefGetArray = 0
+	symtexRefGetBorderColor = 0
+	symtexRefGetFilterMode = 0
+	symtexRefGetFlags = 0
+	symtexRefGetFormat = 0
+	symtexRefGetMaxAnisotropy = 0
+	symtexRefGetMipmapFilterMode = 0
+	symtexRefGetMipmapLevelBias = 0
+	symtexRefGetMipmapLevelClamp = 0
+	symtexRefGetMipmappedArray = 0
+	symtexRefSetAddress = 0
+	symtexRefSetAddress2D = 0
+	symtexRefSetAddressMode = 0
+	symtexRefSetArray = 0
+	symtexRefSetBorderColor = 0
+	symtexRefSetFilterMode = 0
+	symtexRefSetFlags = 0
+	symtexRefSetFormat = 0
+	symtexRefSetMaxAnisotropy = 0
+	symtexRefSetMipmapFilterMode = 0
+	symtexRefSetMipmapLevelBias = 0
+	symtexRefSetMipmapLevelClamp = 0
+	symtexRefSetMipmappedArray = 0
+	symThreadExchangeStreamCaptureMode = 0
+	symuserObjectCreate = 0
+	symuserObjectRelease = 0
+	symuserObjectRetain = 0
+	symwaitExternalSemaphoresAsync = 0
 }
 
 // HasGetErrorName reports whether cuGetErrorName resolved in the loaded library.

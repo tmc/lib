@@ -2,7 +2,7 @@
 
 package driver
 
-// MappedBuffer Maps a buffer onto an imported memory object.
+// MappedBuffer maps a buffer onto an imported memory object.
 //
 // Maps a buffer onto an imported memory object and returns a device pointer in devPtr.
 // The properties of the buffer being mapped must be described in bufferDesc. The [ExternalMemoryBufferDesc] structure is defined as follows:
@@ -21,7 +21,7 @@ func (e ExternalMemory) MappedBuffer(bufferDesc *ExternalMemoryBufferDesc) (Devi
 	return externalMemoryGetMappedBuffer(e, bufferDesc)
 }
 
-// MappedMipmappedArray Maps a CUDA mipmapped array onto an external memory object.
+// MappedMipmappedArray maps a CUDA mipmapped array onto an external memory object.
 //
 // Maps a CUDA mipmapped array onto an external object and returns a handle to it in mipmap.
 // The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc. The structure [ExternalMemoryMipmappedArrayDesc] is defined as follows:
@@ -41,7 +41,7 @@ func (e ExternalMemory) MappedMipmappedArray(mipmapDesc *ExternalMemoryMipmapped
 	return externalMemoryGetMappedMipmappedArray(e, mipmapDesc)
 }
 
-// Destroy Destroys an external memory object.
+// Destroy destroys an external memory object.
 //
 // Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively.
 //

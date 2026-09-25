@@ -321,6 +321,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -416,8 +431,8 @@ func registerFuncs() {
 	register(&fnDecompressGetTempSizeAsync, "nvcompBatchedLZ4DecompressGetTempSizeAsync")
 	register(&fnDecompressGetTempSizeSync, "nvcompBatchedLZ4DecompressGetTempSizeSync")
 	register(&fnGetDecompressSizeAsync, "nvcompBatchedLZ4GetDecompressSizeAsync")
-	register(&fnGetProperties, "nvcompGetProperties")
-	register(&fnGetStatusString, "nvcompGetStatusString")
+	symGetProperties = registerSym("nvcompGetProperties")
+	symGetStatusString = registerSym("nvcompGetStatusString")
 }
 
 // clearFuncs unbinds all function pointers.
@@ -432,8 +447,8 @@ func clearFuncs() {
 	fnDecompressGetTempSizeAsync = nil
 	fnDecompressGetTempSizeSync = nil
 	fnGetDecompressSizeAsync = nil
-	fnGetProperties = nil
-	fnGetStatusString = nil
+	symGetProperties = 0
+	symGetStatusString = 0
 }
 
 // HasCompressAsync reports whether nvcompBatchedLZ4CompressAsync resolved in the loaded library.

@@ -46,6 +46,7 @@ func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states driver
 
 // Set initializes a previously created dropout descriptor object.
 //
+// If the states argument is equal to NULL, then the random number generator states won’t be initialized, and only the dropout value will be set. The user is expected not to change the memory pointed at by states for the duration of the computation.
 // When the states argument is not NULL, a cuRAND initialization kernel is invoked by [DropoutDescriptor.Set]. This kernel requires a substantial amount of GPU memory for the stack. Memory is released when the kernel finishes. The [ErrAllocFailed] status is returned when no sufficient free memory is available for the GPU stack.
 //
 //   - handle: Input. Handle to a previously created cuDNN context

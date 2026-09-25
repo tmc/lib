@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func testPublicConfig() Config {
@@ -49,7 +50,7 @@ func TestPublicStartCleanup(t *testing.T) {
 				var saved []cupti.PCSamplingConfigurationInfo
 				failure := errors.New("configure failed")
 				api := samplingControlAPI{
-					device:  func(cupti.Context) (uint32, error) { return 0, nil },
+					device:  func(driver.Context) (uint32, error) { return 0, nil },
 					version: func() (uint32, error) { return version, nil },
 					set: func(p *cupti.PCSamplingConfigurationInfoParams) error {
 						if failConfig {
@@ -80,7 +81,7 @@ func TestPublicStartCleanup(t *testing.T) {
 				}
 				inventory := ReasonInventory{CUPTIVersion: version, Reasons: []StallReason{{Index: 7, Name: "reason"}}}
 				config := testPublicConfig()
-				s, err := startSession(5, config, api, func(cupti.Context, int) (ReasonInventory, error) { return inventory, nil }, func(a, b, c int) (*samplingNames, error) {
+				s, err := startSession(5, config, api, func(driver.Context, int) (ReasonInventory, error) { return inventory, nil }, func(a, b, c int) (*samplingNames, error) {
 					return newSamplingNames(a, b, c, func(uintptr, int) (string, error) { return "name", nil }, func(uintptr) {})
 				}, func(*cupti.PCSamplingGetDataParams) error { return nil })
 				if s == nil || (failConfig && !errors.Is(err, failure)) || (!failConfig && err != nil) {
@@ -151,7 +152,7 @@ func TestPublicStartEnablesBeforeQueryingReasons(t *testing.T) {
 		order = append(order, "enable")
 		return enable(p)
 	}
-	inventory := func(ctx cupti.Context, n int) (ReasonInventory, error) {
+	inventory := func(ctx driver.Context, n int) (ReasonInventory, error) {
 		order = append(order, "reasons")
 		return testPublicInventory(ctx, n)
 	}

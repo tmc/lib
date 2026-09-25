@@ -2,7 +2,7 @@
 
 package cudnn
 
-// Destroy Destroys a previously created tensor transform descriptor.
+// Destroy destroys a previously created tensor transform descriptor.
 //
 // Returns:
 //   - [Success]: The object was destroyed successfully.
@@ -58,6 +58,9 @@ func (t TensorTransformDescriptor) InitTransformDest(srcDesc TensorDescriptor, d
 //
 //   - nbDims: Input. The dimensionality of the transform operands. Must be greater than 2. For more information, refer to Tensor Descriptor
 //   - destFormat: Input. The desired destination format
+//   - padBeforeA: Input. An array that contains the amount of padding that should be added before each dimension. Set to NULL for no padding
+//   - padAfterA: Input. An array that contains the amount of padding that should be added after each dimension. Set to NULL for no padding
+//   - foldA: Input. An array that contains the folding parameters for each spatial dimension (dimensions 2 and up). Set to NULL for no folding
 //   - direction: Input. Selects folding or unfolding. This input has no effect when folding parameters are all <= 1. For more information, refer to [FoldingDirection]
 //
 // Returns:

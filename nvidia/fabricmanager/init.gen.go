@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -348,6 +349,87 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
+// ffiCall0 through ffiCall4 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
 // BindFailure names a symbol the loaded library exports but that could not
 // be bound, and why.
 type BindFailure struct {
@@ -408,32 +490,32 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnactivateFabricPartition, "fmActivateFabricPartition")
-	register(&fnactivateFabricPartitionWithVFs, "fmActivateFabricPartitionWithVFs")
-	register(&fnConnect, "fmConnect")
-	register(&fndeactivateFabricPartition, "fmDeactivateFabricPartition")
-	register(&fndisconnect, "fmDisconnect")
-	register(&fngetNvlinkFailedDevices, "fmGetNvlinkFailedDevices")
-	register(&fngetSupportedFabricPartitions, "fmGetSupportedFabricPartitions")
-	register(&fngetUnsupportedFabricPartitions, "fmGetUnsupportedFabricPartitions")
-	register(&fnLibInit, "fmLibInit")
-	register(&fnLibShutdown, "fmLibShutdown")
-	register(&fnsetActivatedFabricPartitions, "fmSetActivatedFabricPartitions")
+	symactivateFabricPartition = registerSym("fmActivateFabricPartition")
+	symactivateFabricPartitionWithVFs = registerSym("fmActivateFabricPartitionWithVFs")
+	symConnect = registerSym("fmConnect")
+	symdeactivateFabricPartition = registerSym("fmDeactivateFabricPartition")
+	symdisconnect = registerSym("fmDisconnect")
+	symgetNvlinkFailedDevices = registerSym("fmGetNvlinkFailedDevices")
+	symgetSupportedFabricPartitions = registerSym("fmGetSupportedFabricPartitions")
+	symgetUnsupportedFabricPartitions = registerSym("fmGetUnsupportedFabricPartitions")
+	symLibInit = registerSym("fmLibInit")
+	symLibShutdown = registerSym("fmLibShutdown")
+	symsetActivatedFabricPartitions = registerSym("fmSetActivatedFabricPartitions")
 }
 
 // clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
-	fnactivateFabricPartition = nil
-	fnactivateFabricPartitionWithVFs = nil
-	fnConnect = nil
-	fndeactivateFabricPartition = nil
-	fndisconnect = nil
-	fngetNvlinkFailedDevices = nil
-	fngetSupportedFabricPartitions = nil
-	fngetUnsupportedFabricPartitions = nil
-	fnLibInit = nil
-	fnLibShutdown = nil
-	fnsetActivatedFabricPartitions = nil
+	symactivateFabricPartition = 0
+	symactivateFabricPartitionWithVFs = 0
+	symConnect = 0
+	symdeactivateFabricPartition = 0
+	symdisconnect = 0
+	symgetNvlinkFailedDevices = 0
+	symgetSupportedFabricPartitions = 0
+	symgetUnsupportedFabricPartitions = 0
+	symLibInit = 0
+	symLibShutdown = 0
+	symsetActivatedFabricPartitions = 0
 }
 
 // HasActivateFabricPartition reports whether fmActivateFabricPartition resolved in the loaded library.

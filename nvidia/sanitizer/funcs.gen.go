@@ -3,43 +3,170 @@
 package sanitizer
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"unsafe"
 )
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnAddPatches                func(unsafe.Pointer, Context) Result
-	fnAddPatchesFromFile        func(*byte, Context) Result
-	fnAlloc                     func(Context, *uintptr, uint) Result
-	fnAllocHost                 func(Context, *uintptr, uint) Result
-	fnenableAllDomains          func(uint32, Subscriber) Result
-	fnenableCallback            func(uint32, Subscriber, CallbackDomain, uint32) Result
-	fnenableDomain              func(uint32, Subscriber, CallbackDomain) Result
-	fnFree                      func(Context, uintptr) Result
-	fnFreeHost                  func(Context, uintptr) Result
-	fnGetCallbackPcAndSize      func(Context, *byte, *uint64, *uint64) Result
-	fngetCallbackState          func(*uint32, Subscriber, CallbackDomain, uint32) Result
-	fnGetCudaBarrierCount       func(Function, *uint32) Result
-	fnGetFunctionLoadedStatus   func(Function, *FunctionLoadedStatus) Result
-	fnGetFunctionPcAndSize      func(Module, *byte, *uint64, *uint64) Result
-	fngetStream                 func(StreamHandle, *Stream) Result
-	fnGetStreamHandle           func(Context, Stream, *StreamHandle) Result
-	fnIsInsideRecursiveCallback func(*uint32) Result
-	fnmemcpyDeviceToHost        func(unsafe.Pointer, uintptr, uint, StreamHandle) Result
-	fnmemcpyHostToDeviceAsync   func(uintptr, unsafe.Pointer, uint, StreamHandle) Result
-	fnmemset                    func(uintptr, int32, uint, StreamHandle) Result
-	fnPatchInstructions         func(InstructionId, Module, *byte) Result
-	fnPatchModule               func(Module) Result
-	fnSetCallbackData           func(Function, uintptr) Result
-	fnsetDeviceGraphData        func(GraphExec, StreamHandle, uintptr) Result
-	fnsetLaunchCallbackData     func(LaunchHandle, Function, StreamHandle, uintptr) Result
-	fnstreamSynchronize         func(StreamHandle) Result
-	fnSubscribe                 func(*Subscriber, uintptr, uintptr) Result
-	fnUnpatchModule             func(Module) Result
-	fnunsubscribe               func(Subscriber) Result
+	fnAddPatches                 func(unsafe.Pointer, driver.Context) Result
+	fnAddPatchesFromFile         func(*byte, driver.Context) Result
+	fnAlloc                      func(driver.Context, *uintptr, uint) Result
+	fnAllocHost                  func(driver.Context, *uintptr, uint) Result
+	symenableAllDomains          uintptr
+	symenableCallback            uintptr
+	symenableDomain              uintptr
+	fnFree                       func(driver.Context, uintptr) Result
+	fnFreeHost                   func(driver.Context, uintptr) Result
+	fnGetCallbackPcAndSize       func(driver.Context, *byte, *uint64, *uint64) Result
+	symgetCallbackState          uintptr
+	symGetCudaBarrierCount       uintptr
+	symGetFunctionLoadedStatus   uintptr
+	symGetFunctionPcAndSize      uintptr
+	symgetStream                 uintptr
+	fnGetStreamHandle            func(driver.Context, driver.Stream, *StreamHandle) Result
+	symIsInsideRecursiveCallback uintptr
+	symmemcpyDeviceToHost        uintptr
+	symmemcpyHostToDeviceAsync   uintptr
+	symmemset                    uintptr
+	symPatchInstructions         uintptr
+	symPatchModule               uintptr
+	symSetCallbackData           uintptr
+	symsetDeviceGraphData        uintptr
+	symsetLaunchCallbackData     uintptr
+	symstreamSynchronize         uintptr
+	symSubscribe                 uintptr
+	symUnpatchModule             uintptr
+	symunsubscribe               uintptr
 )
 
-// AddPatches Load a module containing patches that can be used by the patching API.
+// fnenableAllDomains calls sanitizerEnableAllDomains.
+func fnenableAllDomains(a0 uint32, a1 Subscriber) Result {
+	r1, _ := ffiCall2(symenableAllDomains, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnenableCallback calls sanitizerEnableCallback.
+func fnenableCallback(a0 uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Result {
+	r1, _ := ffiCall4(symenableCallback, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnenableDomain calls sanitizerEnableDomain.
+func fnenableDomain(a0 uint32, a1 Subscriber, a2 CallbackDomain) Result {
+	r1, _ := ffiCall3(symenableDomain, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngetCallbackState calls sanitizerGetCallbackState.
+func fngetCallbackState(a0 *uint32, a1 Subscriber, a2 CallbackDomain, a3 uint32) Result {
+	r1, _ := ffiCall4(symgetCallbackState, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnGetCudaBarrierCount calls sanitizerGetCudaBarrierCount.
+func fnGetCudaBarrierCount(a0 Function, a1 *uint32) Result {
+	r1, _ := ffiCall2(symGetCudaBarrierCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetFunctionLoadedStatus calls sanitizerGetFunctionLoadedStatus.
+func fnGetFunctionLoadedStatus(a0 Function, a1 *FunctionLoadedStatus) Result {
+	r1, _ := ffiCall2(symGetFunctionLoadedStatus, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetFunctionPcAndSize calls sanitizerGetFunctionPcAndSize.
+func fnGetFunctionPcAndSize(a0 Module, a1 *byte, a2 *uint64, a3 *uint64) Result {
+	r1, _ := ffiCall4(symGetFunctionPcAndSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fngetStream calls sanitizerGetStream.
+func fngetStream(a0 StreamHandle, a1 *driver.Stream) Result {
+	r1, _ := ffiCall2(symgetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnIsInsideRecursiveCallback calls sanitizerIsInsideRecursiveCallback.
+func fnIsInsideRecursiveCallback(a0 *uint32) Result {
+	r1, _ := ffiCall1(symIsInsideRecursiveCallback, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnmemcpyDeviceToHost calls sanitizerMemcpyDeviceToHost.
+func fnmemcpyDeviceToHost(a0 unsafe.Pointer, a1 uintptr, a2 uint, a3 StreamHandle) Result {
+	r1, _ := ffiCall4(symmemcpyDeviceToHost, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyHostToDeviceAsync calls sanitizerMemcpyHostToDeviceAsync.
+func fnmemcpyHostToDeviceAsync(a0 uintptr, a1 unsafe.Pointer, a2 uint, a3 StreamHandle) Result {
+	r1, _ := ffiCall4(symmemcpyHostToDeviceAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemset calls sanitizerMemset.
+func fnmemset(a0 uintptr, a1 int32, a2 uint, a3 StreamHandle) Result {
+	r1, _ := ffiCall4(symmemset, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnPatchInstructions calls sanitizerPatchInstructions.
+func fnPatchInstructions(a0 InstructionId, a1 Module, a2 *byte) Result {
+	r1, _ := ffiCall3(symPatchInstructions, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnPatchModule calls sanitizerPatchModule.
+func fnPatchModule(a0 Module) Result {
+	r1, _ := ffiCall1(symPatchModule, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnSetCallbackData calls sanitizerSetCallbackData.
+func fnSetCallbackData(a0 Function, a1 uintptr) Result {
+	r1, _ := ffiCall2(symSetCallbackData, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetDeviceGraphData calls sanitizerSetDeviceGraphData.
+func fnsetDeviceGraphData(a0 GraphExec, a1 StreamHandle, a2 uintptr) Result {
+	r1, _ := ffiCall3(symsetDeviceGraphData, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsetLaunchCallbackData calls sanitizerSetLaunchCallbackData.
+func fnsetLaunchCallbackData(a0 LaunchHandle, a1 Function, a2 StreamHandle, a3 uintptr) Result {
+	r1, _ := ffiCall4(symsetLaunchCallbackData, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstreamSynchronize calls sanitizerStreamSynchronize.
+func fnstreamSynchronize(a0 StreamHandle) Result {
+	r1, _ := ffiCall1(symstreamSynchronize, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnSubscribe calls sanitizerSubscribe.
+func fnSubscribe(a0 *Subscriber, a1 uintptr, a2 uintptr) Result {
+	r1, _ := ffiCall3(symSubscribe, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnUnpatchModule calls sanitizerUnpatchModule.
+func fnUnpatchModule(a0 Module) Result {
+	r1, _ := ffiCall1(symUnpatchModule, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnunsubscribe calls sanitizerUnsubscribe.
+func fnunsubscribe(a0 Subscriber) Result {
+	r1, _ := ffiCall1(symunsubscribe, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// AddPatches loads a module containing patches that can be used by the patching API.
 //
 // [AddPatchesFromFile], [AddPatches], [PatchInstructions],
 // and [PatchModule]. For example if [AddPatches](image) and
@@ -55,14 +182,14 @@ var (
 //   - [ErrInvalidParameter]: if image does not point to a valid CUDA module.
 //
 // Wraps sanitizerAddPatches.
-func AddPatches(image unsafe.Pointer, ctx Context) error {
+func AddPatches(image unsafe.Pointer, ctx driver.Context) error {
 	if err := checkLibSym("sanitizerAddPatches"); err != nil {
 		return err
 	}
 	return toError(fnAddPatches(image, ctx), "sanitizerAddPatches")
 }
 
-// AddPatchesFromFile Load a module containing patches that can be used by the patching API.
+// AddPatchesFromFile loads a module containing patches that can be used by the patching API.
 //
 // [AddPatchesFromFile], [AddPatches], [PatchInstructions],
 // and [PatchModule]. For example if [AddPatchesFromFile](filename)
@@ -79,7 +206,7 @@ func AddPatches(image unsafe.Pointer, ctx Context) error {
 //   - [ErrInvalidParameter]: if filename is not a path to a valid CUDA module.
 //
 // Wraps sanitizerAddPatchesFromFile.
-func AddPatchesFromFile(filename string, ctx Context) error {
+func AddPatchesFromFile(filename string, ctx driver.Context) error {
 	if err := checkLibSym("sanitizerAddPatchesFromFile"); err != nil {
 		return err
 	}
@@ -87,7 +214,7 @@ func AddPatchesFromFile(filename string, ctx Context) error {
 	return toError(fnAddPatchesFromFile(&cstr_filename[0], ctx), "sanitizerAddPatchesFromFile")
 }
 
-// Alloc Allocate memory on the device.
+// Alloc allocates memory on the device.
 //
 // Equivalent of cudaMalloc that can be called within a callback function.
 //
@@ -95,7 +222,7 @@ func AddPatchesFromFile(filename string, ctx Context) error {
 //   - size: Allocation size in bytes
 //
 // Wraps sanitizerAlloc.
-func Alloc(ctx Context, size uint) (devPtr uintptr, err error) {
+func Alloc(ctx driver.Context, size uint) (devPtr uintptr, err error) {
 	if err := checkLibSym("sanitizerAlloc"); err != nil {
 		return 0, err
 	}
@@ -106,7 +233,7 @@ func Alloc(ctx Context, size uint) (devPtr uintptr, err error) {
 	return out1, nil
 }
 
-// AllocHost Allocate host pinned memory.
+// AllocHost allocates host pinned memory.
 //
 // Equivalent of cudaMallocHost that can be called within a callback function.
 //
@@ -114,7 +241,7 @@ func Alloc(ctx Context, size uint) (devPtr uintptr, err error) {
 //   - size: Allocation size in bytes
 //
 // Wraps sanitizerAllocHost.
-func AllocHost(ctx Context, size uint) (devPtr uintptr, err error) {
+func AllocHost(ctx driver.Context, size uint) (devPtr uintptr, err error) {
 	if err := checkLibSym("sanitizerAllocHost"); err != nil {
 		return 0, err
 	}
@@ -125,7 +252,7 @@ func AllocHost(ctx Context, size uint) (devPtr uintptr, err error) {
 	return out1, nil
 }
 
-// enableAllDomains Enable or disable all callbacks in all domains.
+// enableAllDomains enables or disables all callbacks in all domains.
 //
 // [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
 // [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
@@ -148,7 +275,7 @@ func enableAllDomains(enable uint32, subscriber Subscriber) error {
 	return toError(fnenableAllDomains(enable, subscriber), "sanitizerEnableAllDomains")
 }
 
-// enableCallback Enable or disable callbacks for a specific domain and callback ID
+// enableCallback enables or disables callbacks for a specific domain and callback ID
 //
 // Enable or disable callbacks for a subscriber for a specific domain and
 // callback ID.
@@ -176,7 +303,7 @@ func enableCallback(enable uint32, subscriber Subscriber, domain CallbackDomain,
 	return toError(fnenableCallback(enable, subscriber, domain, cbid), "sanitizerEnableCallback")
 }
 
-// enableDomain Enable or disable all callbacks for a specific domain.
+// enableDomain enables or disables all callbacks for a specific domain.
 //
 // [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
 // [Subscriber.EnableAllDomains]. For example, if sanitizerGetCallbackEnabled(sub,
@@ -200,7 +327,7 @@ func enableDomain(enable uint32, subscriber Subscriber, domain CallbackDomain) e
 	return toError(fnenableDomain(enable, subscriber, domain), "sanitizerEnableDomain")
 }
 
-// Free Frees memory on the device.
+// Free frees memory on the device.
 //
 // Equivalent of cudaFree that can be called within a callback function.
 //
@@ -208,14 +335,14 @@ func enableDomain(enable uint32, subscriber Subscriber, domain CallbackDomain) e
 //   - devPtr: Device pointer to memory to free
 //
 // Wraps sanitizerFree.
-func Free(ctx Context, devPtr uintptr) error {
+func Free(ctx driver.Context, devPtr uintptr) error {
 	if err := checkLibSym("sanitizerFree"); err != nil {
 		return err
 	}
 	return toError(fnFree(ctx, devPtr), "sanitizerFree")
 }
 
-// FreeHost Frees host memory.
+// FreeHost frees host memory.
 //
 // Equivalent of cudaFreeHost that can be called within a callback function.
 //
@@ -223,14 +350,14 @@ func Free(ctx Context, devPtr uintptr) error {
 //   - devPtr: Host pointer to memory to free
 //
 // Wraps sanitizerFreeHost.
-func FreeHost(ctx Context, devPtr uintptr) error {
+func FreeHost(ctx driver.Context, devPtr uintptr) error {
 	if err := checkLibSym("sanitizerFreeHost"); err != nil {
 		return err
 	}
 	return toError(fnFreeHost(ctx, devPtr), "sanitizerFreeHost")
 }
 
-// GetCallbackPcAndSize Get PC and size of a device callback.
+// GetCallbackPcAndSize gets PC and size of a device callback.
 //
 //   - ctx (in): CUDA context in which the patches were loaded. If ctx is NULL, the current context will be used
 //   - deviceCallbackName (in): device function callback name
@@ -240,7 +367,7 @@ func FreeHost(ctx Context, devPtr uintptr) error {
 //   - [ErrInvalidParameter]: if deviceCallbackName function cannot be located, if pc is NULL or if size is NULL.
 //
 // Wraps sanitizerGetCallbackPcAndSize.
-func GetCallbackPcAndSize(ctx Context, deviceCallbackName string) (pc uint64, size uint64, err error) {
+func GetCallbackPcAndSize(ctx driver.Context, deviceCallbackName string) (pc uint64, size uint64, err error) {
 	if err := checkLibSym("sanitizerGetCallbackPcAndSize"); err != nil {
 		return 0, 0, err
 	}
@@ -253,7 +380,7 @@ func GetCallbackPcAndSize(ctx Context, deviceCallbackName string) (pc uint64, si
 	return out2, out3, nil
 }
 
-// getCallbackState Get the current enabled/disabled state of a callback for a specific domain and function ID.
+// getCallbackState gets the current enabled/disabled state of a callback for a specific domain and function ID.
 //
 // Returns non-zero in *enable if the callback for a domain and callback
 // ID is enabled, and zero if not enabled.
@@ -278,15 +405,18 @@ func getCallbackState(subscriber Subscriber, domain CallbackDomain, cbid uint32)
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fngetCallbackState(&out, subscriber, domain, cbid), "sanitizerGetCallbackState"); err != nil {
+	out := slotGetCallbackState.get()
+	defer slotGetCallbackState.put(out)
+	if err := toError(fngetCallbackState(out, subscriber, domain, cbid), "sanitizerGetCallbackState"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetCudaBarrierCount Get number of CUDA barriers used by a function.
+var slotGetCallbackState outSlot[uint32]
+
+// GetCudaBarrierCount gets number of CUDA barriers used by a function.
 //
 // The module where kernel resides must have been instrumented using
 // [PatchModule] prior to calling this function. This function
@@ -301,15 +431,20 @@ func GetCudaBarrierCount(kernel Function) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGetCudaBarrierCount(kernel, &out), "sanitizerGetCudaBarrierCount"); err != nil {
+	out := slotGetCudaBarrierCount.get()
+	defer slotGetCudaBarrierCount.put(out)
+	if err := toError(fnGetCudaBarrierCount(kernel, out), "sanitizerGetCudaBarrierCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetFunctionLoadedStatus Get the loading status of a function.
+var slotGetCudaBarrierCount outSlot[uint32]
+
+// GetFunctionLoadedStatus gets the loading status of a function.
+//
+// Requires a driver version >=515.
 //
 //   - func_ (in): CUDA function for which the loading status is queried
 //
@@ -324,15 +459,18 @@ func GetFunctionLoadedStatus(func_ Function) (FunctionLoadedStatus, error) {
 		var zero FunctionLoadedStatus
 		return zero, err
 	}
-	var out FunctionLoadedStatus
-	if err := toError(fnGetFunctionLoadedStatus(func_, &out), "sanitizerGetFunctionLoadedStatus"); err != nil {
+	out := slotGetFunctionLoadedStatus.get()
+	defer slotGetFunctionLoadedStatus.put(out)
+	if err := toError(fnGetFunctionLoadedStatus(func_, out), "sanitizerGetFunctionLoadedStatus"); err != nil {
 		var zero FunctionLoadedStatus
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetFunctionPcAndSize Get PC and size of a CUDA function.
+var slotGetFunctionLoadedStatus outSlot[FunctionLoadedStatus]
+
+// GetFunctionPcAndSize gets PC and size of a CUDA function.
 //
 //   - module (in): CUDA module containing the function
 //   - functionName (in): CUDA function name
@@ -347,15 +485,20 @@ func GetFunctionPcAndSize(module Module, functionName string) (pc uint64, size u
 		return 0, 0, err
 	}
 	cstr_functionName := append([]byte(functionName), 0)
-	var out2 uint64
-	var out3 uint64
-	if err := toError(fnGetFunctionPcAndSize(module, &cstr_functionName[0], &out2, &out3), "sanitizerGetFunctionPcAndSize"); err != nil {
+	outs := slotGetFunctionPcAndSize.get()
+	defer slotGetFunctionPcAndSize.put(outs)
+	if err := toError(fnGetFunctionPcAndSize(module, &cstr_functionName[0], &outs.out2, &outs.out3), "sanitizerGetFunctionPcAndSize"); err != nil {
 		return 0, 0, err
 	}
-	return out2, out3, nil
+	return outs.out2, outs.out3, nil
 }
 
-// getStream Retrieve a [Stream] handle from a [StreamHandle] handle.
+var slotGetFunctionPcAndSize outSlot[struct {
+	out2 uint64
+	out3 uint64
+}]
+
+// getStream retrieves a CUstream handle from a [StreamHandle] handle.
 //
 //   - hStream (in): Sanitizer Stream handle
 //
@@ -364,30 +507,33 @@ func GetFunctionPcAndSize(module Module, functionName string) (pc uint64, size u
 //   - [ErrInvalidParameter]: if hStream is not a valid Sanitizer stream handle or if stream is NULL.
 //
 // Wraps sanitizerGetStream.
-func getStream(hStream StreamHandle) (Stream, error) {
+func getStream(hStream StreamHandle) (driver.Stream, error) {
 	if err := checkLibSym("sanitizerGetStream"); err != nil {
-		var zero Stream
+		var zero driver.Stream
 		return zero, err
 	}
-	var out Stream
-	if err := toError(fngetStream(hStream, &out), "sanitizerGetStream"); err != nil {
-		var zero Stream
+	out := slotGetStream.get()
+	defer slotGetStream.put(out)
+	if err := toError(fngetStream(hStream, out), "sanitizerGetStream"); err != nil {
+		var zero driver.Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetStreamHandle Retrieve a [StreamHandle] handle from a [Stream] handle
+var slotGetStream outSlot[driver.Stream]
+
+// GetStreamHandle retrieves a [StreamHandle] handle from a CUstream handle
 //
 //   - ctx (in): Context owning the stream. If NULL, the current context will be used
-//   - stream (in): [Stream] handle. If NULL, the NULL stream will be used
+//   - stream (in): CUstream handle. If NULL, the NULL stream will be used
 //
 // Returns:
 //   - [Success]: on success.
-//   - [ErrInvalidParameter]: if stream is not a valid [Stream] handle or if hStream is NULL.
+//   - [ErrInvalidParameter]: if stream is not a valid CUstream handle or if hStream is NULL.
 //
 // Wraps sanitizerGetStreamHandle.
-func GetStreamHandle(ctx Context, stream Stream) (StreamHandle, error) {
+func GetStreamHandle(ctx driver.Context, stream driver.Stream) (StreamHandle, error) {
 	if err := checkLibSym("sanitizerGetStreamHandle"); err != nil {
 		var zero StreamHandle
 		return zero, err
@@ -400,7 +546,7 @@ func GetStreamHandle(ctx Context, stream Stream) (StreamHandle, error) {
 	return out, nil
 }
 
-// IsInsideRecursiveCallback Check if the current thread is inside a recursive Sanitizer callback.
+// IsInsideRecursiveCallback checks if the current thread is inside a recursive Sanitizer callback.
 //
 // Returns whether the current thread is executing inside a nested (recursive) Sanitizer
 // callback handler. This is useful for distinguishing between CUDA API calls made by the
@@ -420,15 +566,18 @@ func IsInsideRecursiveCallback() (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnIsInsideRecursiveCallback(&out), "sanitizerIsInsideRecursiveCallback"); err != nil {
+	out := slotIsInsideRecursiveCallback.get()
+	defer slotIsInsideRecursiveCallback.put(out)
+	if err := toError(fnIsInsideRecursiveCallback(out), "sanitizerIsInsideRecursiveCallback"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memcpyDeviceToHost Copies data from device to host.
+var slotIsInsideRecursiveCallback outSlot[uint32]
+
+// memcpyDeviceToHost copies data from device to host.
 //
 // Equivalent of cudaMemcpy that can be called within a callback function.
 // The function will return once the copy has completed.
@@ -446,7 +595,7 @@ func memcpyDeviceToHost(dst unsafe.Pointer, src uintptr, count uint, stream Stre
 	return toError(fnmemcpyDeviceToHost(dst, src, count, stream), "sanitizerMemcpyDeviceToHost")
 }
 
-// memcpyHostToDeviceAsync Copies data from host to device.
+// memcpyHostToDeviceAsync copies data from host to device.
 //
 // Equivalent of cudaMemcpyAsync that can be called within a callback function.
 // The function will return once the pageable buffer has been copied to the
@@ -466,7 +615,7 @@ func memcpyHostToDeviceAsync(dst uintptr, src unsafe.Pointer, count uint, stream
 	return toError(fnmemcpyHostToDeviceAsync(dst, src, count, stream), "sanitizerMemcpyHostToDeviceAsync")
 }
 
-// memset Initializes or sets device memory to a value.
+// memset initializes or sets device memory to a value.
 //
 // Equivalent of cudaMemset that can be called within a callback function.
 //
@@ -483,7 +632,7 @@ func memset(devPtr uintptr, value int32, count uint, stream StreamHandle) error 
 	return toError(fnmemset(devPtr, value, count, stream), "sanitizerMemset")
 }
 
-// PatchInstructions Set instrumentation points and patches to be applied in a module.
+// PatchInstructions sets instrumentation points and patches to be applied in a module.
 //
 // Mark that all instrumentation points matching instructionId are to be
 // patched in order to call the device function identified by
@@ -513,7 +662,7 @@ func PatchInstructions(instructionId InstructionId, module Module, deviceCallbac
 	return toError(fnPatchInstructions(instructionId, module, &cstr_deviceCallbackName[0]), "sanitizerPatchInstructions")
 }
 
-// PatchModule Perform the actual instrumentation of a module.
+// PatchModule performs the actual instrumentation of a module.
 //
 // Perform the instrumentation of a CUDA module based on previous calls to
 // [PatchInstructions]. This function also specifies the device memory
@@ -537,7 +686,7 @@ func PatchModule(module Module) error {
 	return toError(fnPatchModule(module), "sanitizerPatchModule")
 }
 
-// SetCallbackData Specifies the user data pointer for callbacks.
+// SetCallbackData specifies the user data pointer for callbacks.
 //
 // Mark all subsequent launches of kernel to use userdata
 // pointer as the device memory buffer to pass in to callback functions.
@@ -556,7 +705,7 @@ func SetCallbackData(kernel Function, userdata uintptr) error {
 	return toError(fnSetCallbackData(kernel, userdata), "sanitizerSetCallbackData")
 }
 
-// setDeviceGraphData Specifies the user data pointer accessible from callbacks in the device-launched graphs launched by the specified host-launched graphExec.
+// setDeviceGraphData specifies the user data pointer accessible from callbacks in the device-launched graphs launched by the specified host-launched graphExec.
 //
 // Mark all subsequent launch of graphExec to make available userdata
 // in device callbacks from device-launched graphs. userdata will not
@@ -579,7 +728,7 @@ func setDeviceGraphData(graphExec GraphExec, stream StreamHandle, userdata uintp
 	return toError(fnsetDeviceGraphData(graphExec, stream, userdata), "sanitizerSetDeviceGraphData")
 }
 
-// setLaunchCallbackData Specifies the user data pointer for callbacks.
+// setLaunchCallbackData specifies the user data pointer for callbacks.
 //
 // Mark launch to use userdata pointer as the device memory buffer
 // to pass in to callback functions. This function is only available if
@@ -601,7 +750,7 @@ func setLaunchCallbackData(launch LaunchHandle, kernel Function, stream StreamHa
 	return toError(fnsetLaunchCallbackData(launch, kernel, stream, userdata), "sanitizerSetLaunchCallbackData")
 }
 
-// streamSynchronize Synchronize a given stream.
+// streamSynchronize synchronizes a given stream.
 //
 // Equivalent of cudaStreamSynchronize that can be called with a sanitizer stream handle
 //
@@ -615,7 +764,7 @@ func streamSynchronize(stream StreamHandle) error {
 	return toError(fnstreamSynchronize(stream), "sanitizerStreamSynchronize")
 }
 
-// Subscribe Initialize a callback subscriber with a callback function and user data.
+// Subscribe initializes a callback subscriber with a callback function and user data.
 //
 // Initialize a callback subscriber with a callback function and (optionally)
 // a pointer to user data. The returned subscriber handle can be used to enable
@@ -636,15 +785,18 @@ func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
 		var zero Subscriber
 		return zero, err
 	}
-	var out Subscriber
-	if err := toError(fnSubscribe(&out, callback, userdata), "sanitizerSubscribe"); err != nil {
+	out := slotSubscribe.get()
+	defer slotSubscribe.put(out)
+	if err := toError(fnSubscribe(out, callback, userdata), "sanitizerSubscribe"); err != nil {
 		var zero Subscriber
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// UnpatchModule Remove existing instrumentation of a module.
+var slotSubscribe outSlot[Subscriber]
+
+// UnpatchModule removes existing instrumentation of a module.
 //
 // Remove any instrumentation of a CUDA module performed by previous calls
 // to [PatchModule].
@@ -665,7 +817,7 @@ func UnpatchModule(module Module) error {
 	return toError(fnUnpatchModule(module), "sanitizerUnpatchModule")
 }
 
-// unsubscribe Unregister a callback subscriber.
+// unsubscribe unregisters a callback subscriber.
 //
 // Removes a callback subscriber so that no future callback will be issued to
 // that subscriber.

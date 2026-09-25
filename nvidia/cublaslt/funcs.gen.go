@@ -3,62 +3,493 @@
 package cublaslt
 
 import (
+	"sync"
+	"unsafe"
+
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 // Generated function pointer variables.
 var (
-	fnCreate                           func(*Handle) Result
-	fndestroy                          func(Handle) Result
-	fnemulationDescCreate              func(*EmulationDesc) Result
-	fnemulationDescDestroy             func(EmulationDesc) Result
-	fnemulationDescGetAttribute        func(EmulationDesc, EmulationDescAttributes, uintptr, uint, *uint) Result
-	fnemulationDescInit_internal       func(EmulationDesc, uint) Result
-	fnemulationDescSetAttribute        func(EmulationDesc, EmulationDescAttributes, uintptr, uint) Result
-	fnGetProperty                      func(LibraryPropertyType, *int32) Result
-	fnGroupedMatrixLayoutCreate        func(*MatrixLayout, DataType, int32, uintptr, uintptr, uintptr) Result
-	fngroupedMatrixLayoutInit_internal func(MatrixLayout, uint, DataType, int32, uintptr, uintptr, uintptr) Result
-	fnHeuristicsCacheGetCapacity       func(*uint) Result
-	fnHeuristicsCacheSetCapacity       func(uint) Result
-	fnLoggerForceDisable               func() Result
-	fnLoggerOpenFile                   func(*byte) Result
-	fnLoggerSetCallback                func(uintptr) Result
-	fnLoggerSetFile                    func(uintptr) Result
-	fnLoggerSetLevel                   func(int32) Result
-	fnLoggerSetMask                    func(int32) Result
-	fnmatmul                           func(Handle, MatmulDesc, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, *MatmulAlgo, uintptr, uint, driver.Stream) Result
-	fnMatmulAlgoCapGetAttribute        func(*MatmulAlgo, MatmulAlgoCapAttributes, uintptr, uint, *uint) Result
-	fnmatmulAlgoCheck                  func(Handle, MatmulDesc, MatrixLayout, MatrixLayout, MatrixLayout, MatrixLayout, *MatmulAlgo, *MatmulHeuristicResult) Result
-	fnMatmulAlgoConfigGetAttribute     func(*MatmulAlgo, MatmulAlgoConfigAttributes, uintptr, uint, *uint) Result
-	fnMatmulAlgoConfigSetAttribute     func(*MatmulAlgo, MatmulAlgoConfigAttributes, uintptr, uint) Result
-	fnmatmulAlgoGetHeuristic           func(Handle, MatmulDesc, MatrixLayout, MatrixLayout, MatrixLayout, MatrixLayout, MatmulPreference, int32, *MatmulHeuristicResult, *int32) Result
-	fnmatmulAlgoGetIds                 func(Handle, ComputeType, DataType, DataType, DataType, DataType, DataType, int32, *int32, *int32) Result
-	fnmatmulAlgoInit                   func(Handle, ComputeType, DataType, DataType, DataType, DataType, DataType, int32, *MatmulAlgo) Result
-	fnmatmulDescCreate                 func(*MatmulDesc, ComputeType, DataType) Result
-	fnmatmulDescDestroy                func(MatmulDesc) Result
-	fnmatmulDescGetAttribute           func(MatmulDesc, MatmulDescAttributes, uintptr, uint, *uint) Result
-	fnmatmulDescInit_internal          func(MatmulDesc, uint, ComputeType, DataType) Result
-	fnmatmulDescSetAttribute           func(MatmulDesc, MatmulDescAttributes, uintptr, uint) Result
-	fnmatmulPreferenceCreate           func(*MatmulPreference) Result
-	fnmatmulPreferenceDestroy          func(MatmulPreference) Result
-	fnmatmulPreferenceGetAttribute     func(MatmulPreference, MatmulPreferenceAttributes, uintptr, uint, *uint) Result
-	fnmatmulPreferenceInit_internal    func(MatmulPreference, uint) Result
-	fnmatmulPreferenceSetAttribute     func(MatmulPreference, MatmulPreferenceAttributes, uintptr, uint) Result
-	fnmatrixLayoutCreate               func(*MatrixLayout, DataType, uint64, uint64, int64) Result
-	fnmatrixLayoutDestroy              func(MatrixLayout) Result
-	fnmatrixLayoutGetAttribute         func(MatrixLayout, MatrixLayoutAttribute, uintptr, uint, *uint) Result
-	fnmatrixLayoutInit_internal        func(MatrixLayout, uint, DataType, uint64, uint64, int64) Result
-	fnmatrixLayoutSetAttribute         func(MatrixLayout, MatrixLayoutAttribute, uintptr, uint) Result
-	fnmatrixTransform                  func(Handle, MatrixTransformDesc, uintptr, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, driver.Stream) Result
-	fnmatrixTransformDescCreate        func(*MatrixTransformDesc, DataType) Result
-	fnmatrixTransformDescDestroy       func(MatrixTransformDesc) Result
-	fnmatrixTransformDescGetAttribute  func(MatrixTransformDesc, MatrixTransformDescAttributes, uintptr, uint, *uint) Result
-	fnmatrixTransformDescInit_internal func(MatrixTransformDesc, uint, DataType) Result
-	fnmatrixTransformDescSetAttribute  func(MatrixTransformDesc, MatrixTransformDescAttributes, uintptr, uint) Result
+	symCreate                           uintptr
+	symdestroy                          uintptr
+	symemulationDescCreate              uintptr
+	symemulationDescDestroy             uintptr
+	symemulationDescGetAttribute        uintptr
+	symemulationDescInit_internal       uintptr
+	symemulationDescSetAttribute        uintptr
+	symGetProperty                      uintptr
+	symGroupedMatrixLayoutCreate        uintptr
+	symgroupedMatrixLayoutInit_internal uintptr
+	symHeuristicsCacheGetCapacity       uintptr
+	symHeuristicsCacheSetCapacity       uintptr
+	symLoggerForceDisable               uintptr
+	symLoggerOpenFile                   uintptr
+	symLoggerSetCallback                uintptr
+	symLoggerSetFile                    uintptr
+	symLoggerSetLevel                   uintptr
+	symLoggerSetMask                    uintptr
+	fnmatmul                            func(Handle, MatmulDesc, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, *MatmulAlgo, uintptr, uint, driver.Stream) Result
+	symMatmulAlgoCapGetAttribute        uintptr
+	symmatmulAlgoCheck                  uintptr
+	symMatmulAlgoConfigGetAttribute     uintptr
+	symMatmulAlgoConfigSetAttribute     uintptr
+	symmatmulAlgoGetHeuristic           uintptr
+	symmatmulAlgoGetIds                 uintptr
+	symmatmulAlgoInit                   uintptr
+	symmatmulDescCreate                 uintptr
+	symmatmulDescDestroy                uintptr
+	symmatmulDescGetAttribute           uintptr
+	symmatmulDescInit_internal          uintptr
+	symmatmulDescSetAttribute           uintptr
+	symmatmulPreferenceCreate           uintptr
+	symmatmulPreferenceDestroy          uintptr
+	symmatmulPreferenceGetAttribute     uintptr
+	symmatmulPreferenceInit_internal    uintptr
+	symmatmulPreferenceSetAttribute     uintptr
+	symmatrixLayoutCreate               uintptr
+	symmatrixLayoutDestroy              uintptr
+	symmatrixLayoutGetAttribute         uintptr
+	symmatrixLayoutInit_internal        uintptr
+	symmatrixLayoutSetAttribute         uintptr
+	fnmatrixTransform                   func(Handle, MatrixTransformDesc, uintptr, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, driver.Stream) Result
+	symmatrixTransformDescCreate        uintptr
+	symmatrixTransformDescDestroy       uintptr
+	symmatrixTransformDescGetAttribute  uintptr
+	symmatrixTransformDescInit_internal uintptr
+	symmatrixTransformDescSetAttribute  uintptr
 )
+
+// ffiCall0 through ffiCall10 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloat(fn, 9, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnCreate calls cublasLtCreate.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fndestroy calls cublasLtDestroy.
+func fndestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnemulationDescCreate calls cublasLtEmulationDescCreate.
+func fnemulationDescCreate(a0 *EmulationDesc) Result {
+	r1, _ := ffiCall1(symemulationDescCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnemulationDescDestroy calls cublasLtEmulationDescDestroy.
+func fnemulationDescDestroy(a0 EmulationDesc) Result {
+	r1, _ := ffiCall1(symemulationDescDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnemulationDescGetAttribute calls cublasLtEmulationDescGetAttribute.
+func fnemulationDescGetAttribute(a0 EmulationDesc, a1 EmulationDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symemulationDescGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnemulationDescInit_internal calls cublasLtEmulationDescInit_internal.
+func fnemulationDescInit_internal(a0 EmulationDesc, a1 uint) Result {
+	r1, _ := ffiCall2(symemulationDescInit_internal, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnemulationDescSetAttribute calls cublasLtEmulationDescSetAttribute.
+func fnemulationDescSetAttribute(a0 EmulationDesc, a1 EmulationDescAttributes, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symemulationDescSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnGetProperty calls cublasLtGetProperty.
+func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGroupedMatrixLayoutCreate calls cublasLtGroupedMatrixLayoutCreate.
+func fnGroupedMatrixLayoutCreate(a0 *MatrixLayout, a1 DataType, a2 int32, a3 uintptr, a4 uintptr, a5 uintptr) Result {
+	r1, _ := ffiCall6(symGroupedMatrixLayoutCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fngroupedMatrixLayoutInit_internal calls cublasLtGroupedMatrixLayoutInit_internal.
+func fngroupedMatrixLayoutInit_internal(a0 MatrixLayout, a1 uint, a2 DataType, a3 int32, a4 uintptr, a5 uintptr, a6 uintptr) Result {
+	r1, _ := ffiCall7(symgroupedMatrixLayoutInit_internal, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnHeuristicsCacheGetCapacity calls cublasLtHeuristicsCacheGetCapacity.
+func fnHeuristicsCacheGetCapacity(a0 *uint) Result {
+	r1, _ := ffiCall1(symHeuristicsCacheGetCapacity, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnHeuristicsCacheSetCapacity calls cublasLtHeuristicsCacheSetCapacity.
+func fnHeuristicsCacheSetCapacity(a0 uint) Result {
+	r1, _ := ffiCall1(symHeuristicsCacheSetCapacity, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerForceDisable calls cublasLtLoggerForceDisable.
+func fnLoggerForceDisable() Result {
+	r1, _ := ffiCall0(symLoggerForceDisable, 0)
+	return Result(r1)
+}
+
+// fnLoggerOpenFile calls cublasLtLoggerOpenFile.
+func fnLoggerOpenFile(a0 *byte) Result {
+	r1, _ := ffiCall1(symLoggerOpenFile, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnLoggerSetCallback calls cublasLtLoggerSetCallback.
+func fnLoggerSetCallback(a0 uintptr) Result {
+	r1, _ := ffiCall1(symLoggerSetCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetFile calls cublasLtLoggerSetFile.
+func fnLoggerSetFile(a0 uintptr) Result {
+	r1, _ := ffiCall1(symLoggerSetFile, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetLevel calls cublasLtLoggerSetLevel.
+func fnLoggerSetLevel(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetMask calls cublasLtLoggerSetMask.
+func fnLoggerSetMask(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnMatmulAlgoCapGetAttribute calls cublasLtMatmulAlgoCapGetAttribute.
+func fnMatmulAlgoCapGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoCapAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symMatmulAlgoCapGetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnmatmulAlgoCheck calls cublasLtMatmulAlgoCheck.
+func fnmatmulAlgoCheck(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayout, a4 MatrixLayout, a5 MatrixLayout, a6 *MatmulAlgo, a7 *MatmulHeuristicResult) Result {
+	r1, _ := ffiCall8(symmatmulAlgoCheck, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnMatmulAlgoConfigGetAttribute calls cublasLtMatmulAlgoConfigGetAttribute.
+func fnMatmulAlgoConfigGetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symMatmulAlgoConfigGetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnMatmulAlgoConfigSetAttribute calls cublasLtMatmulAlgoConfigSetAttribute.
+func fnMatmulAlgoConfigSetAttribute(a0 *MatmulAlgo, a1 MatmulAlgoConfigAttributes, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symMatmulAlgoConfigSetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmatmulAlgoGetHeuristic calls cublasLtMatmulAlgoGetHeuristic.
+func fnmatmulAlgoGetHeuristic(a0 Handle, a1 MatmulDesc, a2 MatrixLayout, a3 MatrixLayout, a4 MatrixLayout, a5 MatrixLayout, a6 MatmulPreference, a7 int32, a8 *MatmulHeuristicResult, a9 *int32) Result {
+	r1, _ := ffiCall10(symmatmulAlgoGetHeuristic, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnmatmulAlgoGetIds calls cublasLtMatmulAlgoGetIds.
+func fnmatmulAlgoGetIds(a0 Handle, a1 ComputeType, a2 DataType, a3 DataType, a4 DataType, a5 DataType, a6 DataType, a7 int32, a8 *int32, a9 *int32) Result {
+	r1, _ := ffiCall10(symmatmulAlgoGetIds, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnmatmulAlgoInit calls cublasLtMatmulAlgoInit.
+func fnmatmulAlgoInit(a0 Handle, a1 ComputeType, a2 DataType, a3 DataType, a4 DataType, a5 DataType, a6 DataType, a7 int32, a8 *MatmulAlgo) Result {
+	r1, _ := ffiCall9(symmatmulAlgoInit, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnmatmulDescCreate calls cublasLtMatmulDescCreate.
+func fnmatmulDescCreate(a0 *MatmulDesc, a1 ComputeType, a2 DataType) Result {
+	r1, _ := ffiCall3(symmatmulDescCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmatmulDescDestroy calls cublasLtMatmulDescDestroy.
+func fnmatmulDescDestroy(a0 MatmulDesc) Result {
+	r1, _ := ffiCall1(symmatmulDescDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmatmulDescGetAttribute calls cublasLtMatmulDescGetAttribute.
+func fnmatmulDescGetAttribute(a0 MatmulDesc, a1 MatmulDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symmatmulDescGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnmatmulDescInit_internal calls cublasLtMatmulDescInit_internal.
+func fnmatmulDescInit_internal(a0 MatmulDesc, a1 uint, a2 ComputeType, a3 DataType) Result {
+	r1, _ := ffiCall4(symmatmulDescInit_internal, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmatmulDescSetAttribute calls cublasLtMatmulDescSetAttribute.
+func fnmatmulDescSetAttribute(a0 MatmulDesc, a1 MatmulDescAttributes, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symmatmulDescSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmatmulPreferenceCreate calls cublasLtMatmulPreferenceCreate.
+func fnmatmulPreferenceCreate(a0 *MatmulPreference) Result {
+	r1, _ := ffiCall1(symmatmulPreferenceCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnmatmulPreferenceDestroy calls cublasLtMatmulPreferenceDestroy.
+func fnmatmulPreferenceDestroy(a0 MatmulPreference) Result {
+	r1, _ := ffiCall1(symmatmulPreferenceDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmatmulPreferenceGetAttribute calls cublasLtMatmulPreferenceGetAttribute.
+func fnmatmulPreferenceGetAttribute(a0 MatmulPreference, a1 MatmulPreferenceAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symmatmulPreferenceGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnmatmulPreferenceInit_internal calls cublasLtMatmulPreferenceInit_internal.
+func fnmatmulPreferenceInit_internal(a0 MatmulPreference, a1 uint) Result {
+	r1, _ := ffiCall2(symmatmulPreferenceInit_internal, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmatmulPreferenceSetAttribute calls cublasLtMatmulPreferenceSetAttribute.
+func fnmatmulPreferenceSetAttribute(a0 MatmulPreference, a1 MatmulPreferenceAttributes, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symmatmulPreferenceSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmatrixLayoutCreate calls cublasLtMatrixLayoutCreate.
+func fnmatrixLayoutCreate(a0 *MatrixLayout, a1 DataType, a2 uint64, a3 uint64, a4 int64) Result {
+	r1, _ := ffiCall5(symmatrixLayoutCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmatrixLayoutDestroy calls cublasLtMatrixLayoutDestroy.
+func fnmatrixLayoutDestroy(a0 MatrixLayout) Result {
+	r1, _ := ffiCall1(symmatrixLayoutDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmatrixLayoutGetAttribute calls cublasLtMatrixLayoutGetAttribute.
+func fnmatrixLayoutGetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 uintptr, a3 uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symmatrixLayoutGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnmatrixLayoutInit_internal calls cublasLtMatrixLayoutInit_internal.
+func fnmatrixLayoutInit_internal(a0 MatrixLayout, a1 uint, a2 DataType, a3 uint64, a4 uint64, a5 int64) Result {
+	r1, _ := ffiCall6(symmatrixLayoutInit_internal, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnmatrixLayoutSetAttribute calls cublasLtMatrixLayoutSetAttribute.
+func fnmatrixLayoutSetAttribute(a0 MatrixLayout, a1 MatrixLayoutAttribute, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symmatrixLayoutSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmatrixTransformDescCreate calls cublasLtMatrixTransformDescCreate.
+func fnmatrixTransformDescCreate(a0 *MatrixTransformDesc, a1 DataType) Result {
+	r1, _ := ffiCall2(symmatrixTransformDescCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmatrixTransformDescDestroy calls cublasLtMatrixTransformDescDestroy.
+func fnmatrixTransformDescDestroy(a0 MatrixTransformDesc) Result {
+	r1, _ := ffiCall1(symmatrixTransformDescDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmatrixTransformDescGetAttribute calls cublasLtMatrixTransformDescGetAttribute.
+func fnmatrixTransformDescGetAttribute(a0 MatrixTransformDesc, a1 MatrixTransformDescAttributes, a2 uintptr, a3 uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symmatrixTransformDescGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnmatrixTransformDescInit_internal calls cublasLtMatrixTransformDescInit_internal.
+func fnmatrixTransformDescInit_internal(a0 MatrixTransformDesc, a1 uint, a2 DataType) Result {
+	r1, _ := ffiCall3(symmatrixTransformDescInit_internal, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmatrixTransformDescSetAttribute calls cublasLtMatrixTransformDescSetAttribute.
+func fnmatrixTransformDescSetAttribute(a0 MatrixTransformDesc, a1 MatrixTransformDescAttributes, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symmatrixTransformDescSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
 
 // Create initializes the cuBLASLt library and creates a handle to an opaque structure holding the cuBLASLt library context.
 //
+// It allocates light hardware resources on the host and device, and must be called prior to making any other cuBLASLt library calls.
 // The cuBLASLt library context is tied to the current CUDA device. To use the library on multiple devices, one cuBLASLt handle must be created for each device. Furthermore, the device must be set as the current before invoking cuBLASLt functions with a handle tied to that device.
 //
 // See also: cuBLAS Context.
@@ -71,15 +502,20 @@ func Create() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "cublasLtCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "cublasLtCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotCreate outSlot[Handle]
+
 // destroy releases hardware resources used by the cuBLASLt library.
+//
+// This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
 //
 //   - lightHandle: Pointer to the cuBLASLt handle to be destroyed
 //
@@ -105,13 +541,16 @@ func emulationDescCreate() (EmulationDesc, error) {
 		var zero EmulationDesc
 		return zero, err
 	}
-	var out EmulationDesc
-	if err := toError(fnemulationDescCreate(&out), "cublasLtEmulationDescCreate"); err != nil {
+	out := slotEmulationDescCreate.get()
+	defer slotEmulationDescCreate.put(out)
+	if err := toError(fnemulationDescCreate(out), "cublasLtEmulationDescCreate"); err != nil {
 		var zero EmulationDesc
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotEmulationDescCreate outSlot[EmulationDesc]
 
 // emulationDescDestroy destroys a previously created emulation descriptor.
 //
@@ -146,13 +585,16 @@ func emulationDescGetAttribute(emulationDesc EmulationDesc, attr EmulationDescAt
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnemulationDescGetAttribute(emulationDesc, attr, buf, sizeInBytes, &out), "cublasLtEmulationDescGetAttribute"); err != nil {
+	out := slotEmulationDescGetAttribute.get()
+	defer slotEmulationDescGetAttribute.put(out)
+	if err := toError(fnemulationDescGetAttribute(emulationDesc, attr, buf, sizeInBytes, out), "cublasLtEmulationDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotEmulationDescGetAttribute outSlot[uint]
 
 // emulationDescInit_internal wraps cublasLtEmulationDescInit_internal.
 func emulationDescInit_internal(emulationDesc EmulationDesc, size uint) error {
@@ -194,7 +636,9 @@ func GetProperty(type_ LibraryPropertyType, value *int32) error {
 	return toError(fnGetProperty(type_, value), "cublasLtGetProperty")
 }
 
-// GroupedMatrixLayoutCreate Experimental: This function creates a grouped matrix layout descriptor by allocating the memory needed to hold its opaque structure.
+// GroupedMatrixLayoutCreate creates a grouped matrix layout descriptor by allocating the memory needed to hold its opaque structure.
+//
+// This function is experimental.
 //
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor created by this function. See [MatrixLayout]
 //   - type_: Enumerant that specifies the data precision for the matrix layout descriptor this function creates. See cudaDataType_t
@@ -213,13 +657,16 @@ func GroupedMatrixLayoutCreate(type_ DataType, groupCount int32, rowsArray uintp
 		var zero MatrixLayout
 		return zero, err
 	}
-	var out MatrixLayout
-	if err := toError(fnGroupedMatrixLayoutCreate(&out, type_, groupCount, rowsArray, colsArray, ldArray), "cublasLtGroupedMatrixLayoutCreate"); err != nil {
+	out := slotGroupedMatrixLayoutCreate.get()
+	defer slotGroupedMatrixLayoutCreate.put(out)
+	if err := toError(fnGroupedMatrixLayoutCreate(out, type_, groupCount, rowsArray, colsArray, ldArray), "cublasLtGroupedMatrixLayoutCreate"); err != nil {
 		var zero MatrixLayout
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGroupedMatrixLayoutCreate outSlot[MatrixLayout]
 
 // groupedMatrixLayoutInit_internal wraps cublasLtGroupedMatrixLayoutInit_internal.
 func groupedMatrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ DataType, groupCount int32, rowsArray uintptr, colsArray uintptr, ldArray uintptr) error {
@@ -229,7 +676,7 @@ func groupedMatrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ D
 	return toError(fngroupedMatrixLayoutInit_internal(matLayout, size, type_, groupCount, rowsArray, colsArray, ldArray), "cublasLtGroupedMatrixLayoutInit_internal")
 }
 
-// HeuristicsCacheGetCapacity Returns the Heuristics Cache capacity.
+// HeuristicsCacheGetCapacity returns the Heuristics Cache capacity.
 //
 //   - capacity: The pointer to the returned capacity value
 //
@@ -241,8 +688,9 @@ func HeuristicsCacheGetCapacity(capacity *uint) error {
 	return toError(fnHeuristicsCacheGetCapacity(capacity), "cublasLtHeuristicsCacheGetCapacity")
 }
 
-// HeuristicsCacheSetCapacity Sets the Heuristics Cache capacity.
+// HeuristicsCacheSetCapacity sets the Heuristics Cache capacity.
 //
+// Set the capacity to 0 to disable the heuristics cache.
 // This function takes precedence over CUBLASLT_HEURISTICS_CACHE_CAPACITY environment variable.
 //
 //   - capacity: The desirable heuristics cache capacity
@@ -255,7 +703,9 @@ func HeuristicsCacheSetCapacity(capacity uint) error {
 	return toError(fnHeuristicsCacheSetCapacity(capacity), "cublasLtHeuristicsCacheSetCapacity")
 }
 
-// LoggerForceDisable Experimental: This function disables logging for the entire run.
+// LoggerForceDisable disables logging for the entire run.
+//
+// This function is experimental.
 //
 // Returns:
 //   - [Success]: if disabled logging
@@ -268,7 +718,9 @@ func LoggerForceDisable() error {
 	return toError(fnLoggerForceDisable(), "cublasLtLoggerForceDisable")
 }
 
-// LoggerOpenFile Experimental: This function opens and sets the logging output file in the given path.
+// LoggerOpenFile opens and sets the logging output file in the given path.
+//
+// This function is experimental.
 //
 //   - logFile: Path of the logging output file
 //
@@ -283,7 +735,9 @@ func LoggerOpenFile(logFile *byte) error {
 	return toError(fnLoggerOpenFile(logFile), "cublasLtLoggerOpenFile")
 }
 
-// LoggerSetCallback Experimental: This function sets the logging callback function.
+// LoggerSetCallback sets the logging callback function.
+//
+// This function is experimental.
 //
 //   - callback: Pointer to a callback function. See uintptr
 //
@@ -298,7 +752,10 @@ func LoggerSetCallback(callback uintptr) error {
 	return toError(fnLoggerSetCallback(callback), "cublasLtLoggerSetCallback")
 }
 
-// LoggerSetFile Experimental: This function sets the logging output file.
+// LoggerSetFile sets the logging output file.
+//
+// Note: once registered using this function call, the provided file handle must not be closed unless the function is called again to switch to a different file handle.
+// This function is experimental.
 //
 //   - file: Pointer to an open file. File should have write permission
 //
@@ -313,7 +770,9 @@ func LoggerSetFile(file uintptr) error {
 	return toError(fnLoggerSetFile(file), "cublasLtLoggerSetFile")
 }
 
-// LoggerSetLevel Experimental: This function sets the value of the logging level.
+// LoggerSetLevel sets the value of the logging level.
+//
+// This function is experimental.
 //
 //   - level: Value of the logging level. See cuBLASLt Logging
 //
@@ -329,7 +788,9 @@ func LoggerSetLevel(level int32) error {
 	return toError(fnLoggerSetLevel(level), "cublasLtLoggerSetLevel")
 }
 
-// LoggerSetMask Experimental: This function sets the value of the logging mask.
+// LoggerSetMask sets the value of the logging mask.
+//
+// This function is experimental.
 //
 //   - mask: Value of the logging mask. See cuBLASLt Logging
 //
@@ -404,6 +865,7 @@ func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, a driver.
 
 // MatmulAlgoCapGetAttribute returns the value of the queried capability attribute for an initialized [MatmulAlgo] descriptor structure.
 //
+// The capability attribute value is retrieved from the enumerated type [MatmulAlgoCapAttributes].
 // For example, to get list of supported Tile IDs:
 //
 //   - algo: Pointer to the previously created opaque structure holding the matrix multiply algorithm descriptor. See [MatmulAlgo]
@@ -422,15 +884,20 @@ func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, b
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnMatmulAlgoCapGetAttribute(algo, attr, buf, sizeInBytes, &out), "cublasLtMatmulAlgoCapGetAttribute"); err != nil {
+	out := slotMatmulAlgoCapGetAttribute.get()
+	defer slotMatmulAlgoCapGetAttribute.put(out)
+	if err := toError(fnMatmulAlgoCapGetAttribute(algo, attr, buf, sizeInBytes, out), "cublasLtMatmulAlgoCapGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotMatmulAlgoCapGetAttribute outSlot[uint]
+
 // matmulAlgoCheck performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
+//
+// It checks whether the descriptor is supported on the current device, and returns the result containing the required workspace and the calculated wave count.
 //
 // Note: [Success] doesn’t fully guarantee that the algo will run. The algo will fail if, for example, the buffers are not correctly aligned. However, if [Handle.MatmulAlgoCheck] fails, the algo will not run.
 //
@@ -455,15 +922,20 @@ func matmulAlgoCheck(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixL
 		var zero MatmulHeuristicResult
 		return zero, err
 	}
-	var out MatmulHeuristicResult
-	if err := toError(fnmatmulAlgoCheck(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, algo, &out), "cublasLtMatmulAlgoCheck"); err != nil {
+	out := slotMatmulAlgoCheck.get()
+	defer slotMatmulAlgoCheck.put(out)
+	if err := toError(fnmatmulAlgoCheck(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, algo, out), "cublasLtMatmulAlgoCheck"); err != nil {
 		var zero MatmulHeuristicResult
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotMatmulAlgoCheck outSlot[MatmulHeuristicResult]
+
 // MatmulAlgoConfigGetAttribute returns the value of the queried configuration attribute for an initialized [MatmulAlgo] descriptor.
+//
+// The configuration attribute value is retrieved from the enumerated type [MatmulAlgoConfigAttributes].
 //
 //   - algo: Pointer to the previously created opaque structure holding the matrix multiply algorithm descriptor. See [MatmulAlgo]
 //   - attr: The configuration attribute whose value will be retrieved by this function. See [MatmulAlgoConfigAttributes]
@@ -481,15 +953,20 @@ func MatmulAlgoConfigGetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnMatmulAlgoConfigGetAttribute(algo, attr, buf, sizeInBytes, &out), "cublasLtMatmulAlgoConfigGetAttribute"); err != nil {
+	out := slotMatmulAlgoConfigGetAttribute.get()
+	defer slotMatmulAlgoConfigGetAttribute.put(out)
+	if err := toError(fnMatmulAlgoConfigGetAttribute(algo, attr, buf, sizeInBytes, out), "cublasLtMatmulAlgoConfigGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotMatmulAlgoConfigGetAttribute outSlot[uint]
+
 // MatmulAlgoConfigSetAttribute sets the value of the specified configuration attribute for an initialized [MatmulAlgo] descriptor.
+//
+// The configuration attribute is an enumerant of the type [MatmulAlgoConfigAttributes].
 //
 //   - algo: Pointer to the previously created opaque structure holding the matrix multiply algorithm descriptor. See [MatmulAlgo]
 //   - attr: The configuration attribute whose value will be set by this function. See [MatmulAlgoConfigAttributes]
@@ -510,6 +987,8 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 
 // matmulAlgoGetHeuristic retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
+// The output is placed in heuristicResultsArray[] in the order of increasing estimated compute time.
+//
 // Note: This function may load some kernels using CUDA Driver API which may fail when there is no available GPU memory. Do not allocate the entire VRAM before running [Handle.MatmulAlgoGetHeuristic].
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
@@ -520,6 +999,7 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 //   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
 //   - requestedAlgoCount: Size of the heuristicResultsArray (in elements). This is the requested maximum number of algorithms to return
+//   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
 //   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
 //
 // Returns:
@@ -533,13 +1013,16 @@ func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc 
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnmatmulAlgoGetHeuristic(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, preference, requestedAlgoCount, heuristicResultsArray, &out), "cublasLtMatmulAlgoGetHeuristic"); err != nil {
+	out := slotMatmulAlgoGetHeuristic.get()
+	defer slotMatmulAlgoGetHeuristic.put(out)
+	if err := toError(fnmatmulAlgoGetHeuristic(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, preference, requestedAlgoCount, heuristicResultsArray, out), "cublasLtMatmulAlgoGetHeuristic"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatmulAlgoGetHeuristic outSlot[int32]
 
 // matmulAlgoGetIds retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.
 //
@@ -553,6 +1036,7 @@ func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc 
 //   - ctype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - dtype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - requestedAlgoCount: Number of algorithms requested. Must be > 0
+//   - algoIdsArray: Array containing the algorithm IDs returned by this function
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
 // Returns:
@@ -565,13 +1049,16 @@ func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType Dat
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnmatmulAlgoGetIds(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, requestedAlgoCount, algoIdsArray, &out), "cublasLtMatmulAlgoGetIds"); err != nil {
+	out := slotMatmulAlgoGetIds.get()
+	defer slotMatmulAlgoGetIds.put(out)
+	if err := toError(fnmatmulAlgoGetIds(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, requestedAlgoCount, algoIdsArray, out), "cublasLtMatmulAlgoGetIds"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatmulAlgoGetIds outSlot[int32]
 
 // matmulAlgoInit initializes the matrix multiply algorithm structure for the [Handle.Matmul] , for a specified matrix multiply algorithm and input matrices A, B and C, and the output matrix D.
 //
@@ -614,13 +1101,16 @@ func matmulDescCreate(computeType ComputeType, scaleType DataType) (MatmulDesc, 
 		var zero MatmulDesc
 		return zero, err
 	}
-	var out MatmulDesc
-	if err := toError(fnmatmulDescCreate(&out, computeType, scaleType), "cublasLtMatmulDescCreate"); err != nil {
+	out := slotMatmulDescCreate.get()
+	defer slotMatmulDescCreate.put(out)
+	if err := toError(fnmatmulDescCreate(out, computeType, scaleType), "cublasLtMatmulDescCreate"); err != nil {
 		var zero MatmulDesc
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatmulDescCreate outSlot[MatmulDesc]
 
 // matmulDescDestroy destroys a previously created matrix multiply descriptor object.
 //
@@ -655,13 +1145,16 @@ func matmulDescGetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, bu
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnmatmulDescGetAttribute(matmulDesc, attr, buf, sizeInBytes, &out), "cublasLtMatmulDescGetAttribute"); err != nil {
+	out := slotMatmulDescGetAttribute.get()
+	defer slotMatmulDescGetAttribute.put(out)
+	if err := toError(fnmatmulDescGetAttribute(matmulDesc, attr, buf, sizeInBytes, out), "cublasLtMatmulDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatmulDescGetAttribute outSlot[uint]
 
 // matmulDescInit_internal wraps cublasLtMatmulDescInit_internal.
 func matmulDescInit_internal(matmulDesc MatmulDesc, size uint, computeType ComputeType, scaleType DataType) error {
@@ -704,13 +1197,16 @@ func matmulPreferenceCreate() (MatmulPreference, error) {
 		var zero MatmulPreference
 		return zero, err
 	}
-	var out MatmulPreference
-	if err := toError(fnmatmulPreferenceCreate(&out), "cublasLtMatmulPreferenceCreate"); err != nil {
+	out := slotMatmulPreferenceCreate.get()
+	defer slotMatmulPreferenceCreate.put(out)
+	if err := toError(fnmatmulPreferenceCreate(out), "cublasLtMatmulPreferenceCreate"); err != nil {
 		var zero MatmulPreference
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatmulPreferenceCreate outSlot[MatmulPreference]
 
 // matmulPreferenceDestroy destroys a previously created matrix multiply preferences descriptor object.
 //
@@ -745,13 +1241,16 @@ func matmulPreferenceGetAttribute(pref MatmulPreference, attr MatmulPreferenceAt
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnmatmulPreferenceGetAttribute(pref, attr, buf, sizeInBytes, &out), "cublasLtMatmulPreferenceGetAttribute"); err != nil {
+	out := slotMatmulPreferenceGetAttribute.get()
+	defer slotMatmulPreferenceGetAttribute.put(out)
+	if err := toError(fnmatmulPreferenceGetAttribute(pref, attr, buf, sizeInBytes, out), "cublasLtMatmulPreferenceGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatmulPreferenceGetAttribute outSlot[uint]
 
 // matmulPreferenceInit_internal wraps cublasLtMatmulPreferenceInit_internal.
 func matmulPreferenceInit_internal(pref MatmulPreference, size uint) error {
@@ -798,13 +1297,16 @@ func matrixLayoutCreate(type_ DataType, rows uint64, cols uint64, ld int64) (Mat
 		var zero MatrixLayout
 		return zero, err
 	}
-	var out MatrixLayout
-	if err := toError(fnmatrixLayoutCreate(&out, type_, rows, cols, ld), "cublasLtMatrixLayoutCreate"); err != nil {
+	out := slotMatrixLayoutCreate.get()
+	defer slotMatrixLayoutCreate.put(out)
+	if err := toError(fnmatrixLayoutCreate(out, type_, rows, cols, ld), "cublasLtMatrixLayoutCreate"); err != nil {
 		var zero MatrixLayout
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixLayoutCreate outSlot[MatrixLayout]
 
 // matrixLayoutDestroy destroys a previously created matrix layout descriptor object.
 //
@@ -839,13 +1341,16 @@ func matrixLayoutGetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnmatrixLayoutGetAttribute(matLayout, attr, buf, sizeInBytes, &out), "cublasLtMatrixLayoutGetAttribute"); err != nil {
+	out := slotMatrixLayoutGetAttribute.get()
+	defer slotMatrixLayoutGetAttribute.put(out)
+	if err := toError(fnmatrixLayoutGetAttribute(matLayout, attr, buf, sizeInBytes, out), "cublasLtMatrixLayoutGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixLayoutGetAttribute outSlot[uint]
 
 // matrixLayoutInit_internal wraps cublasLtMatrixLayoutInit_internal.
 func matrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ DataType, rows uint64, cols uint64, ld int64) error {
@@ -922,13 +1427,16 @@ func matrixTransformDescCreate(scaleType DataType) (MatrixTransformDesc, error) 
 		var zero MatrixTransformDesc
 		return zero, err
 	}
-	var out MatrixTransformDesc
-	if err := toError(fnmatrixTransformDescCreate(&out, scaleType), "cublasLtMatrixTransformDescCreate"); err != nil {
+	out := slotMatrixTransformDescCreate.get()
+	defer slotMatrixTransformDescCreate.put(out)
+	if err := toError(fnmatrixTransformDescCreate(out, scaleType), "cublasLtMatrixTransformDescCreate"); err != nil {
 		var zero MatrixTransformDesc
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixTransformDescCreate outSlot[MatrixTransformDesc]
 
 // matrixTransformDescDestroy destroys a previously created matrix transform descriptor object.
 //
@@ -963,13 +1471,16 @@ func matrixTransformDescGetAttribute(transformDesc MatrixTransformDesc, attr Mat
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnmatrixTransformDescGetAttribute(transformDesc, attr, buf, sizeInBytes, &out), "cublasLtMatrixTransformDescGetAttribute"); err != nil {
+	out := slotMatrixTransformDescGetAttribute.get()
+	defer slotMatrixTransformDescGetAttribute.put(out)
+	if err := toError(fnmatrixTransformDescGetAttribute(transformDesc, attr, buf, sizeInBytes, out), "cublasLtMatrixTransformDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixTransformDescGetAttribute outSlot[uint]
 
 // matrixTransformDescInit_internal wraps cublasLtMatrixTransformDescInit_internal.
 func matrixTransformDescInit_internal(transformDesc MatrixTransformDesc, size uint, scaleType DataType) error {

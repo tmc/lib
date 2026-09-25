@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // ApiData represents copied fields and callback-lifetime raw pointers from a
@@ -26,7 +27,7 @@ type ApiData struct {
 	// does not dereference it; callers must treat it as UNREAD unless they have
 	// independently qualified the exact layout.
 	FunctionReturnValue unsafe.Pointer
-	Context             cupti.Context
+	Context             driver.Context
 	ContextUid          uint32
 	CorrelationId       uint32
 	CorrelationData     uint64
@@ -34,15 +35,15 @@ type ApiData struct {
 
 // ResourceData represents copied, safe data from a resource callback.
 type ResourceData struct {
-	Context            cupti.Context
+	Context            driver.Context
 	ResourceHandle     uint64
 	ResourceDescriptor uintptr
 }
 
 // SynchronizeData represents copied, safe data from a synchronization callback.
 type SynchronizeData struct {
-	Context cupti.Context
-	Stream  cupti.Stream
+	Context driver.Context
+	Stream  driver.Stream
 }
 
 // NvtxData represents copied, safe data from an NVTX callback.

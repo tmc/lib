@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -346,6 +347,90 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
+// ffiCall0 through ffiCall4 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
 // BindFailure names a symbol the loaded library exports but that could not
 // be bound, and why.
 type BindFailure struct {
@@ -411,31 +496,31 @@ func registerFuncs() {
 	register(&fnAddPatchesFromFile, "sanitizerAddPatchesFromFile")
 	register(&fnAlloc, "sanitizerAlloc")
 	register(&fnAllocHost, "sanitizerAllocHost")
-	register(&fnenableAllDomains, "sanitizerEnableAllDomains")
-	register(&fnenableCallback, "sanitizerEnableCallback")
-	register(&fnenableDomain, "sanitizerEnableDomain")
+	symenableAllDomains = registerSym("sanitizerEnableAllDomains")
+	symenableCallback = registerSym("sanitizerEnableCallback")
+	symenableDomain = registerSym("sanitizerEnableDomain")
 	register(&fnFree, "sanitizerFree")
 	register(&fnFreeHost, "sanitizerFreeHost")
 	register(&fnGetCallbackPcAndSize, "sanitizerGetCallbackPcAndSize")
-	register(&fngetCallbackState, "sanitizerGetCallbackState")
-	register(&fnGetCudaBarrierCount, "sanitizerGetCudaBarrierCount")
-	register(&fnGetFunctionLoadedStatus, "sanitizerGetFunctionLoadedStatus")
-	register(&fnGetFunctionPcAndSize, "sanitizerGetFunctionPcAndSize")
-	register(&fngetStream, "sanitizerGetStream")
+	symgetCallbackState = registerSym("sanitizerGetCallbackState")
+	symGetCudaBarrierCount = registerSym("sanitizerGetCudaBarrierCount")
+	symGetFunctionLoadedStatus = registerSym("sanitizerGetFunctionLoadedStatus")
+	symGetFunctionPcAndSize = registerSym("sanitizerGetFunctionPcAndSize")
+	symgetStream = registerSym("sanitizerGetStream")
 	register(&fnGetStreamHandle, "sanitizerGetStreamHandle")
-	register(&fnIsInsideRecursiveCallback, "sanitizerIsInsideRecursiveCallback")
-	register(&fnmemcpyDeviceToHost, "sanitizerMemcpyDeviceToHost")
-	register(&fnmemcpyHostToDeviceAsync, "sanitizerMemcpyHostToDeviceAsync")
-	register(&fnmemset, "sanitizerMemset")
-	register(&fnPatchInstructions, "sanitizerPatchInstructions")
-	register(&fnPatchModule, "sanitizerPatchModule")
-	register(&fnSetCallbackData, "sanitizerSetCallbackData")
-	register(&fnsetDeviceGraphData, "sanitizerSetDeviceGraphData")
-	register(&fnsetLaunchCallbackData, "sanitizerSetLaunchCallbackData")
-	register(&fnstreamSynchronize, "sanitizerStreamSynchronize")
-	register(&fnSubscribe, "sanitizerSubscribe")
-	register(&fnUnpatchModule, "sanitizerUnpatchModule")
-	register(&fnunsubscribe, "sanitizerUnsubscribe")
+	symIsInsideRecursiveCallback = registerSym("sanitizerIsInsideRecursiveCallback")
+	symmemcpyDeviceToHost = registerSym("sanitizerMemcpyDeviceToHost")
+	symmemcpyHostToDeviceAsync = registerSym("sanitizerMemcpyHostToDeviceAsync")
+	symmemset = registerSym("sanitizerMemset")
+	symPatchInstructions = registerSym("sanitizerPatchInstructions")
+	symPatchModule = registerSym("sanitizerPatchModule")
+	symSetCallbackData = registerSym("sanitizerSetCallbackData")
+	symsetDeviceGraphData = registerSym("sanitizerSetDeviceGraphData")
+	symsetLaunchCallbackData = registerSym("sanitizerSetLaunchCallbackData")
+	symstreamSynchronize = registerSym("sanitizerStreamSynchronize")
+	symSubscribe = registerSym("sanitizerSubscribe")
+	symUnpatchModule = registerSym("sanitizerUnpatchModule")
+	symunsubscribe = registerSym("sanitizerUnsubscribe")
 }
 
 // clearFuncs unbinds all raw function pointers.
@@ -445,31 +530,31 @@ func clearFuncs() {
 	fnAddPatchesFromFile = nil
 	fnAlloc = nil
 	fnAllocHost = nil
-	fnenableAllDomains = nil
-	fnenableCallback = nil
-	fnenableDomain = nil
+	symenableAllDomains = 0
+	symenableCallback = 0
+	symenableDomain = 0
 	fnFree = nil
 	fnFreeHost = nil
 	fnGetCallbackPcAndSize = nil
-	fngetCallbackState = nil
-	fnGetCudaBarrierCount = nil
-	fnGetFunctionLoadedStatus = nil
-	fnGetFunctionPcAndSize = nil
-	fngetStream = nil
+	symgetCallbackState = 0
+	symGetCudaBarrierCount = 0
+	symGetFunctionLoadedStatus = 0
+	symGetFunctionPcAndSize = 0
+	symgetStream = 0
 	fnGetStreamHandle = nil
-	fnIsInsideRecursiveCallback = nil
-	fnmemcpyDeviceToHost = nil
-	fnmemcpyHostToDeviceAsync = nil
-	fnmemset = nil
-	fnPatchInstructions = nil
-	fnPatchModule = nil
-	fnSetCallbackData = nil
-	fnsetDeviceGraphData = nil
-	fnsetLaunchCallbackData = nil
-	fnstreamSynchronize = nil
-	fnSubscribe = nil
-	fnUnpatchModule = nil
-	fnunsubscribe = nil
+	symIsInsideRecursiveCallback = 0
+	symmemcpyDeviceToHost = 0
+	symmemcpyHostToDeviceAsync = 0
+	symmemset = 0
+	symPatchInstructions = 0
+	symPatchModule = 0
+	symSetCallbackData = 0
+	symsetDeviceGraphData = 0
+	symsetLaunchCallbackData = 0
+	symstreamSynchronize = 0
+	symSubscribe = 0
+	symUnpatchModule = 0
+	symunsubscribe = 0
 }
 
 // HasGetResultString reports whether sanitizerGetResultString resolved in the loaded library.

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // BytesPerSample returns the size in bytes of one sample of type t, or 0 if t
@@ -465,7 +467,7 @@ func (p *Params) checkAgainst(l *Layout) error {
 // is submitted to stream. Every device buffer the destination names must stay
 // allocated until stream has completed, and the decode state must not be
 // reused for another image before then.
-func (h Handle) DecodeInto(state DecodeState, bs Bitstream, params *Params, dst *Destination, stream Stream) error {
+func (h Handle) DecodeInto(state DecodeState, bs Bitstream, params *Params, dst *Destination, stream driver.Stream) error {
 	if dst == nil {
 		return errors.New("nvjpeg2k: DecodeInto: nil destination")
 	}
@@ -499,7 +501,7 @@ func (h Handle) DecodeInto(state DecodeState, bs Bitstream, params *Params, dst 
 //
 // params may be nil. The asynchrony and buffer-lifetime rules of
 // [Handle.DecodeInto] apply.
-func (h Handle) DecodeTileInto(state DecodeState, bs Bitstream, params *Params, tileID, numResLevels uint32, dst *Destination, stream Stream) error {
+func (h Handle) DecodeTileInto(state DecodeState, bs Bitstream, params *Params, tileID, numResLevels uint32, dst *Destination, stream driver.Stream) error {
 	if dst == nil {
 		return errors.New("nvjpeg2k: DecodeTileInto: nil destination")
 	}

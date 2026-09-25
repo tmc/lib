@@ -2,7 +2,11 @@
 
 package cudensitymat
 
-// AppendTerm Appends an operator term to the operator.
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
+// AppendTerm appends an operator term to the operator.
 //
 //   - handle: in Library handle
 //   - operatorTerm: in Operator term
@@ -16,7 +20,7 @@ func (o Operator) AppendTerm(handle Handle, operatorTerm OperatorTerm, duality i
 	return operatorAppendTerm(handle, o, operatorTerm, duality, coefficient, coefficientCallback, coefficientGradientCallback)
 }
 
-// ComputeAction Computes the action of the operator on a given input quantum state, accumulating the result in the output quantum state (accumulative action).
+// ComputeAction computes the action of the operator on a given input quantum state, accumulating the result in the output quantum state (accumulative action).
 //
 // Note: The provided input and output quantum states must be of the same
 // kind, shape, and structure as the quantum states provided during
@@ -35,18 +39,18 @@ func (o Operator) AppendTerm(handle Handle, operatorTerm OperatorTerm, duality i
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatOperatorComputeAction.
-func (o Operator) ComputeAction(handle Handle, time float64, batchSize int64, numParams int32, params *float64, stateIn State, stateOut State, workspace WorkspaceDescriptor, stream Stream) error {
+func (o Operator) ComputeAction(handle Handle, time float64, batchSize int64, numParams int32, params *float64, stateIn State, stateOut State, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	return operatorComputeAction(handle, o, time, batchSize, numParams, params, stateIn, stateOut, workspace, stream)
 }
 
-// Destroy Destroys an operator.
+// Destroy destroys an operator.
 //
 // Wraps cudensitymatDestroyOperator.
 func (o Operator) Destroy() error {
 	return destroyOperator(o)
 }
 
-// PrepareAction Prepares the operator for an action on a quantum state.
+// PrepareAction prepares the operator for an action on a quantum state.
 //
 // In general, before the operator action on a specific
 // quantum state(s) can be computed, it needs to be prepared
@@ -65,6 +69,6 @@ func (o Operator) Destroy() error {
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatOperatorPrepareAction.
-func (o Operator) PrepareAction(handle Handle, stateIn State, stateOut State, computeType ComputeType, workspaceSizeLimit uint, workspace WorkspaceDescriptor, stream Stream) error {
+func (o Operator) PrepareAction(handle Handle, stateIn State, stateOut State, computeType ComputeType, workspaceSizeLimit uint, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	return operatorPrepareAction(handle, o, stateIn, stateOut, computeType, workspaceSizeLimit, workspace, stream)
 }

@@ -30,13 +30,21 @@
 // # Collective Operations
 //
 //   - [Comm.AllGather]: Gathers sendcount values from all GPUs and leaves identical copies of the result in each recvbuff, receiving data from rank i at offset i*sendcount.
+//   - [Comm.AllGatherConfig]: Configurable variant of [Comm.AllGather].
 //   - [Comm.AllReduce]: Reduces data arrays of length count in sendbuff using the op operation and leaves identical copies of the result in each recvbuff.
+//   - [Comm.AllReduceConfig]: Configurable variant of [Comm.AllReduce].
 //   - [Comm.AlltoAll]: Each rank sends count values to all other ranks and receives count values from all other ranks.
+//   - [Comm.AlltoAllConfig]: Configurable variant of [Comm.AlltoAll].
 //   - [Comm.Broadcast]: Copies count elements from sendbuff on the root rank to all ranks’ recvbuff.
+//   - [Comm.BroadcastConfig]: Configurable variant of [Comm.Broadcast].
 //   - [Comm.Gather]: Each rank sends count elements from sendbuff to the root rank.
+//   - [Comm.GatherConfig]: Configurable variant of [Comm.Gather].
 //   - [Comm.Reduce]: Reduce data arrays of length count in sendbuff into recvbuff on the root rank using the op operation.
+//   - [Comm.ReduceConfig]: Configurable variant of [Comm.Reduce].
 //   - [Comm.ReduceScatter]: Reduce data in sendbuff from all GPUs using the op operation and leave the reduced result scattered over the devices so that the recvbuff on rank i will contain the i-th block of the result.
+//   - [Comm.ReduceScatterConfig]: Configurable variant of [Comm.ReduceScatter].
 //   - [Comm.Scatter]: Each rank receives count elements from the root rank.
+//   - [Comm.ScatterConfig]: Configurable variant of [Comm.Scatter].
 //
 // # Communicator Lifecycle
 //
@@ -82,7 +90,7 @@
 //
 // # Error Handling
 //
-//   - [Comm.LastError]: constchar*[Comm.LastError]( [Comm] comm) 
+//   - [Comm.LastError]: Returns a human-readable string corresponding to the last error that occurred in NCCL.
 //
 // # Version
 //
@@ -114,6 +122,35 @@
 //
 //   - [Comm.RedOpCreatePreMulSum]: Creates a new reduction operator which pre-multiplies input values by a given scalar locally before reducing them with peer values via summation.
 //   - [Comm.RedOpDestroy]: Destroys the reduction operator op.
+//
+// # Other
+//
+//   - [Comm.QueryProperties]: Exposes communicator properties by filling in props.
+//   - [Comm.DevCommCreate]: Creates a new device communicator (see ncclDevComm) corresponding to the supplied host-side communicator comm.
+//   - [Comm.DevCommDestroy]: Destroys a device communicator (see ncclDevComm) previously created using [Comm.DevCommCreate] and releases any allocated resources.
+//   - [Window.CftDeviceLeInfo]: Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset, and peerCft within cftTeam.
+//   - [Window.LsaDevicePointer]: Returns a load/store accessible pointer to the memory buffer of a specific LSA peer within the window.
+//   - [Window.LsaMultimemDevicePointer]: Returns a multimem base pointer for the LSA team associated with the given window.
+//   - [Window.MultimemDeviceLeInfo]: Host-side query for the multicast logical endpoint leId and leOffset corresponding to window and byte offset.
+//   - [Window.MultimemDevicePointer]: Returns a multimem base pointer using a provided multimem handle instead of the window’s internal multimem.
+//   - [Window.PeerDeviceLeInfo]: Host-side query for the logical endpoint leId and leOffset corresponding to window, byte offset and peerWorld within the world team.
+//   - [Window.PeerDevicePointer]: Returns a load/store accessible pointer to the memory buffer of a specific world rank peer within the window.
+//   - [ParamBind]: Look up the parameter identified by key and store a handle to it in *out.
+//   - [ParamDumpAll]: Write the key and current value of every registered parameter to the NCCL log output.
+//   - [ParamHandle.Get]: Copy the raw binary representation of the parameter bound to h into the caller-allocated buffer out.
+//   - [ParamGetAllParameterKeys]: Return a pointer to the internal table of all registered parameter keys.
+//   - [ParamHandle.I16]: Read the value of the parameter bound to h as the type T and store it in *out.
+//   - [ParamHandle.I32]: Read the value of the parameter bound to h as the type T and store it in *out.
+//   - [ParamHandle.I64]: Read the value of the parameter bound to h as the type T and store it in *out.
+//   - [ParamHandle.I8]: Read the value of the parameter bound to h as the type T and store it in *out.
+//   - [ParamGetParameter]: Look up the parameter identified by key and return its value as a null-terminated string.
+//   - [ParamHandle.Str]: Return a C-style string representation of the parameter bound to h.
+//   - [ParamHandle.U16]: Read the value of the parameter bound to h as the type T and store it in *out.
+//   - [ParamHandle.U32]: Read the value of the parameter bound to h as the type T and store it in *out.
+//   - [ParamHandle.U64]: Read the value of the parameter bound to h as the type T and store it in *out.
+//   - [ParamHandle.U8]: Read the value of the parameter bound to h as the type T and store it in *out.
+//   - [Comm.TeamCft]: Returns the host-side unicast CFT team containing ranks that are part of the CFT unicast group.
+//   - [Comm.TeamCftMultimem]: Returns the host-side multicast CFT team containing all the ranks that are part of the CFT multicast group.
 //
 // [NCCL Documentation]: https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/
 package nccl

@@ -3,8 +3,11 @@
 package cusolvermp
 
 import (
+	"sync"
+
 	"github.com/tmc/lib/nvidia/cusolver"
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -33,10 +36,62 @@ var (
 	fnMalloc             func(Grid, *DevicePtr, uint) cusolver.Result
 	fnMatrixGatherD2H    func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, int32, HostPtr, int64) cusolver.Result
 	fnMatrixScatterH2D   func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, int32, HostPtr, int64) cusolver.Result
-	fnNUMROC             func(int64, int64, uint32, uint32, uint32) int64
+	symNUMROC            uintptr
 	fnSetMathMode        func(Handle, cusolver.MathMode) cusolver.Result
 	fnSetStream          func(Handle, driver.Stream) cusolver.Result
 )
+
+// ffiCall0 through ffiCall5 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnNUMROC calls cusolverMpNUMROC.
+func fnNUMROC(a0 int64, a1 int64, a2 uint32, a3 uint32, a4 uint32) int64 {
+	r1, _ := ffiCall5(symNUMROC, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return int64(r1)
+}
 
 // Create creates a cuSOLVERMp handle bound to one device and one stream
 //

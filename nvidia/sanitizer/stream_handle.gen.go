@@ -2,9 +2,12 @@
 
 package sanitizer
 
-import "unsafe"
+import (
+	"github.com/tmc/lib/nvidia/driver"
+	"unsafe"
+)
 
-// Synchronize Synchronize a given stream.
+// Synchronize synchronizes a given stream.
 //
 // # Equivalent of cudaStreamSynchronize that can be called with a sanitizer stream handle
 //
@@ -13,18 +16,18 @@ func (s StreamHandle) Synchronize() error {
 	return streamSynchronize(s)
 }
 
-// Stream Retrieve a [Stream] handle from a [StreamHandle] handle.
+// Stream retrieves a CUstream handle from a [StreamHandle] handle.
 //
 // Returns:
 //   - [Success]: on success.
 //   - [ErrInvalidParameter]: if hStream is not a valid Sanitizer stream handle or if stream is NULL.
 //
 // Wraps sanitizerGetStream.
-func (s StreamHandle) Stream() (Stream, error) {
+func (s StreamHandle) Stream() (driver.Stream, error) {
 	return getStream(s)
 }
 
-// MemcpyDeviceToHost Copies data from device to host.
+// MemcpyDeviceToHost copies data from device to host.
 //
 // Equivalent of cudaMemcpy that can be called within a callback function.
 // The function will return once the copy has completed.
@@ -38,7 +41,7 @@ func (s StreamHandle) MemcpyDeviceToHost(dst unsafe.Pointer, src uintptr, count 
 	return memcpyDeviceToHost(dst, src, count, s)
 }
 
-// MemcpyHostToDeviceAsync Copies data from host to device.
+// MemcpyHostToDeviceAsync copies data from host to device.
 //
 // Equivalent of cudaMemcpyAsync that can be called within a callback function.
 // The function will return once the pageable buffer has been copied to the
@@ -54,7 +57,7 @@ func (s StreamHandle) MemcpyHostToDeviceAsync(dst uintptr, src unsafe.Pointer, c
 	return memcpyHostToDeviceAsync(dst, src, count, s)
 }
 
-// Memset Initializes or sets device memory to a value.
+// Memset initializes or sets device memory to a value.
 //
 // Equivalent of cudaMemset that can be called within a callback function.
 //
@@ -67,7 +70,7 @@ func (s StreamHandle) Memset(devPtr uintptr, value int32, count uint) error {
 	return memset(devPtr, value, count, s)
 }
 
-// SetDeviceGraphData Specifies the user data pointer accessible from callbacks in the device-launched graphs launched by the specified host-launched graphExec.
+// SetDeviceGraphData specifies the user data pointer accessible from callbacks in the device-launched graphs launched by the specified host-launched graphExec.
 //
 // Mark all subsequent launch of graphExec to make available userdata
 // in device callbacks from device-launched graphs. userdata will not

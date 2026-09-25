@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Optimizations specifies performance optimization modes for checkpoint save and restore.
@@ -72,7 +73,7 @@ func Save(ctx uintptr, opts Options) (*Checkpoint, error) {
 	}
 
 	c.raw.StructSize = uint(unsafe.Offsetof(c.raw.PPriv) + unsafe.Sizeof(c.raw.PPriv))
-	c.raw.Ctx = cupti.Context(ctx)
+	c.raw.Ctx = driver.Context(ctx)
 	c.raw.ReserveDeviceMB = opts.ReserveDeviceMB
 	c.raw.ReserveHostMB = opts.ReserveHostMB
 	if opts.AllowOverwrite {

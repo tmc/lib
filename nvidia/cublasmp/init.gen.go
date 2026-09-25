@@ -321,6 +321,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -406,40 +421,40 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnBufferDeregister, "cublasMpBufferDeregister")
-	register(&fnBufferRegister, "cublasMpBufferRegister")
+	symBufferDeregister = registerSym("cublasMpBufferDeregister")
+	symBufferRegister = registerSym("cublasMpBufferRegister")
 	register(&fnCreate, "cublasMpCreate")
-	register(&fnDestroy, "cublasMpDestroy")
-	register(&fnFree, "cublasMpFree")
+	symDestroy = registerSym("cublasMpDestroy")
+	symFree = registerSym("cublasMpFree")
 	register(&fnGemm, "cublasMpGemm")
 	register(&fnGemmBufferSize, "cublasMpGemm_bufferSize")
-	register(&fnGetStream, "cublasMpGetStream")
-	register(&fnGetVersion, "cublasMpGetVersion")
+	symGetStream = registerSym("cublasMpGetStream")
+	symGetVersion = registerSym("cublasMpGetVersion")
 	register(&fnGridCreate, "cublasMpGridCreate")
-	register(&fnGridDestroy, "cublasMpGridDestroy")
-	register(&fnMalloc, "cublasMpMalloc")
+	symGridDestroy = registerSym("cublasMpGridDestroy")
+	symMalloc = registerSym("cublasMpMalloc")
 	register(&fnMatrixDescriptorCreate, "cublasMpMatrixDescriptorCreate")
-	register(&fnMatrixDescriptorDestroy, "cublasMpMatrixDescriptorDestroy")
+	symMatrixDescriptorDestroy = registerSym("cublasMpMatrixDescriptorDestroy")
 	register(&fnMatrixDescriptorInit, "cublasMpMatrixDescriptorInit")
 	register(&fnSetStream, "cublasMpSetStream")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnBufferDeregister = nil
-	fnBufferRegister = nil
+	symBufferDeregister = 0
+	symBufferRegister = 0
 	fnCreate = nil
-	fnDestroy = nil
-	fnFree = nil
+	symDestroy = 0
+	symFree = 0
 	fnGemm = nil
 	fnGemmBufferSize = nil
-	fnGetStream = nil
-	fnGetVersion = nil
+	symGetStream = 0
+	symGetVersion = 0
 	fnGridCreate = nil
-	fnGridDestroy = nil
-	fnMalloc = nil
+	symGridDestroy = 0
+	symMalloc = 0
 	fnMatrixDescriptorCreate = nil
-	fnMatrixDescriptorDestroy = nil
+	symMatrixDescriptorDestroy = 0
 	fnMatrixDescriptorInit = nil
 	fnSetStream = nil
 }

@@ -326,6 +326,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := purego.Dlsym(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -412,7 +427,7 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnbatchIOCancel, "cuFileBatchIOCancel")
-	register(&fnbatchIODestroy, "cuFileBatchIODestroy")
+	symbatchIODestroy = registerSym("cuFileBatchIODestroy")
 	register(&fnbatchIOGetStatus, "cuFileBatchIOGetStatus")
 	register(&fnBatchIOSetUp, "cuFileBatchIOSetUp")
 	register(&fnbatchIOSubmit, "cuFileBatchIOSubmit")
@@ -440,9 +455,9 @@ func registerFuncs() {
 	register(&fnGetStatsL3, "cuFileGetStatsL3")
 	register(&fnGetStatsLevel, "cuFileGetStatsLevel")
 	register(&fnGetVersion, "cuFileGetVersion")
-	register(&fnhandleDeregister, "cuFileHandleDeregister")
+	symhandleDeregister = registerSym("cuFileHandleDeregister")
 	register(&fnhandleRegister, "cuFileHandleRegister")
-	register(&fnread, "cuFileRead")
+	symread = registerSym("cuFileRead")
 	register(&fnreadAsync, "cuFileReadAsync")
 	register(&fnSetParameterBool, "cuFileSetParameterBool")
 	register(&fnSetParameterGpuBounceBufferSlabArray, "cuFileSetParameterGpuBounceBufferSlabArray")
@@ -455,15 +470,15 @@ func registerFuncs() {
 	register(&fnStatsStop, "cuFileStatsStop")
 	register(&fnStreamDeregister, "cuFileStreamDeregister")
 	register(&fnStreamRegister, "cuFileStreamRegister")
-	register(&fnUseCount, "cuFileUseCount")
-	register(&fnwrite, "cuFileWrite")
+	symUseCount = registerSym("cuFileUseCount")
+	symwrite = registerSym("cuFileWrite")
 	register(&fnwriteAsync, "cuFileWriteAsync")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnbatchIOCancel = nil
-	fnbatchIODestroy = nil
+	symbatchIODestroy = 0
 	fnbatchIOGetStatus = nil
 	fnBatchIOSetUp = nil
 	fnbatchIOSubmit = nil
@@ -491,9 +506,9 @@ func clearFuncs() {
 	fnGetStatsL3 = nil
 	fnGetStatsLevel = nil
 	fnGetVersion = nil
-	fnhandleDeregister = nil
+	symhandleDeregister = 0
 	fnhandleRegister = nil
-	fnread = nil
+	symread = 0
 	fnreadAsync = nil
 	fnSetParameterBool = nil
 	fnSetParameterGpuBounceBufferSlabArray = nil
@@ -506,8 +521,8 @@ func clearFuncs() {
 	fnStatsStop = nil
 	fnStreamDeregister = nil
 	fnStreamRegister = nil
-	fnUseCount = nil
-	fnwrite = nil
+	symUseCount = 0
+	symwrite = 0
 	fnwriteAsync = nil
 }
 

@@ -74,7 +74,9 @@ type StreammemopatomicreductionparamsSt struct {
 	Alias       DevicePtr
 }
 
-// BatchMemOpNodeParams represents batch memory operation node parameters Used in the legacy [Graph.AddBatchMemOpNode] api.
+// BatchMemOpNodeParams represents batch memory operation node parameters.
+//
+// Used in the legacy [Graph.AddBatchMemOpNode] api. New code should use [Graph.AddNode]
 type BatchMemOpNodeParams struct {
 	Ctx        Context
 	Count      uint32
@@ -271,6 +273,8 @@ type ConditionalNodeParams struct {
 }
 
 // GraphEdgeData represents optional annotation for edges in a CUDA graph.
+//
+// Note, all edges implicitly have annotations and default to a zero-initialized value if not specified. A zero-initialized struct indicates a standard full serialization of two nodes with memory visibility.
 type GraphEdgeData struct {
 	FromPort uint8
 	ToPort   uint8
@@ -290,7 +294,9 @@ type GraphInstantiateParams struct {
 	ResultOut GraphInstantiateResult
 }
 
-// LaunchMemSyncDomainMap represents memory Synchronization Domain map See cudaLaunchMemSyncDomain.
+// LaunchMemSyncDomainMap represents memory Synchronization Domain map.
+//
+// See cudaLaunchMemSyncDomain. By default, kernels are launched in domain 0. Kernel launched with [LaunchMemSyncDomainRemote] will have a different domain ID. User may also alter the domain ID with [LaunchMemSyncDomainMap] for a specific stream / graph node / kernel launch. See [LaunchAttributeMemSyncDomainMap]. Domain ID range is available through [DevAttrMemSyncDomainCount].
 type LaunchMemSyncDomainMap struct {
 	// The default domain ID to use for designated kernels
 	Default uint8
@@ -355,6 +361,8 @@ type CtxCigParam struct {
 }
 
 // CtxCreateParams represents params for creating CUDA context.
+//
+// Both execAffinityParams and cigParams cannot be non-NULL at the same time. If both are NULL, the context will be created as a regular CUDA context.
 type CtxCreateParams struct {
 	// Array of execution affinity parameters to limit context resources (e.g., SM count). Only supported Volta+ MPS. Mutually exclusive with cigParams.
 	ExecAffinityParams uintptr
@@ -643,6 +651,8 @@ type ResourceViewDesc struct {
 
 // TensorMap represents tensor map descriptor.
 //
+// Requires compiler support for aligning to 128 bytes.
+//
 // C declares CUtensorMap with 128-byte alignment, which a Go type cannot
 // express: a TensorMap declared as a variable or allocated with new is at
 // most 8-byte aligned. NewTensorMap returns a zero TensorMap at a
@@ -854,6 +864,8 @@ type MemPoolPtrExportData struct {
 }
 
 // MemcpyAttributes represents attributes specific to copies within a batch.
+//
+// For more details on usage see [Stream.MemcpyBatchAsync].
 type MemcpyAttributes struct {
 	// Source access ordering to be observed for copies with this attribute.
 	SrcAccessOrder MemcpySrcAccessOrder
@@ -951,6 +963,8 @@ type EventWaitNodeParams struct {
 }
 
 // GraphNodeParams represents graph node parameters.
+//
+// See [Graph.AddNode].
 type GraphNodeParams struct {
 	// Type of the node
 	Type GraphNodeType
@@ -1015,6 +1029,8 @@ type MemDecompressParams struct {
 }
 
 // DevSmResource represents data for SM-related resources All parameters in this structure are OUTPUT only.
+//
+// Do not write to any of the fields in this structure.
 type DevSmResource struct {
 	// The amount of streaming multiprocessors available in this resource.
 	SmCount uint32

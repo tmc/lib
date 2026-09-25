@@ -2,7 +2,7 @@
 
 package driver
 
-// Destroy Destroys a green context.
+// Destroy destroys a green context.
 //
 // Destroys the green context, releasing the primary context of the device that this green context was created for. Any resources provisioned for this green context (that were initially available via the resource descriptor) are released as well. The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority]. Users are expected to destroy these streams explicitly using [Stream.Destroy] to avoid resource leaks. Once the green context is destroyed, any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs:
 // Additionally, the API will invalidate all active captures on these streams.
@@ -14,7 +14,7 @@ func (g GreenCtx) Destroy() error {
 	return greenCtxDestroy(g)
 }
 
-// DevResource Get green context resources.
+// DevResource gets green context resources.
 //
 // # Get the type resources available to the green context represented by hCtx
 //
@@ -25,7 +25,7 @@ func (g GreenCtx) DevResource(type_ DevResourceType) (DevResource, error) {
 	return greenCtxGetDevResource(g, type_)
 }
 
-// Id Returns the unique Id associated with the green context supplied.
+// Id returns the unique Id associated with the green context supplied.
 //
 // Returns in greenCtxId the unique Id which is associated with a given green context. The Id is unique for the life of the program for this instance of CUDA. If green context is supplied as NULL and the current context is set to a green context, the Id of the current green context is returned.
 //
@@ -38,7 +38,7 @@ func (g GreenCtx) Id() (uint64, error) {
 	return greenCtxGetId(g)
 }
 
-// RecordEvent Records an event.
+// RecordEvent records an event.
 //
 // Captures in hEvent all the activities of the green context of hCtx at the time of this call. hEvent and hCtx must be from the same primary context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [GreenCtx.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hCtx after this call do not modify hEvent.
 //
@@ -53,7 +53,7 @@ func (g GreenCtx) RecordEvent(hEvent Event) error {
 	return greenCtxRecordEvent(g, hEvent)
 }
 
-// StreamCreate Create a stream for use in the green context.
+// StreamCreate creates a stream for use in the green context.
 //
 // Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Destroy]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx.
 // The supported values for flags are:
@@ -73,7 +73,7 @@ func (g GreenCtx) StreamCreate(flags StreamFlags, priority int32) (Stream, error
 	return greenCtxStreamCreate(g, flags, priority)
 }
 
-// WaitEvent Make a green context wait on an event.
+// WaitEvent makes a green context wait on an event.
 //
 // Makes all future work submitted to green context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [GreenCtx.RecordEvent] or [Event.Record], for details on what is captured by an event.
 //
@@ -90,7 +90,7 @@ func (g GreenCtx) WaitEvent(hEvent Event) error {
 	return greenCtxWaitEvent(g, hEvent)
 }
 
-// NewGreenCtx Creates a green context with a specified set of resources.
+// NewGreenCtx creates a green context with a specified set of resources.
 //
 // This API creates a green context with the resources specified in the descriptor desc and returns it in the handle represented by phCtx. This API will retain the primary context on device dev, which will is released when the green context is destroyed. It is advised to have the primary context active before calling this API to avoid the heavy cost of triggering primary context initialization and deinitialization multiple times.
 // The API does not set the green context current. In order to set it current, you need to explicitly set it current by first converting the green context to a [Context] using [CtxFromGreenCtx] and subsequently calling [Context.SetCurrent] / [Context.PushCurrent]. It should be noted that a green context can be current to only one thread at a time. There is no internal synchronization to make API calls accessing the same green context from multiple threads work.

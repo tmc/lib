@@ -3,11 +3,12 @@ package cuptirange
 import (
 	"errors"
 	"fmt"
+	"runtime"
+	"unsafe"
+
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
-	"runtime"
-	"unsafe"
 )
 
 // CounterAvailability returns a bounded counter availability image for dev's
@@ -44,13 +45,13 @@ func CounterAvailability(dev *cuda.Device, maxBytes int) (image []byte, err erro
 		if err != nil {
 			return err
 		}
-		image, err = counterAvailability(cupti.Context(ctx), maxBytes, cupti.ProfilerGetCounterAvailability)
+		image, err = counterAvailability(driver.Context(ctx), maxBytes, cupti.ProfilerGetCounterAvailability)
 		return err
 	})
 	return image, err
 }
 
-func counterAvailability(ctx cupti.Context, maxBytes int, query func(*cupti.ProfilerGetCounterAvailabilityParams) error) ([]byte, error) {
+func counterAvailability(ctx driver.Context, maxBytes int, query func(*cupti.ProfilerGetCounterAvailabilityParams) error) ([]byte, error) {
 	if ctx == 0 || maxBytes <= 0 || query == nil {
 		return nil, errors.New("cuptirange: invalid counter availability query")
 	}

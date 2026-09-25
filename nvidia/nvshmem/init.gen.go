@@ -310,6 +310,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := purego.Dlsym(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -395,150 +410,150 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnAlign, "nvshmem_align")
-	register(&fnAllToAllMem, "nvshmem_alltoallmem")
-	register(&fnBarrier, "nvshmem_barrier")
-	register(&fnBarrierAll, "nvshmem_barrier_all")
-	register(&fnBroadcastMem, "nvshmem_broadcastmem")
-	register(&fnCalloc, "nvshmem_calloc")
-	register(&fnFCollectMem, "nvshmem_fcollectmem")
-	register(&fnFence, "nvshmem_fence")
-	register(&fnFree, "nvshmem_free")
-	register(&fnGetMem, "nvshmem_getmem")
-	register(&fnGetMemNBI, "nvshmem_getmem_nbi")
-	register(&fnGlobalExit, "nvshmem_global_exit")
-	register(&fnInfoGetNameRaw, "nvshmem_info_get_name")
-	register(&fnInfoGetVersionRaw, "nvshmem_info_get_version")
-	register(&fnMalloc, "nvshmem_malloc")
-	register(&fnMyPE, "nvshmem_my_pe")
-	register(&fnNPEs, "nvshmem_n_pes")
-	register(&fnPtr, "nvshmem_ptr")
-	register(&fnPutMem, "nvshmem_putmem")
-	register(&fnPutMemNBI, "nvshmem_putmem_nbi")
-	register(&fnQueryThreadRaw, "nvshmem_query_thread")
-	register(&fnQuiet, "nvshmem_quiet")
-	register(&fnSignalFetch, "nvshmem_signal_fetch")
-	register(&fnSyncAll, "nvshmem_sync_all")
-	register(&fnTeamDestroy, "nvshmem_team_destroy")
-	register(&fnTeamGetConfig, "nvshmem_team_get_config")
-	register(&fnTeamMyPE, "nvshmem_team_my_pe")
-	register(&fnTeamNPEs, "nvshmem_team_n_pes")
-	register(&fnTeamSplit2D, "nvshmem_team_split_2d")
-	register(&fnTeamSplitStrided, "nvshmem_team_split_strided")
-	register(&fnTeamSync, "nvshmem_team_sync")
-	register(&fnTeamTranslatePE, "nvshmem_team_translate_pe")
+	symAlign = registerSym("nvshmem_align")
+	symAllToAllMem = registerSym("nvshmem_alltoallmem")
+	symBarrier = registerSym("nvshmem_barrier")
+	symBarrierAll = registerSym("nvshmem_barrier_all")
+	symBroadcastMem = registerSym("nvshmem_broadcastmem")
+	symCalloc = registerSym("nvshmem_calloc")
+	symFCollectMem = registerSym("nvshmem_fcollectmem")
+	symFence = registerSym("nvshmem_fence")
+	symFree = registerSym("nvshmem_free")
+	symGetMem = registerSym("nvshmem_getmem")
+	symGetMemNBI = registerSym("nvshmem_getmem_nbi")
+	symGlobalExit = registerSym("nvshmem_global_exit")
+	symInfoGetNameRaw = registerSym("nvshmem_info_get_name")
+	symInfoGetVersionRaw = registerSym("nvshmem_info_get_version")
+	symMalloc = registerSym("nvshmem_malloc")
+	symMyPE = registerSym("nvshmem_my_pe")
+	symNPEs = registerSym("nvshmem_n_pes")
+	symPtr = registerSym("nvshmem_ptr")
+	symPutMem = registerSym("nvshmem_putmem")
+	symPutMemNBI = registerSym("nvshmem_putmem_nbi")
+	symQueryThreadRaw = registerSym("nvshmem_query_thread")
+	symQuiet = registerSym("nvshmem_quiet")
+	symSignalFetch = registerSym("nvshmem_signal_fetch")
+	symSyncAll = registerSym("nvshmem_sync_all")
+	symTeamDestroy = registerSym("nvshmem_team_destroy")
+	symTeamGetConfig = registerSym("nvshmem_team_get_config")
+	symTeamMyPE = registerSym("nvshmem_team_my_pe")
+	symTeamNPEs = registerSym("nvshmem_team_n_pes")
+	symTeamSplit2D = registerSym("nvshmem_team_split_2d")
+	symTeamSplitStrided = registerSym("nvshmem_team_split_strided")
+	symTeamSync = registerSym("nvshmem_team_sync")
+	symTeamTranslatePE = registerSym("nvshmem_team_translate_pe")
 	register(&fnAllToAllMemOnStream, "nvshmemx_alltoallmem_on_stream")
 	register(&fnBarrierAllOnStream, "nvshmemx_barrier_all_on_stream")
 	register(&fnBarrierOnStream, "nvshmemx_barrier_on_stream")
 	register(&fnBroadcastMemOnStream, "nvshmemx_broadcastmem_on_stream")
-	register(&fnBufferRegister, "nvshmemx_buffer_register")
-	register(&fnBufferRegisterSymmetric, "nvshmemx_buffer_register_symmetric")
-	register(&fnBufferRegisterSymmetricAt, "nvshmemx_buffer_register_symmetric_at_preferred_address")
-	register(&fnBufferUnregister, "nvshmemx_buffer_unregister")
-	register(&fnBufferUnregisterAll, "nvshmemx_buffer_unregister_all")
-	register(&fnBufferUnregisterSymmetric, "nvshmemx_buffer_unregister_symmetric")
+	symBufferRegister = registerSym("nvshmemx_buffer_register")
+	symBufferRegisterSymmetric = registerSym("nvshmemx_buffer_register_symmetric")
+	symBufferRegisterSymmetricAt = registerSym("nvshmemx_buffer_register_symmetric_at_preferred_address")
+	symBufferUnregister = registerSym("nvshmemx_buffer_unregister")
+	symBufferUnregisterAll = registerSym("nvshmemx_buffer_unregister_all")
+	symBufferUnregisterSymmetric = registerSym("nvshmemx_buffer_unregister_symmetric")
 	register(&fnCULibraryFinalize, "nvshmemx_culibrary_finalize")
 	register(&fnCULibraryInit, "nvshmemx_culibrary_init")
 	register(&fnCUModuleFinalize, "nvshmemx_cumodule_finalize")
 	register(&fnCUModuleInit, "nvshmemx_cumodule_init")
 	register(&fnFCollectMemOnStream, "nvshmemx_fcollectmem_on_stream")
-	register(&fnFlush, "nvshmemx_flush")
+	symFlush = registerSym("nvshmemx_flush")
 	register(&fnFlushOnStream, "nvshmemx_flush_on_stream")
-	register(&fnGetUniqueID, "nvshmemx_get_uniqueid")
+	symGetUniqueID = registerSym("nvshmemx_get_uniqueid")
 	register(&fnGetMemNBIOnStream, "nvshmemx_getmem_nbi_on_stream")
 	register(&fnGetMemOnStream, "nvshmemx_getmem_on_stream")
-	register(&fnHostlibFinalize, "nvshmemx_hostlib_finalize")
-	register(&fnHostlibInitAttr, "nvshmemx_hostlib_init_attr")
-	register(&fnQueryInitStatus, "nvshmemx_init_status")
-	register(&fnMulticastPtr, "nvshmemx_mc_ptr")
+	symHostlibFinalize = registerSym("nvshmemx_hostlib_finalize")
+	symHostlibInitAttr = registerSym("nvshmemx_hostlib_init_attr")
+	symQueryInitStatus = registerSym("nvshmemx_init_status")
+	symMulticastPtr = registerSym("nvshmemx_mc_ptr")
 	register(&fnPutMemNBIOnStream, "nvshmemx_putmem_nbi_on_stream")
 	register(&fnPutMemOnStream, "nvshmemx_putmem_on_stream")
 	register(&fnPutMemSignalNBIOnStream, "nvshmemx_putmem_signal_nbi_on_stream")
 	register(&fnPutMemSignalOnStream, "nvshmemx_putmem_signal_on_stream")
 	register(&fnQuietOnStream, "nvshmemx_quiet_on_stream")
-	register(&fnSetAttrMPICommArgs, "nvshmemx_set_attr_mpi_comm_args")
-	register(&fnSetAttrUniqueIDArgs, "nvshmemx_set_attr_uniqueid_args")
+	symSetAttrMPICommArgs = registerSym("nvshmemx_set_attr_mpi_comm_args")
+	symSetAttrUniqueIDArgs = registerSym("nvshmemx_set_attr_uniqueid_args")
 	register(&fnSignalOpOnStream, "nvshmemx_signal_op_on_stream")
 	register(&fnSignalWaitUntilOnStream, "nvshmemx_signal_wait_until_on_stream")
 	register(&fnSyncAllOnStream, "nvshmemx_sync_all_on_stream")
-	register(&fnTeamGetUniqueID, "nvshmemx_team_get_uniqueid")
-	register(&fnTeamInit, "nvshmemx_team_init")
+	symTeamGetUniqueID = registerSym("nvshmemx_team_get_uniqueid")
+	symTeamInit = registerSym("nvshmemx_team_init")
 	register(&fnTeamSyncOnStream, "nvshmemx_team_sync_on_stream")
-	register(&fnVendorGetVersionInfoRaw, "nvshmemx_vendor_get_version_info")
+	symVendorGetVersionInfoRaw = registerSym("nvshmemx_vendor_get_version_info")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnAlign = nil
-	fnAllToAllMem = nil
-	fnBarrier = nil
-	fnBarrierAll = nil
-	fnBroadcastMem = nil
-	fnCalloc = nil
-	fnFCollectMem = nil
-	fnFence = nil
-	fnFree = nil
-	fnGetMem = nil
-	fnGetMemNBI = nil
-	fnGlobalExit = nil
-	fnInfoGetNameRaw = nil
-	fnInfoGetVersionRaw = nil
-	fnMalloc = nil
-	fnMyPE = nil
-	fnNPEs = nil
-	fnPtr = nil
-	fnPutMem = nil
-	fnPutMemNBI = nil
-	fnQueryThreadRaw = nil
-	fnQuiet = nil
-	fnSignalFetch = nil
-	fnSyncAll = nil
-	fnTeamDestroy = nil
-	fnTeamGetConfig = nil
-	fnTeamMyPE = nil
-	fnTeamNPEs = nil
-	fnTeamSplit2D = nil
-	fnTeamSplitStrided = nil
-	fnTeamSync = nil
-	fnTeamTranslatePE = nil
+	symAlign = 0
+	symAllToAllMem = 0
+	symBarrier = 0
+	symBarrierAll = 0
+	symBroadcastMem = 0
+	symCalloc = 0
+	symFCollectMem = 0
+	symFence = 0
+	symFree = 0
+	symGetMem = 0
+	symGetMemNBI = 0
+	symGlobalExit = 0
+	symInfoGetNameRaw = 0
+	symInfoGetVersionRaw = 0
+	symMalloc = 0
+	symMyPE = 0
+	symNPEs = 0
+	symPtr = 0
+	symPutMem = 0
+	symPutMemNBI = 0
+	symQueryThreadRaw = 0
+	symQuiet = 0
+	symSignalFetch = 0
+	symSyncAll = 0
+	symTeamDestroy = 0
+	symTeamGetConfig = 0
+	symTeamMyPE = 0
+	symTeamNPEs = 0
+	symTeamSplit2D = 0
+	symTeamSplitStrided = 0
+	symTeamSync = 0
+	symTeamTranslatePE = 0
 	fnAllToAllMemOnStream = nil
 	fnBarrierAllOnStream = nil
 	fnBarrierOnStream = nil
 	fnBroadcastMemOnStream = nil
-	fnBufferRegister = nil
-	fnBufferRegisterSymmetric = nil
-	fnBufferRegisterSymmetricAt = nil
-	fnBufferUnregister = nil
-	fnBufferUnregisterAll = nil
-	fnBufferUnregisterSymmetric = nil
+	symBufferRegister = 0
+	symBufferRegisterSymmetric = 0
+	symBufferRegisterSymmetricAt = 0
+	symBufferUnregister = 0
+	symBufferUnregisterAll = 0
+	symBufferUnregisterSymmetric = 0
 	fnCULibraryFinalize = nil
 	fnCULibraryInit = nil
 	fnCUModuleFinalize = nil
 	fnCUModuleInit = nil
 	fnFCollectMemOnStream = nil
-	fnFlush = nil
+	symFlush = 0
 	fnFlushOnStream = nil
-	fnGetUniqueID = nil
+	symGetUniqueID = 0
 	fnGetMemNBIOnStream = nil
 	fnGetMemOnStream = nil
-	fnHostlibFinalize = nil
-	fnHostlibInitAttr = nil
-	fnQueryInitStatus = nil
-	fnMulticastPtr = nil
+	symHostlibFinalize = 0
+	symHostlibInitAttr = 0
+	symQueryInitStatus = 0
+	symMulticastPtr = 0
 	fnPutMemNBIOnStream = nil
 	fnPutMemOnStream = nil
 	fnPutMemSignalNBIOnStream = nil
 	fnPutMemSignalOnStream = nil
 	fnQuietOnStream = nil
-	fnSetAttrMPICommArgs = nil
-	fnSetAttrUniqueIDArgs = nil
+	symSetAttrMPICommArgs = 0
+	symSetAttrUniqueIDArgs = 0
 	fnSignalOpOnStream = nil
 	fnSignalWaitUntilOnStream = nil
 	fnSyncAllOnStream = nil
-	fnTeamGetUniqueID = nil
-	fnTeamInit = nil
+	symTeamGetUniqueID = 0
+	symTeamInit = 0
 	fnTeamSyncOnStream = nil
-	fnVendorGetVersionInfoRaw = nil
+	symVendorGetVersionInfoRaw = 0
 }
 
 // HasAlign reports whether nvshmem_align resolved in the loaded library.

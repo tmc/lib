@@ -2,7 +2,7 @@
 
 package driver
 
-// Release Release a reference to a user object.
+// Release releases a reference to a user object.
 //
 // Releases user object references owned by the caller. The object’s destructor is invoked if the reference count reaches zero.
 // It is undefined behavior to release references not owned by the caller, or to use a user object handle after all references are released.
@@ -17,7 +17,7 @@ func (u UserObject) Release(count uint32) error {
 	return userObjectRelease(u, count)
 }
 
-// Retain Retain a reference to a user object.
+// Retain retains a reference to a user object.
 //
 // Retains new references to a user object. The new references are owned by the caller.
 // See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
@@ -31,7 +31,7 @@ func (u UserObject) Retain(count uint32) error {
 	return userObjectRetain(u, count)
 }
 
-// NewUserObject Create a user object.
+// NewUserObject creates a user object.
 //
 // Create a user object with the specified destructor callback and initial reference count. The initial references are owned by the caller.
 // Destructor callbacks cannot make CUDA API calls and should avoid blocking behavior, as they are executed by a shared internal thread. Another thread may be signaled to perform such actions, if it does not block forward progress of tasks scheduled through CUDA.

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
@@ -38,7 +37,7 @@ func TestNativeCollectorExclusion(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		disable, rejected := cuptipcsampling.Enable(cupti.Context(ctx))
+		disable, rejected := cuptipcsampling.Enable(driver.Context(ctx))
 		lease.Release()
 		if disable != nil {
 			defer disable()
@@ -47,7 +46,7 @@ func TestNativeCollectorExclusion(t *testing.T) {
 		if rejected == nil || !strings.Contains(rejected.Error(), "already collecting") {
 			t.Fatalf("conflict error=%v", rejected)
 		}
-		disable, err = cuptipcsampling.Enable(cupti.Context(ctx))
+		disable, err = cuptipcsampling.Enable(driver.Context(ctx))
 		if disable != nil {
 			defer func() {
 				if err := disable(); err != nil {
@@ -62,7 +61,7 @@ func TestNativeCollectorExclusion(t *testing.T) {
 			other.Release()
 			t.Fatal("metric collector admitted during native PC sampling")
 		}
-		inventory, err := cuptipcsampling.StallReasons(cupti.Context(ctx), 1024)
+		inventory, err := cuptipcsampling.StallReasons(driver.Context(ctx), 1024)
 		if err != nil {
 			return err
 		}

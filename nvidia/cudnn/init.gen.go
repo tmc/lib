@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -350,6 +351,577 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
+// ffiCall0 through ffiCall30 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloat(fn, 9, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	return ffi.CallFloat(fn, 12, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall13(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	return ffi.CallFloat(fn, 13, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	return ffi.CallFloat(fn, 14, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	return ffi.CallFloat(fn, 15, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	return ffi.CallFloat(fn, 16, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall17(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	return ffi.CallFloat(fn, 17, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall18(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	return ffi.CallFloat(fn, 18, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall19(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	return ffi.CallFloat(fn, 19, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall20(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	return ffi.CallFloat(fn, 20, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall21(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	return ffi.CallFloat(fn, 21, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall22(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	return ffi.CallFloat(fn, 22, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall23(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	return ffi.CallFloat(fn, 23, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall25(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	args[23] = a23
+	args[24] = a24
+	return ffi.CallFloat(fn, 25, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall28(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	args[23] = a23
+	args[24] = a24
+	args[25] = a25
+	args[26] = a26
+	args[27] = a27
+	return ffi.CallFloat(fn, 28, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall30(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	args[23] = a23
+	args[24] = a24
+	args[25] = a25
+	args[26] = a26
+	args[27] = a27
+	args[28] = a28
+	args[29] = a29
+	return ffi.CallFloat(fn, 30, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
 // BindFailure names a symbol the loaded library exports but that could not
 // be bound, and why.
 type BindFailure struct {
@@ -411,433 +983,433 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorString, "cudnnGetErrorString")
-	register(&fnactivationBackward, "cudnnActivationBackward")
-	register(&fnactivationForward, "cudnnActivationForward")
-	register(&fnaddTensor, "cudnnAddTensor")
-	register(&fnAdvVersionCheck, "cudnnAdvVersionCheck")
-	register(&fnbackendCreateDescriptor, "cudnnBackendCreateDescriptor")
-	register(&fnbackendDestroyDescriptor, "cudnnBackendDestroyDescriptor")
-	register(&fnbackendExecute, "cudnnBackendExecute")
-	register(&fnbackendFinalize, "cudnnBackendFinalize")
-	register(&fnbackendGetAttribute, "cudnnBackendGetAttribute")
-	register(&fnbackendInitialize, "cudnnBackendInitialize")
-	register(&fnbackendPopulateCudaGraph, "cudnnBackendPopulateCudaGraph")
-	register(&fnbackendSetAttribute, "cudnnBackendSetAttribute")
-	register(&fnbackendUpdateCudaGraph, "cudnnBackendUpdateCudaGraph")
-	register(&fnbatchNormalizationBackward, "cudnnBatchNormalizationBackward")
-	register(&fnbatchNormalizationBackwardEx, "cudnnBatchNormalizationBackwardEx")
-	register(&fnbatchNormalizationForwardInference, "cudnnBatchNormalizationForwardInference")
-	register(&fnbatchNormalizationForwardTraining, "cudnnBatchNormalizationForwardTraining")
-	register(&fnbatchNormalizationForwardTrainingEx, "cudnnBatchNormalizationForwardTrainingEx")
-	register(&fnbuildRNNDynamic, "cudnnBuildRNNDynamic")
-	register(&fncTCLoss, "cudnnCTCLoss")
-	register(&fncTCLossV8, "cudnnCTCLoss_v8")
-	register(&fnCnnVersionCheck, "cudnnCnnVersionCheck")
-	register(&fnconvolutionBackwardBias, "cudnnConvolutionBackwardBias")
-	register(&fnconvolutionBackwardData, "cudnnConvolutionBackwardData")
-	register(&fnconvolutionBackwardFilter, "cudnnConvolutionBackwardFilter")
-	register(&fnconvolutionBiasActivationForward, "cudnnConvolutionBiasActivationForward")
-	register(&fnconvolutionForward, "cudnnConvolutionForward")
-	register(&fnCreate, "cudnnCreate")
-	register(&fnCreateActivationDescriptor, "cudnnCreateActivationDescriptor")
-	register(&fnCreateAttnDescriptor, "cudnnCreateAttnDescriptor")
-	register(&fnCreateCTCLossDescriptor, "cudnnCreateCTCLossDescriptor")
-	register(&fnCreateConvolutionDescriptor, "cudnnCreateConvolutionDescriptor")
-	register(&fnCreateDropoutDescriptor, "cudnnCreateDropoutDescriptor")
-	register(&fnCreateFilterDescriptor, "cudnnCreateFilterDescriptor")
-	register(&fnCreateFusedOpsConstParamPack, "cudnnCreateFusedOpsConstParamPack")
-	register(&fnCreateFusedOpsPlan, "cudnnCreateFusedOpsPlan")
-	register(&fnCreateFusedOpsVariantParamPack, "cudnnCreateFusedOpsVariantParamPack")
-	register(&fnCreateLRNDescriptor, "cudnnCreateLRNDescriptor")
-	register(&fnCreateOpTensorDescriptor, "cudnnCreateOpTensorDescriptor")
-	register(&fnCreatePoolingDescriptor, "cudnnCreatePoolingDescriptor")
-	register(&fnCreateRNNDataDescriptor, "cudnnCreateRNNDataDescriptor")
-	register(&fnCreateRNNDescriptor, "cudnnCreateRNNDescriptor")
-	register(&fnCreateReduceTensorDescriptor, "cudnnCreateReduceTensorDescriptor")
-	register(&fnCreateSeqDataDescriptor, "cudnnCreateSeqDataDescriptor")
-	register(&fnCreateSpatialTransformerDescriptor, "cudnnCreateSpatialTransformerDescriptor")
-	register(&fnCreateTensorDescriptor, "cudnnCreateTensorDescriptor")
-	register(&fnCreateTensorTransformDescriptor, "cudnnCreateTensorTransformDescriptor")
-	register(&fnderiveBNTensorDescriptor, "cudnnDeriveBNTensorDescriptor")
-	register(&fnderiveNormTensorDescriptor, "cudnnDeriveNormTensorDescriptor")
-	register(&fndestroy, "cudnnDestroy")
-	register(&fndestroyActivationDescriptor, "cudnnDestroyActivationDescriptor")
-	register(&fndestroyAttnDescriptor, "cudnnDestroyAttnDescriptor")
-	register(&fndestroyCTCLossDescriptor, "cudnnDestroyCTCLossDescriptor")
-	register(&fndestroyConvolutionDescriptor, "cudnnDestroyConvolutionDescriptor")
-	register(&fndestroyDropoutDescriptor, "cudnnDestroyDropoutDescriptor")
-	register(&fndestroyFilterDescriptor, "cudnnDestroyFilterDescriptor")
-	register(&fndestroyFusedOpsConstParamPack, "cudnnDestroyFusedOpsConstParamPack")
-	register(&fndestroyFusedOpsPlan, "cudnnDestroyFusedOpsPlan")
-	register(&fndestroyFusedOpsVariantParamPack, "cudnnDestroyFusedOpsVariantParamPack")
-	register(&fndestroyLRNDescriptor, "cudnnDestroyLRNDescriptor")
-	register(&fndestroyOpTensorDescriptor, "cudnnDestroyOpTensorDescriptor")
-	register(&fndestroyPoolingDescriptor, "cudnnDestroyPoolingDescriptor")
-	register(&fndestroyRNNDataDescriptor, "cudnnDestroyRNNDataDescriptor")
-	register(&fndestroyRNNDescriptor, "cudnnDestroyRNNDescriptor")
-	register(&fndestroyReduceTensorDescriptor, "cudnnDestroyReduceTensorDescriptor")
-	register(&fndestroySeqDataDescriptor, "cudnnDestroySeqDataDescriptor")
-	register(&fndestroySpatialTransformerDescriptor, "cudnnDestroySpatialTransformerDescriptor")
-	register(&fndestroyTensorDescriptor, "cudnnDestroyTensorDescriptor")
-	register(&fndestroyTensorTransformDescriptor, "cudnnDestroyTensorTransformDescriptor")
-	register(&fndivisiveNormalizationBackward, "cudnnDivisiveNormalizationBackward")
-	register(&fndivisiveNormalizationForward, "cudnnDivisiveNormalizationForward")
-	register(&fndropoutBackward, "cudnnDropoutBackward")
-	register(&fndropoutForward, "cudnnDropoutForward")
-	register(&fndropoutGetReserveSpaceSize, "cudnnDropoutGetReserveSpaceSize")
-	register(&fndropoutGetStatesSize, "cudnnDropoutGetStatesSize")
-	register(&fnfindConvolutionBackwardDataAlgorithm, "cudnnFindConvolutionBackwardDataAlgorithm")
-	register(&fnfindConvolutionBackwardDataAlgorithmEx, "cudnnFindConvolutionBackwardDataAlgorithmEx")
-	register(&fnfindConvolutionBackwardFilterAlgorithm, "cudnnFindConvolutionBackwardFilterAlgorithm")
-	register(&fnfindConvolutionBackwardFilterAlgorithmEx, "cudnnFindConvolutionBackwardFilterAlgorithmEx")
-	register(&fnfindConvolutionForwardAlgorithm, "cudnnFindConvolutionForwardAlgorithm")
-	register(&fnfindConvolutionForwardAlgorithmEx, "cudnnFindConvolutionForwardAlgorithmEx")
-	register(&fnfusedOpsExecute, "cudnnFusedOpsExecute")
-	register(&fngetActivationDescriptor, "cudnnGetActivationDescriptor")
-	register(&fngetActivationDescriptorSwishBeta, "cudnnGetActivationDescriptorSwishBeta")
-	register(&fngetAttnDescriptor, "cudnnGetAttnDescriptor")
-	register(&fngetBatchNormalizationBackwardExWorkspaceSize, "cudnnGetBatchNormalizationBackwardExWorkspaceSize")
-	register(&fngetBatchNormalizationForwardTrainingExWorkspaceSize, "cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize")
-	register(&fngetBatchNormalizationTrainingExReserveSpaceSize, "cudnnGetBatchNormalizationTrainingExReserveSpaceSize")
-	register(&fngetCTCLossDescriptor, "cudnnGetCTCLossDescriptor_v9")
-	register(&fngetCTCLossWorkspaceSize, "cudnnGetCTCLossWorkspaceSize")
-	register(&fngetCTCLossWorkspaceSizeV8, "cudnnGetCTCLossWorkspaceSize_v8")
-	register(&fnGetCallback, "cudnnGetCallback")
-	register(&fngetConvolution2dDescriptor, "cudnnGetConvolution2dDescriptor")
-	register(&fngetConvolution2dForwardOutputDim, "cudnnGetConvolution2dForwardOutputDim")
-	register(&fngetConvolutionBackwardDataAlgorithmMaxCount, "cudnnGetConvolutionBackwardDataAlgorithmMaxCount")
-	register(&fngetConvolutionBackwardDataAlgorithm, "cudnnGetConvolutionBackwardDataAlgorithm_v7")
-	register(&fngetConvolutionBackwardDataWorkspaceSize, "cudnnGetConvolutionBackwardDataWorkspaceSize")
-	register(&fngetConvolutionBackwardFilterAlgorithmMaxCount, "cudnnGetConvolutionBackwardFilterAlgorithmMaxCount")
-	register(&fngetConvolutionBackwardFilterAlgorithm, "cudnnGetConvolutionBackwardFilterAlgorithm_v7")
-	register(&fngetConvolutionBackwardFilterWorkspaceSize, "cudnnGetConvolutionBackwardFilterWorkspaceSize")
-	register(&fngetConvolutionForwardAlgorithmMaxCount, "cudnnGetConvolutionForwardAlgorithmMaxCount")
-	register(&fngetConvolutionForwardAlgorithm, "cudnnGetConvolutionForwardAlgorithm_v7")
-	register(&fngetConvolutionForwardWorkspaceSize, "cudnnGetConvolutionForwardWorkspaceSize")
-	register(&fngetConvolutionGroupCount, "cudnnGetConvolutionGroupCount")
-	register(&fngetConvolutionMathType, "cudnnGetConvolutionMathType")
-	register(&fngetConvolutionNdDescriptor, "cudnnGetConvolutionNdDescriptor")
-	register(&fngetConvolutionNdForwardOutputDim, "cudnnGetConvolutionNdForwardOutputDim")
-	register(&fngetConvolutionReorderType, "cudnnGetConvolutionReorderType")
-	register(&fnGetCudartVersion, "cudnnGetCudartVersion")
-	register(&fngetDropoutDescriptor, "cudnnGetDropoutDescriptor")
-	register(&fngetFilter4dDescriptor, "cudnnGetFilter4dDescriptor")
-	register(&fngetFilterNdDescriptor, "cudnnGetFilterNdDescriptor")
-	register(&fngetFilterSizeInBytes, "cudnnGetFilterSizeInBytes")
-	register(&fngetFoldedConvBackwardDataDescriptors, "cudnnGetFoldedConvBackwardDataDescriptors")
-	register(&fngetFusedOpsConstParamPackAttribute, "cudnnGetFusedOpsConstParamPackAttribute")
-	register(&fngetFusedOpsVariantParamPackAttribute, "cudnnGetFusedOpsVariantParamPackAttribute")
-	register(&fngetLRNDescriptor, "cudnnGetLRNDescriptor")
-	register(&fnGetLastErrorString, "cudnnGetLastErrorString")
-	register(&fnGetMaxDeviceVersion, "cudnnGetMaxDeviceVersion")
-	register(&fngetMultiHeadAttnBuffers, "cudnnGetMultiHeadAttnBuffers")
-	register(&fngetMultiHeadAttnWeights, "cudnnGetMultiHeadAttnWeights")
-	register(&fngetNormalizationBackwardWorkspaceSize, "cudnnGetNormalizationBackwardWorkspaceSize")
-	register(&fngetNormalizationForwardTrainingWorkspaceSize, "cudnnGetNormalizationForwardTrainingWorkspaceSize")
-	register(&fngetNormalizationTrainingReserveSpaceSize, "cudnnGetNormalizationTrainingReserveSpaceSize")
-	register(&fngetOpTensorDescriptor, "cudnnGetOpTensorDescriptor")
-	register(&fngetPooling2dDescriptor, "cudnnGetPooling2dDescriptor")
-	register(&fngetPooling2dForwardOutputDim, "cudnnGetPooling2dForwardOutputDim")
-	register(&fngetPoolingNdDescriptor, "cudnnGetPoolingNdDescriptor")
-	register(&fngetPoolingNdForwardOutputDim, "cudnnGetPoolingNdForwardOutputDim")
-	register(&fnGetProperty, "cudnnGetProperty")
-	register(&fngetRNNDataDescriptor, "cudnnGetRNNDataDescriptor")
-	register(&fngetRNNDescriptor, "cudnnGetRNNDescriptor_v8")
-	register(&fngetRNNTempSpaceSizes, "cudnnGetRNNTempSpaceSizes")
-	register(&fngetRNNWeightParams, "cudnnGetRNNWeightParams")
-	register(&fngetRNNWeightSpaceSize, "cudnnGetRNNWeightSpaceSize")
-	register(&fngetReduceTensorDescriptor, "cudnnGetReduceTensorDescriptor")
-	register(&fngetReductionIndicesSize, "cudnnGetReductionIndicesSize")
-	register(&fngetReductionWorkspaceSize, "cudnnGetReductionWorkspaceSize")
-	register(&fngetSeqDataDescriptor, "cudnnGetSeqDataDescriptor")
-	register(&fngetStream, "cudnnGetStream")
-	register(&fngetTensor4dDescriptor, "cudnnGetTensor4dDescriptor")
-	register(&fngetTensorNdDescriptor, "cudnnGetTensorNdDescriptor")
-	register(&fngetTensorSizeInBytes, "cudnnGetTensorSizeInBytes")
-	register(&fngetTensorTransformDescriptor, "cudnnGetTensorTransformDescriptor")
-	register(&fnGetVersion, "cudnnGetVersion")
-	register(&fnGraphVersionCheck, "cudnnGraphVersionCheck")
-	register(&fnim2Col, "cudnnIm2Col")
-	register(&fninitTransformDest, "cudnnInitTransformDest")
-	register(&fnlRNCrossChannelBackward, "cudnnLRNCrossChannelBackward")
-	register(&fnlRNCrossChannelForward, "cudnnLRNCrossChannelForward")
-	register(&fnmakeFusedOpsPlan, "cudnnMakeFusedOpsPlan")
-	register(&fnmultiHeadAttnBackwardData, "cudnnMultiHeadAttnBackwardData")
-	register(&fnmultiHeadAttnBackwardWeights, "cudnnMultiHeadAttnBackwardWeights")
-	register(&fnmultiHeadAttnForward, "cudnnMultiHeadAttnForward")
+	symactivationBackward = registerSym("cudnnActivationBackward")
+	symactivationForward = registerSym("cudnnActivationForward")
+	symaddTensor = registerSym("cudnnAddTensor")
+	symAdvVersionCheck = registerSym("cudnnAdvVersionCheck")
+	symbackendCreateDescriptor = registerSym("cudnnBackendCreateDescriptor")
+	symbackendDestroyDescriptor = registerSym("cudnnBackendDestroyDescriptor")
+	symbackendExecute = registerSym("cudnnBackendExecute")
+	symbackendFinalize = registerSym("cudnnBackendFinalize")
+	symbackendGetAttribute = registerSym("cudnnBackendGetAttribute")
+	symbackendInitialize = registerSym("cudnnBackendInitialize")
+	symbackendPopulateCudaGraph = registerSym("cudnnBackendPopulateCudaGraph")
+	symbackendSetAttribute = registerSym("cudnnBackendSetAttribute")
+	symbackendUpdateCudaGraph = registerSym("cudnnBackendUpdateCudaGraph")
+	symbatchNormalizationBackward = registerSym("cudnnBatchNormalizationBackward")
+	symbatchNormalizationBackwardEx = registerSym("cudnnBatchNormalizationBackwardEx")
+	symbatchNormalizationForwardInference = registerSym("cudnnBatchNormalizationForwardInference")
+	symbatchNormalizationForwardTraining = registerSym("cudnnBatchNormalizationForwardTraining")
+	symbatchNormalizationForwardTrainingEx = registerSym("cudnnBatchNormalizationForwardTrainingEx")
+	symbuildRNNDynamic = registerSym("cudnnBuildRNNDynamic")
+	symcTCLoss = registerSym("cudnnCTCLoss")
+	symcTCLossV8 = registerSym("cudnnCTCLoss_v8")
+	symCnnVersionCheck = registerSym("cudnnCnnVersionCheck")
+	symconvolutionBackwardBias = registerSym("cudnnConvolutionBackwardBias")
+	symconvolutionBackwardData = registerSym("cudnnConvolutionBackwardData")
+	symconvolutionBackwardFilter = registerSym("cudnnConvolutionBackwardFilter")
+	symconvolutionBiasActivationForward = registerSym("cudnnConvolutionBiasActivationForward")
+	symconvolutionForward = registerSym("cudnnConvolutionForward")
+	symCreate = registerSym("cudnnCreate")
+	symCreateActivationDescriptor = registerSym("cudnnCreateActivationDescriptor")
+	symCreateAttnDescriptor = registerSym("cudnnCreateAttnDescriptor")
+	symCreateCTCLossDescriptor = registerSym("cudnnCreateCTCLossDescriptor")
+	symCreateConvolutionDescriptor = registerSym("cudnnCreateConvolutionDescriptor")
+	symCreateDropoutDescriptor = registerSym("cudnnCreateDropoutDescriptor")
+	symCreateFilterDescriptor = registerSym("cudnnCreateFilterDescriptor")
+	symCreateFusedOpsConstParamPack = registerSym("cudnnCreateFusedOpsConstParamPack")
+	symCreateFusedOpsPlan = registerSym("cudnnCreateFusedOpsPlan")
+	symCreateFusedOpsVariantParamPack = registerSym("cudnnCreateFusedOpsVariantParamPack")
+	symCreateLRNDescriptor = registerSym("cudnnCreateLRNDescriptor")
+	symCreateOpTensorDescriptor = registerSym("cudnnCreateOpTensorDescriptor")
+	symCreatePoolingDescriptor = registerSym("cudnnCreatePoolingDescriptor")
+	symCreateRNNDataDescriptor = registerSym("cudnnCreateRNNDataDescriptor")
+	symCreateRNNDescriptor = registerSym("cudnnCreateRNNDescriptor")
+	symCreateReduceTensorDescriptor = registerSym("cudnnCreateReduceTensorDescriptor")
+	symCreateSeqDataDescriptor = registerSym("cudnnCreateSeqDataDescriptor")
+	symCreateSpatialTransformerDescriptor = registerSym("cudnnCreateSpatialTransformerDescriptor")
+	symCreateTensorDescriptor = registerSym("cudnnCreateTensorDescriptor")
+	symCreateTensorTransformDescriptor = registerSym("cudnnCreateTensorTransformDescriptor")
+	symderiveBNTensorDescriptor = registerSym("cudnnDeriveBNTensorDescriptor")
+	symderiveNormTensorDescriptor = registerSym("cudnnDeriveNormTensorDescriptor")
+	symdestroy = registerSym("cudnnDestroy")
+	symdestroyActivationDescriptor = registerSym("cudnnDestroyActivationDescriptor")
+	symdestroyAttnDescriptor = registerSym("cudnnDestroyAttnDescriptor")
+	symdestroyCTCLossDescriptor = registerSym("cudnnDestroyCTCLossDescriptor")
+	symdestroyConvolutionDescriptor = registerSym("cudnnDestroyConvolutionDescriptor")
+	symdestroyDropoutDescriptor = registerSym("cudnnDestroyDropoutDescriptor")
+	symdestroyFilterDescriptor = registerSym("cudnnDestroyFilterDescriptor")
+	symdestroyFusedOpsConstParamPack = registerSym("cudnnDestroyFusedOpsConstParamPack")
+	symdestroyFusedOpsPlan = registerSym("cudnnDestroyFusedOpsPlan")
+	symdestroyFusedOpsVariantParamPack = registerSym("cudnnDestroyFusedOpsVariantParamPack")
+	symdestroyLRNDescriptor = registerSym("cudnnDestroyLRNDescriptor")
+	symdestroyOpTensorDescriptor = registerSym("cudnnDestroyOpTensorDescriptor")
+	symdestroyPoolingDescriptor = registerSym("cudnnDestroyPoolingDescriptor")
+	symdestroyRNNDataDescriptor = registerSym("cudnnDestroyRNNDataDescriptor")
+	symdestroyRNNDescriptor = registerSym("cudnnDestroyRNNDescriptor")
+	symdestroyReduceTensorDescriptor = registerSym("cudnnDestroyReduceTensorDescriptor")
+	symdestroySeqDataDescriptor = registerSym("cudnnDestroySeqDataDescriptor")
+	symdestroySpatialTransformerDescriptor = registerSym("cudnnDestroySpatialTransformerDescriptor")
+	symdestroyTensorDescriptor = registerSym("cudnnDestroyTensorDescriptor")
+	symdestroyTensorTransformDescriptor = registerSym("cudnnDestroyTensorTransformDescriptor")
+	symdivisiveNormalizationBackward = registerSym("cudnnDivisiveNormalizationBackward")
+	symdivisiveNormalizationForward = registerSym("cudnnDivisiveNormalizationForward")
+	symdropoutBackward = registerSym("cudnnDropoutBackward")
+	symdropoutForward = registerSym("cudnnDropoutForward")
+	symdropoutGetReserveSpaceSize = registerSym("cudnnDropoutGetReserveSpaceSize")
+	symdropoutGetStatesSize = registerSym("cudnnDropoutGetStatesSize")
+	symfindConvolutionBackwardDataAlgorithm = registerSym("cudnnFindConvolutionBackwardDataAlgorithm")
+	symfindConvolutionBackwardDataAlgorithmEx = registerSym("cudnnFindConvolutionBackwardDataAlgorithmEx")
+	symfindConvolutionBackwardFilterAlgorithm = registerSym("cudnnFindConvolutionBackwardFilterAlgorithm")
+	symfindConvolutionBackwardFilterAlgorithmEx = registerSym("cudnnFindConvolutionBackwardFilterAlgorithmEx")
+	symfindConvolutionForwardAlgorithm = registerSym("cudnnFindConvolutionForwardAlgorithm")
+	symfindConvolutionForwardAlgorithmEx = registerSym("cudnnFindConvolutionForwardAlgorithmEx")
+	symfusedOpsExecute = registerSym("cudnnFusedOpsExecute")
+	symgetActivationDescriptor = registerSym("cudnnGetActivationDescriptor")
+	symgetActivationDescriptorSwishBeta = registerSym("cudnnGetActivationDescriptorSwishBeta")
+	symgetAttnDescriptor = registerSym("cudnnGetAttnDescriptor")
+	symgetBatchNormalizationBackwardExWorkspaceSize = registerSym("cudnnGetBatchNormalizationBackwardExWorkspaceSize")
+	symgetBatchNormalizationForwardTrainingExWorkspaceSize = registerSym("cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize")
+	symgetBatchNormalizationTrainingExReserveSpaceSize = registerSym("cudnnGetBatchNormalizationTrainingExReserveSpaceSize")
+	symgetCTCLossDescriptor = registerSym("cudnnGetCTCLossDescriptor_v9")
+	symgetCTCLossWorkspaceSize = registerSym("cudnnGetCTCLossWorkspaceSize")
+	symgetCTCLossWorkspaceSizeV8 = registerSym("cudnnGetCTCLossWorkspaceSize_v8")
+	symGetCallback = registerSym("cudnnGetCallback")
+	symgetConvolution2dDescriptor = registerSym("cudnnGetConvolution2dDescriptor")
+	symgetConvolution2dForwardOutputDim = registerSym("cudnnGetConvolution2dForwardOutputDim")
+	symgetConvolutionBackwardDataAlgorithmMaxCount = registerSym("cudnnGetConvolutionBackwardDataAlgorithmMaxCount")
+	symgetConvolutionBackwardDataAlgorithm = registerSym("cudnnGetConvolutionBackwardDataAlgorithm_v7")
+	symgetConvolutionBackwardDataWorkspaceSize = registerSym("cudnnGetConvolutionBackwardDataWorkspaceSize")
+	symgetConvolutionBackwardFilterAlgorithmMaxCount = registerSym("cudnnGetConvolutionBackwardFilterAlgorithmMaxCount")
+	symgetConvolutionBackwardFilterAlgorithm = registerSym("cudnnGetConvolutionBackwardFilterAlgorithm_v7")
+	symgetConvolutionBackwardFilterWorkspaceSize = registerSym("cudnnGetConvolutionBackwardFilterWorkspaceSize")
+	symgetConvolutionForwardAlgorithmMaxCount = registerSym("cudnnGetConvolutionForwardAlgorithmMaxCount")
+	symgetConvolutionForwardAlgorithm = registerSym("cudnnGetConvolutionForwardAlgorithm_v7")
+	symgetConvolutionForwardWorkspaceSize = registerSym("cudnnGetConvolutionForwardWorkspaceSize")
+	symgetConvolutionGroupCount = registerSym("cudnnGetConvolutionGroupCount")
+	symgetConvolutionMathType = registerSym("cudnnGetConvolutionMathType")
+	symgetConvolutionNdDescriptor = registerSym("cudnnGetConvolutionNdDescriptor")
+	symgetConvolutionNdForwardOutputDim = registerSym("cudnnGetConvolutionNdForwardOutputDim")
+	symgetConvolutionReorderType = registerSym("cudnnGetConvolutionReorderType")
+	symGetCudartVersion = registerSym("cudnnGetCudartVersion")
+	symgetDropoutDescriptor = registerSym("cudnnGetDropoutDescriptor")
+	symgetFilter4dDescriptor = registerSym("cudnnGetFilter4dDescriptor")
+	symgetFilterNdDescriptor = registerSym("cudnnGetFilterNdDescriptor")
+	symgetFilterSizeInBytes = registerSym("cudnnGetFilterSizeInBytes")
+	symgetFoldedConvBackwardDataDescriptors = registerSym("cudnnGetFoldedConvBackwardDataDescriptors")
+	symgetFusedOpsConstParamPackAttribute = registerSym("cudnnGetFusedOpsConstParamPackAttribute")
+	symgetFusedOpsVariantParamPackAttribute = registerSym("cudnnGetFusedOpsVariantParamPackAttribute")
+	symgetLRNDescriptor = registerSym("cudnnGetLRNDescriptor")
+	symGetLastErrorString = registerSym("cudnnGetLastErrorString")
+	symGetMaxDeviceVersion = registerSym("cudnnGetMaxDeviceVersion")
+	symgetMultiHeadAttnBuffers = registerSym("cudnnGetMultiHeadAttnBuffers")
+	symgetMultiHeadAttnWeights = registerSym("cudnnGetMultiHeadAttnWeights")
+	symgetNormalizationBackwardWorkspaceSize = registerSym("cudnnGetNormalizationBackwardWorkspaceSize")
+	symgetNormalizationForwardTrainingWorkspaceSize = registerSym("cudnnGetNormalizationForwardTrainingWorkspaceSize")
+	symgetNormalizationTrainingReserveSpaceSize = registerSym("cudnnGetNormalizationTrainingReserveSpaceSize")
+	symgetOpTensorDescriptor = registerSym("cudnnGetOpTensorDescriptor")
+	symgetPooling2dDescriptor = registerSym("cudnnGetPooling2dDescriptor")
+	symgetPooling2dForwardOutputDim = registerSym("cudnnGetPooling2dForwardOutputDim")
+	symgetPoolingNdDescriptor = registerSym("cudnnGetPoolingNdDescriptor")
+	symgetPoolingNdForwardOutputDim = registerSym("cudnnGetPoolingNdForwardOutputDim")
+	symGetProperty = registerSym("cudnnGetProperty")
+	symgetRNNDataDescriptor = registerSym("cudnnGetRNNDataDescriptor")
+	symgetRNNDescriptor = registerSym("cudnnGetRNNDescriptor_v8")
+	symgetRNNTempSpaceSizes = registerSym("cudnnGetRNNTempSpaceSizes")
+	symgetRNNWeightParams = registerSym("cudnnGetRNNWeightParams")
+	symgetRNNWeightSpaceSize = registerSym("cudnnGetRNNWeightSpaceSize")
+	symgetReduceTensorDescriptor = registerSym("cudnnGetReduceTensorDescriptor")
+	symgetReductionIndicesSize = registerSym("cudnnGetReductionIndicesSize")
+	symgetReductionWorkspaceSize = registerSym("cudnnGetReductionWorkspaceSize")
+	symgetSeqDataDescriptor = registerSym("cudnnGetSeqDataDescriptor")
+	symgetStream = registerSym("cudnnGetStream")
+	symgetTensor4dDescriptor = registerSym("cudnnGetTensor4dDescriptor")
+	symgetTensorNdDescriptor = registerSym("cudnnGetTensorNdDescriptor")
+	symgetTensorSizeInBytes = registerSym("cudnnGetTensorSizeInBytes")
+	symgetTensorTransformDescriptor = registerSym("cudnnGetTensorTransformDescriptor")
+	symGetVersion = registerSym("cudnnGetVersion")
+	symGraphVersionCheck = registerSym("cudnnGraphVersionCheck")
+	symim2Col = registerSym("cudnnIm2Col")
+	syminitTransformDest = registerSym("cudnnInitTransformDest")
+	symlRNCrossChannelBackward = registerSym("cudnnLRNCrossChannelBackward")
+	symlRNCrossChannelForward = registerSym("cudnnLRNCrossChannelForward")
+	symmakeFusedOpsPlan = registerSym("cudnnMakeFusedOpsPlan")
+	symmultiHeadAttnBackwardData = registerSym("cudnnMultiHeadAttnBackwardData")
+	symmultiHeadAttnBackwardWeights = registerSym("cudnnMultiHeadAttnBackwardWeights")
+	symmultiHeadAttnForward = registerSym("cudnnMultiHeadAttnForward")
 	register(&fnnormalizationBackward, "cudnnNormalizationBackward")
-	register(&fnnormalizationForwardInference, "cudnnNormalizationForwardInference")
-	register(&fnnormalizationForwardTraining, "cudnnNormalizationForwardTraining")
-	register(&fnopTensor, "cudnnOpTensor")
-	register(&fnOpsVersionCheck, "cudnnOpsVersionCheck")
-	register(&fnpoolingBackward, "cudnnPoolingBackward")
-	register(&fnpoolingForward, "cudnnPoolingForward")
-	register(&fnqueryRuntimeError, "cudnnQueryRuntimeError")
-	register(&fnrNNBackwardData, "cudnnRNNBackwardData_v8")
-	register(&fnrNNBackwardWeights, "cudnnRNNBackwardWeights_v8")
-	register(&fnrNNForward, "cudnnRNNForward")
-	register(&fnrNNGetClip, "cudnnRNNGetClip_v9")
-	register(&fnrNNSetClip, "cudnnRNNSetClip_v9")
-	register(&fnreduceTensor, "cudnnReduceTensor")
-	register(&fnreorderFilterAndBias, "cudnnReorderFilterAndBias")
-	register(&fnrestoreDropoutDescriptor, "cudnnRestoreDropoutDescriptor")
-	register(&fnscaleTensor, "cudnnScaleTensor")
-	register(&fnsetActivationDescriptor, "cudnnSetActivationDescriptor")
-	register(&fnsetActivationDescriptorSwishBeta, "cudnnSetActivationDescriptorSwishBeta")
-	register(&fnsetAttnDescriptor, "cudnnSetAttnDescriptor")
-	register(&fnsetCTCLossDescriptor, "cudnnSetCTCLossDescriptor_v9")
-	register(&fnSetCallback, "cudnnSetCallback")
-	register(&fnsetConvolution2dDescriptor, "cudnnSetConvolution2dDescriptor")
-	register(&fnsetConvolutionGroupCount, "cudnnSetConvolutionGroupCount")
-	register(&fnsetConvolutionMathType, "cudnnSetConvolutionMathType")
-	register(&fnsetConvolutionNdDescriptor, "cudnnSetConvolutionNdDescriptor")
-	register(&fnsetConvolutionReorderType, "cudnnSetConvolutionReorderType")
-	register(&fnsetDropoutDescriptor, "cudnnSetDropoutDescriptor")
-	register(&fnsetFilter4dDescriptor, "cudnnSetFilter4dDescriptor")
-	register(&fnsetFilterNdDescriptor, "cudnnSetFilterNdDescriptor")
-	register(&fnsetFusedOpsConstParamPackAttribute, "cudnnSetFusedOpsConstParamPackAttribute")
-	register(&fnsetFusedOpsVariantParamPackAttribute, "cudnnSetFusedOpsVariantParamPackAttribute")
-	register(&fnsetLRNDescriptor, "cudnnSetLRNDescriptor")
-	register(&fnsetOpTensorDescriptor, "cudnnSetOpTensorDescriptor")
-	register(&fnsetPooling2dDescriptor, "cudnnSetPooling2dDescriptor")
-	register(&fnsetPoolingNdDescriptor, "cudnnSetPoolingNdDescriptor")
-	register(&fnsetRNNDataDescriptor, "cudnnSetRNNDataDescriptor")
-	register(&fnsetRNNDescriptor, "cudnnSetRNNDescriptor_v8")
-	register(&fnsetReduceTensorDescriptor, "cudnnSetReduceTensorDescriptor")
-	register(&fnsetSeqDataDescriptor, "cudnnSetSeqDataDescriptor")
-	register(&fnsetSpatialTransformerNdDescriptor, "cudnnSetSpatialTransformerNdDescriptor")
+	symnormalizationForwardInference = registerSym("cudnnNormalizationForwardInference")
+	symnormalizationForwardTraining = registerSym("cudnnNormalizationForwardTraining")
+	symopTensor = registerSym("cudnnOpTensor")
+	symOpsVersionCheck = registerSym("cudnnOpsVersionCheck")
+	sympoolingBackward = registerSym("cudnnPoolingBackward")
+	sympoolingForward = registerSym("cudnnPoolingForward")
+	symqueryRuntimeError = registerSym("cudnnQueryRuntimeError")
+	symrNNBackwardData = registerSym("cudnnRNNBackwardData_v8")
+	symrNNBackwardWeights = registerSym("cudnnRNNBackwardWeights_v8")
+	symrNNForward = registerSym("cudnnRNNForward")
+	symrNNGetClip = registerSym("cudnnRNNGetClip_v9")
+	symrNNSetClip = registerSym("cudnnRNNSetClip_v9")
+	symreduceTensor = registerSym("cudnnReduceTensor")
+	symreorderFilterAndBias = registerSym("cudnnReorderFilterAndBias")
+	symrestoreDropoutDescriptor = registerSym("cudnnRestoreDropoutDescriptor")
+	symscaleTensor = registerSym("cudnnScaleTensor")
+	symsetActivationDescriptor = registerSym("cudnnSetActivationDescriptor")
+	symsetActivationDescriptorSwishBeta = registerSym("cudnnSetActivationDescriptorSwishBeta")
+	symsetAttnDescriptor = registerSym("cudnnSetAttnDescriptor")
+	symsetCTCLossDescriptor = registerSym("cudnnSetCTCLossDescriptor_v9")
+	symSetCallback = registerSym("cudnnSetCallback")
+	symsetConvolution2dDescriptor = registerSym("cudnnSetConvolution2dDescriptor")
+	symsetConvolutionGroupCount = registerSym("cudnnSetConvolutionGroupCount")
+	symsetConvolutionMathType = registerSym("cudnnSetConvolutionMathType")
+	symsetConvolutionNdDescriptor = registerSym("cudnnSetConvolutionNdDescriptor")
+	symsetConvolutionReorderType = registerSym("cudnnSetConvolutionReorderType")
+	symsetDropoutDescriptor = registerSym("cudnnSetDropoutDescriptor")
+	symsetFilter4dDescriptor = registerSym("cudnnSetFilter4dDescriptor")
+	symsetFilterNdDescriptor = registerSym("cudnnSetFilterNdDescriptor")
+	symsetFusedOpsConstParamPackAttribute = registerSym("cudnnSetFusedOpsConstParamPackAttribute")
+	symsetFusedOpsVariantParamPackAttribute = registerSym("cudnnSetFusedOpsVariantParamPackAttribute")
+	symsetLRNDescriptor = registerSym("cudnnSetLRNDescriptor")
+	symsetOpTensorDescriptor = registerSym("cudnnSetOpTensorDescriptor")
+	symsetPooling2dDescriptor = registerSym("cudnnSetPooling2dDescriptor")
+	symsetPoolingNdDescriptor = registerSym("cudnnSetPoolingNdDescriptor")
+	symsetRNNDataDescriptor = registerSym("cudnnSetRNNDataDescriptor")
+	symsetRNNDescriptor = registerSym("cudnnSetRNNDescriptor_v8")
+	symsetReduceTensorDescriptor = registerSym("cudnnSetReduceTensorDescriptor")
+	symsetSeqDataDescriptor = registerSym("cudnnSetSeqDataDescriptor")
+	symsetSpatialTransformerNdDescriptor = registerSym("cudnnSetSpatialTransformerNdDescriptor")
 	register(&fnsetStream, "cudnnSetStream")
-	register(&fnsetTensor, "cudnnSetTensor")
-	register(&fnsetTensor4dDescriptor, "cudnnSetTensor4dDescriptor")
-	register(&fnsetTensor4dDescriptorEx, "cudnnSetTensor4dDescriptorEx")
-	register(&fnsetTensorNdDescriptor, "cudnnSetTensorNdDescriptor")
-	register(&fnsetTensorNdDescriptorEx, "cudnnSetTensorNdDescriptorEx")
-	register(&fnsetTensorTransformDescriptor, "cudnnSetTensorTransformDescriptor")
-	register(&fnsoftmaxBackward, "cudnnSoftmaxBackward")
-	register(&fnsoftmaxForward, "cudnnSoftmaxForward")
-	register(&fnspatialTfGridGeneratorBackward, "cudnnSpatialTfGridGeneratorBackward")
-	register(&fnspatialTfGridGeneratorForward, "cudnnSpatialTfGridGeneratorForward")
-	register(&fnspatialTfSamplerBackward, "cudnnSpatialTfSamplerBackward")
-	register(&fnspatialTfSamplerForward, "cudnnSpatialTfSamplerForward")
-	register(&fntransformFilter, "cudnnTransformFilter")
-	register(&fntransformTensor, "cudnnTransformTensor")
-	register(&fntransformTensorEx, "cudnnTransformTensorEx")
+	symsetTensor = registerSym("cudnnSetTensor")
+	symsetTensor4dDescriptor = registerSym("cudnnSetTensor4dDescriptor")
+	symsetTensor4dDescriptorEx = registerSym("cudnnSetTensor4dDescriptorEx")
+	symsetTensorNdDescriptor = registerSym("cudnnSetTensorNdDescriptor")
+	symsetTensorNdDescriptorEx = registerSym("cudnnSetTensorNdDescriptorEx")
+	symsetTensorTransformDescriptor = registerSym("cudnnSetTensorTransformDescriptor")
+	symsoftmaxBackward = registerSym("cudnnSoftmaxBackward")
+	symsoftmaxForward = registerSym("cudnnSoftmaxForward")
+	symspatialTfGridGeneratorBackward = registerSym("cudnnSpatialTfGridGeneratorBackward")
+	symspatialTfGridGeneratorForward = registerSym("cudnnSpatialTfGridGeneratorForward")
+	symspatialTfSamplerBackward = registerSym("cudnnSpatialTfSamplerBackward")
+	symspatialTfSamplerForward = registerSym("cudnnSpatialTfSamplerForward")
+	symtransformFilter = registerSym("cudnnTransformFilter")
+	symtransformTensor = registerSym("cudnnTransformTensor")
+	symtransformTensorEx = registerSym("cudnnTransformTensorEx")
 }
 
 // clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
 	fnGetErrorString = nil
-	fnactivationBackward = nil
-	fnactivationForward = nil
-	fnaddTensor = nil
-	fnAdvVersionCheck = nil
-	fnbackendCreateDescriptor = nil
-	fnbackendDestroyDescriptor = nil
-	fnbackendExecute = nil
-	fnbackendFinalize = nil
-	fnbackendGetAttribute = nil
-	fnbackendInitialize = nil
-	fnbackendPopulateCudaGraph = nil
-	fnbackendSetAttribute = nil
-	fnbackendUpdateCudaGraph = nil
-	fnbatchNormalizationBackward = nil
-	fnbatchNormalizationBackwardEx = nil
-	fnbatchNormalizationForwardInference = nil
-	fnbatchNormalizationForwardTraining = nil
-	fnbatchNormalizationForwardTrainingEx = nil
-	fnbuildRNNDynamic = nil
-	fncTCLoss = nil
-	fncTCLossV8 = nil
-	fnCnnVersionCheck = nil
-	fnconvolutionBackwardBias = nil
-	fnconvolutionBackwardData = nil
-	fnconvolutionBackwardFilter = nil
-	fnconvolutionBiasActivationForward = nil
-	fnconvolutionForward = nil
-	fnCreate = nil
-	fnCreateActivationDescriptor = nil
-	fnCreateAttnDescriptor = nil
-	fnCreateCTCLossDescriptor = nil
-	fnCreateConvolutionDescriptor = nil
-	fnCreateDropoutDescriptor = nil
-	fnCreateFilterDescriptor = nil
-	fnCreateFusedOpsConstParamPack = nil
-	fnCreateFusedOpsPlan = nil
-	fnCreateFusedOpsVariantParamPack = nil
-	fnCreateLRNDescriptor = nil
-	fnCreateOpTensorDescriptor = nil
-	fnCreatePoolingDescriptor = nil
-	fnCreateRNNDataDescriptor = nil
-	fnCreateRNNDescriptor = nil
-	fnCreateReduceTensorDescriptor = nil
-	fnCreateSeqDataDescriptor = nil
-	fnCreateSpatialTransformerDescriptor = nil
-	fnCreateTensorDescriptor = nil
-	fnCreateTensorTransformDescriptor = nil
-	fnderiveBNTensorDescriptor = nil
-	fnderiveNormTensorDescriptor = nil
-	fndestroy = nil
-	fndestroyActivationDescriptor = nil
-	fndestroyAttnDescriptor = nil
-	fndestroyCTCLossDescriptor = nil
-	fndestroyConvolutionDescriptor = nil
-	fndestroyDropoutDescriptor = nil
-	fndestroyFilterDescriptor = nil
-	fndestroyFusedOpsConstParamPack = nil
-	fndestroyFusedOpsPlan = nil
-	fndestroyFusedOpsVariantParamPack = nil
-	fndestroyLRNDescriptor = nil
-	fndestroyOpTensorDescriptor = nil
-	fndestroyPoolingDescriptor = nil
-	fndestroyRNNDataDescriptor = nil
-	fndestroyRNNDescriptor = nil
-	fndestroyReduceTensorDescriptor = nil
-	fndestroySeqDataDescriptor = nil
-	fndestroySpatialTransformerDescriptor = nil
-	fndestroyTensorDescriptor = nil
-	fndestroyTensorTransformDescriptor = nil
-	fndivisiveNormalizationBackward = nil
-	fndivisiveNormalizationForward = nil
-	fndropoutBackward = nil
-	fndropoutForward = nil
-	fndropoutGetReserveSpaceSize = nil
-	fndropoutGetStatesSize = nil
-	fnfindConvolutionBackwardDataAlgorithm = nil
-	fnfindConvolutionBackwardDataAlgorithmEx = nil
-	fnfindConvolutionBackwardFilterAlgorithm = nil
-	fnfindConvolutionBackwardFilterAlgorithmEx = nil
-	fnfindConvolutionForwardAlgorithm = nil
-	fnfindConvolutionForwardAlgorithmEx = nil
-	fnfusedOpsExecute = nil
-	fngetActivationDescriptor = nil
-	fngetActivationDescriptorSwishBeta = nil
-	fngetAttnDescriptor = nil
-	fngetBatchNormalizationBackwardExWorkspaceSize = nil
-	fngetBatchNormalizationForwardTrainingExWorkspaceSize = nil
-	fngetBatchNormalizationTrainingExReserveSpaceSize = nil
-	fngetCTCLossDescriptor = nil
-	fngetCTCLossWorkspaceSize = nil
-	fngetCTCLossWorkspaceSizeV8 = nil
-	fnGetCallback = nil
-	fngetConvolution2dDescriptor = nil
-	fngetConvolution2dForwardOutputDim = nil
-	fngetConvolutionBackwardDataAlgorithmMaxCount = nil
-	fngetConvolutionBackwardDataAlgorithm = nil
-	fngetConvolutionBackwardDataWorkspaceSize = nil
-	fngetConvolutionBackwardFilterAlgorithmMaxCount = nil
-	fngetConvolutionBackwardFilterAlgorithm = nil
-	fngetConvolutionBackwardFilterWorkspaceSize = nil
-	fngetConvolutionForwardAlgorithmMaxCount = nil
-	fngetConvolutionForwardAlgorithm = nil
-	fngetConvolutionForwardWorkspaceSize = nil
-	fngetConvolutionGroupCount = nil
-	fngetConvolutionMathType = nil
-	fngetConvolutionNdDescriptor = nil
-	fngetConvolutionNdForwardOutputDim = nil
-	fngetConvolutionReorderType = nil
-	fnGetCudartVersion = nil
-	fngetDropoutDescriptor = nil
-	fngetFilter4dDescriptor = nil
-	fngetFilterNdDescriptor = nil
-	fngetFilterSizeInBytes = nil
-	fngetFoldedConvBackwardDataDescriptors = nil
-	fngetFusedOpsConstParamPackAttribute = nil
-	fngetFusedOpsVariantParamPackAttribute = nil
-	fngetLRNDescriptor = nil
-	fnGetLastErrorString = nil
-	fnGetMaxDeviceVersion = nil
-	fngetMultiHeadAttnBuffers = nil
-	fngetMultiHeadAttnWeights = nil
-	fngetNormalizationBackwardWorkspaceSize = nil
-	fngetNormalizationForwardTrainingWorkspaceSize = nil
-	fngetNormalizationTrainingReserveSpaceSize = nil
-	fngetOpTensorDescriptor = nil
-	fngetPooling2dDescriptor = nil
-	fngetPooling2dForwardOutputDim = nil
-	fngetPoolingNdDescriptor = nil
-	fngetPoolingNdForwardOutputDim = nil
-	fnGetProperty = nil
-	fngetRNNDataDescriptor = nil
-	fngetRNNDescriptor = nil
-	fngetRNNTempSpaceSizes = nil
-	fngetRNNWeightParams = nil
-	fngetRNNWeightSpaceSize = nil
-	fngetReduceTensorDescriptor = nil
-	fngetReductionIndicesSize = nil
-	fngetReductionWorkspaceSize = nil
-	fngetSeqDataDescriptor = nil
-	fngetStream = nil
-	fngetTensor4dDescriptor = nil
-	fngetTensorNdDescriptor = nil
-	fngetTensorSizeInBytes = nil
-	fngetTensorTransformDescriptor = nil
-	fnGetVersion = nil
-	fnGraphVersionCheck = nil
-	fnim2Col = nil
-	fninitTransformDest = nil
-	fnlRNCrossChannelBackward = nil
-	fnlRNCrossChannelForward = nil
-	fnmakeFusedOpsPlan = nil
-	fnmultiHeadAttnBackwardData = nil
-	fnmultiHeadAttnBackwardWeights = nil
-	fnmultiHeadAttnForward = nil
+	symactivationBackward = 0
+	symactivationForward = 0
+	symaddTensor = 0
+	symAdvVersionCheck = 0
+	symbackendCreateDescriptor = 0
+	symbackendDestroyDescriptor = 0
+	symbackendExecute = 0
+	symbackendFinalize = 0
+	symbackendGetAttribute = 0
+	symbackendInitialize = 0
+	symbackendPopulateCudaGraph = 0
+	symbackendSetAttribute = 0
+	symbackendUpdateCudaGraph = 0
+	symbatchNormalizationBackward = 0
+	symbatchNormalizationBackwardEx = 0
+	symbatchNormalizationForwardInference = 0
+	symbatchNormalizationForwardTraining = 0
+	symbatchNormalizationForwardTrainingEx = 0
+	symbuildRNNDynamic = 0
+	symcTCLoss = 0
+	symcTCLossV8 = 0
+	symCnnVersionCheck = 0
+	symconvolutionBackwardBias = 0
+	symconvolutionBackwardData = 0
+	symconvolutionBackwardFilter = 0
+	symconvolutionBiasActivationForward = 0
+	symconvolutionForward = 0
+	symCreate = 0
+	symCreateActivationDescriptor = 0
+	symCreateAttnDescriptor = 0
+	symCreateCTCLossDescriptor = 0
+	symCreateConvolutionDescriptor = 0
+	symCreateDropoutDescriptor = 0
+	symCreateFilterDescriptor = 0
+	symCreateFusedOpsConstParamPack = 0
+	symCreateFusedOpsPlan = 0
+	symCreateFusedOpsVariantParamPack = 0
+	symCreateLRNDescriptor = 0
+	symCreateOpTensorDescriptor = 0
+	symCreatePoolingDescriptor = 0
+	symCreateRNNDataDescriptor = 0
+	symCreateRNNDescriptor = 0
+	symCreateReduceTensorDescriptor = 0
+	symCreateSeqDataDescriptor = 0
+	symCreateSpatialTransformerDescriptor = 0
+	symCreateTensorDescriptor = 0
+	symCreateTensorTransformDescriptor = 0
+	symderiveBNTensorDescriptor = 0
+	symderiveNormTensorDescriptor = 0
+	symdestroy = 0
+	symdestroyActivationDescriptor = 0
+	symdestroyAttnDescriptor = 0
+	symdestroyCTCLossDescriptor = 0
+	symdestroyConvolutionDescriptor = 0
+	symdestroyDropoutDescriptor = 0
+	symdestroyFilterDescriptor = 0
+	symdestroyFusedOpsConstParamPack = 0
+	symdestroyFusedOpsPlan = 0
+	symdestroyFusedOpsVariantParamPack = 0
+	symdestroyLRNDescriptor = 0
+	symdestroyOpTensorDescriptor = 0
+	symdestroyPoolingDescriptor = 0
+	symdestroyRNNDataDescriptor = 0
+	symdestroyRNNDescriptor = 0
+	symdestroyReduceTensorDescriptor = 0
+	symdestroySeqDataDescriptor = 0
+	symdestroySpatialTransformerDescriptor = 0
+	symdestroyTensorDescriptor = 0
+	symdestroyTensorTransformDescriptor = 0
+	symdivisiveNormalizationBackward = 0
+	symdivisiveNormalizationForward = 0
+	symdropoutBackward = 0
+	symdropoutForward = 0
+	symdropoutGetReserveSpaceSize = 0
+	symdropoutGetStatesSize = 0
+	symfindConvolutionBackwardDataAlgorithm = 0
+	symfindConvolutionBackwardDataAlgorithmEx = 0
+	symfindConvolutionBackwardFilterAlgorithm = 0
+	symfindConvolutionBackwardFilterAlgorithmEx = 0
+	symfindConvolutionForwardAlgorithm = 0
+	symfindConvolutionForwardAlgorithmEx = 0
+	symfusedOpsExecute = 0
+	symgetActivationDescriptor = 0
+	symgetActivationDescriptorSwishBeta = 0
+	symgetAttnDescriptor = 0
+	symgetBatchNormalizationBackwardExWorkspaceSize = 0
+	symgetBatchNormalizationForwardTrainingExWorkspaceSize = 0
+	symgetBatchNormalizationTrainingExReserveSpaceSize = 0
+	symgetCTCLossDescriptor = 0
+	symgetCTCLossWorkspaceSize = 0
+	symgetCTCLossWorkspaceSizeV8 = 0
+	symGetCallback = 0
+	symgetConvolution2dDescriptor = 0
+	symgetConvolution2dForwardOutputDim = 0
+	symgetConvolutionBackwardDataAlgorithmMaxCount = 0
+	symgetConvolutionBackwardDataAlgorithm = 0
+	symgetConvolutionBackwardDataWorkspaceSize = 0
+	symgetConvolutionBackwardFilterAlgorithmMaxCount = 0
+	symgetConvolutionBackwardFilterAlgorithm = 0
+	symgetConvolutionBackwardFilterWorkspaceSize = 0
+	symgetConvolutionForwardAlgorithmMaxCount = 0
+	symgetConvolutionForwardAlgorithm = 0
+	symgetConvolutionForwardWorkspaceSize = 0
+	symgetConvolutionGroupCount = 0
+	symgetConvolutionMathType = 0
+	symgetConvolutionNdDescriptor = 0
+	symgetConvolutionNdForwardOutputDim = 0
+	symgetConvolutionReorderType = 0
+	symGetCudartVersion = 0
+	symgetDropoutDescriptor = 0
+	symgetFilter4dDescriptor = 0
+	symgetFilterNdDescriptor = 0
+	symgetFilterSizeInBytes = 0
+	symgetFoldedConvBackwardDataDescriptors = 0
+	symgetFusedOpsConstParamPackAttribute = 0
+	symgetFusedOpsVariantParamPackAttribute = 0
+	symgetLRNDescriptor = 0
+	symGetLastErrorString = 0
+	symGetMaxDeviceVersion = 0
+	symgetMultiHeadAttnBuffers = 0
+	symgetMultiHeadAttnWeights = 0
+	symgetNormalizationBackwardWorkspaceSize = 0
+	symgetNormalizationForwardTrainingWorkspaceSize = 0
+	symgetNormalizationTrainingReserveSpaceSize = 0
+	symgetOpTensorDescriptor = 0
+	symgetPooling2dDescriptor = 0
+	symgetPooling2dForwardOutputDim = 0
+	symgetPoolingNdDescriptor = 0
+	symgetPoolingNdForwardOutputDim = 0
+	symGetProperty = 0
+	symgetRNNDataDescriptor = 0
+	symgetRNNDescriptor = 0
+	symgetRNNTempSpaceSizes = 0
+	symgetRNNWeightParams = 0
+	symgetRNNWeightSpaceSize = 0
+	symgetReduceTensorDescriptor = 0
+	symgetReductionIndicesSize = 0
+	symgetReductionWorkspaceSize = 0
+	symgetSeqDataDescriptor = 0
+	symgetStream = 0
+	symgetTensor4dDescriptor = 0
+	symgetTensorNdDescriptor = 0
+	symgetTensorSizeInBytes = 0
+	symgetTensorTransformDescriptor = 0
+	symGetVersion = 0
+	symGraphVersionCheck = 0
+	symim2Col = 0
+	syminitTransformDest = 0
+	symlRNCrossChannelBackward = 0
+	symlRNCrossChannelForward = 0
+	symmakeFusedOpsPlan = 0
+	symmultiHeadAttnBackwardData = 0
+	symmultiHeadAttnBackwardWeights = 0
+	symmultiHeadAttnForward = 0
 	fnnormalizationBackward = nil
-	fnnormalizationForwardInference = nil
-	fnnormalizationForwardTraining = nil
-	fnopTensor = nil
-	fnOpsVersionCheck = nil
-	fnpoolingBackward = nil
-	fnpoolingForward = nil
-	fnqueryRuntimeError = nil
-	fnrNNBackwardData = nil
-	fnrNNBackwardWeights = nil
-	fnrNNForward = nil
-	fnrNNGetClip = nil
-	fnrNNSetClip = nil
-	fnreduceTensor = nil
-	fnreorderFilterAndBias = nil
-	fnrestoreDropoutDescriptor = nil
-	fnscaleTensor = nil
-	fnsetActivationDescriptor = nil
-	fnsetActivationDescriptorSwishBeta = nil
-	fnsetAttnDescriptor = nil
-	fnsetCTCLossDescriptor = nil
-	fnSetCallback = nil
-	fnsetConvolution2dDescriptor = nil
-	fnsetConvolutionGroupCount = nil
-	fnsetConvolutionMathType = nil
-	fnsetConvolutionNdDescriptor = nil
-	fnsetConvolutionReorderType = nil
-	fnsetDropoutDescriptor = nil
-	fnsetFilter4dDescriptor = nil
-	fnsetFilterNdDescriptor = nil
-	fnsetFusedOpsConstParamPackAttribute = nil
-	fnsetFusedOpsVariantParamPackAttribute = nil
-	fnsetLRNDescriptor = nil
-	fnsetOpTensorDescriptor = nil
-	fnsetPooling2dDescriptor = nil
-	fnsetPoolingNdDescriptor = nil
-	fnsetRNNDataDescriptor = nil
-	fnsetRNNDescriptor = nil
-	fnsetReduceTensorDescriptor = nil
-	fnsetSeqDataDescriptor = nil
-	fnsetSpatialTransformerNdDescriptor = nil
+	symnormalizationForwardInference = 0
+	symnormalizationForwardTraining = 0
+	symopTensor = 0
+	symOpsVersionCheck = 0
+	sympoolingBackward = 0
+	sympoolingForward = 0
+	symqueryRuntimeError = 0
+	symrNNBackwardData = 0
+	symrNNBackwardWeights = 0
+	symrNNForward = 0
+	symrNNGetClip = 0
+	symrNNSetClip = 0
+	symreduceTensor = 0
+	symreorderFilterAndBias = 0
+	symrestoreDropoutDescriptor = 0
+	symscaleTensor = 0
+	symsetActivationDescriptor = 0
+	symsetActivationDescriptorSwishBeta = 0
+	symsetAttnDescriptor = 0
+	symsetCTCLossDescriptor = 0
+	symSetCallback = 0
+	symsetConvolution2dDescriptor = 0
+	symsetConvolutionGroupCount = 0
+	symsetConvolutionMathType = 0
+	symsetConvolutionNdDescriptor = 0
+	symsetConvolutionReorderType = 0
+	symsetDropoutDescriptor = 0
+	symsetFilter4dDescriptor = 0
+	symsetFilterNdDescriptor = 0
+	symsetFusedOpsConstParamPackAttribute = 0
+	symsetFusedOpsVariantParamPackAttribute = 0
+	symsetLRNDescriptor = 0
+	symsetOpTensorDescriptor = 0
+	symsetPooling2dDescriptor = 0
+	symsetPoolingNdDescriptor = 0
+	symsetRNNDataDescriptor = 0
+	symsetRNNDescriptor = 0
+	symsetReduceTensorDescriptor = 0
+	symsetSeqDataDescriptor = 0
+	symsetSpatialTransformerNdDescriptor = 0
 	fnsetStream = nil
-	fnsetTensor = nil
-	fnsetTensor4dDescriptor = nil
-	fnsetTensor4dDescriptorEx = nil
-	fnsetTensorNdDescriptor = nil
-	fnsetTensorNdDescriptorEx = nil
-	fnsetTensorTransformDescriptor = nil
-	fnsoftmaxBackward = nil
-	fnsoftmaxForward = nil
-	fnspatialTfGridGeneratorBackward = nil
-	fnspatialTfGridGeneratorForward = nil
-	fnspatialTfSamplerBackward = nil
-	fnspatialTfSamplerForward = nil
-	fntransformFilter = nil
-	fntransformTensor = nil
-	fntransformTensorEx = nil
+	symsetTensor = 0
+	symsetTensor4dDescriptor = 0
+	symsetTensor4dDescriptorEx = 0
+	symsetTensorNdDescriptor = 0
+	symsetTensorNdDescriptorEx = 0
+	symsetTensorTransformDescriptor = 0
+	symsoftmaxBackward = 0
+	symsoftmaxForward = 0
+	symspatialTfGridGeneratorBackward = 0
+	symspatialTfGridGeneratorForward = 0
+	symspatialTfSamplerBackward = 0
+	symspatialTfSamplerForward = 0
+	symtransformFilter = 0
+	symtransformTensor = 0
+	symtransformTensorEx = 0
 }
 
 // HasGetErrorString reports whether cudnnGetErrorString resolved in the loaded library.

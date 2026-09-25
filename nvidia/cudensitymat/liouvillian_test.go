@@ -242,7 +242,7 @@ const elemSize = 16
 type rig struct {
 	t      *testing.T
 	handle cudensitymat.Handle
-	stream cudensitymat.Stream
+	stream driver.Stream
 	drv    driver.Stream
 
 	// prepared records the workspace prepared for each operator, so that a
@@ -285,7 +285,7 @@ func newRig(t *testing.T) *rig {
 	r.drv, err = driver.NewStream(0)
 	r.check(err)
 	t.Cleanup(func() { r.check(r.drv.Destroy()) })
-	r.stream = cudensitymat.Stream(r.drv)
+	r.stream = driver.Stream(r.drv)
 
 	r.handle, err = cudensitymat.Create()
 	r.check(err)

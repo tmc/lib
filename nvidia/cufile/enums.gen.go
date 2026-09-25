@@ -7,7 +7,15 @@ package cufile
 
 import "fmt"
 
-// OpError represents cufileop status enum Note: on success the error code is set to @ref [Success].
+// OpError represents cufileop status enum.
+//
+// Note: on success the error code is set to @ref [Success].
+//
+// Note: The error code can be inspected using @ref IS_CUFILE_ERR and @ref CUFILE_ERRSTR.
+//
+// Note: The error code if set to @ref [CudaDriverError], then cuda error can be inspected using @ref IS_CUDA_ERR and @ref CU_FILE_CUDA_ERR.
+//
+// Note: Data path errors are captured via standard error codes.
 type OpError int32
 
 const (

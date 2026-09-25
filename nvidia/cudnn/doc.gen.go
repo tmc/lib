@@ -200,7 +200,7 @@
 //   - [FusedOpsVariantParamPack.Attribute]: retrieves the settings of the variable parameter pack descriptor.
 //   - [LRNDescriptor.Get]: retrieves values stored in the previously initialized LRN descriptor object.
 //   - [GetLastErrorString]: retrieves the last encountered cuDNN error message in the current thread to a NULL terminated (ASCIIZ) string.
-//   - [Handle.MultiHeadAttnBuffers]: computes weight, work, and reserve space buffer sizes used by the following functions:
+//   - [Handle.MultiHeadAttnBuffers]: computes weight, work, and reserve space buffer sizes used by the following functions: [Handle.MultiHeadAttnForward], [Handle.MultiHeadAttnBackwardData], and [Handle.MultiHeadAttnBackwardWeights].
 //   - [Handle.MultiHeadAttnWeights]: obtains the shape of the weight or bias tensor.
 //   - [Handle.NormalizationBackwardWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationBackward] function for the specified normOps and algo input setting.
 //   - [Handle.NormalizationForwardTrainingWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationForwardTraining] function for the specified normOps and algo input setting.

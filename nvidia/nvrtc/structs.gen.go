@@ -3,6 +3,8 @@
 package nvrtc
 
 // BundledHeadersInfo contains information about bundled headers.
+//
+// Public Members intavailable  Non-zero if bundled headers are available. size_tcompressedSize  Size of compressed archive in bytes. size_tuncompressedSize  Estimated size when extracted in bytes. intcudaVersionMajor  CUDA major version of bundled headers. intcudaVersionMinor  CUDA minor version of bundled headers. unsignedintnumFiles  Number of header files in the bundle.
 type BundledHeadersInfo struct {
 	// Non-zero if bundled headers are available
 	Available int32

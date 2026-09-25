@@ -2,7 +2,7 @@
 
 package cudensitymat
 
-// AttachBuffer Attaches a buffer to the elementary tensor operator (either batched or non-batched).
+// AttachBuffer attaches a buffer to the elementary tensor operator (either batched or non-batched).
 //
 //   - handle: in Library handle
 //   - buffer: in GPU-accessible pointer to the tensor operator elements storage
@@ -13,7 +13,7 @@ func (e ElementaryOperator) AttachBuffer(handle Handle, buffer uintptr, bufferSi
 	return elementaryOperatorAttachBuffer(handle, e, buffer, bufferSize)
 }
 
-// Destroy Destroys an elementary tensor operator (simple or batched).
+// Destroy destroys an elementary tensor operator (simple or batched).
 //
 // Wraps cudensitymatDestroyElementaryOperator.
 func (e ElementaryOperator) Destroy() error {

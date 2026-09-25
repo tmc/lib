@@ -10,7 +10,7 @@ type EventRecordNode struct {
 	GraphNode
 }
 
-// Event Returns the event associated with an event record node.
+// Event returns the event associated with an event record node.
 //
 // Returns the event of event record node hNode in eventOut.
 //
@@ -25,7 +25,7 @@ func (e EventRecordNode) Event() (Event, error) {
 	return graphEventRecordNodeGetEvent(e.GraphNode)
 }
 
-// SetEvent Sets an event record node’s event.
+// SetEvent sets an event record node’s event.
 //
 // Sets the event of event record node hNode to event.
 //

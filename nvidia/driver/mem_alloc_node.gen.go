@@ -10,7 +10,7 @@ type MemAllocNode struct {
 	GraphNode
 }
 
-// Params Returns a memory alloc node’s parameters.
+// Params returns a memory alloc node’s parameters.
 //
 // Returns the parameters of a memory alloc node hNode in paramsOut. The poolProps and accessDescs returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified.
 //

@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // collection receives completed buffers. Native callbacks may run concurrently;
@@ -16,14 +17,14 @@ type collection struct {
 	layouts                                        map[cupti.ActivityKind]uint
 	next                                           recordIterator
 	name                                           func(uintptr) (string, error)
-	dropped                                        func(cupti.Context, uint32) (uint, error)
+	dropped                                        func(driver.Context, uint32) (uint, error)
 	limit                                          int
 	records                                        []Record
 	incomplete, discarded, nativeDropped, failures uint64
 	firstError                                     error
 }
 
-func (c *collection) complete(context cupti.Context, stream uint32, ptr uintptr, size, valid uint) {
+func (c *collection) complete(context driver.Context, stream uint32, ptr uintptr, size, valid uint) {
 	err := c.pool.finish(ptr, size, valid, func(data []byte) error {
 		return decodeBuffer(data, c.layouts, c.next, c.name, func(r Record) error {
 			c.mu.Lock()

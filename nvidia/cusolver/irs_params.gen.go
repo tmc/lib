@@ -4,6 +4,8 @@ package cusolver
 
 // NewIRSParams creates and initializes the structure of parameters for an IRS solver such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions to default values.
 //
+// The params structure created by this function can be used by one or more call to the same or to a different IRS solver. Note that in CUDA 10.2, the behavior was different and a new params structure was needed to be created per each call to an IRS solver. Also note that the user can also change configurations of the params and then call a new IRS instance, but be careful that the previous call was done because any change to the configuration before the previous call was done could affect it.
+//
 // Returns:
 //   - [ErrAllocFailed]: The resources could not be allocated.
 //   - [Success]: The structure was created and initialized successfully.
@@ -27,6 +29,8 @@ func (i IRSParams) Destroy() error {
 
 // DisableFallback disables the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
 //
+// In other term, if the IRS solver failed to converge, the solver will return a no convergence code (e.g., niter < 0), but can either return the non-convergent solution as it is (e.g., disable fallback) or can fallback (e.g., enable fallback) to the main precision (which is the precision of the Inputs/Outputs data) and solve the problem from scratch returning the good solution. This function disables the fallback and the returned solution is whatever the refinement solver was able to reach before it returns. Disabling fallback does not guarantee that the solution is the good one. However, if users want to keep getting the solution of the lower precision in case the IRS did not converge after certain number of iterations, they need to disable the fallback. The user can re-enable it by calling [IRSParams.EnableFallback].
+//
 // Returns:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
 //   - [Success]: The operation completed successfully.
@@ -36,7 +40,9 @@ func (i IRSParams) DisableFallback() error {
 	return iRSParamsDisableFallback(i)
 }
 
-// EnableFallback enable the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
+// EnableFallback enables the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
+//
+// In other term, if the IRS solver failed to converge, the solver will return a no convergence code (e.g., niter < 0), but can either return the non-convergent solution as it is (e.g., disable fallback) or can fallback (e.g., enable fallback) to the main precision (which is the precision of the Inputs/Outputs data) and solve the problem from scratch returning the good solution. This is the behavior by default, and it will guarantee that the IRS solver always provide the good solution. This function is provided because we provided [IRSParams.DisableFallback] which allows the user to disable the fallback and thus this function allow the user to re-enable it.
 //
 // Returns:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
@@ -48,6 +54,8 @@ func (i IRSParams) EnableFallback() error {
 }
 
 // MaxIters returns the current setting in the params structure for the maximal allowed number of iterations (for example, either the default MaxIters, or the one set by the user in case he set it using [IRSParams.SetMaxIters]).
+//
+// Note that this function returns the current setting in the params configuration and not to be confused with the [IRSInfos.MaxIters] which return the maximal allowed number of iterations for a particular call to an IRS solver. To be clearer, the params structure can be used for many calls to an IRS solver. A user can change the allowed MaxIters between calls while the Infos structure in [IRSInfos.MaxIters] contains information about a particular call and cannot be reused for different calls, and thus, [IRSInfos.MaxIters] returns the allowed MaxIters for that call.
 //
 //   - maxiters: The maximal number of iterations that is currently set
 //
@@ -62,6 +70,8 @@ func (i IRSParams) MaxIters() (CusolverInt, error) {
 
 // SetMaxIters sets the total number of allowed refinement iterations after which the solver will stop.
 //
+// Total means any iteration which means the sum of the outer and the inner iterations (inner is meaningful when two-levels refinement solver is set). Default value is set to 50. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver.
+//
 // Returns:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
 //   - [Success]: The operation completed successfully.
@@ -72,6 +82,8 @@ func (i IRSParams) SetMaxIters(maxiters CusolverInt) error {
 }
 
 // SetMaxItersInner sets the maximal number of iterations allowed for the inner refinement solver.
+//
+// It is not referenced in case of one level refinement solver such as [IrsRefineClassical] or [IrsRefineGmres]. The inner refinement solver will stop after reaching either the inner tolerance or the MaxItersInner value. By default, it is set to 50. Note that this value could not be larger than the MaxIters since MaxIters is the total number of allowed iterations. Note that if the user calls [IRSParams.SetMaxIters] after calling this function, SetMaxIters has priority and will overwrite MaxItersInner to the minimum value of (MaxIters, MaxItersInner).
 //
 //   - maxitersInner: Maximum number of allowed inner iterations for the inner refinement solver. Meaningful when the refinement solver is a two-levels solver such as [IrsRefineClassicalGmres] or [IrsRefineGmresGmres]. Value should be less or equal to MaxIters
 //
@@ -86,6 +98,8 @@ func (i IRSParams) SetMaxItersInner(maxitersInner CusolverInt) error {
 }
 
 // SetRefinementSolver sets the refinement solver to be used in the Iterative Refinement Solver functions such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions.
+//
+// Note that the user has to set the refinement algorithm before a first call to the IRS solver because it is NOT set by default with the creating of params. Details about values that can be set to and theirs meaning are described in the table below.
 //
 // Returns:
 //   - [IrsRefineClassical]: Classical iterative refinement solver. Similar to the one used in LAPACK routines.
@@ -104,6 +118,8 @@ func (i IRSParams) SetRefinementSolver(refinementSolver IRSRefinement) error {
 
 // SetSolverLowestPrecision sets the lowest precision that will be used by Iterative Refinement Solver.
 //
+// By lowest precision, we mean the solver is allowed to use as lowest computational precision during the LU factorization process. Note that the user has to set both the main and lowest precision before a first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. Usually the lowest precision defines the speedup that can be achieved. The ratio of the performance of the lowest precision over the main precision (e.g., Inputs/Outputs datatype) define somehow the upper bound of the speedup that could be obtained. More precisely, it depends on many factors, but for large matrices sizes, it is the ratio of the matrix-matrix rank-k product (e.g., GEMM where K is 256 and M=N=size of the matrix) that define the possible speedup. For instance, if the inout precision is real double precision R64F and the lowest precision is R32F, then we can expect a speedup of at most 2X for large problem sizes. If the lowest precision was R16F, then we can expect 3X-4X. A reasonable strategy should take the number of right-hand sides, the size of the matrix as well as the convergence rate into account.
+//
 // Returns:
 //   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
 //   - [Success]: The operation completed successfully.
@@ -114,6 +130,8 @@ func (i IRSParams) SetSolverLowestPrecision(solverLowestPrecision PrecType) erro
 }
 
 // SetSolverMainPrecision sets the main precision for the Iterative Refinement Solver (IRS).
+//
+// By main precision, we mean, the type of the Input and Output data. Note that the user has to set both the main and lowest precision before a first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. user can set it by either calling this function or by calling [IRSParams.SetSolverPrecisions] which set both the main and the lowest precision together. All possible combinations of main/lowest precision are described in the table in the [IRSParams.SetSolverPrecisions] section above.
 //
 //   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table in the [IRSParams.SetSolverPrecisions] section above for the supported precisions
 //
@@ -127,6 +145,8 @@ func (i IRSParams) SetSolverMainPrecision(solverMainPrecision PrecType) error {
 }
 
 // SetSolverPrecisions sets both the main and the lowest precision for the Iterative Refinement Solver (IRS).
+//
+// By main precision, we mean the precision of the Input and Output datatype. By lowest precision, we mean the solver is allowed to use as lowest computational precision during the LU factorization process. Note that the user has to set both the main and lowest precision before the first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. It is a wrapper to both [IRSParams.SetSolverMainPrecision] and [IRSParams.SetSolverLowestPrecision]. All possible combinations of main/lowest precision are described in the table below. Usually the lowest precision defines the speedup that can be achieved. The ratio of the performance of the lowest precision over the main precision (e.g., Inputs/Outputs datatype) define the upper bound of the speedup that could be obtained. More precisely, it depends on many factors, but for large matrices sizes, it is the ratio of the matrix-matrix rank-k product (e.g., GEMM where K is 256 and M=N=size of the matrix) that define the possible speedup. For instance, if the inout precision is real double precision R64F and the lowest precision is R32F, then we can expect a speedup of at most 2X for large problem sizes. If the lowest precision was R16F, then we can expect 3X-4X. A reasonable strategy should take the number of right-hand sides, the size of the matrix as well as the convergence rate into account.
 //
 //   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table below for the supported precisions
 //   - solverLowestPrecision: Allowed lowest compute type (for example R16F for half precision computation). See the table below for the supported precisions
@@ -142,6 +162,7 @@ func (i IRSParams) SetSolverPrecisions(solverMainPrecision PrecType, solverLowes
 
 // SetTol sets the tolerance for the refinement solver.
 //
+// By default it is such that all the RHS satisfy:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX where
 // The user can use this function to change the tolerance to a lower or higher value. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver. Note that the tolerance value is always in real double precision whatever the Inputs/Outputs datatype is.
 //
@@ -157,6 +178,8 @@ func (i IRSParams) SetTol(val float64) error {
 }
 
 // SetTolInner sets the tolerance for the inner refinement solver when the refinement solver consists of two-levels solver (for example, [IrsRefineClassicalGmres] or [IrsRefineGmresGmres] cases).
+//
+// It is not referenced in case of one level refinement solver such as [IrsRefineClassical] or [IrsRefineGmres]. It is set to 1e-4 by default. This function set the tolerance for the inner solver (e.g. the inner GMRES). For example, if the Refinement Solver was set to [IrsRefineClassicalGmres], setting this tolerance mean that the inner GMRES solver will converge to that tolerance at each outer iteration of the classical refinement solver. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver. Note the, the tolerance value is always in real double precision whatever the Inputs/Outputs datatype is.
 //
 //   - val: Double precision real value to which the tolerance of the inner refinement solver will be set
 //

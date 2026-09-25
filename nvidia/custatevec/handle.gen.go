@@ -3,6 +3,7 @@
 package custatevec
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"unsafe"
 )
 
@@ -259,7 +260,7 @@ func (h Handle) MeasureOnZBasis(sv uintptr, svDataType DataType, nIndexBits uint
 //   - streamId: in the stream to be used by the library
 //
 // Wraps custatevecSetStream.
-func (h Handle) SetStream(streamId Stream) error {
+func (h Handle) SetStream(streamId driver.Stream) error {
 	return setStream(h, streamId)
 }
 
@@ -292,6 +293,6 @@ func (h Handle) SetWorkspace(workspace uintptr, workspaceSizeInBytes uint) error
 //   - streamId: out the stream to be used by the library
 //
 // Wraps custatevecGetStream.
-func (h Handle) Stream() (Stream, error) {
+func (h Handle) Stream() (driver.Stream, error) {
 	return getStream(h)
 }

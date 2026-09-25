@@ -321,6 +321,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -407,7 +422,7 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnFinalize, "ncclM2nFinalize")
-	register(&fnGetLastError, "ncclM2nGetLastError")
+	symGetLastError = registerSym("ncclM2nGetLastError")
 	register(&fnGroupAbort, "ncclM2nGroupAbort")
 	register(&fnGroupEnd, "ncclM2nGroupEnd")
 	register(&fnGroupStart, "ncclM2nGroupStart")
@@ -419,7 +434,7 @@ func registerFuncs() {
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnFinalize = nil
-	fnGetLastError = nil
+	symGetLastError = 0
 	fnGroupAbort = nil
 	fnGroupEnd = nil
 	fnGroupStart = nil

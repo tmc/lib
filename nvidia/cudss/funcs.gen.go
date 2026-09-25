@@ -5,51 +5,458 @@
 
 package cudss
 
-import "unsafe"
+import (
+	"sync"
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
+)
 
 // Generated function pointer variables.
 var (
-	fnConfigCreate               func(*Config) Result
-	fnConfigDestroy              func(Config) Result
-	fnConfigGet                  func(Config, ConfigParam, unsafe.Pointer, uint, *uint) Result
-	fnConfigSet                  func(Config, ConfigParam, unsafe.Pointer, uint) Result
-	fnCreate                     func(*Handle) Result
-	fnCreateMg                   func(*Handle, int32, *int32) Result
-	fnDataCreate                 func(Handle, *Data) Result
-	fnDataDestroy                func(Handle, Data) Result
-	fnDataGet                    func(Handle, Data, DataParam, unsafe.Pointer, uint, *uint) Result
-	fnDataSet                    func(Handle, Data, DataParam, unsafe.Pointer, uint) Result
-	fnDestroy                    func(Handle) Result
-	fnExecute                    func(Handle, Phase, Config, Data, Matrix, Matrix, Matrix) Result
-	fnGetDeviceMemHandler        func(Handle, *DeviceMemHandler) Result
-	fnGetProperty                func(LibraryPropertyType, *int32) Result
-	fnLoggerForceDisable         func() Result
-	fnLoggerOpenFile             func(*byte) Result
-	fnLoggerSetCallback          func(uintptr) Result
-	fnLoggerSetLevel             func(int32) Result
-	fnLoggerSetMask              func(int32) Result
-	fnMatrixCreateBatchCsr       func(*Matrix, int64, uintptr, uintptr, uintptr, *uintptr, *uintptr, *uintptr, *uintptr, DataType, DataType, DataType, MatrixType, MatrixViewType, IndexBase) Result
-	fnMatrixCreateBatchDn        func(*Matrix, int64, uintptr, uintptr, uintptr, *uintptr, DataType, DataType, Layout) Result
-	fnMatrixCreateCsr            func(*Matrix, int64, int64, int64, uintptr, uintptr, uintptr, uintptr, DataType, DataType, DataType, MatrixType, MatrixViewType, IndexBase) Result
-	fnMatrixCreateDn             func(*Matrix, int64, int64, int64, uintptr, DataType, Layout) Result
-	fnMatrixDestroy              func(Matrix) Result
-	fnMatrixGetBatchCsr          func(Matrix, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *DataType, *MatrixType, *MatrixViewType, *IndexBase) Result
-	fnMatrixGetBatchDn           func(Matrix, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *Layout) Result
-	fnMatrixGetCsr               func(Matrix, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *DataType, *MatrixType, *MatrixViewType, *IndexBase) Result
-	fnMatrixGetDistributionRow1d func(Matrix, *int64, *int64) Result
-	fnMatrixGetDn                func(Matrix, *int64, *int64, *int64, *uintptr, *DataType, *Layout) Result
-	fnMatrixGetFormat            func(Matrix, *int32) Result
-	fnMatrixSetBatchCsrPointers  func(Matrix, *uintptr, *uintptr, *uintptr, *uintptr) Result
-	fnMatrixSetBatchValues       func(Matrix, *uintptr) Result
-	fnMatrixSetCsrPointers       func(Matrix, uintptr, uintptr, uintptr, uintptr) Result
-	fnMatrixSetDistributionRow1d func(Matrix, int64, int64) Result
-	fnMatrixSetValues            func(Matrix, uintptr) Result
-	fnSetCommLayer               func(Handle, *byte) Result
-	fnSetDeviceMemHandler        func(Handle, *DeviceMemHandler) Result
-	fnSetMgStreams               func(Handle, *Stream, int32) Result
-	fnSetStream                  func(Handle, Stream) Result
-	fnSetThreadingLayer          func(Handle, *byte) Result
+	symConfigCreate               uintptr
+	symConfigDestroy              uintptr
+	symConfigGet                  uintptr
+	symConfigSet                  uintptr
+	symCreate                     uintptr
+	symCreateMg                   uintptr
+	symDataCreate                 uintptr
+	symDataDestroy                uintptr
+	symDataGet                    uintptr
+	symDataSet                    uintptr
+	symDestroy                    uintptr
+	symExecute                    uintptr
+	symGetDeviceMemHandler        uintptr
+	symGetProperty                uintptr
+	symLoggerForceDisable         uintptr
+	symLoggerOpenFile             uintptr
+	symLoggerSetCallback          uintptr
+	symLoggerSetLevel             uintptr
+	symLoggerSetMask              uintptr
+	symMatrixCreateBatchCsr       uintptr
+	symMatrixCreateBatchDn        uintptr
+	symMatrixCreateCsr            uintptr
+	symMatrixCreateDn             uintptr
+	symMatrixDestroy              uintptr
+	symMatrixGetBatchCsr          uintptr
+	symMatrixGetBatchDn           uintptr
+	symMatrixGetCsr               uintptr
+	symMatrixGetDistributionRow1d uintptr
+	symMatrixGetDn                uintptr
+	symMatrixGetFormat            uintptr
+	symMatrixSetBatchCsrPointers  uintptr
+	symMatrixSetBatchValues       uintptr
+	symMatrixSetCsrPointers       uintptr
+	symMatrixSetDistributionRow1d uintptr
+	symMatrixSetValues            uintptr
+	symSetCommLayer               uintptr
+	symSetDeviceMemHandler        uintptr
+	symSetMgStreams               uintptr
+	fnSetStream                   func(Handle, driver.Stream) Result
+	symSetThreadingLayer          uintptr
 )
+
+// ffiCall0 through ffiCall15 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloat(fn, 9, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	return ffi.CallFloat(fn, 14, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	return ffi.CallFloat(fn, 15, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnConfigCreate calls cudssConfigCreate.
+func fnConfigCreate(a0 *Config) Result {
+	r1, _ := ffiCall1(symConfigCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnConfigDestroy calls cudssConfigDestroy.
+func fnConfigDestroy(a0 Config) Result {
+	r1, _ := ffiCall1(symConfigDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnConfigGet calls cudssConfigGet.
+func fnConfigGet(a0 Config, a1 ConfigParam, a2 unsafe.Pointer, a3 uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symConfigGet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnConfigSet calls cudssConfigSet.
+func fnConfigSet(a0 Config, a1 ConfigParam, a2 unsafe.Pointer, a3 uint) Result {
+	r1, _ := ffiCall4(symConfigSet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnCreate calls cudssCreate.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateMg calls cudssCreateMg.
+func fnCreateMg(a0 *Handle, a1 int32, a2 *int32) Result {
+	r1, _ := ffiCall3(symCreateMg, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnDataCreate calls cudssDataCreate.
+func fnDataCreate(a0 Handle, a1 *Data) Result {
+	r1, _ := ffiCall2(symDataCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnDataDestroy calls cudssDataDestroy.
+func fnDataDestroy(a0 Handle, a1 Data) Result {
+	r1, _ := ffiCall2(symDataDestroy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnDataGet calls cudssDataGet.
+func fnDataGet(a0 Handle, a1 Data, a2 DataParam, a3 unsafe.Pointer, a4 uint, a5 *uint) Result {
+	r1, _ := ffiCall6(symDataGet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnDataSet calls cudssDataSet.
+func fnDataSet(a0 Handle, a1 Data, a2 DataParam, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symDataSet, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnDestroy calls cudssDestroy.
+func fnDestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnExecute calls cudssExecute.
+func fnExecute(a0 Handle, a1 Phase, a2 Config, a3 Data, a4 Matrix, a5 Matrix, a6 Matrix) Result {
+	r1, _ := ffiCall7(symExecute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnGetDeviceMemHandler calls cudssGetDeviceMemHandler.
+func fnGetDeviceMemHandler(a0 Handle, a1 *DeviceMemHandler) Result {
+	r1, _ := ffiCall2(symGetDeviceMemHandler, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetProperty calls cudssGetProperty.
+func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnLoggerForceDisable calls cudssLoggerForceDisable.
+func fnLoggerForceDisable() Result {
+	r1, _ := ffiCall0(symLoggerForceDisable, 0)
+	return Result(r1)
+}
+
+// fnLoggerOpenFile calls cudssLoggerOpenFile.
+func fnLoggerOpenFile(a0 *byte) Result {
+	r1, _ := ffiCall1(symLoggerOpenFile, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnLoggerSetCallback calls cudssLoggerSetCallback.
+func fnLoggerSetCallback(a0 uintptr) Result {
+	r1, _ := ffiCall1(symLoggerSetCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetLevel calls cudssLoggerSetLevel.
+func fnLoggerSetLevel(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetMask calls cudssLoggerSetMask.
+func fnLoggerSetMask(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnMatrixCreateBatchCsr calls cudssMatrixCreateBatchCsr.
+func fnMatrixCreateBatchCsr(a0 *Matrix, a1 int64, a2 uintptr, a3 uintptr, a4 uintptr, a5 *uintptr, a6 *uintptr, a7 *uintptr, a8 *uintptr, a9 DataType, a10 DataType, a11 DataType, a12 MatrixType, a13 MatrixViewType, a14 IndexBase) Result {
+	r1, _ := ffiCall15(symMatrixCreateBatchCsr, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnMatrixCreateBatchDn calls cudssMatrixCreateBatchDn.
+func fnMatrixCreateBatchDn(a0 *Matrix, a1 int64, a2 uintptr, a3 uintptr, a4 uintptr, a5 *uintptr, a6 DataType, a7 DataType, a8 Layout) Result {
+	r1, _ := ffiCall9(symMatrixCreateBatchDn, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnMatrixCreateCsr calls cudssMatrixCreateCsr.
+func fnMatrixCreateCsr(a0 *Matrix, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 uintptr, a6 uintptr, a7 uintptr, a8 DataType, a9 DataType, a10 DataType, a11 MatrixType, a12 MatrixViewType, a13 IndexBase) Result {
+	r1, _ := ffiCall14(symMatrixCreateCsr, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnMatrixCreateDn calls cudssMatrixCreateDn.
+func fnMatrixCreateDn(a0 *Matrix, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 DataType, a6 Layout) Result {
+	r1, _ := ffiCall7(symMatrixCreateDn, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnMatrixDestroy calls cudssMatrixDestroy.
+func fnMatrixDestroy(a0 Matrix) Result {
+	r1, _ := ffiCall1(symMatrixDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnMatrixGetBatchCsr calls cudssMatrixGetBatchCsr.
+func fnMatrixGetBatchCsr(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *uintptr, a8 *uintptr, a9 *DataType, a10 *DataType, a11 *DataType, a12 *MatrixType, a13 *MatrixViewType, a14 *IndexBase) Result {
+	r1, _ := ffiCall15(symMatrixGetBatchCsr, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(unsafe.Pointer(a13)), uintptr(unsafe.Pointer(a14)))
+	return Result(r1)
+}
+
+// fnMatrixGetBatchDn calls cudssMatrixGetBatchDn.
+func fnMatrixGetBatchDn(a0 Matrix, a1 *int64, a2 *uintptr, a3 *uintptr, a4 *uintptr, a5 *uintptr, a6 *DataType, a7 *DataType, a8 *Layout) Result {
+	r1, _ := ffiCall9(symMatrixGetBatchDn, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnMatrixGetCsr calls cudssMatrixGetCsr.
+func fnMatrixGetCsr(a0 Matrix, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *uintptr, a8 *DataType, a9 *DataType, a10 *DataType, a11 *MatrixType, a12 *MatrixViewType, a13 *IndexBase) Result {
+	r1, _ := ffiCall14(symMatrixGetCsr, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(unsafe.Pointer(a13)))
+	return Result(r1)
+}
+
+// fnMatrixGetDistributionRow1d calls cudssMatrixGetDistributionRow1d.
+func fnMatrixGetDistributionRow1d(a0 Matrix, a1 *int64, a2 *int64) Result {
+	r1, _ := ffiCall3(symMatrixGetDistributionRow1d, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnMatrixGetDn calls cudssMatrixGetDn.
+func fnMatrixGetDn(a0 Matrix, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *DataType, a6 *Layout) Result {
+	r1, _ := ffiCall7(symMatrixGetDn, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnMatrixGetFormat calls cudssMatrixGetFormat.
+func fnMatrixGetFormat(a0 Matrix, a1 *int32) Result {
+	r1, _ := ffiCall2(symMatrixGetFormat, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnMatrixSetBatchCsrPointers calls cudssMatrixSetBatchCsrPointers.
+func fnMatrixSetBatchCsrPointers(a0 Matrix, a1 *uintptr, a2 *uintptr, a3 *uintptr, a4 *uintptr) Result {
+	r1, _ := ffiCall5(symMatrixSetBatchCsrPointers, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnMatrixSetBatchValues calls cudssMatrixSetBatchValues.
+func fnMatrixSetBatchValues(a0 Matrix, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symMatrixSetBatchValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnMatrixSetCsrPointers calls cudssMatrixSetCsrPointers.
+func fnMatrixSetCsrPointers(a0 Matrix, a1 uintptr, a2 uintptr, a3 uintptr, a4 uintptr) Result {
+	r1, _ := ffiCall5(symMatrixSetCsrPointers, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnMatrixSetDistributionRow1d calls cudssMatrixSetDistributionRow1d.
+func fnMatrixSetDistributionRow1d(a0 Matrix, a1 int64, a2 int64) Result {
+	r1, _ := ffiCall3(symMatrixSetDistributionRow1d, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMatrixSetValues calls cudssMatrixSetValues.
+func fnMatrixSetValues(a0 Matrix, a1 uintptr) Result {
+	r1, _ := ffiCall2(symMatrixSetValues, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnSetCommLayer calls cudssSetCommLayer.
+func fnSetCommLayer(a0 Handle, a1 *byte) Result {
+	r1, _ := ffiCall2(symSetCommLayer, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnSetDeviceMemHandler calls cudssSetDeviceMemHandler.
+func fnSetDeviceMemHandler(a0 Handle, a1 *DeviceMemHandler) Result {
+	r1, _ := ffiCall2(symSetDeviceMemHandler, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnSetMgStreams calls cudssSetMgStreams.
+func fnSetMgStreams(a0 Handle, a1 *driver.Stream, a2 int32) Result {
+	r1, _ := ffiCall3(symSetMgStreams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnSetThreadingLayer calls cudssSetThreadingLayer.
+func fnSetThreadingLayer(a0 Handle, a1 *byte) Result {
+	r1, _ := ffiCall2(symSetThreadingLayer, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
 
 // ConfigCreate wraps cudssConfigCreate.
 func ConfigCreate() (Config, error) {
@@ -57,13 +464,16 @@ func ConfigCreate() (Config, error) {
 		var zero Config
 		return zero, err
 	}
-	var out Config
-	if err := toError(fnConfigCreate(&out), "cudssConfigCreate"); err != nil {
+	out := slotConfigCreate.get()
+	defer slotConfigCreate.put(out)
+	if err := toError(fnConfigCreate(out), "cudssConfigCreate"); err != nil {
 		var zero Config
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotConfigCreate outSlot[Config]
 
 // ConfigDestroy wraps cudssConfigDestroy.
 func ConfigDestroy(solverConfig Config) error {
@@ -79,13 +489,16 @@ func Create() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "cudssCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "cudssCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // CreateMg wraps cudssCreateMg.
 func CreateMg(deviceCount int32, deviceIndices *int32) (Handle, error) {
@@ -93,13 +506,16 @@ func CreateMg(deviceCount int32, deviceIndices *int32) (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreateMg(&out, deviceCount, deviceIndices), "cudssCreateMg"); err != nil {
+	out := slotCreateMg.get()
+	defer slotCreateMg.put(out)
+	if err := toError(fnCreateMg(out, deviceCount, deviceIndices), "cudssCreateMg"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateMg outSlot[Handle]
 
 // DataCreate wraps cudssDataCreate.
 func DataCreate(handle Handle) (Data, error) {
@@ -107,13 +523,16 @@ func DataCreate(handle Handle) (Data, error) {
 		var zero Data
 		return zero, err
 	}
-	var out Data
-	if err := toError(fnDataCreate(handle, &out), "cudssDataCreate"); err != nil {
+	out := slotDataCreate.get()
+	defer slotDataCreate.put(out)
+	if err := toError(fnDataCreate(handle, out), "cudssDataCreate"); err != nil {
 		var zero Data
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDataCreate outSlot[Data]
 
 // DataDestroy wraps cudssDataDestroy.
 func DataDestroy(handle Handle, solverData Data) error {
@@ -145,13 +564,16 @@ func GetDeviceMemHandler(handle Handle) (DeviceMemHandler, error) {
 		var zero DeviceMemHandler
 		return zero, err
 	}
-	var out DeviceMemHandler
-	if err := toError(fnGetDeviceMemHandler(handle, &out), "cudssGetDeviceMemHandler"); err != nil {
+	out := slotGetDeviceMemHandler.get()
+	defer slotGetDeviceMemHandler.put(out)
+	if err := toError(fnGetDeviceMemHandler(handle, out), "cudssGetDeviceMemHandler"); err != nil {
 		var zero DeviceMemHandler
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetDeviceMemHandler outSlot[DeviceMemHandler]
 
 // GetProperty wraps cudssGetProperty.
 func GetProperty(propertyType LibraryPropertyType) (int32, error) {
@@ -159,13 +581,16 @@ func GetProperty(propertyType LibraryPropertyType) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetProperty(propertyType, &out), "cudssGetProperty"); err != nil {
+	out := slotGetProperty.get()
+	defer slotGetProperty.put(out)
+	if err := toError(fnGetProperty(propertyType, out), "cudssGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetProperty outSlot[int32]
 
 // LoggerForceDisable wraps cudssLoggerForceDisable.
 func LoggerForceDisable() error {
@@ -214,13 +639,16 @@ func MatrixCreateBatchCsr(batchCount int64, nrows uintptr, ncols uintptr, nnz ui
 		var zero Matrix
 		return zero, err
 	}
-	var out Matrix
-	if err := toError(fnMatrixCreateBatchCsr(&out, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateBatchCsr"); err != nil {
+	out := slotMatrixCreateBatchCsr.get()
+	defer slotMatrixCreateBatchCsr.put(out)
+	if err := toError(fnMatrixCreateBatchCsr(out, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateBatchCsr"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixCreateBatchCsr outSlot[Matrix]
 
 // MatrixCreateBatchDn wraps cudssMatrixCreateBatchDn.
 func MatrixCreateBatchDn(batchCount int64, nrows uintptr, ncols uintptr, ld uintptr, values *uintptr, integerType DataType, valueType DataType, layout Layout) (Matrix, error) {
@@ -228,13 +656,16 @@ func MatrixCreateBatchDn(batchCount int64, nrows uintptr, ncols uintptr, ld uint
 		var zero Matrix
 		return zero, err
 	}
-	var out Matrix
-	if err := toError(fnMatrixCreateBatchDn(&out, batchCount, nrows, ncols, ld, values, integerType, valueType, layout), "cudssMatrixCreateBatchDn"); err != nil {
+	out := slotMatrixCreateBatchDn.get()
+	defer slotMatrixCreateBatchDn.put(out)
+	if err := toError(fnMatrixCreateBatchDn(out, batchCount, nrows, ncols, ld, values, integerType, valueType, layout), "cudssMatrixCreateBatchDn"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixCreateBatchDn outSlot[Matrix]
 
 // MatrixCreateCsr wraps cudssMatrixCreateCsr.
 func MatrixCreateCsr(nrows int64, ncols int64, nnz int64, rowStart uintptr, rowEnd uintptr, colIndices uintptr, values uintptr, offsetType DataType, indexType DataType, valueType DataType, mtype MatrixType, mview MatrixViewType, indexBase IndexBase) (Matrix, error) {
@@ -242,13 +673,16 @@ func MatrixCreateCsr(nrows int64, ncols int64, nnz int64, rowStart uintptr, rowE
 		var zero Matrix
 		return zero, err
 	}
-	var out Matrix
-	if err := toError(fnMatrixCreateCsr(&out, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateCsr"); err != nil {
+	out := slotMatrixCreateCsr.get()
+	defer slotMatrixCreateCsr.put(out)
+	if err := toError(fnMatrixCreateCsr(out, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateCsr"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixCreateCsr outSlot[Matrix]
 
 // MatrixCreateDn wraps cudssMatrixCreateDn.
 func MatrixCreateDn(nrows int64, ncols int64, ld int64, values uintptr, valueType DataType, layout Layout) (Matrix, error) {
@@ -256,13 +690,16 @@ func MatrixCreateDn(nrows int64, ncols int64, ld int64, values uintptr, valueTyp
 		var zero Matrix
 		return zero, err
 	}
-	var out Matrix
-	if err := toError(fnMatrixCreateDn(&out, nrows, ncols, ld, values, valueType, layout), "cudssMatrixCreateDn"); err != nil {
+	out := slotMatrixCreateDn.get()
+	defer slotMatrixCreateDn.put(out)
+	if err := toError(fnMatrixCreateDn(out, nrows, ncols, ld, values, valueType, layout), "cudssMatrixCreateDn"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixCreateDn outSlot[Matrix]
 
 // MatrixDestroy wraps cudssMatrixDestroy.
 func MatrixDestroy(matrix Matrix) error {
@@ -318,13 +755,16 @@ func MatrixGetFormat(matrix Matrix) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnMatrixGetFormat(matrix, &out), "cudssMatrixGetFormat"); err != nil {
+	out := slotMatrixGetFormat.get()
+	defer slotMatrixGetFormat.put(out)
+	if err := toError(fnMatrixGetFormat(matrix, out), "cudssMatrixGetFormat"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMatrixGetFormat outSlot[int32]
 
 // MatrixSetBatchCsrPointers wraps cudssMatrixSetBatchCsrPointers.
 func MatrixSetBatchCsrPointers(matrix Matrix, rowOffsets *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr) error {
@@ -384,7 +824,7 @@ func SetDeviceMemHandler(handle Handle, handler *DeviceMemHandler) error {
 }
 
 // SetMgStreams wraps cudssSetMgStreams.
-func SetMgStreams(handle Handle, streams *Stream, streamCount int32) error {
+func SetMgStreams(handle Handle, streams *driver.Stream, streamCount int32) error {
 	if err := checkLibSym("cudssSetMgStreams"); err != nil {
 		return err
 	}
@@ -392,7 +832,7 @@ func SetMgStreams(handle Handle, streams *Stream, streamCount int32) error {
 }
 
 // SetStream wraps cudssSetStream.
-func SetStream(handle Handle, stream Stream) error {
+func SetStream(handle Handle, stream driver.Stream) error {
 	if err := checkLibSym("cudssSetStream"); err != nil {
 		return err
 	}

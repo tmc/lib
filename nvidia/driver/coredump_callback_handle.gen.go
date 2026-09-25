@@ -2,7 +2,7 @@
 
 package driver
 
-// DeregisterCompleteCallback Deregister a previously registered coredump complete callback.
+// DeregisterCompleteCallback deregisters a previously registered coredump complete callback.
 //
 // This function removes a callback that was registered with [CoredumpRegisterCompleteCallback]. The callback handle becomes invalid after this call.
 //
@@ -15,7 +15,7 @@ func (c CoredumpCallbackHandle) DeregisterCompleteCallback() error {
 	return coredumpDeregisterCompleteCallback(c)
 }
 
-// DeregisterStartCallback Deregister a previously registered coredump start callback.
+// DeregisterStartCallback deregisters a previously registered coredump start callback.
 //
 // This function removes a callback that was registered with [CoredumpRegisterStartCallback]. The callback handle becomes invalid after this call.
 //

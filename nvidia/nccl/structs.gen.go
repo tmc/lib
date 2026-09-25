@@ -2,7 +2,7 @@
 
 package nccl
 
-// Config represents a structure-based configuration users can set to initialize a communicator; a newly created configuration must be initialized by NCCL_CONFIG_INITIALIZER. NCCL_CONFIG_INITIALIZER  A configuration macro initializer which must be assigned to a newly created configuration. blocking  This attribute can be set as integer 0 or 1 to indicate nonblocking or blocking communicator behavior correspondingly. Blocking is the default behavior. cgaClusterSize  Set Cooperative Group Array (CGA) size of kernels launched by NCCL. This attribute can be set between 0 and 8, and the default value is 4 since sm90 architecture and 0 for older architectures. minCTAs  Set the minimal number of CTAs NCCL should use for each kernel. Set to a positive integer value, up to 32. The default value is 1. maxCTAs  Set the maximal number of CTAs NCCL should use for each kernel. Set to a positive integer value, up to 32. The default value is 32. netName  Specify the network module name NCCL should use for network communication. The value of netName must match exactly the name of the network module (case-insensitive). NCCL internal network module names are “IB” (generic IB verbs) and “Socket” (TCP/IP sockets). External network plugins define their own names. The default value is undefined, and NCCL will choose the network module automatically. splitShare  Specify whether to share resources with child communicator during communicator split. Set the value of splitShare to 0 or 1. The default value is 0. When the parent communicator is created with splitShare=1 during [CommInitRankConfig], the child communicator can share internal resources of the parent during communicator split. Split communicators are in the same family. When resources are shared, aborting any communicator can result in other communicators in the same family becoming unusable. Irrespective of whether sharing resources or not, users should always abort/destroy all no longer needed communicators to free up resources. Note: when the parent communicator has been revoked, resource sharing during split is disabled regardless of this flag. shrinkShare  Specify whether to share resources with child communicator during communicator shrink. Set the value of shrinkShare to 0 or 1. The default value is 0. Note: when shrink is used with NCCL_SHRINK_ABORT, the value of shrinkShare is ignored and no resources are shared. When the parent communicator has been revoked, resource sharing is also disabled. The behavior of this flag is similar to splitShare, see above. trafficClass  Set the traffic class (TC) to use for network operations on the communicator. The meaning of TC is specific to the network plugin in use by the communicator (e.g. IB networks use service level, RoCE networks use type of service). Assigning different TCs to each communicator can benefit workloads which overlap communication. TCs are defined by the system configuration and should be greater than or equal to 0. Note that environment variables, such as NCCL_IB_SL and NCCL_IB_TC, take precedence over user-specified TC values. To utilize user-defined TCs, ensure that these environment variables are unset. collnetEnable  Set 1/0 to enable/disable IB SHARP on the communicator. The default value is 0 (disabled). CTAPolicy  Set the policy for the communicator. The full list of supported policies can be found in NCCL Communicator CTA Policy Flags. The default value is NCCL_CTA_POLICY_DEFAULT. nvlsCTAs  Set the total number of CTAs NCCL should use for NVLS kernels. Set to a positive integer value. By default, NCCL will automatically determine the best number of CTAs based on the system configuration. commName  Specify the user defined name for the communicator. The communicator name can be used by NCCL to enrich logging and profiling. nChannelsPerNetPeer  Set the number of network channels to be used for pairwise communication. The value must be a positive integer and will be round up to the next power of 2. The default value is optimized for the AlltoAll communication pattern. Consider increasing the value to increase the bandwidth for send/recv communication. graphUsageMode  Set the graph usage mode for the communicator. It support three possible values: 0 (no graphs), 1 (one graph) and 2 (either multiple graphs or mix of graph and non-graph). The default value is 2. If NCCL_GRAPH_STREAM_ORDERING or graphStreamOrdering disables capture-time stream ordering ( 0), graph mixing must be off—use graphUsageMode 0 or 1 only; graphUsageMode=2 must not be combined with ordering 0 (see NCCL_GRAPH_STREAM_ORDERING). graphStreamOrdering  (since 2.30) Per-communicator override of NCCL_GRAPH_STREAM_ORDERING. 1 keeps NCCL’s default capture-time serialization of communication kernels. 0 disables it for this communicator—kernels are placed on the capture stream and the application must guarantee correct ordering (see NCCL_GRAPH_STREAM_ORDERING). Defaults to NCCL_CONFIG_UNDEF_INT (inherits NCCL_GRAPH_STREAM_ORDERING). 0 or 1 overrides the env var for this communicator. graphStreamOrdering=0 requires graphUsageMode 0 or 1 (mixing off). Combining it with graphUsageMode=2 is not supported; see NCCL_GRAPH_STREAM_ORDERING. Mixed values on one GPU: A communicator set to 1 still receives NCCL’s internal serialization for its own kernels, but NCCL does not insert cross-communicator ordering with a peer set to 0—its kernels may overlap in situations NCCL would have serialized. Use 0 only when the application guarantees ordering of all NCCL communication kernels that may run concurrently on the GPU. maxP2pPeers  Set the maximum number of peers any rank will concurrently communicate with using P2P communication. Setting this value will influence all send/recv and send/recv-based collectives (all-to-all, scatter, gather). Values less than one or greater than the number of ranks will default to the number of ranks in the communicator.
+// Config represents a structure-based configuration users can set to initialize a communicator; a newly created configuration must be initialized by NCCL_CONFIG_INITIALIZER.
 //
 // The zero value is not usable. NewConfig applies the defaults
 // NCCL_CONFIG_INITIALIZER sets; start from it and assign to the result. A
@@ -37,13 +37,17 @@ type Config struct {
 }
 
 // ConfigExt represents a single vendor-specific option expressed as a key-value pair.
+//
+// Multiple options can be chained into a non-circular linked list through the next pointer and attached to a [CollConfig] via its ext member. The official NCCL library ignores every extension; a vendor library should assign a unique value to key.vendorId to avoid collision among vendor libraries. It can usually be done by picking a random number. Vendors should choose a non-zero vendorId (less than 2^24) that is unlikely to collide with other vendor libraries. The list is unordered and must not contain duplicate keys.
 type ConfigExt struct {
 	Next uintptr
 	Key  [2]uint32
 	Val  [1]uint64
 }
 
-// CollConfig represents per-collective configuration.
+// CollConfig represents per-collective configuration passed through an nccl*Config collective API.
+//
+// Every [CollConfig] must be initialized with NCCL_COLLCONFIG_INITIALIZER before any member is set. Passing NULL to a config-taking collective is equivalent to calling the corresponding collective without a configuration. The application owns the configuration and any storage it references, and must keep them valid for the duration of each call that uses them. Set the same configuration on every rank unless a member is documented otherwise. For options that also have environment-variable and communicator-level forms, NCCL applies values in the following order: environment variable, per-collective configuration, communicator configuration, and library default. Leave resource and CTA-policy members at NCCL_CONFIG_UNDEF_INT to fall through to the next source in this list.
 type CollConfig struct {
 	Size              uint
 	Magic             uint32
@@ -59,7 +63,7 @@ type CollConfig struct {
 	UserProfilerTag   uint64
 }
 
-// SimInfo will be used by [GroupSimulateEnd] to return information about the calls.
+// SimInfo will be used by [GroupSimulateEnd] API to query information about simulation.
 //
 // The zero value is not usable. NewSimInfo applies the defaults
 // NCCL_SIM_INFO_INITIALIZER sets; start from it and assign to the result. A
@@ -72,7 +76,9 @@ type SimInfo struct {
 	EstimatedTime float32
 }
 
-// WaitSignalDesc represents wait Signal Descriptor Describes how many signal operations to wait for from a particular rank on a given signal index and context.
+// WaitSignalDesc represents wait Signal Descriptor.
+//
+// Describes how many signal operations to wait for from a particular rank on a given signal index and context.
 type WaitSignalDesc struct {
 	OpCnt  int32
 	Peer   int32
@@ -148,7 +154,9 @@ type TeamRequirements struct {
 	OutMultimemHandle *MultimemHandle
 }
 
-// CommProperties represents ncclCommProperties_t.
+// CommProperties represents a structure describing the properties of the communicator.
+//
+// Introduced in NCCL 2.29. Properties include:
 //
 // The zero value is not usable. NewCommProperties applies the defaults
 // NCCL_COMM_PROPERTIES_INITIALIZER sets; start from it and assign to the

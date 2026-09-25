@@ -2,7 +2,7 @@
 
 package sanitizer
 
-// EnableAllDomains Enable or disable all callbacks in all domains.
+// EnableAllDomains enables or disables all callbacks in all domains.
 //
 // [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
 // [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
@@ -21,7 +21,7 @@ func (s Subscriber) EnableAllDomains(enable uint32) error {
 	return enableAllDomains(enable, s)
 }
 
-// EnableCallback Enable or disable callbacks for a specific domain and callback ID
+// EnableCallback enables or disables callbacks for a specific domain and callback ID
 //
 // Enable or disable callbacks for a subscriber for a specific domain and
 // callback ID.
@@ -45,7 +45,7 @@ func (s Subscriber) EnableCallback(enable uint32, domain CallbackDomain, cbid ui
 	return enableCallback(enable, s, domain, cbid)
 }
 
-// EnableDomain Enable or disable all callbacks for a specific domain.
+// EnableDomain enables or disables all callbacks for a specific domain.
 //
 // [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
 // [Subscriber.EnableAllDomains]. For example, if sanitizerGetCallbackEnabled(sub,
@@ -65,7 +65,7 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 	return enableDomain(enable, s, domain)
 }
 
-// CallbackState Get the current enabled/disabled state of a callback for a specific domain and function ID.
+// CallbackState gets the current enabled/disabled state of a callback for a specific domain and function ID.
 //
 // Returns non-zero in *enable if the callback for a domain and callback
 // ID is enabled, and zero if not enabled.
@@ -88,7 +88,7 @@ func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, e
 	return getCallbackState(s, domain, cbid)
 }
 
-// Unsubscribe Unregister a callback subscriber.
+// Unsubscribe unregisters a callback subscriber.
 //
 // Removes a callback subscriber so that no future callback will be issued to
 // that subscriber.

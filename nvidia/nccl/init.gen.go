@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 	inlineffi "github.com/tmc/lib/nvidia/internal/ffi"
 )
 
@@ -368,6 +369,125 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
+// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+// ffiPointer reinterprets an address a C function returned as a pointer.
+// Such an address does not identify a Go allocation.
+func ffiPointer(addr uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&addr))
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
 // BindFailure names a symbol the loaded library exports but that could not
 // be bound, and why.
 type BindFailure struct {
@@ -438,71 +558,71 @@ func registerFuncs() {
 	register(&fnbroadcast, "ncclBroadcast")
 	register(&fnbroadcastConfig, "ncclBroadcastConfig")
 	registerFFI(&fnCftBarrierCreateRequirement, "ncclCftBarrierCreateRequirement")
-	register(&fncommAbort, "ncclCommAbort")
-	register(&fncommCount, "ncclCommCount")
-	register(&fncommCuDevice, "ncclCommCuDevice")
-	register(&fncommDeregister, "ncclCommDeregister")
-	register(&fncommDestroy, "ncclCommDestroy")
-	register(&fncommFinalize, "ncclCommFinalize")
-	register(&fncommGetAsyncError, "ncclCommGetAsyncError")
-	register(&fncommGetUniqueId, "ncclCommGetUniqueId")
-	register(&fncommGrow, "ncclCommGrow")
-	register(&fnCommInitAll, "ncclCommInitAll")
+	symcommAbort = registerSym("ncclCommAbort")
+	symcommCount = registerSym("ncclCommCount")
+	symcommCuDevice = registerSym("ncclCommCuDevice")
+	symcommDeregister = registerSym("ncclCommDeregister")
+	symcommDestroy = registerSym("ncclCommDestroy")
+	symcommFinalize = registerSym("ncclCommFinalize")
+	symcommGetAsyncError = registerSym("ncclCommGetAsyncError")
+	symcommGetUniqueId = registerSym("ncclCommGetUniqueId")
+	symcommGrow = registerSym("ncclCommGrow")
+	symCommInitAll = registerSym("ncclCommInitAll")
 	register(&fncommInitRank, "ncclCommInitRank")
 	register(&fncommInitRankConfig, "ncclCommInitRankConfig")
-	register(&fncommInitRankScalable, "ncclCommInitRankScalable")
-	register(&fncommMemStats, "ncclCommMemStats")
-	register(&fncommQueryProperties, "ncclCommQueryProperties")
-	register(&fncommRegister, "ncclCommRegister")
-	register(&fncommResume, "ncclCommResume")
-	register(&fncommRevoke, "ncclCommRevoke")
-	register(&fncommShrink, "ncclCommShrink")
-	register(&fncommSplit, "ncclCommSplit")
-	register(&fncommSuspend, "ncclCommSuspend")
-	register(&fncommUserRank, "ncclCommUserRank")
-	register(&fncommWindowDeregister, "ncclCommWindowDeregister")
-	register(&fncommWindowRegister, "ncclCommWindowRegister")
-	register(&fndevCommCreate, "ncclDevCommCreate")
-	register(&fndevCommDestroy, "ncclDevCommDestroy")
+	symcommInitRankScalable = registerSym("ncclCommInitRankScalable")
+	symcommMemStats = registerSym("ncclCommMemStats")
+	symcommQueryProperties = registerSym("ncclCommQueryProperties")
+	symcommRegister = registerSym("ncclCommRegister")
+	symcommResume = registerSym("ncclCommResume")
+	symcommRevoke = registerSym("ncclCommRevoke")
+	symcommShrink = registerSym("ncclCommShrink")
+	symcommSplit = registerSym("ncclCommSplit")
+	symcommSuspend = registerSym("ncclCommSuspend")
+	symcommUserRank = registerSym("ncclCommUserRank")
+	symcommWindowDeregister = registerSym("ncclCommWindowDeregister")
+	symcommWindowRegister = registerSym("ncclCommWindowRegister")
+	symdevCommCreate = registerSym("ncclDevCommCreate")
+	symdevCommDestroy = registerSym("ncclDevCommDestroy")
 	register(&fngather, "ncclGather")
 	register(&fngatherConfig, "ncclGatherConfig")
 	registerFFI(&fngetCftDeviceLeInfo, "ncclGetCftDeviceLeInfo")
-	register(&fngetLastError, "ncclGetLastError")
-	register(&fngetLsaDevicePointer, "ncclGetLsaDevicePointer")
-	register(&fngetLsaMultimemDevicePointer, "ncclGetLsaMultimemDevicePointer")
-	register(&fngetMultimemDeviceLeInfo, "ncclGetMultimemDeviceLeInfo")
+	symgetLastError = registerSym("ncclGetLastError")
+	symgetLsaDevicePointer = registerSym("ncclGetLsaDevicePointer")
+	symgetLsaMultimemDevicePointer = registerSym("ncclGetLsaMultimemDevicePointer")
+	symgetMultimemDeviceLeInfo = registerSym("ncclGetMultimemDeviceLeInfo")
 	register(&fngetMultimemDevicePointer, "ncclGetMultimemDevicePointer")
-	register(&fngetPeerDeviceLeInfo, "ncclGetPeerDeviceLeInfo")
-	register(&fngetPeerDevicePointer, "ncclGetPeerDevicePointer")
-	register(&fnGetUniqueId, "ncclGetUniqueId")
-	register(&fnGetVersion, "ncclGetVersion")
+	symgetPeerDeviceLeInfo = registerSym("ncclGetPeerDeviceLeInfo")
+	symgetPeerDevicePointer = registerSym("ncclGetPeerDevicePointer")
+	symGetUniqueId = registerSym("ncclGetUniqueId")
+	symGetVersion = registerSym("ncclGetVersion")
 	registerFFI(&fnginBarrierCreateRequirement, "ncclGinBarrierCreateRequirement")
-	register(&fnGroupEnd, "ncclGroupEnd")
-	register(&fnGroupSimulateEnd, "ncclGroupSimulateEnd")
-	register(&fnGroupStart, "ncclGroupStart")
-	register(&fnLLA2ACalcSlots, "ncclLLA2ACalcSlots")
-	register(&fnLLA2ACreateRequirement, "ncclLLA2ACreateRequirement")
+	symGroupEnd = registerSym("ncclGroupEnd")
+	symGroupSimulateEnd = registerSym("ncclGroupSimulateEnd")
+	symGroupStart = registerSym("ncclGroupStart")
+	symLLA2ACalcSlots = registerSym("ncclLLA2ACalcSlots")
+	symLLA2ACreateRequirement = registerSym("ncclLLA2ACreateRequirement")
 	registerFFI(&fnLsaBarrierCreateRequirement, "ncclLsaBarrierCreateRequirement")
-	register(&fnMemAlloc, "ncclMemAlloc")
-	register(&fnMemFree, "ncclMemFree")
-	register(&fnParamBind, "ncclParamBind")
-	register(&fnParamDumpAll, "ncclParamDumpAll")
-	register(&fnparamGet, "ncclParamGet")
-	register(&fnParamGetAllParameterKeys, "ncclParamGetAllParameterKeys")
-	register(&fnparamGetI16, "ncclParamGetI16")
-	register(&fnparamGetI32, "ncclParamGetI32")
-	register(&fnparamGetI64, "ncclParamGetI64")
-	register(&fnparamGetI8, "ncclParamGetI8")
-	register(&fnParamGetParameter, "ncclParamGetParameter")
-	register(&fnparamGetStr, "ncclParamGetStr")
-	register(&fnparamGetU16, "ncclParamGetU16")
-	register(&fnparamGetU32, "ncclParamGetU32")
-	register(&fnparamGetU64, "ncclParamGetU64")
-	register(&fnparamGetU8, "ncclParamGetU8")
+	symMemAlloc = registerSym("ncclMemAlloc")
+	symMemFree = registerSym("ncclMemFree")
+	symParamBind = registerSym("ncclParamBind")
+	symParamDumpAll = registerSym("ncclParamDumpAll")
+	symparamGet = registerSym("ncclParamGet")
+	symParamGetAllParameterKeys = registerSym("ncclParamGetAllParameterKeys")
+	symparamGetI16 = registerSym("ncclParamGetI16")
+	symparamGetI32 = registerSym("ncclParamGetI32")
+	symparamGetI64 = registerSym("ncclParamGetI64")
+	symparamGetI8 = registerSym("ncclParamGetI8")
+	symParamGetParameter = registerSym("ncclParamGetParameter")
+	symparamGetStr = registerSym("ncclParamGetStr")
+	symparamGetU16 = registerSym("ncclParamGetU16")
+	symparamGetU32 = registerSym("ncclParamGetU32")
+	symparamGetU64 = registerSym("ncclParamGetU64")
+	symparamGetU8 = registerSym("ncclParamGetU8")
 	register(&fnputSignal, "ncclPutSignal")
 	register(&fnrecv, "ncclRecv")
-	register(&fnredOpCreatePreMulSum, "ncclRedOpCreatePreMulSum")
-	register(&fnredOpDestroy, "ncclRedOpDestroy")
+	symredOpCreatePreMulSum = registerSym("ncclRedOpCreatePreMulSum")
+	symredOpDestroy = registerSym("ncclRedOpDestroy")
 	register(&fnreduce, "ncclReduce")
 	register(&fnreduceConfig, "ncclReduceConfig")
 	register(&fnreduceScatter, "ncclReduceScatter")
@@ -519,7 +639,7 @@ func registerFuncs() {
 	registerFFI(&fnteamRankToWorld, "ncclTeamRankToWorld")
 	register(&fnteamWorld, "ncclTeamWorld")
 	register(&fnwaitSignal, "ncclWaitSignal")
-	register(&fnwinGetUserPtr, "ncclWinGetUserPtr")
+	symwinGetUserPtr = registerSym("ncclWinGetUserPtr")
 }
 
 // clearFuncs unbinds all raw function pointers.
@@ -534,71 +654,71 @@ func clearFuncs() {
 	fnbroadcast = nil
 	fnbroadcastConfig = nil
 	fnCftBarrierCreateRequirement = nil
-	fncommAbort = nil
-	fncommCount = nil
-	fncommCuDevice = nil
-	fncommDeregister = nil
-	fncommDestroy = nil
-	fncommFinalize = nil
-	fncommGetAsyncError = nil
-	fncommGetUniqueId = nil
-	fncommGrow = nil
-	fnCommInitAll = nil
+	symcommAbort = 0
+	symcommCount = 0
+	symcommCuDevice = 0
+	symcommDeregister = 0
+	symcommDestroy = 0
+	symcommFinalize = 0
+	symcommGetAsyncError = 0
+	symcommGetUniqueId = 0
+	symcommGrow = 0
+	symCommInitAll = 0
 	fncommInitRank = nil
 	fncommInitRankConfig = nil
-	fncommInitRankScalable = nil
-	fncommMemStats = nil
-	fncommQueryProperties = nil
-	fncommRegister = nil
-	fncommResume = nil
-	fncommRevoke = nil
-	fncommShrink = nil
-	fncommSplit = nil
-	fncommSuspend = nil
-	fncommUserRank = nil
-	fncommWindowDeregister = nil
-	fncommWindowRegister = nil
-	fndevCommCreate = nil
-	fndevCommDestroy = nil
+	symcommInitRankScalable = 0
+	symcommMemStats = 0
+	symcommQueryProperties = 0
+	symcommRegister = 0
+	symcommResume = 0
+	symcommRevoke = 0
+	symcommShrink = 0
+	symcommSplit = 0
+	symcommSuspend = 0
+	symcommUserRank = 0
+	symcommWindowDeregister = 0
+	symcommWindowRegister = 0
+	symdevCommCreate = 0
+	symdevCommDestroy = 0
 	fngather = nil
 	fngatherConfig = nil
 	fngetCftDeviceLeInfo = nil
-	fngetLastError = nil
-	fngetLsaDevicePointer = nil
-	fngetLsaMultimemDevicePointer = nil
-	fngetMultimemDeviceLeInfo = nil
+	symgetLastError = 0
+	symgetLsaDevicePointer = 0
+	symgetLsaMultimemDevicePointer = 0
+	symgetMultimemDeviceLeInfo = 0
 	fngetMultimemDevicePointer = nil
-	fngetPeerDeviceLeInfo = nil
-	fngetPeerDevicePointer = nil
-	fnGetUniqueId = nil
-	fnGetVersion = nil
+	symgetPeerDeviceLeInfo = 0
+	symgetPeerDevicePointer = 0
+	symGetUniqueId = 0
+	symGetVersion = 0
 	fnginBarrierCreateRequirement = nil
-	fnGroupEnd = nil
-	fnGroupSimulateEnd = nil
-	fnGroupStart = nil
-	fnLLA2ACalcSlots = nil
-	fnLLA2ACreateRequirement = nil
+	symGroupEnd = 0
+	symGroupSimulateEnd = 0
+	symGroupStart = 0
+	symLLA2ACalcSlots = 0
+	symLLA2ACreateRequirement = 0
 	fnLsaBarrierCreateRequirement = nil
-	fnMemAlloc = nil
-	fnMemFree = nil
-	fnParamBind = nil
-	fnParamDumpAll = nil
-	fnparamGet = nil
-	fnParamGetAllParameterKeys = nil
-	fnparamGetI16 = nil
-	fnparamGetI32 = nil
-	fnparamGetI64 = nil
-	fnparamGetI8 = nil
-	fnParamGetParameter = nil
-	fnparamGetStr = nil
-	fnparamGetU16 = nil
-	fnparamGetU32 = nil
-	fnparamGetU64 = nil
-	fnparamGetU8 = nil
+	symMemAlloc = 0
+	symMemFree = 0
+	symParamBind = 0
+	symParamDumpAll = 0
+	symparamGet = 0
+	symParamGetAllParameterKeys = 0
+	symparamGetI16 = 0
+	symparamGetI32 = 0
+	symparamGetI64 = 0
+	symparamGetI8 = 0
+	symParamGetParameter = 0
+	symparamGetStr = 0
+	symparamGetU16 = 0
+	symparamGetU32 = 0
+	symparamGetU64 = 0
+	symparamGetU8 = 0
 	fnputSignal = nil
 	fnrecv = nil
-	fnredOpCreatePreMulSum = nil
-	fnredOpDestroy = nil
+	symredOpCreatePreMulSum = 0
+	symredOpDestroy = 0
 	fnreduce = nil
 	fnreduceConfig = nil
 	fnreduceScatter = nil
@@ -615,7 +735,7 @@ func clearFuncs() {
 	fnteamRankToWorld = nil
 	fnteamWorld = nil
 	fnwaitSignal = nil
-	fnwinGetUserPtr = nil
+	symwinGetUserPtr = 0
 }
 
 // HasGetErrorString reports whether ncclGetErrorString resolved in the loaded library.

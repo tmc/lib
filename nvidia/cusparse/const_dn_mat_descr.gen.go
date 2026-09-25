@@ -2,22 +2,49 @@
 
 package cusparse
 
-// DestroyDnMat wraps cusparseDestroyDnMat.
+// DestroyDnMat releases the host memory allocated for the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+// Wraps cusparseDestroyDnMat.
 func (c ConstDnMatDescr) DestroyDnMat() error {
 	return destroyDnMat(c)
 }
 
-// DnMatGet wraps cusparseConstDnMatGet.
+// DnMatGet returns the fields of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the dense matrix
+//   - cols: Number of columns of the dense matrix
+//   - ld: Leading dimension of the dense matrix
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//   - order: Enumerator specifying the memory layout of the dense matrix
+//
+// Wraps cusparseConstDnMatGet.
 func (c ConstDnMatDescr) DnMatGet(rows *int64, cols *int64, ld *int64, values *uintptr, type_ *DataType, order *Order) error {
 	return constDnMatGet(c, rows, cols, ld, values, type_, order)
 }
 
-// DnMatGetStridedBatch wraps cusparseDnMatGetStridedBatch.
+// DnMatGetStridedBatch returns the number of batches and the batch stride of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - batchCount: Number of batches of the dense matrix
+//   - batchStride: Address offset between a matrix and the next one in the batch
+//
+// Wraps cusparseDnMatGetStridedBatch.
 func (c ConstDnMatDescr) DnMatGetStridedBatch() (batchCount int32, batchStride int64, err error) {
 	return dnMatGetStridedBatch(c)
 }
 
-// DnMatGetValues wraps cusparseConstDnMatGetValues.
+// DnMatGetValues returns the values field of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//
+// Wraps cusparseConstDnMatGetValues.
 func (c ConstDnMatDescr) DnMatGetValues(values *uintptr) error {
 	return constDnMatGetValues(c, values)
 }

@@ -6,22 +6,52 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// MatGet wraps cusparseDnMatGet.
+// MatGet returns the fields of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the dense matrix
+//   - cols: Number of columns of the dense matrix
+//   - ld: Leading dimension of the dense matrix
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//   - order: Enumerator specifying the memory layout of the dense matrix
+//
+// Wraps cusparseDnMatGet.
 func (d DnMatDescr) MatGet(rows *int64, cols *int64, ld *int64, values *uintptr, type_ *DataType, order *Order) error {
 	return dnMatGet(d, rows, cols, ld, values, type_, order)
 }
 
-// MatGetValues wraps cusparseDnMatGetValues.
+// MatGetValues returns the values field of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//
+// Wraps cusparseDnMatGetValues.
 func (d DnMatDescr) MatGetValues(values *uintptr) error {
 	return dnMatGetValues(d, values)
 }
 
-// MatSetStridedBatch wraps cusparseDnMatSetStridedBatch.
+// MatSetStridedBatch sets the number of batches and the batch stride of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - batchCount: Number of batches of the dense matrix
+//   - batchStride: Address offset between a matrix and the next one in the batch. batchStride ≥ ld * cols if the matrix uses column-major layout, batchStride ≥ ld * rows otherwise
+//
+// Wraps cusparseDnMatSetStridedBatch.
 func (d DnMatDescr) MatSetStridedBatch(batchCount int32, batchStride int64) error {
 	return dnMatSetStridedBatch(d, batchCount, batchStride)
 }
 
-// MatSetValues wraps cusparseDnMatSetValues.
+// MatSetValues sets the values field of the dense matrix descriptor dnMatDescr.
+//
+// [DnMatDescr.MatSetValues] has the following constraints:
+// Refer to [Result] for the description of the return status.
+//
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//
+// Wraps cusparseDnMatSetValues.
 func (d DnMatDescr) MatSetValues(values driver.DevicePtr) error {
 	return dnMatSetValues(d, values)
 }

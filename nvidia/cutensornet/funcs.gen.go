@@ -3,7 +3,11 @@
 package cutensornet
 
 import (
+	"sync"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 func sliceData(s []unsafe.Pointer) unsafe.Pointer {
@@ -15,78 +19,595 @@ func sliceData(s []unsafe.Pointer) unsafe.Pointer {
 
 // Generated function pointer variables.
 var (
-	fncontractSlices                               func(Handle, ContractionPlan, *uintptr, uintptr, int32, WorkspaceDescriptor, SliceGroup, Stream) Result
-	fncontractionAutotune                          func(Handle, ContractionPlan, *uintptr, uintptr, WorkspaceDescriptor, ContractionAutotunePreference, Stream) Result
-	fncontractionAutotunePreferenceGetAttribute    func(Handle, ContractionAutotunePreference, ContractionAutotunePreferenceAttributes, unsafe.Pointer, uint) Result
-	fncontractionAutotunePreferenceSetAttribute    func(Handle, ContractionAutotunePreference, ContractionAutotunePreferenceAttributes, unsafe.Pointer, uint) Result
-	fncontractionOptimize                          func(Handle, NetworkDescriptor, ContractionOptimizerConfig, uint64, ContractionOptimizerInfo) Result
-	fncontractionOptimizerConfigGetAttribute       func(Handle, ContractionOptimizerConfig, ContractionOptimizerConfigAttributes, unsafe.Pointer, uint) Result
-	fncontractionOptimizerConfigSetAttribute       func(Handle, ContractionOptimizerConfig, ContractionOptimizerConfigAttributes, unsafe.Pointer, uint) Result
-	fncontractionOptimizerInfoGetAttribute         func(Handle, ContractionOptimizerInfo, ContractionOptimizerInfoAttributes, unsafe.Pointer, uint) Result
-	fncontractionOptimizerInfoGetPackedSize        func(Handle, ContractionOptimizerInfo, *uint) Result
-	fncontractionOptimizerInfoPackData             func(Handle, ContractionOptimizerInfo, unsafe.Pointer, uint) Result
-	fncontractionOptimizerInfoSetAttribute         func(Handle, ContractionOptimizerInfo, ContractionOptimizerInfoAttributes, unsafe.Pointer, uint) Result
-	fnCreate                                       func(*Handle) Result
-	fncreateContractionAutotunePreference          func(Handle, *ContractionAutotunePreference) Result
-	fncreateContractionOptimizerConfig             func(Handle, *ContractionOptimizerConfig) Result
-	fncreateContractionOptimizerInfo               func(Handle, NetworkDescriptor, *ContractionOptimizerInfo) Result
-	fncreateContractionOptimizerInfoFromPackedData func(Handle, NetworkDescriptor, unsafe.Pointer, uint, *ContractionOptimizerInfo) Result
-	fncreateContractionPlan                        func(Handle, NetworkDescriptor, ContractionOptimizerInfo, WorkspaceDescriptor, *ContractionPlan) Result
-	fncreateNetwork                                func(Handle, *NetworkDescriptor) Result
-	fncreateNetworkAutotunePreference              func(Handle, *NetworkAutotunePreference) Result
-	fncreateNetworkDescriptor                      func(Handle, int32, *int32, *uintptr, *uintptr, *uintptr, *TensorQualifiers, int32, *int64, *int64, *int32, DataType, ComputeType, *NetworkDescriptor) Result
-	fncreateSliceGroupFromIDRange                  func(Handle, int64, int64, int64, *SliceGroup) Result
-	fncreateSliceGroupFromIDs                      func(Handle, *int64, *int64, *SliceGroup) Result
-	fncreateTensorDescriptor                       func(Handle, int32, *int64, *int64, *int32, DataType, *TensorDescriptor) Result
-	fncreateWorkspaceDescriptor                    func(Handle, *WorkspaceDescriptor) Result
-	fndestroy                                      func(Handle) Result
-	fndestroyContractionAutotunePreference         func(ContractionAutotunePreference) Result
-	fndestroyContractionOptimizerConfig            func(ContractionOptimizerConfig) Result
-	fndestroyContractionOptimizerInfo              func(ContractionOptimizerInfo) Result
-	fndestroyContractionPlan                       func(ContractionPlan) Result
-	fndestroyNetwork                               func(NetworkDescriptor) Result
-	fndestroyNetworkAutotunePreference             func(NetworkAutotunePreference) Result
-	fndestroyNetworkDescriptor                     func(NetworkDescriptor) Result
-	fndestroySliceGroup                            func(SliceGroup) Result
-	fndestroyTensorDescriptor                      func(TensorDescriptor) Result
-	fndestroyWorkspaceDescriptor                   func(WorkspaceDescriptor) Result
-	fndistributedGetNumRanks                       func(Handle, *int32) Result
-	fndistributedGetProcRank                       func(Handle, *int32) Result
-	fndistributedResetConfiguration                func(Handle, unsafe.Pointer, uint) Result
-	fndistributedSynchronize                       func(Handle) Result
-	fnGetCudartVersion                             func() uint
-	fngetOutputTensorDescriptor                    func(Handle, NetworkDescriptor, *TensorDescriptor) Result
-	fngetOutputTensorDetails                       func(Handle, NetworkDescriptor, *int32, *uint, *int32, *int64, *int64) Result
-	fngetTensorDetails                             func(Handle, TensorDescriptor, *int32, *uint, *int32, *int64, *int64) Result
-	fnGetVersion                                   func() uint
-	fnLoggerForceDisable                           func() Result
-	fnLoggerOpenFile                               func(*byte) Result
-	fnLoggerSetLevel                               func(int32) Result
-	fnLoggerSetMask                                func(int32) Result
-	fnnetworkAppendTensor                          func(Handle, NetworkDescriptor, int32, *int64, *int32, *TensorQualifiers, DataType, *int64) Result
-	fnnetworkAutotuneContraction                   func(Handle, NetworkDescriptor, WorkspaceDescriptor, NetworkAutotunePreference, Stream) Result
-	fnnetworkAutotunePreferenceGetAttribute        func(Handle, NetworkAutotunePreference, NetworkAutotunePreferenceAttributes, unsafe.Pointer, uint) Result
-	fnnetworkAutotunePreferenceSetAttribute        func(Handle, NetworkAutotunePreference, NetworkAutotunePreferenceAttributes, unsafe.Pointer, uint) Result
-	fnnetworkContract                              func(Handle, NetworkDescriptor, int32, WorkspaceDescriptor, SliceGroup, Stream) Result
-	fnnetworkGetAttribute                          func(Handle, NetworkDescriptor, NetworkAttributes, unsafe.Pointer, uint) Result
-	fnnetworkPrepareContraction                    func(Handle, NetworkDescriptor, WorkspaceDescriptor) Result
-	fnnetworkSetAttribute                          func(Handle, NetworkDescriptor, NetworkAttributes, unsafe.Pointer, uint) Result
-	fnnetworkSetInputTensorMemory                  func(Handle, NetworkDescriptor, int64, uintptr, *int64) Result
-	fnnetworkSetOptimizerInfo                      func(Handle, NetworkDescriptor, ContractionOptimizerInfo) Result
-	fnnetworkSetOutputTensor                       func(Handle, NetworkDescriptor, int32, *int32, DataType) Result
-	fnnetworkSetOutputTensorMemory                 func(Handle, NetworkDescriptor, uintptr, *int64) Result
-	fnupdateContractionOptimizerInfoFromPackedData func(Handle, unsafe.Pointer, uint, ContractionOptimizerInfo) Result
-	fnworkspaceComputeContractionSizes             func(Handle, NetworkDescriptor, ContractionOptimizerInfo, WorkspaceDescriptor) Result
-	fnworkspaceGetMemory                           func(Handle, WorkspaceDescriptor, Memspace, WorkspaceKind, *uintptr, *int64) Result
-	fnworkspaceGetMemorySize                       func(Handle, WorkspaceDescriptor, WorksizePref, Memspace, WorkspaceKind, *int64) Result
-	fnworkspacePurgeCache                          func(Handle, WorkspaceDescriptor, Memspace) Result
-	fnworkspaceSetMemory                           func(Handle, WorkspaceDescriptor, Memspace, WorkspaceKind, uintptr, int64) Result
+	fncontractSlices                                func(Handle, ContractionPlan, *uintptr, uintptr, int32, WorkspaceDescriptor, SliceGroup, driver.Stream) Result
+	fncontractionAutotune                           func(Handle, ContractionPlan, *uintptr, uintptr, WorkspaceDescriptor, ContractionAutotunePreference, driver.Stream) Result
+	symcontractionAutotunePreferenceGetAttribute    uintptr
+	symcontractionAutotunePreferenceSetAttribute    uintptr
+	symcontractionOptimize                          uintptr
+	symcontractionOptimizerConfigGetAttribute       uintptr
+	symcontractionOptimizerConfigSetAttribute       uintptr
+	symcontractionOptimizerInfoGetAttribute         uintptr
+	symcontractionOptimizerInfoGetPackedSize        uintptr
+	symcontractionOptimizerInfoPackData             uintptr
+	symcontractionOptimizerInfoSetAttribute         uintptr
+	symCreate                                       uintptr
+	symcreateContractionAutotunePreference          uintptr
+	symcreateContractionOptimizerConfig             uintptr
+	symcreateContractionOptimizerInfo               uintptr
+	symcreateContractionOptimizerInfoFromPackedData uintptr
+	symcreateContractionPlan                        uintptr
+	symcreateNetwork                                uintptr
+	symcreateNetworkAutotunePreference              uintptr
+	symcreateNetworkDescriptor                      uintptr
+	symcreateSliceGroupFromIDRange                  uintptr
+	symcreateSliceGroupFromIDs                      uintptr
+	symcreateTensorDescriptor                       uintptr
+	symcreateWorkspaceDescriptor                    uintptr
+	symdestroy                                      uintptr
+	symdestroyContractionAutotunePreference         uintptr
+	symdestroyContractionOptimizerConfig            uintptr
+	symdestroyContractionOptimizerInfo              uintptr
+	symdestroyContractionPlan                       uintptr
+	symdestroyNetwork                               uintptr
+	symdestroyNetworkAutotunePreference             uintptr
+	symdestroyNetworkDescriptor                     uintptr
+	symdestroySliceGroup                            uintptr
+	symdestroyTensorDescriptor                      uintptr
+	symdestroyWorkspaceDescriptor                   uintptr
+	symdistributedGetNumRanks                       uintptr
+	symdistributedGetProcRank                       uintptr
+	symdistributedResetConfiguration                uintptr
+	symdistributedSynchronize                       uintptr
+	symGetCudartVersion                             uintptr
+	symgetOutputTensorDescriptor                    uintptr
+	symgetOutputTensorDetails                       uintptr
+	symgetTensorDetails                             uintptr
+	symGetVersion                                   uintptr
+	symLoggerForceDisable                           uintptr
+	symLoggerOpenFile                               uintptr
+	symLoggerSetLevel                               uintptr
+	symLoggerSetMask                                uintptr
+	symnetworkAppendTensor                          uintptr
+	fnnetworkAutotuneContraction                    func(Handle, NetworkDescriptor, WorkspaceDescriptor, NetworkAutotunePreference, driver.Stream) Result
+	symnetworkAutotunePreferenceGetAttribute        uintptr
+	symnetworkAutotunePreferenceSetAttribute        uintptr
+	fnnetworkContract                               func(Handle, NetworkDescriptor, int32, WorkspaceDescriptor, SliceGroup, driver.Stream) Result
+	symnetworkGetAttribute                          uintptr
+	symnetworkPrepareContraction                    uintptr
+	symnetworkSetAttribute                          uintptr
+	symnetworkSetInputTensorMemory                  uintptr
+	symnetworkSetOptimizerInfo                      uintptr
+	symnetworkSetOutputTensor                       uintptr
+	symnetworkSetOutputTensorMemory                 uintptr
+	symupdateContractionOptimizerInfoFromPackedData uintptr
+	symworkspaceComputeContractionSizes             uintptr
+	symworkspaceGetMemory                           uintptr
+	symworkspaceGetMemorySize                       uintptr
+	symworkspacePurgeCache                          uintptr
+	symworkspaceSetMemory                           uintptr
 )
+
+// ffiCall0 through ffiCall14 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	return ffi.CallFloat(fn, 14, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fncontractionAutotunePreferenceGetAttribute calls cutensornetContractionAutotunePreferenceGetAttribute.
+func fncontractionAutotunePreferenceGetAttribute(a0 Handle, a1 ContractionAutotunePreference, a2 ContractionAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symcontractionAutotunePreferenceGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncontractionAutotunePreferenceSetAttribute calls cutensornetContractionAutotunePreferenceSetAttribute.
+func fncontractionAutotunePreferenceSetAttribute(a0 Handle, a1 ContractionAutotunePreference, a2 ContractionAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symcontractionAutotunePreferenceSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncontractionOptimize calls cutensornetContractionOptimize.
+func fncontractionOptimize(a0 Handle, a1 NetworkDescriptor, a2 ContractionOptimizerConfig, a3 uint64, a4 ContractionOptimizerInfo) Result {
+	r1, _ := ffiCall5(symcontractionOptimize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncontractionOptimizerConfigGetAttribute calls cutensornetContractionOptimizerConfigGetAttribute.
+func fncontractionOptimizerConfigGetAttribute(a0 Handle, a1 ContractionOptimizerConfig, a2 ContractionOptimizerConfigAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symcontractionOptimizerConfigGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncontractionOptimizerConfigSetAttribute calls cutensornetContractionOptimizerConfigSetAttribute.
+func fncontractionOptimizerConfigSetAttribute(a0 Handle, a1 ContractionOptimizerConfig, a2 ContractionOptimizerConfigAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symcontractionOptimizerConfigSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncontractionOptimizerInfoGetAttribute calls cutensornetContractionOptimizerInfoGetAttribute.
+func fncontractionOptimizerInfoGetAttribute(a0 Handle, a1 ContractionOptimizerInfo, a2 ContractionOptimizerInfoAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symcontractionOptimizerInfoGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncontractionOptimizerInfoGetPackedSize calls cutensornetContractionOptimizerInfoGetPackedSize.
+func fncontractionOptimizerInfoGetPackedSize(a0 Handle, a1 ContractionOptimizerInfo, a2 *uint) Result {
+	r1, _ := ffiCall3(symcontractionOptimizerInfoGetPackedSize, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fncontractionOptimizerInfoPackData calls cutensornetContractionOptimizerInfoPackData.
+func fncontractionOptimizerInfoPackData(a0 Handle, a1 ContractionOptimizerInfo, a2 unsafe.Pointer, a3 uint) Result {
+	r1, _ := ffiCall4(symcontractionOptimizerInfoPackData, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fncontractionOptimizerInfoSetAttribute calls cutensornetContractionOptimizerInfoSetAttribute.
+func fncontractionOptimizerInfoSetAttribute(a0 Handle, a1 ContractionOptimizerInfo, a2 ContractionOptimizerInfoAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symcontractionOptimizerInfoSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnCreate calls cutensornetCreate.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fncreateContractionAutotunePreference calls cutensornetCreateContractionAutotunePreference.
+func fncreateContractionAutotunePreference(a0 Handle, a1 *ContractionAutotunePreference) Result {
+	r1, _ := ffiCall2(symcreateContractionAutotunePreference, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fncreateContractionOptimizerConfig calls cutensornetCreateContractionOptimizerConfig.
+func fncreateContractionOptimizerConfig(a0 Handle, a1 *ContractionOptimizerConfig) Result {
+	r1, _ := ffiCall2(symcreateContractionOptimizerConfig, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fncreateContractionOptimizerInfo calls cutensornetCreateContractionOptimizerInfo.
+func fncreateContractionOptimizerInfo(a0 Handle, a1 NetworkDescriptor, a2 *ContractionOptimizerInfo) Result {
+	r1, _ := ffiCall3(symcreateContractionOptimizerInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fncreateContractionOptimizerInfoFromPackedData calls cutensornetCreateContractionOptimizerInfoFromPackedData.
+func fncreateContractionOptimizerInfoFromPackedData(a0 Handle, a1 NetworkDescriptor, a2 unsafe.Pointer, a3 uint, a4 *ContractionOptimizerInfo) Result {
+	r1, _ := ffiCall5(symcreateContractionOptimizerInfoFromPackedData, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fncreateContractionPlan calls cutensornetCreateContractionPlan.
+func fncreateContractionPlan(a0 Handle, a1 NetworkDescriptor, a2 ContractionOptimizerInfo, a3 WorkspaceDescriptor, a4 *ContractionPlan) Result {
+	r1, _ := ffiCall5(symcreateContractionPlan, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fncreateNetwork calls cutensornetCreateNetwork.
+func fncreateNetwork(a0 Handle, a1 *NetworkDescriptor) Result {
+	r1, _ := ffiCall2(symcreateNetwork, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fncreateNetworkAutotunePreference calls cutensornetCreateNetworkAutotunePreference.
+func fncreateNetworkAutotunePreference(a0 Handle, a1 *NetworkAutotunePreference) Result {
+	r1, _ := ffiCall2(symcreateNetworkAutotunePreference, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fncreateNetworkDescriptor calls cutensornetCreateNetworkDescriptor.
+func fncreateNetworkDescriptor(a0 Handle, a1 int32, a2 *int32, a3 *uintptr, a4 *uintptr, a5 *uintptr, a6 *TensorQualifiers, a7 int32, a8 *int64, a9 *int64, a10 *int32, a11 DataType, a12 ComputeType, a13 *NetworkDescriptor) Result {
+	r1, _ := ffiCall14(symcreateNetworkDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	return Result(r1)
+}
+
+// fncreateSliceGroupFromIDRange calls cutensornetCreateSliceGroupFromIDRange.
+func fncreateSliceGroupFromIDRange(a0 Handle, a1 int64, a2 int64, a3 int64, a4 *SliceGroup) Result {
+	r1, _ := ffiCall5(symcreateSliceGroupFromIDRange, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fncreateSliceGroupFromIDs calls cutensornetCreateSliceGroupFromIDs.
+func fncreateSliceGroupFromIDs(a0 Handle, a1 *int64, a2 *int64, a3 *SliceGroup) Result {
+	r1, _ := ffiCall4(symcreateSliceGroupFromIDs, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fncreateTensorDescriptor calls cutensornetCreateTensorDescriptor.
+func fncreateTensorDescriptor(a0 Handle, a1 int32, a2 *int64, a3 *int64, a4 *int32, a5 DataType, a6 *TensorDescriptor) Result {
+	r1, _ := ffiCall7(symcreateTensorDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fncreateWorkspaceDescriptor calls cutensornetCreateWorkspaceDescriptor.
+func fncreateWorkspaceDescriptor(a0 Handle, a1 *WorkspaceDescriptor) Result {
+	r1, _ := ffiCall2(symcreateWorkspaceDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndestroy calls cutensornetDestroy.
+func fndestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyContractionAutotunePreference calls cutensornetDestroyContractionAutotunePreference.
+func fndestroyContractionAutotunePreference(a0 ContractionAutotunePreference) Result {
+	r1, _ := ffiCall1(symdestroyContractionAutotunePreference, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyContractionOptimizerConfig calls cutensornetDestroyContractionOptimizerConfig.
+func fndestroyContractionOptimizerConfig(a0 ContractionOptimizerConfig) Result {
+	r1, _ := ffiCall1(symdestroyContractionOptimizerConfig, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyContractionOptimizerInfo calls cutensornetDestroyContractionOptimizerInfo.
+func fndestroyContractionOptimizerInfo(a0 ContractionOptimizerInfo) Result {
+	r1, _ := ffiCall1(symdestroyContractionOptimizerInfo, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyContractionPlan calls cutensornetDestroyContractionPlan.
+func fndestroyContractionPlan(a0 ContractionPlan) Result {
+	r1, _ := ffiCall1(symdestroyContractionPlan, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyNetwork calls cutensornetDestroyNetwork.
+func fndestroyNetwork(a0 NetworkDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyNetwork, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyNetworkAutotunePreference calls cutensornetDestroyNetworkAutotunePreference.
+func fndestroyNetworkAutotunePreference(a0 NetworkAutotunePreference) Result {
+	r1, _ := ffiCall1(symdestroyNetworkAutotunePreference, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyNetworkDescriptor calls cutensornetDestroyNetworkDescriptor.
+func fndestroyNetworkDescriptor(a0 NetworkDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyNetworkDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroySliceGroup calls cutensornetDestroySliceGroup.
+func fndestroySliceGroup(a0 SliceGroup) Result {
+	r1, _ := ffiCall1(symdestroySliceGroup, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyTensorDescriptor calls cutensornetDestroyTensorDescriptor.
+func fndestroyTensorDescriptor(a0 TensorDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyTensorDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyWorkspaceDescriptor calls cutensornetDestroyWorkspaceDescriptor.
+func fndestroyWorkspaceDescriptor(a0 WorkspaceDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyWorkspaceDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndistributedGetNumRanks calls cutensornetDistributedGetNumRanks.
+func fndistributedGetNumRanks(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symdistributedGetNumRanks, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndistributedGetProcRank calls cutensornetDistributedGetProcRank.
+func fndistributedGetProcRank(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symdistributedGetProcRank, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndistributedResetConfiguration calls cutensornetDistributedResetConfiguration.
+func fndistributedResetConfiguration(a0 Handle, a1 unsafe.Pointer, a2 uint) Result {
+	r1, _ := ffiCall3(symdistributedResetConfiguration, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndistributedSynchronize calls cutensornetDistributedSynchronize.
+func fndistributedSynchronize(a0 Handle) Result {
+	r1, _ := ffiCall1(symdistributedSynchronize, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnGetCudartVersion calls cutensornetGetCudartVersion.
+func fnGetCudartVersion() uint {
+	r1, _ := ffiCall0(symGetCudartVersion, 0)
+	return uint(r1)
+}
+
+// fngetOutputTensorDescriptor calls cutensornetGetOutputTensorDescriptor.
+func fngetOutputTensorDescriptor(a0 Handle, a1 NetworkDescriptor, a2 *TensorDescriptor) Result {
+	r1, _ := ffiCall3(symgetOutputTensorDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngetOutputTensorDetails calls cutensornetGetOutputTensorDetails.
+func fngetOutputTensorDetails(a0 Handle, a1 NetworkDescriptor, a2 *int32, a3 *uint, a4 *int32, a5 *int64, a6 *int64) Result {
+	r1, _ := ffiCall7(symgetOutputTensorDetails, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fngetTensorDetails calls cutensornetGetTensorDetails.
+func fngetTensorDetails(a0 Handle, a1 TensorDescriptor, a2 *int32, a3 *uint, a4 *int32, a5 *int64, a6 *int64) Result {
+	r1, _ := ffiCall7(symgetTensorDetails, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnGetVersion calls cutensornetGetVersion.
+func fnGetVersion() uint {
+	r1, _ := ffiCall0(symGetVersion, 0)
+	return uint(r1)
+}
+
+// fnLoggerForceDisable calls cutensornetLoggerForceDisable.
+func fnLoggerForceDisable() Result {
+	r1, _ := ffiCall0(symLoggerForceDisable, 0)
+	return Result(r1)
+}
+
+// fnLoggerOpenFile calls cutensornetLoggerOpenFile.
+func fnLoggerOpenFile(a0 *byte) Result {
+	r1, _ := ffiCall1(symLoggerOpenFile, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnLoggerSetLevel calls cutensornetLoggerSetLevel.
+func fnLoggerSetLevel(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetMask calls cutensornetLoggerSetMask.
+func fnLoggerSetMask(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnnetworkAppendTensor calls cutensornetNetworkAppendTensor.
+func fnnetworkAppendTensor(a0 Handle, a1 NetworkDescriptor, a2 int32, a3 *int64, a4 *int32, a5 *TensorQualifiers, a6 DataType, a7 *int64) Result {
+	r1, _ := ffiCall8(symnetworkAppendTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnnetworkAutotunePreferenceGetAttribute calls cutensornetNetworkAutotunePreferenceGetAttribute.
+func fnnetworkAutotunePreferenceGetAttribute(a0 Handle, a1 NetworkAutotunePreference, a2 NetworkAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symnetworkAutotunePreferenceGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnnetworkAutotunePreferenceSetAttribute calls cutensornetNetworkAutotunePreferenceSetAttribute.
+func fnnetworkAutotunePreferenceSetAttribute(a0 Handle, a1 NetworkAutotunePreference, a2 NetworkAutotunePreferenceAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symnetworkAutotunePreferenceSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnnetworkGetAttribute calls cutensornetNetworkGetAttribute.
+func fnnetworkGetAttribute(a0 Handle, a1 NetworkDescriptor, a2 NetworkAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symnetworkGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnnetworkPrepareContraction calls cutensornetNetworkPrepareContraction.
+func fnnetworkPrepareContraction(a0 Handle, a1 NetworkDescriptor, a2 WorkspaceDescriptor) Result {
+	r1, _ := ffiCall3(symnetworkPrepareContraction, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnnetworkSetAttribute calls cutensornetNetworkSetAttribute.
+func fnnetworkSetAttribute(a0 Handle, a1 NetworkDescriptor, a2 NetworkAttributes, a3 unsafe.Pointer, a4 uint) Result {
+	r1, _ := ffiCall5(symnetworkSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnnetworkSetInputTensorMemory calls cutensornetNetworkSetInputTensorMemory.
+func fnnetworkSetInputTensorMemory(a0 Handle, a1 NetworkDescriptor, a2 int64, a3 uintptr, a4 *int64) Result {
+	r1, _ := ffiCall5(symnetworkSetInputTensorMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnnetworkSetOptimizerInfo calls cutensornetNetworkSetOptimizerInfo.
+func fnnetworkSetOptimizerInfo(a0 Handle, a1 NetworkDescriptor, a2 ContractionOptimizerInfo) Result {
+	r1, _ := ffiCall3(symnetworkSetOptimizerInfo, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnnetworkSetOutputTensor calls cutensornetNetworkSetOutputTensor.
+func fnnetworkSetOutputTensor(a0 Handle, a1 NetworkDescriptor, a2 int32, a3 *int32, a4 DataType) Result {
+	r1, _ := ffiCall5(symnetworkSetOutputTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fnnetworkSetOutputTensorMemory calls cutensornetNetworkSetOutputTensorMemory.
+func fnnetworkSetOutputTensorMemory(a0 Handle, a1 NetworkDescriptor, a2 uintptr, a3 *int64) Result {
+	r1, _ := ffiCall4(symnetworkSetOutputTensorMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnupdateContractionOptimizerInfoFromPackedData calls cutensornetUpdateContractionOptimizerInfoFromPackedData.
+func fnupdateContractionOptimizerInfoFromPackedData(a0 Handle, a1 unsafe.Pointer, a2 uint, a3 ContractionOptimizerInfo) Result {
+	r1, _ := ffiCall4(symupdateContractionOptimizerInfoFromPackedData, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnworkspaceComputeContractionSizes calls cutensornetWorkspaceComputeContractionSizes.
+func fnworkspaceComputeContractionSizes(a0 Handle, a1 NetworkDescriptor, a2 ContractionOptimizerInfo, a3 WorkspaceDescriptor) Result {
+	r1, _ := ffiCall4(symworkspaceComputeContractionSizes, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnworkspaceGetMemory calls cutensornetWorkspaceGetMemory.
+func fnworkspaceGetMemory(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 *uintptr, a5 *int64) Result {
+	r1, _ := ffiCall6(symworkspaceGetMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnworkspaceGetMemorySize calls cutensornetWorkspaceGetMemorySize.
+func fnworkspaceGetMemorySize(a0 Handle, a1 WorkspaceDescriptor, a2 WorksizePref, a3 Memspace, a4 WorkspaceKind, a5 *int64) Result {
+	r1, _ := ffiCall6(symworkspaceGetMemorySize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnworkspacePurgeCache calls cutensornetWorkspacePurgeCache.
+func fnworkspacePurgeCache(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace) Result {
+	r1, _ := ffiCall3(symworkspacePurgeCache, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnworkspaceSetMemory calls cutensornetWorkspaceSetMemory.
+func fnworkspaceSetMemory(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symworkspaceSetMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
 
 // contractSlices wraps cutensornetContractSlices.
 //
 // Deprecated: This function is deprecated.
-func contractSlices(handle Handle, plan ContractionPlan, rawDataIn *uintptr, rawDataOut uintptr, accumulateOutput int32, workDesc WorkspaceDescriptor, sliceGroup SliceGroup, stream Stream) error {
+func contractSlices(handle Handle, plan ContractionPlan, rawDataIn *uintptr, rawDataOut uintptr, accumulateOutput int32, workDesc WorkspaceDescriptor, sliceGroup SliceGroup, stream driver.Stream) error {
 	if err := checkLibSym("cutensornetContractSlices"); err != nil {
 		return err
 	}
@@ -96,7 +617,7 @@ func contractSlices(handle Handle, plan ContractionPlan, rawDataIn *uintptr, raw
 // contractionAutotune wraps cutensornetContractionAutotune.
 //
 // Deprecated: This function is deprecated.
-func contractionAutotune(handle Handle, plan ContractionPlan, rawDataIn *uintptr, rawDataOut uintptr, workDesc WorkspaceDescriptor, pref ContractionAutotunePreference, stream Stream) error {
+func contractionAutotune(handle Handle, plan ContractionPlan, rawDataIn *uintptr, rawDataOut uintptr, workDesc WorkspaceDescriptor, pref ContractionAutotunePreference, stream driver.Stream) error {
 	if err := checkLibSym("cutensornetContractionAutotune"); err != nil {
 		return err
 	}
@@ -161,13 +682,16 @@ func contractionOptimizerInfoGetPackedSize(handle Handle, optimizerInfo Contract
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncontractionOptimizerInfoGetPackedSize(handle, optimizerInfo, &out), "cutensornetContractionOptimizerInfoGetPackedSize"); err != nil {
+	out := slotContractionOptimizerInfoGetPackedSize.get()
+	defer slotContractionOptimizerInfoGetPackedSize.put(out)
+	if err := toError(fncontractionOptimizerInfoGetPackedSize(handle, optimizerInfo, out), "cutensornetContractionOptimizerInfoGetPackedSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotContractionOptimizerInfoGetPackedSize outSlot[uint]
 
 // contractionOptimizerInfoPackData wraps cutensornetContractionOptimizerInfoPackData.
 func contractionOptimizerInfoPackData(handle Handle, optimizerInfo ContractionOptimizerInfo, buffer unsafe.Pointer, sizeInBytes uint) error {
@@ -191,13 +715,16 @@ func Create() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "cutensornetCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "cutensornetCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // createContractionAutotunePreference wraps cutensornetCreateContractionAutotunePreference.
 //
@@ -207,13 +734,16 @@ func createContractionAutotunePreference(handle Handle) (ContractionAutotunePref
 		var zero ContractionAutotunePreference
 		return zero, err
 	}
-	var out ContractionAutotunePreference
-	if err := toError(fncreateContractionAutotunePreference(handle, &out), "cutensornetCreateContractionAutotunePreference"); err != nil {
+	out := slotCreateContractionAutotunePreference.get()
+	defer slotCreateContractionAutotunePreference.put(out)
+	if err := toError(fncreateContractionAutotunePreference(handle, out), "cutensornetCreateContractionAutotunePreference"); err != nil {
 		var zero ContractionAutotunePreference
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateContractionAutotunePreference outSlot[ContractionAutotunePreference]
 
 // createContractionOptimizerConfig wraps cutensornetCreateContractionOptimizerConfig.
 func createContractionOptimizerConfig(handle Handle) (ContractionOptimizerConfig, error) {
@@ -221,13 +751,16 @@ func createContractionOptimizerConfig(handle Handle) (ContractionOptimizerConfig
 		var zero ContractionOptimizerConfig
 		return zero, err
 	}
-	var out ContractionOptimizerConfig
-	if err := toError(fncreateContractionOptimizerConfig(handle, &out), "cutensornetCreateContractionOptimizerConfig"); err != nil {
+	out := slotCreateContractionOptimizerConfig.get()
+	defer slotCreateContractionOptimizerConfig.put(out)
+	if err := toError(fncreateContractionOptimizerConfig(handle, out), "cutensornetCreateContractionOptimizerConfig"); err != nil {
 		var zero ContractionOptimizerConfig
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateContractionOptimizerConfig outSlot[ContractionOptimizerConfig]
 
 // createContractionOptimizerInfo wraps cutensornetCreateContractionOptimizerInfo.
 func createContractionOptimizerInfo(handle Handle, networkDesc NetworkDescriptor) (ContractionOptimizerInfo, error) {
@@ -235,13 +768,16 @@ func createContractionOptimizerInfo(handle Handle, networkDesc NetworkDescriptor
 		var zero ContractionOptimizerInfo
 		return zero, err
 	}
-	var out ContractionOptimizerInfo
-	if err := toError(fncreateContractionOptimizerInfo(handle, networkDesc, &out), "cutensornetCreateContractionOptimizerInfo"); err != nil {
+	out := slotCreateContractionOptimizerInfo.get()
+	defer slotCreateContractionOptimizerInfo.put(out)
+	if err := toError(fncreateContractionOptimizerInfo(handle, networkDesc, out), "cutensornetCreateContractionOptimizerInfo"); err != nil {
 		var zero ContractionOptimizerInfo
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateContractionOptimizerInfo outSlot[ContractionOptimizerInfo]
 
 // createContractionOptimizerInfoFromPackedData wraps cutensornetCreateContractionOptimizerInfoFromPackedData.
 func createContractionOptimizerInfoFromPackedData(handle Handle, networkDesc NetworkDescriptor, buffer unsafe.Pointer, sizeInBytes uint) (ContractionOptimizerInfo, error) {
@@ -249,13 +785,16 @@ func createContractionOptimizerInfoFromPackedData(handle Handle, networkDesc Net
 		var zero ContractionOptimizerInfo
 		return zero, err
 	}
-	var out ContractionOptimizerInfo
-	if err := toError(fncreateContractionOptimizerInfoFromPackedData(handle, networkDesc, buffer, sizeInBytes, &out), "cutensornetCreateContractionOptimizerInfoFromPackedData"); err != nil {
+	out := slotCreateContractionOptimizerInfoFromPackedData.get()
+	defer slotCreateContractionOptimizerInfoFromPackedData.put(out)
+	if err := toError(fncreateContractionOptimizerInfoFromPackedData(handle, networkDesc, buffer, sizeInBytes, out), "cutensornetCreateContractionOptimizerInfoFromPackedData"); err != nil {
 		var zero ContractionOptimizerInfo
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateContractionOptimizerInfoFromPackedData outSlot[ContractionOptimizerInfo]
 
 // createContractionPlan wraps cutensornetCreateContractionPlan.
 //
@@ -265,13 +804,16 @@ func createContractionPlan(handle Handle, networkDesc NetworkDescriptor, optimiz
 		var zero ContractionPlan
 		return zero, err
 	}
-	var out ContractionPlan
-	if err := toError(fncreateContractionPlan(handle, networkDesc, optimizerInfo, workDesc, &out), "cutensornetCreateContractionPlan"); err != nil {
+	out := slotCreateContractionPlan.get()
+	defer slotCreateContractionPlan.put(out)
+	if err := toError(fncreateContractionPlan(handle, networkDesc, optimizerInfo, workDesc, out), "cutensornetCreateContractionPlan"); err != nil {
 		var zero ContractionPlan
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateContractionPlan outSlot[ContractionPlan]
 
 // createNetwork wraps cutensornetCreateNetwork.
 func createNetwork(handle Handle) (NetworkDescriptor, error) {
@@ -279,13 +821,16 @@ func createNetwork(handle Handle) (NetworkDescriptor, error) {
 		var zero NetworkDescriptor
 		return zero, err
 	}
-	var out NetworkDescriptor
-	if err := toError(fncreateNetwork(handle, &out), "cutensornetCreateNetwork"); err != nil {
+	out := slotCreateNetwork.get()
+	defer slotCreateNetwork.put(out)
+	if err := toError(fncreateNetwork(handle, out), "cutensornetCreateNetwork"); err != nil {
 		var zero NetworkDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateNetwork outSlot[NetworkDescriptor]
 
 // createNetworkAutotunePreference wraps cutensornetCreateNetworkAutotunePreference.
 func createNetworkAutotunePreference(handle Handle) (NetworkAutotunePreference, error) {
@@ -293,13 +838,16 @@ func createNetworkAutotunePreference(handle Handle) (NetworkAutotunePreference, 
 		var zero NetworkAutotunePreference
 		return zero, err
 	}
-	var out NetworkAutotunePreference
-	if err := toError(fncreateNetworkAutotunePreference(handle, &out), "cutensornetCreateNetworkAutotunePreference"); err != nil {
+	out := slotCreateNetworkAutotunePreference.get()
+	defer slotCreateNetworkAutotunePreference.put(out)
+	if err := toError(fncreateNetworkAutotunePreference(handle, out), "cutensornetCreateNetworkAutotunePreference"); err != nil {
 		var zero NetworkAutotunePreference
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateNetworkAutotunePreference outSlot[NetworkAutotunePreference]
 
 // createNetworkDescriptor wraps cutensornetCreateNetworkDescriptor.
 //
@@ -309,13 +857,16 @@ func createNetworkDescriptor(handle Handle, numInputs int32, numModesIn *int32, 
 		var zero NetworkDescriptor
 		return zero, err
 	}
-	var out NetworkDescriptor
-	if err := toError(fncreateNetworkDescriptor(handle, numInputs, numModesIn, (*uintptr)(sliceData(extentsIn)), (*uintptr)(sliceData(stridesIn)), (*uintptr)(sliceData(modesIn)), qualifiersIn, numModesOut, extentsOut, stridesOut, modesOut, dataType, computeType, &out), "cutensornetCreateNetworkDescriptor"); err != nil {
+	out := slotCreateNetworkDescriptor.get()
+	defer slotCreateNetworkDescriptor.put(out)
+	if err := toError(fncreateNetworkDescriptor(handle, numInputs, numModesIn, (*uintptr)(sliceData(extentsIn)), (*uintptr)(sliceData(stridesIn)), (*uintptr)(sliceData(modesIn)), qualifiersIn, numModesOut, extentsOut, stridesOut, modesOut, dataType, computeType, out), "cutensornetCreateNetworkDescriptor"); err != nil {
 		var zero NetworkDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateNetworkDescriptor outSlot[NetworkDescriptor]
 
 // createSliceGroupFromIDRange wraps cutensornetCreateSliceGroupFromIDRange.
 func createSliceGroupFromIDRange(handle Handle, sliceIdStart int64, sliceIdStop int64, sliceIdStep int64) (SliceGroup, error) {
@@ -323,13 +874,16 @@ func createSliceGroupFromIDRange(handle Handle, sliceIdStart int64, sliceIdStop 
 		var zero SliceGroup
 		return zero, err
 	}
-	var out SliceGroup
-	if err := toError(fncreateSliceGroupFromIDRange(handle, sliceIdStart, sliceIdStop, sliceIdStep, &out), "cutensornetCreateSliceGroupFromIDRange"); err != nil {
+	out := slotCreateSliceGroupFromIDRange.get()
+	defer slotCreateSliceGroupFromIDRange.put(out)
+	if err := toError(fncreateSliceGroupFromIDRange(handle, sliceIdStart, sliceIdStop, sliceIdStep, out), "cutensornetCreateSliceGroupFromIDRange"); err != nil {
 		var zero SliceGroup
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateSliceGroupFromIDRange outSlot[SliceGroup]
 
 // createSliceGroupFromIDs wraps cutensornetCreateSliceGroupFromIDs.
 func createSliceGroupFromIDs(handle Handle, beginIDSequence *int64, endIDSequence *int64) (SliceGroup, error) {
@@ -337,13 +891,16 @@ func createSliceGroupFromIDs(handle Handle, beginIDSequence *int64, endIDSequenc
 		var zero SliceGroup
 		return zero, err
 	}
-	var out SliceGroup
-	if err := toError(fncreateSliceGroupFromIDs(handle, beginIDSequence, endIDSequence, &out), "cutensornetCreateSliceGroupFromIDs"); err != nil {
+	out := slotCreateSliceGroupFromIDs.get()
+	defer slotCreateSliceGroupFromIDs.put(out)
+	if err := toError(fncreateSliceGroupFromIDs(handle, beginIDSequence, endIDSequence, out), "cutensornetCreateSliceGroupFromIDs"); err != nil {
 		var zero SliceGroup
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateSliceGroupFromIDs outSlot[SliceGroup]
 
 // createTensorDescriptor wraps cutensornetCreateTensorDescriptor.
 func createTensorDescriptor(handle Handle, numModes int32, extents *int64, strides *int64, modeLabels *int32, dataType DataType) (TensorDescriptor, error) {
@@ -351,13 +908,16 @@ func createTensorDescriptor(handle Handle, numModes int32, extents *int64, strid
 		var zero TensorDescriptor
 		return zero, err
 	}
-	var out TensorDescriptor
-	if err := toError(fncreateTensorDescriptor(handle, numModes, extents, strides, modeLabels, dataType, &out), "cutensornetCreateTensorDescriptor"); err != nil {
+	out := slotCreateTensorDescriptor.get()
+	defer slotCreateTensorDescriptor.put(out)
+	if err := toError(fncreateTensorDescriptor(handle, numModes, extents, strides, modeLabels, dataType, out), "cutensornetCreateTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateTensorDescriptor outSlot[TensorDescriptor]
 
 // createWorkspaceDescriptor wraps cutensornetCreateWorkspaceDescriptor.
 func createWorkspaceDescriptor(handle Handle) (WorkspaceDescriptor, error) {
@@ -365,13 +925,16 @@ func createWorkspaceDescriptor(handle Handle) (WorkspaceDescriptor, error) {
 		var zero WorkspaceDescriptor
 		return zero, err
 	}
-	var out WorkspaceDescriptor
-	if err := toError(fncreateWorkspaceDescriptor(handle, &out), "cutensornetCreateWorkspaceDescriptor"); err != nil {
+	out := slotCreateWorkspaceDescriptor.get()
+	defer slotCreateWorkspaceDescriptor.put(out)
+	if err := toError(fncreateWorkspaceDescriptor(handle, out), "cutensornetCreateWorkspaceDescriptor"); err != nil {
 		var zero WorkspaceDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateWorkspaceDescriptor outSlot[WorkspaceDescriptor]
 
 // destroy wraps cutensornetDestroy.
 func destroy(handle Handle) error {
@@ -473,13 +1036,16 @@ func distributedGetNumRanks(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndistributedGetNumRanks(handle, &out), "cutensornetDistributedGetNumRanks"); err != nil {
+	out := slotDistributedGetNumRanks.get()
+	defer slotDistributedGetNumRanks.put(out)
+	if err := toError(fndistributedGetNumRanks(handle, out), "cutensornetDistributedGetNumRanks"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDistributedGetNumRanks outSlot[int32]
 
 // distributedGetProcRank wraps cutensornetDistributedGetProcRank.
 func distributedGetProcRank(handle Handle) (int32, error) {
@@ -487,13 +1053,16 @@ func distributedGetProcRank(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndistributedGetProcRank(handle, &out), "cutensornetDistributedGetProcRank"); err != nil {
+	out := slotDistributedGetProcRank.get()
+	defer slotDistributedGetProcRank.put(out)
+	if err := toError(fndistributedGetProcRank(handle, out), "cutensornetDistributedGetProcRank"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDistributedGetProcRank outSlot[int32]
 
 // distributedResetConfiguration wraps cutensornetDistributedResetConfiguration.
 func distributedResetConfiguration(handle Handle, commPtr unsafe.Pointer, commSize uint) error {
@@ -527,13 +1096,16 @@ func getOutputTensorDescriptor(handle Handle, networkDesc NetworkDescriptor) (Te
 		var zero TensorDescriptor
 		return zero, err
 	}
-	var out TensorDescriptor
-	if err := toError(fngetOutputTensorDescriptor(handle, networkDesc, &out), "cutensornetGetOutputTensorDescriptor"); err != nil {
+	out := slotGetOutputTensorDescriptor.get()
+	defer slotGetOutputTensorDescriptor.put(out)
+	if err := toError(fngetOutputTensorDescriptor(handle, networkDesc, out), "cutensornetGetOutputTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetOutputTensorDescriptor outSlot[TensorDescriptor]
 
 // getOutputTensorDetails wraps cutensornetGetOutputTensorDetails.
 //
@@ -602,16 +1174,19 @@ func networkAppendTensor(handle Handle, networkDesc NetworkDescriptor, numModes 
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnnetworkAppendTensor(handle, networkDesc, numModes, extents, modeLabels, qualifiers, dataType, &out), "cutensornetNetworkAppendTensor"); err != nil {
+	out := slotNetworkAppendTensor.get()
+	defer slotNetworkAppendTensor.put(out)
+	if err := toError(fnnetworkAppendTensor(handle, networkDesc, numModes, extents, modeLabels, qualifiers, dataType, out), "cutensornetNetworkAppendTensor"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotNetworkAppendTensor outSlot[int64]
+
 // networkAutotuneContraction wraps cutensornetNetworkAutotuneContraction.
-func networkAutotuneContraction(handle Handle, networkDesc NetworkDescriptor, workDesc WorkspaceDescriptor, pref NetworkAutotunePreference, stream Stream) error {
+func networkAutotuneContraction(handle Handle, networkDesc NetworkDescriptor, workDesc WorkspaceDescriptor, pref NetworkAutotunePreference, stream driver.Stream) error {
 	if err := checkLibSym("cutensornetNetworkAutotuneContraction"); err != nil {
 		return err
 	}
@@ -635,7 +1210,7 @@ func networkAutotunePreferenceSetAttribute(handle Handle, autotunePreference Net
 }
 
 // networkContract wraps cutensornetNetworkContract.
-func networkContract(handle Handle, networkDesc NetworkDescriptor, accumulateOutput int32, workDesc WorkspaceDescriptor, sliceGroup SliceGroup, stream Stream) error {
+func networkContract(handle Handle, networkDesc NetworkDescriptor, accumulateOutput int32, workDesc WorkspaceDescriptor, sliceGroup SliceGroup, stream driver.Stream) error {
 	if err := checkLibSym("cutensornetNetworkContract"); err != nil {
 		return err
 	}
@@ -728,13 +1303,16 @@ func workspaceGetMemorySize(handle Handle, workDesc WorkspaceDescriptor, workPre
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnworkspaceGetMemorySize(handle, workDesc, workPref, memSpace, workKind, &out), "cutensornetWorkspaceGetMemorySize"); err != nil {
+	out := slotWorkspaceGetMemorySize.get()
+	defer slotWorkspaceGetMemorySize.put(out)
+	if err := toError(fnworkspaceGetMemorySize(handle, workDesc, workPref, memSpace, workKind, out), "cutensornetWorkspaceGetMemorySize"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotWorkspaceGetMemorySize outSlot[int64]
 
 // workspacePurgeCache wraps cutensornetWorkspacePurgeCache.
 func workspacePurgeCache(handle Handle, workDesc WorkspaceDescriptor, memSpace Memspace) error {

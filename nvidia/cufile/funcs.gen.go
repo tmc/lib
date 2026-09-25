@@ -5,10 +5,17 @@
 
 package cufile
 
+import (
+	"sync"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
+)
+
 // Generated function pointer variables.
 var (
 	fnbatchIOCancel                        func(BatchHandle) Error
-	fnbatchIODestroy                       func(BatchHandle)
+	symbatchIODestroy                      uintptr
 	fnbatchIOGetStatus                     func(BatchHandle, uint32, *uint32, *IOEvents, *Timespec) Error
 	fnBatchIOSetUp                         func(*BatchHandle, uint32) Error
 	fnbatchIOSubmit                        func(BatchHandle, uint32, *IOParams, uint32) Error
@@ -36,10 +43,10 @@ var (
 	fnGetStatsL3                           func(*StatsLevel3) Error
 	fnGetStatsLevel                        func(*int32) Error
 	fnGetVersion                           func(*int32) Error
-	fnhandleDeregister                     func(Handle)
+	symhandleDeregister                    uintptr
 	fnhandleRegister                       func(*Handle, *Descr) Error
-	fnread                                 func(Handle, uintptr, uint, int64, int64) int64
-	fnreadAsync                            func(Handle, uintptr, *uint, *int64, *int64, *int64, Stream) Error
+	symread                                uintptr
+	fnreadAsync                            func(Handle, uintptr, *uint, *int64, *int64, *int64, driver.Stream) Error
 	fnSetParameterBool                     func(CUFileBoolConfigParameter, bool) Error
 	fnSetParameterGpuBounceBufferSlabArray func(*uint, *uint, int32) Error
 	fnSetParameterPosixPoolSlabArray       func(*uint, *uint, int32) Error
@@ -49,12 +56,99 @@ var (
 	fnStatsReset                           func() Error
 	fnStatsStart                           func() Error
 	fnStatsStop                            func() Error
-	fnStreamDeregister                     func(Stream) Error
-	fnStreamRegister                       func(Stream, uint32) Error
-	fnUseCount                             func() int
-	fnwrite                                func(Handle, uintptr, uint, int64, int64) int64
-	fnwriteAsync                           func(Handle, uintptr, *uint, *int64, *int64, *int64, Stream) Error
+	fnStreamDeregister                     func(driver.Stream) Error
+	fnStreamRegister                       func(driver.Stream, uint32) Error
+	symUseCount                            uintptr
+	symwrite                               uintptr
+	fnwriteAsync                           func(Handle, uintptr, *uint, *int64, *int64, *int64, driver.Stream) Error
 )
+
+// ffiCall0 through ffiCall5 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnbatchIODestroy calls cuFileBatchIODestroy.
+func fnbatchIODestroy(a0 BatchHandle) {
+	ffiCall1(symbatchIODestroy, 0, uintptr(a0))
+}
+
+// fnhandleDeregister calls cuFileHandleDeregister.
+func fnhandleDeregister(a0 Handle) {
+	ffiCall1(symhandleDeregister, 0, uintptr(a0))
+}
+
+// fnread calls cuFileRead.
+func fnread(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) int64 {
+	r1, _ := ffiCall5(symread, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return int64(r1)
+}
+
+// fnUseCount calls cuFileUseCount.
+func fnUseCount() int {
+	r1, _ := ffiCall0(symUseCount, 0)
+	return int(r1)
+}
+
+// fnwrite calls cuFileWrite.
+func fnwrite(a0 Handle, a1 uintptr, a2 uint, a3 int64, a4 int64) int64 {
+	r1, _ := ffiCall5(symwrite, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return int64(r1)
+}
 
 // batchIOCancel wraps cuFileBatchIOCancel.
 func batchIOCancel(batchIdp BatchHandle) error {
@@ -393,7 +487,7 @@ func read(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffs
 }
 
 // readAsync wraps cuFileReadAsync.
-func readAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesReadP *int64, stream Stream) error {
+func readAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesReadP *int64, stream driver.Stream) error {
 	if err := checkLibSym("cuFileReadAsync"); err != nil {
 		return err
 	}
@@ -473,7 +567,7 @@ func StatsStop() error {
 }
 
 // StreamDeregister wraps cuFileStreamDeregister.
-func StreamDeregister(stream Stream) error {
+func StreamDeregister(stream driver.Stream) error {
 	if err := checkLibSym("cuFileStreamDeregister"); err != nil {
 		return err
 	}
@@ -481,7 +575,7 @@ func StreamDeregister(stream Stream) error {
 }
 
 // StreamRegister wraps cuFileStreamRegister.
-func StreamRegister(stream Stream, flags uint32) error {
+func StreamRegister(stream driver.Stream, flags uint32) error {
 	if err := checkLibSym("cuFileStreamRegister"); err != nil {
 		return err
 	}
@@ -507,7 +601,7 @@ func write(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOff
 }
 
 // writeAsync wraps cuFileWriteAsync.
-func writeAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesWrittenP *int64, stream Stream) error {
+func writeAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesWrittenP *int64, stream driver.Stream) error {
 	if err := checkLibSym("cuFileWriteAsync"); err != nil {
 		return err
 	}

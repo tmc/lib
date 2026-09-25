@@ -2,14 +2,28 @@
 
 package nccl
 
+import "unsafe"
+
 // Function pointer variables, registered by init via registerFuncs.
 var (
 	fnCftBarrierCreateRequirement func(Team, int32, *CftBarrierHandle, *DevResourceRequirements) Result
 	fnginBarrierCreateRequirement func(Comm, Team, int32, *GinBarrierHandle, *DevResourceRequirements) Result
-	fnLLA2ACalcSlots              func(int32, int32) int32
-	fnLLA2ACreateRequirement      func(int32, int32, *LLA2AHandle, *DevResourceRequirements) Result
+	symLLA2ACalcSlots             uintptr
+	symLLA2ACreateRequirement     uintptr
 	fnLsaBarrierCreateRequirement func(Team, int32, *LsaBarrierHandle, *DevResourceRequirements) Result
 )
+
+// fnLLA2ACalcSlots calls ncclLLA2ACalcSlots.
+func fnLLA2ACalcSlots(a0 int32, a1 int32) int32 {
+	r1, _ := ffiCall2(symLLA2ACalcSlots, 0, uintptr(a0), uintptr(a1))
+	return int32(r1)
+}
+
+// fnLLA2ACreateRequirement calls ncclLLA2ACreateRequirement.
+func fnLLA2ACreateRequirement(a0 int32, a1 int32, a2 *LLA2AHandle, a3 *DevResourceRequirements) Result {
+	r1, _ := ffiCall4(symLLA2ACreateRequirement, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
 
 // CftBarrierCreateRequirement wraps ncclCftBarrierCreateRequirement.
 func CftBarrierCreateRequirement(team Team, nBarriers int32, outHandle *CftBarrierHandle, outReq *DevResourceRequirements) error {

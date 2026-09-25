@@ -21,15 +21,15 @@
 //   - [GetCudartVersion]: returns the version number of the CUDA Runtime library.
 //   - [GetProperty]: returns the value of the requested property by writing it to the memory location pointed to by the value parameter.
 //   - [GetVersion]: returns the version number of cuBLASLt library.
-//   - [NewMatrixLayout]: Experimental: This function creates a grouped matrix layout descriptor by allocating the memory needed to hold its opaque structure.
+//   - [NewMatrixLayout]: creates a grouped matrix layout descriptor by allocating the memory needed to hold its opaque structure.
 //   - [HeuristicsCacheGetCapacity]: Returns the Heuristics Cache capacity.
 //   - [HeuristicsCacheSetCapacity]: Sets the Heuristics Cache capacity.
-//   - [LoggerForceDisable]: Experimental: This function disables logging for the entire run.
-//   - [LoggerOpenFile]: Experimental: This function opens and sets the logging output file in the given path.
-//   - [LoggerSetCallback]: Experimental: This function sets the logging callback function.
-//   - [LoggerSetFile]: Experimental: This function sets the logging output file.
-//   - [LoggerSetLevel]: Experimental: This function sets the value of the logging level.
-//   - [LoggerSetMask]: Experimental: This function sets the value of the logging mask.
+//   - [LoggerForceDisable]: disables logging for the entire run.
+//   - [LoggerOpenFile]: opens and sets the logging output file in the given path.
+//   - [LoggerSetCallback]: sets the logging callback function.
+//   - [LoggerSetFile]: sets the logging output file.
+//   - [LoggerSetLevel]: sets the value of the logging level.
+//   - [LoggerSetMask]: sets the value of the logging mask.
 //   - [Handle.Matmul]: computes the matrix multiplication of matrices A and B to produce the output matrix D, according to the following operation:
 //   - [MatmulAlgoCapGetAttribute]: returns the value of the queried capability attribute for an initialized [MatmulAlgo] descriptor structure.
 //   - [Handle.MatmulAlgoCheck]: performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.

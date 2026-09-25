@@ -9,18 +9,78 @@ import (
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnaddCubin  func(Handle, unsafe.Pointer, uint, *byte, *byte) Result
-	fnaddIndex  func(Handle, unsafe.Pointer, uint, *byte) Result
-	fnaddLTOIR  func(Handle, unsafe.Pointer, uint, *byte, *byte, *byte) Result
-	fnaddPTX    func(Handle, unsafe.Pointer, uint, *byte, *byte, *byte) Result
-	fnaddReloc  func(Handle, unsafe.Pointer, uint) Result
-	fnaddTileIR func(Handle, unsafe.Pointer, uint, *byte, *byte) Result
-	fnCreate    func(*Handle, **byte, uint) Result
-	fndestroy   func(*Handle) Result
-	fnget       func(Handle, unsafe.Pointer) Result
-	fnsize      func(Handle, *uint) Result
-	fnVersion   func(*uint32, *uint32) Result
+	symaddCubin  uintptr
+	symaddIndex  uintptr
+	symaddLTOIR  uintptr
+	symaddPTX    uintptr
+	symaddReloc  uintptr
+	symaddTileIR uintptr
+	symCreate    uintptr
+	symdestroy   uintptr
+	symget       uintptr
+	symsize      uintptr
+	fnVersion    func(*uint32, *uint32) Result
 )
+
+// fnaddCubin calls nvFatbinAddCubin.
+func fnaddCubin(a0 Handle, a1 unsafe.Pointer, a2 uint, a3 *byte, a4 *byte) Result {
+	r1, _ := ffiCall5(symaddCubin, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnaddIndex calls nvFatbinAddIndex.
+func fnaddIndex(a0 Handle, a1 unsafe.Pointer, a2 uint, a3 *byte) Result {
+	r1, _ := ffiCall4(symaddIndex, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnaddLTOIR calls nvFatbinAddLTOIR.
+func fnaddLTOIR(a0 Handle, a1 unsafe.Pointer, a2 uint, a3 *byte, a4 *byte, a5 *byte) Result {
+	r1, _ := ffiCall6(symaddLTOIR, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnaddPTX calls nvFatbinAddPTX.
+func fnaddPTX(a0 Handle, a1 unsafe.Pointer, a2 uint, a3 *byte, a4 *byte, a5 *byte) Result {
+	r1, _ := ffiCall6(symaddPTX, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnaddReloc calls nvFatbinAddReloc.
+func fnaddReloc(a0 Handle, a1 unsafe.Pointer, a2 uint) Result {
+	r1, _ := ffiCall3(symaddReloc, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnaddTileIR calls nvFatbinAddTileIR.
+func fnaddTileIR(a0 Handle, a1 unsafe.Pointer, a2 uint, a3 *byte, a4 *byte) Result {
+	r1, _ := ffiCall5(symaddTileIR, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnCreate calls nvFatbinCreate.
+func fnCreate(a0 *Handle, a1 **byte, a2 uint) Result {
+	r1, _ := ffiCall3(symCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fndestroy calls nvFatbinDestroy.
+func fndestroy(a0 *Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnget calls nvFatbinGet.
+func fnget(a0 Handle, a1 unsafe.Pointer) Result {
+	r1, _ := ffiCall2(symget, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsize calls nvFatbinSize.
+func fnsize(a0 Handle, a1 *uint) Result {
+	r1, _ := ffiCall2(symsize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
 
 // addCubin [Handle.AddCubin] adds a CUDA binary to the fatbinary.
 //
@@ -128,7 +188,7 @@ func addTileIR(handle Handle, code unsafe.Pointer, size uint, identifier string,
 	return toError(fnaddTileIR(handle, code, size, &cstr_identifier[0], &cstr_optionsCmdLine[0]), "nvFatbinAddTileIR")
 }
 
-// Create [Create] creates a new handle
+// Create creates a new handle
 //
 //   - options (in): An array of strings, each containing a single option
 //   - optionsCount (in): Number of options
@@ -149,12 +209,15 @@ func Create(options ...string) (Handle, error) {
 		carg_options = &ptrs_options[0]
 		_ = cstrs_options
 	}
-	var out Handle
-	if err := toError(fnCreate(&out, carg_options, uint(len(options))), "nvFatbinCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out, carg_options, uint(len(options))), "nvFatbinCreate"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // destroy [Handle.Destroy] destroys the handle.
 //
@@ -202,15 +265,18 @@ func size(handle Handle) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsize(handle, &out), "nvFatbinSize"); err != nil {
+	out := slotSize.get()
+	defer slotSize.put(out)
+	if err := toError(fnsize(handle, out), "nvFatbinSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// Version [Version] returns the current version of nvFatbin
+var slotSize outSlot[uint]
+
+// Version returns the current version of nvFatbin
 //
 // Wraps nvFatbinVersion.
 func Version() (major uint32, minor uint32, err error) {

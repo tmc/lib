@@ -38,7 +38,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 	check("initialize CUDA", driver.Init(0))
 	devices := [2]int32{0, 1}
 	var contexts [2]driver.Context
-	var streams [2]cudss.Stream
+	var streams [2]driver.Stream
 	var uuids [2]driver.Uuid
 	var pin runtime.Pinner
 	pin.Pin(&devices)
@@ -69,7 +69,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 		check("select device", contexts[i].SetCurrent())
 		stream, err := driver.NewStream(0)
 		check("create stream", err)
-		streams[i] = cudss.Stream(stream)
+		streams[i] = driver.Stream(stream)
 		t.Logf("device=%d uuid=%x stream=%x", i, uuids[i], streams[i])
 	}
 	if uuids[0] == uuids[1] {

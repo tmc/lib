@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func TestQualifiedVersions(t *testing.T) {
@@ -49,7 +50,7 @@ func TestPublicStartRejectsUnwitnessedVersions(t *testing.T) {
 	for _, version := range []uint32{0, 27, 28, 120901, 130300, 130500, 140000} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			api := samplingControlAPI{
-				device:  func(cupti.Context) (uint32, error) { return 0, nil },
+				device:  func(driver.Context) (uint32, error) { return 0, nil },
 				version: func() (uint32, error) { return version, nil },
 				set: func(*cupti.PCSamplingConfigurationInfoParams) error {
 					t.Fatal("configured an unqualified version")
@@ -63,7 +64,7 @@ func TestPublicStartRejectsUnwitnessedVersions(t *testing.T) {
 			}
 			inventory := ReasonInventory{CUPTIVersion: version, Reasons: []StallReason{{Index: 7, Name: "reason"}}}
 			s, err := startSession(5, testPublicConfig(), api,
-				func(cupti.Context, int) (ReasonInventory, error) { return inventory, nil },
+				func(driver.Context, int) (ReasonInventory, error) { return inventory, nil },
 				func(a, b, c int) (*samplingNames, error) {
 					return newSamplingNames(a, b, c, func(uintptr, int) (string, error) { return "name", nil }, func(uintptr) {})
 				},

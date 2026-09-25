@@ -7,7 +7,6 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/tmc/lib/nvidia/cublas"
 	"github.com/tmc/lib/nvidia/cusolver"
 	"github.com/tmc/lib/nvidia/driver"
 )
@@ -61,7 +60,7 @@ func TestCholeskySolve(t *testing.T) {
 		da, db, di := alloc(16), alloc(8), alloc(4)
 		check(da.CopyFromHostPtr(unsafe.Pointer(&a[0]), 16))
 		check(db.CopyFromHostPtr(unsafe.Pointer(&b[0]), 8))
-		lower := cusolver.FillMode(cublas.FillModeLower)
+		lower := cusolver.FillModeLower
 		n, err := h.SpotrfBufferSize(lower, 2, da, 2)
 		check(err)
 		if n <= 0 || n > 1<<26 {

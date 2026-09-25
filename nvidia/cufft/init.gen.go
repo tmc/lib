@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -409,6 +410,148 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
+// ffiCall0 through ffiCall12 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	return ffi.CallFloat(fn, 12, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
 // BindFailure names a symbol the loaded library exports but that could not
 // be bound, and why.
 type BindFailure struct {
@@ -469,80 +612,80 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnCreate, "cufftCreate")
-	register(&fndestroy, "cufftDestroy")
-	register(&fnEstimate1d, "cufftEstimate1d")
-	register(&fnEstimate2d, "cufftEstimate2d")
-	register(&fnEstimate3d, "cufftEstimate3d")
-	register(&fnEstimateMany, "cufftEstimateMany")
-	register(&fnexecC2C, "cufftExecC2C")
-	register(&fnexecC2R, "cufftExecC2R")
-	register(&fnexecD2Z, "cufftExecD2Z")
-	register(&fnexecR2C, "cufftExecR2C")
-	register(&fnexecZ2D, "cufftExecZ2D")
-	register(&fnexecZ2Z, "cufftExecZ2Z")
-	register(&fngetPlanPropertyInt64, "cufftGetPlanPropertyInt64")
-	register(&fnGetProperty, "cufftGetProperty")
-	register(&fngetSize, "cufftGetSize")
-	register(&fngetSize1d, "cufftGetSize1d")
-	register(&fngetSize2d, "cufftGetSize2d")
-	register(&fngetSize3d, "cufftGetSize3d")
-	register(&fngetSizeMany, "cufftGetSizeMany")
-	register(&fngetSizeMany64, "cufftGetSizeMany64")
+	symCreate = registerSym("cufftCreate")
+	symdestroy = registerSym("cufftDestroy")
+	symEstimate1d = registerSym("cufftEstimate1d")
+	symEstimate2d = registerSym("cufftEstimate2d")
+	symEstimate3d = registerSym("cufftEstimate3d")
+	symEstimateMany = registerSym("cufftEstimateMany")
+	symexecC2C = registerSym("cufftExecC2C")
+	symexecC2R = registerSym("cufftExecC2R")
+	symexecD2Z = registerSym("cufftExecD2Z")
+	symexecR2C = registerSym("cufftExecR2C")
+	symexecZ2D = registerSym("cufftExecZ2D")
+	symexecZ2Z = registerSym("cufftExecZ2Z")
+	symgetPlanPropertyInt64 = registerSym("cufftGetPlanPropertyInt64")
+	symGetProperty = registerSym("cufftGetProperty")
+	symgetSize = registerSym("cufftGetSize")
+	symgetSize1d = registerSym("cufftGetSize1d")
+	symgetSize2d = registerSym("cufftGetSize2d")
+	symgetSize3d = registerSym("cufftGetSize3d")
+	symgetSizeMany = registerSym("cufftGetSizeMany")
+	symgetSizeMany64 = registerSym("cufftGetSizeMany64")
 	register(&fnGetVersion, "cufftGetVersion")
-	register(&fnmakePlan1d, "cufftMakePlan1d")
-	register(&fnmakePlan2d, "cufftMakePlan2d")
-	register(&fnmakePlan3d, "cufftMakePlan3d")
-	register(&fnmakePlanMany, "cufftMakePlanMany")
-	register(&fnmakePlanMany64, "cufftMakePlanMany64")
-	register(&fnPlan1d, "cufftPlan1d")
-	register(&fnPlan2d, "cufftPlan2d")
-	register(&fnPlan3d, "cufftPlan3d")
-	register(&fnPlanMany, "cufftPlanMany")
-	register(&fnresetPlanProperty, "cufftResetPlanProperty")
-	register(&fnsetAutoAllocation, "cufftSetAutoAllocation")
-	register(&fnsetPlanPropertyInt64, "cufftSetPlanPropertyInt64")
+	symmakePlan1d = registerSym("cufftMakePlan1d")
+	symmakePlan2d = registerSym("cufftMakePlan2d")
+	symmakePlan3d = registerSym("cufftMakePlan3d")
+	symmakePlanMany = registerSym("cufftMakePlanMany")
+	symmakePlanMany64 = registerSym("cufftMakePlanMany64")
+	symPlan1d = registerSym("cufftPlan1d")
+	symPlan2d = registerSym("cufftPlan2d")
+	symPlan3d = registerSym("cufftPlan3d")
+	symPlanMany = registerSym("cufftPlanMany")
+	symresetPlanProperty = registerSym("cufftResetPlanProperty")
+	symsetAutoAllocation = registerSym("cufftSetAutoAllocation")
+	symsetPlanPropertyInt64 = registerSym("cufftSetPlanPropertyInt64")
 	register(&fnsetStream, "cufftSetStream")
-	register(&fnsetWorkArea, "cufftSetWorkArea")
+	symsetWorkArea = registerSym("cufftSetWorkArea")
 }
 
 // clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
-	fnCreate = nil
-	fndestroy = nil
-	fnEstimate1d = nil
-	fnEstimate2d = nil
-	fnEstimate3d = nil
-	fnEstimateMany = nil
-	fnexecC2C = nil
-	fnexecC2R = nil
-	fnexecD2Z = nil
-	fnexecR2C = nil
-	fnexecZ2D = nil
-	fnexecZ2Z = nil
-	fngetPlanPropertyInt64 = nil
-	fnGetProperty = nil
-	fngetSize = nil
-	fngetSize1d = nil
-	fngetSize2d = nil
-	fngetSize3d = nil
-	fngetSizeMany = nil
-	fngetSizeMany64 = nil
+	symCreate = 0
+	symdestroy = 0
+	symEstimate1d = 0
+	symEstimate2d = 0
+	symEstimate3d = 0
+	symEstimateMany = 0
+	symexecC2C = 0
+	symexecC2R = 0
+	symexecD2Z = 0
+	symexecR2C = 0
+	symexecZ2D = 0
+	symexecZ2Z = 0
+	symgetPlanPropertyInt64 = 0
+	symGetProperty = 0
+	symgetSize = 0
+	symgetSize1d = 0
+	symgetSize2d = 0
+	symgetSize3d = 0
+	symgetSizeMany = 0
+	symgetSizeMany64 = 0
 	fnGetVersion = nil
-	fnmakePlan1d = nil
-	fnmakePlan2d = nil
-	fnmakePlan3d = nil
-	fnmakePlanMany = nil
-	fnmakePlanMany64 = nil
-	fnPlan1d = nil
-	fnPlan2d = nil
-	fnPlan3d = nil
-	fnPlanMany = nil
-	fnresetPlanProperty = nil
-	fnsetAutoAllocation = nil
-	fnsetPlanPropertyInt64 = nil
+	symmakePlan1d = 0
+	symmakePlan2d = 0
+	symmakePlan3d = 0
+	symmakePlanMany = 0
+	symmakePlanMany64 = 0
+	symPlan1d = 0
+	symPlan2d = 0
+	symPlan3d = 0
+	symPlanMany = 0
+	symresetPlanProperty = 0
+	symsetAutoAllocation = 0
+	symsetPlanPropertyInt64 = 0
 	fnsetStream = nil
-	fnsetWorkArea = nil
+	symsetWorkArea = 0
 }
 
 // HasCreate reports whether cufftCreate resolved in the loaded library.

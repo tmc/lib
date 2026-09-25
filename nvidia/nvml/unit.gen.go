@@ -6,7 +6,7 @@ import (
 	"errors"
 )
 
-// NewUnitByIndex Acquire the handle for a particular unit, based on its index.
+// NewUnitByIndex acquires the handle for a particular unit, based on its index.
 //
 // For S-class products.
 // Valid indices are derived from the unitCount returned by [UnitGetCount]. For example, if unitCount is 2 the valid indices are 0 and 1, corresponding to UNIT 0 and UNIT 1.
@@ -15,6 +15,12 @@ import (
 //   - index: The index of the target unit, >= 0 and < unitCount
 //   - unit: Reference in which to return the unit handle
 //
+// Returns:
+//   - [ErrInvalidArgument]: if index is invalid or unit is NULL
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if unit has been set
+//
 // Wraps [nvmlUnitGetHandleByIndex].
 //
 // [nvmlUnitGetHandleByIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv424nvmlUnitGetHandleByIndexjP10nvmlUnit_t
@@ -22,13 +28,20 @@ func NewUnitByIndex(index uint32) (Unit, error) {
 	return unitGetHandleByIndex(index)
 }
 
-// Devices Retrieves the set of GPU devices that are attached to the specified unit.
+// Devices retrieves the set of GPU devices that are attached to the specified unit.
 //
 // For S-class products.
 // The deviceCount argument is expected to be set to the size of the input devices array.
 //
 //   - deviceCount: Reference in which to provide the devices array size, and to return the number of attached GPU devices
 //   - devices: Reference in which to return the references to the attached GPU devices
+//
+// Returns:
+//   - [ErrInsufficientSize]: if deviceCount indicates that the devices array is too small
+//   - [ErrInvalidArgument]: if unit is invalid, either of deviceCount or devices is NULL
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if deviceCount and devices have been populated
 //
 // Wraps [nvmlUnitGetDevices].
 //
@@ -57,12 +70,19 @@ func (u Unit) Devices(buf []Device) ([]Device, error) {
 	}
 }
 
-// FanSpeedInfo Retrieves the fan speed readings for the unit.
+// FanSpeedInfo retrieves the fan speed readings for the unit.
 //
 // For S-class products.
 // See [UnitFanSpeeds] for details on available fan speed info.
 //
 //   - fanSpeeds: Reference in which to return the fan speed information
+//
+// Returns:
+//   - [ErrInvalidArgument]: if unit is invalid or fanSpeeds is NULL
+//   - [ErrNotSupported]: if this is not an S-class product
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if fanSpeeds has been populated
 //
 // Wraps [nvmlUnitGetFanSpeedInfo].
 //
@@ -71,12 +91,17 @@ func (u Unit) FanSpeedInfo(fanSpeeds *UnitFanSpeeds) error {
 	return unitGetFanSpeedInfo(u, fanSpeeds)
 }
 
-// Info Retrieves the static information associated with a unit.
+// Info retrieves the static information associated with a unit.
 //
 // For S-class products.
 // See [UnitInfo] for details on available unit info.
 //
 //   - info: Reference in which to return the unit information
+//
+// Returns:
+//   - [ErrInvalidArgument]: if unit is invalid or info is NULL previousUnit Commands nextUnit Structs
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [Success]: if info has been populated
 //
 // Wraps [nvmlUnitGetUnitInfo].
 //
@@ -85,7 +110,7 @@ func (u Unit) Info() (UnitInfo, error) {
 	return unitGetUnitInfo(u)
 }
 
-// LedState Retrieves the LED state associated with this unit.
+// LedState retrieves the LED state associated with this unit.
 //
 // For S-class products.
 // See [LedState] for details on allowed states.
@@ -94,6 +119,13 @@ func (u Unit) Info() (UnitInfo, error) {
 //
 //   - state: Reference in which to return the current LED state
 //
+// Returns:
+//   - [ErrInvalidArgument]: if unit is invalid or state is NULL
+//   - [ErrNotSupported]: if this is not an S-class product
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if state has been set
+//
 // Wraps [nvmlUnitGetLedState].
 //
 // [nvmlUnitGetLedState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv419nvmlUnitGetLedState10nvmlUnit_tP14nvmlLedState_t
@@ -101,12 +133,19 @@ func (u Unit) LedState() (LedState, error) {
 	return unitGetLedState(u)
 }
 
-// PsuInfo Retrieves the PSU stats for the unit.
+// PsuInfo retrieves the PSU stats for the unit.
 //
 // For S-class products.
 // See [PSUInfo] for details on available PSU info.
 //
 //   - psu: Reference in which to return the PSU information
+//
+// Returns:
+//   - [ErrInvalidArgument]: if unit is invalid or psu is NULL
+//   - [ErrNotSupported]: if this is not an S-class product
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if psu has been populated
 //
 // Wraps [nvmlUnitGetPsuInfo].
 //
@@ -115,7 +154,7 @@ func (u Unit) PsuInfo(psu *PSUInfo) error {
 	return unitGetPsuInfo(u, psu)
 }
 
-// SetLedState Set the LED state for the unit.
+// SetLedState sets the LED state for the unit.
 //
 // The LED can be either green (0) or amber (1).
 // For S-class products. Requires root/admin permissions.
@@ -127,6 +166,14 @@ func (u Unit) PsuInfo(psu *PSUInfo) error {
 //
 //   - color: The target LED color
 //
+// Returns:
+//   - [ErrInvalidArgument]: if unit or color is invalid
+//   - [ErrNotSupported]: if this is not an S-class product
+//   - [ErrNoPermission]: if the user doesn’t have permission to perform this operation
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error previousSystem Queries nextUnit Queries
+//   - [Success]: if the LED color has been set
+//
 // Wraps [nvmlUnitSetLedState].
 //
 // [nvmlUnitSetLedState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitCommands.html#_CPPv419nvmlUnitSetLedState10nvmlUnit_t14nvmlLedColor_t
@@ -134,13 +181,20 @@ func (u Unit) SetLedState(color LedColor) error {
 	return unitSetLedState(u, color)
 }
 
-// Temperature Retrieves the temperature readings for the unit, in degrees C.
+// Temperature retrieves the temperature readings for the unit, in degrees C.
 //
 // For S-class products.
 // Depending on the product, readings may be available for intake (type=0), exhaust (type=1) and board (type=2).
 //
 //   - type_: The type of reading to take
 //   - temp: Reference in which to return the intake temperature
+//
+// Returns:
+//   - [ErrInvalidArgument]: if unit or type is invalid or temp is NULL
+//   - [ErrNotSupported]: if this is not an S-class product
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if temp has been populated
 //
 // Wraps [nvmlUnitGetTemperature].
 //

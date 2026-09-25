@@ -3,14 +3,14 @@
 package curand
 
 const (
-	// Version is CURAND_VERSION. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// Version is CURAND_VERSION. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	Version = 10402
-	// VerBuild is CURAND_VER_BUILD. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// VerBuild is CURAND_VER_BUILD. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	VerBuild = 51
-	// VerMajor is CURAND_VER_MAJOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// VerMajor is CURAND_VER_MAJOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	VerMajor = 10
-	// VerMinor is CURAND_VER_MINOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// VerMinor is CURAND_VER_MINOR. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	VerMinor = 4
-	// VerPatch is CURAND_VER_PATCH. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [[GetVersion]] reports that.
+	// VerPatch is CURAND_VER_PATCH. This is the version of the headers the bindings were generated from, not of the library loaded at run time. [GetVersion] reports that.
 	VerPatch = 2
 )

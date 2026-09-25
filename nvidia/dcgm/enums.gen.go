@@ -78,7 +78,9 @@ func (e FieldEntityGroup) String() string {
 	return fmt.Sprintf("FieldEntityGroup(%d)", e)
 }
 
-// OperationMode represents operation mode for DCGM DCGM can run in auto-mode where it runs additional threads in the background to collect any metrics of interest and auto manages any operations needed for policy management. DCGM can also operate in manual-mode where it's execution is controlled by the user. In this mode, the user has to periodically call APIs such as dcgmPolicyTrigger and [Handle.UpdateAllFields] which tells DCGM to wake up and perform data collection and operations needed for policy management.
+// OperationMode represents operation mode for DCGM.
+//
+// DCGM can run in auto-mode where it runs additional threads in the background to collect any metrics of interest and auto manages any operations needed for policy management. DCGM can also operate in manual-mode where it's execution is controlled by the user. In this mode, the user has to periodically call APIs such as dcgmPolicyTrigger and [Handle.UpdateAllFields] which tells DCGM to wake up and perform data collection and operations needed for policy management.
 type OperationMode int32
 
 const (
@@ -185,6 +187,8 @@ func (e GroupType) String() string {
 }
 
 // ChipArchitecture represents simplified chip architecture.
+//
+// Note that these are made to match nvmlChipArchitecture_t and thus do not start at 0.
 type ChipArchitecture uint32
 
 const (
@@ -270,6 +274,8 @@ func (e ConfigPowerLimitType) String() string {
 }
 
 // LoggingSeverity represents DCGM Logging Severities.
+//
+// These match up with plog severities defined in Severity.h Each level includes all of the levels above it. For instance, level 4 includes 3,2, and 1 as well.
 type LoggingSeverity int32
 
 const (
@@ -513,6 +519,8 @@ func (e WorkloadProfileAction) String() string {
 }
 
 // PolicyConditionIdx is an enumeration for policy conditions.
+//
+// When used as part of [Policy] these have corresponding parameters to allow them to be switched on/off or set specific violation thresholds.
 type PolicyConditionIdx int32
 
 const (
@@ -547,6 +555,8 @@ func (e PolicyConditionIdx) String() string {
 }
 
 // PolicyCondition represents bitmask enumeration for policy conditions.
+//
+// When used as part of [Policy] these have corresponding parameters to allow them to be switched on/off or set specific violation thresholds.
 type PolicyCondition int32
 
 const (
@@ -925,6 +935,8 @@ func (e SoftwareTest) String() string {
 }
 
 // GpuTopologyLevelV1 represents level relationships within a system between two GPUs The enums are spaced to allow for future relationships.
+//
+// These match the definitions in nvml.h.
 type GpuTopologyLevelV1 int32
 
 const (
@@ -1057,6 +1069,8 @@ func (e NvLinkLinkState) String() string {
 }
 
 // NvLinkGpuP2PStatus represents nvlink P2P link status.
+//
+// This mirrors nvmlGpuP2PStatus_enum.
 type NvLinkGpuP2PStatus int32
 
 const (
@@ -1140,6 +1154,8 @@ func (e ModuleId) String() string {
 }
 
 // ModuleStatus represents module Status.
+//
+// Modules are lazy loaded, so they will be in status DcgmModuleStatusNotLoaded until they are used. One modules are used, they will move to another status.
 type ModuleStatus int32
 
 const (

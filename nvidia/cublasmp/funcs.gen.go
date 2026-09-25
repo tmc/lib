@@ -3,34 +3,149 @@
 package cublasmp
 
 import (
+	"sync"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublas"
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
 // Generated function pointer variables.
 var (
-	fnBufferDeregister        func(Grid, uintptr) Result
-	fnBufferRegister          func(Grid, uintptr, uint) Result
-	fnCreate                  func(*Handle, driver.Stream) Result
-	fnDestroy                 func(Handle) Result
-	fnFree                    func(Grid, uintptr) Result
-	fnGemm                    func(Handle, cublas.Operation, cublas.Operation, int64, int64, int64, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, uintptr, int64, int64, MatrixDescriptor, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, cublas.ComputeType, uintptr, uint, unsafe.Pointer, uint) Result
-	fnGemmBufferSize          func(Handle, cublas.Operation, cublas.Operation, int64, int64, int64, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, uintptr, int64, int64, MatrixDescriptor, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, cublas.ComputeType, *uint, *uint) Result
-	fnGetStream               func(Handle, *driver.Stream) Result
-	fnGetVersion              func(*int32) Result
-	fnGridCreate              func(int64, int64, GridLayout, nccl.Comm, *Grid) Result
-	fnGridDestroy             func(Grid) Result
-	fnMalloc                  func(Grid, *uintptr, uint) Result
-	fnMatrixDescriptorCreate  func(int64, int64, int64, int64, int64, int64, int64, cublas.DataType, Grid, *MatrixDescriptor) Result
-	fnMatrixDescriptorDestroy func(MatrixDescriptor) Result
-	fnMatrixDescriptorInit    func(int64, int64, int64, int64, int64, int64, int64, cublas.DataType, Grid, MatrixDescriptor) Result
-	fnSetStream               func(Handle, driver.Stream) Result
+	symBufferDeregister        uintptr
+	symBufferRegister          uintptr
+	fnCreate                   func(*Handle, driver.Stream) Result
+	symDestroy                 uintptr
+	symFree                    uintptr
+	fnGemm                     func(Handle, cublas.Operation, cublas.Operation, int64, int64, int64, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, uintptr, int64, int64, MatrixDescriptor, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, cublas.ComputeType, uintptr, uint, unsafe.Pointer, uint) Result
+	fnGemmBufferSize           func(Handle, cublas.Operation, cublas.Operation, int64, int64, int64, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, uintptr, int64, int64, MatrixDescriptor, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, cublas.ComputeType, *uint, *uint) Result
+	symGetStream               uintptr
+	symGetVersion              uintptr
+	fnGridCreate               func(int64, int64, GridLayout, nccl.Comm, *Grid) Result
+	symGridDestroy             uintptr
+	symMalloc                  uintptr
+	fnMatrixDescriptorCreate   func(int64, int64, int64, int64, int64, int64, int64, cublas.DataType, Grid, *MatrixDescriptor) Result
+	symMatrixDescriptorDestroy uintptr
+	fnMatrixDescriptorInit     func(int64, int64, int64, int64, int64, int64, int64, cublas.DataType, Grid, MatrixDescriptor) Result
+	fnSetStream                func(Handle, driver.Stream) Result
 )
 
-// BufferDeregister Deregisters a previously registered device memory buffer from NCCL symmetric memory.
+// ffiCall0 through ffiCall3 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnBufferDeregister calls cublasMpBufferDeregister.
+func fnBufferDeregister(a0 Grid, a1 uintptr) Result {
+	r1, _ := ffiCall2(symBufferDeregister, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnBufferRegister calls cublasMpBufferRegister.
+func fnBufferRegister(a0 Grid, a1 uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symBufferRegister, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnDestroy calls cublasMpDestroy.
+func fnDestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnFree calls cublasMpFree.
+func fnFree(a0 Grid, a1 uintptr) Result {
+	r1, _ := ffiCall2(symFree, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGetStream calls cublasMpGetStream.
+func fnGetStream(a0 Handle, a1 *driver.Stream) Result {
+	r1, _ := ffiCall2(symGetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetVersion calls cublasMpGetVersion.
+func fnGetVersion(a0 *int32) Result {
+	r1, _ := ffiCall1(symGetVersion, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGridDestroy calls cublasMpGridDestroy.
+func fnGridDestroy(a0 Grid) Result {
+	r1, _ := ffiCall1(symGridDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnMalloc calls cublasMpMalloc.
+func fnMalloc(a0 Grid, a1 *uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symMalloc, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMatrixDescriptorDestroy calls cublasMpMatrixDescriptorDestroy.
+func fnMatrixDescriptorDestroy(a0 MatrixDescriptor) Result {
+	r1, _ := ffiCall1(symMatrixDescriptorDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// BufferDeregister deregisters a previously registered device memory buffer from NCCL symmetric memory.
 //
 // This should be called before freeing the buffer with ncclMemFree. For buffers allocated
 // with [Grid.Malloc], use [Grid.Free] instead, which combines deregistration
@@ -49,7 +164,7 @@ func BufferDeregister(grid Grid, ptr uintptr) error {
 	return toError(fnBufferDeregister(grid, ptr), "cublasMpBufferDeregister")
 }
 
-// BufferRegister Registers a device memory buffer with NCCL symmetric memory for a process grid.
+// BufferRegister registers a device memory buffer with NCCL symmetric memory for a process grid.
 //
 // Registering the device workspace buffer (d_work) enables cublasMpMatmul to use the
 // communication-computation overlap algorithms for AllGather+GEMM, GEMM+ReduceScatter, and GEMM+AllReduce operations.
@@ -75,7 +190,7 @@ func BufferRegister(grid Grid, ptr uintptr, size uint) error {
 	return toError(fnBufferRegister(grid, ptr, size), "cublasMpBufferRegister")
 }
 
-// Create Initializes the cuBLASMp library handle.
+// Create initializes the cuBLASMp library handle.
 //
 // This function initializes the cuBLASMp library handle ([Handle]) which holds
 // the cuBLASMp library context. It allocates light hardware resources on the host, and
@@ -103,7 +218,7 @@ func Create(stream driver.Stream) (Handle, error) {
 	return out, nil
 }
 
-// Destroy Destroys the cuBLASMp library handle.
+// Destroy destroys the cuBLASMp library handle.
 //
 // This function destroys the cuBLASMp library handle ([Handle]) which holds
 // the cuBLASMp library context. The handle remains associated with the CUDA
@@ -119,7 +234,7 @@ func Destroy(handle Handle) error {
 	return toError(fnDestroy(handle), "cublasMpDestroy")
 }
 
-// Free Deregisters and frees device memory allocated with [Grid.Malloc].
+// Free deregisters and frees device memory allocated with [Grid.Malloc].
 //
 // This is a convenience function that combines [Grid.Deregister] and
 // ncclMemFree into a single call. It should only be used for buffers allocated with
@@ -139,7 +254,7 @@ func Free(grid Grid, ptr uintptr) error {
 	return toError(fnFree(grid, ptr), "cublasMpFree")
 }
 
-// Gemm Performs a distributed matrix-matrix multiplication (C = alpha * op(A) * op(B) + beta * C).
+// Gemm performs a distributed matrix-matrix multiplication (C = alpha * op(A) * op(B) + beta * C).
 //
 // This function performs the matrix-matrix multiplication:
 // C = alpha * op(A) * op(B) + beta * C
@@ -195,7 +310,7 @@ func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int
 	return toError(fnGemm(handle, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, dWork, workspaceSizeInBytesOnDevice, hWork, workspaceSizeInBytesOnHost), "cublasMpGemm")
 }
 
-// GemmBufferSize Computes the workspace size required by [Handle.Gemm].
+// GemmBufferSize computes the workspace size required by [Handle.Gemm].
 //
 // This function returns the required buffer sizes to perform [Handle.Gemm] on the
 // given input. [Handle.Gemm] uses cublasMpMatmul() semantics with D == C.
@@ -249,7 +364,7 @@ func GemmBufferSize(handle Handle, transA cublas.Operation, transB cublas.Operat
 	return out0, out1, nil
 }
 
-// GetStream Gets the current CUDA stream used by the cuBLASMp library.
+// GetStream gets the current CUDA stream used by the cuBLASMp library.
 //
 // This function returns the current CUDA stream that is being used in the computations.
 //
@@ -261,15 +376,18 @@ func GetStream(handle Handle) (driver.Stream, error) {
 		var zero driver.Stream
 		return zero, err
 	}
-	var out driver.Stream
-	if err := toError(fnGetStream(handle, &out), "cublasMpGetStream"); err != nil {
+	out := slotGetStream.get()
+	defer slotGetStream.put(out)
+	if err := toError(fnGetStream(handle, out), "cublasMpGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetVersion Returns the version number of the cuBLASMp library.
+var slotGetStream outSlot[driver.Stream]
+
+// GetVersion returns the version number of the cuBLASMp library.
 //
 // The version value is computed as
 // CUBLASMP_VER_MAJOR * 10000 + CUBLASMP_VER_MINOR * 100 + CUBLASMP_VER_PATCH.
@@ -280,15 +398,18 @@ func GetVersion() (int, error) {
 		var zero int
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetVersion(&out), "cublasMpGetVersion"); err != nil {
+	out := slotGetVersion.get()
+	defer slotGetVersion.put(out)
+	if err := toError(fnGetVersion(out), "cublasMpGetVersion"); err != nil {
 		var zero int
 		return zero, err
 	}
-	return int(out), nil
+	return int(*out), nil
 }
 
-// GridCreate Creates and initializes a process grid.
+var slotGetVersion outSlot[int32]
+
+// GridCreate creates and initializes a process grid.
 //
 // This function initializes the [Grid] opaque data structure. It maps the
 // given resources (communicator, grid dimensions and grid layout) to a grid object.
@@ -316,7 +437,7 @@ func GridCreate(nprow int64, npcol int64, layout GridLayout, comm nccl.Comm) (Gr
 	return out, nil
 }
 
-// GridDestroy Destroys a process grid.
+// GridDestroy destroys a process grid.
 //
 // This function destroys the given grid object. All ranks in the grid
 // communicator must enter this function collectively.
@@ -331,7 +452,7 @@ func GridDestroy(grid Grid) error {
 	return toError(fnGridDestroy(grid), "cublasMpGridDestroy")
 }
 
-// Malloc Allocates and registers device memory with NCCL symmetric memory.
+// Malloc allocates and registers device memory with NCCL symmetric memory.
 //
 // This is a convenience function that combines ncclMemAlloc and [Grid.Register]
 // into a single call. See [Grid.Register] for details on how workspace registration
@@ -349,15 +470,18 @@ func Malloc(grid Grid, size uint) (uintptr, error) {
 		var zero uintptr
 		return zero, err
 	}
-	var out uintptr
-	if err := toError(fnMalloc(grid, &out, size), "cublasMpMalloc"); err != nil {
+	out := slotMalloc.get()
+	defer slotMalloc.put(out)
+	if err := toError(fnMalloc(grid, out, size), "cublasMpMalloc"); err != nil {
 		var zero uintptr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MatrixDescriptorCreate Creates and initializes a matrix descriptor.
+var slotMalloc outSlot[uintptr]
+
+// MatrixDescriptorCreate creates and initializes a matrix descriptor.
 //
 // This function creates and initializes a new [MatrixDescriptor] object that
 // describes a distributed matrix using 2D block-cyclic distribution.
@@ -393,7 +517,7 @@ func MatrixDescriptorCreate(m int64, n int64, mb int64, nb int64, rsrc int64, cs
 	return out, nil
 }
 
-// MatrixDescriptorDestroy Destroys a matrix descriptor.
+// MatrixDescriptorDestroy destroys a matrix descriptor.
 //
 // This function destroys a [MatrixDescriptor] object.
 //
@@ -407,7 +531,7 @@ func MatrixDescriptorDestroy(desc MatrixDescriptor) error {
 	return toError(fnMatrixDescriptorDestroy(desc), "cublasMpMatrixDescriptorDestroy")
 }
 
-// MatrixDescriptorInit Initializes the values of an existing matrix descriptor.
+// MatrixDescriptorInit initializes the values of an existing matrix descriptor.
 //
 // This function initializes the values of a [MatrixDescriptor] object.
 // Unlike [NewMatrixDescriptor], this function does not allocate
@@ -436,7 +560,7 @@ func MatrixDescriptorInit(m int64, n int64, mb int64, nb int64, rsrc int64, csrc
 	return toError(fnMatrixDescriptorInit(m, n, mb, nb, rsrc, csrc, lld, type_, grid, desc), "cublasMpMatrixDescriptorInit")
 }
 
-// SetStream Sets the CUDA stream for cuBLASMp computations.
+// SetStream sets the CUDA stream for cuBLASMp computations.
 //
 // This function sets the CUDA stream to be used in the computations.
 // The new stream must belong to the same CUDA context as the stream associated

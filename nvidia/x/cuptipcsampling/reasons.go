@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // StallReason identifies a reason returned by the native PC sampling API.
@@ -63,7 +64,7 @@ func (inv ReasonInventory) Lookup(index uint32) string {
 // are admitted;
 // other versions fail before querying the layout. Runtime/device support must
 // still be established by the native result on the selected configuration.
-func StallReasons(ctx cupti.Context, maxReasons int) (ReasonInventory, error) {
+func StallReasons(ctx driver.Context, maxReasons int) (ReasonInventory, error) {
 	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
 		return ReasonInventory{}, errors.New("cuptipcsampling: invalid reason inventory request")
 	}
@@ -78,7 +79,7 @@ func StallReasons(ctx cupti.Context, maxReasons int) (ReasonInventory, error) {
 	return out, nil
 }
 
-func stallReasons(ctx cupti.Context, maxReasons int, version uint32, countQuery func(*cupti.PCSamplingGetNumStallReasonsParams) error, namesQuery func(*cupti.PCSamplingGetStallReasonsParams) error) (ReasonInventory, error) {
+func stallReasons(ctx driver.Context, maxReasons int, version uint32, countQuery func(*cupti.PCSamplingGetNumStallReasonsParams) error, namesQuery func(*cupti.PCSamplingGetStallReasonsParams) error) (ReasonInventory, error) {
 	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
 		return ReasonInventory{}, errors.New("cuptipcsampling: invalid reason inventory request")
 	}

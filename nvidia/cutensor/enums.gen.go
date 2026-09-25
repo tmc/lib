@@ -144,7 +144,9 @@ func (e AlgoT) String() string {
 	return fmt.Sprintf("AlgoT(%d)", e)
 }
 
-// WorksizepreferenceT gives users finer control over the suggested workspace This enum gives users finer control over the amount of workspace that is suggested by [Handle.EstimateWorkspaceSize].
+// WorksizepreferenceT gives users finer control over the suggested workspace.
+//
+// This enum gives users finer control over the amount of workspace that is suggested by [Handle.EstimateWorkspaceSize]
 type WorksizepreferenceT int32
 
 const (

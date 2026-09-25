@@ -117,7 +117,7 @@ func Example() {
 		return
 	}
 	// ComputeAction accumulates, so the output starts at zero.
-	if err := out.InitializeZero(handle, cudensitymat.Stream(stream)); err != nil {
+	if err := out.InitializeZero(handle, driver.Stream(stream)); err != nil {
 		fmt.Println("zero output:", err)
 		return
 	}
@@ -198,7 +198,7 @@ func Example() {
 	}
 	defer ws.Destroy()
 	if err := liouvillian.PrepareAction(handle, in, out, cudensitymat.Compute64F,
-		1<<26, ws, cudensitymat.Stream(stream)); err != nil {
+		1<<26, ws, driver.Stream(stream)); err != nil {
 		fmt.Println("prepare:", err)
 		return
 	}
@@ -222,7 +222,7 @@ func Example() {
 	}
 
 	if err := liouvillian.ComputeAction(handle, 0, 1, 0, nil, in, out, ws,
-		cudensitymat.Stream(stream)); err != nil {
+		driver.Stream(stream)); err != nil {
 		fmt.Println("compute action:", err)
 		return
 	}

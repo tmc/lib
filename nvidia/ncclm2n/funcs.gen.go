@@ -3,14 +3,18 @@
 package ncclm2n
 
 import (
+	"sync"
+	"unsafe"
+
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
 // Generated function pointer variables.
 var (
 	fnFinalize          func(Handle) nccl.Result
-	fnGetLastError      func() *byte
+	symGetLastError     uintptr
 	fnGroupAbort        func() nccl.Result
 	fnGroupEnd          func() nccl.Result
 	fnGroupStart        func() nccl.Result
@@ -18,6 +22,59 @@ var (
 	fnReshard           func(Handle, nccl.Comm, *DistTensor, *DistTensor, driver.Stream) nccl.Result
 	fnReshardWithWindow func(Handle, nccl.Comm, nccl.Window, *DistTensor, *DistTensor, driver.Stream) nccl.Result
 )
+
+// ffiCall0 through ffiCall0 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+// ffiPointer reinterprets an address a C function returned as a pointer.
+// Such an address does not identify a Go allocation.
+func ffiPointer(addr uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&addr))
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnGetLastError calls ncclM2nGetLastError.
+func fnGetLastError() *byte {
+	r1, _ := ffiCall0(symGetLastError, 0)
+	return (*byte)(ffiPointer(r1))
+}
 
 // Finalize finalizes a handle after its submitted work has completed.
 //

@@ -6,82 +6,474 @@
 package nvshmem
 
 import (
+	"sync"
+	"unsafe"
+
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 // Generated function pointer variables.
 var (
-	fnAlign                     func(uint, uint) uintptr
-	fnAllToAllMem               func(Team, uintptr, uintptr, uint) Status
-	fnBarrier                   func(Team) Status
-	fnBarrierAll                func()
-	fnBroadcastMem              func(Team, uintptr, uintptr, uint, int32) Status
-	fnCalloc                    func(uint, uint) uintptr
-	fnFCollectMem               func(Team, uintptr, uintptr, uint) Status
-	fnFence                     func()
-	fnFree                      func(uintptr)
-	fnGetMem                    func(uintptr, uintptr, uint, int32)
-	fnGetMemNBI                 func(uintptr, uintptr, uint, int32)
-	fnGlobalExit                func(int32)
-	fnInfoGetNameRaw            func(*byte)
-	fnInfoGetVersionRaw         func(*int32, *int32)
-	fnMalloc                    func(uint) uintptr
-	fnMyPE                      func() int32
-	fnNPEs                      func() int32
-	fnPtr                       func(uintptr, int32) uintptr
-	fnPutMem                    func(uintptr, uintptr, uint, int32)
-	fnPutMemNBI                 func(uintptr, uintptr, uint, int32)
-	fnQueryThreadRaw            func(*int32)
-	fnQuiet                     func()
-	fnSignalFetch               func(uintptr) uint64
-	fnSyncAll                   func()
-	fnTeamDestroy               func(Team)
-	fnTeamGetConfig             func(Team, *TeamConfig)
-	fnTeamMyPE                  func(Team) int32
-	fnTeamNPEs                  func(Team) int32
-	fnTeamSplit2D               func(Team, int32, *TeamConfig, int, *Team, *TeamConfig, int, *Team) Status
-	fnTeamSplitStrided          func(Team, int32, int32, int32, *TeamConfig, int, *Team) Status
-	fnTeamSync                  func(Team) Status
-	fnTeamTranslatePE           func(Team, int32, Team) int32
-	fnAllToAllMemOnStream       func(Team, uintptr, uintptr, uint, driver.Stream) Status
-	fnBarrierAllOnStream        func(driver.Stream)
-	fnBarrierOnStream           func(Team, driver.Stream) Status
-	fnBroadcastMemOnStream      func(Team, uintptr, uintptr, uint, int32, driver.Stream) Status
-	fnBufferRegister            func(uintptr, uint) Status
-	fnBufferRegisterSymmetric   func(uintptr, uint, int32) uintptr
-	fnBufferRegisterSymmetricAt func(uintptr, uint, uintptr, int32) uintptr
-	fnBufferUnregister          func(uintptr) Status
-	fnBufferUnregisterAll       func()
-	fnBufferUnregisterSymmetric func(uintptr, uint) Status
-	fnCULibraryFinalize         func(driver.Library) Status
-	fnCULibraryInit             func(driver.Library) Status
-	fnCUModuleFinalize          func(driver.Module) Status
-	fnCUModuleInit              func(driver.Module) Status
-	fnFCollectMemOnStream       func(Team, uintptr, uintptr, uint, driver.Stream) Status
-	fnFlush                     func()
-	fnFlushOnStream             func(driver.Stream)
-	fnGetUniqueID               func(*UniqueID) Status
-	fnGetMemNBIOnStream         func(uintptr, uintptr, uint, int32, driver.Stream)
-	fnGetMemOnStream            func(uintptr, uintptr, uint, int32, driver.Stream)
-	fnHostlibFinalize           func()
-	fnHostlibInitAttr           func(uint32, *InitAttr) Status
-	fnQueryInitStatus           func() InitStatus
-	fnMulticastPtr              func(Team, uintptr) uintptr
-	fnPutMemNBIOnStream         func(uintptr, uintptr, uint, int32, driver.Stream)
-	fnPutMemOnStream            func(uintptr, uintptr, uint, int32, driver.Stream)
-	fnPutMemSignalNBIOnStream   func(uintptr, uintptr, uint, uintptr, uint64, int32, int32, driver.Stream)
-	fnPutMemSignalOnStream      func(uintptr, uintptr, uint, uintptr, uint64, int32, int32, driver.Stream)
-	fnQuietOnStream             func(driver.Stream)
-	fnSetAttrMPICommArgs        func(uintptr, *InitAttr) Status
-	fnSetAttrUniqueIDArgs       func(int32, int32, *UniqueID, *InitAttr) Status
-	fnSignalOpOnStream          func(uintptr, uint64, int32, int32, driver.Stream)
-	fnSignalWaitUntilOnStream   func(uintptr, int32, uint64, driver.Stream)
-	fnSyncAllOnStream           func(driver.Stream)
-	fnTeamGetUniqueID           func(*uint64) Status
-	fnTeamInit                  func(*Team, *TeamConfig, int, int32, int32) Status
-	fnTeamSyncOnStream          func(Team, driver.Stream) Status
-	fnVendorGetVersionInfoRaw   func(*int32, *int32, *int32)
+	symAlign                     uintptr
+	symAllToAllMem               uintptr
+	symBarrier                   uintptr
+	symBarrierAll                uintptr
+	symBroadcastMem              uintptr
+	symCalloc                    uintptr
+	symFCollectMem               uintptr
+	symFence                     uintptr
+	symFree                      uintptr
+	symGetMem                    uintptr
+	symGetMemNBI                 uintptr
+	symGlobalExit                uintptr
+	symInfoGetNameRaw            uintptr
+	symInfoGetVersionRaw         uintptr
+	symMalloc                    uintptr
+	symMyPE                      uintptr
+	symNPEs                      uintptr
+	symPtr                       uintptr
+	symPutMem                    uintptr
+	symPutMemNBI                 uintptr
+	symQueryThreadRaw            uintptr
+	symQuiet                     uintptr
+	symSignalFetch               uintptr
+	symSyncAll                   uintptr
+	symTeamDestroy               uintptr
+	symTeamGetConfig             uintptr
+	symTeamMyPE                  uintptr
+	symTeamNPEs                  uintptr
+	symTeamSplit2D               uintptr
+	symTeamSplitStrided          uintptr
+	symTeamSync                  uintptr
+	symTeamTranslatePE           uintptr
+	fnAllToAllMemOnStream        func(Team, uintptr, uintptr, uint, driver.Stream) Status
+	fnBarrierAllOnStream         func(driver.Stream)
+	fnBarrierOnStream            func(Team, driver.Stream) Status
+	fnBroadcastMemOnStream       func(Team, uintptr, uintptr, uint, int32, driver.Stream) Status
+	symBufferRegister            uintptr
+	symBufferRegisterSymmetric   uintptr
+	symBufferRegisterSymmetricAt uintptr
+	symBufferUnregister          uintptr
+	symBufferUnregisterAll       uintptr
+	symBufferUnregisterSymmetric uintptr
+	fnCULibraryFinalize          func(driver.Library) Status
+	fnCULibraryInit              func(driver.Library) Status
+	fnCUModuleFinalize           func(driver.Module) Status
+	fnCUModuleInit               func(driver.Module) Status
+	fnFCollectMemOnStream        func(Team, uintptr, uintptr, uint, driver.Stream) Status
+	symFlush                     uintptr
+	fnFlushOnStream              func(driver.Stream)
+	symGetUniqueID               uintptr
+	fnGetMemNBIOnStream          func(uintptr, uintptr, uint, int32, driver.Stream)
+	fnGetMemOnStream             func(uintptr, uintptr, uint, int32, driver.Stream)
+	symHostlibFinalize           uintptr
+	symHostlibInitAttr           uintptr
+	symQueryInitStatus           uintptr
+	symMulticastPtr              uintptr
+	fnPutMemNBIOnStream          func(uintptr, uintptr, uint, int32, driver.Stream)
+	fnPutMemOnStream             func(uintptr, uintptr, uint, int32, driver.Stream)
+	fnPutMemSignalNBIOnStream    func(uintptr, uintptr, uint, uintptr, uint64, int32, int32, driver.Stream)
+	fnPutMemSignalOnStream       func(uintptr, uintptr, uint, uintptr, uint64, int32, int32, driver.Stream)
+	fnQuietOnStream              func(driver.Stream)
+	symSetAttrMPICommArgs        uintptr
+	symSetAttrUniqueIDArgs       uintptr
+	fnSignalOpOnStream           func(uintptr, uint64, int32, int32, driver.Stream)
+	fnSignalWaitUntilOnStream    func(uintptr, int32, uint64, driver.Stream)
+	fnSyncAllOnStream            func(driver.Stream)
+	symTeamGetUniqueID           uintptr
+	symTeamInit                  uintptr
+	fnTeamSyncOnStream           func(Team, driver.Stream) Status
+	symVendorGetVersionInfoRaw   uintptr
 )
+
+// ffiCall0 through ffiCall8 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnAlign calls nvshmem_align.
+func fnAlign(a0 uint, a1 uint) uintptr {
+	r1, _ := ffiCall2(symAlign, 0, uintptr(a0), uintptr(a1))
+	return uintptr(r1)
+}
+
+// fnAllToAllMem calls nvshmem_alltoallmem.
+func fnAllToAllMem(a0 Team, a1 uintptr, a2 uintptr, a3 uint) Status {
+	r1, _ := ffiCall4(symAllToAllMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Status(r1)
+}
+
+// fnBarrier calls nvshmem_barrier.
+func fnBarrier(a0 Team) Status {
+	r1, _ := ffiCall1(symBarrier, 0, uintptr(a0))
+	return Status(r1)
+}
+
+// fnBarrierAll calls nvshmem_barrier_all.
+func fnBarrierAll() {
+	ffiCall0(symBarrierAll, 0)
+}
+
+// fnBroadcastMem calls nvshmem_broadcastmem.
+func fnBroadcastMem(a0 Team, a1 uintptr, a2 uintptr, a3 uint, a4 int32) Status {
+	r1, _ := ffiCall5(symBroadcastMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Status(r1)
+}
+
+// fnCalloc calls nvshmem_calloc.
+func fnCalloc(a0 uint, a1 uint) uintptr {
+	r1, _ := ffiCall2(symCalloc, 0, uintptr(a0), uintptr(a1))
+	return uintptr(r1)
+}
+
+// fnFCollectMem calls nvshmem_fcollectmem.
+func fnFCollectMem(a0 Team, a1 uintptr, a2 uintptr, a3 uint) Status {
+	r1, _ := ffiCall4(symFCollectMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Status(r1)
+}
+
+// fnFence calls nvshmem_fence.
+func fnFence() {
+	ffiCall0(symFence, 0)
+}
+
+// fnFree calls nvshmem_free.
+func fnFree(a0 uintptr) {
+	ffiCall1(symFree, 0, uintptr(a0))
+}
+
+// fnGetMem calls nvshmem_getmem.
+func fnGetMem(a0 uintptr, a1 uintptr, a2 uint, a3 int32) {
+	ffiCall4(symGetMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+}
+
+// fnGetMemNBI calls nvshmem_getmem_nbi.
+func fnGetMemNBI(a0 uintptr, a1 uintptr, a2 uint, a3 int32) {
+	ffiCall4(symGetMemNBI, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+}
+
+// fnGlobalExit calls nvshmem_global_exit.
+func fnGlobalExit(a0 int32) {
+	ffiCall1(symGlobalExit, 0, uintptr(a0))
+}
+
+// fnInfoGetNameRaw calls nvshmem_info_get_name.
+func fnInfoGetNameRaw(a0 *byte) {
+	ffiCall1(symInfoGetNameRaw, 0, uintptr(unsafe.Pointer(a0)))
+}
+
+// fnInfoGetVersionRaw calls nvshmem_info_get_version.
+func fnInfoGetVersionRaw(a0 *int32, a1 *int32) {
+	ffiCall2(symInfoGetVersionRaw, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+}
+
+// fnMalloc calls nvshmem_malloc.
+func fnMalloc(a0 uint) uintptr {
+	r1, _ := ffiCall1(symMalloc, 0, uintptr(a0))
+	return uintptr(r1)
+}
+
+// fnMyPE calls nvshmem_my_pe.
+func fnMyPE() int32 {
+	r1, _ := ffiCall0(symMyPE, 0)
+	return int32(r1)
+}
+
+// fnNPEs calls nvshmem_n_pes.
+func fnNPEs() int32 {
+	r1, _ := ffiCall0(symNPEs, 0)
+	return int32(r1)
+}
+
+// fnPtr calls nvshmem_ptr.
+func fnPtr(a0 uintptr, a1 int32) uintptr {
+	r1, _ := ffiCall2(symPtr, 0, uintptr(a0), uintptr(a1))
+	return uintptr(r1)
+}
+
+// fnPutMem calls nvshmem_putmem.
+func fnPutMem(a0 uintptr, a1 uintptr, a2 uint, a3 int32) {
+	ffiCall4(symPutMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+}
+
+// fnPutMemNBI calls nvshmem_putmem_nbi.
+func fnPutMemNBI(a0 uintptr, a1 uintptr, a2 uint, a3 int32) {
+	ffiCall4(symPutMemNBI, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+}
+
+// fnQueryThreadRaw calls nvshmem_query_thread.
+func fnQueryThreadRaw(a0 *int32) {
+	ffiCall1(symQueryThreadRaw, 0, uintptr(unsafe.Pointer(a0)))
+}
+
+// fnQuiet calls nvshmem_quiet.
+func fnQuiet() {
+	ffiCall0(symQuiet, 0)
+}
+
+// fnSignalFetch calls nvshmem_signal_fetch.
+func fnSignalFetch(a0 uintptr) uint64 {
+	r1, _ := ffiCall1(symSignalFetch, 0, uintptr(a0))
+	return uint64(r1)
+}
+
+// fnSyncAll calls nvshmem_sync_all.
+func fnSyncAll() {
+	ffiCall0(symSyncAll, 0)
+}
+
+// fnTeamDestroy calls nvshmem_team_destroy.
+func fnTeamDestroy(a0 Team) {
+	ffiCall1(symTeamDestroy, 0, uintptr(a0))
+}
+
+// fnTeamGetConfig calls nvshmem_team_get_config.
+func fnTeamGetConfig(a0 Team, a1 *TeamConfig) {
+	ffiCall2(symTeamGetConfig, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+}
+
+// fnTeamMyPE calls nvshmem_team_my_pe.
+func fnTeamMyPE(a0 Team) int32 {
+	r1, _ := ffiCall1(symTeamMyPE, 0, uintptr(a0))
+	return int32(r1)
+}
+
+// fnTeamNPEs calls nvshmem_team_n_pes.
+func fnTeamNPEs(a0 Team) int32 {
+	r1, _ := ffiCall1(symTeamNPEs, 0, uintptr(a0))
+	return int32(r1)
+}
+
+// fnTeamSplit2D calls nvshmem_team_split_2d.
+func fnTeamSplit2D(a0 Team, a1 int32, a2 *TeamConfig, a3 int, a4 *Team, a5 *TeamConfig, a6 int, a7 *Team) Status {
+	r1, _ := ffiCall8(symTeamSplit2D, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Status(r1)
+}
+
+// fnTeamSplitStrided calls nvshmem_team_split_strided.
+func fnTeamSplitStrided(a0 Team, a1 int32, a2 int32, a3 int32, a4 *TeamConfig, a5 int, a6 *Team) Status {
+	r1, _ := ffiCall7(symTeamSplitStrided, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Status(r1)
+}
+
+// fnTeamSync calls nvshmem_team_sync.
+func fnTeamSync(a0 Team) Status {
+	r1, _ := ffiCall1(symTeamSync, 0, uintptr(a0))
+	return Status(r1)
+}
+
+// fnTeamTranslatePE calls nvshmem_team_translate_pe.
+func fnTeamTranslatePE(a0 Team, a1 int32, a2 Team) int32 {
+	r1, _ := ffiCall3(symTeamTranslatePE, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return int32(r1)
+}
+
+// fnBufferRegister calls nvshmemx_buffer_register.
+func fnBufferRegister(a0 uintptr, a1 uint) Status {
+	r1, _ := ffiCall2(symBufferRegister, 0, uintptr(a0), uintptr(a1))
+	return Status(r1)
+}
+
+// fnBufferRegisterSymmetric calls nvshmemx_buffer_register_symmetric.
+func fnBufferRegisterSymmetric(a0 uintptr, a1 uint, a2 int32) uintptr {
+	r1, _ := ffiCall3(symBufferRegisterSymmetric, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return uintptr(r1)
+}
+
+// fnBufferRegisterSymmetricAt calls nvshmemx_buffer_register_symmetric_at_preferred_address.
+func fnBufferRegisterSymmetricAt(a0 uintptr, a1 uint, a2 uintptr, a3 int32) uintptr {
+	r1, _ := ffiCall4(symBufferRegisterSymmetricAt, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return uintptr(r1)
+}
+
+// fnBufferUnregister calls nvshmemx_buffer_unregister.
+func fnBufferUnregister(a0 uintptr) Status {
+	r1, _ := ffiCall1(symBufferUnregister, 0, uintptr(a0))
+	return Status(r1)
+}
+
+// fnBufferUnregisterAll calls nvshmemx_buffer_unregister_all.
+func fnBufferUnregisterAll() {
+	ffiCall0(symBufferUnregisterAll, 0)
+}
+
+// fnBufferUnregisterSymmetric calls nvshmemx_buffer_unregister_symmetric.
+func fnBufferUnregisterSymmetric(a0 uintptr, a1 uint) Status {
+	r1, _ := ffiCall2(symBufferUnregisterSymmetric, 0, uintptr(a0), uintptr(a1))
+	return Status(r1)
+}
+
+// fnFlush calls nvshmemx_flush.
+func fnFlush() {
+	ffiCall0(symFlush, 0)
+}
+
+// fnGetUniqueID calls nvshmemx_get_uniqueid.
+func fnGetUniqueID(a0 *UniqueID) Status {
+	r1, _ := ffiCall1(symGetUniqueID, 0, uintptr(unsafe.Pointer(a0)))
+	return Status(r1)
+}
+
+// fnHostlibFinalize calls nvshmemx_hostlib_finalize.
+func fnHostlibFinalize() {
+	ffiCall0(symHostlibFinalize, 0)
+}
+
+// fnHostlibInitAttr calls nvshmemx_hostlib_init_attr.
+func fnHostlibInitAttr(a0 uint32, a1 *InitAttr) Status {
+	r1, _ := ffiCall2(symHostlibInitAttr, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Status(r1)
+}
+
+// fnQueryInitStatus calls nvshmemx_init_status.
+func fnQueryInitStatus() InitStatus {
+	r1, _ := ffiCall0(symQueryInitStatus, 0)
+	return InitStatus(r1)
+}
+
+// fnMulticastPtr calls nvshmemx_mc_ptr.
+func fnMulticastPtr(a0 Team, a1 uintptr) uintptr {
+	r1, _ := ffiCall2(symMulticastPtr, 0, uintptr(a0), uintptr(a1))
+	return uintptr(r1)
+}
+
+// fnSetAttrMPICommArgs calls nvshmemx_set_attr_mpi_comm_args.
+func fnSetAttrMPICommArgs(a0 uintptr, a1 *InitAttr) Status {
+	r1, _ := ffiCall2(symSetAttrMPICommArgs, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Status(r1)
+}
+
+// fnSetAttrUniqueIDArgs calls nvshmemx_set_attr_uniqueid_args.
+func fnSetAttrUniqueIDArgs(a0 int32, a1 int32, a2 *UniqueID, a3 *InitAttr) Status {
+	r1, _ := ffiCall4(symSetAttrUniqueIDArgs, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Status(r1)
+}
+
+// fnTeamGetUniqueID calls nvshmemx_team_get_uniqueid.
+func fnTeamGetUniqueID(a0 *uint64) Status {
+	r1, _ := ffiCall1(symTeamGetUniqueID, 0, uintptr(unsafe.Pointer(a0)))
+	return Status(r1)
+}
+
+// fnTeamInit calls nvshmemx_team_init.
+func fnTeamInit(a0 *Team, a1 *TeamConfig, a2 int, a3 int32, a4 int32) Status {
+	r1, _ := ffiCall5(symTeamInit, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Status(r1)
+}
+
+// fnVendorGetVersionInfoRaw calls nvshmemx_vendor_get_version_info.
+func fnVendorGetVersionInfoRaw(a0 *int32, a1 *int32, a2 *int32) {
+	ffiCall3(symVendorGetVersionInfoRaw, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+}
 
 // Align wraps nvshmem_align.
 // It returns the zero value when the library or symbol is unavailable.
@@ -327,13 +719,16 @@ func TeamSplitStrided(parentTeam Team, pEStart int32, pEStride int32, pESize int
 		var zero Team
 		return zero, err
 	}
-	var out Team
-	if err := toError(fnTeamSplitStrided(parentTeam, pEStart, pEStride, pESize, config, configMask, &out), "nvshmem_team_split_strided"); err != nil {
+	out := slotTeamSplitStrided.get()
+	defer slotTeamSplitStrided.put(out)
+	if err := toError(fnTeamSplitStrided(parentTeam, pEStart, pEStride, pESize, config, configMask, out), "nvshmem_team_split_strided"); err != nil {
 		var zero Team
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotTeamSplitStrided outSlot[Team]
 
 // TeamSync wraps nvshmem_team_sync.
 func TeamSync(team Team) error {
@@ -503,13 +898,16 @@ func GetUniqueID() (UniqueID, error) {
 		var zero UniqueID
 		return zero, err
 	}
-	var out UniqueID
-	if err := toError(fnGetUniqueID(&out), "nvshmemx_get_uniqueid"); err != nil {
+	out := slotGetUniqueID.get()
+	defer slotGetUniqueID.put(out)
+	if err := toError(fnGetUniqueID(out), "nvshmemx_get_uniqueid"); err != nil {
 		var zero UniqueID
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetUniqueID outSlot[UniqueID]
 
 // GetMemNBIOnStream wraps nvshmemx_getmem_nbi_on_stream.
 // It does nothing when the library or symbol is unavailable.
@@ -643,13 +1041,16 @@ func TeamGetUniqueID() (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnTeamGetUniqueID(&out), "nvshmemx_team_get_uniqueid"); err != nil {
+	out := slotTeamGetUniqueID.get()
+	defer slotTeamGetUniqueID.put(out)
+	if err := toError(fnTeamGetUniqueID(out), "nvshmemx_team_get_uniqueid"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotTeamGetUniqueID outSlot[uint64]
 
 // TeamInit wraps nvshmemx_team_init.
 func TeamInit(team *Team, config *TeamConfig, configMask int, npes int32, peIdxInTeam int32) error {

@@ -2,23 +2,91 @@
 
 package nvcomp
 
+import (
+	"sync"
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
+)
+
 // Generated function pointer variables.
 var (
-	fnCompressAsync                   func(DevicePointerArray, DeviceSizeArray, uint, uint, DeviceBuffer, uint, DevicePointerArray, DeviceSizeArray, CompressOpts, DeviceStatusArray, Stream) Result
+	fnCompressAsync                   func(DevicePointerArray, DeviceSizeArray, uint, uint, DeviceBuffer, uint, DevicePointerArray, DeviceSizeArray, CompressOpts, DeviceStatusArray, driver.Stream) Result
 	fnCompressGetMaxOutputChunkSize   func(uint, CompressOpts, *uint) Result
 	fnCompressGetRequiredAlignments   func(CompressOpts, *AlignmentRequirements) Result
 	fnCompressGetTempSizeAsync        func(uint, uint, CompressOpts, *uint, uint) Result
-	fnCompressGetTempSizeSync         func(DevicePointerArray, DeviceSizeArray, uint, uint, CompressOpts, *uint, uint, Stream) Result
-	fnDecompressAsync                 func(DevicePointerArray, DeviceSizeArray, DeviceSizeArray, DeviceSizeArray, uint, DeviceBuffer, uint, DevicePointerArray, DecompressOpts, DeviceStatusArray, Stream) Result
+	fnCompressGetTempSizeSync         func(DevicePointerArray, DeviceSizeArray, uint, uint, CompressOpts, *uint, uint, driver.Stream) Result
+	fnDecompressAsync                 func(DevicePointerArray, DeviceSizeArray, DeviceSizeArray, DeviceSizeArray, uint, DeviceBuffer, uint, DevicePointerArray, DecompressOpts, DeviceStatusArray, driver.Stream) Result
 	fnDecompressGetRequiredAlignments func(DecompressOpts, *AlignmentRequirements) Result
 	fnDecompressGetTempSizeAsync      func(uint, uint, DecompressOpts, *uint, uint) Result
-	fnDecompressGetTempSizeSync       func(DevicePointerArray, DeviceSizeArray, uint, uint, *uint, uint, DecompressOpts, DeviceStatusArray, Stream) Result
-	fnGetDecompressSizeAsync          func(DevicePointerArray, DeviceSizeArray, DeviceSizeArray, uint, Stream) Result
-	fnGetProperties                   func(*Properties) Result
-	fnGetStatusString                 func(Result) *byte
+	fnDecompressGetTempSizeSync       func(DevicePointerArray, DeviceSizeArray, uint, uint, *uint, uint, DecompressOpts, DeviceStatusArray, driver.Stream) Result
+	fnGetDecompressSizeAsync          func(DevicePointerArray, DeviceSizeArray, DeviceSizeArray, uint, driver.Stream) Result
+	symGetProperties                  uintptr
+	symGetStatusString                uintptr
 )
 
-// CompressAsync Perform batched asynchronous compression.
+// ffiCall0 through ffiCall1 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+// ffiPointer reinterprets an address a C function returned as a pointer.
+// Such an address does not identify a Go allocation.
+func ffiPointer(addr uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&addr))
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnGetProperties calls nvcompGetProperties.
+func fnGetProperties(a0 *Properties) Result {
+	r1, _ := ffiCall1(symGetProperties, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGetStatusString calls nvcompGetStatusString.
+func fnGetStatusString(a0 Result) *byte {
+	r1, _ := ffiCall1(symGetStatusString, 0, uintptr(a0))
+	return (*byte)(ffiPointer(r1))
+}
+
+// CompressAsync performs batched asynchronous compression.
 //
 // This call enqueues work on the stream and returns once the launch is accepted. A nil error reports the launch, not the result. Every buffer passed in must stay live and unmodified until the stream completes, and the per-chunk statuses must be read afterwards.
 //
@@ -37,14 +105,16 @@ var (
 //   - stream: in The CUDA stream to operate on
 //
 // Wraps nvcompBatchedLZ4CompressAsync.
-func CompressAsync(deviceUncompressedChunkPtrs DevicePointerArray, deviceUncompressedChunkBytes DeviceSizeArray, maxUncompressedChunkBytes uint, numChunks uint, deviceTempPtr DeviceBuffer, tempBytes uint, deviceCompressedChunkPtrs DevicePointerArray, deviceCompressedChunkBytes DeviceSizeArray, compressOpts CompressOpts, deviceStatuses DeviceStatusArray, stream Stream) error {
+func CompressAsync(deviceUncompressedChunkPtrs DevicePointerArray, deviceUncompressedChunkBytes DeviceSizeArray, maxUncompressedChunkBytes uint, numChunks uint, deviceTempPtr DeviceBuffer, tempBytes uint, deviceCompressedChunkPtrs DevicePointerArray, deviceCompressedChunkBytes DeviceSizeArray, compressOpts CompressOpts, deviceStatuses DeviceStatusArray, stream driver.Stream) error {
 	if err := checkLibSym("nvcompBatchedLZ4CompressAsync"); err != nil {
 		return err
 	}
 	return toError(fnCompressAsync(deviceUncompressedChunkPtrs, deviceUncompressedChunkBytes, maxUncompressedChunkBytes, numChunks, deviceTempPtr, tempBytes, deviceCompressedChunkPtrs, deviceCompressedChunkBytes, compressOpts, deviceStatuses, stream), "nvcompBatchedLZ4CompressAsync")
 }
 
-// CompressGetMaxOutputChunkSize Get the maximum size that a chunk of size at most maxUncompressedChunkBytes could compress to.
+// CompressGetMaxOutputChunkSize gets the maximum size that a chunk of size at most maxUncompressedChunkBytes could compress to.
+//
+// That is, the minimum amount of output memory required to be given [CompressAsync] for each chunk.
 //
 //   - maxUncompressedChunkBytes: in The maximum size of a chunk before compression
 //   - compressOpts: in The LZ4 compression options to use
@@ -63,7 +133,7 @@ func CompressGetMaxOutputChunkSize(maxUncompressedChunkBytes uint, compressOpts 
 	return out, nil
 }
 
-// CompressGetRequiredAlignments Get the minimum buffer alignment requirements for compression.
+// CompressGetRequiredAlignments gets the minimum buffer alignment requirements for compression.
 //
 //   - compressOpts: in Compression options
 //
@@ -81,7 +151,7 @@ func CompressGetRequiredAlignments(compressOpts CompressOpts) (AlignmentRequirem
 	return out, nil
 }
 
-// CompressGetTempSizeAsync Get the amount of temporary memory required on the GPU for compression asynchronously.
+// CompressGetTempSizeAsync gets the amount of temporary memory required on the GPU for compression asynchronously.
 //
 // This call does not interact with the device, so its result is usable as soon as it returns.
 //
@@ -104,7 +174,7 @@ func CompressGetTempSizeAsync(numChunks uint, maxUncompressedChunkBytes uint, co
 	return out, nil
 }
 
-// CompressGetTempSizeSync Get the amount of temporary memory required on the GPU for compression synchronously.
+// CompressGetTempSizeSync gets the amount of temporary memory required on the GPU for compression synchronously.
 //
 // This call may enqueue work on the stream, and synchronizes the stream itself if it does, so its result is usable as soon as it returns.
 //
@@ -117,7 +187,7 @@ func CompressGetTempSizeAsync(numChunks uint, maxUncompressedChunkBytes uint, co
 //   - stream: in The CUDA stream to operate on
 //
 // Wraps nvcompBatchedLZ4CompressGetTempSizeSync.
-func CompressGetTempSizeSync(deviceUncompressedChunkPtrs DevicePointerArray, deviceUncompressedChunkBytes DeviceSizeArray, numChunks uint, maxUncompressedChunkBytes uint, compressOpts CompressOpts, maxTotalUncompressedBytes uint, stream Stream) (uint, error) {
+func CompressGetTempSizeSync(deviceUncompressedChunkPtrs DevicePointerArray, deviceUncompressedChunkBytes DeviceSizeArray, numChunks uint, maxUncompressedChunkBytes uint, compressOpts CompressOpts, maxTotalUncompressedBytes uint, stream driver.Stream) (uint, error) {
 	if err := checkLibSym("nvcompBatchedLZ4CompressGetTempSizeSync"); err != nil {
 		var zero uint
 		return zero, err
@@ -130,7 +200,7 @@ func CompressGetTempSizeSync(deviceUncompressedChunkPtrs DevicePointerArray, dev
 	return out, nil
 }
 
-// DecompressAsync Perform batched asynchronous decompression.
+// DecompressAsync performs batched asynchronous decompression.
 //
 // This call enqueues work on the stream and returns once the launch is accepted. A nil error reports the launch, not the result. Every buffer passed in must stay live and unmodified until the stream completes, and the per-chunk statuses must be read afterwards.
 //
@@ -149,14 +219,14 @@ func CompressGetTempSizeSync(deviceUncompressedChunkPtrs DevicePointerArray, dev
 //   - stream: in The CUDA stream to operate on
 //
 // Wraps nvcompBatchedLZ4DecompressAsync.
-func DecompressAsync(deviceCompressedChunkPtrs DevicePointerArray, deviceCompressedChunkBytes DeviceSizeArray, deviceUncompressedBufferBytes DeviceSizeArray, deviceUncompressedChunkBytes DeviceSizeArray, numChunks uint, deviceTempPtr DeviceBuffer, tempBytes uint, deviceUncompressedChunkPtrs DevicePointerArray, decompressOpts DecompressOpts, deviceStatuses DeviceStatusArray, stream Stream) error {
+func DecompressAsync(deviceCompressedChunkPtrs DevicePointerArray, deviceCompressedChunkBytes DeviceSizeArray, deviceUncompressedBufferBytes DeviceSizeArray, deviceUncompressedChunkBytes DeviceSizeArray, numChunks uint, deviceTempPtr DeviceBuffer, tempBytes uint, deviceUncompressedChunkPtrs DevicePointerArray, decompressOpts DecompressOpts, deviceStatuses DeviceStatusArray, stream driver.Stream) error {
 	if err := checkLibSym("nvcompBatchedLZ4DecompressAsync"); err != nil {
 		return err
 	}
 	return toError(fnDecompressAsync(deviceCompressedChunkPtrs, deviceCompressedChunkBytes, deviceUncompressedBufferBytes, deviceUncompressedChunkBytes, numChunks, deviceTempPtr, tempBytes, deviceUncompressedChunkPtrs, decompressOpts, deviceStatuses, stream), "nvcompBatchedLZ4DecompressAsync")
 }
 
-// DecompressGetRequiredAlignments Get the minimum buffer alignment requirements for decompression.
+// DecompressGetRequiredAlignments gets the minimum buffer alignment requirements for decompression.
 //
 //   - decompressOpts: in Decompression options
 //
@@ -174,7 +244,7 @@ func DecompressGetRequiredAlignments(decompressOpts DecompressOpts) (AlignmentRe
 	return out, nil
 }
 
-// DecompressGetTempSizeAsync Get the amount of temporary memory required on the GPU for decompression asynchronously.
+// DecompressGetTempSizeAsync gets the amount of temporary memory required on the GPU for decompression asynchronously.
 //
 // This call does not interact with the device, so its result is usable as soon as it returns.
 //
@@ -197,7 +267,7 @@ func DecompressGetTempSizeAsync(numChunks uint, maxUncompressedChunkBytes uint, 
 	return out, nil
 }
 
-// DecompressGetTempSizeSync Get the amount of temporary memory required on the GPU for decompression synchronously.
+// DecompressGetTempSizeSync gets the amount of temporary memory required on the GPU for decompression synchronously.
 //
 // This call may enqueue work on the stream, and synchronizes the stream itself if it does, so its result is usable as soon as it returns.
 //
@@ -211,7 +281,7 @@ func DecompressGetTempSizeAsync(numChunks uint, maxUncompressedChunkBytes uint, 
 //   - stream: in The CUDA stream to operate on
 //
 // Wraps nvcompBatchedLZ4DecompressGetTempSizeSync.
-func DecompressGetTempSizeSync(deviceCompressedChunkPtrs DevicePointerArray, deviceCompressedChunkBytes DeviceSizeArray, numChunks uint, maxUncompressedChunkBytes uint, maxTotalUncompressedBytes uint, decompressOpts DecompressOpts, deviceStatuses DeviceStatusArray, stream Stream) (uint, error) {
+func DecompressGetTempSizeSync(deviceCompressedChunkPtrs DevicePointerArray, deviceCompressedChunkBytes DeviceSizeArray, numChunks uint, maxUncompressedChunkBytes uint, maxTotalUncompressedBytes uint, decompressOpts DecompressOpts, deviceStatuses DeviceStatusArray, stream driver.Stream) (uint, error) {
 	if err := checkLibSym("nvcompBatchedLZ4DecompressGetTempSizeSync"); err != nil {
 		var zero uint
 		return zero, err
@@ -224,7 +294,7 @@ func DecompressGetTempSizeSync(deviceCompressedChunkPtrs DevicePointerArray, dev
 	return out, nil
 }
 
-// GetDecompressSizeAsync Asynchronously compute the number of bytes of uncompressed data for each compressed chunk.
+// GetDecompressSizeAsync asynchronously computes the number of bytes of uncompressed data for each compressed chunk.
 //
 // This call enqueues work on the stream and returns once the launch is accepted. The sizes it writes are readable only after the stream completes, and are invalid if the stream faulted.
 //
@@ -235,14 +305,14 @@ func DecompressGetTempSizeSync(deviceCompressedChunkPtrs DevicePointerArray, dev
 //   - stream: in The CUDA stream to operate on
 //
 // Wraps nvcompBatchedLZ4GetDecompressSizeAsync.
-func GetDecompressSizeAsync(deviceCompressedChunkPtrs DevicePointerArray, deviceCompressedChunkBytes DeviceSizeArray, deviceUncompressedChunkBytes DeviceSizeArray, numChunks uint, stream Stream) error {
+func GetDecompressSizeAsync(deviceCompressedChunkPtrs DevicePointerArray, deviceCompressedChunkBytes DeviceSizeArray, deviceUncompressedChunkBytes DeviceSizeArray, numChunks uint, stream driver.Stream) error {
 	if err := checkLibSym("nvcompBatchedLZ4GetDecompressSizeAsync"); err != nil {
 		return err
 	}
 	return toError(fnGetDecompressSizeAsync(deviceCompressedChunkPtrs, deviceCompressedChunkBytes, deviceUncompressedChunkBytes, numChunks, stream), "nvcompBatchedLZ4GetDecompressSizeAsync")
 }
 
-// GetProperties Retrieve the nvCOMP library properties.
+// GetProperties retrieves the nvCOMP library properties.
 //
 // Wraps nvcompGetProperties.
 func GetProperties() (Properties, error) {
@@ -250,15 +320,18 @@ func GetProperties() (Properties, error) {
 		var zero Properties
 		return zero, err
 	}
-	var out Properties
-	if err := toError(fnGetProperties(&out), "nvcompGetProperties"); err != nil {
+	out := slotGetProperties.get()
+	defer slotGetProperties.put(out)
+	if err := toError(fnGetProperties(out), "nvcompGetProperties"); err != nil {
 		var zero Properties
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetStatusString Returns the description string for an error code.
+var slotGetProperties outSlot[Properties]
+
+// GetStatusString returns the description string for an error code.
 //
 // Wraps nvcompGetStatusString.
 func GetStatusString(status Result) (string, error) {

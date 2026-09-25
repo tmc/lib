@@ -513,8 +513,7 @@ func ReadIdentity(dev nvml.Device, want []Counter, vers StructVersions) (Identit
 	record("name", err)
 	id.DeviceName = name
 
-	var minor int32
-	major, err := dev.CudaComputeCapability(&minor)
+	major, minor, err := dev.CudaComputeCapability()
 	record("compute capability", err)
 	if err == nil {
 		id.ComputeMajor, id.ComputeMinor = major, minor

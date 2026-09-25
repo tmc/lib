@@ -2,7 +2,7 @@
 
 package driver
 
-// Destroy Destroy a CUDA context.
+// Destroy destroys a CUDA context.
 //
 // Destroys the CUDA context specified by ctx. The context ctx will be destroyed regardless of how many threads it is current to. It is the responsibility of the calling function to ensure that no API call issues using ctx while [Context.Destroy] is executing.
 // Destroys and cleans up all resources associated with the context. It is the caller’s responsibility to ensure that the context or its resources are not accessed or passed in subsequent API calls and doing so will result in undefined behavior. These resources include CUDA types [Module], [Function], [Stream], [Event], [Array], [MipmappedArray], CUtexObject, CUsurfObject, [TexRef], [SurfRef], [GraphicsResource], [LinkState], [ExternalMemory] and [ExternalSemaphore]. These resources also include memory allocations by [MemAlloc], [MemAllocHost], [MemAllocManaged] and [MemAllocPitch].
@@ -19,23 +19,22 @@ func (c Context) Destroy() error {
 	return ctxDestroy(c)
 }
 
-// Detach Decrement a context’s usage-count.
+// Detach decrements a context’s usage-count.
 //
-// Note that this function is deprecated and should not be used.
 // Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext] or [CtxAttach], and must be current to the calling thread.
 //
 // Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
-// Deprecated: Note that this function is deprecated and should not be used. Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext] or [CtxAttach], and must be current to the calling thread.
+// Deprecated: This function is deprecated and should not be used.
 //
 // Wraps cuCtxDetach.
 func (c Context) Detach() error {
 	return ctxDetach(c)
 }
 
-// DisablePeerAccess Disables direct access to memory allocations in a peer context and unregisters any registered allocations.
+// DisablePeerAccess disables direct access to memory allocations in a peer context and unregisters any registered allocations.
 //
 // Returns [ErrPeerAccessNotEnabled] if direct peer access has not yet been enabled from peerContext to the current context.
 // Returns [ErrInvalidContext] if there is no current context, or if peerContext is not a valid context.
@@ -49,7 +48,7 @@ func (c Context) DisablePeerAccess() error {
 	return ctxDisablePeerAccess(c)
 }
 
-// EnablePeerAccess Enables direct access to memory allocations in a peer context.
+// EnablePeerAccess enables direct access to memory allocations in a peer context.
 //
 // If both the current context and peerContext are on devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]) and same major compute capability, then on success all allocations from peerContext will immediately be accessible by the current context. See Unified Addressing for additional details.
 // Note that access granted by this call is unidirectional and that in order to access memory from the current context in peerContext, a separate symmetric call to [Context.EnablePeerAccess] is required.
@@ -71,7 +70,7 @@ func (c Context) EnablePeerAccess(flags uint32) error {
 	return ctxEnablePeerAccess(c, flags)
 }
 
-// ApiVersion Gets the context’s API version.
+// ApiVersion gets the context’s API version.
 //
 // Returns a version number in version corresponding to the capabilities of the context (e.g. 3010 or 3020), which library developers can use to direct callers to a specific API version. If ctx is NULL, returns the API version used to create the currently bound context.
 // Note that new API versions are only introduced when context capabilities are changed that break binary compatibility, so the API version and driver version may be different. For example, it is valid for the API version to be 3020 while the driver version is 4020.
@@ -85,7 +84,7 @@ func (c Context) ApiVersion() (uint32, error) {
 	return ctxGetApiVersion(c)
 }
 
-// DevResource Get context resources.
+// DevResource gets context resources.
 //
 // Get the type resources available to the context represented by hCtx Note: The API is not supported on 32-bit platforms.
 //
@@ -96,7 +95,7 @@ func (c Context) DevResource(type_ DevResourceType) (DevResource, error) {
 	return ctxGetDevResource(c, type_)
 }
 
-// DeviceV2 Returns the device handle for the specified context.
+// DeviceV2 returns the device handle for the specified context.
 //
 // Returns in *device the handle of the specified context’s device. If the specified context is NULL, the API will return the current context’s device.
 //
@@ -109,7 +108,7 @@ func (c Context) DeviceV2() (Device, error) {
 	return ctxGetDeviceV2(c)
 }
 
-// Id Returns the unique Id associated with the context supplied.
+// Id returns the unique Id associated with the context supplied.
 //
 // Returns in ctxId the unique Id which is associated with a given context. The Id is unique for the life of the program for this instance of CUDA. If context is supplied as NULL and there is one current, the Id of the current context is returned.
 //
@@ -122,7 +121,7 @@ func (c Context) Id() (uint64, error) {
 	return ctxGetId(c)
 }
 
-// PushCurrent Pushes a context on the current CPU thread.
+// PushCurrent pushes a context on the current CPU thread.
 //
 // Pushes the given context ctx onto the CPU thread’s stack of current contexts. The specified context becomes the CPU thread’s current context, so all CUDA functions that operate on the current context are affected.
 // The previous current context may be made current again by calling [Context.Destroy] or [CtxPopCurrent].
@@ -136,7 +135,7 @@ func (c Context) PushCurrent() error {
 	return ctxPushCurrent(c)
 }
 
-// RecordEvent Records an event.
+// RecordEvent records an event.
 //
 // Captures in hEvent all the activities of the context hCtx at the time of this call. hEvent and hCtx must be from the same CUDA context, otherwise [ErrInvalidHandle] will be returned. Calls such as [Event.Query] or [Context.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hCtx after this call do not modify hEvent. If the context passed to hCtx is the primary context, hEvent will capture all the activities of the primary context and its green contexts. If the context passed to hCtx is a context converted from green context via [CtxFromGreenCtx], hEvent will capture only the activities of the green context.
 //
@@ -151,7 +150,7 @@ func (c Context) RecordEvent(hEvent Event) error {
 	return ctxRecordEvent(c, hEvent)
 }
 
-// SetCurrent Binds the specified CUDA context to the calling CPU thread.
+// SetCurrent binds the specified CUDA context to the calling CPU thread.
 //
 // If ctx is NULL then the CUDA context previously bound to the calling CPU thread is unbound and [Success] is returned.
 // If there exists a CUDA context stack on the calling CPU thread, this will replace the top of that stack with ctx. If ctx is NULL then this will be equivalent to popping the top of the calling CPU thread’s CUDA context stack (or a no-op if the calling CPU thread’s CUDA context stack is empty).
@@ -165,7 +164,7 @@ func (c Context) SetCurrent() error {
 	return ctxSetCurrent(c)
 }
 
-// SynchronizeV2 Block for the specified context’s tasks to complete.
+// SynchronizeV2 blocks for the specified context’s tasks to complete.
 //
 // Blocks until the specified context has completed all preceding requested tasks. If the specified context is the primary context, green contexts that have been created will also be synchronized. The API returns an error if one of the preceding tasks failed.
 // If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work.
@@ -180,7 +179,7 @@ func (c Context) SynchronizeV2() error {
 	return ctxSynchronizeV2(c)
 }
 
-// WaitEvent Make a context wait on an event.
+// WaitEvent makes a context wait on an event.
 //
 // Makes all future work submitted to context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [Context.RecordEvent] for details on what is captured by an event. If the context passed to hCtx is the primary context, the primary context and its green contexts will wait for hEvent. If the context passed to hCtx is a context converted from green context via [CtxFromGreenCtx], the green context will wait for hEvent.
 //
@@ -197,9 +196,8 @@ func (c Context) WaitEvent(hEvent Event) error {
 	return ctxWaitEvent(c, hEvent)
 }
 
-// CtxAttach Increment a context’s usage-count.
+// CtxAttach increments a context’s usage-count.
 //
-// Note that this function is deprecated and should not be used.
 // Increments the usage count of the context and passes back a context handle in *pctx that must be passed to [Context.Detach] when the application is done with the context. [CtxAttach] fails if there is no context current to the thread.
 // Currently, the flags parameter must be 0.
 //
@@ -209,14 +207,14 @@ func (c Context) WaitEvent(hEvent Event) error {
 //
 //   - flags: Context attach flags (must be 0)
 //
-// Deprecated: Note that this function is deprecated and should not be used. Increments the usage count of the context and passes back a context handle in *pctx that must be passed to [Context.Detach] when the application is done with the context. [CtxAttach] fails if there is no context current to the thread. Currently, the flags parameter must be 0.
+// Deprecated: This function is deprecated and should not be used.
 //
 // Wraps cuCtxAttach.
 func CtxAttach(flags uint32) (Context, error) {
 	return ctxAttach(flags)
 }
 
-// NewContextParams Create a CUDA context.
+// NewContextParams creates a CUDA context.
 //
 // Creates a new CUDA context and associates it with the calling thread. The flags parameter is described below. The context is created with a usage count of 1 and the caller of [NewContext] must call [Context.Destroy] when done using the context. If a context is already current to the thread, it is supplanted by the newly created context and may be restored by a subsequent call to [CtxPopCurrent].
 // A regular CUDA context can be created by setting ctxCreateParams to NULL.
@@ -240,7 +238,7 @@ func NewContextParams(ctxCreateParams *CtxCreateParams, flags CtxFlags, dev Devi
 	return ctxCreate(ctxCreateParams, flags, dev)
 }
 
-// NewContext Create a CUDA context.
+// NewContext creates a CUDA context.
 //
 //   - flags: Context creation flags
 //   - dev: Device to create context on
@@ -252,7 +250,7 @@ func NewContext(dev Device, flags CtxFlags) (Context, error) {
 	return ctxCreate(nil, flags, dev)
 }
 
-// CtxFromGreenCtx Returns a [Context] handle for a green context.
+// CtxFromGreenCtx returns a [Context] handle for a green context.
 //
 // This API returns in pContext a [Context] handle that represents the specified green context hCtx. The returned handle can be passed to CUDA APIs that accept a [Context] and will be treated as if it were a primary context, while still honoring the resources and configuration associated with hCtx as applicable.
 // Applications that wish to use a green context with CUDA APIs that require a [Context] must use this API to obtain a handle to a [Context] representing the green context. Otherwise, passing a green context to such APIs will fail with [ErrInvalidContext].
@@ -268,7 +266,7 @@ func CtxFromGreenCtx(hCtx GreenCtx) (Context, error) {
 	return ctxFromGreenCtx(hCtx)
 }
 
-// CtxGetCurrent Returns the CUDA context bound to the calling CPU thread.
+// CtxGetCurrent returns the CUDA context bound to the calling CPU thread.
 //
 // Returns in *pctx the CUDA context bound to the calling CPU thread. If no context is bound to the calling CPU thread then *pctx is set to NULL and [Success] is returned.
 //
@@ -281,7 +279,7 @@ func CtxGetCurrent() (Context, error) {
 	return ctxGetCurrent()
 }
 
-// CtxPopCurrent Pops the current CUDA context from the current CPU thread.
+// CtxPopCurrent pops the current CUDA context from the current CPU thread.
 //
 // Pops the current CUDA context from the CPU thread and passes back the old context handle in *pctx. That context may then be made current to a different CPU thread by calling [Context.PushCurrent].
 // If a context was current to the CPU thread before [NewContext] or [Context.PushCurrent] was called, this function makes that context current to the CPU thread again.

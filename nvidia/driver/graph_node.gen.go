@@ -2,7 +2,7 @@
 
 package driver
 
-// FindInClone Finds a cloned version of a node.
+// FindInClone finds a cloned version of a node.
 //
 // This function returns the node in hClonedGraph corresponding to hOriginalNode in the original graph.
 // hClonedGraph must have been cloned from hOriginalGraph via [Graph.Clone]. hOriginalNode must have been in hOriginalGraph at the time of the call to [Graph.Clone], and the corresponding cloned node in hClonedGraph must not have been removed. The cloned node is then returned via phClonedNode.
@@ -20,7 +20,7 @@ func (g GraphNode) FindInClone(hClonedGraph Graph) (GraphNode, error) {
 	return graphNodeFindInClone(g, hClonedGraph)
 }
 
-// ContainingGraph Returns the graph that contains a given graph node.
+// ContainingGraph returns the graph that contains a given graph node.
 //
 // Returns the graph that contains hNode in *phGraph. If hNode is in a child graph, the child graph it is in is returned.
 //
@@ -31,7 +31,7 @@ func (g GraphNode) ContainingGraph() (Graph, error) {
 	return graphNodeGetContainingGraph(g)
 }
 
-// Dependencies Returns a node’s dependencies.
+// Dependencies returns a node’s dependencies.
 //
 // Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies.
 // Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well.
@@ -42,15 +42,16 @@ func (g GraphNode) ContainingGraph() (Graph, error) {
 //
 // See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
+//   - dependencies: Pointer to return the dependencies
 //   - edgeData: Optional array to return edge data for each dependency
 //   - numDependencies: See description
 //
 // Wraps cuGraphNodeGetDependencies, bound as cuGraphNodeGetDependencies_v2.
-func (g GraphNode) Dependencies(edgeData *GraphEdgeData, numDependencies *uint) (GraphNode, error) {
-	return graphNodeGetDependencies(g, edgeData, numDependencies)
+func (g GraphNode) Dependencies(dependencies *GraphNode, edgeData *GraphEdgeData, numDependencies *uint) error {
+	return graphNodeGetDependencies(g, dependencies, edgeData, numDependencies)
 }
 
-// DependentNodes Returns a node’s dependent nodes.
+// DependentNodes returns a node’s dependent nodes.
 //
 // Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes.
 // Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well.
@@ -61,15 +62,16 @@ func (g GraphNode) Dependencies(edgeData *GraphEdgeData, numDependencies *uint) 
 //
 // See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
+//   - dependentNodes: Pointer to return the dependent nodes
 //   - edgeData: Optional pointer to return edge data for dependent nodes
 //   - numDependentNodes: See description
 //
 // Wraps cuGraphNodeGetDependentNodes, bound as cuGraphNodeGetDependentNodes_v2.
-func (g GraphNode) DependentNodes(edgeData *GraphEdgeData, numDependentNodes *uint) (GraphNode, error) {
-	return graphNodeGetDependentNodes(g, edgeData, numDependentNodes)
+func (g GraphNode) DependentNodes(dependentNodes *GraphNode, edgeData *GraphEdgeData, numDependentNodes *uint) error {
+	return graphNodeGetDependentNodes(g, dependentNodes, edgeData, numDependentNodes)
 }
 
-// Enabled Query whether a node in the given graphExec is enabled.
+// Enabled queries whether a node in the given graphExec is enabled.
 //
 // Sets isEnabled to 1 if hNode is enabled, or 0 if hNode is disabled.
 // The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
@@ -92,7 +94,7 @@ func (g GraphNode) Enabled(hGraphExec GraphExec) (uint32, error) {
 	return graphNodeGetEnabled(hGraphExec, g)
 }
 
-// LocalId Returns the local node id of a given graph node.
+// LocalId returns the local node id of a given graph node.
 //
 // Returns the node id of hNode in *nodeId. The nodeId matches that referenced by [Graph.DebugDotPrint]. The local nodeId and graphId together can uniquely identify the node.
 //
@@ -103,7 +105,7 @@ func (g GraphNode) LocalId() (uint32, error) {
 	return graphNodeGetLocalId(g)
 }
 
-// Params Return a graph node’s parameters.
+// Params returns a graph node’s parameters.
 //
 // Returns the parameters of graph node hNode in *nodeParams.
 // Any pointers returned in *nodeParams point to driver-owned memory associated with the node. This memory remains valid until the node is destroyed. Any memory pointed to from *nodeParams must not be modified.
@@ -120,7 +122,7 @@ func (g GraphNode) Params() (GraphNodeParams, error) {
 	return graphNodeGetParams(g)
 }
 
-// ToolsId Returns an id used by tools to identify a given node.
+// ToolsId returns an id used by tools to identify a given node.
 //
 // See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [Graph.Id] [GraphExec.Id]
 //
@@ -129,7 +131,7 @@ func (g GraphNode) ToolsId() (uint64, error) {
 	return graphNodeGetToolsId(g)
 }
 
-// Type Returns a node’s type.
+// Type returns a node’s type.
 //
 // Returns the node type of hNode in type.
 //
@@ -144,7 +146,7 @@ func (g GraphNode) Type() (GraphNodeType, error) {
 	return graphNodeGetType(g)
 }
 
-// SetEnabled Enables or disables the specified node in the given graphExec.
+// SetEnabled enables or disables the specified node in the given graphExec.
 //
 // Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node.
 // The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
@@ -168,7 +170,7 @@ func (g GraphNode) SetEnabled(hGraphExec GraphExec, isEnabled uint32) error {
 	return graphNodeSetEnabled(hGraphExec, g, isEnabled)
 }
 
-// SetParams Update a graph node’s parameters.
+// SetParams updates a graph node’s parameters.
 //
 // Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
 // Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
@@ -186,7 +188,7 @@ func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 	return graphNodeSetParams(g, nodeParams)
 }
 
-// DestroyNode Remove a node from the graph.
+// DestroyNode removes a node from the graph.
 //
 // Removes hNode from its graph. This operation also severs any dependencies of other nodes on hNode and vice versa.
 // Nodes which belong to a graph which contains allocation or free nodes cannot be destroyed. Any attempt to do so will return an error.

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // These tests are the ABI evidence that can be gathered without a GPU or the
@@ -95,7 +97,7 @@ func TestEnumValues(t *testing.T) {
 // passed by value, so a narrower Go type would truncate.
 func TestHandleWidth(t *testing.T) {
 	ptr := unsafe.Sizeof(uintptr(0))
-	for _, v := range []any{Handle(0), DecodeState(0), Bitstream(0), DecodeParams(0), Stream(0)} {
+	for _, v := range []any{Handle(0), DecodeState(0), Bitstream(0), DecodeParams(0), driver.Stream(0)} {
 		if got := reflect.TypeOf(v).Size(); got != ptr {
 			t.Errorf("sizeof(%T) = %d, want %d", v, got, ptr)
 		}
@@ -191,7 +193,7 @@ func TestLibraryNames(t *testing.T) {
 	}
 }
 
-var reRegister = regexp.MustCompile(`register\(&fn[A-Za-z0-9_]+, "([A-Za-z0-9_]+)"\)`)
+var reRegister = regexp.MustCompile(`register(?:\(&fn[A-Za-z0-9_]+, |Sym\()"([A-Za-z0-9_]+)"\)`)
 
 // boundSymbols returns the symbols the generated loader registers, read from
 // the generated source rather than from a loaded library, so the test runs

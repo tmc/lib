@@ -24,6 +24,7 @@ func (t TensorDescriptor) DeriveBN(xDesc TensorDescriptor, mode BatchNormMode) e
 
 // DeriveNorm derives tensor descriptors for the normalization mean, invariance, normBias, and normScale subtensors from the layer’s x data descriptor and norm mode.
 //
+// Normalization mean and invariance share the same descriptor while bias and scale share the same descriptor.
 // Use the tensor descriptor produced by this function as the normScaleBiasDesc or normMeanVarDesc parameter for the [Handle.NormalizationForwardInference] and [Handle.NormalizationForwardTraining] functions, and as the dNormScaleBiasDesc and normMeanVarDesc parameters in the [Handle.NormalizationBackward] function.
 // The resulting dimensions will be:
 // For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
@@ -104,6 +105,7 @@ func (t TensorDescriptor) Size() (size int, err error) {
 
 // Set4D initializes a previously created generic tensor descriptor object into a 4D tensor.
 //
+// The strides of the four dimensions are inferred from the format parameter and set in such a way that the data is contiguous in memory with no padding between dimensions.
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
 //   - format: Input. Type of format
@@ -124,6 +126,7 @@ func (t TensorDescriptor) Set4D(format TensorFormat, dataType DataType, n int32,
 
 // Set4DEx initializes a previously created generic tensor descriptor object into a 4D tensor, similarly to [TensorDescriptor.Set4D] but with the strides explicitly passed as parameters.
 //
+// This can be used to lay out the 4D tensor in any order or simply to define gaps between dimensions.
 // At present, some cuDNN routines have limited support for strides. Those routines will return [ErrNotSupported] if a 4D tensor object with an unsupported stride is used. [Handle.TransformTensor] can be used to convert the data to a supported layout.
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //

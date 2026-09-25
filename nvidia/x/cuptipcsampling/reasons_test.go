@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func nativePointer(address uintptr) unsafe.Pointer {
@@ -55,7 +56,7 @@ func TestStallReasons(t *testing.T) {
 func TestStallReasonBounds(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
-		ctx     cupti.Context
+		ctx     driver.Context
 		limit   int
 		version uint32
 	}{

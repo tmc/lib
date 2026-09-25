@@ -5,225 +5,1479 @@ package cudnn
 import (
 	"fmt"
 	"github.com/tmc/lib/nvidia/driver"
+	"math"
 	"unsafe"
 )
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnactivationBackward                                  func(Handle, ActivationDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnactivationForward                                   func(Handle, ActivationDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnaddTensor                                           func(Handle, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnAdvVersionCheck                                     func() Result
-	fnbackendCreateDescriptor                             func(BackendDescriptorType, *BackendDescriptor) Result
-	fnbackendDestroyDescriptor                            func(BackendDescriptor) Result
-	fnbackendExecute                                      func(Handle, BackendDescriptor, BackendDescriptor) Result
-	fnbackendFinalize                                     func(BackendDescriptor) Result
-	fnbackendGetAttribute                                 func(BackendDescriptor, BackendAttributeName, BackendAttributeType, int64, *int64, uintptr) Result
-	fnbackendInitialize                                   func(BackendDescriptor) Result
-	fnbackendPopulateCudaGraph                            func(Handle, BackendDescriptor, BackendDescriptor, Graph) Result
-	fnbackendSetAttribute                                 func(BackendDescriptor, BackendAttributeName, BackendAttributeType, int64, uintptr) Result
-	fnbackendUpdateCudaGraph                              func(Handle, BackendDescriptor, BackendDescriptor, Graph) Result
-	fnbatchNormalizationBackward                          func(Handle, BatchNormMode, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, float64, uintptr, uintptr) Result
-	fnbatchNormalizationBackwardEx                        func(Handle, BatchNormMode, BatchNormOps, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, uintptr, float64, uintptr, uintptr, ActivationDescriptor, uintptr, uint, uintptr, uint) Result
-	fnbatchNormalizationForwardInference                  func(Handle, BatchNormMode, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, uintptr, float64) Result
-	fnbatchNormalizationForwardTraining                   func(Handle, BatchNormMode, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, float64, uintptr, uintptr, float64, uintptr, uintptr) Result
-	fnbatchNormalizationForwardTrainingEx                 func(Handle, BatchNormMode, BatchNormOps, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, float64, uintptr, uintptr, float64, uintptr, uintptr, ActivationDescriptor, uintptr, uint, uintptr, uint) Result
-	fnbuildRNNDynamic                                     func(Handle, RNNDescriptor, int32) Result
-	fncTCLoss                                             func(Handle, TensorDescriptor, uintptr, *int32, *int32, *int32, uintptr, TensorDescriptor, uintptr, CTCLossAlgo, CTCLossDescriptor, uintptr, uint) Result
-	fncTCLossV8                                           func(Handle, CTCLossAlgo, CTCLossDescriptor, TensorDescriptor, uintptr, *int32, *int32, *int32, uintptr, TensorDescriptor, uintptr, uint, uintptr) Result
-	fnCnnVersionCheck                                     func() Result
-	fnconvolutionBackwardBias                             func(Handle, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnconvolutionBackwardData                             func(Handle, unsafe.Pointer, FilterDescriptor, uintptr, TensorDescriptor, uintptr, ConvolutionDescriptor, ConvolutionBwdDataAlgo, uintptr, uint, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnconvolutionBackwardFilter                           func(Handle, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, ConvolutionDescriptor, ConvolutionBwdFilterAlgo, uintptr, uint, unsafe.Pointer, FilterDescriptor, uintptr) Result
-	fnconvolutionBiasActivationForward                    func(Handle, unsafe.Pointer, TensorDescriptor, uintptr, FilterDescriptor, uintptr, ConvolutionDescriptor, ConvolutionFwdAlgo, uintptr, uint, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, ActivationDescriptor, TensorDescriptor, uintptr) Result
-	fnconvolutionForward                                  func(Handle, unsafe.Pointer, TensorDescriptor, uintptr, FilterDescriptor, uintptr, ConvolutionDescriptor, ConvolutionFwdAlgo, uintptr, uint, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnCreate                                              func(*Handle) Result
-	fnCreateActivationDescriptor                          func(*ActivationDescriptor) Result
-	fnCreateAttnDescriptor                                func(*AttnDescriptor) Result
-	fnCreateCTCLossDescriptor                             func(*CTCLossDescriptor) Result
-	fnCreateConvolutionDescriptor                         func(*ConvolutionDescriptor) Result
-	fnCreateDropoutDescriptor                             func(*DropoutDescriptor) Result
-	fnCreateFilterDescriptor                              func(*FilterDescriptor) Result
-	fnCreateFusedOpsConstParamPack                        func(*FusedOpsConstParamPack, FusedOps) Result
-	fnCreateFusedOpsPlan                                  func(*FusedOpsPlan, FusedOps) Result
-	fnCreateFusedOpsVariantParamPack                      func(*FusedOpsVariantParamPack, FusedOps) Result
-	fnCreateLRNDescriptor                                 func(*LRNDescriptor) Result
-	fnCreateOpTensorDescriptor                            func(*OpTensorDescriptor) Result
-	fnCreatePoolingDescriptor                             func(*PoolingDescriptor) Result
-	fnCreateRNNDataDescriptor                             func(*RNNDataDescriptor) Result
-	fnCreateRNNDescriptor                                 func(*RNNDescriptor) Result
-	fnCreateReduceTensorDescriptor                        func(*ReduceTensorDescriptor) Result
-	fnCreateSeqDataDescriptor                             func(*SeqDataDescriptor) Result
-	fnCreateSpatialTransformerDescriptor                  func(*SpatialTransformerDescriptor) Result
-	fnCreateTensorDescriptor                              func(*TensorDescriptor) Result
-	fnCreateTensorTransformDescriptor                     func(*TensorTransformDescriptor) Result
-	fnderiveBNTensorDescriptor                            func(TensorDescriptor, TensorDescriptor, BatchNormMode) Result
-	fnderiveNormTensorDescriptor                          func(TensorDescriptor, TensorDescriptor, TensorDescriptor, NormMode, int32) Result
-	fndestroy                                             func(Handle) Result
-	fndestroyActivationDescriptor                         func(ActivationDescriptor) Result
-	fndestroyAttnDescriptor                               func(AttnDescriptor) Result
-	fndestroyCTCLossDescriptor                            func(CTCLossDescriptor) Result
-	fndestroyConvolutionDescriptor                        func(ConvolutionDescriptor) Result
-	fndestroyDropoutDescriptor                            func(DropoutDescriptor) Result
-	fndestroyFilterDescriptor                             func(FilterDescriptor) Result
-	fndestroyFusedOpsConstParamPack                       func(FusedOpsConstParamPack) Result
-	fndestroyFusedOpsPlan                                 func(FusedOpsPlan) Result
-	fndestroyFusedOpsVariantParamPack                     func(FusedOpsVariantParamPack) Result
-	fndestroyLRNDescriptor                                func(LRNDescriptor) Result
-	fndestroyOpTensorDescriptor                           func(OpTensorDescriptor) Result
-	fndestroyPoolingDescriptor                            func(PoolingDescriptor) Result
-	fndestroyRNNDataDescriptor                            func(RNNDataDescriptor) Result
-	fndestroyRNNDescriptor                                func(RNNDescriptor) Result
-	fndestroyReduceTensorDescriptor                       func(ReduceTensorDescriptor) Result
-	fndestroySeqDataDescriptor                            func(SeqDataDescriptor) Result
-	fndestroySpatialTransformerDescriptor                 func(SpatialTransformerDescriptor) Result
-	fndestroyTensorDescriptor                             func(TensorDescriptor) Result
-	fndestroyTensorTransformDescriptor                    func(TensorTransformDescriptor) Result
-	fndivisiveNormalizationBackward                       func(Handle, LRNDescriptor, DivNormMode, unsafe.Pointer, TensorDescriptor, uintptr, uintptr, uintptr, uintptr, uintptr, unsafe.Pointer, TensorDescriptor, uintptr, uintptr) Result
-	fndivisiveNormalizationForward                        func(Handle, LRNDescriptor, DivNormMode, unsafe.Pointer, TensorDescriptor, uintptr, uintptr, uintptr, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fndropoutBackward                                     func(Handle, DropoutDescriptor, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uint) Result
-	fndropoutForward                                      func(Handle, DropoutDescriptor, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uint) Result
-	fndropoutGetReserveSpaceSize                          func(TensorDescriptor, *uint) Result
-	fndropoutGetStatesSize                                func(Handle, *uint) Result
-	fnfindConvolutionBackwardDataAlgorithm                func(Handle, FilterDescriptor, TensorDescriptor, ConvolutionDescriptor, TensorDescriptor, int32, *int32, *ConvolutionBwdDataAlgoPerf) Result
-	fnfindConvolutionBackwardDataAlgorithmEx              func(Handle, FilterDescriptor, uintptr, TensorDescriptor, uintptr, ConvolutionDescriptor, TensorDescriptor, uintptr, int32, *int32, *ConvolutionBwdDataAlgoPerf, uintptr, uint) Result
-	fnfindConvolutionBackwardFilterAlgorithm              func(Handle, TensorDescriptor, TensorDescriptor, ConvolutionDescriptor, FilterDescriptor, int32, *int32, *ConvolutionBwdFilterAlgoPerf) Result
-	fnfindConvolutionBackwardFilterAlgorithmEx            func(Handle, TensorDescriptor, uintptr, TensorDescriptor, uintptr, ConvolutionDescriptor, FilterDescriptor, uintptr, int32, *int32, *ConvolutionBwdFilterAlgoPerf, uintptr, uint) Result
-	fnfindConvolutionForwardAlgorithm                     func(Handle, TensorDescriptor, FilterDescriptor, ConvolutionDescriptor, TensorDescriptor, int32, *int32, *ConvolutionFwdAlgoPerf) Result
-	fnfindConvolutionForwardAlgorithmEx                   func(Handle, TensorDescriptor, uintptr, FilterDescriptor, uintptr, ConvolutionDescriptor, TensorDescriptor, uintptr, int32, *int32, *ConvolutionFwdAlgoPerf, uintptr, uint) Result
-	fnfusedOpsExecute                                     func(Handle, FusedOpsPlan, FusedOpsVariantParamPack) Result
-	fngetActivationDescriptor                             func(ActivationDescriptor, *ActivationMode, *NanPropagation, *float64) Result
-	fngetActivationDescriptorSwishBeta                    func(ActivationDescriptor, *float64) Result
-	fngetAttnDescriptor                                   func(AttnDescriptor, *uint32, *int32, *float64, *DataType, *DataType, *MathType, *DropoutDescriptor, *DropoutDescriptor, *int32, *int32, *int32, *int32, *int32, *int32, *int32, *int32, *int32, *int32, *int32) Result
-	fngetBatchNormalizationBackwardExWorkspaceSize        func(Handle, BatchNormMode, BatchNormOps, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, ActivationDescriptor, *uint) Result
-	fngetBatchNormalizationForwardTrainingExWorkspaceSize func(Handle, BatchNormMode, BatchNormOps, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, ActivationDescriptor, *uint) Result
-	fngetBatchNormalizationTrainingExReserveSpaceSize     func(Handle, BatchNormMode, BatchNormOps, ActivationDescriptor, TensorDescriptor, *uint) Result
-	fngetCTCLossDescriptor                                func(CTCLossDescriptor, *DataType, *LossNormalizationMode, *CTCGradMode, *int32) Result
-	fngetCTCLossWorkspaceSize                             func(Handle, TensorDescriptor, TensorDescriptor, *int32, *int32, *int32, CTCLossAlgo, CTCLossDescriptor, *uint) Result
-	fngetCTCLossWorkspaceSizeV8                           func(Handle, CTCLossAlgo, CTCLossDescriptor, TensorDescriptor, TensorDescriptor, *uint) Result
-	fnGetCallback                                         func(*uint32, *uintptr, uintptr) Result
-	fngetConvolution2dDescriptor                          func(ConvolutionDescriptor, *int32, *int32, *int32, *int32, *int32, *int32, *ConvolutionMode, *DataType) Result
-	fngetConvolution2dForwardOutputDim                    func(ConvolutionDescriptor, TensorDescriptor, FilterDescriptor, *int32, *int32, *int32, *int32) Result
-	fngetConvolutionBackwardDataAlgorithmMaxCount         func(Handle, *int32) Result
-	fngetConvolutionBackwardDataAlgorithm                 func(Handle, FilterDescriptor, TensorDescriptor, ConvolutionDescriptor, TensorDescriptor, int32, *int32, *ConvolutionBwdDataAlgoPerf) Result
-	fngetConvolutionBackwardDataWorkspaceSize             func(Handle, FilterDescriptor, TensorDescriptor, ConvolutionDescriptor, TensorDescriptor, ConvolutionBwdDataAlgo, *uint) Result
-	fngetConvolutionBackwardFilterAlgorithmMaxCount       func(Handle, *int32) Result
-	fngetConvolutionBackwardFilterAlgorithm               func(Handle, TensorDescriptor, TensorDescriptor, ConvolutionDescriptor, FilterDescriptor, int32, *int32, *ConvolutionBwdFilterAlgoPerf) Result
-	fngetConvolutionBackwardFilterWorkspaceSize           func(Handle, TensorDescriptor, TensorDescriptor, ConvolutionDescriptor, FilterDescriptor, ConvolutionBwdFilterAlgo, *uint) Result
-	fngetConvolutionForwardAlgorithmMaxCount              func(Handle, *int32) Result
-	fngetConvolutionForwardAlgorithm                      func(Handle, TensorDescriptor, FilterDescriptor, ConvolutionDescriptor, TensorDescriptor, int32, *int32, *ConvolutionFwdAlgoPerf) Result
-	fngetConvolutionForwardWorkspaceSize                  func(Handle, TensorDescriptor, FilterDescriptor, ConvolutionDescriptor, TensorDescriptor, ConvolutionFwdAlgo, *uint) Result
-	fngetConvolutionGroupCount                            func(ConvolutionDescriptor, *int32) Result
-	fngetConvolutionMathType                              func(ConvolutionDescriptor, *MathType) Result
-	fngetConvolutionNdDescriptor                          func(ConvolutionDescriptor, int32, *int32, *int32, *int32, *int32, *ConvolutionMode, *DataType) Result
-	fngetConvolutionNdForwardOutputDim                    func(ConvolutionDescriptor, TensorDescriptor, FilterDescriptor, int32, *int32) Result
-	fngetConvolutionReorderType                           func(ConvolutionDescriptor, *ReorderType) Result
-	fnGetCudartVersion                                    func() uint
-	fngetDropoutDescriptor                                func(DropoutDescriptor, Handle, *float32, *uintptr, *uint64) Result
-	fngetFilter4dDescriptor                               func(FilterDescriptor, *DataType, *TensorFormat, *int32, *int32, *int32, *int32) Result
-	fngetFilterNdDescriptor                               func(FilterDescriptor, int32, *DataType, *TensorFormat, *int32, *int32) Result
-	fngetFilterSizeInBytes                                func(FilterDescriptor, *uint) Result
-	fngetFoldedConvBackwardDataDescriptors                func(Handle, FilterDescriptor, TensorDescriptor, ConvolutionDescriptor, TensorDescriptor, TensorFormat, FilterDescriptor, TensorDescriptor, ConvolutionDescriptor, TensorDescriptor, TensorTransformDescriptor, TensorTransformDescriptor, TensorTransformDescriptor, TensorTransformDescriptor) Result
-	fngetFusedOpsConstParamPackAttribute                  func(FusedOpsConstParamPack, FusedOpsConstParamLabel, uintptr, *int32) Result
-	fngetFusedOpsVariantParamPackAttribute                func(FusedOpsVariantParamPack, FusedOpsVariantParamLabel, uintptr) Result
-	fngetLRNDescriptor                                    func(LRNDescriptor, *uint32, *float64, *float64, *float64) Result
-	fnGetLastErrorString                                  func(*byte, uint)
-	fnGetMaxDeviceVersion                                 func() uint
-	fngetMultiHeadAttnBuffers                             func(Handle, AttnDescriptor, *uint, *uint, *uint) Result
-	fngetMultiHeadAttnWeights                             func(Handle, AttnDescriptor, MultiHeadAttnWeightKind, uint, uintptr, TensorDescriptor, *uintptr) Result
-	fngetNormalizationBackwardWorkspaceSize               func(Handle, NormMode, NormOps, NormAlgo, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, ActivationDescriptor, TensorDescriptor, *uint, int32) Result
-	fngetNormalizationForwardTrainingWorkspaceSize        func(Handle, NormMode, NormOps, NormAlgo, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, ActivationDescriptor, TensorDescriptor, *uint, int32) Result
-	fngetNormalizationTrainingReserveSpaceSize            func(Handle, NormMode, NormOps, NormAlgo, ActivationDescriptor, TensorDescriptor, *uint, int32) Result
-	fngetOpTensorDescriptor                               func(OpTensorDescriptor, *OpTensorOp, *DataType, *NanPropagation) Result
-	fngetPooling2dDescriptor                              func(PoolingDescriptor, *PoolingMode, *NanPropagation, *int32, *int32, *int32, *int32, *int32, *int32) Result
-	fngetPooling2dForwardOutputDim                        func(PoolingDescriptor, TensorDescriptor, *int32, *int32, *int32, *int32) Result
-	fngetPoolingNdDescriptor                              func(PoolingDescriptor, int32, *PoolingMode, *NanPropagation, *int32, *int32, *int32, *int32) Result
-	fngetPoolingNdForwardOutputDim                        func(PoolingDescriptor, TensorDescriptor, int32, *int32) Result
-	fnGetProperty                                         func(LibraryPropertyType, *int32) Result
-	fngetRNNDataDescriptor                                func(RNNDataDescriptor, *DataType, *RNNDataLayout, *int32, *int32, *int32, int32, *int32, uintptr) Result
-	fngetRNNDescriptor                                    func(RNNDescriptor, *RNNAlgo, *RNNMode, *RNNBiasMode, *DirectionMode, *RNNInputMode, *DataType, *DataType, *MathType, *int32, *int32, *int32, *int32, *DropoutDescriptor, *uint32) Result
-	fngetRNNTempSpaceSizes                                func(Handle, RNNDescriptor, ForwardMode, RNNDataDescriptor, *uint, *uint) Result
-	fngetRNNWeightParams                                  func(Handle, RNNDescriptor, int32, uint, uintptr, int32, TensorDescriptor, *uintptr, TensorDescriptor, *uintptr) Result
-	fngetRNNWeightSpaceSize                               func(Handle, RNNDescriptor, *uint) Result
-	fngetReduceTensorDescriptor                           func(ReduceTensorDescriptor, *ReduceTensorOp, *DataType, *NanPropagation, *ReduceTensorIndices, *IndicesType) Result
-	fngetReductionIndicesSize                             func(Handle, ReduceTensorDescriptor, TensorDescriptor, TensorDescriptor, *uint) Result
-	fngetReductionWorkspaceSize                           func(Handle, ReduceTensorDescriptor, TensorDescriptor, TensorDescriptor, *uint) Result
-	fngetSeqDataDescriptor                                func(SeqDataDescriptor, *DataType, *int32, int32, *int32, *SeqDataAxis, *uint, uint, *int32, uintptr) Result
-	fngetStream                                           func(Handle, *driver.Stream) Result
-	fngetTensor4dDescriptor                               func(TensorDescriptor, *DataType, *int32, *int32, *int32, *int32, *int32, *int32, *int32, *int32) Result
-	fngetTensorNdDescriptor                               func(TensorDescriptor, int32, *DataType, *int32, *int32, *int32) Result
-	fngetTensorSizeInBytes                                func(TensorDescriptor, *uint) Result
-	fngetTensorTransformDescriptor                        func(TensorTransformDescriptor, uint32, *TensorFormat, *int32, *int32, *uint32, *FoldingDirection) Result
-	fnGetVersion                                          func() uint
-	fnGraphVersionCheck                                   func() Result
-	fnim2Col                                              func(Handle, TensorDescriptor, uintptr, FilterDescriptor, ConvolutionDescriptor, uintptr) Result
-	fninitTransformDest                                   func(TensorTransformDescriptor, TensorDescriptor, TensorDescriptor, *uint) Result
-	fnlRNCrossChannelBackward                             func(Handle, LRNDescriptor, LRNMode, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnlRNCrossChannelForward                              func(Handle, LRNDescriptor, LRNMode, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnmakeFusedOpsPlan                                    func(Handle, FusedOpsPlan, FusedOpsConstParamPack, *uint) Result
-	fnmultiHeadAttnBackwardData                           func(Handle, AttnDescriptor, *int32, *int32, uintptr, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
-	fnmultiHeadAttnBackwardWeights                        func(Handle, AttnDescriptor, WgradMode, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, uint, uintptr, uintptr, uint, uintptr, uint, uintptr) Result
-	fnmultiHeadAttnForward                                func(Handle, AttnDescriptor, int32, *int32, *int32, uintptr, uintptr, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
-	fnnormalizationBackward                               func(Handle, NormMode, NormOps, NormAlgo, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, uintptr, float64, TensorDescriptor, uintptr, uintptr, ActivationDescriptor, uintptr, uint, uintptr, uint, int32) Result
-	fnnormalizationForwardInference                       func(Handle, NormMode, NormOps, NormAlgo, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, TensorDescriptor, uintptr, uintptr, TensorDescriptor, uintptr, ActivationDescriptor, TensorDescriptor, uintptr, float64, int32) Result
-	fnnormalizationForwardTraining                        func(Handle, NormMode, NormOps, NormAlgo, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, float64, TensorDescriptor, uintptr, uintptr, float64, uintptr, uintptr, ActivationDescriptor, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uint, uintptr, uint, int32) Result
-	fnopTensor                                            func(Handle, OpTensorDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnOpsVersionCheck                                     func() Result
-	fnpoolingBackward                                     func(Handle, PoolingDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnpoolingForward                                      func(Handle, PoolingDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnqueryRuntimeError                                   func(Handle, *Result, ErrQueryMode, *RuntimeTag) Result
-	fnrNNBackwardData                                     func(Handle, RNNDescriptor, uintptr, RNNDataDescriptor, uintptr, uintptr, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
-	fnrNNBackwardWeights                                  func(Handle, RNNDescriptor, WgradMode, uintptr, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, RNNDataDescriptor, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
-	fnrNNForward                                          func(Handle, RNNDescriptor, ForwardMode, uintptr, RNNDataDescriptor, uintptr, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, TensorDescriptor, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
-	fnrNNGetClip                                          func(RNNDescriptor, *RNNClipMode, *float64, *float64) Result
-	fnrNNSetClip                                          func(RNNDescriptor, RNNClipMode, float64, float64) Result
-	fnreduceTensor                                        func(Handle, ReduceTensorDescriptor, uintptr, uint, uintptr, uint, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnreorderFilterAndBias                                func(Handle, FilterDescriptor, ReorderType, uintptr, uintptr, int32, uintptr, uintptr) Result
-	fnrestoreDropoutDescriptor                            func(DropoutDescriptor, Handle, float32, uintptr, uint, uint64) Result
-	fnscaleTensor                                         func(Handle, TensorDescriptor, uintptr, unsafe.Pointer) Result
-	fnsetActivationDescriptor                             func(ActivationDescriptor, ActivationMode, NanPropagation, float64) Result
-	fnsetActivationDescriptorSwishBeta                    func(ActivationDescriptor, float64) Result
-	fnsetAttnDescriptor                                   func(AttnDescriptor, uint32, int32, float64, DataType, DataType, MathType, DropoutDescriptor, DropoutDescriptor, int32, int32, int32, int32, int32, int32, int32, int32, int32, int32, int32) Result
-	fnsetCTCLossDescriptor                                func(CTCLossDescriptor, DataType, LossNormalizationMode, CTCGradMode, int32) Result
-	fnSetCallback                                         func(uint32, uintptr, uintptr) Result
-	fnsetConvolution2dDescriptor                          func(ConvolutionDescriptor, int32, int32, int32, int32, int32, int32, ConvolutionMode, DataType) Result
-	fnsetConvolutionGroupCount                            func(ConvolutionDescriptor, int32) Result
-	fnsetConvolutionMathType                              func(ConvolutionDescriptor, MathType) Result
-	fnsetConvolutionNdDescriptor                          func(ConvolutionDescriptor, int32, *int32, *int32, *int32, ConvolutionMode, DataType) Result
-	fnsetConvolutionReorderType                           func(ConvolutionDescriptor, ReorderType) Result
-	fnsetDropoutDescriptor                                func(DropoutDescriptor, Handle, float32, uintptr, uint, uint64) Result
-	fnsetFilter4dDescriptor                               func(FilterDescriptor, DataType, TensorFormat, int32, int32, int32, int32) Result
-	fnsetFilterNdDescriptor                               func(FilterDescriptor, DataType, TensorFormat, int32, *int32) Result
-	fnsetFusedOpsConstParamPackAttribute                  func(FusedOpsConstParamPack, FusedOpsConstParamLabel, uintptr) Result
-	fnsetFusedOpsVariantParamPackAttribute                func(FusedOpsVariantParamPack, FusedOpsVariantParamLabel, uintptr) Result
-	fnsetLRNDescriptor                                    func(LRNDescriptor, uint32, float64, float64, float64) Result
-	fnsetOpTensorDescriptor                               func(OpTensorDescriptor, OpTensorOp, DataType, NanPropagation) Result
-	fnsetPooling2dDescriptor                              func(PoolingDescriptor, PoolingMode, NanPropagation, int32, int32, int32, int32, int32, int32) Result
-	fnsetPoolingNdDescriptor                              func(PoolingDescriptor, PoolingMode, NanPropagation, int32, *int32, *int32, *int32) Result
-	fnsetRNNDataDescriptor                                func(RNNDataDescriptor, DataType, RNNDataLayout, int32, int32, int32, *int32, uintptr) Result
-	fnsetRNNDescriptor                                    func(RNNDescriptor, RNNAlgo, RNNMode, RNNBiasMode, DirectionMode, RNNInputMode, DataType, DataType, MathType, int32, int32, int32, int32, DropoutDescriptor, uint32) Result
-	fnsetReduceTensorDescriptor                           func(ReduceTensorDescriptor, ReduceTensorOp, DataType, NanPropagation, ReduceTensorIndices, IndicesType) Result
-	fnsetSeqDataDescriptor                                func(SeqDataDescriptor, DataType, int32, *int32, *SeqDataAxis, uint, *int32, uintptr) Result
-	fnsetSpatialTransformerNdDescriptor                   func(SpatialTransformerDescriptor, SamplerType, DataType, int32, *int32) Result
-	fnsetStream                                           func(Handle, driver.Stream) Result
-	fnsetTensor                                           func(Handle, TensorDescriptor, uintptr, uintptr) Result
-	fnsetTensor4dDescriptor                               func(TensorDescriptor, TensorFormat, DataType, int32, int32, int32, int32) Result
-	fnsetTensor4dDescriptorEx                             func(TensorDescriptor, DataType, int32, int32, int32, int32, int32, int32, int32, int32) Result
-	fnsetTensorNdDescriptor                               func(TensorDescriptor, DataType, int32, *int32, *int32) Result
-	fnsetTensorNdDescriptorEx                             func(TensorDescriptor, TensorFormat, DataType, int32, *int32) Result
-	fnsetTensorTransformDescriptor                        func(TensorTransformDescriptor, uint32, TensorFormat, *int32, *int32, *uint32, FoldingDirection) Result
-	fnsoftmaxBackward                                     func(Handle, SoftmaxAlgorithm, SoftmaxMode, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnsoftmaxForward                                      func(Handle, SoftmaxAlgorithm, SoftmaxMode, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fnspatialTfGridGeneratorBackward                      func(Handle, SpatialTransformerDescriptor, uintptr, uintptr) Result
-	fnspatialTfGridGeneratorForward                       func(Handle, SpatialTransformerDescriptor, uintptr, uintptr) Result
-	fnspatialTfSamplerBackward                            func(Handle, SpatialTransformerDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr, uintptr, unsafe.Pointer, uintptr) Result
-	fnspatialTfSamplerForward                             func(Handle, SpatialTransformerDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fntransformFilter                                     func(Handle, TensorTransformDescriptor, unsafe.Pointer, FilterDescriptor, uintptr, unsafe.Pointer, FilterDescriptor, uintptr) Result
-	fntransformTensor                                     func(Handle, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
-	fntransformTensorEx                                   func(Handle, TensorTransformDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
+	symactivationBackward                                  uintptr
+	symactivationForward                                   uintptr
+	symaddTensor                                           uintptr
+	symAdvVersionCheck                                     uintptr
+	symbackendCreateDescriptor                             uintptr
+	symbackendDestroyDescriptor                            uintptr
+	symbackendExecute                                      uintptr
+	symbackendFinalize                                     uintptr
+	symbackendGetAttribute                                 uintptr
+	symbackendInitialize                                   uintptr
+	symbackendPopulateCudaGraph                            uintptr
+	symbackendSetAttribute                                 uintptr
+	symbackendUpdateCudaGraph                              uintptr
+	symbatchNormalizationBackward                          uintptr
+	symbatchNormalizationBackwardEx                        uintptr
+	symbatchNormalizationForwardInference                  uintptr
+	symbatchNormalizationForwardTraining                   uintptr
+	symbatchNormalizationForwardTrainingEx                 uintptr
+	symbuildRNNDynamic                                     uintptr
+	symcTCLoss                                             uintptr
+	symcTCLossV8                                           uintptr
+	symCnnVersionCheck                                     uintptr
+	symconvolutionBackwardBias                             uintptr
+	symconvolutionBackwardData                             uintptr
+	symconvolutionBackwardFilter                           uintptr
+	symconvolutionBiasActivationForward                    uintptr
+	symconvolutionForward                                  uintptr
+	symCreate                                              uintptr
+	symCreateActivationDescriptor                          uintptr
+	symCreateAttnDescriptor                                uintptr
+	symCreateCTCLossDescriptor                             uintptr
+	symCreateConvolutionDescriptor                         uintptr
+	symCreateDropoutDescriptor                             uintptr
+	symCreateFilterDescriptor                              uintptr
+	symCreateFusedOpsConstParamPack                        uintptr
+	symCreateFusedOpsPlan                                  uintptr
+	symCreateFusedOpsVariantParamPack                      uintptr
+	symCreateLRNDescriptor                                 uintptr
+	symCreateOpTensorDescriptor                            uintptr
+	symCreatePoolingDescriptor                             uintptr
+	symCreateRNNDataDescriptor                             uintptr
+	symCreateRNNDescriptor                                 uintptr
+	symCreateReduceTensorDescriptor                        uintptr
+	symCreateSeqDataDescriptor                             uintptr
+	symCreateSpatialTransformerDescriptor                  uintptr
+	symCreateTensorDescriptor                              uintptr
+	symCreateTensorTransformDescriptor                     uintptr
+	symderiveBNTensorDescriptor                            uintptr
+	symderiveNormTensorDescriptor                          uintptr
+	symdestroy                                             uintptr
+	symdestroyActivationDescriptor                         uintptr
+	symdestroyAttnDescriptor                               uintptr
+	symdestroyCTCLossDescriptor                            uintptr
+	symdestroyConvolutionDescriptor                        uintptr
+	symdestroyDropoutDescriptor                            uintptr
+	symdestroyFilterDescriptor                             uintptr
+	symdestroyFusedOpsConstParamPack                       uintptr
+	symdestroyFusedOpsPlan                                 uintptr
+	symdestroyFusedOpsVariantParamPack                     uintptr
+	symdestroyLRNDescriptor                                uintptr
+	symdestroyOpTensorDescriptor                           uintptr
+	symdestroyPoolingDescriptor                            uintptr
+	symdestroyRNNDataDescriptor                            uintptr
+	symdestroyRNNDescriptor                                uintptr
+	symdestroyReduceTensorDescriptor                       uintptr
+	symdestroySeqDataDescriptor                            uintptr
+	symdestroySpatialTransformerDescriptor                 uintptr
+	symdestroyTensorDescriptor                             uintptr
+	symdestroyTensorTransformDescriptor                    uintptr
+	symdivisiveNormalizationBackward                       uintptr
+	symdivisiveNormalizationForward                        uintptr
+	symdropoutBackward                                     uintptr
+	symdropoutForward                                      uintptr
+	symdropoutGetReserveSpaceSize                          uintptr
+	symdropoutGetStatesSize                                uintptr
+	symfindConvolutionBackwardDataAlgorithm                uintptr
+	symfindConvolutionBackwardDataAlgorithmEx              uintptr
+	symfindConvolutionBackwardFilterAlgorithm              uintptr
+	symfindConvolutionBackwardFilterAlgorithmEx            uintptr
+	symfindConvolutionForwardAlgorithm                     uintptr
+	symfindConvolutionForwardAlgorithmEx                   uintptr
+	symfusedOpsExecute                                     uintptr
+	symgetActivationDescriptor                             uintptr
+	symgetActivationDescriptorSwishBeta                    uintptr
+	symgetAttnDescriptor                                   uintptr
+	symgetBatchNormalizationBackwardExWorkspaceSize        uintptr
+	symgetBatchNormalizationForwardTrainingExWorkspaceSize uintptr
+	symgetBatchNormalizationTrainingExReserveSpaceSize     uintptr
+	symgetCTCLossDescriptor                                uintptr
+	symgetCTCLossWorkspaceSize                             uintptr
+	symgetCTCLossWorkspaceSizeV8                           uintptr
+	symGetCallback                                         uintptr
+	symgetConvolution2dDescriptor                          uintptr
+	symgetConvolution2dForwardOutputDim                    uintptr
+	symgetConvolutionBackwardDataAlgorithmMaxCount         uintptr
+	symgetConvolutionBackwardDataAlgorithm                 uintptr
+	symgetConvolutionBackwardDataWorkspaceSize             uintptr
+	symgetConvolutionBackwardFilterAlgorithmMaxCount       uintptr
+	symgetConvolutionBackwardFilterAlgorithm               uintptr
+	symgetConvolutionBackwardFilterWorkspaceSize           uintptr
+	symgetConvolutionForwardAlgorithmMaxCount              uintptr
+	symgetConvolutionForwardAlgorithm                      uintptr
+	symgetConvolutionForwardWorkspaceSize                  uintptr
+	symgetConvolutionGroupCount                            uintptr
+	symgetConvolutionMathType                              uintptr
+	symgetConvolutionNdDescriptor                          uintptr
+	symgetConvolutionNdForwardOutputDim                    uintptr
+	symgetConvolutionReorderType                           uintptr
+	symGetCudartVersion                                    uintptr
+	symgetDropoutDescriptor                                uintptr
+	symgetFilter4dDescriptor                               uintptr
+	symgetFilterNdDescriptor                               uintptr
+	symgetFilterSizeInBytes                                uintptr
+	symgetFoldedConvBackwardDataDescriptors                uintptr
+	symgetFusedOpsConstParamPackAttribute                  uintptr
+	symgetFusedOpsVariantParamPackAttribute                uintptr
+	symgetLRNDescriptor                                    uintptr
+	symGetLastErrorString                                  uintptr
+	symGetMaxDeviceVersion                                 uintptr
+	symgetMultiHeadAttnBuffers                             uintptr
+	symgetMultiHeadAttnWeights                             uintptr
+	symgetNormalizationBackwardWorkspaceSize               uintptr
+	symgetNormalizationForwardTrainingWorkspaceSize        uintptr
+	symgetNormalizationTrainingReserveSpaceSize            uintptr
+	symgetOpTensorDescriptor                               uintptr
+	symgetPooling2dDescriptor                              uintptr
+	symgetPooling2dForwardOutputDim                        uintptr
+	symgetPoolingNdDescriptor                              uintptr
+	symgetPoolingNdForwardOutputDim                        uintptr
+	symGetProperty                                         uintptr
+	symgetRNNDataDescriptor                                uintptr
+	symgetRNNDescriptor                                    uintptr
+	symgetRNNTempSpaceSizes                                uintptr
+	symgetRNNWeightParams                                  uintptr
+	symgetRNNWeightSpaceSize                               uintptr
+	symgetReduceTensorDescriptor                           uintptr
+	symgetReductionIndicesSize                             uintptr
+	symgetReductionWorkspaceSize                           uintptr
+	symgetSeqDataDescriptor                                uintptr
+	symgetStream                                           uintptr
+	symgetTensor4dDescriptor                               uintptr
+	symgetTensorNdDescriptor                               uintptr
+	symgetTensorSizeInBytes                                uintptr
+	symgetTensorTransformDescriptor                        uintptr
+	symGetVersion                                          uintptr
+	symGraphVersionCheck                                   uintptr
+	symim2Col                                              uintptr
+	syminitTransformDest                                   uintptr
+	symlRNCrossChannelBackward                             uintptr
+	symlRNCrossChannelForward                              uintptr
+	symmakeFusedOpsPlan                                    uintptr
+	symmultiHeadAttnBackwardData                           uintptr
+	symmultiHeadAttnBackwardWeights                        uintptr
+	symmultiHeadAttnForward                                uintptr
+	fnnormalizationBackward                                func(Handle, NormMode, NormOps, NormAlgo, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, uintptr, float64, TensorDescriptor, uintptr, uintptr, ActivationDescriptor, uintptr, uint, uintptr, uint, int32) Result
+	symnormalizationForwardInference                       uintptr
+	symnormalizationForwardTraining                        uintptr
+	symopTensor                                            uintptr
+	symOpsVersionCheck                                     uintptr
+	sympoolingBackward                                     uintptr
+	sympoolingForward                                      uintptr
+	symqueryRuntimeError                                   uintptr
+	symrNNBackwardData                                     uintptr
+	symrNNBackwardWeights                                  uintptr
+	symrNNForward                                          uintptr
+	symrNNGetClip                                          uintptr
+	symrNNSetClip                                          uintptr
+	symreduceTensor                                        uintptr
+	symreorderFilterAndBias                                uintptr
+	symrestoreDropoutDescriptor                            uintptr
+	symscaleTensor                                         uintptr
+	symsetActivationDescriptor                             uintptr
+	symsetActivationDescriptorSwishBeta                    uintptr
+	symsetAttnDescriptor                                   uintptr
+	symsetCTCLossDescriptor                                uintptr
+	symSetCallback                                         uintptr
+	symsetConvolution2dDescriptor                          uintptr
+	symsetConvolutionGroupCount                            uintptr
+	symsetConvolutionMathType                              uintptr
+	symsetConvolutionNdDescriptor                          uintptr
+	symsetConvolutionReorderType                           uintptr
+	symsetDropoutDescriptor                                uintptr
+	symsetFilter4dDescriptor                               uintptr
+	symsetFilterNdDescriptor                               uintptr
+	symsetFusedOpsConstParamPackAttribute                  uintptr
+	symsetFusedOpsVariantParamPackAttribute                uintptr
+	symsetLRNDescriptor                                    uintptr
+	symsetOpTensorDescriptor                               uintptr
+	symsetPooling2dDescriptor                              uintptr
+	symsetPoolingNdDescriptor                              uintptr
+	symsetRNNDataDescriptor                                uintptr
+	symsetRNNDescriptor                                    uintptr
+	symsetReduceTensorDescriptor                           uintptr
+	symsetSeqDataDescriptor                                uintptr
+	symsetSpatialTransformerNdDescriptor                   uintptr
+	fnsetStream                                            func(Handle, driver.Stream) Result
+	symsetTensor                                           uintptr
+	symsetTensor4dDescriptor                               uintptr
+	symsetTensor4dDescriptorEx                             uintptr
+	symsetTensorNdDescriptor                               uintptr
+	symsetTensorNdDescriptorEx                             uintptr
+	symsetTensorTransformDescriptor                        uintptr
+	symsoftmaxBackward                                     uintptr
+	symsoftmaxForward                                      uintptr
+	symspatialTfGridGeneratorBackward                      uintptr
+	symspatialTfGridGeneratorForward                       uintptr
+	symspatialTfSamplerBackward                            uintptr
+	symspatialTfSamplerForward                             uintptr
+	symtransformFilter                                     uintptr
+	symtransformTensor                                     uintptr
+	symtransformTensorEx                                   uintptr
 )
 
-// activationBackward This routine computes the gradient of a neuron activation function.
+// fnactivationBackward calls cudnnActivationBackward.
+func fnactivationBackward(a0 Handle, a1 ActivationDescriptor, a2 unsafe.Pointer, a3 TensorDescriptor, a4 uintptr, a5 TensorDescriptor, a6 uintptr, a7 TensorDescriptor, a8 uintptr, a9 unsafe.Pointer, a10 TensorDescriptor, a11 uintptr) Result {
+	r1, _ := ffiCall12(symactivationBackward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnactivationForward calls cudnnActivationForward.
+func fnactivationForward(a0 Handle, a1 ActivationDescriptor, a2 unsafe.Pointer, a3 TensorDescriptor, a4 uintptr, a5 unsafe.Pointer, a6 TensorDescriptor, a7 uintptr) Result {
+	r1, _ := ffiCall8(symactivationForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnaddTensor calls cudnnAddTensor.
+func fnaddTensor(a0 Handle, a1 unsafe.Pointer, a2 TensorDescriptor, a3 uintptr, a4 unsafe.Pointer, a5 TensorDescriptor, a6 uintptr) Result {
+	r1, _ := ffiCall7(symaddTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnAdvVersionCheck calls cudnnAdvVersionCheck.
+func fnAdvVersionCheck() Result {
+	r1, _ := ffiCall0(symAdvVersionCheck, 0)
+	return Result(r1)
+}
+
+// fnbackendCreateDescriptor calls cudnnBackendCreateDescriptor.
+func fnbackendCreateDescriptor(a0 BackendDescriptorType, a1 *BackendDescriptor) Result {
+	r1, _ := ffiCall2(symbackendCreateDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnbackendDestroyDescriptor calls cudnnBackendDestroyDescriptor.
+func fnbackendDestroyDescriptor(a0 BackendDescriptor) Result {
+	r1, _ := ffiCall1(symbackendDestroyDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnbackendExecute calls cudnnBackendExecute.
+func fnbackendExecute(a0 Handle, a1 BackendDescriptor, a2 BackendDescriptor) Result {
+	r1, _ := ffiCall3(symbackendExecute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnbackendFinalize calls cudnnBackendFinalize.
+func fnbackendFinalize(a0 BackendDescriptor) Result {
+	r1, _ := ffiCall1(symbackendFinalize, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnbackendGetAttribute calls cudnnBackendGetAttribute.
+func fnbackendGetAttribute(a0 BackendDescriptor, a1 BackendAttributeName, a2 BackendAttributeType, a3 int64, a4 *int64, a5 uintptr) Result {
+	r1, _ := ffiCall6(symbackendGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	return Result(r1)
+}
+
+// fnbackendInitialize calls cudnnBackendInitialize.
+func fnbackendInitialize(a0 BackendDescriptor) Result {
+	r1, _ := ffiCall1(symbackendInitialize, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnbackendPopulateCudaGraph calls cudnnBackendPopulateCudaGraph.
+func fnbackendPopulateCudaGraph(a0 Handle, a1 BackendDescriptor, a2 BackendDescriptor, a3 Graph) Result {
+	r1, _ := ffiCall4(symbackendPopulateCudaGraph, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnbackendSetAttribute calls cudnnBackendSetAttribute.
+func fnbackendSetAttribute(a0 BackendDescriptor, a1 BackendAttributeName, a2 BackendAttributeType, a3 int64, a4 uintptr) Result {
+	r1, _ := ffiCall5(symbackendSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnbackendUpdateCudaGraph calls cudnnBackendUpdateCudaGraph.
+func fnbackendUpdateCudaGraph(a0 Handle, a1 BackendDescriptor, a2 BackendDescriptor, a3 Graph) Result {
+	r1, _ := ffiCall4(symbackendUpdateCudaGraph, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnbatchNormalizationBackward calls cudnnBatchNormalizationBackward.
+func fnbatchNormalizationBackward(a0 Handle, a1 BatchNormMode, a2 unsafe.Pointer, a3 unsafe.Pointer, a4 unsafe.Pointer, a5 unsafe.Pointer, a6 TensorDescriptor, a7 uintptr, a8 TensorDescriptor, a9 uintptr, a10 TensorDescriptor, a11 uintptr, a12 TensorDescriptor, a13 uintptr, a14 uintptr, a15 uintptr, a16 float64, a17 uintptr, a18 uintptr) Result {
+	r1, _ := ffiCall19(symbatchNormalizationBackward, 0b10000000000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(math.Float64bits(a16)), uintptr(a17), uintptr(a18))
+	return Result(r1)
+}
+
+// fnbatchNormalizationBackwardEx calls cudnnBatchNormalizationBackwardEx.
+func fnbatchNormalizationBackwardEx(a0 Handle, a1 BatchNormMode, a2 BatchNormOps, a3 unsafe.Pointer, a4 unsafe.Pointer, a5 unsafe.Pointer, a6 unsafe.Pointer, a7 TensorDescriptor, a8 uintptr, a9 TensorDescriptor, a10 uintptr, a11 TensorDescriptor, a12 uintptr, a13 TensorDescriptor, a14 uintptr, a15 TensorDescriptor, a16 uintptr, a17 TensorDescriptor, a18 uintptr, a19 uintptr, a20 uintptr, a21 uintptr, a22 float64, a23 uintptr, a24 uintptr, a25 ActivationDescriptor, a26 uintptr, a27 uint, a28 uintptr, a29 uint) Result {
+	r1, _ := ffiCall30(symbatchNormalizationBackwardEx, 0b10000000000000000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(math.Float64bits(a22)), uintptr(a23), uintptr(a24), uintptr(a25), uintptr(a26), uintptr(a27), uintptr(a28), uintptr(a29))
+	return Result(r1)
+}
+
+// fnbatchNormalizationForwardInference calls cudnnBatchNormalizationForwardInference.
+func fnbatchNormalizationForwardInference(a0 Handle, a1 BatchNormMode, a2 unsafe.Pointer, a3 unsafe.Pointer, a4 TensorDescriptor, a5 uintptr, a6 TensorDescriptor, a7 uintptr, a8 TensorDescriptor, a9 uintptr, a10 uintptr, a11 uintptr, a12 uintptr, a13 float64) Result {
+	r1, _ := ffiCall14(symbatchNormalizationForwardInference, 0b10000000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(math.Float64bits(a13)))
+	return Result(r1)
+}
+
+// fnbatchNormalizationForwardTraining calls cudnnBatchNormalizationForwardTraining.
+func fnbatchNormalizationForwardTraining(a0 Handle, a1 BatchNormMode, a2 unsafe.Pointer, a3 unsafe.Pointer, a4 TensorDescriptor, a5 uintptr, a6 TensorDescriptor, a7 uintptr, a8 TensorDescriptor, a9 uintptr, a10 uintptr, a11 float64, a12 uintptr, a13 uintptr, a14 float64, a15 uintptr, a16 uintptr) Result {
+	r1, _ := ffiCall17(symbatchNormalizationForwardTraining, 0b100100000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(math.Float64bits(a14)), uintptr(a15), uintptr(a16))
+	return Result(r1)
+}
+
+// fnbatchNormalizationForwardTrainingEx calls cudnnBatchNormalizationForwardTrainingEx.
+func fnbatchNormalizationForwardTrainingEx(a0 Handle, a1 BatchNormMode, a2 BatchNormOps, a3 unsafe.Pointer, a4 unsafe.Pointer, a5 TensorDescriptor, a6 uintptr, a7 TensorDescriptor, a8 uintptr, a9 TensorDescriptor, a10 uintptr, a11 TensorDescriptor, a12 uintptr, a13 uintptr, a14 float64, a15 uintptr, a16 uintptr, a17 float64, a18 uintptr, a19 uintptr, a20 ActivationDescriptor, a21 uintptr, a22 uint, a23 uintptr, a24 uint) Result {
+	r1, _ := ffiCall25(symbatchNormalizationForwardTrainingEx, 0b100100000000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(math.Float64bits(a14)), uintptr(a15), uintptr(a16), uintptr(math.Float64bits(a17)), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24))
+	return Result(r1)
+}
+
+// fnbuildRNNDynamic calls cudnnBuildRNNDynamic.
+func fnbuildRNNDynamic(a0 Handle, a1 RNNDescriptor, a2 int32) Result {
+	r1, _ := ffiCall3(symbuildRNNDynamic, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fncTCLoss calls cudnnCTCLoss.
+func fncTCLoss(a0 Handle, a1 TensorDescriptor, a2 uintptr, a3 *int32, a4 *int32, a5 *int32, a6 uintptr, a7 TensorDescriptor, a8 uintptr, a9 CTCLossAlgo, a10 CTCLossDescriptor, a11 uintptr, a12 uint) Result {
+	r1, _ := ffiCall13(symcTCLoss, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncTCLossV8 calls cudnnCTCLoss_v8.
+func fncTCLossV8(a0 Handle, a1 CTCLossAlgo, a2 CTCLossDescriptor, a3 TensorDescriptor, a4 uintptr, a5 *int32, a6 *int32, a7 *int32, a8 uintptr, a9 TensorDescriptor, a10 uintptr, a11 uint, a12 uintptr) Result {
+	r1, _ := ffiCall13(symcTCLossV8, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnCnnVersionCheck calls cudnnCnnVersionCheck.
+func fnCnnVersionCheck() Result {
+	r1, _ := ffiCall0(symCnnVersionCheck, 0)
+	return Result(r1)
+}
+
+// fnconvolutionBackwardBias calls cudnnConvolutionBackwardBias.
+func fnconvolutionBackwardBias(a0 Handle, a1 unsafe.Pointer, a2 TensorDescriptor, a3 uintptr, a4 unsafe.Pointer, a5 TensorDescriptor, a6 uintptr) Result {
+	r1, _ := ffiCall7(symconvolutionBackwardBias, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnconvolutionBackwardData calls cudnnConvolutionBackwardData.
+func fnconvolutionBackwardData(a0 Handle, a1 unsafe.Pointer, a2 FilterDescriptor, a3 uintptr, a4 TensorDescriptor, a5 uintptr, a6 ConvolutionDescriptor, a7 ConvolutionBwdDataAlgo, a8 uintptr, a9 uint, a10 unsafe.Pointer, a11 TensorDescriptor, a12 uintptr) Result {
+	r1, _ := ffiCall13(symconvolutionBackwardData, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnconvolutionBackwardFilter calls cudnnConvolutionBackwardFilter.
+func fnconvolutionBackwardFilter(a0 Handle, a1 unsafe.Pointer, a2 TensorDescriptor, a3 uintptr, a4 TensorDescriptor, a5 uintptr, a6 ConvolutionDescriptor, a7 ConvolutionBwdFilterAlgo, a8 uintptr, a9 uint, a10 unsafe.Pointer, a11 FilterDescriptor, a12 uintptr) Result {
+	r1, _ := ffiCall13(symconvolutionBackwardFilter, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnconvolutionBiasActivationForward calls cudnnConvolutionBiasActivationForward.
+func fnconvolutionBiasActivationForward(a0 Handle, a1 unsafe.Pointer, a2 TensorDescriptor, a3 uintptr, a4 FilterDescriptor, a5 uintptr, a6 ConvolutionDescriptor, a7 ConvolutionFwdAlgo, a8 uintptr, a9 uint, a10 unsafe.Pointer, a11 TensorDescriptor, a12 uintptr, a13 TensorDescriptor, a14 uintptr, a15 ActivationDescriptor, a16 TensorDescriptor, a17 uintptr) Result {
+	r1, _ := ffiCall18(symconvolutionBiasActivationForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnconvolutionForward calls cudnnConvolutionForward.
+func fnconvolutionForward(a0 Handle, a1 unsafe.Pointer, a2 TensorDescriptor, a3 uintptr, a4 FilterDescriptor, a5 uintptr, a6 ConvolutionDescriptor, a7 ConvolutionFwdAlgo, a8 uintptr, a9 uint, a10 unsafe.Pointer, a11 TensorDescriptor, a12 uintptr) Result {
+	r1, _ := ffiCall13(symconvolutionForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnCreate calls cudnnCreate.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateActivationDescriptor calls cudnnCreateActivationDescriptor.
+func fnCreateActivationDescriptor(a0 *ActivationDescriptor) Result {
+	r1, _ := ffiCall1(symCreateActivationDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateAttnDescriptor calls cudnnCreateAttnDescriptor.
+func fnCreateAttnDescriptor(a0 *AttnDescriptor) Result {
+	r1, _ := ffiCall1(symCreateAttnDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateCTCLossDescriptor calls cudnnCreateCTCLossDescriptor.
+func fnCreateCTCLossDescriptor(a0 *CTCLossDescriptor) Result {
+	r1, _ := ffiCall1(symCreateCTCLossDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateConvolutionDescriptor calls cudnnCreateConvolutionDescriptor.
+func fnCreateConvolutionDescriptor(a0 *ConvolutionDescriptor) Result {
+	r1, _ := ffiCall1(symCreateConvolutionDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateDropoutDescriptor calls cudnnCreateDropoutDescriptor.
+func fnCreateDropoutDescriptor(a0 *DropoutDescriptor) Result {
+	r1, _ := ffiCall1(symCreateDropoutDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateFilterDescriptor calls cudnnCreateFilterDescriptor.
+func fnCreateFilterDescriptor(a0 *FilterDescriptor) Result {
+	r1, _ := ffiCall1(symCreateFilterDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateFusedOpsConstParamPack calls cudnnCreateFusedOpsConstParamPack.
+func fnCreateFusedOpsConstParamPack(a0 *FusedOpsConstParamPack, a1 FusedOps) Result {
+	r1, _ := ffiCall2(symCreateFusedOpsConstParamPack, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCreateFusedOpsPlan calls cudnnCreateFusedOpsPlan.
+func fnCreateFusedOpsPlan(a0 *FusedOpsPlan, a1 FusedOps) Result {
+	r1, _ := ffiCall2(symCreateFusedOpsPlan, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCreateFusedOpsVariantParamPack calls cudnnCreateFusedOpsVariantParamPack.
+func fnCreateFusedOpsVariantParamPack(a0 *FusedOpsVariantParamPack, a1 FusedOps) Result {
+	r1, _ := ffiCall2(symCreateFusedOpsVariantParamPack, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCreateLRNDescriptor calls cudnnCreateLRNDescriptor.
+func fnCreateLRNDescriptor(a0 *LRNDescriptor) Result {
+	r1, _ := ffiCall1(symCreateLRNDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateOpTensorDescriptor calls cudnnCreateOpTensorDescriptor.
+func fnCreateOpTensorDescriptor(a0 *OpTensorDescriptor) Result {
+	r1, _ := ffiCall1(symCreateOpTensorDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreatePoolingDescriptor calls cudnnCreatePoolingDescriptor.
+func fnCreatePoolingDescriptor(a0 *PoolingDescriptor) Result {
+	r1, _ := ffiCall1(symCreatePoolingDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateRNNDataDescriptor calls cudnnCreateRNNDataDescriptor.
+func fnCreateRNNDataDescriptor(a0 *RNNDataDescriptor) Result {
+	r1, _ := ffiCall1(symCreateRNNDataDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateRNNDescriptor calls cudnnCreateRNNDescriptor.
+func fnCreateRNNDescriptor(a0 *RNNDescriptor) Result {
+	r1, _ := ffiCall1(symCreateRNNDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateReduceTensorDescriptor calls cudnnCreateReduceTensorDescriptor.
+func fnCreateReduceTensorDescriptor(a0 *ReduceTensorDescriptor) Result {
+	r1, _ := ffiCall1(symCreateReduceTensorDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateSeqDataDescriptor calls cudnnCreateSeqDataDescriptor.
+func fnCreateSeqDataDescriptor(a0 *SeqDataDescriptor) Result {
+	r1, _ := ffiCall1(symCreateSeqDataDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateSpatialTransformerDescriptor calls cudnnCreateSpatialTransformerDescriptor.
+func fnCreateSpatialTransformerDescriptor(a0 *SpatialTransformerDescriptor) Result {
+	r1, _ := ffiCall1(symCreateSpatialTransformerDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateTensorDescriptor calls cudnnCreateTensorDescriptor.
+func fnCreateTensorDescriptor(a0 *TensorDescriptor) Result {
+	r1, _ := ffiCall1(symCreateTensorDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateTensorTransformDescriptor calls cudnnCreateTensorTransformDescriptor.
+func fnCreateTensorTransformDescriptor(a0 *TensorTransformDescriptor) Result {
+	r1, _ := ffiCall1(symCreateTensorTransformDescriptor, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnderiveBNTensorDescriptor calls cudnnDeriveBNTensorDescriptor.
+func fnderiveBNTensorDescriptor(a0 TensorDescriptor, a1 TensorDescriptor, a2 BatchNormMode) Result {
+	r1, _ := ffiCall3(symderiveBNTensorDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnderiveNormTensorDescriptor calls cudnnDeriveNormTensorDescriptor.
+func fnderiveNormTensorDescriptor(a0 TensorDescriptor, a1 TensorDescriptor, a2 TensorDescriptor, a3 NormMode, a4 int32) Result {
+	r1, _ := ffiCall5(symderiveNormTensorDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fndestroy calls cudnnDestroy.
+func fndestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyActivationDescriptor calls cudnnDestroyActivationDescriptor.
+func fndestroyActivationDescriptor(a0 ActivationDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyActivationDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyAttnDescriptor calls cudnnDestroyAttnDescriptor.
+func fndestroyAttnDescriptor(a0 AttnDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyAttnDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyCTCLossDescriptor calls cudnnDestroyCTCLossDescriptor.
+func fndestroyCTCLossDescriptor(a0 CTCLossDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyCTCLossDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyConvolutionDescriptor calls cudnnDestroyConvolutionDescriptor.
+func fndestroyConvolutionDescriptor(a0 ConvolutionDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyConvolutionDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyDropoutDescriptor calls cudnnDestroyDropoutDescriptor.
+func fndestroyDropoutDescriptor(a0 DropoutDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyDropoutDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyFilterDescriptor calls cudnnDestroyFilterDescriptor.
+func fndestroyFilterDescriptor(a0 FilterDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyFilterDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyFusedOpsConstParamPack calls cudnnDestroyFusedOpsConstParamPack.
+func fndestroyFusedOpsConstParamPack(a0 FusedOpsConstParamPack) Result {
+	r1, _ := ffiCall1(symdestroyFusedOpsConstParamPack, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyFusedOpsPlan calls cudnnDestroyFusedOpsPlan.
+func fndestroyFusedOpsPlan(a0 FusedOpsPlan) Result {
+	r1, _ := ffiCall1(symdestroyFusedOpsPlan, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyFusedOpsVariantParamPack calls cudnnDestroyFusedOpsVariantParamPack.
+func fndestroyFusedOpsVariantParamPack(a0 FusedOpsVariantParamPack) Result {
+	r1, _ := ffiCall1(symdestroyFusedOpsVariantParamPack, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyLRNDescriptor calls cudnnDestroyLRNDescriptor.
+func fndestroyLRNDescriptor(a0 LRNDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyLRNDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyOpTensorDescriptor calls cudnnDestroyOpTensorDescriptor.
+func fndestroyOpTensorDescriptor(a0 OpTensorDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyOpTensorDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyPoolingDescriptor calls cudnnDestroyPoolingDescriptor.
+func fndestroyPoolingDescriptor(a0 PoolingDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyPoolingDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyRNNDataDescriptor calls cudnnDestroyRNNDataDescriptor.
+func fndestroyRNNDataDescriptor(a0 RNNDataDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyRNNDataDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyRNNDescriptor calls cudnnDestroyRNNDescriptor.
+func fndestroyRNNDescriptor(a0 RNNDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyRNNDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyReduceTensorDescriptor calls cudnnDestroyReduceTensorDescriptor.
+func fndestroyReduceTensorDescriptor(a0 ReduceTensorDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyReduceTensorDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroySeqDataDescriptor calls cudnnDestroySeqDataDescriptor.
+func fndestroySeqDataDescriptor(a0 SeqDataDescriptor) Result {
+	r1, _ := ffiCall1(symdestroySeqDataDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroySpatialTransformerDescriptor calls cudnnDestroySpatialTransformerDescriptor.
+func fndestroySpatialTransformerDescriptor(a0 SpatialTransformerDescriptor) Result {
+	r1, _ := ffiCall1(symdestroySpatialTransformerDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyTensorDescriptor calls cudnnDestroyTensorDescriptor.
+func fndestroyTensorDescriptor(a0 TensorDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyTensorDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyTensorTransformDescriptor calls cudnnDestroyTensorTransformDescriptor.
+func fndestroyTensorTransformDescriptor(a0 TensorTransformDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyTensorTransformDescriptor, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndivisiveNormalizationBackward calls cudnnDivisiveNormalizationBackward.
+func fndivisiveNormalizationBackward(a0 Handle, a1 LRNDescriptor, a2 DivNormMode, a3 unsafe.Pointer, a4 TensorDescriptor, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 unsafe.Pointer, a11 TensorDescriptor, a12 uintptr, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdivisiveNormalizationBackward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndivisiveNormalizationForward calls cudnnDivisiveNormalizationForward.
+func fndivisiveNormalizationForward(a0 Handle, a1 LRNDescriptor, a2 DivNormMode, a3 unsafe.Pointer, a4 TensorDescriptor, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 unsafe.Pointer, a10 TensorDescriptor, a11 uintptr) Result {
+	r1, _ := ffiCall12(symdivisiveNormalizationForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndropoutBackward calls cudnnDropoutBackward.
+func fndropoutBackward(a0 Handle, a1 DropoutDescriptor, a2 TensorDescriptor, a3 uintptr, a4 TensorDescriptor, a5 uintptr, a6 uintptr, a7 uint) Result {
+	r1, _ := ffiCall8(symdropoutBackward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndropoutForward calls cudnnDropoutForward.
+func fndropoutForward(a0 Handle, a1 DropoutDescriptor, a2 TensorDescriptor, a3 uintptr, a4 TensorDescriptor, a5 uintptr, a6 uintptr, a7 uint) Result {
+	r1, _ := ffiCall8(symdropoutForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndropoutGetReserveSpaceSize calls cudnnDropoutGetReserveSpaceSize.
+func fndropoutGetReserveSpaceSize(a0 TensorDescriptor, a1 *uint) Result {
+	r1, _ := ffiCall2(symdropoutGetReserveSpaceSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndropoutGetStatesSize calls cudnnDropoutGetStatesSize.
+func fndropoutGetStatesSize(a0 Handle, a1 *uint) Result {
+	r1, _ := ffiCall2(symdropoutGetStatesSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnfindConvolutionBackwardDataAlgorithm calls cudnnFindConvolutionBackwardDataAlgorithm.
+func fnfindConvolutionBackwardDataAlgorithm(a0 Handle, a1 FilterDescriptor, a2 TensorDescriptor, a3 ConvolutionDescriptor, a4 TensorDescriptor, a5 int32, a6 *int32, a7 *ConvolutionBwdDataAlgoPerf) Result {
+	r1, _ := ffiCall8(symfindConvolutionBackwardDataAlgorithm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnfindConvolutionBackwardDataAlgorithmEx calls cudnnFindConvolutionBackwardDataAlgorithmEx.
+func fnfindConvolutionBackwardDataAlgorithmEx(a0 Handle, a1 FilterDescriptor, a2 uintptr, a3 TensorDescriptor, a4 uintptr, a5 ConvolutionDescriptor, a6 TensorDescriptor, a7 uintptr, a8 int32, a9 *int32, a10 *ConvolutionBwdDataAlgoPerf, a11 uintptr, a12 uint) Result {
+	r1, _ := ffiCall13(symfindConvolutionBackwardDataAlgorithmEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnfindConvolutionBackwardFilterAlgorithm calls cudnnFindConvolutionBackwardFilterAlgorithm.
+func fnfindConvolutionBackwardFilterAlgorithm(a0 Handle, a1 TensorDescriptor, a2 TensorDescriptor, a3 ConvolutionDescriptor, a4 FilterDescriptor, a5 int32, a6 *int32, a7 *ConvolutionBwdFilterAlgoPerf) Result {
+	r1, _ := ffiCall8(symfindConvolutionBackwardFilterAlgorithm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnfindConvolutionBackwardFilterAlgorithmEx calls cudnnFindConvolutionBackwardFilterAlgorithmEx.
+func fnfindConvolutionBackwardFilterAlgorithmEx(a0 Handle, a1 TensorDescriptor, a2 uintptr, a3 TensorDescriptor, a4 uintptr, a5 ConvolutionDescriptor, a6 FilterDescriptor, a7 uintptr, a8 int32, a9 *int32, a10 *ConvolutionBwdFilterAlgoPerf, a11 uintptr, a12 uint) Result {
+	r1, _ := ffiCall13(symfindConvolutionBackwardFilterAlgorithmEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnfindConvolutionForwardAlgorithm calls cudnnFindConvolutionForwardAlgorithm.
+func fnfindConvolutionForwardAlgorithm(a0 Handle, a1 TensorDescriptor, a2 FilterDescriptor, a3 ConvolutionDescriptor, a4 TensorDescriptor, a5 int32, a6 *int32, a7 *ConvolutionFwdAlgoPerf) Result {
+	r1, _ := ffiCall8(symfindConvolutionForwardAlgorithm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnfindConvolutionForwardAlgorithmEx calls cudnnFindConvolutionForwardAlgorithmEx.
+func fnfindConvolutionForwardAlgorithmEx(a0 Handle, a1 TensorDescriptor, a2 uintptr, a3 FilterDescriptor, a4 uintptr, a5 ConvolutionDescriptor, a6 TensorDescriptor, a7 uintptr, a8 int32, a9 *int32, a10 *ConvolutionFwdAlgoPerf, a11 uintptr, a12 uint) Result {
+	r1, _ := ffiCall13(symfindConvolutionForwardAlgorithmEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnfusedOpsExecute calls cudnnFusedOpsExecute.
+func fnfusedOpsExecute(a0 Handle, a1 FusedOpsPlan, a2 FusedOpsVariantParamPack) Result {
+	r1, _ := ffiCall3(symfusedOpsExecute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngetActivationDescriptor calls cudnnGetActivationDescriptor.
+func fngetActivationDescriptor(a0 ActivationDescriptor, a1 *ActivationMode, a2 *NanPropagation, a3 *float64) Result {
+	r1, _ := ffiCall4(symgetActivationDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fngetActivationDescriptorSwishBeta calls cudnnGetActivationDescriptorSwishBeta.
+func fngetActivationDescriptorSwishBeta(a0 ActivationDescriptor, a1 *float64) Result {
+	r1, _ := ffiCall2(symgetActivationDescriptorSwishBeta, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetAttnDescriptor calls cudnnGetAttnDescriptor.
+func fngetAttnDescriptor(a0 AttnDescriptor, a1 *uint32, a2 *int32, a3 *float64, a4 *DataType, a5 *DataType, a6 *MathType, a7 *DropoutDescriptor, a8 *DropoutDescriptor, a9 *int32, a10 *int32, a11 *int32, a12 *int32, a13 *int32, a14 *int32, a15 *int32, a16 *int32, a17 *int32, a18 *int32, a19 *int32) Result {
+	r1, _ := ffiCall20(symgetAttnDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(unsafe.Pointer(a13)), uintptr(unsafe.Pointer(a14)), uintptr(unsafe.Pointer(a15)), uintptr(unsafe.Pointer(a16)), uintptr(unsafe.Pointer(a17)), uintptr(unsafe.Pointer(a18)), uintptr(unsafe.Pointer(a19)))
+	return Result(r1)
+}
+
+// fngetBatchNormalizationBackwardExWorkspaceSize calls cudnnGetBatchNormalizationBackwardExWorkspaceSize.
+func fngetBatchNormalizationBackwardExWorkspaceSize(a0 Handle, a1 BatchNormMode, a2 BatchNormOps, a3 TensorDescriptor, a4 TensorDescriptor, a5 TensorDescriptor, a6 TensorDescriptor, a7 TensorDescriptor, a8 TensorDescriptor, a9 ActivationDescriptor, a10 *uint) Result {
+	r1, _ := ffiCall11(symgetBatchNormalizationBackwardExWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fngetBatchNormalizationForwardTrainingExWorkspaceSize calls cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize.
+func fngetBatchNormalizationForwardTrainingExWorkspaceSize(a0 Handle, a1 BatchNormMode, a2 BatchNormOps, a3 TensorDescriptor, a4 TensorDescriptor, a5 TensorDescriptor, a6 TensorDescriptor, a7 ActivationDescriptor, a8 *uint) Result {
+	r1, _ := ffiCall9(symgetBatchNormalizationForwardTrainingExWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fngetBatchNormalizationTrainingExReserveSpaceSize calls cudnnGetBatchNormalizationTrainingExReserveSpaceSize.
+func fngetBatchNormalizationTrainingExReserveSpaceSize(a0 Handle, a1 BatchNormMode, a2 BatchNormOps, a3 ActivationDescriptor, a4 TensorDescriptor, a5 *uint) Result {
+	r1, _ := ffiCall6(symgetBatchNormalizationTrainingExReserveSpaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngetCTCLossDescriptor calls cudnnGetCTCLossDescriptor_v9.
+func fngetCTCLossDescriptor(a0 CTCLossDescriptor, a1 *DataType, a2 *LossNormalizationMode, a3 *CTCGradMode, a4 *int32) Result {
+	r1, _ := ffiCall5(symgetCTCLossDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngetCTCLossWorkspaceSize calls cudnnGetCTCLossWorkspaceSize.
+func fngetCTCLossWorkspaceSize(a0 Handle, a1 TensorDescriptor, a2 TensorDescriptor, a3 *int32, a4 *int32, a5 *int32, a6 CTCLossAlgo, a7 CTCLossDescriptor, a8 *uint) Result {
+	r1, _ := ffiCall9(symgetCTCLossWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fngetCTCLossWorkspaceSizeV8 calls cudnnGetCTCLossWorkspaceSize_v8.
+func fngetCTCLossWorkspaceSizeV8(a0 Handle, a1 CTCLossAlgo, a2 CTCLossDescriptor, a3 TensorDescriptor, a4 TensorDescriptor, a5 *uint) Result {
+	r1, _ := ffiCall6(symgetCTCLossWorkspaceSizeV8, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnGetCallback calls cudnnGetCallback.
+func fnGetCallback(a0 *uint32, a1 *uintptr, a2 uintptr) Result {
+	r1, _ := ffiCall3(symGetCallback, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngetConvolution2dDescriptor calls cudnnGetConvolution2dDescriptor.
+func fngetConvolution2dDescriptor(a0 ConvolutionDescriptor, a1 *int32, a2 *int32, a3 *int32, a4 *int32, a5 *int32, a6 *int32, a7 *ConvolutionMode, a8 *DataType) Result {
+	r1, _ := ffiCall9(symgetConvolution2dDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fngetConvolution2dForwardOutputDim calls cudnnGetConvolution2dForwardOutputDim.
+func fngetConvolution2dForwardOutputDim(a0 ConvolutionDescriptor, a1 TensorDescriptor, a2 FilterDescriptor, a3 *int32, a4 *int32, a5 *int32, a6 *int32) Result {
+	r1, _ := ffiCall7(symgetConvolution2dForwardOutputDim, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fngetConvolutionBackwardDataAlgorithmMaxCount calls cudnnGetConvolutionBackwardDataAlgorithmMaxCount.
+func fngetConvolutionBackwardDataAlgorithmMaxCount(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetConvolutionBackwardDataAlgorithmMaxCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetConvolutionBackwardDataAlgorithm calls cudnnGetConvolutionBackwardDataAlgorithm_v7.
+func fngetConvolutionBackwardDataAlgorithm(a0 Handle, a1 FilterDescriptor, a2 TensorDescriptor, a3 ConvolutionDescriptor, a4 TensorDescriptor, a5 int32, a6 *int32, a7 *ConvolutionBwdDataAlgoPerf) Result {
+	r1, _ := ffiCall8(symgetConvolutionBackwardDataAlgorithm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fngetConvolutionBackwardDataWorkspaceSize calls cudnnGetConvolutionBackwardDataWorkspaceSize.
+func fngetConvolutionBackwardDataWorkspaceSize(a0 Handle, a1 FilterDescriptor, a2 TensorDescriptor, a3 ConvolutionDescriptor, a4 TensorDescriptor, a5 ConvolutionBwdDataAlgo, a6 *uint) Result {
+	r1, _ := ffiCall7(symgetConvolutionBackwardDataWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fngetConvolutionBackwardFilterAlgorithmMaxCount calls cudnnGetConvolutionBackwardFilterAlgorithmMaxCount.
+func fngetConvolutionBackwardFilterAlgorithmMaxCount(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetConvolutionBackwardFilterAlgorithmMaxCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetConvolutionBackwardFilterAlgorithm calls cudnnGetConvolutionBackwardFilterAlgorithm_v7.
+func fngetConvolutionBackwardFilterAlgorithm(a0 Handle, a1 TensorDescriptor, a2 TensorDescriptor, a3 ConvolutionDescriptor, a4 FilterDescriptor, a5 int32, a6 *int32, a7 *ConvolutionBwdFilterAlgoPerf) Result {
+	r1, _ := ffiCall8(symgetConvolutionBackwardFilterAlgorithm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fngetConvolutionBackwardFilterWorkspaceSize calls cudnnGetConvolutionBackwardFilterWorkspaceSize.
+func fngetConvolutionBackwardFilterWorkspaceSize(a0 Handle, a1 TensorDescriptor, a2 TensorDescriptor, a3 ConvolutionDescriptor, a4 FilterDescriptor, a5 ConvolutionBwdFilterAlgo, a6 *uint) Result {
+	r1, _ := ffiCall7(symgetConvolutionBackwardFilterWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fngetConvolutionForwardAlgorithmMaxCount calls cudnnGetConvolutionForwardAlgorithmMaxCount.
+func fngetConvolutionForwardAlgorithmMaxCount(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetConvolutionForwardAlgorithmMaxCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetConvolutionForwardAlgorithm calls cudnnGetConvolutionForwardAlgorithm_v7.
+func fngetConvolutionForwardAlgorithm(a0 Handle, a1 TensorDescriptor, a2 FilterDescriptor, a3 ConvolutionDescriptor, a4 TensorDescriptor, a5 int32, a6 *int32, a7 *ConvolutionFwdAlgoPerf) Result {
+	r1, _ := ffiCall8(symgetConvolutionForwardAlgorithm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fngetConvolutionForwardWorkspaceSize calls cudnnGetConvolutionForwardWorkspaceSize.
+func fngetConvolutionForwardWorkspaceSize(a0 Handle, a1 TensorDescriptor, a2 FilterDescriptor, a3 ConvolutionDescriptor, a4 TensorDescriptor, a5 ConvolutionFwdAlgo, a6 *uint) Result {
+	r1, _ := ffiCall7(symgetConvolutionForwardWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fngetConvolutionGroupCount calls cudnnGetConvolutionGroupCount.
+func fngetConvolutionGroupCount(a0 ConvolutionDescriptor, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetConvolutionGroupCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetConvolutionMathType calls cudnnGetConvolutionMathType.
+func fngetConvolutionMathType(a0 ConvolutionDescriptor, a1 *MathType) Result {
+	r1, _ := ffiCall2(symgetConvolutionMathType, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetConvolutionNdDescriptor calls cudnnGetConvolutionNdDescriptor.
+func fngetConvolutionNdDescriptor(a0 ConvolutionDescriptor, a1 int32, a2 *int32, a3 *int32, a4 *int32, a5 *int32, a6 *ConvolutionMode, a7 *DataType) Result {
+	r1, _ := ffiCall8(symgetConvolutionNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fngetConvolutionNdForwardOutputDim calls cudnnGetConvolutionNdForwardOutputDim.
+func fngetConvolutionNdForwardOutputDim(a0 ConvolutionDescriptor, a1 TensorDescriptor, a2 FilterDescriptor, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symgetConvolutionNdForwardOutputDim, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngetConvolutionReorderType calls cudnnGetConvolutionReorderType.
+func fngetConvolutionReorderType(a0 ConvolutionDescriptor, a1 *ReorderType) Result {
+	r1, _ := ffiCall2(symgetConvolutionReorderType, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetCudartVersion calls cudnnGetCudartVersion.
+func fnGetCudartVersion() uint {
+	r1, _ := ffiCall0(symGetCudartVersion, 0)
+	return uint(r1)
+}
+
+// fngetDropoutDescriptor calls cudnnGetDropoutDescriptor.
+func fngetDropoutDescriptor(a0 DropoutDescriptor, a1 Handle, a2 *float32, a3 *uintptr, a4 *uint64) Result {
+	r1, _ := ffiCall5(symgetDropoutDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngetFilter4dDescriptor calls cudnnGetFilter4dDescriptor.
+func fngetFilter4dDescriptor(a0 FilterDescriptor, a1 *DataType, a2 *TensorFormat, a3 *int32, a4 *int32, a5 *int32, a6 *int32) Result {
+	r1, _ := ffiCall7(symgetFilter4dDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fngetFilterNdDescriptor calls cudnnGetFilterNdDescriptor.
+func fngetFilterNdDescriptor(a0 FilterDescriptor, a1 int32, a2 *DataType, a3 *TensorFormat, a4 *int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symgetFilterNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngetFilterSizeInBytes calls cudnnGetFilterSizeInBytes.
+func fngetFilterSizeInBytes(a0 FilterDescriptor, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetFilterSizeInBytes, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetFoldedConvBackwardDataDescriptors calls cudnnGetFoldedConvBackwardDataDescriptors.
+func fngetFoldedConvBackwardDataDescriptors(a0 Handle, a1 FilterDescriptor, a2 TensorDescriptor, a3 ConvolutionDescriptor, a4 TensorDescriptor, a5 TensorFormat, a6 FilterDescriptor, a7 TensorDescriptor, a8 ConvolutionDescriptor, a9 TensorDescriptor, a10 TensorTransformDescriptor, a11 TensorTransformDescriptor, a12 TensorTransformDescriptor, a13 TensorTransformDescriptor) Result {
+	r1, _ := ffiCall14(symgetFoldedConvBackwardDataDescriptors, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fngetFusedOpsConstParamPackAttribute calls cudnnGetFusedOpsConstParamPackAttribute.
+func fngetFusedOpsConstParamPackAttribute(a0 FusedOpsConstParamPack, a1 FusedOpsConstParamLabel, a2 uintptr, a3 *int32) Result {
+	r1, _ := ffiCall4(symgetFusedOpsConstParamPackAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fngetFusedOpsVariantParamPackAttribute calls cudnnGetFusedOpsVariantParamPackAttribute.
+func fngetFusedOpsVariantParamPackAttribute(a0 FusedOpsVariantParamPack, a1 FusedOpsVariantParamLabel, a2 uintptr) Result {
+	r1, _ := ffiCall3(symgetFusedOpsVariantParamPackAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngetLRNDescriptor calls cudnnGetLRNDescriptor.
+func fngetLRNDescriptor(a0 LRNDescriptor, a1 *uint32, a2 *float64, a3 *float64, a4 *float64) Result {
+	r1, _ := ffiCall5(symgetLRNDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnGetLastErrorString calls cudnnGetLastErrorString.
+func fnGetLastErrorString(a0 *byte, a1 uint) {
+	ffiCall2(symGetLastErrorString, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+}
+
+// fnGetMaxDeviceVersion calls cudnnGetMaxDeviceVersion.
+func fnGetMaxDeviceVersion() uint {
+	r1, _ := ffiCall0(symGetMaxDeviceVersion, 0)
+	return uint(r1)
+}
+
+// fngetMultiHeadAttnBuffers calls cudnnGetMultiHeadAttnBuffers.
+func fngetMultiHeadAttnBuffers(a0 Handle, a1 AttnDescriptor, a2 *uint, a3 *uint, a4 *uint) Result {
+	r1, _ := ffiCall5(symgetMultiHeadAttnBuffers, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngetMultiHeadAttnWeights calls cudnnGetMultiHeadAttnWeights.
+func fngetMultiHeadAttnWeights(a0 Handle, a1 AttnDescriptor, a2 MultiHeadAttnWeightKind, a3 uint, a4 uintptr, a5 TensorDescriptor, a6 *uintptr) Result {
+	r1, _ := ffiCall7(symgetMultiHeadAttnWeights, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fngetNormalizationBackwardWorkspaceSize calls cudnnGetNormalizationBackwardWorkspaceSize.
+func fngetNormalizationBackwardWorkspaceSize(a0 Handle, a1 NormMode, a2 NormOps, a3 NormAlgo, a4 TensorDescriptor, a5 TensorDescriptor, a6 TensorDescriptor, a7 TensorDescriptor, a8 TensorDescriptor, a9 TensorDescriptor, a10 ActivationDescriptor, a11 TensorDescriptor, a12 *uint, a13 int32) Result {
+	r1, _ := ffiCall14(symgetNormalizationBackwardWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fngetNormalizationForwardTrainingWorkspaceSize calls cudnnGetNormalizationForwardTrainingWorkspaceSize.
+func fngetNormalizationForwardTrainingWorkspaceSize(a0 Handle, a1 NormMode, a2 NormOps, a3 NormAlgo, a4 TensorDescriptor, a5 TensorDescriptor, a6 TensorDescriptor, a7 TensorDescriptor, a8 ActivationDescriptor, a9 TensorDescriptor, a10 *uint, a11 int32) Result {
+	r1, _ := ffiCall12(symgetNormalizationForwardTrainingWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	return Result(r1)
+}
+
+// fngetNormalizationTrainingReserveSpaceSize calls cudnnGetNormalizationTrainingReserveSpaceSize.
+func fngetNormalizationTrainingReserveSpaceSize(a0 Handle, a1 NormMode, a2 NormOps, a3 NormAlgo, a4 ActivationDescriptor, a5 TensorDescriptor, a6 *uint, a7 int32) Result {
+	r1, _ := ffiCall8(symgetNormalizationTrainingReserveSpaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fngetOpTensorDescriptor calls cudnnGetOpTensorDescriptor.
+func fngetOpTensorDescriptor(a0 OpTensorDescriptor, a1 *OpTensorOp, a2 *DataType, a3 *NanPropagation) Result {
+	r1, _ := ffiCall4(symgetOpTensorDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fngetPooling2dDescriptor calls cudnnGetPooling2dDescriptor.
+func fngetPooling2dDescriptor(a0 PoolingDescriptor, a1 *PoolingMode, a2 *NanPropagation, a3 *int32, a4 *int32, a5 *int32, a6 *int32, a7 *int32, a8 *int32) Result {
+	r1, _ := ffiCall9(symgetPooling2dDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fngetPooling2dForwardOutputDim calls cudnnGetPooling2dForwardOutputDim.
+func fngetPooling2dForwardOutputDim(a0 PoolingDescriptor, a1 TensorDescriptor, a2 *int32, a3 *int32, a4 *int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symgetPooling2dForwardOutputDim, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngetPoolingNdDescriptor calls cudnnGetPoolingNdDescriptor.
+func fngetPoolingNdDescriptor(a0 PoolingDescriptor, a1 int32, a2 *PoolingMode, a3 *NanPropagation, a4 *int32, a5 *int32, a6 *int32, a7 *int32) Result {
+	r1, _ := ffiCall8(symgetPoolingNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fngetPoolingNdForwardOutputDim calls cudnnGetPoolingNdForwardOutputDim.
+func fngetPoolingNdForwardOutputDim(a0 PoolingDescriptor, a1 TensorDescriptor, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symgetPoolingNdForwardOutputDim, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnGetProperty calls cudnnGetProperty.
+func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetRNNDataDescriptor calls cudnnGetRNNDataDescriptor.
+func fngetRNNDataDescriptor(a0 RNNDataDescriptor, a1 *DataType, a2 *RNNDataLayout, a3 *int32, a4 *int32, a5 *int32, a6 int32, a7 *int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symgetRNNDataDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	return Result(r1)
+}
+
+// fngetRNNDescriptor calls cudnnGetRNNDescriptor_v8.
+func fngetRNNDescriptor(a0 RNNDescriptor, a1 *RNNAlgo, a2 *RNNMode, a3 *RNNBiasMode, a4 *DirectionMode, a5 *RNNInputMode, a6 *DataType, a7 *DataType, a8 *MathType, a9 *int32, a10 *int32, a11 *int32, a12 *int32, a13 *DropoutDescriptor, a14 *uint32) Result {
+	r1, _ := ffiCall15(symgetRNNDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(unsafe.Pointer(a13)), uintptr(unsafe.Pointer(a14)))
+	return Result(r1)
+}
+
+// fngetRNNTempSpaceSizes calls cudnnGetRNNTempSpaceSizes.
+func fngetRNNTempSpaceSizes(a0 Handle, a1 RNNDescriptor, a2 ForwardMode, a3 RNNDataDescriptor, a4 *uint, a5 *uint) Result {
+	r1, _ := ffiCall6(symgetRNNTempSpaceSizes, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngetRNNWeightParams calls cudnnGetRNNWeightParams.
+func fngetRNNWeightParams(a0 Handle, a1 RNNDescriptor, a2 int32, a3 uint, a4 uintptr, a5 int32, a6 TensorDescriptor, a7 *uintptr, a8 TensorDescriptor, a9 *uintptr) Result {
+	r1, _ := ffiCall10(symgetRNNWeightParams, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fngetRNNWeightSpaceSize calls cudnnGetRNNWeightSpaceSize.
+func fngetRNNWeightSpaceSize(a0 Handle, a1 RNNDescriptor, a2 *uint) Result {
+	r1, _ := ffiCall3(symgetRNNWeightSpaceSize, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngetReduceTensorDescriptor calls cudnnGetReduceTensorDescriptor.
+func fngetReduceTensorDescriptor(a0 ReduceTensorDescriptor, a1 *ReduceTensorOp, a2 *DataType, a3 *NanPropagation, a4 *ReduceTensorIndices, a5 *IndicesType) Result {
+	r1, _ := ffiCall6(symgetReduceTensorDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngetReductionIndicesSize calls cudnnGetReductionIndicesSize.
+func fngetReductionIndicesSize(a0 Handle, a1 ReduceTensorDescriptor, a2 TensorDescriptor, a3 TensorDescriptor, a4 *uint) Result {
+	r1, _ := ffiCall5(symgetReductionIndicesSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngetReductionWorkspaceSize calls cudnnGetReductionWorkspaceSize.
+func fngetReductionWorkspaceSize(a0 Handle, a1 ReduceTensorDescriptor, a2 TensorDescriptor, a3 TensorDescriptor, a4 *uint) Result {
+	r1, _ := ffiCall5(symgetReductionWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngetSeqDataDescriptor calls cudnnGetSeqDataDescriptor.
+func fngetSeqDataDescriptor(a0 SeqDataDescriptor, a1 *DataType, a2 *int32, a3 int32, a4 *int32, a5 *SeqDataAxis, a6 *uint, a7 uint, a8 *int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symgetSeqDataDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9))
+	return Result(r1)
+}
+
+// fngetStream calls cudnnGetStream.
+func fngetStream(a0 Handle, a1 *driver.Stream) Result {
+	r1, _ := ffiCall2(symgetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetTensor4dDescriptor calls cudnnGetTensor4dDescriptor.
+func fngetTensor4dDescriptor(a0 TensorDescriptor, a1 *DataType, a2 *int32, a3 *int32, a4 *int32, a5 *int32, a6 *int32, a7 *int32, a8 *int32, a9 *int32) Result {
+	r1, _ := ffiCall10(symgetTensor4dDescriptor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fngetTensorNdDescriptor calls cudnnGetTensorNdDescriptor.
+func fngetTensorNdDescriptor(a0 TensorDescriptor, a1 int32, a2 *DataType, a3 *int32, a4 *int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symgetTensorNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngetTensorSizeInBytes calls cudnnGetTensorSizeInBytes.
+func fngetTensorSizeInBytes(a0 TensorDescriptor, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetTensorSizeInBytes, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetTensorTransformDescriptor calls cudnnGetTensorTransformDescriptor.
+func fngetTensorTransformDescriptor(a0 TensorTransformDescriptor, a1 uint32, a2 *TensorFormat, a3 *int32, a4 *int32, a5 *uint32, a6 *FoldingDirection) Result {
+	r1, _ := ffiCall7(symgetTensorTransformDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnGetVersion calls cudnnGetVersion.
+func fnGetVersion() uint {
+	r1, _ := ffiCall0(symGetVersion, 0)
+	return uint(r1)
+}
+
+// fnGraphVersionCheck calls cudnnGraphVersionCheck.
+func fnGraphVersionCheck() Result {
+	r1, _ := ffiCall0(symGraphVersionCheck, 0)
+	return Result(r1)
+}
+
+// fnim2Col calls cudnnIm2Col.
+func fnim2Col(a0 Handle, a1 TensorDescriptor, a2 uintptr, a3 FilterDescriptor, a4 ConvolutionDescriptor, a5 uintptr) Result {
+	r1, _ := ffiCall6(symim2Col, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fninitTransformDest calls cudnnInitTransformDest.
+func fninitTransformDest(a0 TensorTransformDescriptor, a1 TensorDescriptor, a2 TensorDescriptor, a3 *uint) Result {
+	r1, _ := ffiCall4(syminitTransformDest, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnlRNCrossChannelBackward calls cudnnLRNCrossChannelBackward.
+func fnlRNCrossChannelBackward(a0 Handle, a1 LRNDescriptor, a2 LRNMode, a3 unsafe.Pointer, a4 TensorDescriptor, a5 uintptr, a6 TensorDescriptor, a7 uintptr, a8 TensorDescriptor, a9 uintptr, a10 unsafe.Pointer, a11 TensorDescriptor, a12 uintptr) Result {
+	r1, _ := ffiCall13(symlRNCrossChannelBackward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnlRNCrossChannelForward calls cudnnLRNCrossChannelForward.
+func fnlRNCrossChannelForward(a0 Handle, a1 LRNDescriptor, a2 LRNMode, a3 unsafe.Pointer, a4 TensorDescriptor, a5 uintptr, a6 unsafe.Pointer, a7 TensorDescriptor, a8 uintptr) Result {
+	r1, _ := ffiCall9(symlRNCrossChannelForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnmakeFusedOpsPlan calls cudnnMakeFusedOpsPlan.
+func fnmakeFusedOpsPlan(a0 Handle, a1 FusedOpsPlan, a2 FusedOpsConstParamPack, a3 *uint) Result {
+	r1, _ := ffiCall4(symmakeFusedOpsPlan, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnmultiHeadAttnBackwardData calls cudnnMultiHeadAttnBackwardData.
+func fnmultiHeadAttnBackwardData(a0 Handle, a1 AttnDescriptor, a2 *int32, a3 *int32, a4 uintptr, a5 uintptr, a6 SeqDataDescriptor, a7 uintptr, a8 SeqDataDescriptor, a9 uintptr, a10 uintptr, a11 SeqDataDescriptor, a12 uintptr, a13 uintptr, a14 SeqDataDescriptor, a15 uintptr, a16 uintptr, a17 uint, a18 uintptr, a19 uint, a20 uintptr, a21 uint, a22 uintptr) Result {
+	r1, _ := ffiCall23(symmultiHeadAttnBackwardData, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22))
+	return Result(r1)
+}
+
+// fnmultiHeadAttnBackwardWeights calls cudnnMultiHeadAttnBackwardWeights.
+func fnmultiHeadAttnBackwardWeights(a0 Handle, a1 AttnDescriptor, a2 WgradMode, a3 SeqDataDescriptor, a4 uintptr, a5 SeqDataDescriptor, a6 uintptr, a7 SeqDataDescriptor, a8 uintptr, a9 SeqDataDescriptor, a10 uintptr, a11 uint, a12 uintptr, a13 uintptr, a14 uint, a15 uintptr, a16 uint, a17 uintptr) Result {
+	r1, _ := ffiCall18(symmultiHeadAttnBackwardWeights, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnmultiHeadAttnForward calls cudnnMultiHeadAttnForward.
+func fnmultiHeadAttnForward(a0 Handle, a1 AttnDescriptor, a2 int32, a3 *int32, a4 *int32, a5 uintptr, a6 uintptr, a7 SeqDataDescriptor, a8 uintptr, a9 uintptr, a10 SeqDataDescriptor, a11 uintptr, a12 SeqDataDescriptor, a13 uintptr, a14 SeqDataDescriptor, a15 uintptr, a16 uint, a17 uintptr, a18 uint, a19 uintptr, a20 uint, a21 uintptr) Result {
+	r1, _ := ffiCall22(symmultiHeadAttnForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
+	return Result(r1)
+}
+
+// fnnormalizationForwardInference calls cudnnNormalizationForwardInference.
+func fnnormalizationForwardInference(a0 Handle, a1 NormMode, a2 NormOps, a3 NormAlgo, a4 unsafe.Pointer, a5 unsafe.Pointer, a6 TensorDescriptor, a7 uintptr, a8 TensorDescriptor, a9 uintptr, a10 uintptr, a11 TensorDescriptor, a12 uintptr, a13 uintptr, a14 TensorDescriptor, a15 uintptr, a16 ActivationDescriptor, a17 TensorDescriptor, a18 uintptr, a19 float64, a20 int32) Result {
+	r1, _ := ffiCall21(symnormalizationForwardInference, 0b10000000000000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(math.Float64bits(a19)), uintptr(a20))
+	return Result(r1)
+}
+
+// fnnormalizationForwardTraining calls cudnnNormalizationForwardTraining.
+func fnnormalizationForwardTraining(a0 Handle, a1 NormMode, a2 NormOps, a3 NormAlgo, a4 unsafe.Pointer, a5 unsafe.Pointer, a6 TensorDescriptor, a7 uintptr, a8 TensorDescriptor, a9 uintptr, a10 uintptr, a11 float64, a12 TensorDescriptor, a13 uintptr, a14 uintptr, a15 float64, a16 uintptr, a17 uintptr, a18 ActivationDescriptor, a19 TensorDescriptor, a20 uintptr, a21 TensorDescriptor, a22 uintptr, a23 uintptr, a24 uint, a25 uintptr, a26 uint, a27 int32) Result {
+	r1, _ := ffiCall28(symnormalizationForwardTraining, 0b1000100000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(math.Float64bits(a15)), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24), uintptr(a25), uintptr(a26), uintptr(a27))
+	return Result(r1)
+}
+
+// fnopTensor calls cudnnOpTensor.
+func fnopTensor(a0 Handle, a1 OpTensorDescriptor, a2 unsafe.Pointer, a3 TensorDescriptor, a4 uintptr, a5 unsafe.Pointer, a6 TensorDescriptor, a7 uintptr, a8 unsafe.Pointer, a9 TensorDescriptor, a10 uintptr) Result {
+	r1, _ := ffiCall11(symopTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnOpsVersionCheck calls cudnnOpsVersionCheck.
+func fnOpsVersionCheck() Result {
+	r1, _ := ffiCall0(symOpsVersionCheck, 0)
+	return Result(r1)
+}
+
+// fnpoolingBackward calls cudnnPoolingBackward.
+func fnpoolingBackward(a0 Handle, a1 PoolingDescriptor, a2 unsafe.Pointer, a3 TensorDescriptor, a4 uintptr, a5 TensorDescriptor, a6 uintptr, a7 TensorDescriptor, a8 uintptr, a9 unsafe.Pointer, a10 TensorDescriptor, a11 uintptr) Result {
+	r1, _ := ffiCall12(sympoolingBackward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnpoolingForward calls cudnnPoolingForward.
+func fnpoolingForward(a0 Handle, a1 PoolingDescriptor, a2 unsafe.Pointer, a3 TensorDescriptor, a4 uintptr, a5 unsafe.Pointer, a6 TensorDescriptor, a7 uintptr) Result {
+	r1, _ := ffiCall8(sympoolingForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnqueryRuntimeError calls cudnnQueryRuntimeError.
+func fnqueryRuntimeError(a0 Handle, a1 *Result, a2 ErrQueryMode, a3 *RuntimeTag) Result {
+	r1, _ := ffiCall4(symqueryRuntimeError, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnrNNBackwardData calls cudnnRNNBackwardData_v8.
+func fnrNNBackwardData(a0 Handle, a1 RNNDescriptor, a2 uintptr, a3 RNNDataDescriptor, a4 uintptr, a5 uintptr, a6 RNNDataDescriptor, a7 uintptr, a8 TensorDescriptor, a9 uintptr, a10 uintptr, a11 uintptr, a12 TensorDescriptor, a13 uintptr, a14 uintptr, a15 uintptr, a16 uint, a17 uintptr, a18 uint, a19 uintptr, a20 uint, a21 uintptr) Result {
+	r1, _ := ffiCall22(symrNNBackwardData, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
+	return Result(r1)
+}
+
+// fnrNNBackwardWeights calls cudnnRNNBackwardWeights_v8.
+func fnrNNBackwardWeights(a0 Handle, a1 RNNDescriptor, a2 WgradMode, a3 uintptr, a4 RNNDataDescriptor, a5 uintptr, a6 TensorDescriptor, a7 uintptr, a8 RNNDataDescriptor, a9 uintptr, a10 uint, a11 uintptr, a12 uint, a13 uintptr, a14 uint, a15 uintptr) Result {
+	r1, _ := ffiCall16(symrNNBackwardWeights, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnrNNForward calls cudnnRNNForward.
+func fnrNNForward(a0 Handle, a1 RNNDescriptor, a2 ForwardMode, a3 uintptr, a4 RNNDataDescriptor, a5 uintptr, a6 RNNDataDescriptor, a7 uintptr, a8 TensorDescriptor, a9 uintptr, a10 uintptr, a11 TensorDescriptor, a12 uintptr, a13 uintptr, a14 uint, a15 uintptr, a16 uint, a17 uintptr, a18 uint, a19 uintptr) Result {
+	r1, _ := ffiCall20(symrNNForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19))
+	return Result(r1)
+}
+
+// fnrNNGetClip calls cudnnRNNGetClip_v9.
+func fnrNNGetClip(a0 RNNDescriptor, a1 *RNNClipMode, a2 *float64, a3 *float64) Result {
+	r1, _ := ffiCall4(symrNNGetClip, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnrNNSetClip calls cudnnRNNSetClip_v9.
+func fnrNNSetClip(a0 RNNDescriptor, a1 RNNClipMode, a2 float64, a3 float64) Result {
+	r1, _ := ffiCall4(symrNNSetClip, 0b1100, uintptr(a0), uintptr(a1), uintptr(math.Float64bits(a2)), uintptr(math.Float64bits(a3)))
+	return Result(r1)
+}
+
+// fnreduceTensor calls cudnnReduceTensor.
+func fnreduceTensor(a0 Handle, a1 ReduceTensorDescriptor, a2 uintptr, a3 uint, a4 uintptr, a5 uint, a6 unsafe.Pointer, a7 TensorDescriptor, a8 uintptr, a9 unsafe.Pointer, a10 TensorDescriptor, a11 uintptr) Result {
+	r1, _ := ffiCall12(symreduceTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnreorderFilterAndBias calls cudnnReorderFilterAndBias.
+func fnreorderFilterAndBias(a0 Handle, a1 FilterDescriptor, a2 ReorderType, a3 uintptr, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr) Result {
+	r1, _ := ffiCall8(symreorderFilterAndBias, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnrestoreDropoutDescriptor calls cudnnRestoreDropoutDescriptor.
+func fnrestoreDropoutDescriptor(a0 DropoutDescriptor, a1 Handle, a2 float32, a3 uintptr, a4 uint, a5 uint64) Result {
+	r1, _ := ffiCall6(symrestoreDropoutDescriptor, 0b100, uintptr(a0), uintptr(a1), uintptr(math.Float32bits(a2)), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnscaleTensor calls cudnnScaleTensor.
+func fnscaleTensor(a0 Handle, a1 TensorDescriptor, a2 uintptr, a3 unsafe.Pointer) Result {
+	r1, _ := ffiCall4(symscaleTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnsetActivationDescriptor calls cudnnSetActivationDescriptor.
+func fnsetActivationDescriptor(a0 ActivationDescriptor, a1 ActivationMode, a2 NanPropagation, a3 float64) Result {
+	r1, _ := ffiCall4(symsetActivationDescriptor, 0b1000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float64bits(a3)))
+	return Result(r1)
+}
+
+// fnsetActivationDescriptorSwishBeta calls cudnnSetActivationDescriptorSwishBeta.
+func fnsetActivationDescriptorSwishBeta(a0 ActivationDescriptor, a1 float64) Result {
+	r1, _ := ffiCall2(symsetActivationDescriptorSwishBeta, 0b10, uintptr(a0), uintptr(math.Float64bits(a1)))
+	return Result(r1)
+}
+
+// fnsetAttnDescriptor calls cudnnSetAttnDescriptor.
+func fnsetAttnDescriptor(a0 AttnDescriptor, a1 uint32, a2 int32, a3 float64, a4 DataType, a5 DataType, a6 MathType, a7 DropoutDescriptor, a8 DropoutDescriptor, a9 int32, a10 int32, a11 int32, a12 int32, a13 int32, a14 int32, a15 int32, a16 int32, a17 int32, a18 int32, a19 int32) Result {
+	r1, _ := ffiCall20(symsetAttnDescriptor, 0b1000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float64bits(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19))
+	return Result(r1)
+}
+
+// fnsetCTCLossDescriptor calls cudnnSetCTCLossDescriptor_v9.
+func fnsetCTCLossDescriptor(a0 CTCLossDescriptor, a1 DataType, a2 LossNormalizationMode, a3 CTCGradMode, a4 int32) Result {
+	r1, _ := ffiCall5(symsetCTCLossDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnSetCallback calls cudnnSetCallback.
+func fnSetCallback(a0 uint32, a1 uintptr, a2 uintptr) Result {
+	r1, _ := ffiCall3(symSetCallback, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsetConvolution2dDescriptor calls cudnnSetConvolution2dDescriptor.
+func fnsetConvolution2dDescriptor(a0 ConvolutionDescriptor, a1 int32, a2 int32, a3 int32, a4 int32, a5 int32, a6 int32, a7 ConvolutionMode, a8 DataType) Result {
+	r1, _ := ffiCall9(symsetConvolution2dDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnsetConvolutionGroupCount calls cudnnSetConvolutionGroupCount.
+func fnsetConvolutionGroupCount(a0 ConvolutionDescriptor, a1 int32) Result {
+	r1, _ := ffiCall2(symsetConvolutionGroupCount, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetConvolutionMathType calls cudnnSetConvolutionMathType.
+func fnsetConvolutionMathType(a0 ConvolutionDescriptor, a1 MathType) Result {
+	r1, _ := ffiCall2(symsetConvolutionMathType, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetConvolutionNdDescriptor calls cudnnSetConvolutionNdDescriptor.
+func fnsetConvolutionNdDescriptor(a0 ConvolutionDescriptor, a1 int32, a2 *int32, a3 *int32, a4 *int32, a5 ConvolutionMode, a6 DataType) Result {
+	r1, _ := ffiCall7(symsetConvolutionNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsetConvolutionReorderType calls cudnnSetConvolutionReorderType.
+func fnsetConvolutionReorderType(a0 ConvolutionDescriptor, a1 ReorderType) Result {
+	r1, _ := ffiCall2(symsetConvolutionReorderType, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetDropoutDescriptor calls cudnnSetDropoutDescriptor.
+func fnsetDropoutDescriptor(a0 DropoutDescriptor, a1 Handle, a2 float32, a3 uintptr, a4 uint, a5 uint64) Result {
+	r1, _ := ffiCall6(symsetDropoutDescriptor, 0b100, uintptr(a0), uintptr(a1), uintptr(math.Float32bits(a2)), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnsetFilter4dDescriptor calls cudnnSetFilter4dDescriptor.
+func fnsetFilter4dDescriptor(a0 FilterDescriptor, a1 DataType, a2 TensorFormat, a3 int32, a4 int32, a5 int32, a6 int32) Result {
+	r1, _ := ffiCall7(symsetFilter4dDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsetFilterNdDescriptor calls cudnnSetFilterNdDescriptor.
+func fnsetFilterNdDescriptor(a0 FilterDescriptor, a1 DataType, a2 TensorFormat, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symsetFilterNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsetFusedOpsConstParamPackAttribute calls cudnnSetFusedOpsConstParamPackAttribute.
+func fnsetFusedOpsConstParamPackAttribute(a0 FusedOpsConstParamPack, a1 FusedOpsConstParamLabel, a2 uintptr) Result {
+	r1, _ := ffiCall3(symsetFusedOpsConstParamPackAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsetFusedOpsVariantParamPackAttribute calls cudnnSetFusedOpsVariantParamPackAttribute.
+func fnsetFusedOpsVariantParamPackAttribute(a0 FusedOpsVariantParamPack, a1 FusedOpsVariantParamLabel, a2 uintptr) Result {
+	r1, _ := ffiCall3(symsetFusedOpsVariantParamPackAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsetLRNDescriptor calls cudnnSetLRNDescriptor.
+func fnsetLRNDescriptor(a0 LRNDescriptor, a1 uint32, a2 float64, a3 float64, a4 float64) Result {
+	r1, _ := ffiCall5(symsetLRNDescriptor, 0b11100, uintptr(a0), uintptr(a1), uintptr(math.Float64bits(a2)), uintptr(math.Float64bits(a3)), uintptr(math.Float64bits(a4)))
+	return Result(r1)
+}
+
+// fnsetOpTensorDescriptor calls cudnnSetOpTensorDescriptor.
+func fnsetOpTensorDescriptor(a0 OpTensorDescriptor, a1 OpTensorOp, a2 DataType, a3 NanPropagation) Result {
+	r1, _ := ffiCall4(symsetOpTensorDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnsetPooling2dDescriptor calls cudnnSetPooling2dDescriptor.
+func fnsetPooling2dDescriptor(a0 PoolingDescriptor, a1 PoolingMode, a2 NanPropagation, a3 int32, a4 int32, a5 int32, a6 int32, a7 int32, a8 int32) Result {
+	r1, _ := ffiCall9(symsetPooling2dDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnsetPoolingNdDescriptor calls cudnnSetPoolingNdDescriptor.
+func fnsetPoolingNdDescriptor(a0 PoolingDescriptor, a1 PoolingMode, a2 NanPropagation, a3 int32, a4 *int32, a5 *int32, a6 *int32) Result {
+	r1, _ := ffiCall7(symsetPoolingNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnsetRNNDataDescriptor calls cudnnSetRNNDataDescriptor.
+func fnsetRNNDataDescriptor(a0 RNNDataDescriptor, a1 DataType, a2 RNNDataLayout, a3 int32, a4 int32, a5 int32, a6 *int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symsetRNNDataDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fnsetRNNDescriptor calls cudnnSetRNNDescriptor_v8.
+func fnsetRNNDescriptor(a0 RNNDescriptor, a1 RNNAlgo, a2 RNNMode, a3 RNNBiasMode, a4 DirectionMode, a5 RNNInputMode, a6 DataType, a7 DataType, a8 MathType, a9 int32, a10 int32, a11 int32, a12 int32, a13 DropoutDescriptor, a14 uint32) Result {
+	r1, _ := ffiCall15(symsetRNNDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnsetReduceTensorDescriptor calls cudnnSetReduceTensorDescriptor.
+func fnsetReduceTensorDescriptor(a0 ReduceTensorDescriptor, a1 ReduceTensorOp, a2 DataType, a3 NanPropagation, a4 ReduceTensorIndices, a5 IndicesType) Result {
+	r1, _ := ffiCall6(symsetReduceTensorDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnsetSeqDataDescriptor calls cudnnSetSeqDataDescriptor.
+func fnsetSeqDataDescriptor(a0 SeqDataDescriptor, a1 DataType, a2 int32, a3 *int32, a4 *SeqDataAxis, a5 uint, a6 *int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symsetSeqDataDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fnsetSpatialTransformerNdDescriptor calls cudnnSetSpatialTransformerNdDescriptor.
+func fnsetSpatialTransformerNdDescriptor(a0 SpatialTransformerDescriptor, a1 SamplerType, a2 DataType, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symsetSpatialTransformerNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsetTensor calls cudnnSetTensor.
+func fnsetTensor(a0 Handle, a1 TensorDescriptor, a2 uintptr, a3 uintptr) Result {
+	r1, _ := ffiCall4(symsetTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnsetTensor4dDescriptor calls cudnnSetTensor4dDescriptor.
+func fnsetTensor4dDescriptor(a0 TensorDescriptor, a1 TensorFormat, a2 DataType, a3 int32, a4 int32, a5 int32, a6 int32) Result {
+	r1, _ := ffiCall7(symsetTensor4dDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsetTensor4dDescriptorEx calls cudnnSetTensor4dDescriptorEx.
+func fnsetTensor4dDescriptorEx(a0 TensorDescriptor, a1 DataType, a2 int32, a3 int32, a4 int32, a5 int32, a6 int32, a7 int32, a8 int32, a9 int32) Result {
+	r1, _ := ffiCall10(symsetTensor4dDescriptorEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnsetTensorNdDescriptor calls cudnnSetTensorNdDescriptor.
+func fnsetTensorNdDescriptor(a0 TensorDescriptor, a1 DataType, a2 int32, a3 *int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symsetTensorNdDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsetTensorNdDescriptorEx calls cudnnSetTensorNdDescriptorEx.
+func fnsetTensorNdDescriptorEx(a0 TensorDescriptor, a1 TensorFormat, a2 DataType, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symsetTensorNdDescriptorEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsetTensorTransformDescriptor calls cudnnSetTensorTransformDescriptor.
+func fnsetTensorTransformDescriptor(a0 TensorTransformDescriptor, a1 uint32, a2 TensorFormat, a3 *int32, a4 *int32, a5 *uint32, a6 FoldingDirection) Result {
+	r1, _ := ffiCall7(symsetTensorTransformDescriptor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsoftmaxBackward calls cudnnSoftmaxBackward.
+func fnsoftmaxBackward(a0 Handle, a1 SoftmaxAlgorithm, a2 SoftmaxMode, a3 unsafe.Pointer, a4 TensorDescriptor, a5 uintptr, a6 TensorDescriptor, a7 uintptr, a8 unsafe.Pointer, a9 TensorDescriptor, a10 uintptr) Result {
+	r1, _ := ffiCall11(symsoftmaxBackward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnsoftmaxForward calls cudnnSoftmaxForward.
+func fnsoftmaxForward(a0 Handle, a1 SoftmaxAlgorithm, a2 SoftmaxMode, a3 unsafe.Pointer, a4 TensorDescriptor, a5 uintptr, a6 unsafe.Pointer, a7 TensorDescriptor, a8 uintptr) Result {
+	r1, _ := ffiCall9(symsoftmaxForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnspatialTfGridGeneratorBackward calls cudnnSpatialTfGridGeneratorBackward.
+func fnspatialTfGridGeneratorBackward(a0 Handle, a1 SpatialTransformerDescriptor, a2 uintptr, a3 uintptr) Result {
+	r1, _ := ffiCall4(symspatialTfGridGeneratorBackward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnspatialTfGridGeneratorForward calls cudnnSpatialTfGridGeneratorForward.
+func fnspatialTfGridGeneratorForward(a0 Handle, a1 SpatialTransformerDescriptor, a2 uintptr, a3 uintptr) Result {
+	r1, _ := ffiCall4(symspatialTfGridGeneratorForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnspatialTfSamplerBackward calls cudnnSpatialTfSamplerBackward.
+func fnspatialTfSamplerBackward(a0 Handle, a1 SpatialTransformerDescriptor, a2 unsafe.Pointer, a3 TensorDescriptor, a4 uintptr, a5 unsafe.Pointer, a6 TensorDescriptor, a7 uintptr, a8 unsafe.Pointer, a9 TensorDescriptor, a10 uintptr, a11 uintptr, a12 unsafe.Pointer, a13 uintptr) Result {
+	r1, _ := ffiCall14(symspatialTfSamplerBackward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnspatialTfSamplerForward calls cudnnSpatialTfSamplerForward.
+func fnspatialTfSamplerForward(a0 Handle, a1 SpatialTransformerDescriptor, a2 unsafe.Pointer, a3 TensorDescriptor, a4 uintptr, a5 uintptr, a6 unsafe.Pointer, a7 TensorDescriptor, a8 uintptr) Result {
+	r1, _ := ffiCall9(symspatialTfSamplerForward, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fntransformFilter calls cudnnTransformFilter.
+func fntransformFilter(a0 Handle, a1 TensorTransformDescriptor, a2 unsafe.Pointer, a3 FilterDescriptor, a4 uintptr, a5 unsafe.Pointer, a6 FilterDescriptor, a7 uintptr) Result {
+	r1, _ := ffiCall8(symtransformFilter, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fntransformTensor calls cudnnTransformTensor.
+func fntransformTensor(a0 Handle, a1 unsafe.Pointer, a2 TensorDescriptor, a3 uintptr, a4 unsafe.Pointer, a5 TensorDescriptor, a6 uintptr) Result {
+	r1, _ := ffiCall7(symtransformTensor, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fntransformTensorEx calls cudnnTransformTensorEx.
+func fntransformTensorEx(a0 Handle, a1 TensorTransformDescriptor, a2 unsafe.Pointer, a3 TensorDescriptor, a4 uintptr, a5 unsafe.Pointer, a6 TensorDescriptor, a7 uintptr) Result {
+	r1, _ := ffiCall8(symtransformTensorEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// activationBackward computes the gradient of a neuron activation function.
 //
 // In-place operation is allowed for this routine; meaning dy and dx pointers may be equal. However, this requires the corresponding tensor descriptors to be identical (particularly, the strides of the input and output must match for an in-place operation to be allowed).
 // All tensor formats are supported for 4 and 5 dimensions, however, the best performance is obtained when the strides of yDesc and xDesc are equal and HW-packed. For more than 5 dimensions the tensors must have their spatial dimensions packed.
@@ -257,7 +1511,7 @@ func activationBackward(handle Handle, activationDesc ActivationDescriptor, alph
 	return toError(fnactivationBackward(handle, activationDesc, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)), "cudnnActivationBackward")
 }
 
-// activationForward This routine applies a specified neuron activation function element-wise over each input value.
+// activationForward applies a specified neuron activation function element-wise over each input value.
 //
 // In-place operation is allowed for this routine; meaning, xData and yData pointers may be equal. However, this requires xDesc and yDesc descriptors to be identical (particularly, the strides of the input and output must match for an in-place operation to be allowed).
 // All tensor formats are supported for 4 and 5 dimensions, however, the best performance is obtained when the strides of xDesc and yDesc are equal and HW-packed. For more than 5 dimensions the tensors must have their spatial dimensions packed.
@@ -298,7 +1552,7 @@ func activationForward(handle Handle, activationDesc ActivationDescriptor, alpha
 //   - a: Input. Pointer to data of the tensor described by the aDesc descriptor
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with the prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
 //   - cDesc: Input. Handle to a previously initialized tensor descriptor
-//   - c: Input. / Output. Pointer to data of the tensor described by the cDesc descriptor
+//   - c: Input/Output. Pointer to data of the tensor described by the cDesc descriptor
 //
 // Returns:
 //   - [ErrBadParam]: The dimensions of the bias tensor refer to an amount of data that is incompatible with the output tensor dimensions or the dataType of the two tensor descriptors are different.
@@ -347,13 +1601,16 @@ func backendCreateDescriptor(descriptorType BackendDescriptorType) (BackendDescr
 		var zero BackendDescriptor
 		return zero, err
 	}
-	var out BackendDescriptor
-	if err := toError(fnbackendCreateDescriptor(descriptorType, &out), "cudnnBackendCreateDescriptor"); err != nil {
+	out := slotBackendCreateDescriptor.get()
+	defer slotBackendCreateDescriptor.put(out)
+	if err := toError(fnbackendCreateDescriptor(descriptorType, out), "cudnnBackendCreateDescriptor"); err != nil {
 		var zero BackendDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotBackendCreateDescriptor outSlot[BackendDescriptor]
 
 // backendDestroyDescriptor destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptor].
 //
@@ -394,6 +1651,7 @@ func backendExecute(handle Handle, executionPlan BackendDescriptor, variantPack 
 
 // backendFinalize finalizes the memory pointed to by the descriptor.
 //
+// The type of finalization is done depending on the descriptorType argument with which the descriptor was created using [NewBackendDescriptor] or initialized using [BackendDescriptor.Initialize].
 // [BackendDescriptor.Finalize] also checks all the attributes set between the create/initialization and finalize phase. If successful, [BackendDescriptor.Finalize] returns [Success] and the finalized state of the descriptor is set to true. In this state, setting attributes using [BackendDescriptor.SetAttribute] is not allowed. Getting attributes using [BackendDescriptor.Attribute] is only allowed when the finalized state of the descriptor is true.
 //
 //   - descriptor: Input. Instance of [BackendDescriptor] to finalize
@@ -414,7 +1672,7 @@ func backendFinalize(descriptor BackendDescriptor) error {
 
 // backendGetAttribute retrieves the values of an attribute of a descriptor.
 //
-// attributeName is the name of the attribute whose value is requested. attributeType is the type of attribute. requestsedElementCount is the number of elements to be potentially retrieved. The number of elements for the requested attribute is stored in elementCount. The retrieved values are stored in arrayOfElements. When the attribute is expected to have a single value, arrayOfElements can be pointer to the output value. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
+// attributeName is the name of the attribute whose value is requested. attributeType is the type of attribute. requestsedElementCount is the number of elements to be potentially retrieved. The retrieved values are stored in arrayOfElements. When the attribute is expected to have a single value, arrayOfElements can be pointer to the output value. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
 //
 //   - descriptor: Input. Instance of [BackendDescriptor] whose attribute the user wants to retrieve
 //   - attributeName: Input. The name of the attribute being get from the on the descriptor
@@ -432,12 +1690,15 @@ func backendGetAttribute(descriptor BackendDescriptor, attributeName BackendAttr
 	if err := checkLibSym("cudnnBackendGetAttribute"); err != nil {
 		return 0, err
 	}
-	var out4 int64
-	if err := toError(fnbackendGetAttribute(descriptor, attributeName, attributeType, requestedElementCount, &out4, arrayOfElements), "cudnnBackendGetAttribute"); err != nil {
+	outs := slotBackendGetAttribute.get()
+	defer slotBackendGetAttribute.put(outs)
+	if err := toError(fnbackendGetAttribute(descriptor, attributeName, attributeType, requestedElementCount, &outs.out4, arrayOfElements), "cudnnBackendGetAttribute"); err != nil {
 		return 0, err
 	}
-	return out4, nil
+	return outs.out4, nil
 }
+
+var slotBackendGetAttribute outSlot[struct{ out4 int64 }]
 
 // backendInitialize repurposes a pre-allocated memory pointed to by a descriptor of size sizeInByte to a backend descriptor of type descriptorType.
 //
@@ -506,13 +1767,25 @@ func backendUpdateCudaGraph(handle Handle, executionPlan BackendDescriptor, vari
 // The epsilon value has to be the same during training, backpropagation, and inference.
 // Higher performance can be obtained when HW-packed tensors are used for all of x, dy, and dx.
 // For more information, refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
+// Supported Configurations
+// This function supports the following combinations of data types for various descriptors.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
+//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alphaDataDiff [0]*resultValue + betaDataDiff [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alphaDataDiff [0]*resultValue + betaDataDiff [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs resultBnScaleDiff and resultBnBiasDiff with prior values in the destination tensor as follows: dstValue = alphaParamDiff [0]*resultValue + betaParamDiff [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs resultBnScaleDiff and resultBnBiasDiff with prior values in the destination tensor as follows: dstValue = alphaParamDiff [0]*resultValue + betaParamDiff [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handles to the previously initialized tensor descriptors
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x data
 //   - dyDesc: Input. Handles to the previously initialized tensor descriptors
+//   - dy: Input. Data pointer to GPU memory associated with the tensor descriptor dyDesc, for the backpropagated differential dy input
 //   - dxDesc: Input. Handles to the previously initialized tensor descriptors
+//   - dx: Input/Output. Data pointer to GPU memory associated with the tensor descriptor dxDesc, for the resulting differential output with respect to x
+//   - bnScale: Input. Pointer in the device memory for the batch normalization scale parameter (in the original paper the quantity scale is referred to as gamma)
 //   - epsilon: Input. Epsilon value used in batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
+//   - savedMean: Input. Optional cache parameters containing saved intermediate results that were computed during the forward pass. For this to work correctly, the layer’s x and bnScale data have to remain unchanged until this backward function is called
+//   - savedInvVariance: Input. Optional cache parameters containing saved intermediate results that were computed during the forward pass. For this to work correctly, the layer’s x and bnScale data have to remain unchanged until this backward function is called
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: Any of the pointers alpha, beta, x, dy, dx, bnScale, resultBnScaleDiff, and resultBnBiasDiff is NULL. The number of xDesc, yDesc, or dxDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). bnScaleBiasDiffDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of savedMean, savedInvVariance pointers is NULL. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for any pair of xDesc, dyDesc, or dxDesc.
@@ -539,20 +1812,37 @@ func batchNormalizationBackward(handle Handle, mode BatchNormMode, alphaDataDiff
 // The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation.
 // Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference.
 // When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
+// Supported Configurations
+// This function supports the following combinations of data types for various descriptors.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - bnOps: Input. Mode of operation. Currently, [BatchnormOpsBnActivation] and [BatchnormOpsBnAddActivation] are only supported in the NHWC layout. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
+//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dBnScaleData and dBnBiasData with prior values in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dBnScaleData and dBnBiasData with prior values in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - yData: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - dyDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dyData: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if bnOps is set to [BatchnormOpsBn], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - dzDesc: Input. Tensor descriptors and pointers in the device memory for the computed gradient output dz, and dx. dzDesc is not needed when bnOps is [BatchnormOpsBn] or [BatchnormOpsBnActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dzData: Output. Tensor descriptors and pointers in the device memory for the computed gradient output dz, and dx. *dzData is not needed when bnOps is [BatchnormOpsBn] or [BatchnormOpsBnActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - dxDesc: Input. Tensor descriptors and pointers in the device memory for the computed gradient output dz, and dx. dzDesc is not needed when bnOps is [BatchnormOpsBn] or [BatchnormOpsBnActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dxData: Output. Tensor descriptors and pointers in the device memory for the computed gradient output dz, and dx. *dzData is not needed when bnOps is [BatchnormOpsBn] or [BatchnormOpsBnActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - dBnScaleBiasDesc: Input. Shared tensor descriptor for the following six tensors: bnScaleData, bnBiasData, dBnScaleData, dBnBiasData, savedMean, and savedInvVariance. For more information, refer to [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on normalization mode
+//   - bnScaleData: Input. Pointer in the device memory for the batch normalization scale parameter (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, the quantity scale is referred to as gamma)
+//   - bnBiasData: Input. Pointers in the device memory for the batch normalization bias parameter (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta). This parameter is used only when activation should be performed
+//   - dBnScaleData: Output. Pointers in the device memory for the gradients of bnScaleData and bnBiasData, respectively
+//   - dBnBiasData: Output. Pointers in the device memory for the gradients of bnScaleData and bnBiasData, respectively
 //   - epsilon: Input. Epsilon value used in batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
+//   - savedMean: Input. Optional cache parameters containing saved intermediate results computed during the forward pass. For this to work correctly, the layer’s x and bnScaleData, bnBiasData data has to remain unchanged until this backward function is called. Note that both these parameters can be NULL but only at the same time. It is recommended to use this cache since the memory overhead is relatively small
+//   - savedInvVariance: Input. Optional cache parameters containing saved intermediate results computed during the forward pass. For this to work correctly, the layer’s x and bnScaleData, bnBiasData data has to remain unchanged until this backward function is called. Note that both these parameters can be NULL but only at the same time. It is recommended to use this cache since the memory overhead is relatively small
 //   - activationDesc: Input. Descriptor for the activation operation. When the bnOps input is set to either [BatchnormOpsBnActivation] or [BatchnormOpsBnAddActivation] then this activation is used, otherwise the user may pass NULL
 //   - workSpaceSizeInBytes: Input. The size of the workspace. It must be large enough to trigger the fast NHWC semi-persistent kernel by this function
-//   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. It must be equal or larger than the amount required by [Handle.BatchNormalizationTrainingExReserveSpaceSize]. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationBackwardEx] 
+//   - reserveSpace: Input. Pointer to the GPU workspace for the reserveSpace
+//   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. It must be equal or larger than the amount required by [Handle.BatchNormalizationTrainingExReserveSpaceSize]
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: Any of the pointers alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, x, dy, dx, bnScale, resultBnScaleDiff, and resultBnBiasDiff is NULL. The number of xDesc, yDesc, or dxDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported). dBnScaleBiasDesc dimensions not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of savedMean, savedInvVariance pointers is NULL. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for any pair of xDesc, dyDesc, and dxDesc.
@@ -581,19 +1871,23 @@ func batchNormalizationBackwardEx(handle Handle, mode BatchNormMode, bnOps Batch
 // For the training phase, refer to [Handle.BatchNormalizationForwardTraining].
 // Higher performance can be obtained when HW-packed tensors are used for all of x and dx.
 // For more information, refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
+// Supported Configurations
+// This function supports the following combinations of data types for various descriptors.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handles to the previously initialized tensor descriptors
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x input data
 //   - yDesc: Input. Handles to the previously initialized tensor descriptors
+//   - y: Input/Output. Data pointer to GPU memory associated with the tensor descriptor yDesc, for the y output of the batch normalization layer
 //   - bnScaleBiasMeanVarDesc: Input. Tensor descriptors and pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
 //   - bnScale: Input. Tensor descriptors and pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
 //   - bnBias: Input. Tensor descriptors and pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
 //   - estimatedMean: Input. Mean and variance tensors (these have the same descriptor as the bias and scale). The resultRunningMean and resultRunningVariance, accumulated during the training phase from the [Handle.BatchNormalizationForwardTraining] call, should be passed as inputs here
 //   - estimatedVariance: Input. Mean and variance tensors (these have the same descriptor as the bias and scale). The resultRunningMean and resultRunningVariance, accumulated during the training phase from the [Handle.BatchNormalizationForwardTraining] call, should be passed as inputs here
-//   - epsilon: Input. Epsilon value used in batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationForwardInference] 
+//   - epsilon: Input. Epsilon value used in batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: One of the pointers alpha, beta, x, y, bnScale, bnBias, estimatedMean, and estimatedInvVariance is NULL. The number of xDesc or yDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported.) bnScaleBiasMeanVarDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for xDesc, yDesc.
@@ -618,22 +1912,26 @@ func batchNormalizationForwardInference(handle Handle, mode BatchNormMode, alpha
 // For the inference phase, use [Handle.BatchNormalizationForwardInference].
 // Higher performance can be obtained when HW-packed tensors are used for both x and y.
 // Refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
+// Supported Configurations
+// This function supports the following combinations of data types for various descriptors.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptors and pointers in device memory for the layer’s x and y data. For more information, refer to [TensorDescriptor]
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x input data
 //   - yDesc: Input. Tensor descriptors and pointers in device memory for the layer’s x and y data. For more information, refer to [TensorDescriptor]
+//   - y: Input. Data pointer to GPU memory associated with the tensor descriptor yDesc, for the y output of the batch normalization layer
 //   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on the normalization mode
 //   - bnScale: Input. Pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). Note that bnBias parameter can replace the previous layer’s bias parameter for improved efficiency
 //   - bnBias: Input. Pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). Note that bnBias parameter can replace the previous layer’s bias parameter for improved efficiency
 //   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get the Cumulative Moving Average (CMA) behavior, for example: CMAn = (x [1]+...+xn)/n. For example:
-//   - resultRunningMean: Input. / Outputs. Running mean and variance tensors (these have the same descriptor as the bias and scale). Both of these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
-//   - resultRunningVariance: Input. / Outputs. Running mean and variance tensors (these have the same descriptor as the bias and scale). Both of these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
+//   - resultRunningMean: Input/Output. Running mean and variance tensors (these have the same descriptor as the bias and scale). Both of these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
+//   - resultRunningVariance: Input/Output. Running mean and variance tensors (these have the same descriptor as the bias and scale). Both of these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
 //   - epsilon: Input. Epsilon value used in the batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
-//   - resultSaveMean: Output. Optional cache to save intermediate results computed during the forward pass. These buffers can be used to speed up the backward pass when supplied to the [Handle.BatchNormalizationBackward] function. The intermediate results stored in resultSaveMean and resultSaveInvVariance buffers should not be used directly by the user. Depending on the batch normalization mode, the results stored in resultSaveInvVariance may vary. For the cache to work correctly, the input layer data must remain unchanged until the backward function is called. Note that both parameters can be NULL but only at the same time. In such a case, intermediate statistics will not be saved, and [Handle.BatchNormalizationBackward] will have to re-compute them. It is recommended to use this cache as the memory overhead is relatively small because these tensors have a much lower product of dimensions than the data tensors. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationForwardTraining] 
-//   - resultSaveInvVariance: Output. Optional cache to save intermediate results computed during the forward pass. These buffers can be used to speed up the backward pass when supplied to the [Handle.BatchNormalizationBackward] function. The intermediate results stored in resultSaveMean and resultSaveInvVariance buffers should not be used directly by the user. Depending on the batch normalization mode, the results stored in resultSaveInvVariance may vary. For the cache to work correctly, the input layer data must remain unchanged until the backward function is called. Note that both parameters can be NULL but only at the same time. In such a case, intermediate statistics will not be saved, and [Handle.BatchNormalizationBackward] will have to re-compute them. It is recommended to use this cache as the memory overhead is relatively small because these tensors have a much lower product of dimensions than the data tensors. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationForwardTraining] 
+//   - resultSaveMean: Output. Optional cache to save intermediate results computed during the forward pass. These buffers can be used to speed up the backward pass when supplied to the [Handle.BatchNormalizationBackward] function. The intermediate results stored in resultSaveMean and resultSaveInvVariance buffers should not be used directly by the user. Depending on the batch normalization mode, the results stored in resultSaveInvVariance may vary. For the cache to work correctly, the input layer data must remain unchanged until the backward function is called. Note that both parameters can be NULL but only at the same time. In such a case, intermediate statistics will not be saved, and [Handle.BatchNormalizationBackward] will have to re-compute them. It is recommended to use this cache as the memory overhead is relatively small because these tensors have a much lower product of dimensions than the data tensors
+//   - resultSaveInvVariance: Output. Optional cache to save intermediate results computed during the forward pass. These buffers can be used to speed up the backward pass when supplied to the [Handle.BatchNormalizationBackward] function. The intermediate results stored in resultSaveMean and resultSaveInvVariance buffers should not be used directly by the user. Depending on the batch normalization mode, the results stored in resultSaveInvVariance may vary. For the cache to work correctly, the input layer data must remain unchanged until the backward function is called. Note that both parameters can be NULL but only at the same time. In such a case, intermediate statistics will not be saved, and [Handle.BatchNormalizationBackward] will have to re-compute them. It is recommended to use this cache as the memory overhead is relatively small because these tensors have a much lower product of dimensions than the data tensors
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: One of the pointers alpha, beta, x, y, bnScale, and bnBias is NULL. The number of xDesc or yDesc tensor descriptor dimensions is not within the range of [4,5] (only 4D and 5D tensors are supported.) bnScaleBiasMeanVarDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of resultSaveMean, resultSaveInvVariance pointers are NULL. Exactly one of resultRunningMean, resultRunningInvVariance pointers are NULL. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for xDesc, yDesc.
@@ -660,19 +1958,28 @@ func batchNormalizationForwardTraining(handle Handle, mode BatchNormMode, alpha 
 // The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation.
 // Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference.
 // When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
+// Supported Configurations
+// This function supports the following combinations of data types for various descriptors.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - bnOps: Input. Mode of operation for the fast NHWC kernel. For more information, refer to [BatchNormOps]. This input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
+//   - xData: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
 //   - zDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
+//   - zData: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
 //   - yDesc: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
+//   - yData: Input. Tensor descriptors and pointers in device memory for the layer’s input x and output y, and for the optional z tensor input for residual addition to the result of the batch normalization operation, prior to the activation. The optional zDesc and *zData descriptors are only used when bnOps is [BatchnormOpsBnAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]
 //   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on the normalization mode
 //   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get the Cumulative Moving Average (CMA) behavior, for example: CMAn = (x [1]+...+xn)/n. For example:
 //   - epsilon: Input. Epsilon value used in the batch normalization formula. Its value should be equal to or greater than the value defined for CUDNN_BN_MIN_EPSILON in cudnn.h. The same epsilon value should be used in forward and backward functions
 //   - activationDesc: Input. The tensor descriptor for the activation operation. When the bnOps input is set to either [BatchnormOpsBnActivation] or [BatchnormOpsBnAddActivation] then this activation is used, otherwise user may pass NULL
+//   - workspace: Input. *workspace is a pointer to the GPU workspace, and workSpaceSizeInBytes is the size of the workspace. When *workspace is not NULL and *workSpaceSizeInBytes is large enough, and the tensor layout is NHWC and the data type configuration is supported, then this function will trigger a new semi-persistent NHWC kernel for batch normalization. The workspace is not required to be clean. Also, the workspace does not need to remain unchanged between the forward and backward passes
 //   - workSpaceSizeInBytes: Input. *workspace is a pointer to the GPU workspace, and workSpaceSizeInBytes is the size of the workspace. When *workspace is not NULL and *workSpaceSizeInBytes is large enough, and the tensor layout is NHWC and the data type configuration is supported, then this function will trigger a new semi-persistent NHWC kernel for batch normalization. The workspace is not required to be clean. Also, the workspace does not need to remain unchanged between the forward and backward passes
-//   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. Must be equal or larger than the amount required by [Handle.BatchNormalizationTrainingExReserveSpaceSize]. Supported Configurations This function supports the following combinations of data types for various descriptors. Supported Configurations for [Handle.BatchNormalizationForwardTrainingEx] 
+//   - reserveSpace: Input. Pointer to the GPU workspace for the reserveSpace
+//   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. Must be equal or larger than the amount required by [Handle.BatchNormalizationTrainingExReserveSpaceSize]
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: One of the pointers alpha, beta, x, y, bnScaleData, and bnBiasData is NULL. The number of xDesc or yDesc tensor descriptor dimensions is not within the [4,5] range (only 4D and 5D tensors are supported.) bnScaleBiasMeanVarDesc dimensions are not 1xCx1x1 for 4D and 1xCx1x1x1 for 5D for spatial, and are not 1xCxHxW for 4D and 1xCxDxHxW for 5D for per-activation mode. Exactly one of saveMean, saveInvVariance pointers are NULL. Exactly one of resultRunningMeanData, resultRunningInvVarianceData pointers are NULL. epsilon value is less than CUDNN_BN_MIN_EPSILON. Dimensions or data types mismatch for xDesc and yDesc.
@@ -751,6 +2058,7 @@ func cTCLoss(handle Handle, probsDesc TensorDescriptor, probs driver.DevicePtr, 
 
 // cTCLossV8 returns the CTC costs and gradients, given the probabilities and labels.
 //
+// Many CTC API functions were updated in version 8 with the _v8 suffix to support CUDA graphs. Label and input data is now passed in GPU memory.
 // This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with cudnnSetCTCLossDescriptorEx()). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
@@ -829,6 +2137,12 @@ func convolutionBackwardBias(handle Handle, alpha unsafe.Pointer, dyDesc TensorD
 // convolutionBackwardData computes the convolution data gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward].
 //
 // This function computes the convolution data gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward]. It uses the specified algo, and returns the results in the output tensor dx. Scaling factors alpha and beta can be used to scale the computed result or accumulate with the current dx.
+// Supported Configurations
+// This function supports the following combinations of data types for wDesc, dyDesc, convDesc, and dxDesc.
+// Supported Algorithms
+// Specifying a separate algorithm can cause changes in performance, support and computation determinism. Refer to the following list of algorithm options, and their respective supported parameters and deterministic behavior.
+// The table below shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions.
+// For brevity, the short-form versions followed by > are used in the table below:
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
@@ -842,7 +2156,7 @@ func convolutionBackwardBias(handle Handle, alpha unsafe.Pointer, dyDesc TensorD
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
-//   - dx: Input. /Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc that carries the result. Supported Configurations This function supports the following combinations of data types for wDesc, dyDesc, convDesc, and dxDesc. Supported Configurations for [Handle.ConvolutionBackwardData]  Supported Algorithms Specifying a separate algorithm can cause changes in performance, support and computation determinism. Refer to the following list of algorithm options, and their respective supported parameters and deterministic behavior. The table below shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions. For brevity, the short-form versions followed by > are used in the table below: Supported Algorithms for [Handle.ConvolutionBackwardData] 2D convolutions. Filter descriptor wDesc: _NHWC (refer to [TensorFormat]).  Supported Algorithms for [Handle.ConvolutionBackwardData] 2D convolutions. Filter descriptor wDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionBackwardData] 3D convolutions. Filter descriptor wDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionBackwardData] 3D convolutions. Filter descriptor wDesc: _NHWC. 
+//   - dx: Input/Output. Data pointer to GPU memory associated with the output tensor descriptor dxDesc that carries the result
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, dyDesc, wDesc, convDesc, dxDesc, dy, w, dx, alpha, and beta wDesc and dyDesc have a non-matching number of dimensions wDesc and dxDesc have a non-matching number of dimensions wDesc has fewer than three number of dimensions wDesc, dxDesc, and dyDesc have a non-matching data type wDesc and dxDesc have a non-matching number of input feature maps per image (or group in case of grouped convolutions) dyDesc spatial sizes do not match with the expected size as determined by [ConvolutionDescriptor.ForwardOutputDims]
@@ -867,6 +2181,13 @@ func convolutionBackwardData(handle Handle, alpha unsafe.Pointer, wDesc FilterDe
 // convolutionBackwardFilter computes the convolution weight (filter) gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward].
 //
 // This function computes the convolution weight (filter) gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward]. It uses the specified algo, and returns the results in the output tensor dw. Scaling factors alpha and beta can be used to scale the computed result or accumulate with the current dw.
+// Supported Configurations
+// This function supports the following combinations of data types for xDesc, dyDesc, convDesc, and dwDesc.
+// Supported Algorithms
+// Specifying a separate algorithm can cause changes in performance, support, and computation determinism. Refer to the following table for an exhaustive list of algorithm options and their respective supported parameters and deterministic behavior.
+// The table below shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions.
+// For the following terms, the short-form versions shown in parentheses are used in the table below, for brevity:
+// For brevity, the short-form versions followed by > are used in the table below:
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
@@ -880,7 +2201,7 @@ func convolutionBackwardData(handle Handle, alpha unsafe.Pointer, wDesc FilterDe
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - dwDesc: Input. Handle to a previously initialized filter gradient descriptor. For more information, refer to [FilterDescriptor]
-//   - dw: Input. / Output. Data pointer to GPU memory associated with the filter gradient descriptor dwDesc that carries the result. Supported Configurations This function supports the following combinations of data types for xDesc, dyDesc, convDesc, and dwDesc. Supported Configurations for [Handle.ConvolutionBackwardFilter]  Supported Algorithms Specifying a separate algorithm can cause changes in performance, support, and computation determinism. Refer to the following table for an exhaustive list of algorithm options and their respective supported parameters and deterministic behavior. The table below shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions. For the following terms, the short-form versions shown in parentheses are used in the table below, for brevity: For brevity, the short-form versions followed by > are used in the table below: Supported Algorithms for [Handle.ConvolutionBackwardFilter] 2D Convolutions. Filter descriptor dwDesc: _NHWC (refer to [TensorFormat]).  Supported Algorithms for [Handle.ConvolutionBackwardFilter] 2D Convolutions. Filter descriptor dwDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionBackwardFilter] 3D Convolutions. Filter descriptor dwDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionBackwardFilter] 3D Convolutions. Filter descriptor dwDesc: _NHWC. 
+//   - dw: Input/Output. Data pointer to GPU memory associated with the filter gradient descriptor dwDesc that carries the result
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, xDesc, dyDesc, convDesc, dwDesc, xData, dyData, dwData, alpha, or beta xDesc and dyDesc have a non-matching number of dimensions xDesc and dwDesc have a non-matching number of dimensions xDesc has fewer than three number of dimensions xDesc, dyDesc, and dwDesc have a non-matching data type xDesc and dwDesc have a non-matching number of input feature maps per image (or group in case of grouped convolutions) yDesc or dwDesc indicate an output channel count that isn’t a multiple of group count (if group count has been set in convDesc)
@@ -926,7 +2247,7 @@ func convolutionBackwardFilter(handle Handle, alpha unsafe.Pointer, xDesc Tensor
 //   - bias: Input. Data pointer to GPU memory associated with the tensor descriptor biasDesc
 //   - activationDesc: Input. Handle to a previously initialized activation descriptor. For more information, refer to [ActivationDescriptor]
 //   - yDesc: Input. Handle to a previously initialized tensor descriptor
-//   - y: Input. /Output. Data pointer to GPU memory associated with the tensor descriptor yDesc that carries the result of the convolution. For the convolution step, this function supports the specific combinations of data types for xDesc, wDesc, convDesc, and yDesc as listed in the documentation of [Handle.ConvolutionForward]. The following table specifies the supported combinations of data types for x, y, z, bias, alpha1, and alpha2. Supported Combinations of Data Types (X = CUDNN_DATA) for [Handle.ConvolutionBiasActivationForward] 
+//   - y: Input/Output. Data pointer to GPU memory associated with the tensor descriptor yDesc that carries the result of the convolution. For the convolution step, this function supports the specific combinations of data types for xDesc, wDesc, convDesc, and yDesc as listed in the documentation of [Handle.ConvolutionForward]. The following table specifies the supported combinations of data types for x, y, z, bias, alpha1, and alpha2. Supported Combinations of Data Types (X = CUDNN_DATA) for [Handle.ConvolutionBiasActivationForward] 
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, xDesc, wDesc, convDesc, yDesc, zDesc, biasDesc, activationDesc, xData, wData, yData, zData, bias, alpha1, and alpha2. The number of dimensions of xDesc, wDesc, yDesc, and zDesc is not equal to the array length of convDesc + 2.
@@ -951,6 +2272,13 @@ func convolutionBiasActivationForward(handle Handle, alpha1 unsafe.Pointer, xDes
 //
 // This function executes convolutions or cross-correlations over x using filters specified with w, returning results in y. Scaling factors alpha and beta can be used to scale the input tensor and the output tensor respectively.
 // The routine [ConvolutionDescriptor.ForwardOutputDim2D] or [ConvolutionDescriptor.ForwardOutputDims] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc.
+// Supported Configurations
+// This function supports the following combinations of data types for xDesc, wDesc, convDesc, and yDesc.
+// Supported Algorithms
+// For this function, all algorithms perform deterministic computations. Specifying a separate algorithm can cause changes in performance and support.
+// The following table shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions.
+// For brevity, the short-form versions followed by > are used in the table below:
+// Tensors can be converted to and from [TensorNchwVectC] with [Handle.TransformTensor].
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
@@ -964,7 +2292,7 @@ func convolutionBiasActivationForward(handle Handle, alpha1 unsafe.Pointer, xDes
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: dstValue = alpha [0]*result + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - yDesc: Input. Handle to a previously initialized tensor descriptor
-//   - y: Input. / Output. Data pointer to GPU memory associated with the tensor descriptor yDesc that carries the result of the convolution. Supported Configurations This function supports the following combinations of data types for xDesc, wDesc, convDesc, and yDesc. Supported Configurations for [Handle.ConvolutionForward]  Supported Algorithms For this function, all algorithms perform deterministic computations. Specifying a separate algorithm can cause changes in performance and support. The following table shows the list of the supported 2D and 3D convolutions. The 2D convolutions are described first, followed by the 3D convolutions. For brevity, the short-form versions followed by > are used in the table below: Supported Algorithms for [Handle.ConvolutionForward] 2D Convolutions. Filter descriptor wDesc: _NCHW (refer to [TensorFormat]).  Supported Algorithms for [Handle.ConvolutionForward] 2D Convolutions. Filter descriptor wDesc: _NCHWC.  Supported Algorithms for [Handle.ConvolutionForward] 2D Convolutions. Filter descriptor wDesc: _NHWC.  Supported Algorithms for [Handle.ConvolutionForward] 3D Convolutions. Filter descriptor wDesc: _NCHW.  Supported Algorithms for [Handle.ConvolutionForward] 3D Convolutions. Filter descriptor wDesc: _NHWC.  Tensors can be converted to and from [TensorNchwVectC] with [Handle.TransformTensor]
+//   - y: Input/Output. Data pointer to GPU memory associated with the tensor descriptor yDesc that carries the result of the convolution
 //
 // Returns:
 //   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, xDesc, wDesc, convDesc, yDesc, xData, w, yData, alpha, and beta xDesc and yDesc have a non-matching number of dimensions xDesc and wDesc have a non-matching number of dimensions xDesc has fewer than three number of dimensions xDesc number of dimensions is not equal to convDesc array length + 2 xDesc and wDesc have a non-matching number of input feature maps per image (or group in case of grouped convolutions) yDesc or wDesc indicate an output channel count that isn’t a multiple of group count (if group count has been set in convDesc) xDesc, wDesc, and yDesc have a non-matching data type For some spatial dimension, wDesc has a spatial size that is larger than the input spatial size (including zero-padding size)
@@ -988,6 +2316,7 @@ func convolutionForward(handle Handle, alpha unsafe.Pointer, xDesc TensorDescrip
 
 // Create initializes the cuDNN library and creates a handle to an opaque structure holding the cuDNN library context.
 //
+// It allocates hardware resources on the host and device and must be called prior to making any other cuDNN library calls.
 // The cuDNN library handle is tied to the current CUDA device (context). To use the library on multiple devices, one cuDNN handle needs to be created for each device.
 // For a given device, multiple cuDNN handles with different configurations (for example, different current CUDA streams) may be created. Because [Create] allocates some internal resources, the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize; therefore, the recommended best practice is to call [Create] or [Handle.Destroy] outside of performance-critical code paths.
 // For multithreaded applications that use the same device from different threads, the recommended programming model is to create one (or a few, as is convenient) cuDNN handles per thread and use that cuDNN handle for the entire life of the thread.
@@ -1007,13 +2336,16 @@ func Create() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "cudnnCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "cudnnCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // CreateActivationDescriptor creates an activation descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1031,13 +2363,16 @@ func CreateActivationDescriptor() (ActivationDescriptor, error) {
 		var zero ActivationDescriptor
 		return zero, err
 	}
-	var out ActivationDescriptor
-	if err := toError(fnCreateActivationDescriptor(&out), "cudnnCreateActivationDescriptor"); err != nil {
+	out := slotCreateActivationDescriptor.get()
+	defer slotCreateActivationDescriptor.put(out)
+	if err := toError(fnCreateActivationDescriptor(out), "cudnnCreateActivationDescriptor"); err != nil {
 		var zero ActivationDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateActivationDescriptor outSlot[ActivationDescriptor]
 
 // CreateAttnDescriptor creates one instance of an opaque attention descriptor object by allocating the host memory for it and initializing all descriptor fields.
 //
@@ -1057,13 +2392,16 @@ func CreateAttnDescriptor() (AttnDescriptor, error) {
 		var zero AttnDescriptor
 		return zero, err
 	}
-	var out AttnDescriptor
-	if err := toError(fnCreateAttnDescriptor(&out), "cudnnCreateAttnDescriptor"); err != nil {
+	out := slotCreateAttnDescriptor.get()
+	defer slotCreateAttnDescriptor.put(out)
+	if err := toError(fnCreateAttnDescriptor(out), "cudnnCreateAttnDescriptor"); err != nil {
 		var zero AttnDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateAttnDescriptor outSlot[AttnDescriptor]
 
 // CreateCTCLossDescriptor creates a CTC loss function descriptor.
 //
@@ -1078,13 +2416,16 @@ func CreateCTCLossDescriptor() (CTCLossDescriptor, error) {
 		var zero CTCLossDescriptor
 		return zero, err
 	}
-	var out CTCLossDescriptor
-	if err := toError(fnCreateCTCLossDescriptor(&out), "cudnnCreateCTCLossDescriptor"); err != nil {
+	out := slotCreateCTCLossDescriptor.get()
+	defer slotCreateCTCLossDescriptor.put(out)
+	if err := toError(fnCreateCTCLossDescriptor(out), "cudnnCreateCTCLossDescriptor"); err != nil {
 		var zero CTCLossDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateCTCLossDescriptor outSlot[CTCLossDescriptor]
 
 // CreateConvolutionDescriptor creates a convolution descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1102,13 +2443,16 @@ func CreateConvolutionDescriptor() (ConvolutionDescriptor, error) {
 		var zero ConvolutionDescriptor
 		return zero, err
 	}
-	var out ConvolutionDescriptor
-	if err := toError(fnCreateConvolutionDescriptor(&out), "cudnnCreateConvolutionDescriptor"); err != nil {
+	out := slotCreateConvolutionDescriptor.get()
+	defer slotCreateConvolutionDescriptor.put(out)
+	if err := toError(fnCreateConvolutionDescriptor(out), "cudnnCreateConvolutionDescriptor"); err != nil {
 		var zero ConvolutionDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateConvolutionDescriptor outSlot[ConvolutionDescriptor]
 
 // CreateDropoutDescriptor creates a generic dropout descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1124,13 +2468,16 @@ func CreateDropoutDescriptor() (DropoutDescriptor, error) {
 		var zero DropoutDescriptor
 		return zero, err
 	}
-	var out DropoutDescriptor
-	if err := toError(fnCreateDropoutDescriptor(&out), "cudnnCreateDropoutDescriptor"); err != nil {
+	out := slotCreateDropoutDescriptor.get()
+	defer slotCreateDropoutDescriptor.put(out)
+	if err := toError(fnCreateDropoutDescriptor(out), "cudnnCreateDropoutDescriptor"); err != nil {
 		var zero DropoutDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateDropoutDescriptor outSlot[DropoutDescriptor]
 
 // CreateFilterDescriptor creates a filter descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1148,13 +2495,16 @@ func CreateFilterDescriptor() (FilterDescriptor, error) {
 		var zero FilterDescriptor
 		return zero, err
 	}
-	var out FilterDescriptor
-	if err := toError(fnCreateFilterDescriptor(&out), "cudnnCreateFilterDescriptor"); err != nil {
+	out := slotCreateFilterDescriptor.get()
+	defer slotCreateFilterDescriptor.put(out)
+	if err := toError(fnCreateFilterDescriptor(out), "cudnnCreateFilterDescriptor"); err != nil {
 		var zero FilterDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateFilterDescriptor outSlot[FilterDescriptor]
 
 // CreateFusedOpsConstParamPack creates an opaque structure to store the various problem size information, such as the shape, layout and the type of tensors, and the descriptors for convolution and activation, for the selected sequence of cudnnFusedOps computations.
 //
@@ -1175,13 +2525,16 @@ func CreateFusedOpsConstParamPack(ops FusedOps) (FusedOpsConstParamPack, error) 
 		var zero FusedOpsConstParamPack
 		return zero, err
 	}
-	var out FusedOpsConstParamPack
-	if err := toError(fnCreateFusedOpsConstParamPack(&out, ops), "cudnnCreateFusedOpsConstParamPack"); err != nil {
+	out := slotCreateFusedOpsConstParamPack.get()
+	defer slotCreateFusedOpsConstParamPack.put(out)
+	if err := toError(fnCreateFusedOpsConstParamPack(out, ops), "cudnnCreateFusedOpsConstParamPack"); err != nil {
 		var zero FusedOpsConstParamPack
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateFusedOpsConstParamPack outSlot[FusedOpsConstParamPack]
 
 // CreateFusedOpsPlan creates the plan descriptor for the cudnnFusedOps computation.
 //
@@ -1202,13 +2555,16 @@ func CreateFusedOpsPlan(ops FusedOps) (FusedOpsPlan, error) {
 		var zero FusedOpsPlan
 		return zero, err
 	}
-	var out FusedOpsPlan
-	if err := toError(fnCreateFusedOpsPlan(&out, ops), "cudnnCreateFusedOpsPlan"); err != nil {
+	out := slotCreateFusedOpsPlan.get()
+	defer slotCreateFusedOpsPlan.put(out)
+	if err := toError(fnCreateFusedOpsPlan(out, ops), "cudnnCreateFusedOpsPlan"); err != nil {
 		var zero FusedOpsPlan
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateFusedOpsPlan outSlot[FusedOpsPlan]
 
 // CreateFusedOpsVariantParamPack creates the variant pack descriptor for the cudnnFusedOps computation.
 //
@@ -1229,13 +2585,16 @@ func CreateFusedOpsVariantParamPack(ops FusedOps) (FusedOpsVariantParamPack, err
 		var zero FusedOpsVariantParamPack
 		return zero, err
 	}
-	var out FusedOpsVariantParamPack
-	if err := toError(fnCreateFusedOpsVariantParamPack(&out, ops), "cudnnCreateFusedOpsVariantParamPack"); err != nil {
+	out := slotCreateFusedOpsVariantParamPack.get()
+	defer slotCreateFusedOpsVariantParamPack.put(out)
+	if err := toError(fnCreateFusedOpsVariantParamPack(out, ops), "cudnnCreateFusedOpsVariantParamPack"); err != nil {
 		var zero FusedOpsVariantParamPack
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateFusedOpsVariantParamPack outSlot[FusedOpsVariantParamPack]
 
 // CreateLRNDescriptor allocates the memory needed to hold the data needed for LRN and DivisiveNormalization layers operation and returns a descriptor used with subsequent layer forward and backward calls.
 //
@@ -1249,13 +2608,16 @@ func CreateLRNDescriptor() (LRNDescriptor, error) {
 		var zero LRNDescriptor
 		return zero, err
 	}
-	var out LRNDescriptor
-	if err := toError(fnCreateLRNDescriptor(&out), "cudnnCreateLRNDescriptor"); err != nil {
+	out := slotCreateLRNDescriptor.get()
+	defer slotCreateLRNDescriptor.put(out)
+	if err := toError(fnCreateLRNDescriptor(out), "cudnnCreateLRNDescriptor"); err != nil {
 		var zero LRNDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateLRNDescriptor outSlot[LRNDescriptor]
 
 // CreateOpTensorDescriptor creates a tensor pointwise math descriptor.
 //
@@ -1274,13 +2636,16 @@ func CreateOpTensorDescriptor() (OpTensorDescriptor, error) {
 		var zero OpTensorDescriptor
 		return zero, err
 	}
-	var out OpTensorDescriptor
-	if err := toError(fnCreateOpTensorDescriptor(&out), "cudnnCreateOpTensorDescriptor"); err != nil {
+	out := slotCreateOpTensorDescriptor.get()
+	defer slotCreateOpTensorDescriptor.put(out)
+	if err := toError(fnCreateOpTensorDescriptor(out), "cudnnCreateOpTensorDescriptor"); err != nil {
 		var zero OpTensorDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateOpTensorDescriptor outSlot[OpTensorDescriptor]
 
 // CreatePoolingDescriptor creates a pooling descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1296,13 +2661,16 @@ func CreatePoolingDescriptor() (PoolingDescriptor, error) {
 		var zero PoolingDescriptor
 		return zero, err
 	}
-	var out PoolingDescriptor
-	if err := toError(fnCreatePoolingDescriptor(&out), "cudnnCreatePoolingDescriptor"); err != nil {
+	out := slotCreatePoolingDescriptor.get()
+	defer slotCreatePoolingDescriptor.put(out)
+	if err := toError(fnCreatePoolingDescriptor(out), "cudnnCreatePoolingDescriptor"); err != nil {
 		var zero PoolingDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreatePoolingDescriptor outSlot[PoolingDescriptor]
 
 // CreateRNNDataDescriptor creates a RNN data descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1317,13 +2685,16 @@ func CreateRNNDataDescriptor() (RNNDataDescriptor, error) {
 		var zero RNNDataDescriptor
 		return zero, err
 	}
-	var out RNNDataDescriptor
-	if err := toError(fnCreateRNNDataDescriptor(&out), "cudnnCreateRNNDataDescriptor"); err != nil {
+	out := slotCreateRNNDataDescriptor.get()
+	defer slotCreateRNNDataDescriptor.put(out)
+	if err := toError(fnCreateRNNDataDescriptor(out), "cudnnCreateRNNDataDescriptor"); err != nil {
 		var zero RNNDataDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateRNNDataDescriptor outSlot[RNNDataDescriptor]
 
 // CreateRNNDescriptor creates a generic RNN descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1338,13 +2709,16 @@ func CreateRNNDescriptor() (RNNDescriptor, error) {
 		var zero RNNDescriptor
 		return zero, err
 	}
-	var out RNNDescriptor
-	if err := toError(fnCreateRNNDescriptor(&out), "cudnnCreateRNNDescriptor"); err != nil {
+	out := slotCreateRNNDescriptor.get()
+	defer slotCreateRNNDescriptor.put(out)
+	if err := toError(fnCreateRNNDescriptor(out), "cudnnCreateRNNDescriptor"); err != nil {
 		var zero RNNDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateRNNDescriptor outSlot[RNNDescriptor]
 
 // CreateReduceTensorDescriptor creates a reduced tensor descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1361,13 +2735,16 @@ func CreateReduceTensorDescriptor() (ReduceTensorDescriptor, error) {
 		var zero ReduceTensorDescriptor
 		return zero, err
 	}
-	var out ReduceTensorDescriptor
-	if err := toError(fnCreateReduceTensorDescriptor(&out), "cudnnCreateReduceTensorDescriptor"); err != nil {
+	out := slotCreateReduceTensorDescriptor.get()
+	defer slotCreateReduceTensorDescriptor.put(out)
+	if err := toError(fnCreateReduceTensorDescriptor(out), "cudnnCreateReduceTensorDescriptor"); err != nil {
 		var zero ReduceTensorDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateReduceTensorDescriptor outSlot[ReduceTensorDescriptor]
 
 // CreateSeqDataDescriptor creates one instance of an opaque sequence data descriptor object by allocating the host memory for it and initializing all descriptor fields.
 //
@@ -1387,13 +2764,16 @@ func CreateSeqDataDescriptor() (SeqDataDescriptor, error) {
 		var zero SeqDataDescriptor
 		return zero, err
 	}
-	var out SeqDataDescriptor
-	if err := toError(fnCreateSeqDataDescriptor(&out), "cudnnCreateSeqDataDescriptor"); err != nil {
+	out := slotCreateSeqDataDescriptor.get()
+	defer slotCreateSeqDataDescriptor.put(out)
+	if err := toError(fnCreateSeqDataDescriptor(out), "cudnnCreateSeqDataDescriptor"); err != nil {
 		var zero SeqDataDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateSeqDataDescriptor outSlot[SeqDataDescriptor]
 
 // CreateSpatialTransformerDescriptor creates a generic spatial transformer descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1407,13 +2787,16 @@ func CreateSpatialTransformerDescriptor() (SpatialTransformerDescriptor, error) 
 		var zero SpatialTransformerDescriptor
 		return zero, err
 	}
-	var out SpatialTransformerDescriptor
-	if err := toError(fnCreateSpatialTransformerDescriptor(&out), "cudnnCreateSpatialTransformerDescriptor"); err != nil {
+	out := slotCreateSpatialTransformerDescriptor.get()
+	defer slotCreateSpatialTransformerDescriptor.put(out)
+	if err := toError(fnCreateSpatialTransformerDescriptor(out), "cudnnCreateSpatialTransformerDescriptor"); err != nil {
 		var zero SpatialTransformerDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateSpatialTransformerDescriptor outSlot[SpatialTransformerDescriptor]
 
 // CreateTensorDescriptor creates a generic tensor descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1430,13 +2813,16 @@ func CreateTensorDescriptor() (TensorDescriptor, error) {
 		var zero TensorDescriptor
 		return zero, err
 	}
-	var out TensorDescriptor
-	if err := toError(fnCreateTensorDescriptor(&out), "cudnnCreateTensorDescriptor"); err != nil {
+	out := slotCreateTensorDescriptor.get()
+	defer slotCreateTensorDescriptor.put(out)
+	if err := toError(fnCreateTensorDescriptor(out), "cudnnCreateTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateTensorDescriptor outSlot[TensorDescriptor]
 
 // CreateTensorTransformDescriptor creates a tensor transform descriptor object by allocating the memory needed to hold its opaque structure.
 //
@@ -1455,13 +2841,16 @@ func CreateTensorTransformDescriptor() (TensorTransformDescriptor, error) {
 		var zero TensorTransformDescriptor
 		return zero, err
 	}
-	var out TensorTransformDescriptor
-	if err := toError(fnCreateTensorTransformDescriptor(&out), "cudnnCreateTensorTransformDescriptor"); err != nil {
+	out := slotCreateTensorTransformDescriptor.get()
+	defer slotCreateTensorTransformDescriptor.put(out)
+	if err := toError(fnCreateTensorTransformDescriptor(out), "cudnnCreateTensorTransformDescriptor"); err != nil {
 		var zero TensorTransformDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateTensorTransformDescriptor outSlot[TensorTransformDescriptor]
 
 // deriveBNTensorDescriptor derives a secondary tensor descriptor for the batch normalization scale, invVariance, bnBias, and bnScale subtensors from the layer’s x data descriptor.
 //
@@ -1489,6 +2878,7 @@ func deriveBNTensorDescriptor(derivedBnDesc TensorDescriptor, xDesc TensorDescri
 
 // deriveNormTensorDescriptor derives tensor descriptors for the normalization mean, invariance, normBias, and normScale subtensors from the layer’s x data descriptor and norm mode.
 //
+// Normalization mean and invariance share the same descriptor while bias and scale share the same descriptor.
 // Use the tensor descriptor produced by this function as the normScaleBiasDesc or normMeanVarDesc parameter for the [Handle.NormalizationForwardInference] and [Handle.NormalizationForwardTraining] functions, and as the dNormScaleBiasDesc and normMeanVarDesc parameters in the [Handle.NormalizationBackward] function.
 // The resulting dimensions will be:
 // For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
@@ -1731,6 +3121,7 @@ func destroyPoolingDescriptor(poolingDesc PoolingDescriptor) error {
 
 // destroyRNNDataDescriptor destroys a previously created RNN data descriptor object.
 //
+// Invoking [RNNDataDescriptor.Destroy] with the NULL argument is a no operation (NOP).
 // The [RNNDataDescriptor.Destroy] function is not able to detect if the RNNDataDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDataDescriptor] function, or in the double deletion scenario of a valid address.
 //
 // Returns:
@@ -1746,6 +3137,7 @@ func destroyRNNDataDescriptor(rnnDataDesc RNNDataDescriptor) error {
 
 // destroyRNNDescriptor destroys a previously created RNN descriptor object.
 //
+// Invoking [RNNDescriptor.Destroy] with the NULL argument is a no operation (NOP).
 // The [RNNDescriptor.Destroy] function is not able to detect if the rnnDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDescriptor] function, or in the double deletion scenario of a valid address.
 //
 //   - rnnDesc: Input. Pointer to the RNN descriptor object to be destroyed
@@ -1828,7 +3220,7 @@ func destroyTensorDescriptor(tensorDesc TensorDescriptor) error {
 	return toError(fndestroyTensorDescriptor(tensorDesc), "cudnnDestroyTensorDescriptor")
 }
 
-// destroyTensorTransformDescriptor Destroys a previously created tensor transform descriptor.
+// destroyTensorTransformDescriptor destroys a previously created tensor transform descriptor.
 //
 //   - transformDesc: Input. The tensor transform descriptor to be destroyed
 //
@@ -1878,6 +3270,7 @@ func divisiveNormalizationBackward(handle Handle, normDesc LRNDescriptor, mode D
 
 // divisiveNormalizationForward performs the forward spatial DivisiveNormalization layer computation.
 //
+// It divides every value in a layer by the standard deviation of its spatial neighbors. Note that DivisiveNormalization only implements the x/max(c, sigma_x) portion of the computation, where sigma_x is the variance over the spatial neighborhood of x.
 // The full LCN (Local Contrastive Normalization) computation can be implemented as a two-step process:
 // The x-mean(x) which is often referred to as “subtractive normalization” portion of the computation can be implemented using cuDNN average pooling layer followed by a call to addTensor.
 // Supported tensor formats are NCHW for 4D and NCDHW for 5D with any non-overlapping non-negative strides. Only 4D and 5D tensors are supported.
@@ -1909,6 +3302,7 @@ func divisiveNormalizationForward(handle Handle, normDesc LRNDescriptor, mode Di
 
 // dropoutBackward performs backward dropout operation over dy returning results in dx.
 //
+// If during forward dropout operation value from x was propagated to y then during backward operation value from dy will be propagated to dx, otherwise, dx value will be set to 0.
 // Better performance is obtained for fully packed tensors.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
@@ -1975,12 +3369,15 @@ func dropoutGetReserveSpaceSize(xdesc TensorDescriptor) (sizeInBytes int, err er
 	if err := checkLibSym("cudnnDropoutGetReserveSpaceSize"); err != nil {
 		return 0, err
 	}
-	var out1 uint
-	if err := toError(fndropoutGetReserveSpaceSize(xdesc, &out1), "cudnnDropoutGetReserveSpaceSize"); err != nil {
+	outs := slotDropoutGetReserveSpaceSize.get()
+	defer slotDropoutGetReserveSpaceSize.put(outs)
+	if err := toError(fndropoutGetReserveSpaceSize(xdesc, &outs.out1), "cudnnDropoutGetReserveSpaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out1), nil
+	return int(outs.out1), nil
 }
+
+var slotDropoutGetReserveSpaceSize outSlot[struct{ out1 uint }]
 
 // dropoutGetStatesSize is used to query the amount of space required to store the states of the random number generators used by the [Handle.DropoutForward] function.
 //
@@ -1994,12 +3391,15 @@ func dropoutGetStatesSize(handle Handle) (sizeInBytes int, err error) {
 	if err := checkLibSym("cudnnDropoutGetStatesSize"); err != nil {
 		return 0, err
 	}
-	var out1 uint
-	if err := toError(fndropoutGetStatesSize(handle, &out1), "cudnnDropoutGetStatesSize"); err != nil {
+	outs := slotDropoutGetStatesSize.get()
+	defer slotDropoutGetStatesSize.put(outs)
+	if err := toError(fndropoutGetStatesSize(handle, &outs.out1), "cudnnDropoutGetStatesSize"); err != nil {
 		return 0, err
 	}
-	return int(out1), nil
+	return int(outs.out1), nil
 }
+
+var slotDropoutGetStatesSize outSlot[struct{ out1 uint }]
 
 // findConvolutionBackwardDataAlgorithm attempts all algorithms available for [Handle.ConvolutionBackwardData].
 //
@@ -2028,12 +3428,15 @@ func findConvolutionBackwardDataAlgorithm(handle Handle, wDesc FilterDescriptor,
 		return nil, err
 	}
 	out7 := make([]ConvolutionBwdDataAlgoPerf, requestedAlgoCount)
-	var out6 int32
-	if err := toError(fnfindConvolutionBackwardDataAlgorithm(handle, wDesc, dyDesc, convDesc, dxDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnFindConvolutionBackwardDataAlgorithm"); err != nil {
+	outs := slotFindConvolutionBackwardDataAlgorithm.get()
+	defer slotFindConvolutionBackwardDataAlgorithm.put(outs)
+	if err := toError(fnfindConvolutionBackwardDataAlgorithm(handle, wDesc, dyDesc, convDesc, dxDesc, int32(requestedAlgoCount), &outs.out6, unsafe.SliceData(out7)), "cudnnFindConvolutionBackwardDataAlgorithm"); err != nil {
 		return nil, err
 	}
-	return out7[:min(int(out6), len(out7))], nil
+	return out7[:min(int(outs.out6), len(out7))], nil
 }
+
+var slotFindConvolutionBackwardDataAlgorithm outSlot[struct{ out6 int32 }]
 
 // findConvolutionBackwardDataAlgorithmEx attempts all algorithms available for [Handle.ConvolutionBackwardData].
 //
@@ -2048,7 +3451,7 @@ func findConvolutionBackwardDataAlgorithm(handle Handle, wDesc FilterDescriptor,
 //   - dy: Input. Data pointer to GPU memory associated with the filter descriptor dyDesc
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
-//   - dx: Input. / Output. Data pointer to GPU memory associated with the tensor descriptor dxDesc. The content of this tensor will be overwritten with arbitrary values
+//   - dx: Input/Output. Data pointer to GPU memory associated with the tensor descriptor dxDesc. The content of this tensor will be overwritten with arbitrary values
 //   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //   - workSpace: Input. Data pointer to GPU memory is a necessary workspace for some algorithms. The size of this workspace will determine the availability of algorithms. A NIL pointer is considered a workSpace of 0 bytes
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
@@ -2066,12 +3469,15 @@ func findConvolutionBackwardDataAlgorithmEx(handle Handle, wDesc FilterDescripto
 		return nil, err
 	}
 	out10 := make([]ConvolutionBwdDataAlgoPerf, requestedAlgoCount)
-	var out9 int32
-	if err := toError(fnfindConvolutionBackwardDataAlgorithmEx(handle, wDesc, uintptr(w), dyDesc, uintptr(dy), convDesc, dxDesc, uintptr(dx), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionBackwardDataAlgorithmEx"); err != nil {
+	outs := slotFindConvolutionBackwardDataAlgorithmEx.get()
+	defer slotFindConvolutionBackwardDataAlgorithmEx.put(outs)
+	if err := toError(fnfindConvolutionBackwardDataAlgorithmEx(handle, wDesc, uintptr(w), dyDesc, uintptr(dy), convDesc, dxDesc, uintptr(dx), int32(requestedAlgoCount), &outs.out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionBackwardDataAlgorithmEx"); err != nil {
 		return nil, err
 	}
-	return out10[:min(int(out9), len(out10))], nil
+	return out10[:min(int(outs.out9), len(out10))], nil
 }
+
+var slotFindConvolutionBackwardDataAlgorithmEx outSlot[struct{ out9 int32 }]
 
 // findConvolutionBackwardFilterAlgorithm attempts all algorithms available for [Handle.ConvolutionBackwardFilter].
 //
@@ -2100,12 +3506,15 @@ func findConvolutionBackwardFilterAlgorithm(handle Handle, xDesc TensorDescripto
 		return nil, err
 	}
 	out7 := make([]ConvolutionBwdFilterAlgoPerf, requestedAlgoCount)
-	var out6 int32
-	if err := toError(fnfindConvolutionBackwardFilterAlgorithm(handle, xDesc, dyDesc, convDesc, dwDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnFindConvolutionBackwardFilterAlgorithm"); err != nil {
+	outs := slotFindConvolutionBackwardFilterAlgorithm.get()
+	defer slotFindConvolutionBackwardFilterAlgorithm.put(outs)
+	if err := toError(fnfindConvolutionBackwardFilterAlgorithm(handle, xDesc, dyDesc, convDesc, dwDesc, int32(requestedAlgoCount), &outs.out6, unsafe.SliceData(out7)), "cudnnFindConvolutionBackwardFilterAlgorithm"); err != nil {
 		return nil, err
 	}
-	return out7[:min(int(out6), len(out7))], nil
+	return out7[:min(int(outs.out6), len(out7))], nil
 }
+
+var slotFindConvolutionBackwardFilterAlgorithm outSlot[struct{ out6 int32 }]
 
 // findConvolutionBackwardFilterAlgorithmEx attempts all algorithms available for [Handle.ConvolutionBackwardFilter].
 //
@@ -2119,7 +3528,7 @@ func findConvolutionBackwardFilterAlgorithm(handle Handle, xDesc TensorDescripto
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - dwDesc: Input. Handle to a previously initialized filter descriptor
-//   - dw: Input. / Output. Data pointer to GPU memory associated with the filter descriptor dwDesc. The content of this tensor will be overwritten with arbitrary values
+//   - dw: Input/Output. Data pointer to GPU memory associated with the filter descriptor dwDesc. The content of this tensor will be overwritten with arbitrary values
 //   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //   - workSpace: Input. Data pointer to GPU memory is a necessary workspace for some algorithms. The size of this workspace will determine the availability of algorithms. A NIL pointer is considered a workSpace of 0 bytes
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
@@ -2137,12 +3546,15 @@ func findConvolutionBackwardFilterAlgorithmEx(handle Handle, xDesc TensorDescrip
 		return nil, err
 	}
 	out10 := make([]ConvolutionBwdFilterAlgoPerf, requestedAlgoCount)
-	var out9 int32
-	if err := toError(fnfindConvolutionBackwardFilterAlgorithmEx(handle, xDesc, uintptr(x), dyDesc, uintptr(y), convDesc, dwDesc, uintptr(dw), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionBackwardFilterAlgorithmEx"); err != nil {
+	outs := slotFindConvolutionBackwardFilterAlgorithmEx.get()
+	defer slotFindConvolutionBackwardFilterAlgorithmEx.put(outs)
+	if err := toError(fnfindConvolutionBackwardFilterAlgorithmEx(handle, xDesc, uintptr(x), dyDesc, uintptr(y), convDesc, dwDesc, uintptr(dw), int32(requestedAlgoCount), &outs.out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionBackwardFilterAlgorithmEx"); err != nil {
 		return nil, err
 	}
-	return out10[:min(int(out9), len(out10))], nil
+	return out10[:min(int(outs.out9), len(out10))], nil
 }
+
+var slotFindConvolutionBackwardFilterAlgorithmEx outSlot[struct{ out9 int32 }]
 
 // findConvolutionForwardAlgorithm attempts all algorithms available for [Handle.ConvolutionForward].
 //
@@ -2171,12 +3583,15 @@ func findConvolutionForwardAlgorithm(handle Handle, xDesc TensorDescriptor, wDes
 		return nil, err
 	}
 	out7 := make([]ConvolutionFwdAlgoPerf, requestedAlgoCount)
-	var out6 int32
-	if err := toError(fnfindConvolutionForwardAlgorithm(handle, xDesc, wDesc, convDesc, yDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnFindConvolutionForwardAlgorithm"); err != nil {
+	outs := slotFindConvolutionForwardAlgorithm.get()
+	defer slotFindConvolutionForwardAlgorithm.put(outs)
+	if err := toError(fnfindConvolutionForwardAlgorithm(handle, xDesc, wDesc, convDesc, yDesc, int32(requestedAlgoCount), &outs.out6, unsafe.SliceData(out7)), "cudnnFindConvolutionForwardAlgorithm"); err != nil {
 		return nil, err
 	}
-	return out7[:min(int(out6), len(out7))], nil
+	return out7[:min(int(outs.out6), len(out7))], nil
 }
+
+var slotFindConvolutionForwardAlgorithm outSlot[struct{ out6 int32 }]
 
 // findConvolutionForwardAlgorithmEx attempts all algorithms available for [Handle.ConvolutionForward].
 //
@@ -2191,7 +3606,7 @@ func findConvolutionForwardAlgorithm(handle Handle, xDesc TensorDescriptor, wDes
 //   - w: Input. Data pointer to GPU memory associated with the filter descriptor wDesc
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - yDesc: Input. Handle to the previously initialized output tensor descriptor
-//   - y: Input. / Output. Data pointer to GPU memory associated with the tensor descriptor yDesc. The content of this tensor will be overwritten with arbitrary values
+//   - y: Input/Output. Data pointer to GPU memory associated with the tensor descriptor yDesc. The content of this tensor will be overwritten with arbitrary values
 //   - requestedAlgoCount: Input. The maximum number of elements to be stored in perfResults
 //   - workSpace: Input. Data pointer to GPU memory is a necessary workspace for some algorithms. The size of this workspace will determine the availability of algorithms. A NIL pointer is considered a workSpace of 0 bytes
 //   - workSpaceSizeInBytes: Input. Specifies the size in bytes of the provided workSpace
@@ -2209,12 +3624,15 @@ func findConvolutionForwardAlgorithmEx(handle Handle, xDesc TensorDescriptor, x 
 		return nil, err
 	}
 	out10 := make([]ConvolutionFwdAlgoPerf, requestedAlgoCount)
-	var out9 int32
-	if err := toError(fnfindConvolutionForwardAlgorithmEx(handle, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, yDesc, uintptr(y), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionForwardAlgorithmEx"); err != nil {
+	outs := slotFindConvolutionForwardAlgorithmEx.get()
+	defer slotFindConvolutionForwardAlgorithmEx.put(outs)
+	if err := toError(fnfindConvolutionForwardAlgorithmEx(handle, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, yDesc, uintptr(y), int32(requestedAlgoCount), &outs.out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionForwardAlgorithmEx"); err != nil {
 		return nil, err
 	}
-	return out10[:min(int(out9), len(out10))], nil
+	return out10[:min(int(outs.out9), len(out10))], nil
 }
+
+var slotFindConvolutionForwardAlgorithmEx outSlot[struct{ out9 int32 }]
 
 // fusedOpsExecute executes the sequence of cudnnFusedOps operations.
 //
@@ -2249,14 +3667,19 @@ func getActivationDescriptor(activationDesc ActivationDescriptor) (mode Activati
 	if err := checkLibSym("cudnnGetActivationDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
-	var out1 ActivationMode
-	var out2 NanPropagation
-	var out3 float64
-	if err := toError(fngetActivationDescriptor(activationDesc, &out1, &out2, &out3), "cudnnGetActivationDescriptor"); err != nil {
+	outs := slotGetActivationDescriptor.get()
+	defer slotGetActivationDescriptor.put(outs)
+	if err := toError(fngetActivationDescriptor(activationDesc, &outs.out1, &outs.out2, &outs.out3), "cudnnGetActivationDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
-	return out1, out2, out3, nil
+	return outs.out1, outs.out2, outs.out3, nil
 }
+
+var slotGetActivationDescriptor outSlot[struct {
+	out1 ActivationMode
+	out2 NanPropagation
+	out3 float64
+}]
 
 // getActivationDescriptorSwishBeta queries the current beta parameter set for SWISH activation.
 //
@@ -2273,12 +3696,15 @@ func getActivationDescriptorSwishBeta(activationDesc ActivationDescriptor) (swis
 	if err := checkLibSym("cudnnGetActivationDescriptorSwishBeta"); err != nil {
 		return 0, err
 	}
-	var out1 float64
-	if err := toError(fngetActivationDescriptorSwishBeta(activationDesc, &out1), "cudnnGetActivationDescriptorSwishBeta"); err != nil {
+	outs := slotGetActivationDescriptorSwishBeta.get()
+	defer slotGetActivationDescriptorSwishBeta.put(outs)
+	if err := toError(fngetActivationDescriptorSwishBeta(activationDesc, &outs.out1), "cudnnGetActivationDescriptorSwishBeta"); err != nil {
 		return 0, err
 	}
-	return out1, nil
+	return outs.out1, nil
 }
+
+var slotGetActivationDescriptorSwishBeta outSlot[struct{ out1 float64 }]
 
 // AttnConfig holds the settings [AttnDescriptor.Get] reports.
 type AttnConfig struct {
@@ -2339,50 +3765,55 @@ func getAttnDescriptor(attnDesc AttnDescriptor) (AttnConfig, error) {
 	if err := checkLibSym("cudnnGetAttnDescriptor"); err != nil {
 		return AttnConfig{}, err
 	}
-	var out1 uint32
-	var out2 int32
-	var out3 float64
-	var out4 DataType
-	var out5 DataType
-	var out6 MathType
-	var out7 DropoutDescriptor
-	var out8 DropoutDescriptor
-	var out9 int32
-	var out10 int32
-	var out11 int32
-	var out12 int32
-	var out13 int32
-	var out14 int32
-	var out15 int32
-	var out16 int32
-	var out17 int32
-	var out18 int32
-	var out19 int32
-	if err := toError(fngetAttnDescriptor(attnDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9, &out10, &out11, &out12, &out13, &out14, &out15, &out16, &out17, &out18, &out19), "cudnnGetAttnDescriptor"); err != nil {
+	outs := slotGetAttnDescriptor.get()
+	defer slotGetAttnDescriptor.put(outs)
+	if err := toError(fngetAttnDescriptor(attnDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4, &outs.out5, &outs.out6, &outs.out7, &outs.out8, &outs.out9, &outs.out10, &outs.out11, &outs.out12, &outs.out13, &outs.out14, &outs.out15, &outs.out16, &outs.out17, &outs.out18, &outs.out19), "cudnnGetAttnDescriptor"); err != nil {
 		return AttnConfig{}, err
 	}
 	return AttnConfig{
-		AttnMode:        out1,
-		NHeads:          out2,
-		SmScaler:        out3,
-		DataType:        out4,
-		ComputePrec:     out5,
-		MathType:        out6,
-		AttnDropoutDesc: out7,
-		PostDropoutDesc: out8,
-		QSize:           out9,
-		KSize:           out10,
-		VSize:           out11,
-		QProjSize:       out12,
-		KProjSize:       out13,
-		VProjSize:       out14,
-		OProjSize:       out15,
-		QoMaxSeqLength:  out16,
-		KvMaxSeqLength:  out17,
-		MaxBatchSize:    out18,
-		MaxBeamSize:     out19,
+		AttnMode:        outs.out1,
+		NHeads:          outs.out2,
+		SmScaler:        outs.out3,
+		DataType:        outs.out4,
+		ComputePrec:     outs.out5,
+		MathType:        outs.out6,
+		AttnDropoutDesc: outs.out7,
+		PostDropoutDesc: outs.out8,
+		QSize:           outs.out9,
+		KSize:           outs.out10,
+		VSize:           outs.out11,
+		QProjSize:       outs.out12,
+		KProjSize:       outs.out13,
+		VProjSize:       outs.out14,
+		OProjSize:       outs.out15,
+		QoMaxSeqLength:  outs.out16,
+		KvMaxSeqLength:  outs.out17,
+		MaxBatchSize:    outs.out18,
+		MaxBeamSize:     outs.out19,
 	}, nil
 }
+
+var slotGetAttnDescriptor outSlot[struct {
+	out1  uint32
+	out2  int32
+	out3  float64
+	out4  DataType
+	out5  DataType
+	out6  MathType
+	out7  DropoutDescriptor
+	out8  DropoutDescriptor
+	out9  int32
+	out10 int32
+	out11 int32
+	out12 int32
+	out13 int32
+	out14 int32
+	out15 int32
+	out16 int32
+	out17 int32
+	out18 int32
+	out19 int32
+}]
 
 // getBatchNormalizationBackwardExWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.BatchNormalizationBackwardExWorkspaceSize] function for the specified bnOps input setting.
 //
@@ -2411,12 +3842,15 @@ func getBatchNormalizationBackwardExWorkspaceSize(handle Handle, mode BatchNormM
 	if err := checkLibSym("cudnnGetBatchNormalizationBackwardExWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out10 uint
-	if err := toError(fngetBatchNormalizationBackwardExWorkspaceSize(handle, mode, bnOps, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dBnScaleBiasDesc, activationDesc, &out10), "cudnnGetBatchNormalizationBackwardExWorkspaceSize"); err != nil {
+	outs := slotGetBatchNormalizationBackwardExWorkspaceSize.get()
+	defer slotGetBatchNormalizationBackwardExWorkspaceSize.put(outs)
+	if err := toError(fngetBatchNormalizationBackwardExWorkspaceSize(handle, mode, bnOps, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dBnScaleBiasDesc, activationDesc, &outs.out10), "cudnnGetBatchNormalizationBackwardExWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out10), nil
+	return int(outs.out10), nil
 }
+
+var slotGetBatchNormalizationBackwardExWorkspaceSize outSlot[struct{ out10 uint }]
 
 // getBatchNormalizationForwardTrainingExWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.BatchNormalizationForwardTrainingExWorkspaceSize] function for the specified bnOps input setting.
 //
@@ -2443,12 +3877,15 @@ func getBatchNormalizationForwardTrainingExWorkspaceSize(handle Handle, mode Bat
 	if err := checkLibSym("cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out8 uint
-	if err := toError(fngetBatchNormalizationForwardTrainingExWorkspaceSize(handle, mode, bnOps, xDesc, zDesc, yDesc, bnScaleBiasMeanVarDesc, activationDesc, &out8), "cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize"); err != nil {
+	outs := slotGetBatchNormalizationForwardTrainingExWorkspaceSize.get()
+	defer slotGetBatchNormalizationForwardTrainingExWorkspaceSize.put(outs)
+	if err := toError(fngetBatchNormalizationForwardTrainingExWorkspaceSize(handle, mode, bnOps, xDesc, zDesc, yDesc, bnScaleBiasMeanVarDesc, activationDesc, &outs.out8), "cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out8), nil
+	return int(outs.out8), nil
 }
+
+var slotGetBatchNormalizationForwardTrainingExWorkspaceSize outSlot[struct{ out8 uint }]
 
 // getBatchNormalizationTrainingExReserveSpaceSize returns the amount of reserve GPU memory workspace the user should allocate for the batch normalization operation, for the specified bnOps input setting.
 //
@@ -2472,12 +3909,15 @@ func getBatchNormalizationTrainingExReserveSpaceSize(handle Handle, mode BatchNo
 	if err := checkLibSym("cudnnGetBatchNormalizationTrainingExReserveSpaceSize"); err != nil {
 		return 0, err
 	}
-	var out5 uint
-	if err := toError(fngetBatchNormalizationTrainingExReserveSpaceSize(handle, mode, bnOps, activationDesc, xDesc, &out5), "cudnnGetBatchNormalizationTrainingExReserveSpaceSize"); err != nil {
+	outs := slotGetBatchNormalizationTrainingExReserveSpaceSize.get()
+	defer slotGetBatchNormalizationTrainingExReserveSpaceSize.put(outs)
+	if err := toError(fngetBatchNormalizationTrainingExReserveSpaceSize(handle, mode, bnOps, activationDesc, xDesc, &outs.out5), "cudnnGetBatchNormalizationTrainingExReserveSpaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out5), nil
+	return int(outs.out5), nil
 }
+
+var slotGetBatchNormalizationTrainingExReserveSpaceSize outSlot[struct{ out5 uint }]
 
 // CTCLossConfig holds the settings [CTCLossDescriptor.Get] reports.
 type CTCLossConfig struct {
@@ -2504,20 +3944,25 @@ func getCTCLossDescriptor(ctcLossDesc CTCLossDescriptor) (CTCLossConfig, error) 
 	if err := checkLibSym("cudnnGetCTCLossDescriptor_v9"); err != nil {
 		return CTCLossConfig{}, err
 	}
-	var out1 DataType
-	var out2 LossNormalizationMode
-	var out3 CTCGradMode
-	var out4 int32
-	if err := toError(fngetCTCLossDescriptor(ctcLossDesc, &out1, &out2, &out3, &out4), "cudnnGetCTCLossDescriptor_v9"); err != nil {
+	outs := slotGetCTCLossDescriptor.get()
+	defer slotGetCTCLossDescriptor.put(outs)
+	if err := toError(fngetCTCLossDescriptor(ctcLossDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4), "cudnnGetCTCLossDescriptor_v9"); err != nil {
 		return CTCLossConfig{}, err
 	}
 	return CTCLossConfig{
-		CompType:       out1,
-		NormMode:       out2,
-		CTCGradMode:    out3,
-		MaxLabelLength: out4,
+		CompType:       outs.out1,
+		NormMode:       outs.out2,
+		CTCGradMode:    outs.out3,
+		MaxLabelLength: outs.out4,
 	}, nil
 }
+
+var slotGetCTCLossDescriptor outSlot[struct {
+	out1 DataType
+	out2 LossNormalizationMode
+	out3 CTCGradMode
+	out4 int32
+}]
 
 // getCTCLossWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLoss] with the specified algorithm.
 //
@@ -2542,12 +3987,15 @@ func getCTCLossWorkspaceSize(handle Handle, probsDesc TensorDescriptor, gradient
 	if err := checkLibSym("cudnnGetCTCLossWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out8 uint
-	if err := toError(fngetCTCLossWorkspaceSize(handle, probsDesc, gradientsDesc, labels, labelLengths, inputLengths, algo, ctcLossDesc, &out8), "cudnnGetCTCLossWorkspaceSize"); err != nil {
+	outs := slotGetCTCLossWorkspaceSize.get()
+	defer slotGetCTCLossWorkspaceSize.put(outs)
+	if err := toError(fngetCTCLossWorkspaceSize(handle, probsDesc, gradientsDesc, labels, labelLengths, inputLengths, algo, ctcLossDesc, &outs.out8), "cudnnGetCTCLossWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out8), nil
+	return int(outs.out8), nil
 }
+
+var slotGetCTCLossWorkspaceSize outSlot[struct{ out8 uint }]
 
 // getCTCLossWorkspaceSizeV8 returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLossV8] with the specified algorithm.
 //
@@ -2569,12 +4017,15 @@ func getCTCLossWorkspaceSizeV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCL
 	if err := checkLibSym("cudnnGetCTCLossWorkspaceSize_v8"); err != nil {
 		return 0, err
 	}
-	var out5 uint
-	if err := toError(fngetCTCLossWorkspaceSizeV8(handle, algo, ctcLossDesc, probsDesc, gradientsDesc, &out5), "cudnnGetCTCLossWorkspaceSize_v8"); err != nil {
+	outs := slotGetCTCLossWorkspaceSizeV8.get()
+	defer slotGetCTCLossWorkspaceSizeV8.put(outs)
+	if err := toError(fngetCTCLossWorkspaceSizeV8(handle, algo, ctcLossDesc, probsDesc, gradientsDesc, &outs.out5), "cudnnGetCTCLossWorkspaceSize_v8"); err != nil {
 		return 0, err
 	}
-	return int(out5), nil
+	return int(outs.out5), nil
 }
+
+var slotGetCTCLossWorkspaceSizeV8 outSlot[struct{ out5 uint }]
 
 // GetCallback queries the internal states of cuDNN error reporting functionality.
 //
@@ -2589,13 +4040,18 @@ func GetCallback(fptr uintptr) (mask uint32, udata uintptr, err error) {
 	if err := checkLibSym("cudnnGetCallback"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint32
-	var out1 uintptr
-	if err := toError(fnGetCallback(&out0, &out1, fptr), "cudnnGetCallback"); err != nil {
+	outs := slotGetCallback.get()
+	defer slotGetCallback.put(outs)
+	if err := toError(fnGetCallback(&outs.out0, &outs.out1, fptr), "cudnnGetCallback"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotGetCallback outSlot[struct {
+	out0 uint32
+	out1 uintptr
+}]
 
 // Convolution2DConfig holds the settings [ConvolutionDescriptor.Get2D] reports.
 type Convolution2DConfig struct {
@@ -2621,7 +4077,7 @@ type Convolution2DConfig struct {
 //
 // This function queries a previously initialized 2D convolution descriptor object.
 //
-//   - convDesc: Input. / Output. Handle to a previously created convolution descriptor
+//   - convDesc: Input/Output. Handle to a previously created convolution descriptor
 //
 // Returns:
 //   - [ErrBadParam]: The parameter convDesc is NIL.
@@ -2634,28 +4090,33 @@ func getConvolution2dDescriptor(convDesc ConvolutionDescriptor) (Convolution2DCo
 	if err := checkLibSym("cudnnGetConvolution2dDescriptor"); err != nil {
 		return Convolution2DConfig{}, err
 	}
-	var out1 int32
-	var out2 int32
-	var out3 int32
-	var out4 int32
-	var out5 int32
-	var out6 int32
-	var out7 ConvolutionMode
-	var out8 DataType
-	if err := toError(fngetConvolution2dDescriptor(convDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8), "cudnnGetConvolution2dDescriptor"); err != nil {
+	outs := slotGetConvolution2dDescriptor.get()
+	defer slotGetConvolution2dDescriptor.put(outs)
+	if err := toError(fngetConvolution2dDescriptor(convDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4, &outs.out5, &outs.out6, &outs.out7, &outs.out8), "cudnnGetConvolution2dDescriptor"); err != nil {
 		return Convolution2DConfig{}, err
 	}
 	return Convolution2DConfig{
-		PadH:        out1,
-		PadW:        out2,
-		U:           out3,
-		V:           out4,
-		DilationH:   out5,
-		DilationW:   out6,
-		Mode:        out7,
-		ComputeType: out8,
+		PadH:        outs.out1,
+		PadW:        outs.out2,
+		U:           outs.out3,
+		V:           outs.out4,
+		DilationH:   outs.out5,
+		DilationW:   outs.out6,
+		Mode:        outs.out7,
+		ComputeType: outs.out8,
 	}, nil
 }
+
+var slotGetConvolution2dDescriptor outSlot[struct {
+	out1 int32
+	out2 int32
+	out3 int32
+	out4 int32
+	out5 int32
+	out6 int32
+	out7 ConvolutionMode
+	out8 DataType
+}]
 
 // getConvolution2dForwardOutputDim returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor.
 //
@@ -2677,15 +4138,20 @@ func getConvolution2dForwardOutputDim(convDesc ConvolutionDescriptor, inputTenso
 	if err := checkLibSym("cudnnGetConvolution2dForwardOutputDim"); err != nil {
 		return 0, 0, 0, 0, err
 	}
-	var out3 int32
-	var out4 int32
-	var out5 int32
-	var out6 int32
-	if err := toError(fngetConvolution2dForwardOutputDim(convDesc, inputTensorDesc, filterDesc, &out3, &out4, &out5, &out6), "cudnnGetConvolution2dForwardOutputDim"); err != nil {
+	outs := slotGetConvolution2dForwardOutputDim.get()
+	defer slotGetConvolution2dForwardOutputDim.put(outs)
+	if err := toError(fngetConvolution2dForwardOutputDim(convDesc, inputTensorDesc, filterDesc, &outs.out3, &outs.out4, &outs.out5, &outs.out6), "cudnnGetConvolution2dForwardOutputDim"); err != nil {
 		return 0, 0, 0, 0, err
 	}
-	return out3, out4, out5, out6, nil
+	return outs.out3, outs.out4, outs.out5, outs.out6, nil
 }
+
+var slotGetConvolution2dForwardOutputDim outSlot[struct {
+	out3 int32
+	out4 int32
+	out5 int32
+	out6 int32
+}]
 
 // getConvolutionBackwardDataAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardDataAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
 //
@@ -2704,12 +4170,15 @@ func getConvolutionBackwardDataAlgorithmMaxCount(handle Handle) (count int32, er
 	if err := checkLibSym("cudnnGetConvolutionBackwardDataAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
-	var out1 int32
-	if err := toError(fngetConvolutionBackwardDataAlgorithmMaxCount(handle, &out1), "cudnnGetConvolutionBackwardDataAlgorithmMaxCount"); err != nil {
+	outs := slotGetConvolutionBackwardDataAlgorithmMaxCount.get()
+	defer slotGetConvolutionBackwardDataAlgorithmMaxCount.put(outs)
+	if err := toError(fngetConvolutionBackwardDataAlgorithmMaxCount(handle, &outs.out1), "cudnnGetConvolutionBackwardDataAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
-	return out1, nil
+	return outs.out1, nil
 }
+
+var slotGetConvolutionBackwardDataAlgorithmMaxCount outSlot[struct{ out1 int32 }]
 
 // getConvolutionBackwardDataAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardData] for the given layer specifications.
 //
@@ -2731,12 +4200,15 @@ func getConvolutionBackwardDataAlgorithm(handle Handle, filterDesc FilterDescrip
 		return nil, err
 	}
 	out7 := make([]ConvolutionBwdDataAlgoPerf, requestedAlgoCount)
-	var out6 int32
-	if err := toError(fngetConvolutionBackwardDataAlgorithm(handle, filterDesc, diffDesc, convDesc, gradDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnGetConvolutionBackwardDataAlgorithm_v7"); err != nil {
+	outs := slotGetConvolutionBackwardDataAlgorithm.get()
+	defer slotGetConvolutionBackwardDataAlgorithm.put(outs)
+	if err := toError(fngetConvolutionBackwardDataAlgorithm(handle, filterDesc, diffDesc, convDesc, gradDesc, int32(requestedAlgoCount), &outs.out6, unsafe.SliceData(out7)), "cudnnGetConvolutionBackwardDataAlgorithm_v7"); err != nil {
 		return nil, err
 	}
-	return out7[:min(int(out6), len(out7))], nil
+	return out7[:min(int(outs.out6), len(out7))], nil
 }
+
+var slotGetConvolutionBackwardDataAlgorithm outSlot[struct{ out6 int32 }]
 
 // getConvolutionBackwardDataWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardData] with the specified algorithm.
 //
@@ -2761,12 +4233,15 @@ func getConvolutionBackwardDataWorkspaceSize(handle Handle, wDesc FilterDescript
 	if err := checkLibSym("cudnnGetConvolutionBackwardDataWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out6 uint
-	if err := toError(fngetConvolutionBackwardDataWorkspaceSize(handle, wDesc, dyDesc, convDesc, dxDesc, algo, &out6), "cudnnGetConvolutionBackwardDataWorkspaceSize"); err != nil {
+	outs := slotGetConvolutionBackwardDataWorkspaceSize.get()
+	defer slotGetConvolutionBackwardDataWorkspaceSize.put(outs)
+	if err := toError(fngetConvolutionBackwardDataWorkspaceSize(handle, wDesc, dyDesc, convDesc, dxDesc, algo, &outs.out6), "cudnnGetConvolutionBackwardDataWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out6), nil
+	return int(outs.out6), nil
 }
+
+var slotGetConvolutionBackwardDataWorkspaceSize outSlot[struct{ out6 uint }]
 
 // getConvolutionBackwardFilterAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardFilterAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
 //
@@ -2785,12 +4260,15 @@ func getConvolutionBackwardFilterAlgorithmMaxCount(handle Handle) (count int32, 
 	if err := checkLibSym("cudnnGetConvolutionBackwardFilterAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
-	var out1 int32
-	if err := toError(fngetConvolutionBackwardFilterAlgorithmMaxCount(handle, &out1), "cudnnGetConvolutionBackwardFilterAlgorithmMaxCount"); err != nil {
+	outs := slotGetConvolutionBackwardFilterAlgorithmMaxCount.get()
+	defer slotGetConvolutionBackwardFilterAlgorithmMaxCount.put(outs)
+	if err := toError(fngetConvolutionBackwardFilterAlgorithmMaxCount(handle, &outs.out1), "cudnnGetConvolutionBackwardFilterAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
-	return out1, nil
+	return outs.out1, nil
 }
+
+var slotGetConvolutionBackwardFilterAlgorithmMaxCount outSlot[struct{ out1 int32 }]
 
 // getConvolutionBackwardFilterAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardFilter] for the given layer specifications.
 //
@@ -2812,12 +4290,15 @@ func getConvolutionBackwardFilterAlgorithm(handle Handle, srcDesc TensorDescript
 		return nil, err
 	}
 	out7 := make([]ConvolutionBwdFilterAlgoPerf, requestedAlgoCount)
-	var out6 int32
-	if err := toError(fngetConvolutionBackwardFilterAlgorithm(handle, srcDesc, diffDesc, convDesc, gradDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnGetConvolutionBackwardFilterAlgorithm_v7"); err != nil {
+	outs := slotGetConvolutionBackwardFilterAlgorithm.get()
+	defer slotGetConvolutionBackwardFilterAlgorithm.put(outs)
+	if err := toError(fngetConvolutionBackwardFilterAlgorithm(handle, srcDesc, diffDesc, convDesc, gradDesc, int32(requestedAlgoCount), &outs.out6, unsafe.SliceData(out7)), "cudnnGetConvolutionBackwardFilterAlgorithm_v7"); err != nil {
 		return nil, err
 	}
-	return out7[:min(int(out6), len(out7))], nil
+	return out7[:min(int(outs.out6), len(out7))], nil
 }
+
+var slotGetConvolutionBackwardFilterAlgorithm outSlot[struct{ out6 int32 }]
 
 // getConvolutionBackwardFilterWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardFilter] with the specified algorithm.
 //
@@ -2841,12 +4322,15 @@ func getConvolutionBackwardFilterWorkspaceSize(handle Handle, xDesc TensorDescri
 	if err := checkLibSym("cudnnGetConvolutionBackwardFilterWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out6 uint
-	if err := toError(fngetConvolutionBackwardFilterWorkspaceSize(handle, xDesc, dyDesc, convDesc, gradDesc, algo, &out6), "cudnnGetConvolutionBackwardFilterWorkspaceSize"); err != nil {
+	outs := slotGetConvolutionBackwardFilterWorkspaceSize.get()
+	defer slotGetConvolutionBackwardFilterWorkspaceSize.put(outs)
+	if err := toError(fngetConvolutionBackwardFilterWorkspaceSize(handle, xDesc, dyDesc, convDesc, gradDesc, algo, &outs.out6), "cudnnGetConvolutionBackwardFilterWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out6), nil
+	return int(outs.out6), nil
 }
+
+var slotGetConvolutionBackwardFilterWorkspaceSize outSlot[struct{ out6 uint }]
 
 // getConvolutionForwardAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionForwardAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
 //
@@ -2865,12 +4349,15 @@ func getConvolutionForwardAlgorithmMaxCount(handle Handle) (count int32, err err
 	if err := checkLibSym("cudnnGetConvolutionForwardAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
-	var out1 int32
-	if err := toError(fngetConvolutionForwardAlgorithmMaxCount(handle, &out1), "cudnnGetConvolutionForwardAlgorithmMaxCount"); err != nil {
+	outs := slotGetConvolutionForwardAlgorithmMaxCount.get()
+	defer slotGetConvolutionForwardAlgorithmMaxCount.put(outs)
+	if err := toError(fngetConvolutionForwardAlgorithmMaxCount(handle, &outs.out1), "cudnnGetConvolutionForwardAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
-	return out1, nil
+	return outs.out1, nil
 }
+
+var slotGetConvolutionForwardAlgorithmMaxCount outSlot[struct{ out1 int32 }]
 
 // getConvolutionForwardAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionForward] for the given layer specifications.
 //
@@ -2892,12 +4379,15 @@ func getConvolutionForwardAlgorithm(handle Handle, srcDesc TensorDescriptor, fil
 		return nil, err
 	}
 	out7 := make([]ConvolutionFwdAlgoPerf, requestedAlgoCount)
-	var out6 int32
-	if err := toError(fngetConvolutionForwardAlgorithm(handle, srcDesc, filterDesc, convDesc, destDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnGetConvolutionForwardAlgorithm_v7"); err != nil {
+	outs := slotGetConvolutionForwardAlgorithm.get()
+	defer slotGetConvolutionForwardAlgorithm.put(outs)
+	if err := toError(fngetConvolutionForwardAlgorithm(handle, srcDesc, filterDesc, convDesc, destDesc, int32(requestedAlgoCount), &outs.out6, unsafe.SliceData(out7)), "cudnnGetConvolutionForwardAlgorithm_v7"); err != nil {
 		return nil, err
 	}
-	return out7[:min(int(out6), len(out7))], nil
+	return out7[:min(int(outs.out6), len(out7))], nil
 }
+
+var slotGetConvolutionForwardAlgorithm outSlot[struct{ out6 int32 }]
 
 // getConvolutionForwardWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionForward] with the specified algorithm.
 //
@@ -2922,12 +4412,15 @@ func getConvolutionForwardWorkspaceSize(handle Handle, xDesc TensorDescriptor, w
 	if err := checkLibSym("cudnnGetConvolutionForwardWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out6 uint
-	if err := toError(fngetConvolutionForwardWorkspaceSize(handle, xDesc, wDesc, convDesc, yDesc, algo, &out6), "cudnnGetConvolutionForwardWorkspaceSize"); err != nil {
+	outs := slotGetConvolutionForwardWorkspaceSize.get()
+	defer slotGetConvolutionForwardWorkspaceSize.put(outs)
+	if err := toError(fngetConvolutionForwardWorkspaceSize(handle, xDesc, wDesc, convDesc, yDesc, algo, &outs.out6), "cudnnGetConvolutionForwardWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out6), nil
+	return int(outs.out6), nil
 }
+
+var slotGetConvolutionForwardWorkspaceSize outSlot[struct{ out6 uint }]
 
 // getConvolutionGroupCount returns the group count specified in the given convolution descriptor.
 //
@@ -2944,12 +4437,15 @@ func getConvolutionGroupCount(convDesc ConvolutionDescriptor) (groupCount int32,
 	if err := checkLibSym("cudnnGetConvolutionGroupCount"); err != nil {
 		return 0, err
 	}
-	var out1 int32
-	if err := toError(fngetConvolutionGroupCount(convDesc, &out1), "cudnnGetConvolutionGroupCount"); err != nil {
+	outs := slotGetConvolutionGroupCount.get()
+	defer slotGetConvolutionGroupCount.put(outs)
+	if err := toError(fngetConvolutionGroupCount(convDesc, &outs.out1), "cudnnGetConvolutionGroupCount"); err != nil {
 		return 0, err
 	}
-	return out1, nil
+	return outs.out1, nil
 }
+
+var slotGetConvolutionGroupCount outSlot[struct{ out1 int32 }]
 
 // getConvolutionMathType returns the math type specified in a given convolution descriptor.
 //
@@ -2966,12 +4462,15 @@ func getConvolutionMathType(convDesc ConvolutionDescriptor) (mathType MathType, 
 	if err := checkLibSym("cudnnGetConvolutionMathType"); err != nil {
 		return 0, err
 	}
-	var out1 MathType
-	if err := toError(fngetConvolutionMathType(convDesc, &out1), "cudnnGetConvolutionMathType"); err != nil {
+	outs := slotGetConvolutionMathType.get()
+	defer slotGetConvolutionMathType.put(outs)
+	if err := toError(fngetConvolutionMathType(convDesc, &outs.out1), "cudnnGetConvolutionMathType"); err != nil {
 		return 0, err
 	}
-	return out1, nil
+	return outs.out1, nil
 }
+
+var slotGetConvolutionMathType outSlot[struct{ out1 MathType }]
 
 // ConvolutionConfig holds the settings [ConvolutionDescriptor.Get] reports.
 type ConvolutionConfig struct {
@@ -2989,7 +4488,7 @@ type ConvolutionConfig struct {
 //
 // This function queries a previously initialized convolution descriptor object.
 //
-//   - convDesc: Input. / Output. Handle to a previously created convolution descriptor
+//   - convDesc: Input/Output. Handle to a previously created convolution descriptor
 //   - arrayLengthRequested: Input. Dimension of the expected convolution descriptor. It is also the minimum size of the arrays padA, filterStrideA, and dilationA in order to be able to hold the results
 //
 // Returns:
@@ -3007,20 +4506,25 @@ func getConvolutionNdDescriptor(convDesc ConvolutionDescriptor, arrayLengthReque
 	out3 := make([]int32, arrayLengthRequested)
 	out4 := make([]int32, arrayLengthRequested)
 	out5 := make([]int32, arrayLengthRequested)
-	var out6 ConvolutionMode
-	var out7 DataType
-	var out2 int32
-	if err := toError(fngetConvolutionNdDescriptor(convDesc, int32(arrayLengthRequested), &out2, unsafe.SliceData(out3), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6, &out7), "cudnnGetConvolutionNdDescriptor"); err != nil {
+	outs := slotGetConvolutionNdDescriptor.get()
+	defer slotGetConvolutionNdDescriptor.put(outs)
+	if err := toError(fngetConvolutionNdDescriptor(convDesc, int32(arrayLengthRequested), &outs.out2, unsafe.SliceData(out3), unsafe.SliceData(out4), unsafe.SliceData(out5), &outs.out6, &outs.out7), "cudnnGetConvolutionNdDescriptor"); err != nil {
 		return ConvolutionConfig{}, err
 	}
 	return ConvolutionConfig{
-		PadA:        out3[:min(int(out2), len(out3))],
-		StrideA:     out4[:min(int(out2), len(out4))],
-		DilationA:   out5[:min(int(out2), len(out5))],
-		Mode:        out6,
-		ComputeType: out7,
+		PadA:        out3[:min(int(outs.out2), len(out3))],
+		StrideA:     out4[:min(int(outs.out2), len(out4))],
+		DilationA:   out5[:min(int(outs.out2), len(out5))],
+		Mode:        outs.out6,
+		ComputeType: outs.out7,
 	}, nil
 }
+
+var slotGetConvolutionNdDescriptor outSlot[struct {
+	out6 ConvolutionMode
+	out7 DataType
+	out2 int32
+}]
 
 // getConvolutionNdForwardOutputDim returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
 //
@@ -3068,12 +4572,15 @@ func getConvolutionReorderType(convDesc ConvolutionDescriptor) (reorderType Reor
 	if err := checkLibSym("cudnnGetConvolutionReorderType"); err != nil {
 		return 0, err
 	}
-	var out1 ReorderType
-	if err := toError(fngetConvolutionReorderType(convDesc, &out1), "cudnnGetConvolutionReorderType"); err != nil {
+	outs := slotGetConvolutionReorderType.get()
+	defer slotGetConvolutionReorderType.put(outs)
+	if err := toError(fngetConvolutionReorderType(convDesc, &outs.out1), "cudnnGetConvolutionReorderType"); err != nil {
 		return 0, err
 	}
-	return out1, nil
+	return outs.out1, nil
 }
+
+var slotGetConvolutionReorderType outSlot[struct{ out1 ReorderType }]
 
 // GetCudartVersion The same version of a given cuDNN library can be compiled against different CUDA toolkit versions.
 //
@@ -3102,14 +4609,19 @@ func getDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle) (dropout
 	if err := checkLibSym("cudnnGetDropoutDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
-	var out2 float32
-	var out3 uintptr
-	var out4 uint64
-	if err := toError(fngetDropoutDescriptor(dropoutDesc, handle, &out2, &out3, &out4), "cudnnGetDropoutDescriptor"); err != nil {
+	outs := slotGetDropoutDescriptor.get()
+	defer slotGetDropoutDescriptor.put(outs)
+	if err := toError(fngetDropoutDescriptor(dropoutDesc, handle, &outs.out2, &outs.out3, &outs.out4), "cudnnGetDropoutDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
-	return out2, out3, out4, nil
+	return outs.out2, outs.out3, outs.out4, nil
 }
+
+var slotGetDropoutDescriptor outSlot[struct {
+	out2 float32
+	out3 uintptr
+	out4 uint64
+}]
 
 // Filter4DConfig holds the settings [FilterDescriptor.Get4D] reports.
 type Filter4DConfig struct {
@@ -3142,24 +4654,29 @@ func getFilter4dDescriptor(filterDesc FilterDescriptor) (Filter4DConfig, error) 
 	if err := checkLibSym("cudnnGetFilter4dDescriptor"); err != nil {
 		return Filter4DConfig{}, err
 	}
-	var out1 DataType
-	var out2 TensorFormat
-	var out3 int32
-	var out4 int32
-	var out5 int32
-	var out6 int32
-	if err := toError(fngetFilter4dDescriptor(filterDesc, &out1, &out2, &out3, &out4, &out5, &out6), "cudnnGetFilter4dDescriptor"); err != nil {
+	outs := slotGetFilter4dDescriptor.get()
+	defer slotGetFilter4dDescriptor.put(outs)
+	if err := toError(fngetFilter4dDescriptor(filterDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4, &outs.out5, &outs.out6), "cudnnGetFilter4dDescriptor"); err != nil {
 		return Filter4DConfig{}, err
 	}
 	return Filter4DConfig{
-		DataType: out1,
-		Format:   out2,
-		K:        out3,
-		C:        out4,
-		H:        out5,
-		W:        out6,
+		DataType: outs.out1,
+		Format:   outs.out2,
+		K:        outs.out3,
+		C:        outs.out4,
+		H:        outs.out5,
+		W:        outs.out6,
 	}, nil
 }
+
+var slotGetFilter4dDescriptor outSlot[struct {
+	out1 DataType
+	out2 TensorFormat
+	out3 int32
+	out4 int32
+	out5 int32
+	out6 int32
+}]
 
 // getFilterNdDescriptor queries a previously initialized FilterNd descriptor object.
 //
@@ -3178,15 +4695,20 @@ func getFilterNdDescriptor(filterDesc FilterDescriptor, nbDimsRequested int) (da
 	if err := checkLibSym("cudnnGetFilterNdDescriptor"); err != nil {
 		return 0, 0, nil, err
 	}
-	var out2 DataType
-	var out3 TensorFormat
 	out5 := make([]int32, nbDimsRequested)
-	var out4 int32
-	if err := toError(fngetFilterNdDescriptor(filterDesc, int32(nbDimsRequested), &out2, &out3, &out4, unsafe.SliceData(out5)), "cudnnGetFilterNdDescriptor"); err != nil {
+	outs := slotGetFilterNdDescriptor.get()
+	defer slotGetFilterNdDescriptor.put(outs)
+	if err := toError(fngetFilterNdDescriptor(filterDesc, int32(nbDimsRequested), &outs.out2, &outs.out3, &outs.out4, unsafe.SliceData(out5)), "cudnnGetFilterNdDescriptor"); err != nil {
 		return 0, 0, nil, err
 	}
-	return out2, out3, out5[:min(int(out4), len(out5))], nil
+	return outs.out2, outs.out3, out5[:min(int(outs.out4), len(out5))], nil
 }
+
+var slotGetFilterNdDescriptor outSlot[struct {
+	out2 DataType
+	out3 TensorFormat
+	out4 int32
+}]
 
 // getFilterSizeInBytes returns the size of the filter tensor in memory with respect to the given descriptor.
 //
@@ -3205,12 +4727,15 @@ func getFilterSizeInBytes(filterDesc FilterDescriptor) (size int, err error) {
 	if err := checkLibSym("cudnnGetFilterSizeInBytes"); err != nil {
 		return 0, err
 	}
-	var out1 uint
-	if err := toError(fngetFilterSizeInBytes(filterDesc, &out1), "cudnnGetFilterSizeInBytes"); err != nil {
+	outs := slotGetFilterSizeInBytes.get()
+	defer slotGetFilterSizeInBytes.put(outs)
+	if err := toError(fngetFilterSizeInBytes(filterDesc, &outs.out1), "cudnnGetFilterSizeInBytes"); err != nil {
 		return 0, err
 	}
-	return int(out1), nil
+	return int(outs.out1), nil
 }
+
+var slotGetFilterSizeInBytes outSlot[struct{ out1 uint }]
 
 // getFoldedConvBackwardDataDescriptors calculates folding descriptors for backward data gradients.
 //
@@ -3265,12 +4790,15 @@ func getFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramL
 	if err := checkLibSym("cudnnGetFusedOpsConstParamPackAttribute"); err != nil {
 		return 0, err
 	}
-	var out3 int32
-	if err := toError(fngetFusedOpsConstParamPackAttribute(constPack, paramLabel, param, &out3), "cudnnGetFusedOpsConstParamPackAttribute"); err != nil {
+	outs := slotGetFusedOpsConstParamPackAttribute.get()
+	defer slotGetFusedOpsConstParamPackAttribute.put(outs)
+	if err := toError(fngetFusedOpsConstParamPackAttribute(constPack, paramLabel, param, &outs.out3), "cudnnGetFusedOpsConstParamPackAttribute"); err != nil {
 		return 0, err
 	}
-	return out3, nil
+	return outs.out3, nil
 }
+
+var slotGetFusedOpsConstParamPackAttribute outSlot[struct{ out3 int32 }]
 
 // getFusedOpsVariantParamPackAttribute retrieves the settings of the variable parameter pack descriptor.
 //
@@ -3304,15 +4832,20 @@ func getLRNDescriptor(normDesc LRNDescriptor) (lrnN uint32, lrnAlpha float64, lr
 	if err := checkLibSym("cudnnGetLRNDescriptor"); err != nil {
 		return 0, 0, 0, 0, err
 	}
-	var out1 uint32
-	var out2 float64
-	var out3 float64
-	var out4 float64
-	if err := toError(fngetLRNDescriptor(normDesc, &out1, &out2, &out3, &out4), "cudnnGetLRNDescriptor"); err != nil {
+	outs := slotGetLRNDescriptor.get()
+	defer slotGetLRNDescriptor.put(outs)
+	if err := toError(fngetLRNDescriptor(normDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4), "cudnnGetLRNDescriptor"); err != nil {
 		return 0, 0, 0, 0, err
 	}
-	return out1, out2, out3, out4, nil
+	return outs.out1, outs.out2, outs.out3, outs.out4, nil
 }
+
+var slotGetLRNDescriptor outSlot[struct {
+	out1 uint32
+	out2 float64
+	out3 float64
+	out4 float64
+}]
 
 // GetLastErrorString retrieves the last encountered cuDNN error message in the current thread to a NULL terminated (ASCIIZ) string.
 //
@@ -3343,9 +4876,9 @@ func GetMaxDeviceVersion() (uint, error) {
 	return fnGetMaxDeviceVersion(), nil
 }
 
-// getMultiHeadAttnBuffers computes weight, work, and reserve space buffer sizes used by the following functions:
+// getMultiHeadAttnBuffers computes weight, work, and reserve space buffer sizes used by the following functions: [Handle.MultiHeadAttnForward], [Handle.MultiHeadAttnBackwardData], and [Handle.MultiHeadAttnBackwardWeights].
 //
-// This function computes weight, work, and reserve space buffer sizes used by the following functions:
+// This function computes weight, work, and reserve space buffer sizes used by the following functions: [Handle.MultiHeadAttnForward], [Handle.MultiHeadAttnBackwardData], and [Handle.MultiHeadAttnBackwardWeights].
 // Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights]. This situation occurs in the inference mode.
 // The user must allocate weight, work, and reserve space buffer sizes in the GPU memory using cudaMalloc() with the reported buffer sizes. The buffers can be also carved out from a larger chunk of allocated memory but the buffer addresses must be at least 16B aligned.
 // The workspace buffer is used for temporary storage. Its content can be discarded or modified after all GPU kernels launched by the corresponding API complete. The reserve-space buffer is used to transfer intermediate results from [Handle.MultiHeadAttnForward] to [Handle.MultiHeadAttnBackwardData], and from [Handle.MultiHeadAttnBackwardData] to [Handle.MultiHeadAttnBackwardWeights]. The content of the reserve-space buffer cannot be modified until all GPU kernels launched by the above three multihead attention API functions finish.
@@ -3365,14 +4898,19 @@ func getMultiHeadAttnBuffers(handle Handle, attnDesc AttnDescriptor) (weightSize
 	if err := checkLibSym("cudnnGetMultiHeadAttnBuffers"); err != nil {
 		return 0, 0, 0, err
 	}
-	var out2 uint
-	var out3 uint
-	var out4 uint
-	if err := toError(fngetMultiHeadAttnBuffers(handle, attnDesc, &out2, &out3, &out4), "cudnnGetMultiHeadAttnBuffers"); err != nil {
+	outs := slotGetMultiHeadAttnBuffers.get()
+	defer slotGetMultiHeadAttnBuffers.put(outs)
+	if err := toError(fngetMultiHeadAttnBuffers(handle, attnDesc, &outs.out2, &outs.out3, &outs.out4), "cudnnGetMultiHeadAttnBuffers"); err != nil {
 		return 0, 0, 0, err
 	}
-	return int(out2), int(out3), int(out4), nil
+	return int(outs.out2), int(outs.out3), int(outs.out4), nil
 }
+
+var slotGetMultiHeadAttnBuffers outSlot[struct {
+	out2 uint
+	out3 uint
+	out4 uint
+}]
 
 // getMultiHeadAttnWeights obtains the shape of the weight or bias tensor.
 //
@@ -3399,12 +4937,15 @@ func getMultiHeadAttnWeights(handle Handle, attnDesc AttnDescriptor, wKind Multi
 	if err := checkLibSym("cudnnGetMultiHeadAttnWeights"); err != nil {
 		return 0, err
 	}
-	var out6 uintptr
-	if err := toError(fngetMultiHeadAttnWeights(handle, attnDesc, wKind, uint(weightSizeInBytes), uintptr(weights), wDesc, &out6), "cudnnGetMultiHeadAttnWeights"); err != nil {
+	outs := slotGetMultiHeadAttnWeights.get()
+	defer slotGetMultiHeadAttnWeights.put(outs)
+	if err := toError(fngetMultiHeadAttnWeights(handle, attnDesc, wKind, uint(weightSizeInBytes), uintptr(weights), wDesc, &outs.out6), "cudnnGetMultiHeadAttnWeights"); err != nil {
 		return 0, err
 	}
-	return out6, nil
+	return outs.out6, nil
 }
+
+var slotGetMultiHeadAttnWeights outSlot[struct{ out6 uintptr }]
 
 // getNormalizationBackwardWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationBackward] function for the specified normOps and algo input setting.
 //
@@ -3435,12 +4976,15 @@ func getNormalizationBackwardWorkspaceSize(handle Handle, mode NormMode, normOps
 	if err := checkLibSym("cudnnGetNormalizationBackwardWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out12 uint
-	if err := toError(fngetNormalizationBackwardWorkspaceSize(handle, mode, normOps, algo, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dNormScaleBiasDesc, activationDesc, normMeanVarDesc, &out12, groupCnt), "cudnnGetNormalizationBackwardWorkspaceSize"); err != nil {
+	outs := slotGetNormalizationBackwardWorkspaceSize.get()
+	defer slotGetNormalizationBackwardWorkspaceSize.put(outs)
+	if err := toError(fngetNormalizationBackwardWorkspaceSize(handle, mode, normOps, algo, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dNormScaleBiasDesc, activationDesc, normMeanVarDesc, &outs.out12, groupCnt), "cudnnGetNormalizationBackwardWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out12), nil
+	return int(outs.out12), nil
 }
+
+var slotGetNormalizationBackwardWorkspaceSize outSlot[struct{ out12 uint }]
 
 // getNormalizationForwardTrainingWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationForwardTraining] function for the specified normOps and algo input setting.
 //
@@ -3469,12 +5013,15 @@ func getNormalizationForwardTrainingWorkspaceSize(handle Handle, mode NormMode, 
 	if err := checkLibSym("cudnnGetNormalizationForwardTrainingWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out10 uint
-	if err := toError(fngetNormalizationForwardTrainingWorkspaceSize(handle, mode, normOps, algo, xDesc, zDesc, yDesc, normScaleBiasDesc, activationDesc, normMeanVarDesc, &out10, groupCnt), "cudnnGetNormalizationForwardTrainingWorkspaceSize"); err != nil {
+	outs := slotGetNormalizationForwardTrainingWorkspaceSize.get()
+	defer slotGetNormalizationForwardTrainingWorkspaceSize.put(outs)
+	if err := toError(fngetNormalizationForwardTrainingWorkspaceSize(handle, mode, normOps, algo, xDesc, zDesc, yDesc, normScaleBiasDesc, activationDesc, normMeanVarDesc, &outs.out10, groupCnt), "cudnnGetNormalizationForwardTrainingWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out10), nil
+	return int(outs.out10), nil
 }
+
+var slotGetNormalizationForwardTrainingWorkspaceSize outSlot[struct{ out10 uint }]
 
 // getNormalizationTrainingReserveSpaceSize returns the amount of reserve GPU memory workspace the user should allocate for the normalization operation, for the specified normOps input setting.
 //
@@ -3499,12 +5046,15 @@ func getNormalizationTrainingReserveSpaceSize(handle Handle, mode NormMode, norm
 	if err := checkLibSym("cudnnGetNormalizationTrainingReserveSpaceSize"); err != nil {
 		return 0, err
 	}
-	var out6 uint
-	if err := toError(fngetNormalizationTrainingReserveSpaceSize(handle, mode, normOps, algo, activationDesc, xDesc, &out6, groupCnt), "cudnnGetNormalizationTrainingReserveSpaceSize"); err != nil {
+	outs := slotGetNormalizationTrainingReserveSpaceSize.get()
+	defer slotGetNormalizationTrainingReserveSpaceSize.put(outs)
+	if err := toError(fngetNormalizationTrainingReserveSpaceSize(handle, mode, normOps, algo, activationDesc, xDesc, &outs.out6, groupCnt), "cudnnGetNormalizationTrainingReserveSpaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out6), nil
+	return int(outs.out6), nil
 }
+
+var slotGetNormalizationTrainingReserveSpaceSize outSlot[struct{ out6 uint }]
 
 // getOpTensorDescriptor returns the configuration of the passed tensor pointwise math descriptor.
 //
@@ -3521,14 +5071,19 @@ func getOpTensorDescriptor(opTensorDesc OpTensorDescriptor) (opTensorOp OpTensor
 	if err := checkLibSym("cudnnGetOpTensorDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
-	var out1 OpTensorOp
-	var out2 DataType
-	var out3 NanPropagation
-	if err := toError(fngetOpTensorDescriptor(opTensorDesc, &out1, &out2, &out3), "cudnnGetOpTensorDescriptor"); err != nil {
+	outs := slotGetOpTensorDescriptor.get()
+	defer slotGetOpTensorDescriptor.put(outs)
+	if err := toError(fngetOpTensorDescriptor(opTensorDesc, &outs.out1, &outs.out2, &outs.out3), "cudnnGetOpTensorDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
-	return out1, out2, out3, nil
+	return outs.out1, outs.out2, outs.out3, nil
 }
+
+var slotGetOpTensorDescriptor outSlot[struct {
+	out1 OpTensorOp
+	out2 DataType
+	out3 NanPropagation
+}]
 
 // Pooling2DConfig holds the settings [PoolingDescriptor.Get2D] reports.
 type Pooling2DConfig struct {
@@ -3564,28 +5119,33 @@ func getPooling2dDescriptor(poolingDesc PoolingDescriptor) (Pooling2DConfig, err
 	if err := checkLibSym("cudnnGetPooling2dDescriptor"); err != nil {
 		return Pooling2DConfig{}, err
 	}
-	var out1 PoolingMode
-	var out2 NanPropagation
-	var out3 int32
-	var out4 int32
-	var out5 int32
-	var out6 int32
-	var out7 int32
-	var out8 int32
-	if err := toError(fngetPooling2dDescriptor(poolingDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8), "cudnnGetPooling2dDescriptor"); err != nil {
+	outs := slotGetPooling2dDescriptor.get()
+	defer slotGetPooling2dDescriptor.put(outs)
+	if err := toError(fngetPooling2dDescriptor(poolingDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4, &outs.out5, &outs.out6, &outs.out7, &outs.out8), "cudnnGetPooling2dDescriptor"); err != nil {
 		return Pooling2DConfig{}, err
 	}
 	return Pooling2DConfig{
-		Mode:              out1,
-		MaxpoolingNanOpt:  out2,
-		WindowHeight:      out3,
-		WindowWidth:       out4,
-		VerticalPadding:   out5,
-		HorizontalPadding: out6,
-		VerticalStride:    out7,
-		HorizontalStride:  out8,
+		Mode:              outs.out1,
+		MaxpoolingNanOpt:  outs.out2,
+		WindowHeight:      outs.out3,
+		WindowWidth:       outs.out4,
+		VerticalPadding:   outs.out5,
+		HorizontalPadding: outs.out6,
+		VerticalStride:    outs.out7,
+		HorizontalStride:  outs.out8,
 	}, nil
 }
+
+var slotGetPooling2dDescriptor outSlot[struct {
+	out1 PoolingMode
+	out2 NanPropagation
+	out3 int32
+	out4 int32
+	out5 int32
+	out6 int32
+	out7 int32
+	out8 int32
+}]
 
 // getPooling2dForwardOutputDim provides the output dimensions of a tensor after Pooling2d has been applied.
 //
@@ -3604,15 +5164,20 @@ func getPooling2dForwardOutputDim(poolingDesc PoolingDescriptor, inputTensorDesc
 	if err := checkLibSym("cudnnGetPooling2dForwardOutputDim"); err != nil {
 		return 0, 0, 0, 0, err
 	}
-	var out2 int32
-	var out3 int32
-	var out4 int32
-	var out5 int32
-	if err := toError(fngetPooling2dForwardOutputDim(poolingDesc, inputTensorDesc, &out2, &out3, &out4, &out5), "cudnnGetPooling2dForwardOutputDim"); err != nil {
+	outs := slotGetPooling2dForwardOutputDim.get()
+	defer slotGetPooling2dForwardOutputDim.put(outs)
+	if err := toError(fngetPooling2dForwardOutputDim(poolingDesc, inputTensorDesc, &outs.out2, &outs.out3, &outs.out4, &outs.out5), "cudnnGetPooling2dForwardOutputDim"); err != nil {
 		return 0, 0, 0, 0, err
 	}
-	return out2, out3, out4, out5, nil
+	return outs.out2, outs.out3, outs.out4, outs.out5, nil
 }
+
+var slotGetPooling2dForwardOutputDim outSlot[struct {
+	out2 int32
+	out3 int32
+	out4 int32
+	out5 int32
+}]
 
 // PoolingConfig holds the settings [PoolingDescriptor.Get] reports.
 type PoolingConfig struct {
@@ -3644,23 +5209,28 @@ func getPoolingNdDescriptor(poolingDesc PoolingDescriptor, nbDimsRequested int) 
 	if err := checkLibSym("cudnnGetPoolingNdDescriptor"); err != nil {
 		return PoolingConfig{}, err
 	}
-	var out2 PoolingMode
-	var out3 NanPropagation
 	out5 := make([]int32, nbDimsRequested)
 	out6 := make([]int32, nbDimsRequested)
 	out7 := make([]int32, nbDimsRequested)
-	var out4 int32
-	if err := toError(fngetPoolingNdDescriptor(poolingDesc, int32(nbDimsRequested), &out2, &out3, &out4, unsafe.SliceData(out5), unsafe.SliceData(out6), unsafe.SliceData(out7)), "cudnnGetPoolingNdDescriptor"); err != nil {
+	outs := slotGetPoolingNdDescriptor.get()
+	defer slotGetPoolingNdDescriptor.put(outs)
+	if err := toError(fngetPoolingNdDescriptor(poolingDesc, int32(nbDimsRequested), &outs.out2, &outs.out3, &outs.out4, unsafe.SliceData(out5), unsafe.SliceData(out6), unsafe.SliceData(out7)), "cudnnGetPoolingNdDescriptor"); err != nil {
 		return PoolingConfig{}, err
 	}
 	return PoolingConfig{
-		Mode:             out2,
-		MaxpoolingNanOpt: out3,
-		WindowDimA:       out5[:min(int(out4), len(out5))],
-		PaddingA:         out6[:min(int(out4), len(out6))],
-		StrideA:          out7[:min(int(out4), len(out7))],
+		Mode:             outs.out2,
+		MaxpoolingNanOpt: outs.out3,
+		WindowDimA:       out5[:min(int(outs.out4), len(out5))],
+		PaddingA:         out6[:min(int(outs.out4), len(out6))],
+		StrideA:          out7[:min(int(outs.out4), len(out7))],
 	}, nil
 }
+
+var slotGetPoolingNdDescriptor outSlot[struct {
+	out2 PoolingMode
+	out3 NanPropagation
+	out4 int32
+}]
 
 // getPoolingNdForwardOutputDim provides the output dimensions of a tensor after PoolingNd has been applied.
 //
@@ -3701,13 +5271,16 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetProperty(type_, &out), "cudnnGetProperty"); err != nil {
+	out := slotGetProperty.get()
+	defer slotGetProperty.put(out)
+	if err := toError(fnGetProperty(type_, out), "cudnnGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetProperty outSlot[int32]
 
 // RNNDataConfig holds the settings [RNNDataDescriptor.Get] reports.
 type RNNDataConfig struct {
@@ -3739,24 +5312,29 @@ func getRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, arrayLengthRequested in
 	if err := checkLibSym("cudnnGetRNNDataDescriptor"); err != nil {
 		return RNNDataConfig{}, err
 	}
-	var out1 DataType
-	var out2 RNNDataLayout
-	var out3 int32
-	var out4 int32
-	var out5 int32
 	out7 := make([]int32, arrayLengthRequested)
-	if err := toError(fngetRNNDataDescriptor(rnnDataDesc, &out1, &out2, &out3, &out4, &out5, int32(arrayLengthRequested), unsafe.SliceData(out7), paddingFill), "cudnnGetRNNDataDescriptor"); err != nil {
+	outs := slotGetRNNDataDescriptor.get()
+	defer slotGetRNNDataDescriptor.put(outs)
+	if err := toError(fngetRNNDataDescriptor(rnnDataDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4, &outs.out5, int32(arrayLengthRequested), unsafe.SliceData(out7), paddingFill), "cudnnGetRNNDataDescriptor"); err != nil {
 		return RNNDataConfig{}, err
 	}
 	return RNNDataConfig{
-		DataType:       out1,
-		Layout:         out2,
-		MaxSeqLength:   out3,
-		BatchSize:      out4,
-		VectorSize:     out5,
+		DataType:       outs.out1,
+		Layout:         outs.out2,
+		MaxSeqLength:   outs.out3,
+		BatchSize:      outs.out4,
+		VectorSize:     outs.out5,
 		SeqLengthArray: out7,
 	}, nil
 }
+
+var slotGetRNNDataDescriptor outSlot[struct {
+	out1 DataType
+	out2 RNNDataLayout
+	out3 int32
+	out4 int32
+	out5 int32
+}]
 
 // RNNConfig holds the settings [RNNDescriptor.Get] reports.
 type RNNConfig struct {
@@ -3806,43 +5384,49 @@ func getRNNDescriptor(rnnDesc RNNDescriptor) (RNNConfig, error) {
 	if err := checkLibSym("cudnnGetRNNDescriptor_v8"); err != nil {
 		return RNNConfig{}, err
 	}
-	var out1 RNNAlgo
-	var out2 RNNMode
-	var out3 RNNBiasMode
-	var out4 DirectionMode
-	var out5 RNNInputMode
-	var out6 DataType
-	var out7 DataType
-	var out8 MathType
-	var out9 int32
-	var out10 int32
-	var out11 int32
-	var out12 int32
-	var out13 DropoutDescriptor
-	var out14 uint32
-	if err := toError(fngetRNNDescriptor(rnnDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9, &out10, &out11, &out12, &out13, &out14), "cudnnGetRNNDescriptor_v8"); err != nil {
+	outs := slotGetRNNDescriptor.get()
+	defer slotGetRNNDescriptor.put(outs)
+	if err := toError(fngetRNNDescriptor(rnnDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4, &outs.out5, &outs.out6, &outs.out7, &outs.out8, &outs.out9, &outs.out10, &outs.out11, &outs.out12, &outs.out13, &outs.out14), "cudnnGetRNNDescriptor_v8"); err != nil {
 		return RNNConfig{}, err
 	}
 	return RNNConfig{
-		Algo:        out1,
-		CellMode:    out2,
-		BiasMode:    out3,
-		DirMode:     out4,
-		InputMode:   out5,
-		DataType:    out6,
-		MathPrec:    out7,
-		MathType:    out8,
-		InputSize:   out9,
-		HiddenSize:  out10,
-		ProjSize:    out11,
-		NumLayers:   out12,
-		DropoutDesc: out13,
-		AuxFlags:    out14,
+		Algo:        outs.out1,
+		CellMode:    outs.out2,
+		BiasMode:    outs.out3,
+		DirMode:     outs.out4,
+		InputMode:   outs.out5,
+		DataType:    outs.out6,
+		MathPrec:    outs.out7,
+		MathType:    outs.out8,
+		InputSize:   outs.out9,
+		HiddenSize:  outs.out10,
+		ProjSize:    outs.out11,
+		NumLayers:   outs.out12,
+		DropoutDesc: outs.out13,
+		AuxFlags:    outs.out14,
 	}, nil
 }
 
+var slotGetRNNDescriptor outSlot[struct {
+	out1  RNNAlgo
+	out2  RNNMode
+	out3  RNNBiasMode
+	out4  DirectionMode
+	out5  RNNInputMode
+	out6  DataType
+	out7  DataType
+	out8  MathType
+	out9  int32
+	out10 int32
+	out11 int32
+	out12 int32
+	out13 DropoutDescriptor
+	out14 uint32
+}]
+
 // getRNNTempSpaceSizes computes the work and reserve space buffer sizes based on the RNN network geometry stored in rnnDesc, designated usage (inference or training) defined by the fMode argument, and the current RNN data dimensions ( maxSeqLength, batchSize) retrieved from xDesc.
 //
+// When RNN data dimensions change, the [Handle.RNNTempSpaceSizes] must be called again because RNN temporary buffer sizes are not monotonic.
 // The user can assign NULL to workSpaceSize or reserveSpaceSize pointers when the corresponding value is not needed.
 //
 //   - handle: Input. The current cuDNN context handle
@@ -3859,13 +5443,18 @@ func getRNNTempSpaceSizes(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardM
 	if err := checkLibSym("cudnnGetRNNTempSpaceSizes"); err != nil {
 		return 0, 0, err
 	}
-	var out4 uint
-	var out5 uint
-	if err := toError(fngetRNNTempSpaceSizes(handle, rnnDesc, fwdMode, xDesc, &out4, &out5), "cudnnGetRNNTempSpaceSizes"); err != nil {
+	outs := slotGetRNNTempSpaceSizes.get()
+	defer slotGetRNNTempSpaceSizes.put(outs)
+	if err := toError(fngetRNNTempSpaceSizes(handle, rnnDesc, fwdMode, xDesc, &outs.out4, &outs.out5), "cudnnGetRNNTempSpaceSizes"); err != nil {
 		return 0, 0, err
 	}
-	return int(out4), int(out5), nil
+	return int(outs.out4), int(outs.out5), nil
 }
+
+var slotGetRNNTempSpaceSizes outSlot[struct {
+	out4 uint
+	out5 uint
+}]
 
 // getRNNWeightParams is used to obtain the start address and shape of every RNN weight matrix and bias vector in each pseudo-layer within the recurrent neural network model.
 //
@@ -3889,13 +5478,18 @@ func getRNNWeightParams(handle Handle, rnnDesc RNNDescriptor, pseudoLayer int32,
 	if err := checkLibSym("cudnnGetRNNWeightParams"); err != nil {
 		return 0, 0, err
 	}
-	var out7 uintptr
-	var out9 uintptr
-	if err := toError(fngetRNNWeightParams(handle, rnnDesc, pseudoLayer, uint(weightSpaceSize), uintptr(weightSpace), linLayerID, mDesc, &out7, bDesc, &out9), "cudnnGetRNNWeightParams"); err != nil {
+	outs := slotGetRNNWeightParams.get()
+	defer slotGetRNNWeightParams.put(outs)
+	if err := toError(fngetRNNWeightParams(handle, rnnDesc, pseudoLayer, uint(weightSpaceSize), uintptr(weightSpace), linLayerID, mDesc, &outs.out7, bDesc, &outs.out9), "cudnnGetRNNWeightParams"); err != nil {
 		return 0, 0, err
 	}
-	return out7, out9, nil
+	return outs.out7, outs.out9, nil
 }
+
+var slotGetRNNWeightParams outSlot[struct {
+	out7 uintptr
+	out9 uintptr
+}]
 
 // getRNNWeightSpaceSize reports the required size of the weight space buffer in bytes.
 //
@@ -3914,12 +5508,15 @@ func getRNNWeightSpaceSize(handle Handle, rnnDesc RNNDescriptor) (weightSpaceSiz
 	if err := checkLibSym("cudnnGetRNNWeightSpaceSize"); err != nil {
 		return 0, err
 	}
-	var out2 uint
-	if err := toError(fngetRNNWeightSpaceSize(handle, rnnDesc, &out2), "cudnnGetRNNWeightSpaceSize"); err != nil {
+	outs := slotGetRNNWeightSpaceSize.get()
+	defer slotGetRNNWeightSpaceSize.put(outs)
+	if err := toError(fngetRNNWeightSpaceSize(handle, rnnDesc, &outs.out2), "cudnnGetRNNWeightSpaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out2), nil
+	return int(outs.out2), nil
 }
+
+var slotGetRNNWeightSpaceSize outSlot[struct{ out2 uint }]
 
 // ReduceTensorConfig holds the settings [ReduceTensorDescriptor.Get] reports.
 type ReduceTensorConfig struct {
@@ -3950,24 +5547,29 @@ func getReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor) (ReduceT
 	if err := checkLibSym("cudnnGetReduceTensorDescriptor"); err != nil {
 		return ReduceTensorConfig{}, err
 	}
-	var out1 ReduceTensorOp
-	var out2 DataType
-	var out3 NanPropagation
-	var out4 ReduceTensorIndices
-	var out5 IndicesType
-	if err := toError(fngetReduceTensorDescriptor(reduceTensorDesc, &out1, &out2, &out3, &out4, &out5), "cudnnGetReduceTensorDescriptor"); err != nil {
+	outs := slotGetReduceTensorDescriptor.get()
+	defer slotGetReduceTensorDescriptor.put(outs)
+	if err := toError(fngetReduceTensorDescriptor(reduceTensorDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4, &outs.out5), "cudnnGetReduceTensorDescriptor"); err != nil {
 		return ReduceTensorConfig{}, err
 	}
 	return ReduceTensorConfig{
-		ReduceTensorOp:          out1,
-		ReduceTensorCompType:    out2,
-		ReduceTensorNanOpt:      out3,
-		ReduceTensorIndices:     out4,
-		ReduceTensorIndicesType: out5,
+		ReduceTensorOp:          outs.out1,
+		ReduceTensorCompType:    outs.out2,
+		ReduceTensorNanOpt:      outs.out3,
+		ReduceTensorIndices:     outs.out4,
+		ReduceTensorIndicesType: outs.out5,
 	}, nil
 }
 
-// getReductionIndicesSize This is a helper function to return the minimum size of the index space to be passed to the reduction given the input and output tensors.
+var slotGetReduceTensorDescriptor outSlot[struct {
+	out1 ReduceTensorOp
+	out2 DataType
+	out3 NanPropagation
+	out4 ReduceTensorIndices
+	out5 IndicesType
+}]
+
+// getReductionIndicesSize is a helper function to return the minimum size of the index space to be passed to the reduction given the input and output tensors.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor
 //   - aDesc: Input. Pointer to the input tensor descriptor
@@ -3983,14 +5585,17 @@ func getReductionIndicesSize(handle Handle, reduceTensorDesc ReduceTensorDescrip
 	if err := checkLibSym("cudnnGetReductionIndicesSize"); err != nil {
 		return 0, err
 	}
-	var out4 uint
-	if err := toError(fngetReductionIndicesSize(handle, reduceTensorDesc, aDesc, cDesc, &out4), "cudnnGetReductionIndicesSize"); err != nil {
+	outs := slotGetReductionIndicesSize.get()
+	defer slotGetReductionIndicesSize.put(outs)
+	if err := toError(fngetReductionIndicesSize(handle, reduceTensorDesc, aDesc, cDesc, &outs.out4), "cudnnGetReductionIndicesSize"); err != nil {
 		return 0, err
 	}
-	return int(out4), nil
+	return int(outs.out4), nil
 }
 
-// getReductionWorkspaceSize This is a helper function to return the minimum size of the workspace to be passed to the reduction given the input and output tensors.
+var slotGetReductionIndicesSize outSlot[struct{ out4 uint }]
+
+// getReductionWorkspaceSize is a helper function to return the minimum size of the workspace to be passed to the reduction given the input and output tensors.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor
 //   - aDesc: Input. Pointer to the input tensor descriptor
@@ -4006,12 +5611,15 @@ func getReductionWorkspaceSize(handle Handle, reduceTensorDesc ReduceTensorDescr
 	if err := checkLibSym("cudnnGetReductionWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	var out4 uint
-	if err := toError(fngetReductionWorkspaceSize(handle, reduceTensorDesc, aDesc, cDesc, &out4), "cudnnGetReductionWorkspaceSize"); err != nil {
+	outs := slotGetReductionWorkspaceSize.get()
+	defer slotGetReductionWorkspaceSize.put(outs)
+	if err := toError(fngetReductionWorkspaceSize(handle, reduceTensorDesc, aDesc, cDesc, &outs.out4), "cudnnGetReductionWorkspaceSize"); err != nil {
 		return 0, err
 	}
-	return int(out4), nil
+	return int(outs.out4), nil
 }
+
+var slotGetReductionWorkspaceSize outSlot[struct{ out4 uint }]
 
 // getSeqDataDescriptor retrieves settings from a previously created sequence data descriptor.
 //
@@ -4037,17 +5645,22 @@ func getSeqDataDescriptor(seqDataDesc SeqDataDescriptor, nbDimsRequested int, se
 	if err := checkLibSym("cudnnGetSeqDataDescriptor"); err != nil {
 		return 0, nil, nil, nil, err
 	}
-	var out1 DataType
 	out4 := make([]int32, nbDimsRequested)
 	out5 := make([]SeqDataAxis, nbDimsRequested)
 	out8 := make([]int32, seqLengthSizeRequested)
-	var out2 int32
-	var out6 uint
-	if err := toError(fngetSeqDataDescriptor(seqDataDesc, &out1, &out2, int32(nbDimsRequested), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6, uint(seqLengthSizeRequested), unsafe.SliceData(out8), paddingFill), "cudnnGetSeqDataDescriptor"); err != nil {
+	outs := slotGetSeqDataDescriptor.get()
+	defer slotGetSeqDataDescriptor.put(outs)
+	if err := toError(fngetSeqDataDescriptor(seqDataDesc, &outs.out1, &outs.out2, int32(nbDimsRequested), unsafe.SliceData(out4), unsafe.SliceData(out5), &outs.out6, uint(seqLengthSizeRequested), unsafe.SliceData(out8), paddingFill), "cudnnGetSeqDataDescriptor"); err != nil {
 		return 0, nil, nil, nil, err
 	}
-	return out1, out4[:min(int(out2), len(out4))], out5[:min(int(out2), len(out5))], out8[:min(int(out6), len(out8))], nil
+	return outs.out1, out4[:min(int(outs.out2), len(out4))], out5[:min(int(outs.out2), len(out5))], out8[:min(int(outs.out6), len(out8))], nil
 }
+
+var slotGetSeqDataDescriptor outSlot[struct {
+	out1 DataType
+	out2 int32
+	out6 uint
+}]
 
 // getStream retrieves the user CUDA stream programmed in the cuDNN handle.
 //
@@ -4065,13 +5678,16 @@ func getStream(handle Handle) (driver.Stream, error) {
 		var zero driver.Stream
 		return zero, err
 	}
-	var out driver.Stream
-	if err := toError(fngetStream(handle, &out), "cudnnGetStream"); err != nil {
+	out := slotGetStream.get()
+	defer slotGetStream.put(out)
+	if err := toError(fngetStream(handle, out), "cudnnGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStream outSlot[driver.Stream]
 
 // Tensor4DConfig holds the settings [TensorDescriptor.Get4D] reports.
 type Tensor4DConfig struct {
@@ -4106,30 +5722,35 @@ func getTensor4dDescriptor(tensorDesc TensorDescriptor) (Tensor4DConfig, error) 
 	if err := checkLibSym("cudnnGetTensor4dDescriptor"); err != nil {
 		return Tensor4DConfig{}, err
 	}
-	var out1 DataType
-	var out2 int32
-	var out3 int32
-	var out4 int32
-	var out5 int32
-	var out6 int32
-	var out7 int32
-	var out8 int32
-	var out9 int32
-	if err := toError(fngetTensor4dDescriptor(tensorDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9), "cudnnGetTensor4dDescriptor"); err != nil {
+	outs := slotGetTensor4dDescriptor.get()
+	defer slotGetTensor4dDescriptor.put(outs)
+	if err := toError(fngetTensor4dDescriptor(tensorDesc, &outs.out1, &outs.out2, &outs.out3, &outs.out4, &outs.out5, &outs.out6, &outs.out7, &outs.out8, &outs.out9), "cudnnGetTensor4dDescriptor"); err != nil {
 		return Tensor4DConfig{}, err
 	}
 	return Tensor4DConfig{
-		DataType: out1,
-		N:        out2,
-		C:        out3,
-		H:        out4,
-		W:        out5,
-		NStride:  out6,
-		CStride:  out7,
-		HStride:  out8,
-		WStride:  out9,
+		DataType: outs.out1,
+		N:        outs.out2,
+		C:        outs.out3,
+		H:        outs.out4,
+		W:        outs.out5,
+		NStride:  outs.out6,
+		CStride:  outs.out7,
+		HStride:  outs.out8,
+		WStride:  outs.out9,
 	}, nil
 }
+
+var slotGetTensor4dDescriptor outSlot[struct {
+	out1 DataType
+	out2 int32
+	out3 int32
+	out4 int32
+	out5 int32
+	out6 int32
+	out7 int32
+	out8 int32
+	out9 int32
+}]
 
 // getTensorNdDescriptor retrieves values stored in a previously initialized TensorNd descriptor object.
 //
@@ -4145,15 +5766,20 @@ func getTensorNdDescriptor(tensorDesc TensorDescriptor, nbDimsRequested int) (da
 	if err := checkLibSym("cudnnGetTensorNdDescriptor"); err != nil {
 		return 0, nil, nil, err
 	}
-	var out2 DataType
 	out4 := make([]int32, nbDimsRequested)
 	out5 := make([]int32, nbDimsRequested)
-	var out3 int32
-	if err := toError(fngetTensorNdDescriptor(tensorDesc, int32(nbDimsRequested), &out2, &out3, unsafe.SliceData(out4), unsafe.SliceData(out5)), "cudnnGetTensorNdDescriptor"); err != nil {
+	outs := slotGetTensorNdDescriptor.get()
+	defer slotGetTensorNdDescriptor.put(outs)
+	if err := toError(fngetTensorNdDescriptor(tensorDesc, int32(nbDimsRequested), &outs.out2, &outs.out3, unsafe.SliceData(out4), unsafe.SliceData(out5)), "cudnnGetTensorNdDescriptor"); err != nil {
 		return 0, nil, nil, err
 	}
-	return out2, out4[:min(int(out3), len(out4))], out5[:min(int(out3), len(out5))], nil
+	return outs.out2, out4[:min(int(outs.out3), len(out4))], out5[:min(int(outs.out3), len(out5))], nil
 }
+
+var slotGetTensorNdDescriptor outSlot[struct {
+	out2 DataType
+	out3 int32
+}]
 
 // getTensorSizeInBytes returns the size of the tensor in memory in respect to the given descriptor.
 //
@@ -4169,20 +5795,26 @@ func getTensorSizeInBytes(tensorDesc TensorDescriptor) (size int, err error) {
 	if err := checkLibSym("cudnnGetTensorSizeInBytes"); err != nil {
 		return 0, err
 	}
-	var out1 uint
-	if err := toError(fngetTensorSizeInBytes(tensorDesc, &out1), "cudnnGetTensorSizeInBytes"); err != nil {
+	outs := slotGetTensorSizeInBytes.get()
+	defer slotGetTensorSizeInBytes.put(outs)
+	if err := toError(fngetTensorSizeInBytes(tensorDesc, &outs.out1), "cudnnGetTensorSizeInBytes"); err != nil {
 		return 0, err
 	}
-	return int(out1), nil
+	return int(outs.out1), nil
 }
+
+var slotGetTensorSizeInBytes outSlot[struct{ out1 uint }]
 
 // TensorTransformConfig holds the settings [TensorTransformDescriptor.Get] reports.
 type TensorTransformConfig struct {
 	// The transform format that will be returned.
 	DestFormat TensorFormat
+	// An array filled with the amount of padding to add before each dimension. The dimension of this padBeforeA[] parameter is equal to nbDimsRequested.
 	PadBeforeA []int32
-	PadAfterA  []int32
-	FoldA      []uint32
+	// An array filled with the amount of padding to add after each dimension. The dimension of this padBeforeA[] parameter is equal to nbDimsRequested.
+	PadAfterA []int32
+	// An array that was filled with the folding parameters for each spatial dimension. The dimension of this foldA[] array is nbDimsRequested-2.
+	FoldA []uint32
 	// The setting that selects folding or unfolding. For more information, refer to [FoldingDirection].
 	Direction FoldingDirection
 }
@@ -4205,22 +5837,27 @@ func getTensorTransformDescriptor(transformDesc TensorTransformDescriptor, nbDim
 	if err := checkLibSym("cudnnGetTensorTransformDescriptor"); err != nil {
 		return TensorTransformConfig{}, err
 	}
-	var out2 TensorFormat
 	out3 := make([]int32, nbDimsRequested)
 	out4 := make([]int32, nbDimsRequested)
 	out5 := make([]uint32, nbDimsRequested)
-	var out6 FoldingDirection
-	if err := toError(fngetTensorTransformDescriptor(transformDesc, uint32(nbDimsRequested), &out2, unsafe.SliceData(out3), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6), "cudnnGetTensorTransformDescriptor"); err != nil {
+	outs := slotGetTensorTransformDescriptor.get()
+	defer slotGetTensorTransformDescriptor.put(outs)
+	if err := toError(fngetTensorTransformDescriptor(transformDesc, uint32(nbDimsRequested), &outs.out2, unsafe.SliceData(out3), unsafe.SliceData(out4), unsafe.SliceData(out5), &outs.out6), "cudnnGetTensorTransformDescriptor"); err != nil {
 		return TensorTransformConfig{}, err
 	}
 	return TensorTransformConfig{
-		DestFormat: out2,
+		DestFormat: outs.out2,
 		PadBeforeA: out3,
 		PadAfterA:  out4,
 		FoldA:      out5,
-		Direction:  out6,
+		Direction:  outs.out6,
 	}, nil
 }
+
+var slotGetTensorTransformDescriptor outSlot[struct {
+	out2 TensorFormat
+	out6 FoldingDirection
+}]
 
 // GetVersion returns the version number of the cuDNN library.
 //
@@ -4299,12 +5936,15 @@ func initTransformDest(transformDesc TensorTransformDescriptor, srcDesc TensorDe
 	if err := checkLibSym("cudnnInitTransformDest"); err != nil {
 		return 0, err
 	}
-	var out3 uint
-	if err := toError(fninitTransformDest(transformDesc, srcDesc, destDesc, &out3), "cudnnInitTransformDest"); err != nil {
+	outs := slotInitTransformDest.get()
+	defer slotInitTransformDest.put(outs)
+	if err := toError(fninitTransformDest(transformDesc, srcDesc, destDesc, &outs.out3), "cudnnInitTransformDest"); err != nil {
 		return 0, err
 	}
-	return int(out3), nil
+	return int(outs.out3), nil
 }
+
+var slotInitTransformDest outSlot[struct{ out3 uint }]
 
 // lRNCrossChannelBackward performs the backward LRN layer computation.
 //
@@ -4383,21 +6023,28 @@ func makeFusedOpsPlan(handle Handle, plan FusedOpsPlan, constPack FusedOpsConstP
 	if err := checkLibSym("cudnnMakeFusedOpsPlan"); err != nil {
 		return 0, err
 	}
-	var out3 uint
-	if err := toError(fnmakeFusedOpsPlan(handle, plan, constPack, &out3), "cudnnMakeFusedOpsPlan"); err != nil {
+	outs := slotMakeFusedOpsPlan.get()
+	defer slotMakeFusedOpsPlan.put(outs)
+	if err := toError(fnmakeFusedOpsPlan(handle, plan, constPack, &outs.out3), "cudnnMakeFusedOpsPlan"); err != nil {
 		return 0, err
 	}
-	return int(out3), nil
+	return int(outs.out3), nil
 }
+
+var slotMakeFusedOpsPlan outSlot[struct{ out3 uint }]
 
 // multiHeadAttnBackwardData computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V.
 //
-// This function computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn as an input (with all other parameters and inputs constant), and outputs vector χϵRm, then [Handle.MultiHeadAttnBackwardData] computes the result of (∂yi/∂xj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂xj is the mxn Jacobian matrix of F(x). The input is supplied via the dout argument and gradient results for Q, K, V are written to the dqueries, dkeys, and dvalues buffers.
+// This function computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRⁿ as an input (with all other parameters and inputs constant), and outputs vector χϵRᵐ, then [Handle.MultiHeadAttnBackwardData] computes the result of (∂yi/∂xj)ᵀδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂xj is the mxn Jacobian matrix of F(x). The input is supplied via the dout argument and gradient results for Q, K, V are written to the dqueries, dkeys, and dvalues buffers.
 // The [Handle.MultiHeadAttnBackwardData] function does not output partial derivatives for residual connections because this result is equal to δout. If the multihead attention model enables residual connections sourced directly from Q, then the dout tensor needs to be added to dqueries to obtain the correct result of the latter. This operation is demonstrated in the cuDNN multiHeadAttention sample code.
 // The [Handle.MultiHeadAttnBackwardData] function must be invoked after [Handle.MultiHeadAttnForward]. The loWinIdx[], hiWinIdx[], queries, keys, values, weights, and reserveSpace arguments should be the same as in the [Handle.MultiHeadAttnForward] call. devSeqLengthsDQDO[] and devSeqLengthsDKDV[] device arrays should contain the same start and end attention window indices as devSeqLengthsQO[] and devSeqLengthsKV[] arrays in the forward function invocation.
 //
 //   - handle: Input. The current cuDNN context handle
 //   - attnDesc: Input. A previously initialized attention descriptor
+//   - loWinIdx: Input. Two host integer arrays specifying the start and end indices of the attention window for each Q time-step. The start index in K, V sets is inclusive, and the end index is exclusive
+//   - hiWinIdx: Input. Two host integer arrays specifying the start and end indices of the attention window for each Q time-step. The start index in K, V sets is inclusive, and the end index is exclusive
+//   - devSeqLengthsDQDO: Input. Device array containing a copy of the sequence length array from the dqDesc or doDesc sequence data descriptor
+//   - devSeqLengthsDKDV: Input. Device array containing a copy of the sequence length array from the dkDesc or dvDesc sequence data descriptor
 //   - doDesc: Input. Descriptor for the δout gradients (vectors of partial derivatives of the loss function with respect to the multihead attention outputs)
 //   - dout: Input. Pointer to the δout gradient data in the device memory
 //   - dqDesc: Input. Descriptor for queries and dqueries sequence data
@@ -4412,9 +6059,9 @@ func makeFusedOpsPlan(handle Handle, plan FusedOpsPlan, constPack FusedOpsConstP
 //   - weightSizeInBytes: Input. Size of the weight buffer in bytes where all multihead attention trainable parameters are stored
 //   - weights: Input. Address of the weight buffer in the device memory
 //   - workSpaceSizeInBytes: Input. Size of the workspace buffer in bytes used for temporary API storage
-//   - workSpace: Input. / Output. Address of the workspace buffer in the device memory
+//   - workSpace: Input/Output. Address of the workspace buffer in the device memory
 //   - reserveSpaceSizeInBytes: Input. Size of the reserve-space buffer in bytes used for data exchange between forward and backward (gradient) API calls
-//   - reserveSpace: Input. / Output. Address to the reserve-space buffer in the device memory
+//   - reserveSpace: Input/Output. Address to the reserve-space buffer in the device memory
 //
 // Returns:
 //   - [ErrAllocFailed]: Insufficient amount of shared memory to launch a GPU kernel.
@@ -4439,7 +6086,7 @@ func multiHeadAttnBackwardData(handle Handle, attnDesc AttnDescriptor, loWinIdx 
 
 // multiHeadAttnBackwardWeights computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases.
 //
-// This function computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn of “flatten” weights or biases as an input (with all other parameters and inputs fixed), and outputs vector χϵRm, then [Handle.MultiHeadAttnBackwardWeights] computes the result of (∂yi/∂wj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂wj is the mxn Jacobian matrix of F(w). The δout input is supplied via the dout argument.
+// This function computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRⁿ of “flatten” weights or biases as an input (with all other parameters and inputs fixed), and outputs vector χϵRᵐ, then [Handle.MultiHeadAttnBackwardWeights] computes the result of (∂yi/∂wj)ᵀδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂wj is the mxn Jacobian matrix of F(w). The δout input is supplied via the dout argument.
 // All gradient results with respect to weights and biases are written to the dweights buffer. The size and the organization of the dweights buffer is the same as the weights buffer that holds multihead attention weights and biases. The cuDNN multiHeadAttention sample code demonstrates how to access those weights.
 // Gradient of the loss function with respect to weights or biases is typically computed over multiple batches. In such a case, partial results computed for each batch should be summed together. The addGrad argument specifies if the gradients from the current batch should be added to previously computed results or the dweights buffer should be overwritten with the new results.
 // The [Handle.MultiHeadAttnBackwardWeights] function should be invoked after [Handle.MultiHeadAttnBackwardData]. The queries, keys, values, weights, and reserveSpace arguments should be the same as in [Handle.MultiHeadAttnForward] and [Handle.MultiHeadAttnBackwardData] calls. The dout argument should be the same as in [Handle.MultiHeadAttnBackwardData].
@@ -4459,9 +6106,9 @@ func multiHeadAttnBackwardData(handle Handle, attnDesc AttnDescriptor, loWinIdx 
 //   - weights: Input. Address of the weight buffer in the device memory
 //   - dweights: Output. Address of the weight gradient buffer in the device memory
 //   - workSpaceSizeInBytes: Input. Size of the workspace buffer in bytes used for temporary API storage
-//   - workSpace: Input. / Output. Address of the workspace buffer in the device memory
+//   - workSpace: Input/Output. Address of the workspace buffer in the device memory
 //   - reserveSpaceSizeInBytes: Input. Size of the reserve-space buffer in bytes used for data exchange between forward and backward (gradient) API calls
-//   - reserveSpace: Input. / Output. Address to the reserve-space buffer in the device memory
+//   - reserveSpace: Input/Output. Address to the reserve-space buffer in the device memory
 //
 // Returns:
 //   - [ErrBadParam]: An invalid or incompatible input argument was encountered.
@@ -4503,6 +6150,10 @@ func multiHeadAttnBackwardWeights(handle Handle, attnDesc AttnDescriptor, addGra
 //   - handle: Input. The current cuDNN context handle
 //   - attnDesc: Input. A previously initialized attention descriptor
 //   - currIdx: Input. Time-step in queries to process. When the currIdx argument is negative, all Q time-steps are processed. When currIdx is zero or positive, the forward response is computed for the selected time-step only. The latter input can be used in inference mode only, to process one time-step while updating the next attention window and Q, R, K, V inputs in-between calls
+//   - loWinIdx: Input. Two host integer arrays specifying the start and end indices of the attention window for each Q time-step. The start index in K, V sets is inclusive, and the end index is exclusive
+//   - hiWinIdx: Input. Two host integer arrays specifying the start and end indices of the attention window for each Q time-step. The start index in K, V sets is inclusive, and the end index is exclusive
+//   - devSeqLengthsQO: Input. Device array specifying sequence lengths of query, residual, and output sequence data
+//   - devSeqLengthsKV: Input. Device array specifying sequence lengths of key and value input data
 //   - qDesc: Input. Descriptor for the query and residual sequence data
 //   - queries: Input. Pointer to queries data in the device memory
 //   - residuals: Input. Pointer to residual data in device memory. Set this argument to NULL if no residual connections are required
@@ -4515,9 +6166,9 @@ func multiHeadAttnBackwardWeights(handle Handle, attnDesc AttnDescriptor, addGra
 //   - weightSizeInBytes: Input. Size of the weight buffer in bytes where all multihead attention trainable parameters are stored
 //   - weights: Input. Pointer to the weight buffer in device memory
 //   - workSpaceSizeInBytes: Input. Size of the workspace buffer in bytes used for temporary API storage
-//   - workSpace: Input. / Output. Pointer to the workspace buffer in device memory
+//   - workSpace: Input/Output. Pointer to the workspace buffer in device memory
 //   - reserveSpaceSizeInBytes: Input. Size of the reserve-space buffer in bytes used for data exchange between forward and backward (gradient) API calls. This parameter should be zero in the inference mode and non-zero in the training mode
-//   - reserveSpace: Input. / Output. Pointer to the reserve-space buffer in device memory. This argument should be NULL in inference mode and non-NULL in the training mode
+//   - reserveSpace: Input/Output. Pointer to the reserve-space buffer in device memory. This argument should be NULL in inference mode and non-NULL in the training mode
 //
 // Returns:
 //   - [ErrAllocFailed]: Insufficient amount of shared memory to launch a GPU kernel.
@@ -4554,16 +6205,32 @@ func multiHeadAttnForward(handle Handle, attnDesc AttnDescriptor, currIdx int32,
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
 //   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
+//   - alphaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaDataDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient output dx with a prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - alphaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dNormScaleData and dNormBiasData with prior values in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - betaParamDiff: Input. Pointers to scaling factors (in host memory) used to blend the gradient outputs dNormScaleData and dNormBiasData with prior values in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - xData: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - yDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - yData: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - dyDesc: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dyData: Input. Tensor descriptors and pointers in the device memory for the layer’s x data, backpropagated gradient input dy, the original forward output y data. yDesc and yData are not needed if normOps is set to [NormOpsNorm], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - dzDesc: Input. Tensor descriptors and pointers in the device memory for the computed gradient output dz and dx. dzDesc is not needed when normOps is [NormOpsNorm] or [NormOpsNormActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dzData: Output. Tensor descriptors and pointers in the device memory for the computed gradient output dz and dx. *dzData is not needed when normOps is [NormOpsNorm] or [NormOpsNormActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - dxDesc: Input. Tensor descriptors and pointers in the device memory for the computed gradient output dz and dx. dzDesc is not needed when normOps is [NormOpsNorm] or [NormOpsNormActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
+//   - dxData: Output. Tensor descriptors and pointers in the device memory for the computed gradient output dz and dx. *dzData is not needed when normOps is [NormOpsNorm] or [NormOpsNormActivation], users may pass NULL. For more information, refer to [TensorDescriptor]
 //   - dNormScaleBiasDesc: Input. Shared tensor descriptor for the following six tensors: normScaleData, normBiasData, dNormScaleData, and dNormBiasData. The dimensions for this tensor descriptor are dependent on normalization mode. The data type of this tensor descriptor must be float for FP16 and FP32 input tensors and double for FP64 input tensors. For more information, refer to [TensorDescriptor]
+//   - normScaleData: Input. Pointer in the device memory for the normalization scale parameter (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, the quantity scale is referred to as gamma)
+//   - normBiasData: Input. Pointers in the device memory for the normalization bias parameter (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta). This parameter is used only when activation should be performed
+//   - dNormScaleData: Output. Pointers in the device memory for the gradients of normScaleData and normBiasData, respectively
+//   - dNormBiasData: Output. Pointers in the device memory for the gradients of normScaleData and normBiasData, respectively
 //   - epsilon: Input. Epsilon value used in normalization formula. Its value should be equal to or greater than zero. The same epsilon value should be used in forward and backward functions
 //   - normMeanVarDesc: Input. Shared tensor descriptor for the following tensors: savedMean and savedInvVariance. The dimensions for this tensor descriptor are dependent on normalization mode. The data type of this tensor descriptor must be float for FP16 and FP32 input tensors and double for FP64 input tensors. For more information, refer to [TensorDescriptor]
+//   - savedMean: Input. Optional cache parameters containing saved intermediate results computed during the forward pass. For this to work correctly, the layer’s x and normScaleData, normBiasData data has to remain unchanged until this backward function is called. Note that both these parameters can be NULL but only at the same time. It is recommended to use this cache since the memory overhead is relatively small
+//   - savedInvVariance: Input. Optional cache parameters containing saved intermediate results computed during the forward pass. For this to work correctly, the layer’s x and normScaleData, normBiasData data has to remain unchanged until this backward function is called. Note that both these parameters can be NULL but only at the same time. It is recommended to use this cache since the memory overhead is relatively small
 //   - activationDesc: Input. Descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation] then this activation is used, otherwise the user may pass NULL
 //   - workSpaceSizeInBytes: Input. The size of the workspace. It must be large enough to trigger the fast NHWC semi-persistent kernel by this function
+//   - reserveSpace: Input. Pointer to the GPU workspace for the reserveSpace
 //   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. It must be equal or larger than the amount required by [Handle.NormalizationTrainingReserveSpaceSize]
 //
 // Returns:
@@ -4597,7 +6264,10 @@ func normalizationBackward(handle Handle, mode NormMode, normOps NormOps, algo N
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
 //   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handles to the previously initialized tensor descriptors
+//   - x: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x input data
 //   - normScaleBiasDesc: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
 //   - normScale: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
 //   - normBias: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
@@ -4605,8 +6275,10 @@ func normalizationBackward(handle Handle, mode NormMode, normOps NormOps, algo N
 //   - estimatedMean: Input. Mean and variance tensors and their tensor descriptors. The estimatedMean and estimatedVariance inputs, accumulated during the training phase from the [Handle.NormalizationForwardTraining] call, should be passed as inputs here
 //   - estimatedVariance: Input. Mean and variance tensors and their tensor descriptors. The estimatedMean and estimatedVariance inputs, accumulated during the training phase from the [Handle.NormalizationForwardTraining] call, should be passed as inputs here
 //   - zDesc: Input. Tensor descriptors and pointers in device memory for residual addition to the result of the normalization operation, prior to the activation. zDesc and *z are optional and are only used when normOps is [NormOpsNormAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]. Since normOps is only supported for [NormOpsNorm], we can set these to NULL for now
+//   - z: Input. Tensor descriptors and pointers in device memory for residual addition to the result of the normalization operation, prior to the activation. zDesc and *z are optional and are only used when normOps is [NormOpsNormAddActivation], otherwise users may pass NULL. When in use, z should have exactly the same dimension as x and the final output y. For more information, refer to [TensorDescriptor]. Since normOps is only supported for [NormOpsNorm], we can set these to NULL for now
 //   - activationDesc: Input. Descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation] then this activation is used, otherwise the user may pass NULL. Since normOps is only supported for [NormOpsNorm], we can set these to NULL for now
 //   - yDesc: Input. Handles to the previously initialized tensor descriptors
+//   - y: Output. Data pointer to GPU memory associated with the tensor descriptor yDesc, for the y output of the normalization layer
 //   - epsilon: Input. Epsilon value used in the normalization formula. Its value should be equal to or greater than zero
 //
 // Returns:
@@ -4641,17 +6313,28 @@ func normalizationForwardInference(handle Handle, mode NormMode, normOps NormOps
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
 //   - normOps: Input. Mode of post-operative. Currently [NormOpsNormActivation] and [NormOpsNormAddActivation] are only supported in the NHWC layout. For more information, refer to [NormOps]. This input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
+//   - alpha: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
+//   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - xDesc: Input. Handles to the previously initialized tensor descriptors
+//   - xData: Input. Data pointer to GPU memory associated with the tensor descriptor xDesc, for the layer’s x input data
 //   - normScaleBiasDesc: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
 //   - normScale: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
 //   - normBias: Input. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma). The dimensions for the tensor descriptor are dependent on the normalization mode
 //   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows: runningMean = runningMean*(1-factor) + newMean*factor. Use a factor=1/(1+n) at N-th call to the function to get Cumulative Moving Average (CMA) behavior such that: CMAn = (x [1]+...+xn)/n. This is proved below:
 //   - normMeanVarDesc: Input. Tensor descriptor used for following tensors: resultRunningMean, resultRunningVariance, resultSaveMean, resultSaveInvVariance
+//   - resultRunningMean: Input/Output. Pointers to the running mean and running variance data. Both these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
+//   - resultRunningVariance: Input/Output. Pointers to the running mean and running variance data. Both these pointers can be NULL but only at the same time. The value stored in resultRunningVariance (or passed as an input in inference mode) is the sample variance and is the moving average of variancex where the variance is computed either over batch or spatial+batch dimensions depending on the mode. If these pointers are not NULL, the tensors should be initialized to some reasonable values or to 0
 //   - epsilon: Input. Epsilon value used in the normalization formula. Its value should be equal to or greater than zero
+//   - resultSaveMean: Output. Optional cache parameters containing saved intermediate results computed during the forward pass. For this to work correctly, the layer’s x and normScale, normBias data has to remain unchanged until this backward function is called. Note that both these parameters can be NULL but only at the same time. It is recommended to use this cache since the memory overhead is relatively small
+//   - resultSaveInvVariance: Output. Optional cache parameters containing saved intermediate results computed during the forward pass. For this to work correctly, the layer’s x and normScale, normBias data has to remain unchanged until this backward function is called. Note that both these parameters can be NULL but only at the same time. It is recommended to use this cache since the memory overhead is relatively small
 //   - activationDesc: Input. The tensor descriptor for the activation operation. When the normOps input is set to either [NormOpsNormActivation] or [NormOpsNormAddActivation] then this activation is used, otherwise the user may pass NULL
 //   - zDesc: Input. Tensor descriptors and pointers in device memory for residual addition to the result of the normalization operation, prior to the activation. zDesc and *zData are optional and are only used when normOps is [NormOpsNormAddActivation], otherwise the user may pass NULL. When in use, z should have exactly the same dimension as xData and the final output yData. For more information, refer to [TensorDescriptor]
+//   - zData: Input. Tensor descriptors and pointers in device memory for residual addition to the result of the normalization operation, prior to the activation. zDesc and *zData are optional and are only used when normOps is [NormOpsNormAddActivation], otherwise the user may pass NULL. When in use, z should have exactly the same dimension as xData and the final output yData. For more information, refer to [TensorDescriptor]
 //   - yDesc: Input. Handles to the previously initialized tensor descriptors
+//   - yData: Output. Data pointer to GPU memory associated with the tensor descriptor yDesc, for the y output of the normalization layer
+//   - workspace: Input. *workspace is a pointer to the GPU workspace, and workSpaceSizeInBytes is the size of the workspace. When *workspace is not NULL and *workSpaceSizeInBytes is large enough, and the tensor layout is NHWC and the data type configuration is supported, then this function will trigger a semi-persistent NHWC kernel for normalization. The workspace is not required to be clean. Also, the workspace does not need to remain unchanged between the forward and backward passes
 //   - workSpaceSizeInBytes: Input. *workspace is a pointer to the GPU workspace, and workSpaceSizeInBytes is the size of the workspace. When *workspace is not NULL and *workSpaceSizeInBytes is large enough, and the tensor layout is NHWC and the data type configuration is supported, then this function will trigger a semi-persistent NHWC kernel for normalization. The workspace is not required to be clean. Also, the workspace does not need to remain unchanged between the forward and backward passes
+//   - reserveSpace: Input. Pointer to the GPU workspace for the reserveSpace
 //   - reserveSpaceSizeInBytes: Input. The size of the reserveSpace. Must be equal or larger than the amount required by [Handle.NormalizationTrainingReserveSpaceSize]
 //
 // Returns:
@@ -4688,7 +6371,7 @@ func normalizationForwardTraining(handle Handle, mode NormMode, normOps NormOps,
 //   - b: Input. Pointer to data of the tensors described by the aDesc and bDesc descriptors, respectively
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - cDesc: Input. Handle to a previously initialized tensor descriptor
-//   - c: Input. / Output. Pointer to data of the tensor described by the cDesc descriptor
+//   - c: Input/Output. Pointer to data of the tensor described by the cDesc descriptor
 //
 // Returns:
 //   - [ErrBadParam]: The data type of the destination tensor C is unrecognized, or the restrictions on the input and destination tensors, stated above, are not met.
@@ -4791,6 +6474,7 @@ func poolingForward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.P
 
 // queryRuntimeError cuDNN library functions perform extensive input argument checking before launching GPU kernels.
 //
+// The last step is to verify that the GPU kernel actually started. When a kernel fails to start, [ErrExecutionFailed] is returned by the corresponding API call. Typically, after a GPU kernel starts, no runtime checks are performed by the kernel itself - numerical results are simply written to output buffers.
 // When the [BatchnormSpatialPersistent] mode is selected in [Handle.BatchNormalizationForwardTraining] or [Handle.BatchNormalizationBackward], the algorithm may encounter numerical overflows where [BatchnormSpatial] performs just fine albeit at a slower speed. The user can invoke [Handle.QueryRuntimeError] to make sure numerical overflows did not occur during the kernel execution. Those issues are reported by the kernel that performs computations.
 // [Handle.QueryRuntimeError] can be used in polling and blocking software control flows. There are two polling modes ( [ErrqueryRawcode] and [ErrqueryNonblocking]) and one blocking mode [ErrqueryBlocking].
 // [ErrqueryRawcode] reads the error storage location regardless of the kernel completion status. The kernel might not even start and the error storage (allocated per cuDNN handle) might be used by an earlier call.
@@ -4802,7 +6486,7 @@ func poolingForward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.P
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - mode: Input. Remote error query mode
-//   - tag: Input. /Output. Currently, this argument should be NULL
+//   - tag: Input/Output. Currently, this argument should be NULL
 //
 // Returns:
 //   - [ErrBadParam]: Invalid input argument.
@@ -4817,15 +6501,19 @@ func queryRuntimeError(handle Handle, mode ErrQueryMode, tag *RuntimeTag) (rstat
 	if err := checkLibSym("cudnnQueryRuntimeError"); err != nil {
 		return 0, err
 	}
-	var out1 Result
-	if err := toError(fnqueryRuntimeError(handle, &out1, mode, tag), "cudnnQueryRuntimeError"); err != nil {
+	outs := slotQueryRuntimeError.get()
+	defer slotQueryRuntimeError.put(outs)
+	if err := toError(fnqueryRuntimeError(handle, &outs.out1, mode, tag), "cudnnQueryRuntimeError"); err != nil {
 		return 0, err
 	}
-	return out1, nil
+	return outs.out1, nil
 }
+
+var slotQueryRuntimeError outSlot[struct{ out1 Result }]
 
 // rNNBackwardData computes exact, first-order derivatives of the RNN model with respect to its inputs: x, hx and for the LSTM cell type also cx.
 //
+// If o = [y, hy, cy] = F(x, hx, cx) = F(z) is a vector-valued function that represents the entire RNN model and it takes vectors x (for all time-steps) and vectors hx, cx (for all layers) as inputs, concatenated into zϵRⁿ (network weights and biases are assumed constant), and outputs vectors y, hy, cy concatenated into a vector oϵRᵐ, then [Handle.RNNBackwardData] computes the result of (∂oi/∂zj)ᵀδout where δout is the mx1 gradient of the loss function with respect to all RNN outputs. The δout gradient is back propagated through prior layers of the deep learning model, starting from the model output. ∂oi/∂zj is the mxn Jacobian matrix of F(z). The δout input is supplied via the dy, dhy, and dcy arguments and gradient results (∂oi/∂zj)ᵀδout are written to the dx, dhx, and dcx buffers.
 // Locations of x, y, hx, cx, hy, cy, dx, dy, dhx, dcx, dhy, and dcy signals a multi-layer RNN model are shown in the following figure. Note that internal RNN signals (between time-steps and between layers) are not exposed by the [Handle.RNNBackwardData] function.
 // Locations of x, y, hx, cx, hy, cy, dx, dy, dhx, dcx, dhy, and dcy Signals a Multi-Layer RNN Model
 // Memory addresses to the primary RNN output y, the initial hidden state hx, and the initial cell state cx (for LSTM only) should point to the same data as in the preceding [Handle.RNNForward] call. The dy and dx pointers cannot be NULL.
@@ -4857,9 +6545,9 @@ func queryRuntimeError(handle Handle, mode ErrQueryMode, tag *RuntimeTag) (rstat
 //   - weightSpaceSize: Input. Specifies the size in bytes of the provided weight space buffer
 //   - weightSpace: Input. Address of the weight space buffer in GPU memory
 //   - workSpaceSize: Input. Specifies the size in bytes of the provided workspace buffer
-//   - workSpace: Input. / Output. Address of the workspace buffer in GPU memory to store temporary data
+//   - workSpace: Input/Output. Address of the workspace buffer in GPU memory to store temporary data
 //   - reserveSpaceSize: Input. Specifies the size in bytes of the reserve-space buffer
-//   - reserveSpace: Input. / Output. Address of the reserve-space buffer in GPU memory
+//   - reserveSpace: Input/Output. Address of the reserve-space buffer in GPU memory
 //
 // Returns:
 //   - [ErrAllocFailed]: The function was unable to allocate CPU memory.
@@ -4882,7 +6570,8 @@ func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths driver.
 
 // rNNBackwardWeights computes exact, first-order derivatives of the RNN model with respect to all trainable parameters: weights and biases.
 //
-// All gradient results (∂oi/∂wj)Tδout with respect to weights and biases are written to the dweightSpace buffer. The size and the organization of the dweightSpace buffer is the same as the weightSpace buffer that holds RNN weights and biases.
+// If o = [y, hy, cy] = F(w) is a vector-valued function that represents the multi-layer RNN model and it takes some vector wϵRⁿ of “flatten” weights or biases as input (with all other data inputs constant), and outputs vector oϵRᵐ, then [Handle.RNNBackwardWeights] computes the result of (∂oi/∂wj)ᵀδout where δout is the mx1 gradient of the loss function with respect to all RNN outputs. The δout gradient is back propagated through prior layers of the deep learning model, starting from the model output. ∂oi/∂wj is the mxn Jacobian matrix of F(w). The δout input is supplied via the dy, dhy, and dcy arguments in the [Handle.RNNBackwardData] function.
+// All gradient results (∂oi/∂wj)ᵀδout with respect to weights and biases are written to the dweightSpace buffer. The size and the organization of the dweightSpace buffer is the same as the weightSpace buffer that holds RNN weights and biases.
 // Gradient of the loss function with respect to weights and biases is typically computed over multiple mini-batches. In such a case, partial results computed for each mini-batch should be aggregated. The addGrad argument specifies if gradients from the current mini-batch should be added to previously computed results ( [WgradModeAdd]) or the dweightSpace buffer should be overwritten with the new results ( [WgradModeSet]). Currently, the [Handle.RNNBackwardWeights] function supports the [WgradModeAdd] mode only so the dweightSpace buffer should be zeroed by the user before invoking the routine for the first time.
 // The same sequence lengths must be specified in the xDesc descriptor and in the device array devSeqLengths. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNBackwardWeights] function.
 // The [Handle.RNNBackwardWeights] function should be invoked after [Handle.RNNBackwardData].
@@ -4900,9 +6589,9 @@ func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths driver.
 //   - weightSpaceSize: Input. Specifies the size in bytes of the provided weight space buffer
 //   - dweightSpace: Output. Address of the weight space buffer in GPU memory
 //   - workSpaceSize: Input. Specifies the size in bytes of the provided workspace buffer
-//   - workSpace: Input. / Output. Address of the workspace buffer in GPU memory to store temporary data
+//   - workSpace: Input/Output. Address of the workspace buffer in GPU memory to store temporary data
 //   - reserveSpaceSize: Input. Specifies the size in bytes of the reserve-space buffer
-//   - reserveSpace: Input. / Output. Address of the reserve-space buffer in GPU memory
+//   - reserveSpace: Input/Output. Address of the reserve-space buffer in GPU memory
 //
 // Returns:
 //   - [ErrAllocFailed]: The function was unable to allocate CPU memory
@@ -4922,8 +6611,9 @@ func rNNBackwardWeights(handle Handle, rnnDesc RNNDescriptor, addGrad WgradMode,
 	return nil
 }
 
-// rNNForward This routine computes the forward response of the recurrent neural network described by rnnDesc with inputs in x, hx, cx, and weights/biases in the weightSpace buffer.
+// rNNForward computes the forward response of the recurrent neural network described by rnnDesc with inputs in x, hx, cx, and weights/biases in the weightSpace buffer.
 //
+// RNN outputs are written to y, hy, and cy buffers. Locations of x, y, hx, cx, hy, and cy signals in the multi-layer RNN model are shown in the following figure. Note that internal RNN signals between time-steps and between layers are not exposed to the user.
 // Locations of x, y, hx, cx, hy, and cy signals in the multi-layer RNN model
 // The next figure depicts data flow when the RNN model is bidirectional. In this mode, each RNN physical layer consists of two consecutive pseudo-layers, each with its own weights, biases, the initial hidden state hx, and for LSTM, also the initial cell state cx. Even pseudo-layers 0, 2, 4 process input vectors from left to right or in the forward ( F) direction. Odd pseudo-layers 1, 3, 5 process input vectors from right to left or in the reverse ( R) direction. Two successive pseudo-layers operate on the same input vectors, just in a different order. Pseudo-layers 0 and 1 access the original sequences stored in the x buffer. Outputs of F and R cells are concatenated so vectors fed to the next two pseudo-layers have lengths of 2x hiddenSize or 2x projSize. Input GEMMs in subsequent pseudo-layers adjust vector lengths to 1x hiddenSize.
 // Data flow when the RNN model is bidirectional
@@ -4948,9 +6638,9 @@ func rNNBackwardWeights(handle Handle, rnnDesc RNNDescriptor, addGrad WgradMode,
 //   - weightSpaceSize: Input. Specifies the size in bytes of the provided weight space buffer
 //   - weightSpace: Input. Address of the weight space buffer in GPU memory
 //   - workSpaceSize: Input. Specifies the size in bytes of the provided workspace buffer
-//   - workSpace: Input. / Output. Address of the workspace buffer in GPU memory to store temporary data
+//   - workSpace: Input/Output. Address of the workspace buffer in GPU memory to store temporary data
 //   - reserveSpaceSize: Input. Specifies the size in bytes of the reserve-space buffer
-//   - reserveSpace: Input. / Output. Address of the reserve-space buffer in GPU memory
+//   - reserveSpace: Input/Output. Address of the reserve-space buffer in GPU memory
 //
 // Returns:
 //   - [ErrAllocFailed]: The function was unable to allocate CPU memory.
@@ -4970,7 +6660,7 @@ func rNNForward(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardMode, devSe
 	return nil
 }
 
-// rNNGetClip Retrieves the current LSTM cell clipping parameters, and stores them in the arguments provided.
+// rNNGetClip retrieves the current LSTM cell clipping parameters, and stores them in the arguments provided.
 //
 // The user can assign NULL to any pointer except rnnDesc when the retrieved value is not needed. The function does not check the validity of retrieved parameters.
 //
@@ -4985,16 +6675,21 @@ func rNNGetClip(rnnDesc RNNDescriptor) (clipMode RNNClipMode, lclip float64, rcl
 	if err := checkLibSym("cudnnRNNGetClip_v9"); err != nil {
 		return 0, 0, 0, err
 	}
-	var out1 RNNClipMode
-	var out2 float64
-	var out3 float64
-	if err := toError(fnrNNGetClip(rnnDesc, &out1, &out2, &out3), "cudnnRNNGetClip_v9"); err != nil {
+	outs := slotRNNGetClip.get()
+	defer slotRNNGetClip.put(outs)
+	if err := toError(fnrNNGetClip(rnnDesc, &outs.out1, &outs.out2, &outs.out3), "cudnnRNNGetClip_v9"); err != nil {
 		return 0, 0, 0, err
 	}
-	return out1, out2, out3, nil
+	return outs.out1, outs.out2, outs.out3, nil
 }
 
-// rNNSetClip Sets the LSTM cell clipping mode.
+var slotRNNGetClip outSlot[struct {
+	out1 RNNClipMode
+	out2 float64
+	out3 float64
+}]
+
+// rNNSetClip sets the LSTM cell clipping mode.
 //
 // The LSTM clipping is disabled by default. When enabled, clipping is applied to all layers. This cudnnRNNSetClip_v8() function does not affect the work, reserve, and weight-space buffer sizes and may be called multiple times.
 //
@@ -5036,7 +6731,7 @@ func rNNSetClip(rnnDesc RNNDescriptor, clipMode RNNClipMode, lclip float64, rcli
 //   - a: Input. Pointer to data of the tensor described by the aDesc descriptor
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: dstValue = alpha [0]*resultValue + beta [0]*priorDstValue. For more information, refer to Scaling Parameters
 //   - cDesc: Input. Handle to a previously initialized tensor descriptor
-//   - c: Input. / Output. Pointer to data of the tensor described by the cDesc descriptor
+//   - c: Input/Output. Pointer to data of the tensor described by the cDesc descriptor
 //
 // Returns:
 //   - CUDNN_INVALID_VALUE: The allocations for the indices or workspace are insufficient.
@@ -5091,7 +6786,7 @@ func reorderFilterAndBias(handle Handle, filterDesc FilterDescriptor, reorderTyp
 
 // restoreDropoutDescriptor restores a dropout descriptor to a previously saved-off state.
 //
-//   - dropoutDesc: Input. / Output. Previously created dropout descriptor
+//   - dropoutDesc: Input/Output. Previously created dropout descriptor
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - dropout: Input. Probability with which the value from an input tensor is set to 0 when performing dropout
 //   - states: Input. Pointer to GPU memory that holds random number generator states initialized by a prior call to [DropoutDescriptor.Set]
@@ -5119,7 +6814,7 @@ func restoreDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, drop
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - yDesc: Input. Handle to a previously initialized tensor descriptor
-//   - y: Input. / Output. Pointer to data of the tensor described by the yDesc descriptor
+//   - y: Input/Output. Pointer to data of the tensor described by the yDesc descriptor
 //   - alpha: Input. Pointer in Host memory to a single value that all elements of the tensor will be scaled with. For more information, refer to Scaling Parameters
 //
 // Returns:
@@ -5140,7 +6835,7 @@ func scaleTensor(handle Handle, yDesc TensorDescriptor, y driver.DevicePtr, alph
 
 // setActivationDescriptor initializes a previously created generic activation descriptor object.
 //
-//   - activationDesc: Input. / Output. Handle to a previously created activation descriptor
+//   - activationDesc: Input/Output. Handle to a previously created activation descriptor
 //   - mode: Input. Enumerant to specify the activation mode
 //   - reluNanOpt: Input. Enumerant to specify the Nan propagation mode
 //   - coef: Input. Floating point number. When the activation mode (refer to [ActivationMode]) is set to [ActivationClippedRelu], this input specifies the clipping threshold; and when the activation mode is set to [ActivationRelu], this input specifies the upper bound
@@ -5161,7 +6856,7 @@ func setActivationDescriptor(activationDesc ActivationDescriptor, mode Activatio
 
 // setActivationDescriptorSwishBeta sets the beta parameter of the SWISH activation function to swish_beta.
 //
-//   - activationDesc: Input. / Output. Handle to a previously created activation descriptor
+//   - activationDesc: Input/Output. Handle to a previously created activation descriptor
 //   - swishBeta: Input. The value to set the SWISH activations’ beta parameter to
 //
 // Returns:
@@ -5183,7 +6878,7 @@ func setActivationDescriptorSwishBeta(activationDesc ActivationDescriptor, swish
 // This function configures a multihead attention descriptor that was previously created using the [CreateAttnDescriptor] function. The function sets attention parameters that are necessary to compute internal buffer sizes, dimensions of weight and bias tensors, or to select optimized code paths.
 // Input sequence data descriptors in [Handle.MultiHeadAttnForward], [Handle.MultiHeadAttnBackwardData], and [Handle.MultiHeadAttnBackwardWeights] functions are checked against the configuration parameters stored in the attention descriptor. Some parameters must match exactly while max arguments such as maxBatchSize or qoMaxSeqLength establish upper limits for the corresponding dimensions.
 // The multihead attention model can be described by the following equations:
-// hi=(WV,iV)softmax(smScaler(KTWK,iT)(WQ,iq)),fori=0⋯nHeads−1
+// hi=(WV,iV)softmax(smScaler(KᵀWK,iT)(WQ,iq)),fori=0⋯nHeads−1
 // MultiHeadAttn(q,K,V,WQ,WK,WV,WO)=∑i=0nHeads−1WO,ihi
 // Where:
 // The lengths of query, key, and value vectors are defined by the qSize, kSize, and vSize arguments respectively.
@@ -5199,6 +6894,16 @@ func setActivationDescriptorSwishBeta(activationDesc ActivationDescriptor, swish
 // The qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, and maxBeamSize arguments declare the maximum sequence lengths, maximum batch size, and maximum beam size respectively, in the [SeqDataDescriptor] containers. The actual dimensions supplied to forward and backward (gradient) API functions should not exceed the max limits. The max arguments should be set carefully because too large values will result in excessive memory usage due to oversized work and reserve space buffers.
 // The attnMode argument is treated as a binary mask where various on/off options are set. These options can affect the internal buffer sizes, enforce certain argument checks, select optimized code execution paths, or enable attention variants that do not require additional numerical arguments. An example of such options is the inclusion of biases in input and output projections.
 // The attnDropoutDesc and postDropoutDesc arguments are descriptors that define two dropout layers active in the training mode. The first dropout operation defined by attnDropoutDesc, is applied directly to the softmax output. The second dropout operation, specified by postDropoutDesc, alters the multihead attention output, just before the point where residual connections are added.
+// Supported “attnMode“ Flags
+// CUDNN_ATTN_QUERYMAP_ALL_TO_ONE
+// Forward declaration of mapping between Q and K, V vectors when the beam size is greater than one in the Q input. Multiple Q vectors from the same beam bundle map to the same K, V vectors. This means that beam sizes in the K, V sets are equal to one.
+// CUDNN_ATTN_QUERYMAP_ONE_TO_ONE
+// Forward declaration of mapping between Q and K, V vectors when the beam size is greater than one in the Q input. Multiple Q vectors from the same beam bundle map to different K, V vectors. This requires beam sizes in K, V sets to be the same as in the Q input.
+// CUDNN_ATTN_DISABLE_PROJ_BIASES
+// Use no biases in the attention input and output projections.
+// CUDNN_ATTN_ENABLE_PROJ_BIASES
+// Use extra biases in the attention input and output projections. In this case the projected K¯ vectors are computed as K¯i=WK,iK+b*[1,1,⋯,1]1xn, where n is the number of columns in the K matrix. In other words, the same column vector b is added to all columns of K after the weight matrix multiplication.
+// Unsupported Features
 //
 //   - attnDesc: Output. Attention descriptor to be configured
 //   - attnMode: Input. Enables various attention options that do not require additional numerical values. Refer to the table below for the list of supported flags. The user should assign a preferred set of bitwise OR-ed flags to this argument
@@ -5219,7 +6924,7 @@ func setActivationDescriptorSwishBeta(activationDesc ActivationDescriptor, swish
 //   - qoMaxSeqLength: Input. Largest sequence length expected in sequence data descriptors related to Q, O, dQ, and dO inputs and outputs
 //   - kvMaxSeqLength: Input. Largest sequence length expected in sequence data descriptors related to K, V, dK, and dV inputs and outputs
 //   - maxBatchSize: Input. Largest batch size expected in any [SeqDataDescriptor] container
-//   - maxBeamSize: Input. Largest beam size expected in any [SeqDataDescriptor] container. Supported “attnMode“ Flags
+//   - maxBeamSize: Input. Largest beam size expected in any [SeqDataDescriptor] container
 //
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was encountered. Some examples include: post projection Q and K sizes were not equal dataType, computePrec, or mathType were invalid one or more of the following arguments were either negative or zero: nHeads, qSize, kSize, vSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize one or more of the following arguments were negative: qProjSize, kProjSize, vProjSize, smScaler
@@ -5276,7 +6981,7 @@ func SetCallback(mask uint32, udata uintptr, fptr uintptr) error {
 //
 // This function initializes a previously created convolution descriptor object into a 2D correlation. This function assumes that the tensor and filter descriptors correspond to the forward convolution path and checks if their settings are valid. That same convolution descriptor can be reused in the backward path provided it corresponds to the same layer.
 //
-//   - convDesc: Input. / Output. Handle to a previously created convolution descriptor
+//   - convDesc: Input/Output. Handle to a previously created convolution descriptor
 //   - padH: Input. Zero-padding height: number of rows of zeros implicitly concatenated onto the top and onto the bottom of input images
 //   - padW: Input. Zero-padding width: number of columns of zeros implicitly concatenated onto the left and onto the right of input images
 //   - u: Input. Vertical filter stride
@@ -5342,7 +7047,7 @@ func setConvolutionMathType(convDesc ConvolutionDescriptor, mathType MathType) e
 //
 // Note: [DataHalf] in [ConvolutionDescriptor.Set] with HALF_CONVOLUTION_BWD_FILTER is not recommended as it is known to not be useful for any practical use case for training and will be considered to be blocked in a future cuDNN release. The use of [DataHalf] for input tensors in [TensorDescriptor.Set] and [DataFloat] in [ConvolutionDescriptor.Set] with HALF_CONVOLUTION_BWD_FILTER is recommended and is used with the automatic mixed precision (AMP) training in many well known deep learning frameworks.
 //
-//   - convDesc: Input. / Output. Handle to a previously created convolution descriptor
+//   - convDesc: Input/Output. Handle to a previously created convolution descriptor
 //   - padA: Input. Array of dimension arrayLength containing the zero-padding size for each dimension. For every dimension, the padding represents the number of extra zeros implicitly concatenated at the start and at the end of every element of that dimension
 //   - filterStrideA: Input. Array of dimension arrayLength containing the filter stride for each dimension. For every dimension, the filter stride represents the number of elements to slide to reach the next start of the filtering window of the next point
 //   - dilationA: Input. Array of dimension arrayLength containing the dilation factor for each dimension
@@ -5395,9 +7100,10 @@ func setConvolutionReorderType(convDesc ConvolutionDescriptor, reorderType Reord
 
 // setDropoutDescriptor initializes a previously created dropout descriptor object.
 //
+// If the states argument is equal to NULL, then the random number generator states won’t be initialized, and only the dropout value will be set. The user is expected not to change the memory pointed at by states for the duration of the computation.
 // When the states argument is not NULL, a cuRAND initialization kernel is invoked by [DropoutDescriptor.Set]. This kernel requires a substantial amount of GPU memory for the stack. Memory is released when the kernel finishes. The [ErrAllocFailed] status is returned when no sufficient free memory is available for the GPU stack.
 //
-//   - dropoutDesc: Input. / Output. Previously created dropout descriptor object
+//   - dropoutDesc: Input/Output. Previously created dropout descriptor object
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - dropout: Input. The probability with which the value from input is set to zero during the dropout layer
 //   - states: Output. Pointer to user-allocated GPU memory that will hold random number generator states
@@ -5427,7 +7133,7 @@ func setDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout 
 // This function initializes a previously created filter descriptor object into a 4D filter. The layout of the filters must be contiguous in memory.
 // Tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
 //
-//   - filterDesc: Input. / Output. Handle to a previously created filter descriptor
+//   - filterDesc: Input/Output. Handle to a previously created filter descriptor
 //   - format: Input. Type of the filter layout format. If this input is set to [TensorNchw], which is one of the enumerant values allowed by [TensorFormat] descriptor, then the layout of the filter is in the form of KCRS, where: If this input is set to [TensorNhwc], then the layout of the filter is in the form of KRSC
 //   - k: Input. Number of output feature maps
 //   - c: Input. Number of input feature maps
@@ -5453,7 +7159,7 @@ func setFilter4dDescriptor(filterDesc FilterDescriptor, dataType DataType, forma
 // This function initializes a previously created filter descriptor object. The layout of the filters must be contiguous in memory.
 // The tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
 //
-//   - filterDesc: Input. / Output. Handle to a previously created filter descriptor
+//   - filterDesc: Input/Output. Handle to a previously created filter descriptor
 //   - format: Input. Type of the filter layout format. If this input is set to [TensorNchw], which is one of the enumerant values allowed by [TensorFormat] descriptor, then the layout of the filter is as follows: On the other hand, if this input is set to [TensorNhwc], then the layout of the filter is as follows:
 //   - filterDimA: Input. Array of dimension nbDims containing the size of the filter for each dimension
 //
@@ -5562,7 +7268,7 @@ func setOpTensorDescriptor(opTensorDesc OpTensorDescriptor, opTensorOp OpTensorO
 
 // setPooling2dDescriptor initializes a previously created generic pooling descriptor object into a 2D description.
 //
-//   - poolingDesc: Input. / Output. Handle to a previously created pooling descriptor
+//   - poolingDesc: Input/Output. Handle to a previously created pooling descriptor
 //   - mode: Input. Enumerant to specify the pooling mode
 //   - maxpoolingNanOpt: Input. Enumerant to specify the Nan propagation mode
 //   - windowHeight: Input. Height of the pooling window
@@ -5588,7 +7294,7 @@ func setPooling2dDescriptor(poolingDesc PoolingDescriptor, mode PoolingMode, max
 
 // setPoolingNdDescriptor initializes a previously created generic pooling descriptor object.
 //
-//   - poolingDesc: Input. / Output. Handle to a previously created pooling descriptor
+//   - poolingDesc: Input/Output. Handle to a previously created pooling descriptor
 //   - mode: Input. Enumerant to specify the pooling mode
 //   - maxpoolingNanOpt: Input. Enumerant to specify the Nan propagation mode
 //   - windowDimA: Input. Array of dimension nbDims containing the window size for each dimension. The value of array elements must be greater than zero
@@ -5682,7 +7388,7 @@ func setRNNDescriptor(rnnDesc RNNDescriptor, algo RNNAlgo, cellMode RNNMode, bia
 
 // setReduceTensorDescriptor initializes a previously created reduce tensor descriptor object.
 //
-//   - reduceTensorDesc: Input. / Output. Handle to a previously created reduce tensor descriptor
+//   - reduceTensorDesc: Input/Output. Handle to a previously created reduce tensor descriptor
 //   - reduceTensorOp: Input. Enumerant to specify the reduced tensor operation
 //   - reduceTensorCompType: Input. Enumerant to specify the computation datatype of the reduction
 //   - reduceTensorNanOpt: Input. Enumerant to specify the Nan propagation mode
@@ -5726,6 +7432,9 @@ func setReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor, reduceTe
 //
 //   - seqDataDesc: Output. Pointer to a previously created sequence data descriptor
 //   - dataType: Input. Data type of the sequence data buffer ( [DataHalf], [DataFloat], or [DataDouble])
+//   - dimA: Input. Integer array specifying sequence data dimensions. Use the [SeqDataAxis] enumerated type to index all active dimA[] elements
+//   - axes: Input. Array of [SeqDataAxis] that defines the layout of sequence data in memory. The first nbDims elements of axes[] should be initialized with the outermost dimension in axes [0] and the innermost dimension in axes [nbDims-1]
+//   - seqLengthArray: Input. An integer array that defines all sequence lengths of the container
 //   - paddingFill: Input. Must be NULL. Pointer to a value of dataType that is used to fill up output vectors beyond the valid length of each sequence or NULL to ignore this setting
 //
 // Returns:
@@ -5752,7 +7461,7 @@ func setSeqDataDescriptor(seqDataDesc SeqDataDescriptor, dataType DataType, dimA
 
 // setSpatialTransformerNdDescriptor initializes a previously created generic spatial transformer descriptor object.
 //
-//   - stDesc: Input. / Output. Previously created spatial transformer descriptor object
+//   - stDesc: Input/Output. Previously created spatial transformer descriptor object
 //   - samplerType: Input. Enumerant to specify the sampler type
 //   - dataType: Input. Data type
 //   - dimA: Input. Array of dimension nbDims containing the size of the transformed tensor for every dimension
@@ -5774,6 +7483,7 @@ func setSpatialTransformerNdDescriptor(stDesc SpatialTransformerDescriptor, samp
 
 // setStream sets the user’s CUDA stream in the cuDNN handle.
 //
+// The new stream will be used to launch cuDNN GPU kernels or to synchronize to this stream when cuDNN kernels are launched in the internal streams. If the cuDNN library stream is not set, all kernels use the default ( NULL) stream. Setting the user stream in the cuDNN handle guarantees the issue-order execution of cuDNN calls and other GPU kernels launched in the same stream.
 // With CUDA 11.x or later, internal streams have the same priority as the stream set by the last call to this function. In CUDA graph capture mode, CUDA 11.8 or later is required in order for the stream priorities to match.
 //
 //   - handle: Input. Pointer to the cuDNN handle
@@ -5797,7 +7507,7 @@ func setStream(handle Handle, streamId driver.Stream) error {
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - yDesc: Input. Handle to a previously initialized tensor descriptor
-//   - y: Input. / Output. Pointer to data of the tensor described by the yDesc descriptor
+//   - y: Input/Output. Pointer to data of the tensor described by the yDesc descriptor
 //   - valuePtr: Input. Pointer in host memory to a single value. All elements of the y tensor will be set to value [0]. The data type of the element in value [0] has to match the data type of tensor y
 //
 // Returns:
@@ -5816,9 +7526,10 @@ func setTensor(handle Handle, yDesc TensorDescriptor, y driver.DevicePtr, valueP
 
 // setTensor4dDescriptor initializes a previously created generic tensor descriptor object into a 4D tensor.
 //
+// The strides of the four dimensions are inferred from the format parameter and set in such a way that the data is contiguous in memory with no padding between dimensions.
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
-//   - tensorDesc: Input. / Output. Handle to a previously created tensor descriptor
+//   - tensorDesc: Input/Output. Handle to a previously created tensor descriptor
 //   - format: Input. Type of format
 //   - n: Input. Number of images
 //   - c: Input. Number of feature maps per image
@@ -5840,10 +7551,11 @@ func setTensor4dDescriptor(tensorDesc TensorDescriptor, format TensorFormat, dat
 
 // setTensor4dDescriptorEx initializes a previously created generic tensor descriptor object into a 4D tensor, similarly to [TensorDescriptor.Set4D] but with the strides explicitly passed as parameters.
 //
+// This can be used to lay out the 4D tensor in any order or simply to define gaps between dimensions.
 // At present, some cuDNN routines have limited support for strides. Those routines will return [ErrNotSupported] if a 4D tensor object with an unsupported stride is used. [Handle.TransformTensor] can be used to convert the data to a supported layout.
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
-//   - tensorDesc: Input. / Output. Handle to a previously created tensor descriptor
+//   - tensorDesc: Input/Output. Handle to a previously created tensor descriptor
 //   - n: Input. Number of images
 //   - c: Input. Number of feature maps per image
 //   - h: Input. Height of each feature map
@@ -5870,7 +7582,7 @@ func setTensor4dDescriptorEx(tensorDesc TensorDescriptor, dataType DataType, n i
 //
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype. Tensors are restricted to having at least 4 dimensions, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h). When working with lower dimensional data, it is recommended that the user create a 4D tensor, and set the size along unused dimensions to 1.
 //
-//   - tensorDesc: Input. / Output. Handle to a previously created tensor descriptor
+//   - tensorDesc: Input/Output. Handle to a previously created tensor descriptor
 //   - dimA: Input. Array of dimension nbDims that contain the size of the tensor for every dimension. The size along unused dimensions should be set to 1. By convention, the ordering of dimensions in the array follows the format - [N, C, D, H, W], with W occupying the smallest index in the array
 //   - strideA: Input. Array of dimension nbDims that contain the stride of the tensor for every dimension. By convention, the ordering of the strides in the array follows the format - [Nstride, Cstride, Dstride, Hstride, Wstride], with Wstride occupying the smallest index in the array
 //
@@ -5923,6 +7635,9 @@ func setTensorNdDescriptorEx(tensorDesc TensorDescriptor, format TensorFormat, d
 //   - transformDesc: Output. The tensor transform descriptor to be initialized
 //   - nbDims: Input. The dimensionality of the transform operands. Must be greater than 2. For more information, refer to Tensor Descriptor
 //   - destFormat: Input. The desired destination format
+//   - padBeforeA: Input. An array that contains the amount of padding that should be added before each dimension. Set to NULL for no padding
+//   - padAfterA: Input. An array that contains the amount of padding that should be added after each dimension. Set to NULL for no padding
+//   - foldA: Input. An array that contains the folding parameters for each spatial dimension (dimensions 2 and up). Set to NULL for no folding
 //   - direction: Input. Selects folding or unfolding. This input has no effect when folding parameters are all <= 1. For more information, refer to [FoldingDirection]
 //
 // Returns:
@@ -5940,7 +7655,7 @@ func setTensorTransformDescriptor(transformDesc TensorTransformDescriptor, nbDim
 	return toError(fnsetTensorTransformDescriptor(transformDesc, nbDims, destFormat, padBeforeA, padAfterA, foldA, direction), "cudnnSetTensorTransformDescriptor")
 }
 
-// softmaxBackward This routine computes the gradient of the softmax function.
+// softmaxBackward computes the gradient of the softmax function.
 //
 // In-place operation is allowed for this routine; meaning, dy and dx pointers may be equal. However, this requires dyDesc and dxDesc descriptors to be identical (particularly, the strides of the input and output must match for in-place operation to be allowed).
 // All tensor formats are supported for all modes and algorithms with 4 and 5D tensors. Performance is expected to be highest with NCHW fully-packed tensors. For more than 5 dimensions tensors must be packed in their spatial dimensions.
@@ -5970,7 +7685,7 @@ func softmaxBackward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alp
 	return toError(fnsoftmaxBackward(handle, algo, mode, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), beta, dxDesc, uintptr(dx)), "cudnnSoftmaxBackward")
 }
 
-// softmaxForward This routine computes the softmax function.
+// softmaxForward computes the softmax function.
 //
 // In-place operation is allowed for this routine; meaning, x and y pointers may be equal. However, this requires xDesc and yDesc descriptors to be identical (particularly, the strides of the input and output must match for in-place operation to be allowed).
 // All tensor formats are supported for all modes and algorithms with 4 and 5D tensors. Performance is expected to be highest with NCHW fully-packed tensors. For more than 5 dimensions tensors must be packed in their spatial dimensions.

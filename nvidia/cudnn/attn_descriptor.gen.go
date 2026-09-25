@@ -37,7 +37,7 @@ func (a AttnDescriptor) Get() (AttnConfig, error) {
 // This function configures a multihead attention descriptor that was previously created using the [CreateAttnDescriptor] function. The function sets attention parameters that are necessary to compute internal buffer sizes, dimensions of weight and bias tensors, or to select optimized code paths.
 // Input sequence data descriptors in [Handle.MultiHeadAttnForward], [Handle.MultiHeadAttnBackwardData], and [Handle.MultiHeadAttnBackwardWeights] functions are checked against the configuration parameters stored in the attention descriptor. Some parameters must match exactly while max arguments such as maxBatchSize or qoMaxSeqLength establish upper limits for the corresponding dimensions.
 // The multihead attention model can be described by the following equations:
-// hi=(WV,iV)softmax(smScaler(KTWK,iT)(WQ,iq)),fori=0⋯nHeads−1
+// hi=(WV,iV)softmax(smScaler(KᵀWK,iT)(WQ,iq)),fori=0⋯nHeads−1
 // MultiHeadAttn(q,K,V,WQ,WK,WV,WO)=∑i=0nHeads−1WO,ihi
 // Where:
 // The lengths of query, key, and value vectors are defined by the qSize, kSize, and vSize arguments respectively.
@@ -53,6 +53,16 @@ func (a AttnDescriptor) Get() (AttnConfig, error) {
 // The qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, and maxBeamSize arguments declare the maximum sequence lengths, maximum batch size, and maximum beam size respectively, in the [SeqDataDescriptor] containers. The actual dimensions supplied to forward and backward (gradient) API functions should not exceed the max limits. The max arguments should be set carefully because too large values will result in excessive memory usage due to oversized work and reserve space buffers.
 // The attnMode argument is treated as a binary mask where various on/off options are set. These options can affect the internal buffer sizes, enforce certain argument checks, select optimized code execution paths, or enable attention variants that do not require additional numerical arguments. An example of such options is the inclusion of biases in input and output projections.
 // The attnDropoutDesc and postDropoutDesc arguments are descriptors that define two dropout layers active in the training mode. The first dropout operation defined by attnDropoutDesc, is applied directly to the softmax output. The second dropout operation, specified by postDropoutDesc, alters the multihead attention output, just before the point where residual connections are added.
+// Supported “attnMode“ Flags
+// CUDNN_ATTN_QUERYMAP_ALL_TO_ONE
+// Forward declaration of mapping between Q and K, V vectors when the beam size is greater than one in the Q input. Multiple Q vectors from the same beam bundle map to the same K, V vectors. This means that beam sizes in the K, V sets are equal to one.
+// CUDNN_ATTN_QUERYMAP_ONE_TO_ONE
+// Forward declaration of mapping between Q and K, V vectors when the beam size is greater than one in the Q input. Multiple Q vectors from the same beam bundle map to different K, V vectors. This requires beam sizes in K, V sets to be the same as in the Q input.
+// CUDNN_ATTN_DISABLE_PROJ_BIASES
+// Use no biases in the attention input and output projections.
+// CUDNN_ATTN_ENABLE_PROJ_BIASES
+// Use extra biases in the attention input and output projections. In this case the projected K¯ vectors are computed as K¯i=WK,iK+b*[1,1,⋯,1]1xn, where n is the number of columns in the K matrix. In other words, the same column vector b is added to all columns of K after the weight matrix multiplication.
+// Unsupported Features
 //
 //   - attnMode: Input. Enables various attention options that do not require additional numerical values. Refer to the table below for the list of supported flags. The user should assign a preferred set of bitwise OR-ed flags to this argument
 //   - nHeads: Input. Number of attention heads
@@ -72,7 +82,7 @@ func (a AttnDescriptor) Get() (AttnConfig, error) {
 //   - qoMaxSeqLength: Input. Largest sequence length expected in sequence data descriptors related to Q, O, dQ, and dO inputs and outputs
 //   - kvMaxSeqLength: Input. Largest sequence length expected in sequence data descriptors related to K, V, dK, and dV inputs and outputs
 //   - maxBatchSize: Input. Largest batch size expected in any [SeqDataDescriptor] container
-//   - maxBeamSize: Input. Largest beam size expected in any [SeqDataDescriptor] container. Supported “attnMode“ Flags
+//   - maxBeamSize: Input. Largest beam size expected in any [SeqDataDescriptor] container
 //
 // Returns:
 //   - [ErrBadParam]: An invalid input argument was encountered. Some examples include: post projection Q and K sizes were not equal dataType, computePrec, or mathType were invalid one or more of the following arguments were either negative or zero: nHeads, qSize, kSize, vSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize one or more of the following arguments were negative: qProjSize, kProjSize, vProjSize, smScaler

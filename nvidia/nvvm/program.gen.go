@@ -4,7 +4,7 @@ package nvvm
 
 import "unsafe"
 
-// AddModuleTo Add a module level NVVM IR to a program.
+// AddModuleTo adds a module level NVVM IR to a program.
 //
 // The buffer should contain an NVVM IR module.
 // The module should have NVVM IR either in the LLVM 7.0.1 bitcode
@@ -14,14 +14,14 @@ import "unsafe"
 //
 //   - buffer (in): NVVM IR module in the bitcode or text representation
 //   - size (in): Size of the NVVM IR module
-//   - name (in): Name of the NVVM IR module. If NULL, "" is used as the name
+//   - name (in): Name of the NVVM IR module. If NULL, "<unnamed>" is used as the name
 //
 // Wraps nvvmAddModuleToProgram.
 func (p Program) AddModuleTo(buffer unsafe.Pointer, size uint, name string) error {
 	return addModuleToProgram(p, buffer, size, name)
 }
 
-// Compile Compile the NVVM program.
+// Compile compiles the NVVM program.
 //
 // The NVVM IR modules in the program will be linked at the IR level.
 // The linked IR program is compiled to PTX.
@@ -93,16 +93,14 @@ func (p Program) Compile(options ...string) error {
 	return compileProgram(p, options...)
 }
 
-// Destroy Destroy a program.
+// Destroy destroys a program.
 //
 // Wraps nvvmDestroyProgram.
 func (p *Program) Destroy() error {
 	return destroyProgram(p)
 }
 
-// CompiledResult Get the compiled result.
-//
-// The result is stored in the memory pointed to by buffer.
+// CompiledResult gets the compiled result.
 //
 // The result does not include the C string's terminating NUL.
 //
@@ -111,34 +109,34 @@ func (p Program) CompiledResult() ([]byte, error) {
 	return getCompiledResult(p)
 }
 
-// CompiledResultSize Get the size of the compiled result.
+// CompiledResultSize gets the size of the compiled result.
+//
+// The size counts the terminating NUL that [Program.CompiledResult] drops, so it is one more
+// than the length of that result.
 //
 // Wraps nvvmGetCompiledResultSize.
 func (p Program) CompiledResultSize() (uint, error) {
 	return getCompiledResultSize(p)
 }
 
-// Log Get the Compiler/Verifier Message.
-//
-// The NULL terminated message string is stored in the memory pointed to by
-// buffer when the return value is [Success].
+// Log gets the Compiler/Verifier Message.
 //
 // Wraps nvvmGetProgramLog.
 func (p Program) Log() (string, error) {
 	return getProgramLog(p)
 }
 
-// LogSize Get the Size of Compiler/Verifier Message.
+// LogSize gets the Size of Compiler/Verifier Message.
 //
-// The size of the message string (including the trailing NULL) is stored into
-// bufferSizeRet when the return value is [Success].
+// The size counts the terminating NUL that [Program.Log] drops, so it is one more
+// than the length of that result.
 //
 // Wraps nvvmGetProgramLogSize.
 func (p Program) LogSize() (uint, error) {
 	return getProgramLogSize(p)
 }
 
-// LazyAddModuleTo Add a module level NVVM IR to a program.
+// LazyAddModuleTo adds a module level NVVM IR to a program.
 //
 // The buffer should contain an NVVM IR module. The module should have NVVM
 // IR in the LLVM 7.0.1 bitcode representation.
@@ -154,14 +152,14 @@ func (p Program) LogSize() (uint, error) {
 //
 //   - buffer (in): NVVM IR module in the bitcode representation
 //   - size (in): Size of the NVVM IR module
-//   - name (in): Name of the NVVM IR module. If NULL, "" is used as the name
+//   - name (in): Name of the NVVM IR module. If NULL, "<unnamed>" is used as the name
 //
 // Wraps nvvmLazyAddModuleToProgram.
 func (p Program) LazyAddModuleTo(buffer unsafe.Pointer, size uint, name string) error {
 	return lazyAddModuleToProgram(p, buffer, size, name)
 }
 
-// Verify Verify the NVVM program.
+// Verify verifies the NVVM program.
 //
 // The valid compiler options are:
 //

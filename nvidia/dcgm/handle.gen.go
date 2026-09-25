@@ -2,8 +2,9 @@
 
 package dcgm
 
-// AllDevices This method is used to get identifiers corresponding to all the devices on the system.
+// AllDevices is used to get identifiers corresponding to all the devices on the system.
 //
+// The identifier represents DCGM GPU Id corresponding to each GPU on the system and is immutable during the lifespan of the engine. The list should be queried again if the engine is restarted.
 // The GPUs returned from this function include gpuIds of GPUs that are not supported by DCGM.
 // To only get gpuIds of GPUs that are supported by DCGM, use [Handle.AllSupportedDevices].
 //
@@ -15,8 +16,9 @@ func (h Handle) AllDevices(gpuIdList *uint32) (int32, error) {
 	return GetAllDevices(h, gpuIdList)
 }
 
-// AllSupportedDevices This method is used to get identifiers corresponding to all the DCGM-supported devices on the system.
+// AllSupportedDevices is used to get identifiers corresponding to all the DCGM-supported devices on the system.
 //
+// The identifier represents DCGM GPU Id corresponding to each GPU on the system and is immutable during the lifespan of the engine. The list should be queried again if the engine is restarted.
 // The GPUs returned from this function ONLY includes gpuIds of GPUs that are supported by DCGM.
 // To get gpuIds of all GPUs in the system, use [Handle.AllDevices].
 //
@@ -39,7 +41,9 @@ func (h Handle) CpuHierarchyV2(cpuHierarchy *CpuHierarchy) error {
 	return GetCpuHierarchyV2(h, cpuHierarchy)
 }
 
-// DeviceAttributes Gets device attributes corresponding to the gpuId.
+// DeviceAttributes gets device attributes corresponding to the gpuId.
+//
+// If operation is not successful for any of the requested fields then the field is populated with one of DCGM_BLANK_VALUES defined in dcgm_structs.h.
 //
 //   - gpuId: IN: GPU Id corresponding to which the attributes should be fetched
 //   - pDcgmAttr: IN/OUT: Device attributes corresponding to gpuId. pDcgmAttr->version should be set to dcgmDeviceAttributes_version before this call
@@ -49,7 +53,7 @@ func (h Handle) DeviceAttributes(gpuId uint32, pDcgmAttr *DeviceAttributes) erro
 	return GetDeviceAttributes(h, gpuId, pDcgmAttr)
 }
 
-// DeviceTopology Gets device topology corresponding to the gpuId.
+// DeviceTopology gets device topology corresponding to the gpuId.
 //
 //   - gpuId: IN: GPU Id corresponding to which topology information should be fetched
 //   - pDcgmDeviceTopology: IN/OUT: Topology information corresponding to gpuId. pDcgmDeviceTopology->version must be set to dcgmDeviceTopology_version or dcgmDeviceTopology_version1 before this call
@@ -59,7 +63,7 @@ func (h Handle) DeviceTopology(gpuId uint32, pDcgmDeviceTopology *DeviceTopology
 	return GetDeviceTopology(h, gpuId, pDcgmDeviceTopology)
 }
 
-// DeviceWorkloadPowerProfileInfo Gets device workload power profile information and status.
+// DeviceWorkloadPowerProfileInfo gets device workload power profile information and status.
 //
 //   - gpuId: IN: GPU Id corresponding to which the information should be fetched
 //   - profilesInfo: OUT: Information about each of the supported workload power profiles available on this device
@@ -70,14 +74,14 @@ func (h Handle) DeviceWorkloadPowerProfileInfo(gpuId uint32, profilesInfo *Workl
 	return GetDeviceWorkloadPowerProfileInfo(h, gpuId, profilesInfo, profilesStatus)
 }
 
-// Disconnect This method is used to disconnect from a stand-alone host engine process.
+// Disconnect is used to disconnect from a stand-alone host engine process.
 //
 // Wraps dcgmDisconnect.
 func (h Handle) Disconnect() error {
 	return Disconnect(h)
 }
 
-// EntitiesGetLatestValues Request the latest cached or live field value for a list of fields for a group of entities
+// EntitiesGetLatestValues requests the latest cached or live field value for a list of fields for a group of entities
 //
 // Note: The returned entities are not guaranteed to be in any order. Reordering can occur internally
 // in order to optimize calls to the NVIDIA driver.
@@ -94,7 +98,7 @@ func (h Handle) EntitiesGetLatestValues(entities *GroupEntityPair, entityCount u
 	return EntitiesGetLatestValues(h, entities, entityCount, fields, fieldCount, flags, values)
 }
 
-// EntityGetLatestValues Request latest cached field value for a group of fields for a specific entity
+// EntityGetLatestValues requests latest cached field value for a group of fields for a specific entity
 //
 //   - entityGroup: IN: entity_group_t (e.g. switch)
 //   - entityId: IN: entity ID representing the rntity for which the fields are being requested
@@ -107,7 +111,9 @@ func (h Handle) EntityGetLatestValues(entityGroup FieldEntityGroup, entityId int
 	return EntityGetLatestValues(h, entityGroup, entityId, fields, count, values)
 }
 
-// EntityGroupEntities Gets the list of entities that exist for a given entity group.
+// EntityGroupEntities gets the list of entities that exist for a given entity group.
+//
+// This API can be used in place of [Handle.AllDevices].
 //
 //   - entityGroup: IN: Entity group to list entities of
 //   - entities: OUT: Array of entities for entityGroup
@@ -119,7 +125,7 @@ func (h Handle) EntityGroupEntities(entityGroup FieldEntityGroup, entities *Fiel
 	return GetEntityGroupEntities(h, entityGroup, entities, numEntities, flags)
 }
 
-// FieldGroupCreate Used to create a group of fields and return the handle in dcgmFieldGroupId
+// FieldGroupCreate is used to create a group of fields and return the handle in dcgmFieldGroupId
 //
 //   - numFieldIds: IN: Number of field IDs that are being provided in fieldIds[]. Must be between 1 and [MaxFieldIDsPerFieldGroup]
 //   - fieldIds: IN: Field IDs to be added to the newly-created field group
@@ -131,7 +137,7 @@ func (h Handle) FieldGroupCreate(numFieldIds int32, fieldIds *uint16, fieldGroup
 	return FieldGroupCreate(h, numFieldIds, fieldIds, fieldGroupName)
 }
 
-// FieldGroupDestroy Used to remove a field group that was created with [Handle.FieldGroupCreate]
+// FieldGroupDestroy is used to remove a field group that was created with [Handle.FieldGroupCreate]
 //
 //   - dcgmFieldGroupId: IN: Field group to remove
 //
@@ -140,7 +146,7 @@ func (h Handle) FieldGroupDestroy(dcgmFieldGroupId FieldGrp) error {
 	return FieldGroupDestroy(h, dcgmFieldGroupId)
 }
 
-// FieldGroupGetAll Used to get information about all field groups in the system.
+// FieldGroupGetAll is used to get information about all field groups in the system.
 //
 //   - allGroupInfo: IN/OUT: Info about all of the field groups that exist. .version should be set to dcgmAllFieldGroup_version before this call
 //
@@ -149,7 +155,7 @@ func (h Handle) FieldGroupGetAll(allGroupInfo *AllFieldGroup) error {
 	return FieldGroupGetAll(h, allGroupInfo)
 }
 
-// FieldGroupGetInfo Used to get information about a field group that was created with [Handle.FieldGroupCreate].
+// FieldGroupGetInfo is used to get information about a field group that was created with [Handle.FieldGroupCreate].
 //
 //   - fieldGroupInfo: IN/OUT: Info about all of the field groups that exist. .version should be set to dcgmFieldGroupInfo_version before this call .fieldGroupId should contain the fieldGroupId you are interested in querying information for
 //
@@ -158,7 +164,7 @@ func (h Handle) FieldGroupGetInfo(fieldGroupInfo *FieldGroupInfo) error {
 	return FieldGroupGetInfo(h, fieldGroupInfo)
 }
 
-// FieldSummary Get a summary of the values for a field id over a period of time.
+// FieldSummary gets a summary of the values for a field id over a period of time.
 //
 //   - request: IN/OUT: a pointer to the struct detailing the request and containing the response
 //
@@ -167,7 +173,7 @@ func (h Handle) FieldSummary(request *FieldSummaryRequest) error {
 	return GetFieldSummary(h, request)
 }
 
-// GpuChipArchitecture Gets simplified GPU chip architecture enumeration.
+// GpuChipArchitecture gets simplified GPU chip architecture enumeration.
 //
 //   - gpuId: IN: DCGM GPU Id
 //   - chipArchitecture: OUT: GPU chip architecture enumeration value
@@ -177,7 +183,7 @@ func (h Handle) GpuChipArchitecture(gpuId uint32) (ChipArchitecture, error) {
 	return GetGpuChipArchitecture(h, gpuId)
 }
 
-// GpuInstanceHierarchy Gets the hierarchy of GPUs, GPU Instances, and Compute Instances.
+// GpuInstanceHierarchy gets the hierarchy of GPUs, GPU Instances, and Compute Instances.
 //
 //   - hierarchy: OUT: Hierarchy of GPUs, GPU Instances, and Compute Instances
 //
@@ -186,7 +192,7 @@ func (h Handle) GpuInstanceHierarchy(hierarchy *MigHierarchyV2) error {
 	return GetGpuInstanceHierarchy(h, hierarchy)
 }
 
-// GpuStatus Get the status of a GPU
+// GpuStatus gets the status of a GPU
 //
 //   - gpuId: in GPU ID to query status for
 //   - status: out Pointer to store the GPU status
@@ -196,7 +202,7 @@ func (h Handle) GpuStatus(gpuId uint32) (EntityStatus, error) {
 	return GetGpuStatus(h, gpuId)
 }
 
-// GroupAddDevice Used to add specified GPU Id to the group represented by groupId.
+// GroupAddDevice is used to add specified GPU Id to the group represented by groupId.
 //
 //   - groupId: IN: Group Id to which device should be added
 //   - gpuId: IN: DCGM GPU Id
@@ -206,7 +212,7 @@ func (h Handle) GroupAddDevice(groupId GpuGrp, gpuId uint32) error {
 	return GroupAddDevice(h, groupId, gpuId)
 }
 
-// GroupAddEntity Used to add specified entity to the group represented by groupId.
+// GroupAddEntity is used to add specified entity to the group represented by groupId.
 //
 //   - groupId: IN: Group Id to which device should be added
 //   - entityGroupId: IN: Entity group that entityId belongs to
@@ -217,8 +223,9 @@ func (h Handle) GroupAddEntity(groupId GpuGrp, entityGroupId FieldEntityGroup, e
 	return GroupAddEntity(h, groupId, entityGroupId, entityId)
 }
 
-// GroupCreate Used to create a entity group handle which can store one or more entity Ids as an opaque handle returned in pDcgmGrpId.
+// GroupCreate is used to create a entity group handle which can store one or more entity Ids as an opaque handle returned in pDcgmGrpId.
 //
+// Instead of executing an operation separately for each entity, the DCGM group enables the user to execute same operation on all the entities present in the group as a single API call.
 // To create the group with all the entities present on the system, the type field should be
 // specified as [GroupDefault] or [GroupAllNvSwitches]. To create an empty group,
 // the type field should be specified as [GroupEmpty]. The empty group can be updated
@@ -234,7 +241,9 @@ func (h Handle) GroupCreate(type_ GroupType, groupName *byte) (GpuGrp, error) {
 	return GroupCreate(h, type_, groupName)
 }
 
-// GroupDestroy Used to destroy a group represented by groupId.
+// GroupDestroy is used to destroy a group represented by groupId.
+//
+// Since DCGM group is a logical grouping of entities, the properties applied on the group stay intact for the individual entities even after the group is destroyed.
 //
 //   - groupId: IN: Group ID
 //
@@ -243,7 +252,9 @@ func (h Handle) GroupDestroy(groupId GpuGrp) error {
 	return GroupDestroy(h, groupId)
 }
 
-// GroupGetAllIds Used to get the Ids of all groups of entities.
+// GroupGetAllIds is used to get the Ids of all groups of entities.
+//
+// The information returned is a list of group ids in groupIdList as well as a count of how many ids there are in count. Please allocate enough memory for groupIdList. Memory of size MAX_NUM_GROUPS should be allocated for groupIdList.
 //
 //   - groupIdList: OUT: List of Group Ids
 //   - count: OUT: The number of Group ids in the list
@@ -253,7 +264,9 @@ func (h Handle) GroupGetAllIds(groupIdList *GpuGrp) (uint32, error) {
 	return GroupGetAllIds(h, groupIdList)
 }
 
-// GroupGetInfo Used to get information corresponding to the group represented by groupId.
+// GroupGetInfo is used to get information corresponding to the group represented by groupId.
+//
+// The information returned in pDcgmGroupInfo consists of group name, and the list of entities present in the group.
 //
 //   - groupId: IN: Group ID for which information to be fetched
 //   - pDcgmGroupInfo: OUT: Group Information
@@ -263,7 +276,7 @@ func (h Handle) GroupGetInfo(groupId GpuGrp, pDcgmGroupInfo *GroupInfo) error {
 	return GroupGetInfo(h, groupId, pDcgmGroupInfo)
 }
 
-// GroupRemoveDevice Used to remove specified GPU Id from the group represented by groupId.
+// GroupRemoveDevice is used to remove specified GPU Id from the group represented by groupId.
 //
 //   - groupId: IN: Group ID from which device should be removed
 //   - gpuId: IN: DCGM GPU Id
@@ -273,7 +286,7 @@ func (h Handle) GroupRemoveDevice(groupId GpuGrp, gpuId uint32) error {
 	return GroupRemoveDevice(h, groupId, gpuId)
 }
 
-// GroupRemoveEntity Used to remove specified entity from the group represented by groupId.
+// GroupRemoveEntity is used to remove specified entity from the group represented by groupId.
 //
 //   - groupId: IN: Group ID from which device should be removed
 //   - entityGroupId: IN: Entity group that entityId belongs to
@@ -284,7 +297,7 @@ func (h Handle) GroupRemoveEntity(groupId GpuGrp, entityGroupId FieldEntityGroup
 	return GroupRemoveEntity(h, groupId, entityGroupId, entityId)
 }
 
-// GroupTopology Gets group topology corresponding to the groupId.
+// GroupTopology gets group topology corresponding to the groupId.
 //
 //   - groupId: IN: GroupId corresponding to which topology information should be fetched
 //   - pDcgmGroupTopology: IN/OUT: Topology information corresponding to groupId. pDcgmgroupTopology->version must be set to dcgmGroupTopology_version or dcgmGroupTopology_version1
@@ -294,7 +307,9 @@ func (h Handle) GroupTopology(groupId GpuGrp, pDcgmGroupTopology *GroupTopology)
 	return GetGroupTopology(h, groupId, pDcgmGroupTopology)
 }
 
-// HealthCheck Check the configured watches for any errors/failures/warnings that have occurred since the last time this check was invoked.
+// HealthCheck checks the configured watches for any errors/failures/warnings that have occurred since the last time this check was invoked.
+//
+// On the first call, stateful information about all of the enabled watches within a group is created but no error results are provided. On subsequent calls, any error information will be returned.
 //
 //   - groupId: IN: Group ID representing a collection of one or more entities. Refer to [Handle.GroupCreate] for details on creating a group
 //   - results: OUT: A reference to the [HealthResponse] structure to populate. results->version must be set to dcgmHealthResponse_version
@@ -304,7 +319,7 @@ func (h Handle) HealthCheck(groupId GpuGrp, results *HealthResponse) error {
 	return HealthCheck(h, groupId, results)
 }
 
-// HealthGet Retrieve the current state of the DCGM health check system
+// HealthGet retrieves the current state of the DCGM health check system
 //
 //   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs or [GroupAllNvSwitches] to perform operation on all the NvSwitches
 //   - systems: OUT: An integer representing the enabled systems for the given group Refer to [HealthSystems] for details
@@ -314,7 +329,9 @@ func (h Handle) HealthGet(groupId GpuGrp, systems *HealthSystems) error {
 	return HealthGet(h, groupId, systems)
 }
 
-// HostengineEnvironmentVariableInfo This method is used to retrieve the value of an environment variable from the hostengine.
+// HostengineEnvironmentVariableInfo is used to retrieve the value of an environment variable from the hostengine.
+//
+// Note: only CUDA_VISIBLE_DEVICES env is supported
 //
 //   - pEnvVarInfo: IN/OUT: Pointer to a [EnvVarInfo] structure. - envVarName must be set to the name of the environment variable to query (input). - envVarValue will be filled with the value of the environment variable (output)
 //
@@ -332,7 +349,7 @@ func (h Handle) HostengineIsHealthy(heHealth *HostengineHealth) error {
 	return HostengineIsHealthy(h, heHealth)
 }
 
-// HostengineVersionInfo This method is used to return information about the build environment of the hostengine.
+// HostengineVersionInfo is used to return information about the build environment of the hostengine.
 //
 //   - pVersionInfo: OUT: Build environment information
 //
@@ -341,7 +358,7 @@ func (h Handle) HostengineVersionInfo(pVersionInfo *VersionInfoStruct) error {
 	return HostengineVersionInfo(h, pVersionInfo)
 }
 
-// IntrospectGetHostengineCpuUtilization Retrieve the CPU utilization of the DCGM hostengine process.
+// IntrospectGetHostengineCpuUtilization retrieves the CPU utilization of the DCGM hostengine process.
 //
 //   - cpuUtil: IN/OUT: see [IntrospectCpuUtil]. cpuUtil->version must be set to dcgmIntrospectCpuUtil_version prior to this call
 //   - waitIfNoData: IN: if no metadata is gathered wait till this occurs (!0) or return [ErrNoData] (0)
@@ -351,7 +368,9 @@ func (h Handle) IntrospectGetHostengineCpuUtilization(cpuUtil *IntrospectCpuUtil
 	return IntrospectGetHostengineCpuUtilization(h, cpuUtil, waitIfNoData)
 }
 
-// IntrospectGetHostengineMemoryUsage Retrieve the total amount of memory that the hostengine process is currently using.
+// IntrospectGetHostengineMemoryUsage retrieves the total amount of memory that the hostengine process is currently using.
+//
+// This measurement represents both the resident set size (what is currently in RAM) and the swapped memory that belongs to the process.
 //
 //   - memoryInfo: IN/OUT: see [IntrospectMemory]. memoryInfo->version must be set to dcgmIntrospectMemory_version prior to this call
 //   - waitIfNoData: IN: if no metadata is gathered wait till this occurs (!0) or return [ErrNoData] (0)
@@ -361,7 +380,7 @@ func (h Handle) IntrospectGetHostengineMemoryUsage(memoryInfo *IntrospectMemory,
 	return IntrospectGetHostengineMemoryUsage(h, memoryInfo, waitIfNoData)
 }
 
-// LatestValuesForFields Request latest cached field value for a GPU
+// LatestValuesForFields requests latest cached field value for a GPU
 //
 //   - gpuId: IN: Gpu ID representing the GPU for which the fields are being requested
 //   - fields: IN: Field IDs to return data for. See the definitions in dcgm_fields.h that start with DCGM_FI_
@@ -373,7 +392,7 @@ func (h Handle) LatestValuesForFields(gpuId int32, fields *uint16, count uint32,
 	return GetLatestValuesForFields(h, gpuId, fields, count, values)
 }
 
-// ModuleGetStatuses Get the status of all of the DCGM modules.
+// ModuleGetStatuses gets the status of all of the DCGM modules.
 //
 //   - moduleStatuses: OUT: Module statuses. .version should be set to dcgmModuleStatuses_version upon calling
 //
@@ -382,7 +401,9 @@ func (h Handle) ModuleGetStatuses(moduleStatuses *ModuleGetStatusesStruct) error
 	return ModuleGetStatuses(h, moduleStatuses)
 }
 
-// NvLinkLinkStatus Get the NvLink link status for every NvLink in this system.
+// NvLinkLinkStatus gets the NvLink link status for every NvLink in this system.
+//
+// This includes the NvLinks of both GPUs and NvSwitches. Note that only NvSwitches and GPUs that are visible to the current environment will be returned in this structure.
 //
 //   - linkStatus: OUT: Structure in which to store NvLink link statuses. .version should be set to dcgmNvLinkStatus_version before calling this
 //
@@ -391,7 +412,9 @@ func (h Handle) NvLinkLinkStatus(linkStatus *NvLinkStatus) error {
 	return GetNvLinkLinkStatus(h, linkStatus)
 }
 
-// NvLinkP2PStatus Get the NvLink P2P status for every GPU NvLink in this system.
+// NvLinkP2PStatus gets the NvLink P2P status for every GPU NvLink in this system.
+//
+// Only GPUs that are visible to the current environment will be returned in this structure.
 //
 //   - linkStatus: OUT: Structure in which to store NvLink P2P statuses. .version should be set to dcgmNvLinkP2PStatus_version1 before calling this
 //
@@ -400,7 +423,7 @@ func (h Handle) NvLinkP2PStatus(linkStatus *NvLinkP2PStatus) error {
 	return GetNvLinkP2PStatus(h, linkStatus)
 }
 
-// ProfGetSupportedMetricGroups Get all of the profiling metric groups for a given GPU group.
+// ProfGetSupportedMetricGroups gets all of the profiling metric groups for a given GPU group.
 //
 // The behavior of this API differs depending on the GPU architecture:
 //
@@ -432,14 +455,14 @@ func (h Handle) ProfGetSupportedMetricGroups(metricGroups *ProfGetMetricGroups) 
 	return ProfGetSupportedMetricGroups(h, metricGroups)
 }
 
-// StopEmbedded Stop the embedded host engine within this process that was started with [StartEmbeddedV2]
+// StopEmbedded stops the embedded host engine within this process that was started with [StartEmbeddedV2]
 //
 // Wraps dcgmStopEmbedded.
 func (h Handle) StopEmbedded() error {
 	return StopEmbedded(h)
 }
 
-// UnwatchFields Request that DCGM stop recording updates for a given field collection.
+// UnwatchFields requests that DCGM stop recording updates for a given field collection.
 //
 //   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs or [GroupAllNvSwitches] to to perform the operation on all NvSwitches
 //   - fieldGroupId: IN: Fields to unwatch
@@ -449,7 +472,7 @@ func (h Handle) UnwatchFields(groupId GpuGrp, fieldGroupId FieldGrp) error {
 	return UnwatchFields(h, groupId, fieldGroupId)
 }
 
-// UpdateAllFields This method is used to tell the DCGM module to update all the fields being watched.
+// UpdateAllFields is used to tell the DCGM module to update all the fields being watched.
 //
 // Note: If the if the operation mode was set to manual mode ([OperationModeManual]) during
 // initialization ([Init]), this method must be caused periodically to allow field value watches
@@ -462,7 +485,7 @@ func (h Handle) UpdateAllFields(waitForUpdate int32) error {
 	return UpdateAllFields(h, waitForUpdate)
 }
 
-// WatchFields Request that DCGM start recording updates for a given field collection.
+// WatchFields requests that DCGM start recording updates for a given field collection.
 //
 // Note that the first update of the field will not occur until the next field update cycle.
 // To force a field update cycle, call [Handle.UpdateAllFields](1).

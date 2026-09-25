@@ -74,7 +74,8 @@ func readSymbolList(path string) ([]string, error) {
 	return out, nil
 }
 
-// registeredSymbols returns the symbol names passed to register in path.
+// registeredSymbols returns the symbol names passed to register or
+// registerSym in path.
 //
 // It reads the generated source rather than calling Has, because Has needs the
 // library to be present and this test must run on a machine that has never had
@@ -91,10 +92,19 @@ func registeredSymbols(path string) ([]string, error) {
 			return true
 		}
 		ident, ok := call.Fun.(*ast.Ident)
-		if !ok || ident.Name != "register" || len(call.Args) != 2 {
+		if !ok {
 			return true
 		}
-		lit, ok := call.Args[1].(*ast.BasicLit)
+		var arg ast.Expr
+		switch {
+		case ident.Name == "register" && len(call.Args) == 2:
+			arg = call.Args[1]
+		case ident.Name == "registerSym" && len(call.Args) == 1:
+			arg = call.Args[0]
+		default:
+			return true
+		}
+		lit, ok := arg.(*ast.BasicLit)
 		if !ok || lit.Kind != token.STRING {
 			return true
 		}

@@ -2,7 +2,7 @@
 
 package driver
 
-// EnumerateKernels Retrieve the kernel handles within a library.
+// EnumerateKernels retrieves the kernel handles within a library.
 //
 // Returns in kernels a maximum number of numKernels kernel handles within lib. The returned kernel handle becomes invalid when the library is unloaded.
 //
@@ -16,7 +16,7 @@ func (l Library) EnumerateKernels(kernels *Kernel, numKernels uint32) error {
 	return libraryEnumerateKernels(kernels, numKernels, l)
 }
 
-// Global Returns a global device pointer.
+// Global returns a global device pointer.
 //
 // Returns in *dptr and *bytes the base pointer and size of the global with name name for the requested library library and the current context. If no global for the requested name name exists, the call returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored.
 //
@@ -29,7 +29,7 @@ func (l Library) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 	return libraryGetGlobal(l, name)
 }
 
-// Kernel Returns a kernel handle.
+// Kernel returns a kernel handle.
 //
 // Returns in pKernel the handle of the kernel with name name located in library library. If kernel handle is not found, the call returns [ErrNotFound].
 //
@@ -42,7 +42,7 @@ func (l Library) Kernel(name string) (Kernel, error) {
 	return libraryGetKernel(l, name)
 }
 
-// KernelCount Returns the number of kernels within a library.
+// KernelCount returns the number of kernels within a library.
 //
 // Returns in count the number of kernels in lib.
 //
@@ -51,7 +51,7 @@ func (l Library) KernelCount() (uint32, error) {
 	return libraryGetKernelCount(l)
 }
 
-// Managed Returns a pointer to managed memory.
+// Managed returns a pointer to managed memory.
 //
 // Returns in *dptr and *bytes the base pointer and size of the managed memory with name name for the requested library library. If no managed memory with the requested name name exists, the call returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. Note that managed memory for library library is shared across devices and is registered when the library is loaded into atleast one context.
 //
@@ -64,7 +64,7 @@ func (l Library) Managed(name string) (dptr DevicePtr, bytes uint, err error) {
 	return libraryGetManaged(l, name)
 }
 
-// Module Returns a module handle.
+// Module returns a module handle.
 //
 // Returns in pMod the module handle associated with the current context located in library library. If module handle is not found, the call returns [ErrNotFound].
 //
@@ -75,7 +75,7 @@ func (l Library) Module() (Module, error) {
 	return libraryGetModule(l)
 }
 
-// UnifiedFunction Returns a pointer to a unified function.
+// UnifiedFunction returns a pointer to a unified function.
 //
 // Returns in *fptr the function pointer to a unified function denoted by symbol. If no unified function with name symbol exists, the call returns [ErrNotFound]. If there is no device with attribute [DevAttrUnifiedFunctionPointers] present in the system, the call may return [ErrNotFound].
 //
@@ -88,7 +88,7 @@ func (l Library) UnifiedFunction(symbol string) (uintptr, error) {
 	return libraryGetUnifiedFunction(l, symbol)
 }
 
-// Unload Unloads a library.
+// Unload unloads a library.
 //
 // # Unloads the library specified with library
 //
@@ -99,11 +99,11 @@ func (l Library) Unload() error {
 	return libraryUnload(l)
 }
 
-// LibraryLoadData Load a library with specified code and options.
+// LibraryLoadData loads a library with specified code and options.
 //
-// Takes a pointer code and loads the corresponding library library based on the application defined library loading mode:
+// Takes code and loads the corresponding library library based on the application defined library loading mode:
 // These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section.
-// The code may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. A fatbin should also contain relocatable code when doing separate compilation.
+// The code may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data. A fatbin should also contain relocatable code when doing separate compilation.
 // Options are passed as an array via jitOptions and any corresponding parameters are passed in jitOptionsValues. The number of total JIT options is supplied via numJitOptions. Any outputs will be returned via jitOptionsValues.
 // Library load options are passed as an array via libraryOptions and any corresponding parameters are passed in libraryOptionValues. The number of total library load options is supplied via numLibraryOptions.
 //
@@ -119,15 +119,17 @@ func (l Library) Unload() error {
 //   - libraryOptionValues: Option values for loading
 //   - numLibraryOptions: Number of options for loading
 //
-// If code does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise code is passed without copying.
+// The wrapper passes code to C without copying if a NUL byte ends it or
+// follows it in its capacity, as one does in text a generated getter returns,
+// or if it starts with the ELF or fatbin magic number. Otherwise code is text,
+// and the wrapper copies it once to append a NUL.
 //
 // Wraps cuLibraryLoadData.
 func LibraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {
 	return libraryLoadData(code, jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions)
 }
 
-// LibraryLoadFromFile Load a library with specified file and options.
+// LibraryLoadFromFile loads a library with specified file and options.
 //
 // Takes a pointer code and loads the corresponding library library based on the application defined library loading mode:
 // These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section.

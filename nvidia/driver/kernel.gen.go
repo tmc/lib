@@ -2,7 +2,7 @@
 
 package driver
 
-// Attribute Returns information about a kernel.
+// Attribute returns information about a kernel.
 //
 // Returns in *pi the integer value of the attribute attrib for the kernel kernel for the requested device dev. The supported attributes are:
 //
@@ -18,7 +18,7 @@ func (k Kernel) Attribute(attrib FunctionAttribute, dev Device) (int32, error) {
 	return kernelGetAttribute(attrib, k, dev)
 }
 
-// Function Returns a function handle.
+// Function returns a function handle.
 //
 // Returns in pFunc the handle of the function for the requested kernel kernel and the current context. If function handle is not found, the call returns [ErrNotFound].
 //
@@ -29,7 +29,7 @@ func (k Kernel) Function() (Function, error) {
 	return kernelGetFunction(k)
 }
 
-// Library Returns a library handle.
+// Library returns a library handle.
 //
 // # Returns in pLib the handle of the library for the requested kernel kernel
 //
@@ -40,7 +40,7 @@ func (k Kernel) Library() (Library, error) {
 	return kernelGetLibrary(k)
 }
 
-// Name Returns the function name for a [Kernel] handle.
+// Name returns the function name for a [Kernel] handle.
 //
 // Returns in **name the function name associated with the kernel handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the kernel handle is valid. If the library is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned.
 //
@@ -51,7 +51,7 @@ func (k Kernel) Name() (string, error) {
 	return kernelGetName(k)
 }
 
-// ParamCount Returns the number of parameters used by the kernel.
+// ParamCount returns the number of parameters used by the kernel.
 //
 // Queries the number of kernel parameters used by kernel and returns it in paramCount.
 //
@@ -64,7 +64,7 @@ func (k Kernel) ParamCount() (uint, error) {
 	return kernelGetParamCount(k)
 }
 
-// ParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout.
+// ParamInfo returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
 // Queries the kernel parameter at paramIndex into kernel's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that kernel takes. paramSize can be set to NULL if only the parameter offset is desired.
 //
@@ -79,7 +79,7 @@ func (k Kernel) ParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, er
 	return kernelGetParamInfo(k, paramIndex)
 }
 
-// SetAttribute Sets information about a kernel.
+// SetAttribute sets information about a kernel.
 //
 // This call sets the value of a specified attribute attrib on the kernel kernel for the requested device dev to an integer value specified by val. This function returns [Success] if the new value of the attribute could be successfully set. If the set fails, this call will return an error. Not all attributes can have values set. Attempting to set a value on a read-only attribute will result in an error ([ErrInvalidValue])
 // Note that attributes set using [Function.SetAttribute] will override the attribute set by this API irrespective of whether the call to [Function.SetAttribute] is made before or after this API call. However, [Kernel.Attribute] will always return the attribute value set by this API.
@@ -98,7 +98,7 @@ func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) er
 	return kernelSetAttribute(attrib, val, k, dev)
 }
 
-// SetCacheConfig Sets the preferred cache configuration for a device kernel.
+// SetCacheConfig sets the preferred cache configuration for a device kernel.
 //
 // On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the device kernel kernel on the requested device dev. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute kernel. Any context-wide preference set via [CtxSetCacheConfig] will be overridden by this per-kernel setting.
 // Note that attributes set using [Function.SetCacheConfig] will override the attribute set by this API irrespective of whether the call to [Function.SetCacheConfig] is made before or after this API call.

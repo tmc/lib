@@ -3,20 +3,21 @@
 package cutensornet
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"unsafe"
 )
 
 // ContractSlices wraps cutensornetContractSlices.
 //
 // Deprecated: This function is deprecated.
-func (h Handle) ContractSlices(plan ContractionPlan, rawDataIn *uintptr, rawDataOut uintptr, accumulateOutput int32, workDesc WorkspaceDescriptor, sliceGroup SliceGroup, stream Stream) error {
+func (h Handle) ContractSlices(plan ContractionPlan, rawDataIn *uintptr, rawDataOut uintptr, accumulateOutput int32, workDesc WorkspaceDescriptor, sliceGroup SliceGroup, stream driver.Stream) error {
 	return contractSlices(h, plan, rawDataIn, rawDataOut, accumulateOutput, workDesc, sliceGroup, stream)
 }
 
 // ContractionAutotune wraps cutensornetContractionAutotune.
 //
 // Deprecated: This function is deprecated.
-func (h Handle) ContractionAutotune(plan ContractionPlan, rawDataIn *uintptr, rawDataOut uintptr, workDesc WorkspaceDescriptor, pref ContractionAutotunePreference, stream Stream) error {
+func (h Handle) ContractionAutotune(plan ContractionPlan, rawDataIn *uintptr, rawDataOut uintptr, workDesc WorkspaceDescriptor, pref ContractionAutotunePreference, stream driver.Stream) error {
 	return contractionAutotune(h, plan, rawDataIn, rawDataOut, workDesc, pref, stream)
 }
 
@@ -122,12 +123,12 @@ func (h Handle) NetworkAppendTensor(networkDesc NetworkDescriptor, numModes int3
 }
 
 // NetworkAutotuneContraction wraps cutensornetNetworkAutotuneContraction.
-func (h Handle) NetworkAutotuneContraction(networkDesc NetworkDescriptor, workDesc WorkspaceDescriptor, pref NetworkAutotunePreference, stream Stream) error {
+func (h Handle) NetworkAutotuneContraction(networkDesc NetworkDescriptor, workDesc WorkspaceDescriptor, pref NetworkAutotunePreference, stream driver.Stream) error {
 	return networkAutotuneContraction(h, networkDesc, workDesc, pref, stream)
 }
 
 // NetworkContract wraps cutensornetNetworkContract.
-func (h Handle) NetworkContract(networkDesc NetworkDescriptor, accumulateOutput int32, workDesc WorkspaceDescriptor, sliceGroup SliceGroup, stream Stream) error {
+func (h Handle) NetworkContract(networkDesc NetworkDescriptor, accumulateOutput int32, workDesc WorkspaceDescriptor, sliceGroup SliceGroup, stream driver.Stream) error {
 	return networkContract(h, networkDesc, accumulateOutput, workDesc, sliceGroup, stream)
 }
 

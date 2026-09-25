@@ -288,7 +288,9 @@ func (e ContractionOptimizerInfoAttributes) String() string {
 	return fmt.Sprintf("ContractionOptimizerInfoAttributes(%d)", e)
 }
 
-// ContractionAutotunePreferenceAttributes represents DEPRECATED: This enum lists all attributes of a [ContractionAutotunePreference] that are accessible.
+// ContractionAutotunePreferenceAttributes lists all attributes of a [ContractionAutotunePreference] that are accessible.
+//
+// Deprecated: This type is deprecated.
 type ContractionAutotunePreferenceAttributes int32
 
 const (

@@ -783,6 +783,8 @@ func (e TemperatureSensors) String() string {
 }
 
 // ComputeMode represents compute mode.
+//
+// [ComputemodeExclusiveProcess] was added in CUDA 4.0. Earlier CUDA versions supported a single exclusive mode, which is equivalent to [ComputemodeExclusiveThread] in CUDA 4.0 and beyond.
 type ComputeMode int32
 
 const (
@@ -814,8 +816,8 @@ func (e ComputeMode) String() string {
 type MemoryErrorType int32
 
 const (
-	MemoryErrorTypeCorrected   MemoryErrorType = 0 // A memory error that was corrected For ECC errors, these are single bit errors For Texture memory, these are errors fixed by resend
-	MemoryErrorTypeUncorrected MemoryErrorType = 1 // A memory error that was not corrected For ECC errors, these are double bit errors For Texture memory, these are errors where the resend fails
+	MemoryErrorTypeCorrected   MemoryErrorType = 0 // A memory error that was corrected. For ECC errors, these are single bit errors For Texture memory, these are errors fixed by resend
+	MemoryErrorTypeUncorrected MemoryErrorType = 1 // A memory error that was not corrected. For ECC errors, these are double bit errors For Texture memory, these are errors where the resend fails
 	MemoryErrorTypeCount       MemoryErrorType = 2 // Count of memory error types
 )
 
@@ -833,6 +835,8 @@ func (e MemoryErrorType) String() string {
 }
 
 // EccCounterType represents ECC counter types.
+//
+// Note: Volatile counts are reset each time the driver loads. On Windows this is once per boot. On Linux this can be more frequent. On Linux the driver unloads when no active clients exist. If persistence mode is enabled or there is always a driver client active (e.g. X11), then Linux also sees per-boot behavior. If not, volatile counts are reset each time a compute app is run.
 type EccCounterType int32
 
 const (
@@ -855,6 +859,8 @@ func (e EccCounterType) String() string {
 }
 
 // ClockType represents clock types.
+//
+// All speeds are in Mhz.
 type ClockType int32
 
 const (
@@ -883,6 +889,8 @@ func (e ClockType) String() string {
 }
 
 // ClockId represents clock Ids.
+//
+// These are used in combination with [ClockType] to specify a single clock value.
 type ClockId int32
 
 const (
@@ -911,6 +919,8 @@ func (e ClockId) String() string {
 }
 
 // DriverModel represents driver models.
+//
+// Windows only.
 type DriverModel int32
 
 const (
@@ -996,7 +1006,9 @@ func (e Pstates) String() string {
 	return fmt.Sprintf("Pstates(%d)", e)
 }
 
-// GpuOperationMode represents GPU Operation Mode GOM allows to reduce power usage and optimize GPU throughput by disabling GPU features.
+// GpuOperationMode represents GPU Operation Mode.
+//
+// GOM allows to reduce power usage and optimize GPU throughput by disabling GPU features. Each GOM is designed to meet specific user needs.
 type GpuOperationMode int32
 
 const (

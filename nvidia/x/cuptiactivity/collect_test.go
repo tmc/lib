@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func TestCollectionCompletion(t *testing.T) {
@@ -30,7 +31,7 @@ func TestCollectionCompletion(t *testing.T) {
 			*out = (*cupti.Activity)(unsafe.Pointer(a))
 			return nil
 		},
-		dropped: func(cupti.Context, uint32) (uint, error) { return 3, nil },
+		dropped: func(driver.Context, uint32) (uint, error) { return 3, nil },
 	}
 	c.complete(0, 0, ptr, bytes, bytes)
 	if c.discarded != 1 || c.nativeDropped != 3 || c.failures != 0 || len(c.records) != 0 {
@@ -52,7 +53,7 @@ func TestCollectionErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := errors.New("native dropped query failed")
-	c := collection{pool: pool, dropped: func(cupti.Context, uint32) (uint, error) { return 0, want }}
+	c := collection{pool: pool, dropped: func(driver.Context, uint32) (uint, error) { return 0, want }}
 	ptr, size := pool.request()
 	c.complete(0, 0, ptr, size, 0)
 	if c.failures != 1 || !errors.Is(c.firstError, want) {
@@ -80,7 +81,7 @@ func TestExternalCorrelationIsNotIncompleteTiming(t *testing.T) {
 		}
 		*out = (*cupti.Activity)(unsafe.Pointer(a))
 		return nil
-	}, dropped: func(cupti.Context, uint32) (uint, error) { return 0, nil }}
+	}, dropped: func(driver.Context, uint32) (uint, error) { return 0, nil }}
 	c.complete(0, 0, ptr, size, uint(unsafe.Sizeof(*a)))
 	if c.incomplete != 0 || c.failures != 0 || len(c.records) != 1 || c.records[0].ExternalID != 99 {
 		t.Fatalf("incomplete=%d failures=%d records=%v", c.incomplete, c.failures, c.records)
@@ -105,7 +106,7 @@ func TestMemoryInstantCompleteness(t *testing.T) {
 			}
 			*out = (*cupti.Activity)(unsafe.Pointer(a))
 			return nil
-		}, dropped: func(cupti.Context, uint32) (uint, error) { return 0, nil }}
+		}, dropped: func(driver.Context, uint32) (uint, error) { return 0, nil }}
 		c.complete(0, 0, ptr, n, n)
 		want := uint64(0)
 		if timestamp == 0 {

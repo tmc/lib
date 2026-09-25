@@ -5,6 +5,8 @@ package cupti
 import "fmt"
 
 // ActivityKind represents the kinds of activity records.
+//
+// Each activity record kind represents information about a GPU or an activity occurring on a CPU or GPU. Each kind is associated with a activity record structure that holds the information associated with the kind. See also [Activity] See also [ActivityAPI] See also [ActivityContext] See also [ActivityContext2] See also [ActivityContext3] See also [ActivityContext4] See also [ActivityDevice] See also [ActivityDevice2] See also [ActivityDevice3] See also [ActivityDevice4] See also [ActivityDevice5] See also [ActivityDevice6] See also [ActivityDeviceAttribute] See also [ActivityEvent] See also [ActivityEventInstance] See also [ActivityKernel] See also [ActivityKernel2] See also [ActivityKernel3] See also [ActivityKernel4] See also [ActivityKernel5] See also [ActivityKernel6] See also [ActivityKernel7] See also [ActivityKernel8] See also [ActivityKernel9] See also [ActivityKernel10] See also [ActivityKernel11] See also CUpti_ActivityKernel12 See also CUpti_ActivityKernel13 See also [ActivityCdpKernel] See also [ActivityPreemption] See also [ActivityMemcpy] See also [ActivityMemcpy3] See also [ActivityMemcpy4] See also [ActivityMemcpy5] See also [ActivityMemcpy6] See also CUpti_ActivityMemcpy7 See also [ActivityMemcpyPtoP] See also [ActivityMemcpyPtoP2] See also [ActivityMemcpyPtoP3] See also [ActivityMemcpyPtoP4] See also [ActivityMemset] See also [ActivityMemset2] See also [ActivityMemset3] See also [ActivityMemset4] See also CUpti_ActivityMemset5 See also [ActivityMemory] See also [ActivityMemory2] See also [ActivityMemory3] See also [ActivityMemory4] See also [ActivityMemoryPool] See also [ActivityMemoryPool2] See also [ActivityMemoryPool3] See also [ActivityMetric] See also [ActivityMetricInstance] See also [ActivityName] See also [ActivityMarker] See also [ActivityMarker2] See also [ActivityMarkerData] See also [ActivitySourceLocator] See also [ActivityGlobalAccess] See also [ActivityGlobalAccess2] See also [ActivityGlobalAccess3] See also [ActivityBranch] See also [ActivityBranch2] See also [ActivityOverhead3] See also [ActivityEnvironment] See also [ActivityInstructionExecution] See also [ActivityUnifiedMemoryCounter] See also [ActivityFunction] See also [ActivityModule] See also [ActivitySharedAccess] See also [ActivityPCSampling] See also [ActivityPCSampling2] See also [ActivityPCSampling3] See also [ActivityPCSamplingRecordInfo] See also [ActivityCudaEvent2] See also [ActivityStream] See also [ActivitySynchronization2] See also [ActivityInstructionCorrelation] See also [ActivityExternalCorrelation] See also [ActivityUnifiedMemoryCounter3] See also [ActivityOpenAccData] See also [ActivityOpenAccLaunch] See also [ActivityOpenAccOther] See also [ActivityOpenMp] See also [ActivityNvLink] See also [ActivityNvLink2] See also [ActivityNvLink3] See also [ActivityNvLink4] See also [ActivityNvLink5] See also [ActivityPcie] See also [ActivityConfidentialComputeRotation] See also [ActivityComputeEngineCtxSwitch].
 type ActivityKind int32
 
 const (
@@ -127,7 +129,7 @@ const (
 	ActivityKindHostLaunch ActivityKind = 58
 	// ActivityKindGreenContext: An activity kind denoting the allocation of a green context. The corresponding activity record structure is [ActivityGreenContext].
 	ActivityKindGreenContext ActivityKind = 59
-	ActivityKindCount        ActivityKind = 60
+	ActivityKindCount        ActivityKind = 60 // Count of supported activity kinds.
 	ActivityKindForceInt     ActivityKind = 0x7fffffff
 )
 
@@ -263,6 +265,8 @@ func (e ActivityKind) String() string {
 }
 
 // ActivityObjectKind represents the kinds of activity objects.
+//
+// See also [ActivityObjectKindId].
 type ActivityObjectKind int32
 
 const (
@@ -370,6 +374,8 @@ func (e ActivityComputeApiKind) String() string {
 }
 
 // ActivityFlag represents flags associated with activity records.
+//
+// Activity record flags. Flags can be combined by bitwise OR to associated multiple flags with an activity record. Each flag is specific to a certain activity kind, as noted below.
 type ActivityFlag int32
 
 const (
@@ -464,7 +470,7 @@ func (e ActivityFlag) String() string {
 type ActivityPCSamplingStallReason int32
 
 const (
-	ActivityPcSamplingStallInvalid ActivityPCSamplingStallReason = 0 // Invalid reason
+	ActivityPcSamplingStallInvalid ActivityPCSamplingStallReason = 0 // Invalid reason.
 	ActivityPcSamplingStallNone    ActivityPCSamplingStallReason = 1 // No stall, instruction is selected for issue
 	// ActivityPcSamplingStallInstFetch: Warp is blocked because next instruction is not yet available, because of instruction cache miss, or because of branching effects
 	ActivityPcSamplingStallInstFetch      ActivityPCSamplingStallReason = 2
@@ -522,7 +528,9 @@ func (e ActivityPCSamplingStallReason) String() string {
 	return fmt.Sprintf("ActivityPCSamplingStallReason(%d)", e)
 }
 
-// ActivityPCSamplingPeriod represents sampling period for PC sampling method Sampling period can be set using [ActivityConfigurePCSampling].
+// ActivityPCSamplingPeriod represents sampling period for PC sampling method.
+//
+// Sampling period can be set using [ActivityConfigurePCSampling].
 type ActivityPCSamplingPeriod int32
 
 const (
@@ -557,6 +565,8 @@ func (e ActivityPCSamplingPeriod) String() string {
 }
 
 // ActivityMemcpyKind represents the kind of a memory copy, indicating the source and destination targets of the copy.
+//
+// Each kind represents the source and destination targets of a memory copy. Targets are host, device, and array.
 type ActivityMemcpyKind int32
 
 const (
@@ -606,6 +616,8 @@ func (e ActivityMemcpyKind) String() string {
 }
 
 // ActivityMemoryKind represents the kinds of memory accessed by a memory operation/copy.
+//
+// Each kind represents the type of the memory accessed by a memory operation/copy.
 type ActivityMemoryKind int32
 
 const (
@@ -671,6 +683,8 @@ func (e ActivityPreemptionKind) String() string {
 }
 
 // ActivityEnvironmentKind represents the kind of environment data.
+//
+// Used to indicate what type of data is being reported by an environment activity record.
 type ActivityEnvironmentKind int32
 
 const (
@@ -705,6 +719,8 @@ func (e ActivityEnvironmentKind) String() string {
 }
 
 // EnvironmentClocksThrottleReason represents reasons for clock throttling.
+//
+// The possible reasons that a clock can be throttled. There can be more than one reason that a clock is being throttled so these types can be combined by bitwise OR. These are used in the clocksThrottleReason field in the Environment Activity Record.
 type EnvironmentClocksThrottleReason uint32
 
 const (
@@ -744,7 +760,9 @@ func (e EnvironmentClocksThrottleReason) String() string {
 	return fmt.Sprintf("EnvironmentClocksThrottleReason(%d)", e)
 }
 
-// ActivityUnifiedMemoryCounterScope represents scope of the unified memory counter (deprecated in CUDA 7.0).
+// ActivityUnifiedMemoryCounterScope represents scope of the unified memory counter.
+//
+// Deprecated: This type is deprecated in CUDA 7.0.
 type ActivityUnifiedMemoryCounterScope int32
 
 const (
@@ -774,7 +792,9 @@ func (e ActivityUnifiedMemoryCounterScope) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryCounterScope(%d)", e)
 }
 
-// ActivityUnifiedMemoryCounterKind represents kind of the Unified Memory counter Many activities are associated with Unified Memory mechanism; among them are transfers from host to device, device to host, page fault at host side.
+// ActivityUnifiedMemoryCounterKind represents kind of the Unified Memory counter.
+//
+// Many activities are associated with Unified Memory mechanism; among them are transfers from host to device, device to host, page fault at host side.
 type ActivityUnifiedMemoryCounterKind int32
 
 const (
@@ -826,7 +846,9 @@ func (e ActivityUnifiedMemoryCounterKind) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryCounterKind(%d)", e)
 }
 
-// ActivityUnifiedMemoryAccessType represents memory access type for unified memory page faults This is valid for [ActivityUnifiedMemoryCounterKindGpuPageFault] and [ActivityUnifiedMemoryCounterKindCpuPageFaultCount].
+// ActivityUnifiedMemoryAccessType represents memory access type for unified memory page faults.
+//
+// This is valid for [ActivityUnifiedMemoryCounterKindGpuPageFault] and [ActivityUnifiedMemoryCounterKindCpuPageFaultCount].
 type ActivityUnifiedMemoryAccessType int32
 
 const (
@@ -834,7 +856,7 @@ const (
 	ActivityUnifiedMemoryAccessTypeRead     ActivityUnifiedMemoryAccessType = 1 // The page fault was triggered by read memory instruction
 	ActivityUnifiedMemoryAccessTypeWrite    ActivityUnifiedMemoryAccessType = 2 // The page fault was triggered by write memory instruction
 	ActivityUnifiedMemoryAccessTypeAtomic   ActivityUnifiedMemoryAccessType = 3 // The page fault was triggered by atomic memory instruction
-	ActivityUnifiedMemoryAccessTypePrefetch ActivityUnifiedMemoryAccessType = 4
+	ActivityUnifiedMemoryAccessTypePrefetch ActivityUnifiedMemoryAccessType = 4 // The page fault was triggered by memory prefetch operation.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -854,7 +876,9 @@ func (e ActivityUnifiedMemoryAccessType) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryAccessType(%d)", e)
 }
 
-// ActivityUnifiedMemoryMigrationCause represents migration cause of the Unified Memory counter This is valid for [ActivityUnifiedMemoryCounterKindBytesTransferHtod] and [ActivityUnifiedMemoryCounterKindBytesTransferDtoh].
+// ActivityUnifiedMemoryMigrationCause represents migration cause of the Unified Memory counter.
+//
+// This is valid for [ActivityUnifiedMemoryCounterKindBytesTransferHtod] and [ActivityUnifiedMemoryCounterKindBytesTransferDtoh] and [ActivityUnifiedMemoryCounterKindBytesTransferDtod].
 type ActivityUnifiedMemoryMigrationCause int32
 
 const (
@@ -890,7 +914,9 @@ func (e ActivityUnifiedMemoryMigrationCause) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryMigrationCause(%d)", e)
 }
 
-// ActivityUnifiedMemoryRemoteMapCause represents remote memory map cause of the Unified Memory counter This is valid for [ActivityUnifiedMemoryCounterKindRemoteMap].
+// ActivityUnifiedMemoryRemoteMapCause represents remote memory map cause of the Unified Memory counter.
+//
+// This is valid for [ActivityUnifiedMemoryCounterKindRemoteMap].
 type ActivityUnifiedMemoryRemoteMapCause int32
 
 const (
@@ -927,6 +953,8 @@ func (e ActivityUnifiedMemoryRemoteMapCause) String() string {
 }
 
 // ActivityInstructionClass represents SASS instruction classification.
+//
+// The sass instruction are broadly divided into different class. Each enum represents a classification.
 type ActivityInstructionClass int32
 
 const (
@@ -1035,6 +1063,8 @@ func (e ActivityPartitionedGlobalCacheConfig) String() string {
 }
 
 // ActivitySynchronizationType represents synchronization type.
+//
+// The types of synchronization to be used with [ActivitySynchronization2].
 type ActivitySynchronizationType int32
 
 const (
@@ -1066,6 +1096,8 @@ func (e ActivitySynchronizationType) String() string {
 }
 
 // ActivityStreamFlag stream type.
+//
+// The types of stream to be used with [ActivityStream].
 type ActivityStreamFlag int32
 
 const (
@@ -1073,7 +1105,7 @@ const (
 	ActivityStreamCreateFlagDefault     ActivityStreamFlag = 1      // Default stream.
 	ActivityStreamCreateFlagNonBlocking ActivityStreamFlag = 2      // Non-blocking stream.
 	ActivityStreamCreateFlagNull        ActivityStreamFlag = 3      // Null stream.
-	ActivityStreamCreateMask            ActivityStreamFlag = 0xFFFF // Stream create Mask
+	ActivityStreamCreateMask            ActivityStreamFlag = 0xFFFF // Stream create Mask.
 	ActivityStreamCreateFlagForceInt    ActivityStreamFlag = 0x7fffffff
 )
 
@@ -1097,6 +1129,8 @@ func (e ActivityStreamFlag) String() string {
 }
 
 // LinkFlag represents link flags.
+//
+// Describes link properties, to be used with [ActivityNvLink].
 type LinkFlag int32
 
 const (
@@ -1128,6 +1162,8 @@ func (e LinkFlag) String() string {
 }
 
 // ActivityMemoryOperationType represents memory operation types.
+//
+// Describes the type of memory operation, to be used with [ActivityMemory4].
 type ActivityMemoryOperationType int32
 
 const (
@@ -1153,6 +1189,8 @@ func (e ActivityMemoryOperationType) String() string {
 }
 
 // ActivityMemoryPoolType represents memory pool types.
+//
+// Describes the type of memory pool, to be used with [ActivityMemory4].
 type ActivityMemoryPoolType int32
 
 const (
@@ -1178,6 +1216,8 @@ func (e ActivityMemoryPoolType) String() string {
 }
 
 // ActivityMemoryPoolOperationType represents memory pool operation types.
+//
+// Describes the type of memory pool operation, to be used with [ActivityMemoryPool2].
 type ActivityMemoryPoolOperationType int32
 
 const (
@@ -1213,7 +1253,7 @@ const (
 	ChannelTypeCompute ChannelType = 1 // Channel is used for standard work launch and tracking
 	// ChannelTypeAsyncMemcpy: Channel is used by an asynchronous copy engine For confidential compute configurations, work launch and completion are done using the copy engines.
 	ChannelTypeAsyncMemcpy ChannelType = 2
-	ChannelTypeDecomp      ChannelType = 3
+	ChannelTypeDecomp      ChannelType = 3 // Channel is used for memory decompression operations.
 	ChannelTypeForceInt    ChannelType = 0x7fffffff
 )
 
@@ -1235,12 +1275,14 @@ func (e ChannelType) String() string {
 }
 
 // ContextCigMode represents CIG (CUDA in Graphics) Modes.
+//
+// Describes the CIG modes associated with the CUDA context.
 type ContextCigMode int32
 
 const (
 	ContextCigModeNone        ContextCigMode = 0 // Regular (non-CIG) mode
-	ContextCigModeCig         ContextCigMode = 1 // CIG mode
-	ContextCigModeCigFallback ContextCigMode = 2 // CIG fallback mode
+	ContextCigModeCig         ContextCigMode = 1 // CIG mode.
+	ContextCigModeCigFallback ContextCigMode = 2 // CIG fallback mode.
 	ContextCigModeForceInt    ContextCigMode = 0x7fffffff
 )
 
@@ -1285,28 +1327,47 @@ func (e NvtxExtPayloadType) String() string {
 }
 
 // ActivityMemcpyFieldIds represents enum identifiers for fields to trace memory copies.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindMemcpy].
 type ActivityMemcpyFieldIds int32
 
 const (
 	// MemcpyFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindMemcpy].
-	MemcpyFieldKind             ActivityMemcpyFieldIds = 0
-	MemcpyFieldCopyKind         ActivityMemcpyFieldIds = 1
-	MemcpyFieldSrcKind          ActivityMemcpyFieldIds = 2
-	MemcpyFieldDstKind          ActivityMemcpyFieldIds = 3
-	MemcpyFieldFlags            ActivityMemcpyFieldIds = 4
-	MemcpyFieldBytes            ActivityMemcpyFieldIds = 5
-	MemcpyFieldStart            ActivityMemcpyFieldIds = 6
-	MemcpyFieldEnd              ActivityMemcpyFieldIds = 7
-	MemcpyFieldDeviceId         ActivityMemcpyFieldIds = 8
-	MemcpyFieldContextId        ActivityMemcpyFieldIds = 9
-	MemcpyFieldStreamId         ActivityMemcpyFieldIds = 10
-	MemcpyFieldCorrelationId    ActivityMemcpyFieldIds = 11
-	MemcpyFieldGraphNodeId      ActivityMemcpyFieldIds = 12
-	MemcpyFieldGraphId          ActivityMemcpyFieldIds = 13
-	MemcpyFieldChannelId        ActivityMemcpyFieldIds = 14
-	MemcpyFieldChannelType      ActivityMemcpyFieldIds = 15
+	MemcpyFieldKind ActivityMemcpyFieldIds = 0
+	// MemcpyFieldCopyKind: uint8_t copyKind; Type of memory copy operation. See also [ActivityMemcpyKind]
+	MemcpyFieldCopyKind ActivityMemcpyFieldIds = 1
+	// MemcpyFieldSrcKind: uint8_t srcKind; Memory kind of the source location. See also [ActivityMemoryKind]
+	MemcpyFieldSrcKind ActivityMemcpyFieldIds = 2
+	// MemcpyFieldDstKind: uint8_t dstKind; Memory kind of the destination location. See also [ActivityMemoryKind]
+	MemcpyFieldDstKind ActivityMemcpyFieldIds = 3
+	// MemcpyFieldFlags: uint8_t flags; Flags associated with the memory copy. See also [ActivityFlag]
+	MemcpyFieldFlags ActivityMemcpyFieldIds = 4
+	// MemcpyFieldBytes: uint64_t bytes; Number of bytes copied during the memory operation.
+	MemcpyFieldBytes ActivityMemcpyFieldIds = 5
+	// MemcpyFieldStart: uint64_t start; Start timestamp of the memory copy, in nanoseconds. A value of 0 indicates timestamp couldn’t be collected.
+	MemcpyFieldStart ActivityMemcpyFieldIds = 6
+	// MemcpyFieldEnd: uint64_t end; End timestamp of the memory copy, in nanoseconds. A value of 0 indicates timestamp couldn’t be collected.
+	MemcpyFieldEnd ActivityMemcpyFieldIds = 7
+	// MemcpyFieldDeviceId: uint32_t deviceId; ID of the device where the memory copy occurred.
+	MemcpyFieldDeviceId ActivityMemcpyFieldIds = 8
+	// MemcpyFieldContextId: uint32_t contextId; ID of the CUDA context where the memory copy occurred.
+	MemcpyFieldContextId ActivityMemcpyFieldIds = 9
+	// MemcpyFieldStreamId: uint32_t streamId; ID of the stream where the memory copy occurred.
+	MemcpyFieldStreamId ActivityMemcpyFieldIds = 10
+	// MemcpyFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this memory copy. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
+	MemcpyFieldCorrelationId ActivityMemcpyFieldIds = 11
+	// MemcpyFieldGraphNodeId: uint64_t graphNodeId; ID of the CUDA Graph node that launched this memory copy. 0 if not launched via a CUDA Graph.
+	MemcpyFieldGraphNodeId ActivityMemcpyFieldIds = 12
+	// MemcpyFieldGraphId: uint32_t graphId; ID of the CUDA Graph that launched this memory copy. 0 if not launched via a CUDA Graph.
+	MemcpyFieldGraphId ActivityMemcpyFieldIds = 13
+	// MemcpyFieldChannelId: uint32_t channelID; ID of the hardware channel on which this memory copy was executed.
+	MemcpyFieldChannelId ActivityMemcpyFieldIds = 14
+	// MemcpyFieldChannelType: [ChannelType] channelType; Type of the hardware channel used.
+	MemcpyFieldChannelType ActivityMemcpyFieldIds = 15
+	// MemcpyFieldIsDeviceLaunched: uint8_t isDeviceLaunched; This field is set to 1 if the kernel is part of a device launched graph.
 	MemcpyFieldIsDeviceLaunched ActivityMemcpyFieldIds = 16
-	MemcpyFieldCopyCount        ActivityMemcpyFieldIds = 17
+	// MemcpyFieldCopyCount: uint64_t copyCount; Number of individual memcpy operations traced in this record.
+	MemcpyFieldCopyCount ActivityMemcpyFieldIds = 17
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1353,30 +1414,50 @@ func (e ActivityMemcpyFieldIds) String() string {
 }
 
 // ActivityMemcpy2FieldIds represents enum identifiers for fields to trace peer-to-peer memory copies.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindMemcpy2].
 type ActivityMemcpy2FieldIds int32
 
 const (
 	// Memcpy2FieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindMemcpy2].
-	Memcpy2FieldKind          ActivityMemcpy2FieldIds = 0
-	Memcpy2FieldCopyKind      ActivityMemcpy2FieldIds = 1
-	Memcpy2FieldSrcKind       ActivityMemcpy2FieldIds = 2
-	Memcpy2FieldDstKind       ActivityMemcpy2FieldIds = 3
-	Memcpy2FieldFlags         ActivityMemcpy2FieldIds = 4
-	Memcpy2FieldBytes         ActivityMemcpy2FieldIds = 5
-	Memcpy2FieldStart         ActivityMemcpy2FieldIds = 6
-	Memcpy2FieldEnd           ActivityMemcpy2FieldIds = 7
-	Memcpy2FieldDeviceId      ActivityMemcpy2FieldIds = 8
-	Memcpy2FieldContextId     ActivityMemcpy2FieldIds = 9
-	Memcpy2FieldStreamId      ActivityMemcpy2FieldIds = 10
-	Memcpy2FieldSrcDeviceId   ActivityMemcpy2FieldIds = 11
-	Memcpy2FieldSrcContextId  ActivityMemcpy2FieldIds = 12
-	Memcpy2FieldDstDeviceId   ActivityMemcpy2FieldIds = 13
-	Memcpy2FieldDstContextId  ActivityMemcpy2FieldIds = 14
+	Memcpy2FieldKind ActivityMemcpy2FieldIds = 0
+	// Memcpy2FieldCopyKind: uint8_t copyKind; Type of memory copy. ALways CUPTI_ACTIVITY_MEMCPY_KIND_P2P. See also [ActivityMemcpyKind]
+	Memcpy2FieldCopyKind ActivityMemcpy2FieldIds = 1
+	// Memcpy2FieldSrcKind: uint8_t srcKind; Kind of source memory used in the copy. See also [ActivityMemoryKind]
+	Memcpy2FieldSrcKind ActivityMemcpy2FieldIds = 2
+	// Memcpy2FieldDstKind: uint8_t dstKind; Kind of destination memory used in the copy. See also [ActivityMemoryKind]
+	Memcpy2FieldDstKind ActivityMemcpy2FieldIds = 3
+	// Memcpy2FieldFlags: uint8_t flags; Flags associated with the memory copy. See also [ActivityFlag]
+	Memcpy2FieldFlags ActivityMemcpy2FieldIds = 4
+	// Memcpy2FieldBytes: uint64_t bytes; Number of bytes transferred during the memory copy.
+	Memcpy2FieldBytes ActivityMemcpy2FieldIds = 5
+	// Memcpy2FieldStart: uint64_t start; Start timestamp for the memory copy (in nanoseconds). A value of 0 indicates timestamp couldn’t be collected.
+	Memcpy2FieldStart ActivityMemcpy2FieldIds = 6
+	// Memcpy2FieldEnd: uint64_t end; End timestamp for the memory copy (in nanoseconds). A value of 0 indicates timestamp couldn’t be collected.
+	Memcpy2FieldEnd ActivityMemcpy2FieldIds = 7
+	// Memcpy2FieldDeviceId: uint32_t deviceId; Device where the memory copy is occurring.
+	Memcpy2FieldDeviceId ActivityMemcpy2FieldIds = 8
+	// Memcpy2FieldContextId: uint32_t contextId; CUDA context where the memory copy is occurring.
+	Memcpy2FieldContextId ActivityMemcpy2FieldIds = 9
+	// Memcpy2FieldStreamId: uint32_t streamId; Stream in which the memory copy is occurring.
+	Memcpy2FieldStreamId ActivityMemcpy2FieldIds = 10
+	// Memcpy2FieldSrcDeviceId: uint32_t srcDeviceId; Device from which memory is being copied.
+	Memcpy2FieldSrcDeviceId ActivityMemcpy2FieldIds = 11
+	// Memcpy2FieldSrcContextId: uint32_t srcContextId; CUDA context owning the source memory.
+	Memcpy2FieldSrcContextId ActivityMemcpy2FieldIds = 12
+	// Memcpy2FieldDstDeviceId: uint32_t dstDeviceId; Device to which memory is being copied.
+	Memcpy2FieldDstDeviceId ActivityMemcpy2FieldIds = 13
+	// Memcpy2FieldDstContextId: uint32_t dstContextId; CUDA context owning the destination memory.
+	Memcpy2FieldDstContextId ActivityMemcpy2FieldIds = 14
+	// Memcpy2FieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this memory copy. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
 	Memcpy2FieldCorrelationId ActivityMemcpy2FieldIds = 15
-	Memcpy2FieldGraphNodeId   ActivityMemcpy2FieldIds = 16
-	Memcpy2FieldGraphId       ActivityMemcpy2FieldIds = 17
-	Memcpy2FieldChannelId     ActivityMemcpy2FieldIds = 18
-	Memcpy2FieldChannelType   ActivityMemcpy2FieldIds = 19
+	// Memcpy2FieldGraphNodeId: uint64_t graphNodeId; ID of the graph node that launched this memcpy. 0 if not launched via a CUDA Graph.
+	Memcpy2FieldGraphNodeId ActivityMemcpy2FieldIds = 16
+	// Memcpy2FieldGraphId: uint32_t graphId; ID of the CUDA Graph associated with this memory copy. 0 if not launched via a CUDA Graph.
+	Memcpy2FieldGraphId ActivityMemcpy2FieldIds = 17
+	// Memcpy2FieldChannelId: uint32_t channelID; Hardware channel ID used for the memory copy.
+	Memcpy2FieldChannelId   ActivityMemcpy2FieldIds = 18
+	Memcpy2FieldChannelType ActivityMemcpy2FieldIds = 19 // [ChannelType] channelType; Type of the hardware channel.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1427,25 +1508,36 @@ func (e ActivityMemcpy2FieldIds) String() string {
 }
 
 // ActivityMemsetFieldIds represents enum identifiers for fields to trace memset operations.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindMemset].
 type ActivityMemsetFieldIds int32
 
 const (
 	// MemsetFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindMemset].
-	MemsetFieldKind             ActivityMemsetFieldIds = 0
-	MemsetFieldValue            ActivityMemsetFieldIds = 1
-	MemsetFieldBytes            ActivityMemsetFieldIds = 2
-	MemsetFieldStart            ActivityMemsetFieldIds = 3
-	MemsetFieldEnd              ActivityMemsetFieldIds = 4
-	MemsetFieldDeviceId         ActivityMemsetFieldIds = 5
-	MemsetFieldContextId        ActivityMemsetFieldIds = 6
-	MemsetFieldStreamId         ActivityMemsetFieldIds = 7
-	MemsetFieldCorrelationId    ActivityMemsetFieldIds = 8
-	MemsetFieldFlags            ActivityMemsetFieldIds = 9
-	MemsetFieldMemoryKind       ActivityMemsetFieldIds = 10
-	MemsetFieldGraphNodeId      ActivityMemsetFieldIds = 11
-	MemsetFieldGraphId          ActivityMemsetFieldIds = 12
-	MemsetFieldChannelId        ActivityMemsetFieldIds = 13
-	MemsetFieldChannelType      ActivityMemsetFieldIds = 14
+	MemsetFieldKind  ActivityMemsetFieldIds = 0
+	MemsetFieldValue ActivityMemsetFieldIds = 1 // uint32_t value; Value being written to memory by the memset.
+	MemsetFieldBytes ActivityMemsetFieldIds = 2 // uint64_t bytes; Number of bytes being set.
+	// MemsetFieldStart: uint64_t start; Start timestamp for the memset operation (in nanoseconds). A value of 0 indicates timestamp couldn’t be collected.
+	MemsetFieldStart ActivityMemsetFieldIds = 3
+	// MemsetFieldEnd: uint64_t end; End timestamp for the memset operation (in nanoseconds). A value of 0 indicates timestamp couldn’t be collected.
+	MemsetFieldEnd      ActivityMemsetFieldIds = 4
+	MemsetFieldDeviceId ActivityMemsetFieldIds = 5 // uint32_t deviceId; Device on which the memset is occurring.
+	// MemsetFieldContextId: uint32_t contextId; CUDA context where the memset is occurring.
+	MemsetFieldContextId ActivityMemsetFieldIds = 6
+	MemsetFieldStreamId  ActivityMemsetFieldIds = 7 // uint32_t streamId; Stream where the memset is occurring.
+	// MemsetFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this memset operation. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
+	MemsetFieldCorrelationId ActivityMemsetFieldIds = 8
+	// MemsetFieldFlags: uint16_t flags; Flags associated with the memset. See also [ActivityFlag]
+	MemsetFieldFlags ActivityMemsetFieldIds = 9
+	// MemsetFieldMemoryKind: uint16_t memoryKind; Kind of memory being set. See also [ActivityMemoryKind]
+	MemsetFieldMemoryKind ActivityMemsetFieldIds = 10
+	// MemsetFieldGraphNodeId: uint64_t graphNodeId; CUDA Graph node ID that executed this memset.
+	MemsetFieldGraphNodeId ActivityMemsetFieldIds = 11
+	MemsetFieldGraphId     ActivityMemsetFieldIds = 12 // uint32_t graphId; CUDA Graph ID that executed this memset.
+	MemsetFieldChannelId   ActivityMemsetFieldIds = 13 // uint32_t channelID; Hardware channel ID used by the memset.
+	// MemsetFieldChannelType: [ChannelType] channelType; Type of hardware channel used by the memset.
+	MemsetFieldChannelType ActivityMemsetFieldIds = 14
+	// MemsetFieldIsDeviceLaunched: uint8_t isDeviceLaunched; This field is set to 1 if the kernel is part of a device launched graph.
 	MemsetFieldIsDeviceLaunched ActivityMemsetFieldIds = 15
 )
 
@@ -1489,29 +1581,45 @@ func (e ActivityMemsetFieldIds) String() string {
 }
 
 // ActivityMemoryFieldIds represents enum identifiers for fields to trace memory allocation and free operation.
+//
+// This activity record provides separate records for memory allocation and memory release operations. This allows to correlate the corresponding driver and runtime API activity record with the memory operation. These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindMemory2].
 type ActivityMemoryFieldIds int32
 
 const (
 	// MemoryFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindMemory2].
-	MemoryFieldKind                 ActivityMemoryFieldIds = 0
-	MemoryFieldOperationType        ActivityMemoryFieldIds = 1
-	MemoryFieldMemoryKind           ActivityMemoryFieldIds = 2
-	MemoryFieldCorrelationId        ActivityMemoryFieldIds = 3
-	MemoryFieldAddress              ActivityMemoryFieldIds = 4
-	MemoryFieldBytes                ActivityMemoryFieldIds = 5
-	MemoryFieldTimestamp            ActivityMemoryFieldIds = 6
-	MemoryFieldProcessId            ActivityMemoryFieldIds = 7
-	MemoryFieldDeviceId             ActivityMemoryFieldIds = 8
-	MemoryFieldContextId            ActivityMemoryFieldIds = 9
-	MemoryFieldStreamId             ActivityMemoryFieldIds = 10
-	MemoryFieldIsAsync              ActivityMemoryFieldIds = 11
-	MemoryFieldPoolType             ActivityMemoryFieldIds = 12
-	MemoryFieldPoolAddress          ActivityMemoryFieldIds = 13
+	MemoryFieldKind ActivityMemoryFieldIds = 0
+	// MemoryFieldOperationType: [ActivityMemoryOperationType] memoryOperationType; The memory operation requested by the user.
+	MemoryFieldOperationType ActivityMemoryFieldIds = 1
+	// MemoryFieldMemoryKind: [ActivityMemoryKind] memoryKind; The memory kind requested by the user.
+	MemoryFieldMemoryKind ActivityMemoryFieldIds = 2
+	// MemoryFieldCorrelationId: uint64_t correlationId; Correlation ID of the memory operation.
+	MemoryFieldCorrelationId ActivityMemoryFieldIds = 3
+	MemoryFieldAddress       ActivityMemoryFieldIds = 4 // uint64_t address; Virtual address of the allocation.
+	MemoryFieldBytes         ActivityMemoryFieldIds = 5 // uint64_t bytes; Number of bytes of memory allocated.
+	// MemoryFieldTimestamp: uint64_t timestamp; Start timestamp for the memory operation (in ns).
+	MemoryFieldTimestamp ActivityMemoryFieldIds = 6
+	// MemoryFieldProcessId: uint32_t processId; ID of the process to which this record belongs.
+	MemoryFieldProcessId ActivityMemoryFieldIds = 7
+	// MemoryFieldDeviceId: uint32_t deviceId; ID of the device where the memory operation is taking place.
+	MemoryFieldDeviceId  ActivityMemoryFieldIds = 8
+	MemoryFieldContextId ActivityMemoryFieldIds = 9  // uint32_t contextId; ID of the context.
+	MemoryFieldStreamId  ActivityMemoryFieldIds = 10 // uint32_t streamId; ID of the stream.
+	// MemoryFieldIsAsync: uint32_t isAsync; Whether the memory operation happens through async memory APIs.
+	MemoryFieldIsAsync ActivityMemoryFieldIds = 11
+	// MemoryFieldPoolType: [ActivityMemoryPoolType] memoryPoolConfig.memoryPoolType; Type of the memory pool.
+	MemoryFieldPoolType ActivityMemoryFieldIds = 12
+	// MemoryFieldPoolAddress: uint64_t memoryPoolConfig.address; Base address of the memory pool.
+	MemoryFieldPoolAddress ActivityMemoryFieldIds = 13
+	// MemoryFieldPoolReleaseThreshold: uint64_t memoryPoolConfig.releaseThreshold; Release threshold of the memory pool in bytes.
 	MemoryFieldPoolReleaseThreshold ActivityMemoryFieldIds = 14
-	MemoryFieldPoolSize             ActivityMemoryFieldIds = 15
-	MemoryFieldPoolProcessId        ActivityMemoryFieldIds = 16
-	MemoryFieldPoolUtilizedSize     ActivityMemoryFieldIds = 17
-	MemoryFieldSource               ActivityMemoryFieldIds = 18
+	// MemoryFieldPoolSize: uint64_t memoryPoolConfig.pool.size; Size of memory pool in bytes.
+	MemoryFieldPoolSize ActivityMemoryFieldIds = 15
+	// MemoryFieldPoolProcessId: uint64_t memoryPoolConfig.pool.processId; Process ID of the memory pools.
+	MemoryFieldPoolProcessId ActivityMemoryFieldIds = 16
+	// MemoryFieldPoolUtilizedSize: uint64_t memoryPoolConfig.utilizedSize; Utilized size of the memory pool.
+	MemoryFieldPoolUtilizedSize ActivityMemoryFieldIds = 17
+	// MemoryFieldSource: const char* source; Shared object or binary that the memory allocation request comes from.
+	MemoryFieldSource ActivityMemoryFieldIds = 18
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1560,23 +1668,34 @@ func (e ActivityMemoryFieldIds) String() string {
 }
 
 // ActivityMemoryPoolFieldIds represents enum identifiers for fields to trace CUDA memory pool creation, destruction and trimming.
+//
+// This activity record provides separate records for memory pool creation, destruction and trimming operations. This allows to correlate the corresponding driver and runtime API activity record with the memory pool operation. These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindMemoryPool].
 type ActivityMemoryPoolFieldIds int32
 
 const (
 	// MemoryPoolFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindMemoryPool].
-	MemoryPoolFieldKind             ActivityMemoryPoolFieldIds = 0
-	MemoryPoolFieldOperationType    ActivityMemoryPoolFieldIds = 1
-	MemoryPoolFieldPoolType         ActivityMemoryPoolFieldIds = 2
-	MemoryPoolFieldCorrelationId    ActivityMemoryPoolFieldIds = 3
-	MemoryPoolFieldProcessId        ActivityMemoryPoolFieldIds = 4
-	MemoryPoolFieldDeviceId         ActivityMemoryPoolFieldIds = 5
-	MemoryPoolFieldMinBytesToKeep   ActivityMemoryPoolFieldIds = 6
-	MemoryPoolFieldAddress          ActivityMemoryPoolFieldIds = 7
-	MemoryPoolFieldSize             ActivityMemoryPoolFieldIds = 8
+	MemoryPoolFieldKind ActivityMemoryPoolFieldIds = 0
+	// MemoryPoolFieldOperationType: [ActivityMemoryPoolOperationType] memoryPoolOperationType; The memory operation requested by the user.
+	MemoryPoolFieldOperationType ActivityMemoryPoolFieldIds = 1
+	// MemoryPoolFieldPoolType: [ActivityMemoryPoolType] memoryPoolType; The type of the memory pool.
+	MemoryPoolFieldPoolType ActivityMemoryPoolFieldIds = 2
+	// MemoryPoolFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this memory pool operation. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
+	MemoryPoolFieldCorrelationId ActivityMemoryPoolFieldIds = 3
+	// MemoryPoolFieldProcessId: uint32_t processId; ID of the process to which this record belongs.
+	MemoryPoolFieldProcessId ActivityMemoryPoolFieldIds = 4
+	// MemoryPoolFieldDeviceId: uint32_t deviceId; ID of the device where the memory pool is created.
+	MemoryPoolFieldDeviceId ActivityMemoryPoolFieldIds = 5
+	// MemoryPoolFieldMinBytesToKeep: size_t minBytesToKeep; Minimum bytes to keep of the memory pool.
+	MemoryPoolFieldMinBytesToKeep ActivityMemoryPoolFieldIds = 6
+	MemoryPoolFieldAddress        ActivityMemoryPoolFieldIds = 7 // uint64_t address; Virtual address of the allocation.
+	MemoryPoolFieldSize           ActivityMemoryPoolFieldIds = 8 // uint64_t size; Size of the memory pool operation in bytes.
+	// MemoryPoolFieldReleaseThreshold: uint64_t releaseThreshold; Release threshold of the memory pool.
 	MemoryPoolFieldReleaseThreshold ActivityMemoryPoolFieldIds = 9
-	MemoryPoolFieldTimestamp        ActivityMemoryPoolFieldIds = 10
-	MemoryPoolFieldUtilizedSize     ActivityMemoryPoolFieldIds = 11
-	MemoryPoolFieldIsManagedPool    ActivityMemoryPoolFieldIds = 12
+	// MemoryPoolFieldTimestamp: uint64_t timestamp; Start timestamp for the memory operation (in ns).
+	MemoryPoolFieldTimestamp    ActivityMemoryPoolFieldIds = 10
+	MemoryPoolFieldUtilizedSize ActivityMemoryPoolFieldIds = 11 // uint64_t utilizedSize; Utilized size of the memory pool.
+	// MemoryPoolFieldIsManagedPool: uint8_t isManagedPool; Whether the pool is of managed memory allocation or pinned memory allocation.
+	MemoryPoolFieldIsManagedPool ActivityMemoryPoolFieldIds = 12
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1639,11 +1758,12 @@ func (e ActivityLaunchType) String() string {
 	return fmt.Sprintf("ActivityLaunchType(%d)", e)
 }
 
-// FuncShmemLimitConfig represents the shared memory limit per block config for a kernel This should be used to set 'cudaOccFuncShmemConfig' field in occupancy calculator API.
+// FuncShmemLimitConfig represents the shared memory limit per block config for a kernel This should be used to set ‘cudaOccFuncShmemConfig’ field in occupancy calculator API.
 type FuncShmemLimitConfig int32
 
 const (
-	FuncShmemLimitDefault  FuncShmemLimitConfig = 0x00
+	FuncShmemLimitDefault FuncShmemLimitConfig = 0x00 // The shared memory limit config is default.
+	// FuncShmemLimitOptin: User has opted for a higher dynamic shared memory limit using function attribute ‘cudaFuncAttributeMaxDynamicSharedMemorySize’ for runtime API or CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES for driver API.
 	FuncShmemLimitOptin    FuncShmemLimitConfig = 0x01
 	FuncShmemLimitForceInt FuncShmemLimitConfig = 0x7fffffff
 )
@@ -1662,56 +1782,99 @@ func (e FuncShmemLimitConfig) String() string {
 }
 
 // ActivityKernelFieldIds represents enum identifiers for fields to trace kernel operations.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindConcurrentKernel].
 type ActivityKernelFieldIds int32
 
 const (
 	// KernelFieldKind: [ActivityKind] kind; Kind of this activity record. Always either [ActivityKindKernel] or [ActivityKindConcurrentKernel].
-	KernelFieldKind                            ActivityKernelFieldIds = 0
-	KernelFieldCacheConfigRequested            ActivityKernelFieldIds = 1
-	KernelFieldCacheConfigExecuted             ActivityKernelFieldIds = 2
-	KernelFieldSharedMemoryConfig              ActivityKernelFieldIds = 3
-	KernelFieldRegistersPerThread              ActivityKernelFieldIds = 4
+	KernelFieldKind ActivityKernelFieldIds = 0
+	// KernelFieldCacheConfigRequested: uint8_t requested; Indicates the cache configuration requested by the kernel. Values are from CUfunc_cache enumeration.
+	KernelFieldCacheConfigRequested ActivityKernelFieldIds = 1
+	// KernelFieldCacheConfigExecuted: uint8_t executed; Indicates the cache configuration actually used during kernel execution. Values are from CUfunc_cache enumeration.
+	KernelFieldCacheConfigExecuted ActivityKernelFieldIds = 2
+	// KernelFieldSharedMemoryConfig: uint8_t sharedMemoryConfig; Specifies the shared memory configuration used for the kernel. Values are from CUsharedconfig enumeration.
+	KernelFieldSharedMemoryConfig ActivityKernelFieldIds = 3
+	// KernelFieldRegistersPerThread: uint16_t registersPerThread; Number of registers required for each thread executing the kernel.
+	KernelFieldRegistersPerThread ActivityKernelFieldIds = 4
+	// KernelFieldPartitionedGlobalCacheRequested: [ActivityPartitionedGlobalCacheConfig] requested; Partitioned global caching requested for the kernel. Relevant for devices requiring this to enable caching.
 	KernelFieldPartitionedGlobalCacheRequested ActivityKernelFieldIds = 5
-	KernelFieldPartitionedGlobalCacheExecuted  ActivityKernelFieldIds = 6
-	KernelFieldStart                           ActivityKernelFieldIds = 7
-	KernelFieldEnd                             ActivityKernelFieldIds = 8
-	KernelFieldCompleted                       ActivityKernelFieldIds = 9
-	KernelFieldDeviceId                        ActivityKernelFieldIds = 10
-	KernelFieldContextId                       ActivityKernelFieldIds = 11
-	KernelFieldStreamId                        ActivityKernelFieldIds = 12
-	KernelFieldGridX                           ActivityKernelFieldIds = 13
-	KernelFieldGridY                           ActivityKernelFieldIds = 14
-	KernelFieldGridZ                           ActivityKernelFieldIds = 15
-	KernelFieldBlockX                          ActivityKernelFieldIds = 16
-	KernelFieldBlockY                          ActivityKernelFieldIds = 17
-	KernelFieldBlockZ                          ActivityKernelFieldIds = 18
-	KernelFieldStaticSharedMemory              ActivityKernelFieldIds = 19
-	KernelFieldDynamicSharedMemory             ActivityKernelFieldIds = 20
-	KernelFieldLocalMemoryPerThread            ActivityKernelFieldIds = 21
-	KernelFieldCorrelationId                   ActivityKernelFieldIds = 22
-	KernelFieldGridId                          ActivityKernelFieldIds = 23
-	KernelFieldName                            ActivityKernelFieldIds = 24
-	KernelFieldQueued                          ActivityKernelFieldIds = 25
-	KernelFieldSubmitted                       ActivityKernelFieldIds = 26
-	KernelFieldLaunchType                      ActivityKernelFieldIds = 27
+	// KernelFieldPartitionedGlobalCacheExecuted: [ActivityPartitionedGlobalCacheConfig] executed; Partitioned global caching actually used during kernel execution.
+	KernelFieldPartitionedGlobalCacheExecuted ActivityKernelFieldIds = 6
+	// KernelFieldStart: uint64_t start; Start timestamp for the kernel execution (in nanoseconds). A value of 0 indicates timestamp couldn’t be collected.
+	KernelFieldStart ActivityKernelFieldIds = 7
+	// KernelFieldEnd: uint64_t end; End timestamp for the kernel execution (in nanoseconds). A value of 0 indicates timestamp couldn’t be collected.
+	KernelFieldEnd ActivityKernelFieldIds = 8
+	// KernelFieldCompleted: uint64_t completed; Completion timestamp for the kernel execution, including all child kernels (in nanoseconds). CUPTI_TIMESTAMP_UNKNOWN if unknown.
+	KernelFieldCompleted ActivityKernelFieldIds = 9
+	// KernelFieldDeviceId: uint32_t deviceId; ID of the device where the kernel is executing.
+	KernelFieldDeviceId ActivityKernelFieldIds = 10
+	// KernelFieldContextId: uint64_t contextId; ID of the context where the kernel is executing.
+	KernelFieldContextId ActivityKernelFieldIds = 11
+	// KernelFieldStreamId: uint64_t streamId; ID of the stream where the kernel is executing.
+	KernelFieldStreamId ActivityKernelFieldIds = 12
+	KernelFieldGridX    ActivityKernelFieldIds = 13 // int32_t gridX; X-dimension of the grid size for the kernel.
+	KernelFieldGridY    ActivityKernelFieldIds = 14 // int32_t gridY; Y-dimension of the grid size for the kernel.
+	KernelFieldGridZ    ActivityKernelFieldIds = 15 // int32_t gridZ; Z-dimension of the grid size for the kernel.
+	// KernelFieldBlockX: int32_t blockX; X-dimension of the block size for the kernel.
+	KernelFieldBlockX ActivityKernelFieldIds = 16
+	// KernelFieldBlockY: int32_t blockY; Y-dimension of the block size for the kernel.
+	KernelFieldBlockY ActivityKernelFieldIds = 17
+	// KernelFieldBlockZ: int32_t blockZ; Z-dimension of the block size for the kernel.
+	KernelFieldBlockZ ActivityKernelFieldIds = 18
+	// KernelFieldStaticSharedMemory: int32_t staticSharedMemory; Amount of static shared memory allocated for the kernel, in bytes.
+	KernelFieldStaticSharedMemory ActivityKernelFieldIds = 19
+	// KernelFieldDynamicSharedMemory: int32_t dynamicSharedMemory; Amount of dynamic shared memory reserved for the kernel, in bytes.
+	KernelFieldDynamicSharedMemory ActivityKernelFieldIds = 20
+	// KernelFieldLocalMemoryPerThread: uint32_t localMemoryPerThread; Amount of local memory reserved per thread, in bytes.
+	KernelFieldLocalMemoryPerThread ActivityKernelFieldIds = 21
+	// KernelFieldCorrelationId: uint64_t correlationId; Correlation ID of the kernel, Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
+	KernelFieldCorrelationId ActivityKernelFieldIds = 22
+	// KernelFieldGridId: int64_t gridId; Unique grid ID assigned to the kernel at runtime.
+	KernelFieldGridId ActivityKernelFieldIds = 23
+	// KernelFieldName: const char* name; Name of the kernel. Shared across all activity records for the same kernel.
+	KernelFieldName ActivityKernelFieldIds = 24
+	// KernelFieldQueued: uint64_t queued; Timestamp when the kernel was queued in the command buffer (in nanoseconds). CUPTI_TIMESTAMP_UNKNOWN if not collected.
+	KernelFieldQueued ActivityKernelFieldIds = 25
+	// KernelFieldSubmitted: uint64_t submitted; Timestamp when the command buffer containing the kernel launch was submitted to the GPU (in nanoseconds). CUPTI_TIMESTAMP_UNKNOWN if not collected.
+	KernelFieldSubmitted ActivityKernelFieldIds = 26
+	// KernelFieldLaunchType: uint8_t launchType; Indicates if the kernel was executed via a regular launch or a cooperative launch. See [ActivityLaunchType].
+	KernelFieldLaunchType ActivityKernelFieldIds = 27
+	// KernelFieldIsSharedMemoryCarveoutRequested: uint8_t isSharedMemoryCarveoutRequested; Indicates if CU_FUNC_ATTRIBUTE_PREFERRED_SHARED_MEMORY_CARVEOUT was updated for the kernel launch.
 	KernelFieldIsSharedMemoryCarveoutRequested ActivityKernelFieldIds = 28
-	KernelFieldSharedMemoryCarveoutRequested   ActivityKernelFieldIds = 29
-	KernelFieldSharedMemoryExecuted            ActivityKernelFieldIds = 30
-	KernelFieldGraphNodeId                     ActivityKernelFieldIds = 31
-	KernelFieldShmemLimitConfig                ActivityKernelFieldIds = 32
-	KernelFieldGraphId                         ActivityKernelFieldIds = 33
-	KernelFieldAccessPolicyWindow              ActivityKernelFieldIds = 34
-	KernelFieldChannelId                       ActivityKernelFieldIds = 35
-	KernelFieldChannelType                     ActivityKernelFieldIds = 36
-	KernelFieldClusterX                        ActivityKernelFieldIds = 37
-	KernelFieldClusterY                        ActivityKernelFieldIds = 38
-	KernelFieldClusterZ                        ActivityKernelFieldIds = 39
-	KernelFieldClusterSchedulingPolicy         ActivityKernelFieldIds = 40
-	KernelFieldLocalMemoryTotal                ActivityKernelFieldIds = 41
-	KernelFieldMaxPotentialClusterSize         ActivityKernelFieldIds = 42
-	KernelFieldMaxActiveClusters               ActivityKernelFieldIds = 43
-	KernelFieldIsDeviceLaunched                ActivityKernelFieldIds = 44
-	KernelFieldLaunchPriority                  ActivityKernelFieldIds = 45
+	// KernelFieldSharedMemoryCarveoutRequested: uint8_t sharedMemoryCarveoutRequested; Shared memory carveout value requested for the function, as a percentage of the total resource.
+	KernelFieldSharedMemoryCarveoutRequested ActivityKernelFieldIds = 29
+	// KernelFieldSharedMemoryExecuted: uint32_t sharedMemoryExecuted; Shared memory size set by the driver, in bytes.
+	KernelFieldSharedMemoryExecuted ActivityKernelFieldIds = 30
+	// KernelFieldGraphNodeId: uint64_t graphNodeId; Unique ID of the graph node that launched this kernel through graph launch APIs. 0 if not launched through graph APIs.
+	KernelFieldGraphNodeId ActivityKernelFieldIds = 31
+	// KernelFieldShmemLimitConfig: [FuncShmemLimitConfig] shmemLimitConfig; Shared memory limit configuration for the kernel, indicating if a higher per-block dynamic shared memory limit was opted.
+	KernelFieldShmemLimitConfig ActivityKernelFieldIds = 32
+	// KernelFieldGraphId: uint32_t graphId; Unique ID of the graph that launched this kernel through graph launch APIs. 0 if not launched through graph APIs.
+	KernelFieldGraphId ActivityKernelFieldIds = 33
+	// KernelFieldAccessPolicyWindow: CUaccessPolicyWindow* pAccessPolicyWindow; Pointer to the access policy window structure. Defined in cuda.h.
+	KernelFieldAccessPolicyWindow ActivityKernelFieldIds = 34
+	// KernelFieldChannelId: uint32_t channelID; ID of the hardware channel on which the kernel is launched.
+	KernelFieldChannelId ActivityKernelFieldIds = 35
+	// KernelFieldChannelType: [ChannelType] channelType; Type of the channel used for kernel launch.
+	KernelFieldChannelType ActivityKernelFieldIds = 36
+	// KernelFieldClusterX: int32_t clusterX; X-dimension of the cluster size for the kernel. Valid for devices with compute capability 9.0 and higher.
+	KernelFieldClusterX ActivityKernelFieldIds = 37
+	// KernelFieldClusterY: int32_t clusterY; Y-dimension of the cluster size for the kernel. Valid for devices with compute capability 9.0 and higher.
+	KernelFieldClusterY ActivityKernelFieldIds = 38
+	// KernelFieldClusterZ: int32_t clusterZ; Z-dimension of the cluster size for the kernel. Valid for devices with compute capability 9.0 and higher.
+	KernelFieldClusterZ ActivityKernelFieldIds = 39
+	// KernelFieldClusterSchedulingPolicy: uint32_t clusterSchedulingPolicy; Cluster scheduling policy for the kernel. Refer to CUclusterSchedulingPolicy. Valid for devices with compute capability 9.0 and higher.
+	KernelFieldClusterSchedulingPolicy ActivityKernelFieldIds = 40
+	// KernelFieldLocalMemoryTotal: uint64_t localMemoryTotal_v2; Total amount of local memory reserved for the kernel, in bytes.
+	KernelFieldLocalMemoryTotal ActivityKernelFieldIds = 41
+	// KernelFieldMaxPotentialClusterSize: uint32_t maxPotentialClusterSize; Maximum cluster size for the kernel.
+	KernelFieldMaxPotentialClusterSize ActivityKernelFieldIds = 42
+	// KernelFieldMaxActiveClusters: uint32_t maxActiveClusters; Maximum number of clusters that could co-exist on the target device for the kernel.
+	KernelFieldMaxActiveClusters ActivityKernelFieldIds = 43
+	// KernelFieldIsDeviceLaunched: uint8_t isDeviceLaunched; This field is set to 1 if the kernel is part of a device launched graph.
+	KernelFieldIsDeviceLaunched ActivityKernelFieldIds = 44
+	KernelFieldLaunchPriority   ActivityKernelFieldIds = 45 // int32_t priority; The launch priority of the kernel.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1814,18 +1977,27 @@ func (e ActivityKernelFieldIds) String() string {
 }
 
 // ActivityApiFieldIds represents enum identifiers for fields in [ActivityAPI].
+//
+// Each enum value corresponds to a field in [ActivityAPI] and describes the data type and purpose of that field.
 type ActivityApiFieldIds int32
 
 const (
 	// ApiFieldKind: [ActivityKind] kind; Kind of this activity record. Always either [ActivityKindDriver] or [ActivityKindRuntime].
-	ApiFieldKind          ActivityApiFieldIds = 0
-	ApiFieldCbid          ActivityApiFieldIds = 1
-	ApiFieldStart         ActivityApiFieldIds = 2
-	ApiFieldEnd           ActivityApiFieldIds = 3
-	ApiFieldProcessId     ActivityApiFieldIds = 4
-	ApiFieldThreadId      ActivityApiFieldIds = 5
+	ApiFieldKind ActivityApiFieldIds = 0
+	// ApiFieldCbid: CUpti_CallbackId cbid; Callback ID of the CUDA driver/runtime API function.
+	ApiFieldCbid ActivityApiFieldIds = 1
+	// ApiFieldStart: uint64_t start; Start timestamp of the CUDA driver/runtime API call (in nanoseconds).
+	ApiFieldStart ActivityApiFieldIds = 2
+	// ApiFieldEnd: uint64_t end; End timestamp of the CUDA driver/runtime API call (in nanoseconds).
+	ApiFieldEnd ActivityApiFieldIds = 3
+	// ApiFieldProcessId: uint32_t processId; ID of the process executing the CUDA driver/runtime API call.
+	ApiFieldProcessId ActivityApiFieldIds = 4
+	// ApiFieldThreadId: uint64_t threadId; ID of the thread executing the CUDA driver/runtime API call.
+	ApiFieldThreadId ActivityApiFieldIds = 5
+	// ApiFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this CUDA driver/runtime API invocation. This ID matches the correlation ID of the associated kernel, memcpy, or memset activity record that the API call initiated.
 	ApiFieldCorrelationId ActivityApiFieldIds = 6
-	ApiFieldReturnValue   ActivityApiFieldIds = 7
+	// ApiFieldReturnValue: uint32_t returnValue; Return value of the CUDA driver/runtime API call (CUresult or cudaError_t).
+	ApiFieldReturnValue ActivityApiFieldIds = 7
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1852,48 +2024,77 @@ func (e ActivityApiFieldIds) String() string {
 }
 
 // ActivityDeviceFieldIds represents enum identifiers for fields in [ActivityDevice6].
+//
+// Each enum value corresponds to a field in [ActivityDevice6] and describes the data type and purpose of that field.
 type ActivityDeviceFieldIds int32
 
 const (
 	// DeviceFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindDevice].
-	DeviceFieldKind                             ActivityDeviceFieldIds = 0
-	DeviceFieldFlags                            ActivityDeviceFieldIds = 1
-	DeviceFieldGlobalMemoryBandwidth            ActivityDeviceFieldIds = 2
-	DeviceFieldGlobalMemorySize                 ActivityDeviceFieldIds = 3
-	DeviceFieldConstantMemorySize               ActivityDeviceFieldIds = 4
-	DeviceFieldL2CacheSize                      ActivityDeviceFieldIds = 5
-	DeviceFieldNumThreadsPerWarp                ActivityDeviceFieldIds = 6
-	DeviceFieldCoreClockRate                    ActivityDeviceFieldIds = 7
-	DeviceFieldNumMemcpyEngines                 ActivityDeviceFieldIds = 8
-	DeviceFieldNumMultiprocessors               ActivityDeviceFieldIds = 9
-	DeviceFieldMaxIpc                           ActivityDeviceFieldIds = 10
-	DeviceFieldMaxWarpsPerMultiprocessor        ActivityDeviceFieldIds = 11
-	DeviceFieldMaxBlocksPerMultiprocessor       ActivityDeviceFieldIds = 12
+	DeviceFieldKind  ActivityDeviceFieldIds = 0
+	DeviceFieldFlags ActivityDeviceFieldIds = 1 // [ActivityFlag] flags; Flags associated with the device.
+	// DeviceFieldGlobalMemoryBandwidth: uint64_t globalMemoryBandwidth; Global memory bandwidth available on the device (in kBytes/sec).
+	DeviceFieldGlobalMemoryBandwidth ActivityDeviceFieldIds = 2
+	// DeviceFieldGlobalMemorySize: uint64_t globalMemorySize; Amount of global memory on the device (in bytes).
+	DeviceFieldGlobalMemorySize ActivityDeviceFieldIds = 3
+	// DeviceFieldConstantMemorySize: uint32_t constantMemorySize; Amount of constant memory on the device (in bytes).
+	DeviceFieldConstantMemorySize ActivityDeviceFieldIds = 4
+	// DeviceFieldL2CacheSize: uint32_t l2CacheSize; Size of the L2 cache on the device (in bytes).
+	DeviceFieldL2CacheSize ActivityDeviceFieldIds = 5
+	// DeviceFieldNumThreadsPerWarp: uint32_t numThreadsPerWarp; Number of threads per warp on the device.
+	DeviceFieldNumThreadsPerWarp ActivityDeviceFieldIds = 6
+	// DeviceFieldCoreClockRate: uint32_t coreClockRate; Core clock rate of the device (in kHz).
+	DeviceFieldCoreClockRate ActivityDeviceFieldIds = 7
+	// DeviceFieldNumMemcpyEngines: uint32_t numMemcpyEngines; Number of memory copy engines on the device.
+	DeviceFieldNumMemcpyEngines ActivityDeviceFieldIds = 8
+	// DeviceFieldNumMultiprocessors: uint32_t numMultiprocessors; Number of multiprocessors on the device.
+	DeviceFieldNumMultiprocessors ActivityDeviceFieldIds = 9
+	// DeviceFieldMaxIpc: uint32_t maxIPC; Maximum instructions per cycle possible on each device multiprocessor.
+	DeviceFieldMaxIpc ActivityDeviceFieldIds = 10
+	// DeviceFieldMaxWarpsPerMultiprocessor: uint32_t maxWarpsPerMultiprocessor; Maximum number of warps that can be present on a multiprocessor.
+	DeviceFieldMaxWarpsPerMultiprocessor ActivityDeviceFieldIds = 11
+	// DeviceFieldMaxBlocksPerMultiprocessor: uint32_t maxBlocksPerMultiprocessor; Maximum number of blocks that can be present on a multiprocessor.
+	DeviceFieldMaxBlocksPerMultiprocessor ActivityDeviceFieldIds = 12
+	// DeviceFieldMaxSharedMemoryPerMultiprocessor: uint32_t maxSharedMemoryPerMultiprocessor; Maximum amount of shared memory available per multiprocessor (in bytes).
 	DeviceFieldMaxSharedMemoryPerMultiprocessor ActivityDeviceFieldIds = 13
-	DeviceFieldMaxRegistersPerMultiprocessor    ActivityDeviceFieldIds = 14
-	DeviceFieldMaxRegistersPerBlock             ActivityDeviceFieldIds = 15
-	DeviceFieldMaxSharedMemoryPerBlock          ActivityDeviceFieldIds = 16
-	DeviceFieldMaxThreadsPerBlock               ActivityDeviceFieldIds = 17
-	DeviceFieldMaxBlockDimX                     ActivityDeviceFieldIds = 18
-	DeviceFieldMaxBlockDimY                     ActivityDeviceFieldIds = 19
-	DeviceFieldMaxBlockDimZ                     ActivityDeviceFieldIds = 20
-	DeviceFieldMaxGridDimX                      ActivityDeviceFieldIds = 21
-	DeviceFieldMaxGridDimY                      ActivityDeviceFieldIds = 22
-	DeviceFieldMaxGridDimZ                      ActivityDeviceFieldIds = 23
-	DeviceFieldComputeCapabilityMajor           ActivityDeviceFieldIds = 24
-	DeviceFieldComputeCapabilityMinor           ActivityDeviceFieldIds = 25
-	DeviceFieldId                               ActivityDeviceFieldIds = 26
-	DeviceFieldEccEnabled                       ActivityDeviceFieldIds = 27
-	DeviceFieldUuid                             ActivityDeviceFieldIds = 28
-	DeviceFieldName                             ActivityDeviceFieldIds = 29
-	DeviceFieldIsCudaVisible                    ActivityDeviceFieldIds = 30
-	DeviceFieldIsMigEnabled                     ActivityDeviceFieldIds = 31
-	DeviceFieldGpuInstanceId                    ActivityDeviceFieldIds = 32
-	DeviceFieldComputeInstanceId                ActivityDeviceFieldIds = 33
-	DeviceFieldMigUuid                          ActivityDeviceFieldIds = 34
-	DeviceFieldIsNumaNode                       ActivityDeviceFieldIds = 35
-	DeviceFieldNumaId                           ActivityDeviceFieldIds = 36
-	DeviceFieldNumTpcs                          ActivityDeviceFieldIds = 37
+	// DeviceFieldMaxRegistersPerMultiprocessor: uint32_t maxRegistersPerMultiprocessor; Maximum number of 32-bit registers available per multiprocessor.
+	DeviceFieldMaxRegistersPerMultiprocessor ActivityDeviceFieldIds = 14
+	// DeviceFieldMaxRegistersPerBlock: uint32_t maxRegistersPerBlock; Maximum number of registers that can be allocated to a block.
+	DeviceFieldMaxRegistersPerBlock ActivityDeviceFieldIds = 15
+	// DeviceFieldMaxSharedMemoryPerBlock: uint32_t maxSharedMemoryPerBlock; Maximum amount of shared memory that can be assigned to a block (in bytes).
+	DeviceFieldMaxSharedMemoryPerBlock ActivityDeviceFieldIds = 16
+	// DeviceFieldMaxThreadsPerBlock: uint32_t maxThreadsPerBlock; Maximum number of threads allowed in a block.
+	DeviceFieldMaxThreadsPerBlock ActivityDeviceFieldIds = 17
+	// DeviceFieldMaxBlockDimX: uint32_t maxBlockDimX; Maximum allowed X dimension for a block.
+	DeviceFieldMaxBlockDimX ActivityDeviceFieldIds = 18
+	// DeviceFieldMaxBlockDimY: uint32_t maxBlockDimY; Maximum allowed Y dimension for a block.
+	DeviceFieldMaxBlockDimY ActivityDeviceFieldIds = 19
+	// DeviceFieldMaxBlockDimZ: uint32_t maxBlockDimZ; Maximum allowed Z dimension for a block.
+	DeviceFieldMaxBlockDimZ ActivityDeviceFieldIds = 20
+	// DeviceFieldMaxGridDimX: uint32_t maxGridDimX; Maximum allowed X dimension for a grid.
+	DeviceFieldMaxGridDimX ActivityDeviceFieldIds = 21
+	// DeviceFieldMaxGridDimY: uint32_t maxGridDimY; Maximum allowed Y dimension for a grid.
+	DeviceFieldMaxGridDimY ActivityDeviceFieldIds = 22
+	// DeviceFieldMaxGridDimZ: uint32_t maxGridDimZ; Maximum allowed Z dimension for a grid.
+	DeviceFieldMaxGridDimZ ActivityDeviceFieldIds = 23
+	// DeviceFieldComputeCapabilityMajor: uint32_t computeCapabilityMajor; Compute capability for the device (major number).
+	DeviceFieldComputeCapabilityMajor ActivityDeviceFieldIds = 24
+	// DeviceFieldComputeCapabilityMinor: uint32_t computeCapabilityMinor; Compute capability for the device (minor number).
+	DeviceFieldComputeCapabilityMinor ActivityDeviceFieldIds = 25
+	DeviceFieldId                     ActivityDeviceFieldIds = 26 // uint32_t id; Device ID.
+	DeviceFieldEccEnabled             ActivityDeviceFieldIds = 27 // uint32_t eccEnabled; ECC enabled flag for device.
+	DeviceFieldUuid                   ActivityDeviceFieldIds = 28 // CUuuid uuid; Device UUID.
+	DeviceFieldName                   ActivityDeviceFieldIds = 29 // const char *name; Device name.
+	// DeviceFieldIsCudaVisible: uint8_t isCudaVisible; Flag to indicate whether the device is visible to CUDA.
+	DeviceFieldIsCudaVisible ActivityDeviceFieldIds = 30
+	DeviceFieldIsMigEnabled  ActivityDeviceFieldIds = 31 // uint8_t isMigEnabled; MIG enabled flag for device.
+	// DeviceFieldGpuInstanceId: uint32_t gpuInstanceId; GPU instance ID for MIG enabled devices.
+	DeviceFieldGpuInstanceId ActivityDeviceFieldIds = 32
+	// DeviceFieldComputeInstanceId: uint32_t computeInstanceId; Compute instance ID for MIG enabled devices.
+	DeviceFieldComputeInstanceId ActivityDeviceFieldIds = 33
+	DeviceFieldMigUuid           ActivityDeviceFieldIds = 34 // CUuuid migUuid; MIG UUID.
+	DeviceFieldIsNumaNode        ActivityDeviceFieldIds = 35 // uint32_t isNumaNode; NUMA node flag for device.
+	DeviceFieldNumaId            ActivityDeviceFieldIds = 36 // uint32_t numaId; NUMA node ID of the GPU memory.
+	DeviceFieldNumTpcs           ActivityDeviceFieldIds = 37 // uint32_t numTpcs; Number of TPCs on the device.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1980,20 +2181,29 @@ func (e ActivityDeviceFieldIds) String() string {
 }
 
 // ActivityContextFieldIds represents enum identifiers for fields to trace context.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindContext].
 type ActivityContextFieldIds int32
 
 const (
 	// ContextFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindContext].
-	ContextFieldKind               ActivityContextFieldIds = 0
-	ContextFieldContextId          ActivityContextFieldIds = 1
-	ContextFieldDeviceId           ActivityContextFieldIds = 2
-	ContextFieldComputeApiKind     ActivityContextFieldIds = 3
-	ContextFieldNullStreamId       ActivityContextFieldIds = 4
-	ContextFieldParentContextId    ActivityContextFieldIds = 5
-	ContextFieldIsGreenContext     ActivityContextFieldIds = 6
+	ContextFieldKind      ActivityContextFieldIds = 0
+	ContextFieldContextId ActivityContextFieldIds = 1 // uint32_t contextId; The ID of the context.
+	// ContextFieldDeviceId: uint32_t deviceId; The ID of the device associated with the context.
+	ContextFieldDeviceId ActivityContextFieldIds = 2
+	// ContextFieldComputeApiKind: uint16_t computeApiKind; The compute API kind associated with the context. [ActivityComputeApiKind]
+	ContextFieldComputeApiKind ActivityContextFieldIds = 3
+	// ContextFieldNullStreamId: uint32_t nullStreamId; The ID for the NULL stream in this context.
+	ContextFieldNullStreamId ActivityContextFieldIds = 4
+	// ContextFieldParentContextId: uint32_t parentContextId; The ID of the parent context. It would be 0 if context does not have parent.
+	ContextFieldParentContextId ActivityContextFieldIds = 5
+	// ContextFieldIsGreenContext: uint8_t isGreenContext; Indicates whether the context is a green context.
+	ContextFieldIsGreenContext ActivityContextFieldIds = 6
+	// ContextFieldNumMultiprocessors: uint16_t numMultiprocessors; Number of multiprocessors assigned to the green context. Invalid if the field ‘isGreenContext’ is 0.
 	ContextFieldNumMultiprocessors ActivityContextFieldIds = 7
-	ContextFieldCigMode            ActivityContextFieldIds = 8
-	ContextFieldProcessId          ActivityContextFieldIds = 9
+	ContextFieldCigMode            ActivityContextFieldIds = 8 // [ContextCigMode] cigMode; The CIG mode of the context.
+	// ContextFieldProcessId: uint32_t processId; The ID of the process associated with the context.
+	ContextFieldProcessId ActivityContextFieldIds = 9
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2024,13 +2234,18 @@ func (e ActivityContextFieldIds) String() string {
 }
 
 // ActivityNameFieldIds represents enum identifiers for fields in [ActivityName].
+//
+// Each enum value corresponds to a field in [ActivityName] and describes the data type and purpose of that field.
 type ActivityNameFieldIds int32
 
 const (
-	NameFieldKind       ActivityNameFieldIds = 0
+	// NameFieldKind: [ActivityKind] kind; Kind of activity record: [ActivityKindName].
+	NameFieldKind ActivityNameFieldIds = 0
+	// NameFieldObjectKind: [ActivityObjectKind] objectKind; Kind of activity object being named.
 	NameFieldObjectKind ActivityNameFieldIds = 1
-	NameFieldObjectId   ActivityNameFieldIds = 2
-	NameFieldName       ActivityNameFieldIds = 3
+	// NameFieldObjectId: [ActivityObjectKindId] objectId; Identifier for the activity object being named.
+	NameFieldObjectId ActivityNameFieldIds = 2
+	NameFieldName     ActivityNameFieldIds = 3 // const char *name; The name.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2049,18 +2264,24 @@ func (e ActivityNameFieldIds) String() string {
 }
 
 // ActivityMarkerFieldIds represents enum identifiers for fields to trace NVTX markers/ranges.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindMarker].
 type ActivityMarkerFieldIds int32
 
 const (
 	// MarkerFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindMarker].
 	MarkerFieldKind      ActivityMarkerFieldIds = 0
-	MarkerFieldFlags     ActivityMarkerFieldIds = 1
-	MarkerFieldTimestamp ActivityMarkerFieldIds = 2
-	MarkerFieldId        ActivityMarkerFieldIds = 3
+	MarkerFieldFlags     ActivityMarkerFieldIds = 1 // [ActivityFlag] flags; Flags associated with the marker.
+	MarkerFieldTimestamp ActivityMarkerFieldIds = 2 // uint64_t timestamp; Timestamp for the marker (in ns).
+	MarkerFieldId        ActivityMarkerFieldIds = 3 // uint32_t id; Marker ID.
+	// MarkerFieldProcessId: uint32_t processId; The process ID of the process where the overhead is occurring.
 	MarkerFieldProcessId ActivityMarkerFieldIds = 4
-	MarkerFieldThreadId  ActivityMarkerFieldIds = 5
-	MarkerFieldName      ActivityMarkerFieldIds = 6
-	MarkerFieldDomain    ActivityMarkerFieldIds = 7
+	// MarkerFieldThreadId: uint64_t threadId; The thread ID of the process where the overhead is occurring.
+	MarkerFieldThreadId ActivityMarkerFieldIds = 5
+	// MarkerFieldName: const char *name; Marker name for an instantaneous or start marker.
+	MarkerFieldName ActivityMarkerFieldIds = 6
+	// MarkerFieldDomain: const char *domain; Name of the domain to which this marker belongs.
+	MarkerFieldDomain ActivityMarkerFieldIds = 7
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2087,17 +2308,21 @@ func (e ActivityMarkerFieldIds) String() string {
 }
 
 // ActivityMarkerDataFieldIds represents enum identifiers for fields to trace detailed information for a marker.
+//
+// User must enable [ActivityKindMarker] as well to get records for marker data. These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindMarkerData].
 type ActivityMarkerDataFieldIds int32
 
 const (
 	// MarkerDataFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindMarkerData].
-	MarkerDataFieldKind          ActivityMarkerDataFieldIds = 0
-	MarkerDataFieldFlags         ActivityMarkerDataFieldIds = 1
-	MarkerDataFieldId            ActivityMarkerDataFieldIds = 2
-	MarkerDataFieldPayloadKind   ActivityMarkerDataFieldIds = 3
-	MarkerDataFieldPayload       ActivityMarkerDataFieldIds = 4
-	MarkerDataFieldColor         ActivityMarkerDataFieldIds = 5
-	MarkerDataFieldCategory      ActivityMarkerDataFieldIds = 6
+	MarkerDataFieldKind  ActivityMarkerDataFieldIds = 0
+	MarkerDataFieldFlags ActivityMarkerDataFieldIds = 1 // [ActivityFlag] flags; Flags associated with the marker.
+	MarkerDataFieldId    ActivityMarkerDataFieldIds = 2 // uint32_t id; Marker ID.
+	// MarkerDataFieldPayloadKind: [MetricValueKind] payloadKind; Defines the payload format for the value associated with the marker.
+	MarkerDataFieldPayloadKind ActivityMarkerDataFieldIds = 3
+	MarkerDataFieldPayload     ActivityMarkerDataFieldIds = 4 // [MetricValue] payload; The payload value.
+	MarkerDataFieldColor       ActivityMarkerDataFieldIds = 5 // uint32_t color; The color for the marker.
+	MarkerDataFieldCategory    ActivityMarkerDataFieldIds = 6 // uint32_t category; The category for the marker.
+	// MarkerDataFieldCuptiDomainId: uint32_t cuptiDomainId; CUPTI maintained domain id required for NVTX extended payloads.
 	MarkerDataFieldCuptiDomainId ActivityMarkerDataFieldIds = 7
 )
 
@@ -2125,18 +2350,27 @@ func (e ActivityMarkerDataFieldIds) String() string {
 }
 
 // ActivityOverheadFieldIds represents enum identifiers for fields to trace CUPTI and driver overhead information.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindOverhead].
 type ActivityOverheadFieldIds int32
 
 const (
 	// OverheadFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindOverhead].
-	OverheadFieldKind          ActivityOverheadFieldIds = 0
-	OverheadFieldOverheadKind  ActivityOverheadFieldIds = 1
-	OverheadFieldProcessId     ActivityOverheadFieldIds = 2
-	OverheadFieldThreadId      ActivityOverheadFieldIds = 3
-	OverheadFieldStart         ActivityOverheadFieldIds = 4
-	OverheadFieldEnd           ActivityOverheadFieldIds = 5
+	OverheadFieldKind ActivityOverheadFieldIds = 0
+	// OverheadFieldOverheadKind: [ActivityOverheadKind] overheadKind; The kind of overhead, CUPTI, DRIVER, COMPILER etc.
+	OverheadFieldOverheadKind ActivityOverheadFieldIds = 1
+	// OverheadFieldProcessId: uint32_t processId; The process ID of the process where the overhead is occurring.
+	OverheadFieldProcessId ActivityOverheadFieldIds = 2
+	// OverheadFieldThreadId: uint64_t threadId; The thread ID of the process where the overhead is occurring.
+	OverheadFieldThreadId ActivityOverheadFieldIds = 3
+	// OverheadFieldStart: uint64_t start; The start timestamp for the overhead, in nanoseconds.
+	OverheadFieldStart ActivityOverheadFieldIds = 4
+	// OverheadFieldEnd: uint64_t end; The end timestamp for the overhead, in nanoseconds.
+	OverheadFieldEnd ActivityOverheadFieldIds = 5
+	// OverheadFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this overhead record. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
 	OverheadFieldCorrelationId ActivityOverheadFieldIds = 6
-	OverheadFieldOverheadData  ActivityOverheadFieldIds = 7
+	// OverheadFieldOverheadData: void *overheadData; Pointer to the struct with additional details about the overhead. Refer [ActivityOverheadKind] enum and the corresponding structure to typecast and access additional overhead data. Client is responsible for freeing this memory using the free function when done.
+	OverheadFieldOverheadData ActivityOverheadFieldIds = 7
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2163,21 +2397,28 @@ func (e ActivityOverheadFieldIds) String() string {
 }
 
 // ActivityUvmCounterFieldIds represents enum identifiers for fields in [ActivityUnifiedMemoryCounter3].
+//
+// Each enum value corresponds to a field in [ActivityUnifiedMemoryCounter3] and describes the data type and purpose of that field.
 type ActivityUvmCounterFieldIds int32
 
 const (
-	UvmCounterFieldKind        ActivityUvmCounterFieldIds = 0
+	// UvmCounterFieldKind: [ActivityKind] kind; Kind of activity record: [ActivityKindUnifiedMemoryCounter].
+	UvmCounterFieldKind ActivityUvmCounterFieldIds = 0
+	// UvmCounterFieldCounterKind: [ActivityUnifiedMemoryCounterKind] counterKind; The Unified Memory counter kind.
 	UvmCounterFieldCounterKind ActivityUvmCounterFieldIds = 1
-	UvmCounterFieldValue       ActivityUvmCounterFieldIds = 2
-	UvmCounterFieldStart       ActivityUvmCounterFieldIds = 3
-	UvmCounterFieldEnd         ActivityUvmCounterFieldIds = 4
-	UvmCounterFieldAddress     ActivityUvmCounterFieldIds = 5
-	UvmCounterFieldSrcId       ActivityUvmCounterFieldIds = 6
-	UvmCounterFieldDstId       ActivityUvmCounterFieldIds = 7
-	UvmCounterFieldStreamId    ActivityUvmCounterFieldIds = 8
-	UvmCounterFieldProcessId   ActivityUvmCounterFieldIds = 9
-	UvmCounterFieldFlags       ActivityUvmCounterFieldIds = 10
-	UvmCounterFieldProcessors  ActivityUvmCounterFieldIds = 11
+	UvmCounterFieldValue       ActivityUvmCounterFieldIds = 2 // uint64_t value; Value of the counter.
+	UvmCounterFieldStart       ActivityUvmCounterFieldIds = 3 // uint64_t start; Start timestamp of the counter (in ns).
+	UvmCounterFieldEnd         ActivityUvmCounterFieldIds = 4 // uint64_t end; End timestamp of the counter (in ns).
+	// UvmCounterFieldAddress: uint64_t address; Virtual base address of the page/s being transferred.
+	UvmCounterFieldAddress  ActivityUvmCounterFieldIds = 5
+	UvmCounterFieldSrcId    ActivityUvmCounterFieldIds = 6 // uint32_t srcId; ID of the source CPU/device.
+	UvmCounterFieldDstId    ActivityUvmCounterFieldIds = 7 // uint32_t dstId; ID of the destination CPU/device.
+	UvmCounterFieldStreamId ActivityUvmCounterFieldIds = 8 // uint32_t streamId; ID of the stream causing the transfer.
+	// UvmCounterFieldProcessId: uint32_t processId; ID of the process to which this record belongs.
+	UvmCounterFieldProcessId ActivityUvmCounterFieldIds = 9
+	UvmCounterFieldFlags     ActivityUvmCounterFieldIds = 10 // uint32_t flags; Flags associated with this record.
+	// UvmCounterFieldProcessors: uint64_t processors [5]; Bitmask of devices involved in the operation.
+	UvmCounterFieldProcessors ActivityUvmCounterFieldIds = 11
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2212,17 +2453,26 @@ func (e ActivityUvmCounterFieldIds) String() string {
 }
 
 // ActivityCudaEventFieldIds represents enum identifiers for fields to trace CUDA Event operations.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindCudaEvent].
 type ActivityCudaEventFieldIds int32
 
 const (
 	// CudaEventFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindContext].
-	CudaEventFieldKind            ActivityCudaEventFieldIds = 0
-	CudaEventFieldCorrelationId   ActivityCudaEventFieldIds = 1
-	CudaEventFieldContextId       ActivityCudaEventFieldIds = 2
-	CudaEventFieldStreamId        ActivityCudaEventFieldIds = 3
-	CudaEventFieldEventId         ActivityCudaEventFieldIds = 4
-	CudaEventFieldDeviceId        ActivityCudaEventFieldIds = 5
+	CudaEventFieldKind ActivityCudaEventFieldIds = 0
+	// CudaEventFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this CUDA Event operation. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
+	CudaEventFieldCorrelationId ActivityCudaEventFieldIds = 1
+	// CudaEventFieldContextId: uint32_t contextId; The ID of the context where the event was recorded.
+	CudaEventFieldContextId ActivityCudaEventFieldIds = 2
+	// CudaEventFieldStreamId: uint32_t streamId; The compute stream where the event was recorded.
+	CudaEventFieldStreamId ActivityCudaEventFieldIds = 3
+	// CudaEventFieldEventId: uint64_t eventId; A unique event ID to identify the event record.
+	CudaEventFieldEventId ActivityCudaEventFieldIds = 4
+	// CudaEventFieldDeviceId: uint32_t deviceId; The ID of the device where the event was recorded.
+	CudaEventFieldDeviceId ActivityCudaEventFieldIds = 5
+	// CudaEventFieldDeviceTimestamp: uint64_t deviceTimestamp; The device-side timestamp on CUDA event record (in nanoseconds). Collection of this field is disabled by default. It can be enabled by calling CUPTI API [ActivityEnableCudaEventDeviceTimestamps]
 	CudaEventFieldDeviceTimestamp ActivityCudaEventFieldIds = 6
+	// CudaEventFieldCudaEventSyncId: uint64_t cudaEventSyncId; A unique ID to associate event synchronization records with the latest CUDA Event record. Similar field is added in [ActivitySynchronization2] to associate CUDA Event record to the synchronization record. The same CUDA event can be used multiple times, so the event id will not be unique to correlate the synchronization record with the latest CUDA Event record. This field will be unique and can be used to do the required correlation.
 	CudaEventFieldCudaEventSyncId ActivityCudaEventFieldIds = 7
 )
 
@@ -2250,15 +2500,20 @@ func (e ActivityCudaEventFieldIds) String() string {
 }
 
 // ActivityStreamFieldIds represents enum identifiers for fields to trace CUDA Stream operations.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindStream].
 type ActivityStreamFieldIds int32
 
 const (
 	// StreamFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindStream].
-	StreamFieldKind          ActivityStreamFieldIds = 0
-	StreamFieldContextId     ActivityStreamFieldIds = 1
-	StreamFieldStreamId      ActivityStreamFieldIds = 2
-	StreamFieldPriority      ActivityStreamFieldIds = 3
-	StreamFieldFlag          ActivityStreamFieldIds = 4
+	StreamFieldKind ActivityStreamFieldIds = 0
+	// StreamFieldContextId: uint32_t contextId; The ID of the context where the stream was created.
+	StreamFieldContextId ActivityStreamFieldIds = 1
+	// StreamFieldStreamId: uint32_t streamId; A unique stream ID to identify the stream.
+	StreamFieldStreamId ActivityStreamFieldIds = 2
+	StreamFieldPriority ActivityStreamFieldIds = 3 // int32_t priority; The clamped priority for the stream.
+	StreamFieldFlag     ActivityStreamFieldIds = 4 // [ActivityStreamFlag] flag; Flags associated with the stream.
+	// StreamFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this CUDA Stream operation.
 	StreamFieldCorrelationId ActivityStreamFieldIds = 5
 )
 
@@ -2282,20 +2537,31 @@ func (e ActivityStreamFieldIds) String() string {
 }
 
 // ActivitySynchronizationFieldIds represents enum identifiers for fields to trace various CUDA synchronization APIs.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindSynchronization].
 type ActivitySynchronizationFieldIds int32
 
 const (
 	// SynchronizationFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindSynchronization].
-	SynchronizationFieldKind            ActivitySynchronizationFieldIds = 0
-	SynchronizationFieldType            ActivitySynchronizationFieldIds = 1
-	SynchronizationFieldStart           ActivitySynchronizationFieldIds = 2
-	SynchronizationFieldEnd             ActivitySynchronizationFieldIds = 3
-	SynchronizationFieldCorrelationId   ActivitySynchronizationFieldIds = 4
-	SynchronizationFieldContextId       ActivitySynchronizationFieldIds = 5
-	SynchronizationFieldStreamId        ActivitySynchronizationFieldIds = 6
-	SynchronizationFieldCudaEventId     ActivitySynchronizationFieldIds = 7
+	SynchronizationFieldKind ActivitySynchronizationFieldIds = 0
+	// SynchronizationFieldType: [ActivitySynchronizationType] type; The type of synchronization operation.
+	SynchronizationFieldType ActivitySynchronizationFieldIds = 1
+	// SynchronizationFieldStart: uint64_t start; The start timestamp for the synchronization operation (in nanoseconds).
+	SynchronizationFieldStart ActivitySynchronizationFieldIds = 2
+	// SynchronizationFieldEnd: uint64_t start; The start timestamp for the synchronization operation (in nanoseconds).
+	SynchronizationFieldEnd ActivitySynchronizationFieldIds = 3
+	// SynchronizationFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this synchronization operation. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
+	SynchronizationFieldCorrelationId ActivitySynchronizationFieldIds = 4
+	// SynchronizationFieldContextId: uint32_t contextId; CUDA context where the operation is occurring.
+	SynchronizationFieldContextId ActivitySynchronizationFieldIds = 5
+	// SynchronizationFieldStreamId: uint32_t streamId; The compute stream where the synchronization operation is occurring. CUPTI_SYNCHRONIZATION_INVALID_VALUE indicates that the field is not applicable for this record.
+	SynchronizationFieldStreamId ActivitySynchronizationFieldIds = 6
+	// SynchronizationFieldCudaEventId: uint64_t cudaEventId; The CUDA event ID for which the synchronization operation is called. CUPTI_SYNCHRONIZATION_INVALID_VALUE indicates that the field is not applicable for this record.
+	SynchronizationFieldCudaEventId ActivitySynchronizationFieldIds = 7
+	// SynchronizationFieldCudaEventSyncId: uint64_t cudaEventSyncId; A unique ID to associate event synchronization records with the latest CUDA Event record. Similar field is added in [ActivityCudaEventFieldIds] to associate synchronization record to the CUDA Event record. The same CUDA event can be used multiple times, so the event id will not be unique to correlate the synchronization record with the latest CUDA Event record. This field will be unique and can be used to do the required correlation. A CUPTI_SYNCHRONIZATION_INVALID_VALUE value indicates that the field is not applicable for this record. Valid only for synchronization records related to CUDA Events.
 	SynchronizationFieldCudaEventSyncId ActivitySynchronizationFieldIds = 8
-	SynchronizationFieldReturnValue     ActivitySynchronizationFieldIds = 9
+	// SynchronizationFieldReturnValue: uint32_t returnValue; The return value for the synchronization operation. Use [ActivityEnableAllSyncRecords] API to enable/disable collection of synchronization records with return value being non-zero. This will be a CUresult value.
+	SynchronizationFieldReturnValue ActivitySynchronizationFieldIds = 9
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2326,6 +2592,8 @@ func (e ActivitySynchronizationFieldIds) String() string {
 }
 
 // OpenAccEventKind represents the OpenAcc event kind for OpenAcc activity records.
+//
+// See also CUpti_ActivityKindOpenAcc.
 type OpenAccEventKind int32
 
 const (
@@ -2497,6 +2765,8 @@ func (e OpenMpEventKind) String() string {
 }
 
 // ExternalCorrelationKind represents the kind of external APIs supported for correlation.
+//
+// Custom correlation kinds are reserved for usage in external tools. See also [ActivityExternalCorrelation].
 type ExternalCorrelationKind int32
 
 const (
@@ -2506,7 +2776,7 @@ const (
 	ExternalCorrelationKindCustom0  ExternalCorrelationKind = 3 // The external API is custom0
 	ExternalCorrelationKindCustom1  ExternalCorrelationKind = 4 // The external API is custom1
 	ExternalCorrelationKindCustom2  ExternalCorrelationKind = 5 // The external API is custom2
-	ExternalCorrelationKindSize     ExternalCorrelationKind = 6
+	ExternalCorrelationKindSize     ExternalCorrelationKind = 6 // Add new kinds before this line.
 	ExternalCorrelationKindForceInt ExternalCorrelationKind = 0x7fffffff
 )
 
@@ -2534,13 +2804,18 @@ func (e ExternalCorrelationKind) String() string {
 }
 
 // ActivityExternalCorrelationFieldIds represents enum identifiers for fields in [ActivityExternalCorrelation].
+//
+// This activity record correlates native CUDA records (e.g. CUDA Driver API, kernels, memcpys, …) with records from external APIs such as OpenACC. ([ActivityKindExternalCorrelation]).
 type ActivityExternalCorrelationFieldIds int32
 
 const (
 	// ExternalCorrelationFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindExternalCorrelation].
-	ExternalCorrelationFieldKind          ActivityExternalCorrelationFieldIds = 0
-	ExternalCorrelationFieldExternalKind  ActivityExternalCorrelationFieldIds = 1
-	ExternalCorrelationFieldExternalId    ActivityExternalCorrelationFieldIds = 2
+	ExternalCorrelationFieldKind ActivityExternalCorrelationFieldIds = 0
+	// ExternalCorrelationFieldExternalKind: [ExternalCorrelationKind] externalKind; Kind of external API this record correlated to.
+	ExternalCorrelationFieldExternalKind ActivityExternalCorrelationFieldIds = 1
+	// ExternalCorrelationFieldExternalId: uint64_t externalId; Correlation ID of the associated non-CUDA API record.
+	ExternalCorrelationFieldExternalId ActivityExternalCorrelationFieldIds = 2
+	// ExternalCorrelationFieldCorrelationId: uint64_t correlationId; Correlation ID of the associated CUDA driver or runtime API record.
 	ExternalCorrelationFieldCorrelationId ActivityExternalCorrelationFieldIds = 3
 )
 
@@ -2588,8 +2863,8 @@ func (e DevType) String() string {
 type PcieDeviceType int32
 
 const (
-	PcieDeviceTypeGpu      PcieDeviceType = 0 // PCIE GPU record
-	PcieDeviceTypeBridge   PcieDeviceType = 1 // PCIE Bridge record
+	PcieDeviceTypeGpu      PcieDeviceType = 0 // PCIE GPU record.
+	PcieDeviceTypeBridge   PcieDeviceType = 1 // PCIE Bridge record.
 	PcieDeviceTypeForceInt PcieDeviceType = 0x7fffffff
 )
 
@@ -2607,15 +2882,17 @@ func (e PcieDeviceType) String() string {
 }
 
 // PcieGen represents PCIE Generation.
+//
+// Enumeration of PCIE Generation for pcie activity attribute pcieGeneration.
 type PcieGen int32
 
 const (
-	PcieGenGEN1     PcieGen = 1 // PCIE Generation 1
-	PcieGenGEN2     PcieGen = 2 // PCIE Generation 2
-	PcieGenGEN3     PcieGen = 3 // PCIE Generation 3
-	PcieGenGEN4     PcieGen = 4 // PCIE Generation 4
-	PcieGenGEN5     PcieGen = 5 // PCIE Generation 5
-	PcieGenGEN6     PcieGen = 6 // PCIE Generation 6
+	PcieGenGEN1     PcieGen = 1 // PCIE Generation 1.
+	PcieGenGEN2     PcieGen = 2 // PCIE Generation 2.
+	PcieGenGEN3     PcieGen = 3 // PCIE Generation 3.
+	PcieGenGEN4     PcieGen = 4 // PCIE Generation 4.
+	PcieGenGEN5     PcieGen = 5 // PCIE Generation 5.
+	PcieGenGEN6     PcieGen = 6 // PCIE Generation 6.
 	PcieGenForceInt PcieGen = 0x7fffffff
 )
 
@@ -2671,16 +2948,20 @@ func (e ConfidentialComputeRotationEventType) String() string {
 }
 
 // ActivityConfidentialComputeRotationFieldIds represents enum identifiers for fields in [ActivityConfidentialComputeRotation].
+//
+// Each enum value corresponds to a field in [ActivityConfidentialComputeRotation] and describes the data type and purpose of that field.
 type ActivityConfidentialComputeRotationFieldIds int32
 
 const (
-	ConfidentialComputeRotationFieldKind        ActivityConfidentialComputeRotationFieldIds = 0
+	// ConfidentialComputeRotationFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindConfidentialComputeRotation].
+	ConfidentialComputeRotationFieldKind ActivityConfidentialComputeRotationFieldIds = 0
+	// ConfidentialComputeRotationFieldEventType: [ConfidentialComputeRotationEventType] eventType; Type of event.
 	ConfidentialComputeRotationFieldEventType   ActivityConfidentialComputeRotationFieldIds = 1
-	ConfidentialComputeRotationFieldDeviceId    ActivityConfidentialComputeRotationFieldIds = 2
-	ConfidentialComputeRotationFieldContextId   ActivityConfidentialComputeRotationFieldIds = 3
-	ConfidentialComputeRotationFieldChannelId   ActivityConfidentialComputeRotationFieldIds = 4
-	ConfidentialComputeRotationFieldChannelType ActivityConfidentialComputeRotationFieldIds = 5
-	ConfidentialComputeRotationFieldTimestamp   ActivityConfidentialComputeRotationFieldIds = 6
+	ConfidentialComputeRotationFieldDeviceId    ActivityConfidentialComputeRotationFieldIds = 2 // uint32_t deviceId; Device ID.
+	ConfidentialComputeRotationFieldContextId   ActivityConfidentialComputeRotationFieldIds = 3 // uint32_t contextId; Context ID.
+	ConfidentialComputeRotationFieldChannelId   ActivityConfidentialComputeRotationFieldIds = 4 // uint32_t channelId; Channel ID.
+	ConfidentialComputeRotationFieldChannelType ActivityConfidentialComputeRotationFieldIds = 5 // [ChannelType] channelType; Channel Type.
+	ConfidentialComputeRotationFieldTimestamp   ActivityConfidentialComputeRotationFieldIds = 6 // uint64_t timestamp; Timestamp in ns.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2705,12 +2986,14 @@ func (e ActivityConfidentialComputeRotationFieldIds) String() string {
 }
 
 // ActivityJitEntryType represents the types of JIT entry.
+//
+// To be used in [ActivityJit].
 type ActivityJitEntryType int32
 
 const (
 	ActivityJitEntryInvalid      ActivityJitEntryType = 0
 	ActivityJitEntryPtxToCubin   ActivityJitEntryType = 1 // PTX to CUBIN.
-	ActivityJitEntryNvvmIrToPtx  ActivityJitEntryType = 2 // NVVM-IR to PTX
+	ActivityJitEntryNvvmIrToPtx  ActivityJitEntryType = 2 // NVVM-IR to PTX.
 	ActivityJitEntryTypeForceInt ActivityJitEntryType = 0x7fffffff
 )
 
@@ -2730,6 +3013,8 @@ func (e ActivityJitEntryType) String() string {
 }
 
 // ActivityJitOperationType represents the types of JIT compilation operations.
+//
+// To be used in [ActivityJit].
 type ActivityJitOperationType int32
 
 const (
@@ -2758,22 +3043,33 @@ func (e ActivityJitOperationType) String() string {
 }
 
 // ActivityJitFieldIds represents enum identifiers for fields to trace JIT operations.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindJit].
 type ActivityJitFieldIds int32
 
 const (
 	// JitFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindJit].
-	JitFieldKind                   ActivityJitFieldIds = 0
-	JitFieldEntryType              ActivityJitFieldIds = 1
-	JitFieldOperationType          ActivityJitFieldIds = 2
-	JitFieldDeviceId               ActivityJitFieldIds = 3
-	JitFieldStart                  ActivityJitFieldIds = 4
-	JitFieldEnd                    ActivityJitFieldIds = 5
-	JitFieldCorrelationId          ActivityJitFieldIds = 6
+	JitFieldKind ActivityJitFieldIds = 0
+	// JitFieldEntryType: [ActivityJitEntryType] jitEntryType; The JIT entry type. [ActivityJitEntryType]
+	JitFieldEntryType ActivityJitFieldIds = 1
+	// JitFieldOperationType: [ActivityJitOperationType] jitOperationType; The JIT operation type. [ActivityJitOperationType]
+	JitFieldOperationType ActivityJitFieldIds = 2
+	JitFieldDeviceId      ActivityJitFieldIds = 3 // uint32_t deviceId; The device ID.
+	// JitFieldStart: uint64_t start; The start timestamp for the JIT operation (in nanoseconds).
+	JitFieldStart ActivityJitFieldIds = 4
+	// JitFieldEnd: uint64_t end; The end timestamp for the JIT operation (in nanoseconds).
+	JitFieldEnd ActivityJitFieldIds = 5
+	// JitFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this JIT operation. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
+	JitFieldCorrelationId ActivityJitFieldIds = 6
+	// JitFieldOperationCorrelationId: uint64_t jitOperationCorrelationId; The correlation ID to correlate JIT compilation, load and store operations. Each JIT compilation unit is assigned a unique correlation ID at the time of the JIT compilation. This correlation id can be used to find the matching JIT cache load/store records.
 	JitFieldOperationCorrelationId ActivityJitFieldIds = 7
-	JitFieldCacheSize              ActivityJitFieldIds = 8
-	JitFieldCachePath              ActivityJitFieldIds = 9
-	JitFieldProcessId              ActivityJitFieldIds = 10
-	JitFieldThreadId               ActivityJitFieldIds = 11
+	JitFieldCacheSize              ActivityJitFieldIds = 8 // uint64_t cacheSize; The size of compute cache.
+	// JitFieldCachePath: const char* cachePath; The path where the fat binary is cached.
+	JitFieldCachePath ActivityJitFieldIds = 9
+	// JitFieldProcessId: uint32_t processId; The ID of the process where the JIT operation is executing.
+	JitFieldProcessId ActivityJitFieldIds = 10
+	// JitFieldThreadId: uint64_t threadId; The ID of the thread where the JIT operation is executing.
+	JitFieldThreadId ActivityJitFieldIds = 11
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2808,20 +3104,31 @@ func (e ActivityJitFieldIds) String() string {
 }
 
 // ActivityGraphTraceFieldIds represents enum identifiers for fields to trace graph execution.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindGraphTrace].
 type ActivityGraphTraceFieldIds int32
 
 const (
 	// GraphTraceFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindGraphTrace].
-	GraphTraceFieldKind          ActivityGraphTraceFieldIds = 0
+	GraphTraceFieldKind ActivityGraphTraceFieldIds = 0
+	// GraphTraceFieldCorrelationId: uint64_t correlationId; The correlation ID of the graph launch.
 	GraphTraceFieldCorrelationId ActivityGraphTraceFieldIds = 1
-	GraphTraceFieldStart         ActivityGraphTraceFieldIds = 2
-	GraphTraceFieldEnd           ActivityGraphTraceFieldIds = 3
-	GraphTraceFieldDeviceId      ActivityGraphTraceFieldIds = 4
-	GraphTraceFieldGraphId       ActivityGraphTraceFieldIds = 5
-	GraphTraceFieldContextId     ActivityGraphTraceFieldIds = 6
-	GraphTraceFieldStreamId      ActivityGraphTraceFieldIds = 7
-	GraphTraceFieldEndDeviceId   ActivityGraphTraceFieldIds = 8
-	GraphTraceFieldEndContextId  ActivityGraphTraceFieldIds = 9
+	// GraphTraceFieldStart: uint64_t start; The start timestamp for the graph execution, in ns.
+	GraphTraceFieldStart ActivityGraphTraceFieldIds = 2
+	// GraphTraceFieldEnd: uint64_t end; The end timestamp for the graph execution, in ns.
+	GraphTraceFieldEnd ActivityGraphTraceFieldIds = 3
+	// GraphTraceFieldDeviceId: uint32_t deviceId; The ID of the device where the first node of the graph is executed. If this is INT_MAX, then the start is on the host.
+	GraphTraceFieldDeviceId ActivityGraphTraceFieldIds = 4
+	// GraphTraceFieldGraphId: uint32_t graphId; The unique ID of the graph that is launched.
+	GraphTraceFieldGraphId ActivityGraphTraceFieldIds = 5
+	// GraphTraceFieldContextId: uint32_t contextId; The ID of the context where the first node of the graph is executed. If this is INT_MAX, then the start is on the host.
+	GraphTraceFieldContextId ActivityGraphTraceFieldIds = 6
+	// GraphTraceFieldStreamId: uint32_t streamId; The ID of the stream where the graph is being launched.
+	GraphTraceFieldStreamId ActivityGraphTraceFieldIds = 7
+	// GraphTraceFieldEndDeviceId: uint32_t endDeviceId; The ID of the device where last node of the graph is executed.
+	GraphTraceFieldEndDeviceId ActivityGraphTraceFieldIds = 8
+	// GraphTraceFieldEndContextId: uint32_t endContextId; The ID of the context where the last node of the graph is executed.
+	GraphTraceFieldEndContextId ActivityGraphTraceFieldIds = 9
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2877,19 +3184,26 @@ func (e DeviceGraphLaunchMode) String() string {
 }
 
 // ActivityDeviceGraphTraceFieldIds represents enum identifiers for fields in [ActivityDeviceGraphTrace].
+//
+// Each enum value corresponds to a field in [ActivityDeviceGraphTrace] and describes the data type and purpose of that field.
 type ActivityDeviceGraphTraceFieldIds int32
 
 const (
 	// DeviceGraphTraceFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindDeviceGraphTrace].
-	DeviceGraphTraceFieldKind             ActivityDeviceGraphTraceFieldIds = 0
-	DeviceGraphTraceFieldDeviceId         ActivityDeviceGraphTraceFieldIds = 1
-	DeviceGraphTraceFieldStart            ActivityDeviceGraphTraceFieldIds = 2
-	DeviceGraphTraceFieldEnd              ActivityDeviceGraphTraceFieldIds = 3
-	DeviceGraphTraceFieldGraphId          ActivityDeviceGraphTraceFieldIds = 4
+	DeviceGraphTraceFieldKind ActivityDeviceGraphTraceFieldIds = 0
+	// DeviceGraphTraceFieldDeviceId: uint32_t deviceId; ID of the device where the first node of the graph is executed.
+	DeviceGraphTraceFieldDeviceId ActivityDeviceGraphTraceFieldIds = 1
+	// DeviceGraphTraceFieldStart: uint64_t start; Start timestamp for the graph execution (in ns).
+	DeviceGraphTraceFieldStart   ActivityDeviceGraphTraceFieldIds = 2
+	DeviceGraphTraceFieldEnd     ActivityDeviceGraphTraceFieldIds = 3 // uint64_t end; End timestamp for the graph execution (in ns).
+	DeviceGraphTraceFieldGraphId ActivityDeviceGraphTraceFieldIds = 4 // uint32_t graphId; Unique ID of the graph that is launched.
+	// DeviceGraphTraceFieldLauncherGraphId: uint32_t launcherGraphId; Unique ID of the graph that has launched this graph.
 	DeviceGraphTraceFieldLauncherGraphId  ActivityDeviceGraphTraceFieldIds = 5
-	DeviceGraphTraceFieldDeviceLaunchMode ActivityDeviceGraphTraceFieldIds = 6
-	DeviceGraphTraceFieldContextId        ActivityDeviceGraphTraceFieldIds = 7
-	DeviceGraphTraceFieldStreamId         ActivityDeviceGraphTraceFieldIds = 8
+	DeviceGraphTraceFieldDeviceLaunchMode ActivityDeviceGraphTraceFieldIds = 6 // uint32_t deviceLaunchMode; Type of launch.
+	// DeviceGraphTraceFieldContextId: uint64_t contextId; ID of the context where the first node of the graph is executed.
+	DeviceGraphTraceFieldContextId ActivityDeviceGraphTraceFieldIds = 7
+	// DeviceGraphTraceFieldStreamId: uint64_t streamId; ID of the stream where the graph is being launched. This is the only record that has 64-bit streamId to accommodate device-side created streams.
+	DeviceGraphTraceFieldStreamId ActivityDeviceGraphTraceFieldIds = 8
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2918,21 +3232,33 @@ func (e ActivityDeviceGraphTraceFieldIds) String() string {
 }
 
 // ActivityMemDecompressFieldIds represents enum identifiers for fields to trace decompression operations.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindMemDecompress].
 type ActivityMemDecompressFieldIds int32
 
 const (
 	// MemDecompressFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindMemDecompress].
-	MemDecompressFieldKind               ActivityMemDecompressFieldIds = 0
-	MemDecompressFieldDeviceId           ActivityMemDecompressFieldIds = 1
-	MemDecompressFieldContextId          ActivityMemDecompressFieldIds = 2
-	MemDecompressFieldStreamId           ActivityMemDecompressFieldIds = 3
-	MemDecompressFieldChannelId          ActivityMemDecompressFieldIds = 4
-	MemDecompressFieldChannelType        ActivityMemDecompressFieldIds = 5
-	MemDecompressFieldCorrelationId      ActivityMemDecompressFieldIds = 6
+	MemDecompressFieldKind ActivityMemDecompressFieldIds = 0
+	// MemDecompressFieldDeviceId: uint32_t deviceId; The ID of the device where the decompression operation was recorded.
+	MemDecompressFieldDeviceId ActivityMemDecompressFieldIds = 1
+	// MemDecompressFieldContextId: uint32_t contextId; The ID of the context where the decompression operation was recorded.
+	MemDecompressFieldContextId ActivityMemDecompressFieldIds = 2
+	// MemDecompressFieldStreamId: uint32_t streamId; The compute stream where the decompression operation was recorded.
+	MemDecompressFieldStreamId ActivityMemDecompressFieldIds = 3
+	// MemDecompressFieldChannelId: uint32_t channelId; The ID of the HW channel on which the decompression operation was recorded.
+	MemDecompressFieldChannelId ActivityMemDecompressFieldIds = 4
+	// MemDecompressFieldChannelType: [ChannelType] channelType; The type of the channel on which the decompression operation was recorded.
+	MemDecompressFieldChannelType ActivityMemDecompressFieldIds = 5
+	// MemDecompressFieldCorrelationId: uint64_t correlationId; Correlation ID assigned to this decompression operation. Matches the correlation ID in the CUDA driver/runtime API activity record that launched it.
+	MemDecompressFieldCorrelationId ActivityMemDecompressFieldIds = 6
+	// MemDecompressFieldNumberOfOperations: uint32_t numberOfOperations; The number of decompression operations in this batch.
 	MemDecompressFieldNumberOfOperations ActivityMemDecompressFieldIds = 7
-	MemDecompressFieldSourceBytes        ActivityMemDecompressFieldIds = 8
-	MemDecompressFieldStart              ActivityMemDecompressFieldIds = 9
-	MemDecompressFieldEnd                ActivityMemDecompressFieldIds = 10
+	// MemDecompressFieldSourceBytes: uint64_t sourceBytes; The total number of bytes to be read and decompressed in the batch operation.
+	MemDecompressFieldSourceBytes ActivityMemDecompressFieldIds = 8
+	// MemDecompressFieldStart: uint64_t start; Start timestamp of the decompression operation, in nanoseconds.
+	MemDecompressFieldStart ActivityMemDecompressFieldIds = 9
+	// MemDecompressFieldEnd: uint64_t end; End timestamp of the decompression operation, in nanoseconds.
+	MemDecompressFieldEnd ActivityMemDecompressFieldIds = 10
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2965,20 +3291,31 @@ func (e ActivityMemDecompressFieldIds) String() string {
 }
 
 // ActivityGraphHostNodeFieldIds represents enum identifiers for fields in [ActivityGraphHostNode].
+//
+// Each enum value corresponds to a field in [ActivityGraphHostNode] and describes the data type and purpose of that field.
 type ActivityGraphHostNodeFieldIds int32
 
 const (
-	GraphHostNodeFieldKind          ActivityGraphHostNodeFieldIds = 0
-	GraphHostNodeFieldStreamId      ActivityGraphHostNodeFieldIds = 1
-	GraphHostNodeFieldContextId     ActivityGraphHostNodeFieldIds = 2
-	GraphHostNodeFieldDeviceId      ActivityGraphHostNodeFieldIds = 3
+	// GraphHostNodeFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindGraphHostNode].
+	GraphHostNodeFieldKind ActivityGraphHostNodeFieldIds = 0
+	// GraphHostNodeFieldStreamId: uint32_t streamId; ID of the stream that waits for the graph host node to finish.
+	GraphHostNodeFieldStreamId ActivityGraphHostNodeFieldIds = 1
+	// GraphHostNodeFieldContextId: uint32_t contextId; ID of the CUDA context to which the waiting CUDA stream belongs.
+	GraphHostNodeFieldContextId ActivityGraphHostNodeFieldIds = 2
+	// GraphHostNodeFieldDeviceId: uint32_t deviceId; ID of the CUDA device to which the CUDA context and stream belong.
+	GraphHostNodeFieldDeviceId ActivityGraphHostNodeFieldIds = 3
+	// GraphHostNodeFieldCorrelationId: uint64_t correlationId; Correlation ID of the graph host node operation.
 	GraphHostNodeFieldCorrelationId ActivityGraphHostNodeFieldIds = 4
-	GraphHostNodeFieldGraphId       ActivityGraphHostNodeFieldIds = 5
-	GraphHostNodeFieldGraphNodeId   ActivityGraphHostNodeFieldIds = 6
-	GraphHostNodeFieldProcessId     ActivityGraphHostNodeFieldIds = 7
-	GraphHostNodeFieldThreadId      ActivityGraphHostNodeFieldIds = 8
-	GraphHostNodeFieldStart         ActivityGraphHostNodeFieldIds = 9
-	GraphHostNodeFieldEnd           ActivityGraphHostNodeFieldIds = 10
+	// GraphHostNodeFieldGraphId: uint32_t graphId; Unique ID of the graph that executed this host node through graph launch.
+	GraphHostNodeFieldGraphId ActivityGraphHostNodeFieldIds = 5
+	// GraphHostNodeFieldGraphNodeId: uint64_t graphNodeId; Unique ID of the graph node that executed this host node through graph launch.
+	GraphHostNodeFieldGraphNodeId ActivityGraphHostNodeFieldIds = 6
+	// GraphHostNodeFieldProcessId: uint32_t processId; ID of the process where the host node is executing.
+	GraphHostNodeFieldProcessId ActivityGraphHostNodeFieldIds = 7
+	// GraphHostNodeFieldThreadId: uint64_t threadId; ID of the thread where the host node is executing.
+	GraphHostNodeFieldThreadId ActivityGraphHostNodeFieldIds = 8
+	GraphHostNodeFieldStart    ActivityGraphHostNodeFieldIds = 9  // uint64_t start; Start timestamp.
+	GraphHostNodeFieldEnd      ActivityGraphHostNodeFieldIds = 10 // uint64_t end; End timestamp.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3036,12 +3373,17 @@ func (e ComputeEngineCtxSwitchOperationType) String() string {
 }
 
 // ActivityComputeEngineCtxSwitchFieldIds represents enum identifiers for fields in [ActivityComputeEngineCtxSwitch].
+//
+// Each enum value corresponds to a field in [ActivityComputeEngineCtxSwitch] and describes the data type and purpose of that field.
 type ActivityComputeEngineCtxSwitchFieldIds int32
 
 const (
-	ComputeEngineCtxSwitchFieldKind          ActivityComputeEngineCtxSwitchFieldIds = 0
-	ComputeEngineCtxSwitchFieldContextId     ActivityComputeEngineCtxSwitchFieldIds = 1
-	ComputeEngineCtxSwitchFieldTimestamp     ActivityComputeEngineCtxSwitchFieldIds = 2
+	// ComputeEngineCtxSwitchFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindComputeEngineCtxSwitch].
+	ComputeEngineCtxSwitchFieldKind      ActivityComputeEngineCtxSwitchFieldIds = 0
+	ComputeEngineCtxSwitchFieldContextId ActivityComputeEngineCtxSwitchFieldIds = 1 // uint32_t contextId; ID of the CUDA context.
+	// ComputeEngineCtxSwitchFieldTimestamp: uint64_t timestamp; Timestamp at which the context switch operation occurs.
+	ComputeEngineCtxSwitchFieldTimestamp ActivityComputeEngineCtxSwitchFieldIds = 2
+	// ComputeEngineCtxSwitchFieldOperationType: [ComputeEngineCtxSwitchOperationType] operationType; Type of the Compute Engine Context switch operation.
 	ComputeEngineCtxSwitchFieldOperationType ActivityComputeEngineCtxSwitchFieldIds = 3
 )
 
@@ -3061,18 +3403,27 @@ func (e ActivityComputeEngineCtxSwitchFieldIds) String() string {
 }
 
 // ActivityHostLaunchFieldIds represents enum identifiers for fields in [ActivityHostLaunch].
+//
+// Each enum value corresponds to a field in [ActivityHostLaunch] and describes the data type and purpose of that field.
 type ActivityHostLaunchFieldIds int32
 
 const (
-	HostLaunchFieldKind          ActivityHostLaunchFieldIds = 0
-	HostLaunchFieldStreamId      ActivityHostLaunchFieldIds = 1
-	HostLaunchFieldContextId     ActivityHostLaunchFieldIds = 2
-	HostLaunchFieldDeviceId      ActivityHostLaunchFieldIds = 3
+	// HostLaunchFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindHostLaunch].
+	HostLaunchFieldKind ActivityHostLaunchFieldIds = 0
+	// HostLaunchFieldStreamId: uint32_t streamId; ID of the CUDA stream to which the waiting CUDA stream belongs.
+	HostLaunchFieldStreamId ActivityHostLaunchFieldIds = 1
+	// HostLaunchFieldContextId: uint32_t contextId; ID of the CUDA context to which the waiting CUDA stream belongs.
+	HostLaunchFieldContextId ActivityHostLaunchFieldIds = 2
+	// HostLaunchFieldDeviceId: uint32_t deviceId; ID of the CUDA device to which the CUDA context and stream belong.
+	HostLaunchFieldDeviceId ActivityHostLaunchFieldIds = 3
+	// HostLaunchFieldCorrelationId: uint64_t correlationId; Correlation ID of the host launch operation.
 	HostLaunchFieldCorrelationId ActivityHostLaunchFieldIds = 4
-	HostLaunchFieldProcessId     ActivityHostLaunchFieldIds = 5
-	HostLaunchFieldThreadId      ActivityHostLaunchFieldIds = 6
-	HostLaunchFieldStart         ActivityHostLaunchFieldIds = 7
-	HostLaunchFieldEnd           ActivityHostLaunchFieldIds = 8
+	// HostLaunchFieldProcessId: uint32_t processId; ID of the process where the host function is executing.
+	HostLaunchFieldProcessId ActivityHostLaunchFieldIds = 5
+	// HostLaunchFieldThreadId: uint64_t threadId; ID of the thread where the host function is executing.
+	HostLaunchFieldThreadId ActivityHostLaunchFieldIds = 6
+	HostLaunchFieldStart    ActivityHostLaunchFieldIds = 7 // uint64_t start; Start timestamp.
+	HostLaunchFieldEnd      ActivityHostLaunchFieldIds = 8 // uint64_t end; End timestamp.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3101,18 +3452,25 @@ func (e ActivityHostLaunchFieldIds) String() string {
 }
 
 // ActivityGreenContextFieldIds represents enum identifiers for fields to trace green context information.
+//
+// These field IDs are used to reference specific fields when dynamically selecting or parsing activity records of [ActivityKindGreenContext].
 type ActivityGreenContextFieldIds int32
 
 const (
 	// GreenContextFieldKind: [ActivityKind] kind; Kind of this activity record. Always [ActivityKindGreenContext].
-	GreenContextFieldKind               ActivityGreenContextFieldIds = 0
-	GreenContextFieldContextId          ActivityGreenContextFieldIds = 1
-	GreenContextFieldParentContextId    ActivityGreenContextFieldIds = 2
-	GreenContextFieldDeviceId           ActivityGreenContextFieldIds = 3
+	GreenContextFieldKind            ActivityGreenContextFieldIds = 0
+	GreenContextFieldContextId       ActivityGreenContextFieldIds = 1 // uint32_t contextId; The context ID of the green context.
+	GreenContextFieldParentContextId ActivityGreenContextFieldIds = 2 // uint32_t parentContextId; The ID of the parent context.
+	// GreenContextFieldDeviceId: uint32_t deviceId; The device ID associated with the green context.
+	GreenContextFieldDeviceId ActivityGreenContextFieldIds = 3
+	// GreenContextFieldNumMultiprocessors: uint16_t numMultiprocessors; The number of multiprocessors (SMs) allocated to the green context.
 	GreenContextFieldNumMultiprocessors ActivityGreenContextFieldIds = 4
-	GreenContextFieldNumTpcs            ActivityGreenContextFieldIds = 5
+	// GreenContextFieldNumTpcs: uint32_t numTpcs; The number of TPCs allocated to the green context.
+	GreenContextFieldNumTpcs ActivityGreenContextFieldIds = 5
+	// GreenContextFieldLogicalTpcMaskSize: uint8_t logicalTpcMaskSize; The size (in 32-bit words) of the logical TPC mask.
 	GreenContextFieldLogicalTpcMaskSize ActivityGreenContextFieldIds = 6
-	GreenContextFieldLogicalTpcMask     ActivityGreenContextFieldIds = 7
+	// GreenContextFieldLogicalTpcMask: uint32_t logicalTpcMask [32]; The logical TPC mask for the green context.
+	GreenContextFieldLogicalTpcMask ActivityGreenContextFieldIds = 7
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3139,6 +3497,8 @@ func (e ActivityGreenContextFieldIds) String() string {
 }
 
 // ActivityAttribute represents activity attributes.
+//
+// These attributes are used to control the behavior of the activity API.
 type ActivityAttribute int32
 
 const (
@@ -3152,30 +3512,43 @@ const (
 	ActivityAttrProfilingSemaphorePoolSize ActivityAttribute = 3
 	// ActivityAttrProfilingSemaphorePoolLimit: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. The maximum number of profiling semaphore pools per context. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for more details. Set this value before initializing CUDA to ensure the limit is not exceeded. The default value is 250.
 	ActivityAttrProfilingSemaphorePoolLimit ActivityAttribute = 4
-	// ActivityAttrZeroedOutActivityBuffer: The flag to indicate whether user should provide activity buffer of zero value. The value is a uint8_t. If the value of this attribute is non-zero, user should provide a zero value buffer in the [BuffersCallbackRequestFunc]. If the user does not provide a zero value buffer after setting this to non-zero, the activity buffer may contain some uninitialized values when CUPTI returns it in [BuffersCallbackCompleteFunc] If the value of this attribute is zero, CUPTI will initialize the user buffer received in the [BuffersCallbackRequestFunc] to zero before filling it. If the user sets this to zero, a few stalls may appear in critical path because CUPTI will zero out the buffer in the main thread. Set this value before returning from [BuffersCallbackRequestFunc] to ensure it is considered for all the subsequent user buffers. The default value is 0.
+	// ActivityAttrZeroedOutActivityBuffer: The flag to indicate whether user should provide activity buffer of zero value. The value is a uint8_t. If the value of this attribute is non-zero, user should provide a zero value buffer in the [BuffersCallbackRequestFunc]. If the user does not provide a zero value buffer after setting this to non-zero, the activity buffer may contain some uninitialized values when CUPTI returns it in [BuffersCallbackCompleteFunc]. If the value of this attribute is zero, CUPTI will initialize the user buffer received in the [BuffersCallbackRequestFunc] to zero before filling it. If the user sets this to zero, a few stalls may appear in critical path because CUPTI will zero out the buffer in the main thread. Set this value before returning from [BuffersCallbackRequestFunc] to ensure it is considered for all the subsequent user buffers. The default value is 0.
 	ActivityAttrZeroedOutActivityBuffer ActivityAttribute = 5
-	// ActivityAttrDeviceBufferPreAllocateValue: Number of device buffers to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrDeviceBufferSize] for details. This value must be less than the maximum number of device buffers set using the attribute [ActivityAttrDeviceBufferPoolLimit] Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these buffers (if possible).
+	// ActivityAttrDeviceBufferPreAllocateValue: Number of device buffers to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrDeviceBufferSize] for details. This value must be less than the maximum number of device buffers set using the attribute [ActivityAttrDeviceBufferPoolLimit]. Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these buffers (if possible).
 	ActivityAttrDeviceBufferPreAllocateValue ActivityAttribute = 6
-	// ActivityAttrProfilingSemaphorePreAllocateValue: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. Number of profiling semaphore pools to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for details. This value must be less than the maximum number of profiling semaphore pools set using the attribute [ActivityAttrProfilingSemaphorePoolLimit] Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these pools (if possible).
+	// ActivityAttrProfilingSemaphorePreAllocateValue: This attribute is not supported starting with CUDA 12.3 CUPTI no longer uses profiling semaphore pool to store profiling data. Number of profiling semaphore pools to pre-allocate for a context during the initialization phase. The value is a size_t. Refer to the description of the attribute [ActivityAttrProfilingSemaphorePoolSize] for details. This value must be less than the maximum number of profiling semaphore pools set using the attribute [ActivityAttrProfilingSemaphorePoolLimit]. Set this value before initializing CUDA or before creating a context to ensure it is considered by the CUPTI. The default value is set to 3 to ping pong between these pools (if possible).
 	ActivityAttrProfilingSemaphorePreAllocateValue ActivityAttribute = 7
 	// ActivityAttrMemAllocationTypeHostPinned: Allocate page-locked (pinned) host memory for storing profiling data for concurrent kernels, memcopies and memsets for each buffer on a context. The value is a uint8_t. From CUDA 11.2 through CUDA 12.0 GA releases, CUPTI allocated the profiling buffer in pinned host memory by default. Allocating excessive amounts of pinned memory may degrade system performance, as it reduces the amount of memory available to the system for paging. For this reason user might want to change the location from pinned host memory to device memory by setting value of this attribute to 0. Using page-locked (pinned) host memory buffers is not supported on confidential computing devices. If this attribute is set to 1, CUPTI will return error [ErrNotSupported]. The default value is 0.
-	ActivityAttrMemAllocationTypeHostPinned          ActivityAttribute = 8
-	ActivityAttrPerThreadActivityBuffer              ActivityAttribute = 9
-	ActivityAttrDeviceBufferSizeDeviceGraphs         ActivityAttribute = 10
-	ActivityAttrUserDefinedRecords                   ActivityAttribute = 11
-	ActivityAttrMultipleSubscriberState              ActivityAttribute = 12
-	ActivityAttrEnableHes                            ActivityAttribute = 13
-	ActivityAttrEnableAllocationSourceTracking       ActivityAttribute = 14
-	ActivityAttrEnableKernelLatencyTimestamps        ActivityAttribute = 15
-	ActivityAttrEnableAllSyncRecords                 ActivityAttribute = 16
-	ActivityAttrEnableCudaEventDeviceTimestamps      ActivityAttribute = 17
-	ActivityAttrEnableKernelLaunchAttributes         ActivityAttribute = 18
+	ActivityAttrMemAllocationTypeHostPinned ActivityAttribute = 8
+	// ActivityAttrPerThreadActivityBuffer: Request activity buffers per-thread to store CUPTI activity records in the activity buffer on per-thread basis. The value is a uint8_t. The attribute should be set before registering the buffer callbacks using [ActivityRegisterCallbacks] API and before any of the CUPTI activity kinds are enabled. This makes sure that all the records are stored in activity buffers allocated per-thread. Changing this attribute in the middle of the profiling session will result in undefined behavior. The default value is 1.
+	ActivityAttrPerThreadActivityBuffer ActivityAttribute = 9
+	// ActivityAttrDeviceBufferSizeDeviceGraphs: The device memory size (in bytes) reserved for storing profiling data for device graph operations for each buffer on a context. The value is a size_t. Having larger buffer size means less flush operations but consumes more device memory. This value only applies to new allocations. Set this value before initializing CUDA or before creating a context to ensure it is considered for the following allocations. The default value is 16777216 (16MB). Note: The actual amount of device memory per context reserved by CUPTI might be larger.
+	ActivityAttrDeviceBufferSizeDeviceGraphs ActivityAttribute = 10
+	// ActivityAttrUserDefinedRecords: Enable user-defined activity records. The value is a uint8_t. When this attribute is enabled, CUPTI activity records will contain only the fields that are enabled for collection by the user. This can help to reduce the size of each activity record and decrease the overall memory consumption for activity collection. This attribute must be set before enabling any CUPTI activity kinds. The activity kinds should be enabled/disabled using CUPTI API [Subscriber.ActivityEnableV2] and [Subscriber.ActivityDisableV2] respectively. Minimum CUPTI Version: CUPTI_API_VERSION 130200 (CUDA 13.2) — beta. Productized (no longer beta) in CUPTI_API_VERSION 130300 (CUDA 13.3). The CUPTI version can be queried using [GetVersion] API. Refer these links for online documentation: CUPTI Activity User-Defined Records: https://docs.nvidia.com/cupti/main/main.html#cupti-user-defined-activity-records Tutorial: https://docs.nvidia.com/cupti/tutorial/tutorial.html#tutorial-activity-user-defined-records Refer sample cupti_user_defined_records for usage. The default value is 0 i.e. CUPTI will provide records with all fields.
+	ActivityAttrUserDefinedRecords ActivityAttribute = 11
+	// ActivityAttrMultipleSubscriberState: Allow multiple subscribers. The value is a uint8_t. If 0, only a single subscriber is allowed. If 1, multiple subscribers are allowed. If 2, this option has not been set by a prior subscriber, if there were any. In this case, the subscriber is free to set it during [SubscribeV2] call. Note that this attribute cannot be set by [ActivitySetAttribute] or [Subscriber.ActivitySetAttributeV2]. It can however be queried using [Subscriber.ActivityGetAttributeV2].
+	ActivityAttrMultipleSubscriberState ActivityAttribute = 12
+	// ActivityAttrEnableHes: Get the HES (Hardware Events System) enabled flag. The value is a uint8_t. If 0, HES (Hardware Events System) is disabled. If 1, HES (Hardware Events System) is enabled. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2]. This attribute is not subscriber specific, and the subscriber parameter is ignored. All subscribers will share the same HES enabled flag. However, this attribute must be set before enabling any activity kind by any subscriber. However, it can be queried using [Subscriber.ActivityGetAttributeV2].
+	ActivityAttrEnableHes ActivityAttribute = 13
+	// ActivityAttrEnableAllocationSourceTracking: Get the allocation source library tracking enabled flag (for the specified subscriber). The value is a uint8_t. If 0, allocation source library tracking is disabled. If 1, allocation source library tracking is enabled. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber. Note that the [ActivityEnableAllocationSource] API cannot be used when multiple subscribers are allowed.
+	ActivityAttrEnableAllocationSourceTracking ActivityAttribute = 14
+	// ActivityAttrEnableKernelLatencyTimestamps: Get the latency timestamp tracking enabled flag (for the specified subscriber). The value is a uint8_t. This can be used to toggle collecting latency timestamps for kernel records. If 0, latency timestamp tracking is disabled. If 1, latency timestamp tracking is enabled. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
+	ActivityAttrEnableKernelLatencyTimestamps ActivityAttribute = 15
+	// ActivityAttrEnableAllSyncRecords: Get the all sync records enabled flag (for the specified subscriber). The value is a uint8_t. This can be used to toggle collecting sync records for all synchronization operations (whether to include records for synchronization operations which return non-zero CUDA status). By default, this flag is set to 0. If this flag is set to 1, sync records are collected for all synchronization operations (even if they return non-zero CUDA status). Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
+	ActivityAttrEnableAllSyncRecords ActivityAttribute = 16
+	// ActivityAttrEnableCudaEventDeviceTimestamps: Get the event device timestamps enabled flag (for the specified subscriber). The value is a uint8_t. This can be used to toggle collecting event device timestamps for CUDA event records. By default, this flag is set to 0. If this flag is set to 1, event device timestamps are collected for CUDA event records. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
+	ActivityAttrEnableCudaEventDeviceTimestamps ActivityAttribute = 17
+	// ActivityAttrEnableKernelLaunchAttributes: Get the launch attributes for kernel enabled flag (for the specified subscriber). The value is a uint8_t. This can be used to toggle collecting launch attributes for kernel records. By default, this flag is set to 0. If this flag is set to 1, launch attributes are collected for kernel records. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
+	ActivityAttrEnableKernelLaunchAttributes ActivityAttribute = 18
+	// ActivityAttrEnableDeviceGraphTrace: Get the device graph trace enabled flag (for the specified subscriber). The value is a uint8_t. This can be used to toggle collecting device graph trace for graph records. By default, this flag is set to 0. If this flag is set to 1, device graph trace is collected for graph records. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
 	ActivityAttrEnableDeviceGraphTrace               ActivityAttribute = 19
 	ActivityAttrEnableMultiSubscriberGraphLevelTrace ActivityAttribute = 20
-	ActivityAttrThreadIdType                         ActivityAttribute = 21
-	ActivityAttrTimestampCallback                    ActivityAttribute = 22
-	ActivityAttrCigMode                              ActivityAttribute = 23
-	ActivityAttrDeviceBufferForceInt                 ActivityAttribute = 0x7fffffff
+	// ActivityAttrThreadIdType: Get or set the thread ID type (for the specified subscriber). The value is a [ActivityThreadIdType]. This attribute specifies the method used by CUPTI to obtain thread IDs. The default value is [ActivityThreadIdTypeDefault]. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
+	ActivityAttrThreadIdType ActivityAttribute = 21
+	// ActivityAttrTimestampCallback: Get or set the timestamp callback function (for the specified subscriber). The value is a [TimestampCallbackFunc]. This attribute allows registering a custom timestamp callback function that CUPTI will use instead of its default CPU timer. The value can be NULL to unregister the callback. Note that this attribute can be set by [Subscriber.ActivitySetAttributeV2] and queried using [Subscriber.ActivityGetAttributeV2] for the specified subscriber.
+	ActivityAttrTimestampCallback    ActivityAttribute = 22
+	ActivityAttrCigMode              ActivityAttribute = 23
+	ActivityAttrDeviceBufferForceInt ActivityAttribute = 0x7fffffff
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3236,6 +3609,8 @@ func (e ActivityAttribute) String() string {
 }
 
 // ActivityThreadIdType represents Thread-Id types.
+//
+// CUPTI uses different methods to obtain the thread-id depending on the support and the underlying platform. This enum documents these methods for each type. APIs [SetThreadIdType] and [GetThreadIdType] can be used to set and get the thread-id type.
 type ActivityThreadIdType int32
 
 const (
@@ -3291,6 +3666,8 @@ func (e VirtualizationMode) String() string {
 }
 
 // ApiCallbackSite specifies the point in an API call that a callback is issued.
+//
+// Specifies the point in an API call that a callback is issued. This value is communicated to the callback function via [CallbackData].callbackSite.
 type ApiCallbackSite int32
 
 const (
@@ -3313,6 +3690,8 @@ func (e ApiCallbackSite) String() string {
 }
 
 // CallbackDomain represents callback domains.
+//
+// Callback domains. Each domain represents callback points for a group of related API functions or CUDA driver activity.
 type CallbackDomain int32
 
 const (
@@ -3356,6 +3735,8 @@ func (e CallbackDomain) String() string {
 }
 
 // CallbackIdResource represents callback IDs for resource domain.
+//
+// Callback IDs for resource domain, [CbDomainResource]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdResource int32
 
 const (
@@ -3448,6 +3829,8 @@ func (e CallbackIdResource) String() string {
 }
 
 // CallbackIdSync represents callback IDs for synchronization domain.
+//
+// Callback IDs for synchronization domain, [CbDomainSynchronize]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdSync int32
 
 const (
@@ -3476,6 +3859,8 @@ func (e CallbackIdSync) String() string {
 }
 
 // CallbackIdState represents callback IDs for state domain.
+//
+// Callback IDs for state domain, [CbDomainState]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdState int32
 
 const (
@@ -3509,6 +3894,8 @@ func (e CallbackIdState) String() string {
 }
 
 // DeviceAttributeDeviceClass represents device class.
+//
+// Enumeration of device classes for device attribute [DeviceAttrDeviceClass].
 type DeviceAttributeDeviceClass int32
 
 const (
@@ -3534,6 +3921,8 @@ func (e DeviceAttributeDeviceClass) String() string {
 }
 
 // DeviceAttribute represents device attributes.
+//
+// CUPTI device attributes. These attributes can be read using [DeviceGetAttribute].
 type DeviceAttribute int32
 
 const (
@@ -3627,6 +4016,8 @@ func (e DeviceAttribute) String() string {
 }
 
 // EventDomainAttribute represents event domain attributes.
+//
+// Event domain attributes. Except where noted, all the attributes can be read using either [DeviceGetEventDomainAttribute] or [EventDomainGetAttribute].
 type EventDomainAttribute int32
 
 const (
@@ -3659,6 +4050,8 @@ func (e EventDomainAttribute) String() string {
 }
 
 // EventCollectionMethod represents the collection method used for an event.
+//
+// The collection method indicates how an event is collected.
 type EventCollectionMethod int32
 
 const (
@@ -3688,6 +4081,8 @@ func (e EventCollectionMethod) String() string {
 }
 
 // EventGroupAttribute represents event group attributes.
+//
+// Event group attributes. These attributes can be read using [EventGroup.Attribute]. Attributes marked rw can also be written using [EventGroup.SetAttribute].
 type EventGroupAttribute int32
 
 const (
@@ -3730,6 +4125,8 @@ func (e EventGroupAttribute) String() string {
 }
 
 // EventProfilingScope represents profiling scope for event.
+//
+// Profiling scope of event indicates if the event can be collected at context scope or device scope or both i.e. it can be collected at any of context or device scope.
 type EventProfilingScope int32
 
 const (
@@ -3756,6 +4153,8 @@ func (e EventProfilingScope) String() string {
 }
 
 // EventAttribute represents event attributes.
+//
+// Event attributes. These attributes can be read using [EventGetAttribute].
 type EventAttribute int32
 
 const (
@@ -3790,6 +4189,8 @@ func (e EventAttribute) String() string {
 }
 
 // EventCollectionMode represents event collection modes.
+//
+// The event collection mode determines the period over which the events within the enabled event groups will be collected.
 type EventCollectionMode int32
 
 const (
@@ -3814,6 +4215,8 @@ func (e EventCollectionMode) String() string {
 }
 
 // EventCategory represents an event category.
+//
+// Each event is assigned to a category that represents the general type of the event. A event's category is accessed using [EventGetAttribute] and the [EventAttrCategory] attribute.
 type EventCategory int32
 
 const (
@@ -3845,6 +4248,8 @@ func (e EventCategory) String() string {
 }
 
 // ReadEventFlags represents flags for [EventGroup.ReadEvent] an [EventGroup.ReadAllEvents].
+//
+// Flags for [EventGroup.ReadEvent] an [EventGroup.ReadAllEvents].
 type ReadEventFlags int32
 
 const (
@@ -3864,6 +4269,8 @@ func (e ReadEventFlags) String() string {
 }
 
 // MetricCategory represents a metric category.
+//
+// Each metric is assigned to a category that represents the general type of the metric. A metric's category is accessed using [MetricGetAttribute] and the [MetricAttrCategory] attribute.
 type MetricCategory int32
 
 const (
@@ -3901,6 +4308,8 @@ func (e MetricCategory) String() string {
 }
 
 // MetricEvaluationMode represents a metric evaluation mode.
+//
+// A metric can be evaluated per hardware instance to know the load balancing across instances of a domain or the metric can be evaluated in aggregate mode when the events involved in metric evaluation are from different event domains. It might be possible to evaluate some metrics in both modes for convenience. A metric's evaluation mode is accessed using [MetricEvaluationMode] and the [MetricAttrEvaluationMode] attribute.
 type MetricEvaluationMode int32
 
 const (
@@ -3925,6 +4334,8 @@ func (e MetricEvaluationMode) String() string {
 }
 
 // MetricValueKind represents kinds of metric values.
+//
+// Metric values can be one of several different kinds. Corresponding to each kind is a member of the [MetricValue] union. The metric value returned by [MetricGetValue] should be accessed using the appropriate member of that union based on its value kind.
 type MetricValueKind int32
 
 const (
@@ -3966,6 +4377,8 @@ func (e MetricValueKind) String() string {
 }
 
 // MetricValueUtilizationLevel is an enumeration of utilization levels for metrics values of kind [MetricValueKindUtilizationLevel].
+//
+// Utilization values can vary from IDLE (0) to MAX (10) but the enumeration only provides specific names for a few values.
 type MetricValueUtilizationLevel int32
 
 const (
@@ -3997,6 +4410,8 @@ func (e MetricValueUtilizationLevel) String() string {
 }
 
 // MetricAttribute represents metric attributes.
+//
+// Metric attributes describe properties of a metric. These attributes can be read using [MetricGetAttribute].
 type MetricAttribute int32
 
 const (
@@ -4035,6 +4450,8 @@ func (e MetricAttribute) String() string {
 }
 
 // MetricPropertyDeviceClass represents device class.
+//
+// Enumeration of device classes for metric property [MetricPropertyIDMetricPropertyDeviceClass].
 type MetricPropertyDeviceClass int32
 
 const (
@@ -4060,6 +4477,8 @@ func (e MetricPropertyDeviceClass) String() string {
 }
 
 // MetricPropertyID represents metric device properties.
+//
+// Metric device properties describe device properties which are needed for a metric. Some of these properties can be collected using cuDeviceGetAttribute.
 type MetricPropertyID int32
 
 const (
@@ -4120,14 +4539,18 @@ func (e MetricPropertyID) String() string {
 	return fmt.Sprintf("MetricPropertyID(%d)", e)
 }
 
-// ProfilerRange represents profiler range attribute A metric enabled in the session's configuration is collected separately per unique range-stack in the pass. This is an attribute to collect metrics around each kernel in a profiling session or in an user defined range.
+// ProfilerRange represents profiler range attribute.
+//
+// A metric enabled in the session’s configuration is collected separately per unique range-stack in the pass. This is an attribute to collect metrics around each kernel in a profiling session or in an user defined range.
 type ProfilerRange int32
 
 const (
-	RangeInvalid ProfilerRange = 0
-	AutoRange    ProfilerRange = 1
-	UserRange    ProfilerRange = 2
-	RangeCount   ProfilerRange = 3
+	RangeInvalid ProfilerRange = 0 // Invalid value.
+	// AutoRange: Ranges are auto defined around each kernel in a profiling session.
+	AutoRange ProfilerRange = 1
+	// UserRange: A range in which metric data to be collected is defined by the user.
+	UserRange  ProfilerRange = 2
+	RangeCount ProfilerRange = 3 // Range count.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4145,15 +4568,17 @@ func (e ProfilerRange) String() string {
 	return fmt.Sprintf("ProfilerRange(%d)", e)
 }
 
-// ProfilerReplayMode represents profiler replay attribute For metrics which require multipass collection, a replay of the GPU kernel(s) is required. This is an attribute which specify how the replay of the kernel(s) to be measured is done.
+// ProfilerReplayMode represents profiler replay attribute.
+//
+// For metrics which require multipass collection, a replay of the GPU kernel(s) is required. This is an attribute which specify how the replay of the kernel(s) to be measured is done.
 type ProfilerReplayMode int32
 
 const (
-	ReplayInvalid     ProfilerReplayMode = 0
-	ApplicationReplay ProfilerReplayMode = 1
-	KernelReplay      ProfilerReplayMode = 2
-	UserReplay        ProfilerReplayMode = 3
-	ReplayCount       ProfilerReplayMode = 4
+	ReplayInvalid     ProfilerReplayMode = 0 // Invalid Value.
+	ApplicationReplay ProfilerReplayMode = 1 // Replay is done by CUPTI user around the process.
+	KernelReplay      ProfilerReplayMode = 2 // Replay is done around kernel implicitly by CUPTI.
+	UserReplay        ProfilerReplayMode = 3 // Replay is done by CUPTI user within a process.
+	ReplayCount       ProfilerReplayMode = 4 // Replay count.
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4173,7 +4598,7 @@ func (e ProfilerReplayMode) String() string {
 	return fmt.Sprintf("ProfilerReplayMode(%d)", e)
 }
 
-// ProfilerSupportLevel specifies the profiler support level (CUpti_Profiler_Support_Level).
+// ProfilerSupportLevel represents generic support level enum for CUPTI.
 type ProfilerSupportLevel int32
 
 const (
@@ -4303,7 +4728,7 @@ func (e ProfilerType) String() string {
 type PCSamplingCollectionMode int32
 
 const (
-	PcSamplingCollectionModeInvalid          PCSamplingCollectionMode = 0 // INVALID Value
+	PcSamplingCollectionModeInvalid          PCSamplingCollectionMode = 0 // INVALID Value.
 	PcSamplingCollectionModeContinuous       PCSamplingCollectionMode = 1 // Continuous mode. Kernels are not serialized in this mode.
 	PcSamplingCollectionModeKernelSerialized PCSamplingCollectionMode = 2 // Serialized mode. Kernels are serialized in this mode.
 )
@@ -4340,7 +4765,9 @@ func (e PCSamplingOutputDataFormat) String() string {
 	return fmt.Sprintf("PCSamplingOutputDataFormat(%d)", e)
 }
 
-// PCSamplingConfigurationAttributeType represents PC Sampling configuration attributes PC Sampling configuration attribute types.
+// PCSamplingConfigurationAttributeType represents PC Sampling configuration attributes.
+//
+// PC Sampling configuration attribute types. These attributes can be read using [PCSamplingGetConfigurationAttribute] and can be written using [PCSamplingSetConfigurationAttribute]. Attributes marked r can only be read using [PCSamplingGetConfigurationAttribute] w can only be written using [PCSamplingSetConfigurationAttribute] rw can be read using [PCSamplingGetConfigurationAttribute] and written using [PCSamplingSetConfigurationAttribute].
 type PCSamplingConfigurationAttributeType int32
 
 const (
@@ -4399,9 +4826,11 @@ func (e PCSamplingConfigurationAttributeType) String() string {
 type PmSamplingTriggerMode int32
 
 const (
+	// PmSamplingTriggerModeGpuSysclkInterval: The trigger is based off of the SYSCLK frequency, note SYS frequency by default is variable. the sample interval (set in the struct [PmSamplingSetConfigParams]) is in terms of clocks.
 	PmSamplingTriggerModeGpuSysclkInterval PmSamplingTriggerMode = 0
-	PmSamplingTriggerModeGpuTimeInterval   PmSamplingTriggerMode = 1
-	PmSamplingTriggerModeCount             PmSamplingTriggerMode = 2
+	// PmSamplingTriggerModeGpuTimeInterval: The trigger is based off of a fixed frequency source. The sample interval (set in the struct [PmSamplingSetConfigParams]) is in terms of nanoseconds. Note: This trigger mode is not supported on Turing GPU architecture and GA100 GPU. It is supported on Ampere GA10x and later GPU architectures.
+	PmSamplingTriggerModeGpuTimeInterval PmSamplingTriggerMode = 1
+	PmSamplingTriggerModeCount           PmSamplingTriggerMode = 2
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4422,8 +4851,8 @@ type PmSamplingDecodeStopReason int32
 
 const (
 	PmSamplingDecodeStopReasonOther           PmSamplingDecodeStopReason = 0
-	PmSamplingDecodeStopReasonCounterDataFull PmSamplingDecodeStopReason = 1
-	PmSamplingDecodeStopReasonEndOfRecords    PmSamplingDecodeStopReason = 2
+	PmSamplingDecodeStopReasonCounterDataFull PmSamplingDecodeStopReason = 1 // Counter data image is full.
+	PmSamplingDecodeStopReasonEndOfRecords    PmSamplingDecodeStopReason = 2 // All the records in the hardware buffer is decoded.
 	PmSamplingDecodeStopReasonCount           PmSamplingDecodeStopReason = 3
 )
 
@@ -4446,7 +4875,9 @@ func (e PmSamplingDecodeStopReason) String() string {
 type PmSamplingHardwareBufferAppendMode int32
 
 const (
+	// PmSamplingHardwareBufferAppendModeKeepOldest: Keep the oldest records in the hardware buffer. CUPTI will report error for overflow in case hardware buffer is getting filled up.
 	PmSamplingHardwareBufferAppendModeKeepOldest PmSamplingHardwareBufferAppendMode = 0
+	// PmSamplingHardwareBufferAppendModeKeepLatest: Keep the latest records in the hardware buffer. Note: This mode is not supported on Turing GPU architecture. It is supported on Ampere and later GPU architectures.
 	PmSamplingHardwareBufferAppendModeKeepLatest PmSamplingHardwareBufferAppendMode = 1
 )
 
@@ -4465,8 +4896,11 @@ func (e PmSamplingHardwareBufferAppendMode) String() string {
 type SassMetricsOutputGranularity int32
 
 const (
-	SassMetricsOutputGranularityGpu     SassMetricsOutputGranularity = 0
-	SassMetricsOutputGranularitySm      SassMetricsOutputGranularity = 1
+	// SassMetricsOutputGranularityGpu: SASS metric data will be collected at GPU level. In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to 1.
+	SassMetricsOutputGranularityGpu SassMetricsOutputGranularity = 0
+	// SassMetricsOutputGranularitySm: SASS metric data will be collected at SM level In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to number of SMs in the GPU.
+	SassMetricsOutputGranularitySm SassMetricsOutputGranularity = 1
+	// SassMetricsOutputGranularitySmsp: SASS metric data will be collected at SM sub-partition level In [SassMetricsGetDataPropertiesParams] struct the numOfInstances will be equal to number of SM sub-partitions in the GPU.
 	SassMetricsOutputGranularitySmsp    SassMetricsOutputGranularity = 2
 	SassMetricsOutputGranularityInvalid SassMetricsOutputGranularity = 3
 )

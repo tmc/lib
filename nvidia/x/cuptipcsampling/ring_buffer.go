@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 var (
@@ -92,7 +93,7 @@ func (s *RingSlot) Dropped() uint64 { return s.dropped }
 func (s *RingSlot) SetDropped(n uint64) { s.dropped = n }
 
 // Fetch drains CUPTI PC sampling records directly into this slot's sampling buffer.
-func (s *RingSlot) Fetch(ctx cupti.Context, version uint32, query func(*cupti.PCSamplingGetDataParams) error) (samplingBatch, error) {
+func (s *RingSlot) Fetch(ctx driver.Context, version uint32, query func(*cupti.PCSamplingGetDataParams) error) (samplingBatch, error) {
 	if s.sampling == nil {
 		return samplingBatch{}, errors.New("cuptipcsampling: slot has no sampling buffer")
 	}

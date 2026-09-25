@@ -24,7 +24,7 @@ func Example() {
 		return
 	}
 	out := make([]float32, 4)
-	if err := gen.GenerateUniform(&out[0], uint(len(out))); err != nil {
+	if err := gen.GenerateUniformHost(out); err != nil {
 		fmt.Println("generate:", err)
 		return
 	}

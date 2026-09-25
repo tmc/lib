@@ -2,9 +2,6 @@
 
 package cupti
 
-// Context is an opaque handle to a CUDA context.
-type Context uintptr
-
 // Device is a CUDA device ordinal.
 type Device int32
 
@@ -16,6 +13,3 @@ type GraphExec uintptr
 
 // GraphNode is an opaque handle to a CUDA graph node.
 type GraphNode uintptr
-
-// Stream is an opaque handle to a CUDA stream.
-type Stream uintptr

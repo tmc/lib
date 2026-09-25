@@ -4,13 +4,14 @@ package nccl
 
 import "fmt"
 
-// HostCftMode specifies the host cft mode (ncclHostCftMode_t).
+// HostCftMode represents values for the hostCftMode communicator configuration.
 type HostCftMode int32
 
 const (
-	HostCftDefault  HostCftMode = -2147483648
-	HostCftEnable   HostCftMode = 1
-	HostCftDisable  HostCftMode = 2
+	HostCftDefault HostCftMode = -2147483648 // Use the version-specific default.
+	HostCftEnable  HostCftMode = 1           // Enable host-side CFT support.
+	HostCftDisable HostCftMode = 2           // Disable host-side CFT support.
+	// HostCftFallback: Try to create CFT logical endpoints. In case of an error, host-side CFT will be disabled.
 	HostCftFallback HostCftMode = 3
 )
 
@@ -58,10 +59,11 @@ func (e CommMemStat) String() string {
 type RedOp int32
 
 const (
-	Sum      RedOp = 0
-	Prod     RedOp = 1
-	Max      RedOp = 2
-	Min      RedOp = 3
+	Sum  RedOp = 0 // Perform a sum (+) operation
+	Prod RedOp = 1 // Perform a product (*) operation
+	Max  RedOp = 2 // Perform a max operation
+	Min  RedOp = 3 // Perform a min operation
+	// Avg: Perform an average operation, i.e. a sum across all ranks, divided by the number of ranks.
 	Avg      RedOp = 4
 	NumOps   RedOp = 5
 	MaxRedOp RedOp = 0x7fffffff >> (32 - 8*4)
@@ -92,22 +94,25 @@ func (e RedOp) String() string {
 type DataType int32
 
 const (
-	Int8       DataType = 0
-	Char       DataType = 0
-	Uint8      DataType = 1
-	Int32      DataType = 2
-	Int        DataType = 2
-	Uint32     DataType = 3
-	Int64      DataType = 4
-	Uint64     DataType = 5
-	Float16    DataType = 6
-	Half       DataType = 6
-	Float32    DataType = 7
-	Float      DataType = 7
-	Float64    DataType = 8
-	Double     DataType = 8
-	Bfloat16   DataType = 9
+	Int8    DataType = 0 // Signed 8-bits integer
+	Char    DataType = 0 // Signed 8-bits integer
+	Uint8   DataType = 1 // Unsigned 8-bits integer
+	Int32   DataType = 2 // Signed 32-bits integer
+	Int     DataType = 2 // Signed 32-bits integer
+	Uint32  DataType = 3 // Unsigned 32-bits integer
+	Int64   DataType = 4 // Signed 64-bits integer
+	Uint64  DataType = 5 // Unsigned 64-bits integer
+	Float16 DataType = 6 // 16-bits floating point number (half precision)
+	Half    DataType = 6 // 16-bits floating point number (half precision)
+	Float32 DataType = 7 // 32-bits floating point number (single precision)
+	Float   DataType = 7 // 32-bits floating point number (single precision)
+	Float64 DataType = 8 // 64-bits floating point number (double precision)
+	Double  DataType = 8 // 64-bits floating point number (double precision)
+	// Bfloat16: 16-bits floating point number (truncated precision in bfloat16 format, CUDA 11 or later)
+	Bfloat16 DataType = 9
+	// Float8e4m3: 8-bits floating point number, 4 exponent bits, 3 mantissa bits (CUDA >= 11.8 and SM >= 90)
 	Float8e4m3 DataType = 10
+	// Float8e5m2: 8-bits floating point number, 5 exponent bits, 2 mantissa bits (CUDA >= 11.8 and SM >= 90)
 	Float8e5m2 DataType = 11
 	NumTypes   DataType = 12
 )
@@ -149,7 +154,9 @@ func (e DataType) String() string {
 type ScalarResidence int32
 
 const (
-	ScalarDevice        ScalarResidence = 0
+	// ScalarDevice: The scalar resides on device visible memory and should be dereferenced once needed.
+	ScalarDevice ScalarResidence = 0
+	// ScalarHostImmediate: The scalar resides in host memory and should be dereferenced in the most immediate way.
 	ScalarHostImmediate ScalarResidence = 1
 )
 
@@ -164,13 +171,18 @@ func (e ScalarResidence) String() string {
 	return fmt.Sprintf("ScalarResidence(%d)", e)
 }
 
-// GinConnectionType specifies the gin connection type (ncclGinConnectionType_t).
+// GinConnectionType specifies the type of GIN connection for device communicators.
+//
+// This enum controls whether GIN (GPU-Initiated Networking) resources should be allocated and what connection type to use. Used in ncclDevCommRequirements when creating device communicators. Available since NCCL 2.29.7.
 type GinConnectionType int32
 
 const (
-	GinConnectionNone         GinConnectionType = 0
-	GinConnectionFull         GinConnectionType = 1
-	GinConnectionRail         GinConnectionType = 2
+	GinConnectionNone GinConnectionType = 0 // No GIN connectivity.
+	// GinConnectionFull: Full GIN connectivity. Each rank is connected to all other ranks.
+	GinConnectionFull GinConnectionType = 1
+	// GinConnectionRail: Railed GIN connectivity. Each rank is connected to other ranks in the same rail team.
+	GinConnectionRail GinConnectionType = 2
+	// GinConnectionCustomStride: Strided GIN connectivity. Each rank is connected to other ranks separated by a fixed stride. Available since NCCL 2.31. Host functions. The following are callable from host code only. They provide host-side access to device pointer functionality, enabling host code to obtain pointers to LSA memory regions. All functions return [Result] error codes. On success, ncclSuccess is returned. On failure, appropriate error codes are returned (e.g., ncclInvalidArgument for invalid parameters, ncclInternalError for internal failures), unless otherwise specified. The returned pointers are valid for the lifetime of the window. Pointers should not be used after either the window or communicator is destroyed. Obtained pointers are device pointers.
 	GinConnectionCustomStride GinConnectionType = 3
 )
 
@@ -189,7 +201,9 @@ func (e GinConnectionType) String() string {
 	return fmt.Sprintf("GinConnectionType(%d)", e)
 }
 
-// GinType specifies the gin type (ncclGinType_t).
+// GinType represents GIN type.
+//
+// Communication between different GIN types is not supported. Possible values include:
 type GinType int32
 
 const (
@@ -224,13 +238,16 @@ func (e GinType) String() string {
 	return fmt.Sprintf("GinType(%d)", e)
 }
 
-// CftTeamMode specifies the cft team mode (ncclCftTeamMode_t).
+// CftTeamMode represents selects the CFT team layout returned by [Comm.TeamCft].
 type CftTeamMode int32
 
 const (
-	CftTeamFlat         CftTeamMode = 0
+	// CftTeamFlat: Flat CFT team includes all the ranks that are part of the CFT unicast group.
+	CftTeamFlat CftTeamMode = 0
+	// CftTeamHierMultimem: Hierarchical CFT team includes ranks that are part of the CFT unicast group and share the same index across different multicast CFT groups.
 	CftTeamHierMultimem CftTeamMode = 1
-	CftTeamHierLsa      CftTeamMode = 2
+	// CftTeamHierLsa: Hierarchical CFT team includes ranks that are part of the CFT unicast group and share the same index across different LSA groups. CFT data movement routines operate on a logical endpoint ID and an offset within that endpoint. NCCL provides host-side and device-side helpers for translating registered windows and peer ranks into those values.
+	CftTeamHierLsa CftTeamMode = 2
 )
 
 // String returns the constant name, or a numeric representation for unknown values.

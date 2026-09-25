@@ -11,7 +11,7 @@ type ExternalSemaphoresWaitNode struct {
 	GraphNode
 }
 
-// Params Returns an external semaphore wait node’s parameters.
+// Params returns an external semaphore wait node’s parameters.
 //
 // Returns the parameters of an external semaphore wait node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node.
 //
@@ -26,7 +26,7 @@ func (e ExternalSemaphoresWaitNode) Params() (ExtSemWaitNodeParams, error) {
 	return graphExternalSemaphoresWaitNodeGetParams(e.GraphNode)
 }
 
-// SetParams Sets an external semaphore wait node’s parameters.
+// SetParams sets an external semaphore wait node’s parameters.
 //
 // Sets the parameters of an external semaphore wait node hNode to nodeParams.
 //

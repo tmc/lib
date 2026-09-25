@@ -321,6 +321,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -407,133 +422,133 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnErrorString, "errorString")
-	register(&fnDcgmFieldGetById, "DcgmFieldGetById")
-	register(&fnDcgmFieldGetByTag, "DcgmFieldGetByTag")
+	symDcgmFieldGetById = registerSym("DcgmFieldGetById")
+	symDcgmFieldGetByTag = registerSym("DcgmFieldGetByTag")
 	register(&fnDcgmFieldsGetEntityGroupString, "DcgmFieldsGetEntityGroupString")
-	register(&fnDcgmFieldsInit, "DcgmFieldsInit")
-	register(&fnDcgmFieldsTerm, "DcgmFieldsTerm")
-	register(&fnConnectV2, "dcgmConnect_v2")
-	register(&fnConnectV3, "dcgmConnect_v3")
-	register(&fnDisconnect, "dcgmDisconnect")
-	register(&fnEntitiesGetLatestValues, "dcgmEntitiesGetLatestValues")
-	register(&fnEntityGetLatestValues, "dcgmEntityGetLatestValues")
-	register(&fnFieldGroupCreate, "dcgmFieldGroupCreate")
-	register(&fnFieldGroupDestroy, "dcgmFieldGroupDestroy")
-	register(&fnFieldGroupGetAll, "dcgmFieldGroupGetAll")
-	register(&fnFieldGroupGetInfo, "dcgmFieldGroupGetInfo")
-	register(&fnGetAllDevices, "dcgmGetAllDevices")
-	register(&fnGetAllSupportedDevices, "dcgmGetAllSupportedDevices")
-	register(&fnGetCpuHierarchyV2, "dcgmGetCpuHierarchy_v2")
-	register(&fnGetDeviceAttributes, "dcgmGetDeviceAttributes")
-	register(&fnGetDeviceTopology, "dcgmGetDeviceTopology")
-	register(&fnGetDeviceWorkloadPowerProfileInfo, "dcgmGetDeviceWorkloadPowerProfileInfo")
-	register(&fnGetEntityGroupEntities, "dcgmGetEntityGroupEntities")
-	register(&fnGetFieldSummary, "dcgmGetFieldSummary")
-	register(&fnGetGpuChipArchitecture, "dcgmGetGpuChipArchitecture")
-	register(&fnGetGpuInstanceHierarchy, "dcgmGetGpuInstanceHierarchy")
-	register(&fnGetGpuStatus, "dcgmGetGpuStatus")
-	register(&fnGetGroupTopology, "dcgmGetGroupTopology")
-	register(&fnGetLatestValuesForFields, "dcgmGetLatestValuesForFields")
-	register(&fnGetNvLinkLinkStatus, "dcgmGetNvLinkLinkStatus")
-	register(&fnGetNvLinkP2PStatus, "dcgmGetNvLinkP2PStatus")
-	register(&fnGroupAddDevice, "dcgmGroupAddDevice")
-	register(&fnGroupAddEntity, "dcgmGroupAddEntity")
-	register(&fnGroupCreate, "dcgmGroupCreate")
-	register(&fnGroupDestroy, "dcgmGroupDestroy")
-	register(&fnGroupGetAllIds, "dcgmGroupGetAllIds")
-	register(&fnGroupGetInfo, "dcgmGroupGetInfo")
-	register(&fnGroupRemoveDevice, "dcgmGroupRemoveDevice")
-	register(&fnGroupRemoveEntity, "dcgmGroupRemoveEntity")
-	register(&fnHealthCheck, "dcgmHealthCheck")
-	register(&fnHealthGet, "dcgmHealthGet")
-	register(&fnHostengineEnvironmentVariableInfo, "dcgmHostengineEnvironmentVariableInfo")
-	register(&fnHostengineIsHealthy, "dcgmHostengineIsHealthy")
-	register(&fnHostengineVersionInfo, "dcgmHostengineVersionInfo")
-	register(&fnInit, "dcgmInit")
-	register(&fnIntrospectGetHostengineCpuUtilization, "dcgmIntrospectGetHostengineCpuUtilization")
-	register(&fnIntrospectGetHostengineMemoryUsage, "dcgmIntrospectGetHostengineMemoryUsage")
-	register(&fnModuleGetStatuses, "dcgmModuleGetStatuses")
-	register(&fnModuleIdToName, "dcgmModuleIdToName")
-	register(&fnPowerProfileIdToName, "dcgmPowerProfileIdToName")
-	register(&fnProfGetSupportedMetricGroups, "dcgmProfGetSupportedMetricGroups")
-	register(&fnShutdown, "dcgmShutdown")
-	register(&fnStartEmbeddedV2, "dcgmStartEmbedded_v2")
-	register(&fnStatusClear, "dcgmStatusClear")
-	register(&fnStatusCreate, "dcgmStatusCreate")
-	register(&fnStatusDestroy, "dcgmStatusDestroy")
-	register(&fnStatusGetCount, "dcgmStatusGetCount")
-	register(&fnStatusPopError, "dcgmStatusPopError")
-	register(&fnStopEmbedded, "dcgmStopEmbedded")
-	register(&fnUnwatchFields, "dcgmUnwatchFields")
-	register(&fnUpdateAllFields, "dcgmUpdateAllFields")
-	register(&fnVersionInfo, "dcgmVersionInfo")
-	register(&fnWatchFields, "dcgmWatchFields")
+	symDcgmFieldsInit = registerSym("DcgmFieldsInit")
+	symDcgmFieldsTerm = registerSym("DcgmFieldsTerm")
+	symConnectV2 = registerSym("dcgmConnect_v2")
+	symConnectV3 = registerSym("dcgmConnect_v3")
+	symDisconnect = registerSym("dcgmDisconnect")
+	symEntitiesGetLatestValues = registerSym("dcgmEntitiesGetLatestValues")
+	symEntityGetLatestValues = registerSym("dcgmEntityGetLatestValues")
+	symFieldGroupCreate = registerSym("dcgmFieldGroupCreate")
+	symFieldGroupDestroy = registerSym("dcgmFieldGroupDestroy")
+	symFieldGroupGetAll = registerSym("dcgmFieldGroupGetAll")
+	symFieldGroupGetInfo = registerSym("dcgmFieldGroupGetInfo")
+	symGetAllDevices = registerSym("dcgmGetAllDevices")
+	symGetAllSupportedDevices = registerSym("dcgmGetAllSupportedDevices")
+	symGetCpuHierarchyV2 = registerSym("dcgmGetCpuHierarchy_v2")
+	symGetDeviceAttributes = registerSym("dcgmGetDeviceAttributes")
+	symGetDeviceTopology = registerSym("dcgmGetDeviceTopology")
+	symGetDeviceWorkloadPowerProfileInfo = registerSym("dcgmGetDeviceWorkloadPowerProfileInfo")
+	symGetEntityGroupEntities = registerSym("dcgmGetEntityGroupEntities")
+	symGetFieldSummary = registerSym("dcgmGetFieldSummary")
+	symGetGpuChipArchitecture = registerSym("dcgmGetGpuChipArchitecture")
+	symGetGpuInstanceHierarchy = registerSym("dcgmGetGpuInstanceHierarchy")
+	symGetGpuStatus = registerSym("dcgmGetGpuStatus")
+	symGetGroupTopology = registerSym("dcgmGetGroupTopology")
+	symGetLatestValuesForFields = registerSym("dcgmGetLatestValuesForFields")
+	symGetNvLinkLinkStatus = registerSym("dcgmGetNvLinkLinkStatus")
+	symGetNvLinkP2PStatus = registerSym("dcgmGetNvLinkP2PStatus")
+	symGroupAddDevice = registerSym("dcgmGroupAddDevice")
+	symGroupAddEntity = registerSym("dcgmGroupAddEntity")
+	symGroupCreate = registerSym("dcgmGroupCreate")
+	symGroupDestroy = registerSym("dcgmGroupDestroy")
+	symGroupGetAllIds = registerSym("dcgmGroupGetAllIds")
+	symGroupGetInfo = registerSym("dcgmGroupGetInfo")
+	symGroupRemoveDevice = registerSym("dcgmGroupRemoveDevice")
+	symGroupRemoveEntity = registerSym("dcgmGroupRemoveEntity")
+	symHealthCheck = registerSym("dcgmHealthCheck")
+	symHealthGet = registerSym("dcgmHealthGet")
+	symHostengineEnvironmentVariableInfo = registerSym("dcgmHostengineEnvironmentVariableInfo")
+	symHostengineIsHealthy = registerSym("dcgmHostengineIsHealthy")
+	symHostengineVersionInfo = registerSym("dcgmHostengineVersionInfo")
+	symInit = registerSym("dcgmInit")
+	symIntrospectGetHostengineCpuUtilization = registerSym("dcgmIntrospectGetHostengineCpuUtilization")
+	symIntrospectGetHostengineMemoryUsage = registerSym("dcgmIntrospectGetHostengineMemoryUsage")
+	symModuleGetStatuses = registerSym("dcgmModuleGetStatuses")
+	symModuleIdToName = registerSym("dcgmModuleIdToName")
+	symPowerProfileIdToName = registerSym("dcgmPowerProfileIdToName")
+	symProfGetSupportedMetricGroups = registerSym("dcgmProfGetSupportedMetricGroups")
+	symShutdown = registerSym("dcgmShutdown")
+	symStartEmbeddedV2 = registerSym("dcgmStartEmbedded_v2")
+	symStatusClear = registerSym("dcgmStatusClear")
+	symStatusCreate = registerSym("dcgmStatusCreate")
+	symStatusDestroy = registerSym("dcgmStatusDestroy")
+	symStatusGetCount = registerSym("dcgmStatusGetCount")
+	symStatusPopError = registerSym("dcgmStatusPopError")
+	symStopEmbedded = registerSym("dcgmStopEmbedded")
+	symUnwatchFields = registerSym("dcgmUnwatchFields")
+	symUpdateAllFields = registerSym("dcgmUpdateAllFields")
+	symVersionInfo = registerSym("dcgmVersionInfo")
+	symWatchFields = registerSym("dcgmWatchFields")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnErrorString = nil
-	fnDcgmFieldGetById = nil
-	fnDcgmFieldGetByTag = nil
+	symDcgmFieldGetById = 0
+	symDcgmFieldGetByTag = 0
 	fnDcgmFieldsGetEntityGroupString = nil
-	fnDcgmFieldsInit = nil
-	fnDcgmFieldsTerm = nil
-	fnConnectV2 = nil
-	fnConnectV3 = nil
-	fnDisconnect = nil
-	fnEntitiesGetLatestValues = nil
-	fnEntityGetLatestValues = nil
-	fnFieldGroupCreate = nil
-	fnFieldGroupDestroy = nil
-	fnFieldGroupGetAll = nil
-	fnFieldGroupGetInfo = nil
-	fnGetAllDevices = nil
-	fnGetAllSupportedDevices = nil
-	fnGetCpuHierarchyV2 = nil
-	fnGetDeviceAttributes = nil
-	fnGetDeviceTopology = nil
-	fnGetDeviceWorkloadPowerProfileInfo = nil
-	fnGetEntityGroupEntities = nil
-	fnGetFieldSummary = nil
-	fnGetGpuChipArchitecture = nil
-	fnGetGpuInstanceHierarchy = nil
-	fnGetGpuStatus = nil
-	fnGetGroupTopology = nil
-	fnGetLatestValuesForFields = nil
-	fnGetNvLinkLinkStatus = nil
-	fnGetNvLinkP2PStatus = nil
-	fnGroupAddDevice = nil
-	fnGroupAddEntity = nil
-	fnGroupCreate = nil
-	fnGroupDestroy = nil
-	fnGroupGetAllIds = nil
-	fnGroupGetInfo = nil
-	fnGroupRemoveDevice = nil
-	fnGroupRemoveEntity = nil
-	fnHealthCheck = nil
-	fnHealthGet = nil
-	fnHostengineEnvironmentVariableInfo = nil
-	fnHostengineIsHealthy = nil
-	fnHostengineVersionInfo = nil
-	fnInit = nil
-	fnIntrospectGetHostengineCpuUtilization = nil
-	fnIntrospectGetHostengineMemoryUsage = nil
-	fnModuleGetStatuses = nil
-	fnModuleIdToName = nil
-	fnPowerProfileIdToName = nil
-	fnProfGetSupportedMetricGroups = nil
-	fnShutdown = nil
-	fnStartEmbeddedV2 = nil
-	fnStatusClear = nil
-	fnStatusCreate = nil
-	fnStatusDestroy = nil
-	fnStatusGetCount = nil
-	fnStatusPopError = nil
-	fnStopEmbedded = nil
-	fnUnwatchFields = nil
-	fnUpdateAllFields = nil
-	fnVersionInfo = nil
-	fnWatchFields = nil
+	symDcgmFieldsInit = 0
+	symDcgmFieldsTerm = 0
+	symConnectV2 = 0
+	symConnectV3 = 0
+	symDisconnect = 0
+	symEntitiesGetLatestValues = 0
+	symEntityGetLatestValues = 0
+	symFieldGroupCreate = 0
+	symFieldGroupDestroy = 0
+	symFieldGroupGetAll = 0
+	symFieldGroupGetInfo = 0
+	symGetAllDevices = 0
+	symGetAllSupportedDevices = 0
+	symGetCpuHierarchyV2 = 0
+	symGetDeviceAttributes = 0
+	symGetDeviceTopology = 0
+	symGetDeviceWorkloadPowerProfileInfo = 0
+	symGetEntityGroupEntities = 0
+	symGetFieldSummary = 0
+	symGetGpuChipArchitecture = 0
+	symGetGpuInstanceHierarchy = 0
+	symGetGpuStatus = 0
+	symGetGroupTopology = 0
+	symGetLatestValuesForFields = 0
+	symGetNvLinkLinkStatus = 0
+	symGetNvLinkP2PStatus = 0
+	symGroupAddDevice = 0
+	symGroupAddEntity = 0
+	symGroupCreate = 0
+	symGroupDestroy = 0
+	symGroupGetAllIds = 0
+	symGroupGetInfo = 0
+	symGroupRemoveDevice = 0
+	symGroupRemoveEntity = 0
+	symHealthCheck = 0
+	symHealthGet = 0
+	symHostengineEnvironmentVariableInfo = 0
+	symHostengineIsHealthy = 0
+	symHostengineVersionInfo = 0
+	symInit = 0
+	symIntrospectGetHostengineCpuUtilization = 0
+	symIntrospectGetHostengineMemoryUsage = 0
+	symModuleGetStatuses = 0
+	symModuleIdToName = 0
+	symPowerProfileIdToName = 0
+	symProfGetSupportedMetricGroups = 0
+	symShutdown = 0
+	symStartEmbeddedV2 = 0
+	symStatusClear = 0
+	symStatusCreate = 0
+	symStatusDestroy = 0
+	symStatusGetCount = 0
+	symStatusPopError = 0
+	symStopEmbedded = 0
+	symUnwatchFields = 0
+	symUpdateAllFields = 0
+	symVersionInfo = 0
+	symWatchFields = 0
 }
 
 // HasErrorString reports whether errorString resolved in the loaded library.

@@ -86,7 +86,9 @@ func (e OverflowPolicy) String() string {
 	return fmt.Sprintf("OverflowPolicy(%d)", e)
 }
 
-// Layout represents dispatch output layout Controls the shape and contents of the user-visible dispatch output tensors (tokens, topk_weights, topk_idx) and their expected shape in Combine. Each layout is supported by a subset of algorithms: HT: [LayoutFlat], [LayoutExpertMajor]. LL: [LayoutExpertMajor], [LayoutRankMajor].
+// Layout represents dispatch output layout.
+//
+// Controls the shape and contents of the user-visible dispatch output tensors (tokens, topk_weights, topk_idx) and their expected shape in Combine. Each layout is supported by a subset of algorithms: HT: [LayoutFlat], [LayoutExpertMajor]. LL: [LayoutExpertMajor], [LayoutRankMajor].
 type Layout int32
 
 const (
@@ -112,6 +114,8 @@ func (e Layout) String() string {
 }
 
 // PassDir represents training pass direction for [Handle.Dispatch] / [Handle.Combine].
+//
+// Selects which side of the routing the call is participating in. FWD is the zero-init default so callers that don't set the field get forward-pass semantics. FWD dispatch (HT): caller provides input topk_weights; routing is live. BWD dispatch (HT): no input topk_weights; reuses cached routing state. FWD combine (HT): no input topk_weights; tokens only. BWD combine (HT): caller provides input topk_weights and receives combined topk_weights gradients alongside tokens. LL mode does not currently distinguish FWD/BWD and ignores this field.
 type PassDir int32
 
 const (
@@ -153,6 +157,8 @@ func (e ZeroCopyMode) String() string {
 }
 
 // ExpertIdKind represents numbering convention for the recv_topk_idx output of dispatch.
+//
+// Applies to layouts that populate recv_topk_idx (LL rank-major, HT flat). Selects whether per-slot expert ids are written in this rank's local numbering or in the global numbering used on the wire. AUTO (zero-init default): library picks the historical default, which today resolves to LOCAL. Existing callers that leave the field zero-initialized stay on whatever the library currently considers the default; the resolved value may change in a future release without an ABI break. Callers that need a stable contract should pin LOCAL or GLOBAL explicitly. LOCAL: expert id in [0, num_local_experts), i.e. global_id - rank * num_local_experts. Slots not routed to this rank are -1. GLOBAL: unmodified wire-format global expert id in [rank*num_local_experts, (rank+1)*num_local_experts) for the local experts on this rank. Slots not routed to this rank are -1. The zero-init AUTO default keeps source/binary backward compatibility for callers built against the pre-flag headers (the field reads as 0 and the library treats it as today's behavior). Downstream consumers that prefer the global id (e.g. fused MoE routers that want to skip the per-element +rank*num_local_experts fold-back) opt in by setting GLOBAL on the layout info struct.
 type ExpertIdKind int32
 
 const (

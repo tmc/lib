@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func TestVersionQualification(t *testing.T) {
@@ -54,7 +55,7 @@ func TestDecodeEvent(t *testing.T) {
 		SymbolName:          uintptr(unsafe.Pointer(&symNameBytes[0])),
 		FunctionParams:      uintptr(unsafe.Pointer(&params)),
 		FunctionReturnValue: uintptr(unsafe.Pointer(&returnValue)),
-		Context:             cupti.Context(0x1000),
+		Context:             driver.Context(0x1000),
 		ContextUid:          42,
 		CorrelationData:     uintptr(unsafe.Pointer(&corrData)),
 		CorrelationId:       999,
@@ -100,7 +101,7 @@ func TestDecodeEvent(t *testing.T) {
 
 	// Test ResourceData decoding
 	rawRes := cupti.ResourceData{
-		Context:            cupti.Context(0x2000),
+		Context:            driver.Context(0x2000),
 		ResourceHandle:     [1]uint64{0x8888},
 		ResourceDescriptor: 0x9999,
 	}
@@ -117,8 +118,8 @@ func TestDecodeEvent(t *testing.T) {
 
 	// Test SynchronizeData decoding
 	rawSync := cupti.SynchronizeData{
-		Context: cupti.Context(0x3000),
-		Stream:  cupti.Stream(0x4000),
+		Context: driver.Context(0x3000),
+		Stream:  driver.Stream(0x4000),
 	}
 	evtSync := decodeEvent(0, cupti.CbDomainSynchronize, 30, unsafe.Pointer(&rawSync), false)
 	if evtSync.Sync == nil {

@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -421,6 +422,96 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+// As with register, the first of symbols the library exports wins, and
+// presence is recorded under the first name.
+func registerSym(symbols ...string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	for _, symbol := range symbols {
+		sym, err := lookupLibrarySymbol(lib, symbol)
+		if err != nil || sym == 0 {
+			continue
+		}
+		present[symbols[0]] = true
+		return sym
+	}
+	return 0
+}
+
+// ffiCall0 through ffiCall5 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
 // BindFailure names a symbol the loaded library exports but that could not
 // be bound, and why.
 type BindFailure struct {
@@ -481,37 +572,37 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnaddData, "__nvJitLinkAddData_13_2", "nvJitLinkAddData")
-	register(&fnaddFile, "__nvJitLinkAddFile_13_2", "nvJitLinkAddFile")
-	register(&fncomplete, "__nvJitLinkComplete_13_2", "nvJitLinkComplete")
-	register(&fnCreate, "__nvJitLinkCreate_13_2", "nvJitLinkCreate")
-	register(&fndestroy, "__nvJitLinkDestroy_13_2", "nvJitLinkDestroy")
-	register(&fngetErrorLog, "__nvJitLinkGetErrorLog_13_2", "nvJitLinkGetErrorLog")
-	register(&fngetErrorLogSize, "__nvJitLinkGetErrorLogSize_13_2", "nvJitLinkGetErrorLogSize")
-	register(&fngetInfoLog, "__nvJitLinkGetInfoLog_13_2", "nvJitLinkGetInfoLog")
-	register(&fngetInfoLogSize, "__nvJitLinkGetInfoLogSize_13_2", "nvJitLinkGetInfoLogSize")
-	register(&fngetLinkedCubin, "__nvJitLinkGetLinkedCubin_13_2", "nvJitLinkGetLinkedCubin")
-	register(&fngetLinkedCubinSize, "__nvJitLinkGetLinkedCubinSize_13_2", "nvJitLinkGetLinkedCubinSize")
-	register(&fngetLinkedPtx, "__nvJitLinkGetLinkedPtx_13_2", "nvJitLinkGetLinkedPtx")
-	register(&fngetLinkedPtxSize, "__nvJitLinkGetLinkedPtxSize_13_2", "nvJitLinkGetLinkedPtxSize")
+	symaddData = registerSym("__nvJitLinkAddData_13_2", "nvJitLinkAddData")
+	symaddFile = registerSym("__nvJitLinkAddFile_13_2", "nvJitLinkAddFile")
+	symcomplete = registerSym("__nvJitLinkComplete_13_2", "nvJitLinkComplete")
+	symCreate = registerSym("__nvJitLinkCreate_13_2", "nvJitLinkCreate")
+	symdestroy = registerSym("__nvJitLinkDestroy_13_2", "nvJitLinkDestroy")
+	symgetErrorLog = registerSym("__nvJitLinkGetErrorLog_13_2", "nvJitLinkGetErrorLog")
+	symgetErrorLogSize = registerSym("__nvJitLinkGetErrorLogSize_13_2", "nvJitLinkGetErrorLogSize")
+	symgetInfoLog = registerSym("__nvJitLinkGetInfoLog_13_2", "nvJitLinkGetInfoLog")
+	symgetInfoLogSize = registerSym("__nvJitLinkGetInfoLogSize_13_2", "nvJitLinkGetInfoLogSize")
+	symgetLinkedCubin = registerSym("__nvJitLinkGetLinkedCubin_13_2", "nvJitLinkGetLinkedCubin")
+	symgetLinkedCubinSize = registerSym("__nvJitLinkGetLinkedCubinSize_13_2", "nvJitLinkGetLinkedCubinSize")
+	symgetLinkedPtx = registerSym("__nvJitLinkGetLinkedPtx_13_2", "nvJitLinkGetLinkedPtx")
+	symgetLinkedPtxSize = registerSym("__nvJitLinkGetLinkedPtxSize_13_2", "nvJitLinkGetLinkedPtxSize")
 	register(&fnVersion, "nvJitLinkVersion")
 }
 
 // clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
-	fnaddData = nil
-	fnaddFile = nil
-	fncomplete = nil
-	fnCreate = nil
-	fndestroy = nil
-	fngetErrorLog = nil
-	fngetErrorLogSize = nil
-	fngetInfoLog = nil
-	fngetInfoLogSize = nil
-	fngetLinkedCubin = nil
-	fngetLinkedCubinSize = nil
-	fngetLinkedPtx = nil
-	fngetLinkedPtxSize = nil
+	symaddData = 0
+	symaddFile = 0
+	symcomplete = 0
+	symCreate = 0
+	symdestroy = 0
+	symgetErrorLog = 0
+	symgetErrorLogSize = 0
+	symgetInfoLog = 0
+	symgetInfoLogSize = 0
+	symgetLinkedCubin = 0
+	symgetLinkedCubinSize = 0
+	symgetLinkedPtx = 0
+	symgetLinkedPtxSize = 0
 	fnVersion = nil
 }
 

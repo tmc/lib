@@ -6,47 +6,61 @@
 //
 // Create a [Generator] with [CreateGenerator] or [CreateGeneratorHost], then configure and use it to generate values.
 //
+// A generator from CreateGenerator writes to device memory, given as a [driver.DevicePtr].
+// One from CreateGeneratorHost writes to host memory: call the Host form of each
+// generate method, such as [Generator.GenerateUniformHost], which fills a slice.
+//
 // # Generator and Distribution Lifecycle
 //
-//   - [CreateGenerator].
-//   - [CreateGeneratorHost].
-//   - [CreatePoissonDistribution].
-//   - [DiscreteDistribution.DestroyDistribution].
-//   - [Generator.Destroy].
+//   - [CreateGenerator]: Create new random number generator.
+//   - [CreateGeneratorHost]: Create new host CPU random number generator.
+//   - [CreatePoissonDistribution]: Construct the histogram array for a Poisson distribution.
+//   - [DiscreteDistribution.DestroyDistribution]: Destroy the histogram array for a discrete distribution (e.g. Poisson).
+//   - [Generator.Destroy]: Destroy an existing generator.
 //
 // # Random Number Generation
 //
-//   - [Generator.Generate].
+//   - [Generator.Generate]: [Generator.Generate] 32-bit pseudo or quasirandom numbers.
 //   - [Generator.GenerateBinomial].
-//   - [Generator.GenerateLogNormal].
-//   - [Generator.GenerateLogNormalDouble].
-//   - [Generator.GenerateLongLong].
-//   - [Generator.GenerateNormal].
-//   - [Generator.GenerateNormalDouble].
-//   - [Generator.GeneratePoisson].
-//   - [Generator.GenerateSeeds].
-//   - [Generator.GenerateUniform].
-//   - [Generator.GenerateUniformDouble].
+//   - [Generator.GenerateBinomialHost].
+//   - [Generator.GenerateHost].
+//   - [Generator.GenerateLogNormal]: [Generator.Generate] log-normally distributed floats.
+//   - [Generator.GenerateLogNormalDouble]: [Generator.Generate] log-normally distributed doubles.
+//   - [Generator.GenerateLogNormalDoubleHost].
+//   - [Generator.GenerateLogNormalHost].
+//   - [Generator.GenerateLongLong]: [Generator.Generate] 64-bit quasirandom numbers.
+//   - [Generator.GenerateLongLongHost].
+//   - [Generator.GenerateNormal]: [Generator.Generate] normally distributed doubles.
+//   - [Generator.GenerateNormalDouble]: [Generator.Generate] normally distributed doubles.
+//   - [Generator.GenerateNormalDoubleHost].
+//   - [Generator.GenerateNormalHost].
+//   - [Generator.GeneratePoisson]: [Generator.Generate] Poisson-distributed unsigned ints.
+//   - [Generator.GeneratePoissonHost].
+//   - [Generator.GenerateSeeds]: Setup starting states.
+//   - [Generator.GenerateUniform]: [Generator.Generate] uniformly distributed floats.
+//   - [Generator.GenerateUniformDouble]: [Generator.Generate] uniformly distributed doubles.
+//   - [Generator.GenerateUniformDoubleHost].
+//   - [Generator.GenerateUniformHost].
 //
 // # Quasi-Random Parameters
 //
-//   - [GetDirectionVectors32].
-//   - [GetDirectionVectors64].
-//   - [GetScrambleConstants32].
-//   - [GetScrambleConstants64].
+//   - [GetDirectionVectors32]: Get direction vectors for 32-bit quasirandom number generation.
+//   - [GetDirectionVectors64]: Get direction vectors for 64-bit quasirandom number generation.
+//   - [GetScrambleConstants32]: Get scramble constants for 32-bit scrambled Sobol' .
+//   - [GetScrambleConstants64]: Get scramble constants for 64-bit scrambled Sobol' .
 //
 // # Library Queries
 //
-//   - [GetProperty].
-//   - [GetVersion].
+//   - [GetProperty]: Return the value of the curand property.
+//   - [GetVersion]: Return the version number of the library.
 //
 // # Generator Configuration
 //
-//   - [Generator.SetOffset].
-//   - [Generator.SetOrdering].
-//   - [Generator.SetPseudoRandomGeneratorSeed].
-//   - [Generator.SetQuasiRandomGeneratorDimensions].
-//   - [Generator.SetStream].
+//   - [Generator.SetOffset]: Set the absolute offset of the pseudo or quasirandom number generator.
+//   - [Generator.SetOrdering]: Set the ordering of results of the pseudo or quasirandom number generator.
+//   - [Generator.SetPseudoRandomGeneratorSeed]: Set the seed value of the pseudo-random number generator.
+//   - [Generator.SetQuasiRandomGeneratorDimensions]: Set the number of dimensions.
+//   - [Generator.SetStream]: Set the current stream for CURAND kernel launches.
 //
 // [cuRAND Documentation]: https://docs.nvidia.com/cuda/curand/index.html
 package curand

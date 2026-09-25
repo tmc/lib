@@ -10,7 +10,7 @@ type MemsetNode struct {
 	GraphNode
 }
 
-// Params Returns a memset node’s parameters.
+// Params returns a memset node’s parameters.
 //
 // Returns the parameters of memset node hNode in nodeParams.
 //
@@ -25,7 +25,7 @@ func (m MemsetNode) Params() (MemsetNodeParams, error) {
 	return graphMemsetNodeGetParams(m.GraphNode)
 }
 
-// SetParams Sets a memset node’s parameters.
+// SetParams sets a memset node’s parameters.
 //
 // Sets the parameters of memset node hNode to nodeParams.
 //

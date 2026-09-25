@@ -321,6 +321,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -429,7 +444,7 @@ func registerFuncs() {
 	register(&fnMalloc, "cusolverMpMalloc")
 	register(&fnMatrixGatherD2H, "cusolverMpMatrixGatherD2H")
 	register(&fnMatrixScatterH2D, "cusolverMpMatrixScatterH2D")
-	register(&fnNUMROC, "cusolverMpNUMROC")
+	symNUMROC = registerSym("cusolverMpNUMROC")
 	register(&fnSetMathMode, "cusolverMpSetMathMode")
 	register(&fnSetStream, "cusolverMpSetStream")
 }
@@ -459,7 +474,7 @@ func clearFuncs() {
 	fnMalloc = nil
 	fnMatrixGatherD2H = nil
 	fnMatrixScatterH2D = nil
-	fnNUMROC = nil
+	symNUMROC = 0
 	fnSetMathMode = nil
 	fnSetStream = nil
 }

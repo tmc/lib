@@ -2,87 +2,399 @@
 
 package curand
 
-// Destroy wraps curandDestroyGenerator.
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
+// Destroy destroys an existing generator.
+//
+// Destroy an existing generator and free all memory associated with its state.
+//
+// Wraps curandDestroyGenerator.
 func (g Generator) Destroy() error {
 	return destroyGenerator(g)
 }
 
-// Generate wraps curandGenerate.
-func (g Generator) Generate(outputPtr *uint32, num uint) error {
+// Generate [Generator.Generate] 32-bit pseudo or quasirandom numbers.
+//
+// Use generator to generate num 32-bit results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit values with every bit random.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - num: Number of random 32-bit values to generate
+//
+// Wraps curandGenerate.
+func (g Generator) Generate(outputPtr driver.DevicePtr, num uint) error {
 	return generate(g, outputPtr, num)
 }
 
 // GenerateBinomial wraps curandGenerateBinomial.
-func (g Generator) GenerateBinomial(outputPtr *uint32, num uint, n uint32, p float64) error {
+func (g Generator) GenerateBinomial(outputPtr driver.DevicePtr, num uint, n uint32, p float64) error {
 	return generateBinomial(g, outputPtr, num, n, p)
 }
 
-// GenerateLogNormal wraps curandGenerateLogNormal.
-func (g Generator) GenerateLogNormal(outputPtr *float32, n uint, mean float32, stddev float32) error {
+// GenerateBinomialHost is GenerateBinomial for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateBinomialHost(output []uint32, n uint32, p float64) error {
+	return generateBinomialHost(g, output, n, p)
+}
+
+// GenerateHost is Generate for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateHost(output []uint32) error {
+	return generateHost(g, output)
+}
+
+// GenerateLogNormal [Generator.Generate] log-normally distributed floats.
+//
+// Use generator to generate n float results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit floating point values with log-normal distribution based on
+// an associated normal distribution with mean mean and standard deviation stddev.
+//
+// Normally distributed results are generated from pseudorandom generators
+// with a Box-Muller transform, and so require n to be even.
+// Quasirandom generators use an inverse cumulative distribution
+// function to preserve dimensionality.
+// The normally distributed results are transformed into log-normal distribution.
+//
+// There may be slight numerical differences between results generated
+// on the GPU with generators created with [CreateGenerator]
+// and results calculated on the CPU with generators created with
+// [CreateGeneratorHost]. These differences arise because of
+// differences in results for transcendental functions. In addition,
+// future versions of CURAND may use newer versions of the CUDA math
+// library, so different versions of CURAND may give slightly different
+// numerical values.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of floats to generate
+//   - mean: Mean of associated normal distribution
+//   - stddev: Standard deviation of associated normal distribution
+//
+// Wraps curandGenerateLogNormal.
+func (g Generator) GenerateLogNormal(outputPtr driver.DevicePtr, n uint, mean float32, stddev float32) error {
 	return generateLogNormal(g, outputPtr, n, mean, stddev)
 }
 
-// GenerateLogNormalDouble wraps curandGenerateLogNormalDouble.
-func (g Generator) GenerateLogNormalDouble(outputPtr *float64, n uint, mean float64, stddev float64) error {
+// GenerateLogNormalDouble [Generator.Generate] log-normally distributed doubles.
+//
+// Use generator to generate n double results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 64-bit floating point values with log-normal distribution based on
+// an associated normal distribution with mean mean and standard deviation stddev.
+//
+// Normally distributed results are generated from pseudorandom generators
+// with a Box-Muller transform, and so require n to be even.
+// Quasirandom generators use an inverse cumulative distribution
+// function to preserve dimensionality.
+// The normally distributed results are transformed into log-normal distribution.
+//
+// There may be slight numerical differences between results generated
+// on the GPU with generators created with [CreateGenerator]
+// and results calculated on the CPU with generators created with
+// [CreateGeneratorHost]. These differences arise because of
+// differences in results for transcendental functions. In addition,
+// future versions of CURAND may use newer versions of the CUDA math
+// library, so different versions of CURAND may give slightly different
+// numerical values.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of doubles to generate
+//   - mean: Mean of normal distribution
+//   - stddev: Standard deviation of normal distribution
+//
+// Wraps curandGenerateLogNormalDouble.
+func (g Generator) GenerateLogNormalDouble(outputPtr driver.DevicePtr, n uint, mean float64, stddev float64) error {
 	return generateLogNormalDouble(g, outputPtr, n, mean, stddev)
 }
 
-// GenerateLongLong wraps curandGenerateLongLong.
-func (g Generator) GenerateLongLong(outputPtr *uint64, num uint) error {
+// GenerateLogNormalDoubleHost is GenerateLogNormalDouble for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateLogNormalDoubleHost(output []float64, mean float64, stddev float64) error {
+	return generateLogNormalDoubleHost(g, output, mean, stddev)
+}
+
+// GenerateLogNormalHost is GenerateLogNormal for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateLogNormalHost(output []float32, mean float32, stddev float32) error {
+	return generateLogNormalHost(g, output, mean, stddev)
+}
+
+// GenerateLongLong [Generator.Generate] 64-bit quasirandom numbers.
+//
+// Use generator to generate num 64-bit results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 64-bit values with every bit random.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - num: Number of random 64-bit values to generate
+//
+// Wraps curandGenerateLongLong.
+func (g Generator) GenerateLongLong(outputPtr driver.DevicePtr, num uint) error {
 	return generateLongLong(g, outputPtr, num)
 }
 
-// GenerateNormal wraps curandGenerateNormal.
-func (g Generator) GenerateNormal(outputPtr *float32, n uint, mean float32, stddev float32) error {
+// GenerateLongLongHost is GenerateLongLong for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateLongLongHost(output []uint64) error {
+	return generateLongLongHost(g, output)
+}
+
+// GenerateNormal [Generator.Generate] normally distributed doubles.
+//
+// Use generator to generate n float results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit floating point values with mean mean and standard
+// deviation stddev.
+//
+// Normally distributed results are generated from pseudorandom generators
+// with a Box-Muller transform, and so require n to be even.
+// Quasirandom generators use an inverse cumulative distribution
+// function to preserve dimensionality.
+//
+// There may be slight numerical differences between results generated
+// on the GPU with generators created with [CreateGenerator]
+// and results calculated on the CPU with generators created with
+// [CreateGeneratorHost]. These differences arise because of
+// differences in results for transcendental functions. In addition,
+// future versions of CURAND may use newer versions of the CUDA math
+// library, so different versions of CURAND may give slightly different
+// numerical values.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of floats to generate
+//   - mean: Mean of normal distribution
+//   - stddev: Standard deviation of normal distribution
+//
+// Wraps curandGenerateNormal.
+func (g Generator) GenerateNormal(outputPtr driver.DevicePtr, n uint, mean float32, stddev float32) error {
 	return generateNormal(g, outputPtr, n, mean, stddev)
 }
 
-// GenerateNormalDouble wraps curandGenerateNormalDouble.
-func (g Generator) GenerateNormalDouble(outputPtr *float64, n uint, mean float64, stddev float64) error {
+// GenerateNormalDouble [Generator.Generate] normally distributed doubles.
+//
+// Use generator to generate n double results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 64-bit floating point values with mean mean and standard
+// deviation stddev.
+//
+// Normally distributed results are generated from pseudorandom generators
+// with a Box-Muller transform, and so require n to be even.
+// Quasirandom generators use an inverse cumulative distribution
+// function to preserve dimensionality.
+//
+// There may be slight numerical differences between results generated
+// on the GPU with generators created with [CreateGenerator]
+// and results calculated on the CPU with generators created with
+// [CreateGeneratorHost]. These differences arise because of
+// differences in results for transcendental functions. In addition,
+// future versions of CURAND may use newer versions of the CUDA math
+// library, so different versions of CURAND may give slightly different
+// numerical values.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of doubles to generate
+//   - mean: Mean of normal distribution
+//   - stddev: Standard deviation of normal distribution
+//
+// Wraps curandGenerateNormalDouble.
+func (g Generator) GenerateNormalDouble(outputPtr driver.DevicePtr, n uint, mean float64, stddev float64) error {
 	return generateNormalDouble(g, outputPtr, n, mean, stddev)
 }
 
-// GeneratePoisson wraps curandGeneratePoisson.
-func (g Generator) GeneratePoisson(outputPtr *uint32, n uint, lambda float64) error {
+// GenerateNormalDoubleHost is GenerateNormalDouble for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateNormalDoubleHost(output []float64, mean float64, stddev float64) error {
+	return generateNormalDoubleHost(g, output, mean, stddev)
+}
+
+// GenerateNormalHost is GenerateNormal for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateNormalHost(output []float32, mean float32, stddev float32) error {
+	return generateNormalHost(g, output, mean, stddev)
+}
+
+// GeneratePoisson [Generator.Generate] Poisson-distributed unsigned ints.
+//
+// Use generator to generate n unsigned int results into device memory at
+// outputPtr. The device memory must have been previously allocated and must be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit unsigned int point values with Poisson distribution, with lambda lambda.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of unsigned ints to generate
+//   - lambda: lambda for the Poisson distribution
+//
+// Wraps curandGeneratePoisson.
+func (g Generator) GeneratePoisson(outputPtr driver.DevicePtr, n uint, lambda float64) error {
 	return generatePoisson(g, outputPtr, n, lambda)
 }
 
-// GenerateSeeds wraps curandGenerateSeeds.
+// GeneratePoissonHost is GeneratePoisson for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GeneratePoissonHost(output []uint32, lambda float64) error {
+	return generatePoissonHost(g, output, lambda)
+}
+
+// GenerateSeeds Setup starting states.
+//
+// [Generator.Generate] the starting state of the generator. This function is
+// automatically called by generation functions such as
+// [Generator.Generate] and [Generator.GenerateUniform].
+// It can be called manually for performance testing reasons to separate
+// timings for starting state generation and random number generation.
+//
+// Wraps curandGenerateSeeds.
 func (g Generator) GenerateSeeds() error {
 	return generateSeeds(g)
 }
 
-// GenerateUniform wraps curandGenerateUniform.
-func (g Generator) GenerateUniform(outputPtr *float32, num uint) error {
+// GenerateUniform [Generator.Generate] uniformly distributed floats.
+//
+// Use generator to generate num float results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit floating point values between 0.0f and 1.0f,
+// excluding 0.0f and including 1.0f.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - num: Number of floats to generate
+//
+// Wraps curandGenerateUniform.
+func (g Generator) GenerateUniform(outputPtr driver.DevicePtr, num uint) error {
 	return generateUniform(g, outputPtr, num)
 }
 
-// GenerateUniformDouble wraps curandGenerateUniformDouble.
-func (g Generator) GenerateUniformDouble(outputPtr *float64, num uint) error {
+// GenerateUniformDouble [Generator.Generate] uniformly distributed doubles.
+//
+// Use generator to generate num double results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 64-bit double precision floating point values between
+// 0.0 and 1.0, excluding 0.0 and including 1.0.
+//
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - num: Number of doubles to generate
+//
+// Wraps curandGenerateUniformDouble.
+func (g Generator) GenerateUniformDouble(outputPtr driver.DevicePtr, num uint) error {
 	return generateUniformDouble(g, outputPtr, num)
 }
 
-// SetOffset wraps curandSetGeneratorOffset.
+// GenerateUniformDoubleHost is GenerateUniformDouble for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateUniformDoubleHost(output []float64) error {
+	return generateUniformDoubleHost(g, output)
+}
+
+// GenerateUniformHost is GenerateUniform for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func (g Generator) GenerateUniformHost(output []float32) error {
+	return generateUniformHost(g, output)
+}
+
+// SetOffset sets the absolute offset of the pseudo or quasirandom number generator.
+//
+// All values of offset are valid. The offset position is absolute, not
+// relative to the current position in the sequence.
+//
+//   - offset: Absolute offset position
+//
+// Wraps curandSetGeneratorOffset.
 func (g Generator) SetOffset(offset uint64) error {
 	return setGeneratorOffset(g, offset)
 }
 
-// SetOrdering wraps curandSetGeneratorOrdering.
+// SetOrdering sets the ordering of results of the pseudo or quasirandom number generator.
+//
+// Legal values of order for pseudorandom generators are:
+// - [CURAND_ORDERING_PseudoDefault]
+// - [CURAND_ORDERING_PseudoBest]
+// - [CURAND_ORDERING_PseudoSeeded]
+// - [CURAND_ORDERING_PseudoLegacy]
+//
+// Legal values of order for quasirandom generators are:
+// - [CURAND_ORDERING_QuasiDefault]
+//
+//   - order: Ordering of results
+//
+// Wraps curandSetGeneratorOrdering.
 func (g Generator) SetOrdering(order Ordering) error {
 	return setGeneratorOrdering(g, order)
 }
 
-// SetPseudoRandomGeneratorSeed wraps curandSetPseudoRandomGeneratorSeed.
+// SetPseudoRandomGeneratorSeed sets the seed value of the pseudo-random number generator.
+//
+// Set the seed value of the pseudorandom number generator.
+// All values of seed are valid. Different seeds will produce different sequences.
+// Different seeds will often not be statistically correlated with each other,
+// but some pairs of seed values may generate sequences which are statistically correlated.
+//
+//   - seed: Seed value
+//
+// Wraps curandSetPseudoRandomGeneratorSeed.
 func (g Generator) SetPseudoRandomGeneratorSeed(seed uint64) error {
 	return setPseudoRandomGeneratorSeed(g, seed)
 }
 
-// SetQuasiRandomGeneratorDimensions wraps curandSetQuasiRandomGeneratorDimensions.
+// SetQuasiRandomGeneratorDimensions sets the number of dimensions.
+//
+// Set the number of dimensions to be generated by the quasirandom number
+// generator.
+//
+// Legal values for numDimensions are 1 to 20000.
+//
+//   - numDimensions: Number of dimensions
+//
+// Wraps curandSetQuasiRandomGeneratorDimensions.
 func (g Generator) SetQuasiRandomGeneratorDimensions(numDimensions uint32) error {
 	return setQuasiRandomGeneratorDimensions(g, numDimensions)
 }
 
-// SetStream wraps curandSetStream.
-func (g Generator) SetStream(stream Stream) error {
+// SetStream sets the current stream for CURAND kernel launches.
+//
+// All library functions
+// will use this stream until set again.
+//
+//   - stream: Stream to use or NULL for null stream
+//
+// Wraps curandSetStream.
+func (g Generator) SetStream(stream driver.Stream) error {
 	return setStream(g, stream)
 }

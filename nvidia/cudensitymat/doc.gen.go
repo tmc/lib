@@ -59,7 +59,7 @@
 // # Streams
 //
 // Every Compute and Initialize call is asynchronous with respect to the
-// host: it enqueues work on the supplied [Stream] and returns. A returned
+// host: it enqueues work on the supplied [driver.Stream] and returns. A returned
 // nil error means the work was enqueued, not that it finished. Results
 // written to device memory are only readable after the caller synchronizes
 // that stream. Prepare calls take a stream as well and may run device work

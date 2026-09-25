@@ -2,6 +2,10 @@
 
 package nvjpeg2k
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // NewHandle creates a library handle with the default backend and allocators.
 //
 // Creates an instance of the library handle with default backend and memory
@@ -56,7 +60,7 @@ func NewHandleWithAllocatorsV2(backend Backend, devAllocator *DeviceAllocatorV2,
 //   - stream: [in] CUDA stream. Can be set to 0
 //
 // Wraps nvjpeg2kDecode.
-func (h Handle) Decode(decodeState DecodeState, jpeg2kStream Bitstream, decodeOutput *Image, stream Stream) error {
+func (h Handle) Decode(decodeState DecodeState, jpeg2kStream Bitstream, decodeOutput *Image, stream driver.Stream) error {
 	return Decode(h, decodeState, jpeg2kStream, decodeOutput, stream)
 }
 
@@ -78,7 +82,7 @@ func (h Handle) Decode(decodeState DecodeState, jpeg2kStream Bitstream, decodeOu
 //   - stream: [in] CUDA stream. Can be set to 0
 //
 // Wraps nvjpeg2kDecodeImage.
-func (h Handle) DecodeImage(decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, decodeOutput *Image, stream Stream) error {
+func (h Handle) DecodeImage(decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, decodeOutput *Image, stream driver.Stream) error {
 	return DecodeImage(h, decodeState, jpeg2kStream, decodeParams, decodeOutput, stream)
 }
 
@@ -101,7 +105,7 @@ func (h Handle) DecodeImage(decodeState DecodeState, jpeg2kStream Bitstream, dec
 //   - stream: [in] CUDA stream. Can be set to 0
 //
 // Wraps nvjpeg2kDecodeTile.
-func (h Handle) DecodeTile(decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, tileId uint32, numResLevels uint32, decodeOutput *Image, stream Stream) error {
+func (h Handle) DecodeTile(decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, tileId uint32, numResLevels uint32, decodeOutput *Image, stream driver.Stream) error {
 	return DecodeTile(h, decodeState, jpeg2kStream, decodeParams, tileId, numResLevels, decodeOutput, stream)
 }
 

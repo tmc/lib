@@ -23,7 +23,7 @@ func (d DistIndexBitSwapScheduler) Destroy(handle Handle) error {
 	return distIndexBitSwapSchedulerDestroy(handle, d)
 }
 
-// Parameters Get parameters to be set to the state vector swap worker
+// Parameters gets parameters to be set to the state vector swap worker
 //
 //   - handle: in the handle to cuStateVec library
 //   - swapBatchIndex: in swap batch index for state vector swap parameters
@@ -35,7 +35,7 @@ func (d DistIndexBitSwapScheduler) Parameters(handle Handle, swapBatchIndex int3
 	return distIndexBitSwapSchedulerGetParameters(handle, d, swapBatchIndex, orgSubSVIndex, parameters)
 }
 
-// SetIndexBitSwaps Set index bit swaps to distributed index bit swap scheduler.
+// SetIndexBitSwaps sets index bit swaps to distributed index bit swap scheduler.
 //
 //   - handle: in the handle to cuStateVec library
 //   - indexBitSwaps: in pointer to a host array of index bit pairs being swapped

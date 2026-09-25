@@ -1474,7 +1474,7 @@ const (
 	FuncAttributeRequiredClusterHeight FunctionAttribute = 12
 	// FuncAttributeRequiredClusterDepth: The required cluster depth in blocks. The values must either all be 0 or all be positive. The validity of the cluster dimensions is otherwise checked at launch time. If the value is set during compile time, it cannot be set at runtime. Setting it at runtime should return [ErrNotPermitted]. See [Function.SetAttribute], [Kernel.SetAttribute]
 	FuncAttributeRequiredClusterDepth FunctionAttribute = 13
-	// FuncAttributeNonPortableClusterSizeAllowed: Whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed. A non-portable cluster size may only function on the specific SKUs the program is tested on. The launch might fail if the program is run on a different hardware platform. CUDA API provides cudaOccupancyMaxActiveClusters to assist with checking whether the desired size can be launched on the current device. Portable Cluster Size A portable cluster size is guaranteed to be functional on all compute capabilities higher than the target compute capability. The portable cluster size for sm_90 is 8 blocks per cluster. This value may increase for future compute capabilities. The specific hardware unit may support higher cluster sizes that’s not guaranteed to be portable. See [Function.SetAttribute], [Kernel.SetAttribute]
+	// FuncAttributeNonPortableClusterSizeAllowed: Whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed. A non-portable cluster size may only function on the specific SKUs the program is tested on. The launch might fail if the program is run on a different hardware platform. CUDA API provides cudaOccupancyMaxActiveClusters to assist with checking whether the desired size can be launched on the current device. Portable Cluster Size. A portable cluster size is guaranteed to be functional on all compute capabilities higher than the target compute capability. The portable cluster size for sm_90 is 8 blocks per cluster. This value may increase for future compute capabilities. The specific hardware unit may support higher cluster sizes that’s not guaranteed to be portable. See [Function.SetAttribute], [Kernel.SetAttribute]
 	FuncAttributeNonPortableClusterSizeAllowed FunctionAttribute = 14
 	// FuncAttributeClusterSchedulingPolicyPreference: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy] / cudaClusterSchedulingPolicy. See [Function.SetAttribute], [Kernel.SetAttribute]
 	FuncAttributeClusterSchedulingPolicyPreference FunctionAttribute = 15
@@ -1545,6 +1545,8 @@ func (e FuncCacheConfig) String() string {
 }
 
 // Sharedconfig represents shared memory configurations.
+//
+// Deprecated: This type is deprecated.
 type Sharedconfig int32
 
 const (
@@ -1567,6 +1569,8 @@ func (e Sharedconfig) String() string {
 }
 
 // SharedCarveout represents shared memory carveout configurations.
+//
+// These may be passed to [Function.SetAttribute] or [Kernel.SetAttribute]
 type SharedCarveout int32
 
 const (
@@ -1753,25 +1757,25 @@ const (
 	JITGlobalSymbolAddresses JITOption = 18
 	// JITGlobalSymbolCount: Number of entries in [JITGlobalSymbolNames] and [JITGlobalSymbolAddresses] arrays.\n Option type: unsigned int\n Applies to: dynamic linker only
 	JITGlobalSymbolCount JITOption = 19
-	// JITLto: \deprecated Enable link-time optimization (-dlto) for device code (Disabled by default).\n This option is not supported on 32-bit platforms.\n Option type: int\n Applies to: compiler and linker Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITLto: \deprecated Enable link-time optimization (-dlto) for device code (Disabled by default).\n This option is not supported on 32-bit platforms.\n Option type: int\n Applies to: compiler and linker. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITLto JITOption = 20
-	// JITFtz: \deprecated Control single-precision denormals (-ftz) support (0: false, default). 1 : flushes denormal values to zero 0 : preserves denormal values Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITFtz: \deprecated Control single-precision denormals (-ftz) support (0: false, default). 1 : flushes denormal values to zero 0 : preserves denormal values Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITFtz JITOption = 21
-	// JITPrecDiv: \deprecated Control single-precision floating-point division and reciprocals (-prec-div) support (1: true, default). 1 : Enables the IEEE round-to-nearest mode 0 : Enables the fast approximation mode Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITPrecDiv: \deprecated Control single-precision floating-point division and reciprocals (-prec-div) support (1: true, default). 1 : Enables the IEEE round-to-nearest mode 0 : Enables the fast approximation mode Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITPrecDiv JITOption = 22
-	// JITPrecSqrt: \deprecated Control single-precision floating-point square root (-prec-sqrt) support (1: true, default). 1 : Enables the IEEE round-to-nearest mode 0 : Enables the fast approximation mode Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITPrecSqrt: \deprecated Control single-precision floating-point square root (-prec-sqrt) support (1: true, default). 1 : Enables the IEEE round-to-nearest mode 0 : Enables the fast approximation mode Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITPrecSqrt JITOption = 23
-	// JITFma: \deprecated Enable/Disable the contraction of floating-point multiplies and adds/subtracts into floating-point multiply-add (-fma) operations (1: Enable, default; 0: Disable). Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITFma: \deprecated Enable/Disable the contraction of floating-point multiplies and adds/subtracts into floating-point multiply-add (-fma) operations (1: Enable, default; 0: Disable). Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITFma JITOption = 24
-	// JITReferencedKernelNames: \deprecated Array of kernel names that should be preserved at link time while others can be removed.\n Must contain [JITReferencedKernelCount] entries.\n Note that kernel names can be mangled by the compiler in which case the mangled name needs to be specified.\n Wildcard "*" can be used to represent zero or more characters instead of specifying the full or mangled name.\n It is important to note that the wildcard "*" is also added implicitly. For example, specifying "foo" will match "foobaz", "barfoo", "barfoobaz" and thus preserve all kernels with those names. This can be avoided by providing a more specific name like "barfoobaz".\n Option type: const char **\n Applies to: dynamic linker only Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITReferencedKernelNames: \deprecated Array of kernel names that should be preserved at link time while others can be removed.\n Must contain [JITReferencedKernelCount] entries.\n Note that kernel names can be mangled by the compiler in which case the mangled name needs to be specified.\n Wildcard "*" can be used to represent zero or more characters instead of specifying the full or mangled name.\n It is important to note that the wildcard "*" is also added implicitly. For example, specifying "foo" will match "foobaz", "barfoo", "barfoobaz" and thus preserve all kernels with those names. This can be avoided by providing a more specific name like "barfoobaz".\n Option type: const char **\n Applies to: dynamic linker only. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITReferencedKernelNames JITOption = 25
-	// JITReferencedKernelCount: \deprecated Number of entries in [JITReferencedKernelNames] array.\n Option type: unsigned int\n Applies to: dynamic linker only Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITReferencedKernelCount: \deprecated Number of entries in [JITReferencedKernelNames] array.\n Option type: unsigned int\n Applies to: dynamic linker only. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITReferencedKernelCount JITOption = 26
-	// JITReferencedVariableNames: \deprecated Array of variable names (__device__ and/or __constant__) that should be preserved at link time while others can be removed.\n Must contain [JITReferencedVariableCount] entries.\n Note that variable names can be mangled by the compiler in which case the mangled name needs to be specified.\n Wildcard "*" can be used to represent zero or more characters instead of specifying the full or mangled name.\n It is important to note that the wildcard "*" is also added implicitly. For example, specifying "foo" will match "foobaz", "barfoo", "barfoobaz" and thus preserve all variables with those names. This can be avoided by providing a more specific name like "barfoobaz".\n Option type: const char **\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITReferencedVariableNames: \deprecated Array of variable names (__device__ and/or __constant__) that should be preserved at link time while others can be removed.\n Must contain [JITReferencedVariableCount] entries.\n Note that variable names can be mangled by the compiler in which case the mangled name needs to be specified.\n Wildcard "*" can be used to represent zero or more characters instead of specifying the full or mangled name.\n It is important to note that the wildcard "*" is also added implicitly. For example, specifying "foo" will match "foobaz", "barfoo", "barfoobaz" and thus preserve all variables with those names. This can be avoided by providing a more specific name like "barfoobaz".\n Option type: const char **\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITReferencedVariableNames JITOption = 27
-	// JITReferencedVariableCount: \deprecated Number of entries in [JITReferencedVariableNames] array.\n Option type: unsigned int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITReferencedVariableCount: \deprecated Number of entries in [JITReferencedVariableNames] array.\n Option type: unsigned int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITReferencedVariableCount JITOption = 28
-	// JITOptimizeUnusedDeviceVariables: \deprecated This option serves as a hint to enable the JIT compiler/linker to remove constant (__constant__) and device (__device__) variables unreferenced in device code (Disabled by default).\n Note that host references to constant and device variables using APIs like [Module.Global] with this option specified may result in undefined behavior unless the variables are explicitly specified using [JITReferencedVariableNames].\n Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITOptimizeUnusedDeviceVariables: \deprecated This option serves as a hint to enable the JIT compiler/linker to remove constant (__constant__) and device (__device__) variables unreferenced in device code (Disabled by default).\n Note that host references to constant and device variables using APIs like [Module.Global] with this option specified may result in undefined behavior unless the variables are explicitly specified using [JITReferencedVariableNames].\n Option type: int\n Applies to: link-time optimization specified with [JITLto]. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITOptimizeUnusedDeviceVariables JITOption = 29
 	// JITPositionIndependentCode: Generate position independent code (0: false)\n Option type: int\n Applies to: compiler only
 	JITPositionIndependentCode JITOption = 30
@@ -2039,7 +2043,7 @@ const (
 	JitInputObject JitInputType = 3
 	// JitInputLibrary: Archive of host objects with embedded device code\n Applicable options: PTX compiler options, [JITFallbackStrategy]
 	JitInputLibrary JitInputType = 4
-	// JitInputNvvm: \deprecated High-level intermediate code for link-time optimization\n Applicable options: NVVM compiler options, PTX compiler options Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JitInputNvvm: \deprecated High-level intermediate code for link-time optimization\n Applicable options: NVVM compiler options, PTX compiler options. Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JitInputNvvm     JitInputType = 5
 	JitNumInputTypes JitInputType = 6
 )
@@ -2401,6 +2405,8 @@ func (e SynchronizationPolicy) String() string {
 }
 
 // ClusterSchedulingPolicy represents cluster scheduling policies.
+//
+// These may be passed to [Function.SetAttribute] or [Kernel.SetAttribute]
 type ClusterSchedulingPolicy int32
 
 const (
@@ -2423,7 +2429,9 @@ func (e ClusterSchedulingPolicy) String() string {
 	return fmt.Sprintf("ClusterSchedulingPolicy(%d)", e)
 }
 
-// LaunchMemSyncDomain represents memory Synchronization Domain A kernel can be launched in a specified memory synchronization domain that affects all memory operations issued by that kernel. A memory barrier issued in one domain will only order memory operations in that domain, thus eliminating latency increase from memory barriers ordering unrelated traffic. By default, kernels are launched in domain 0. Kernel launched with [LaunchMemSyncDomainRemote] will have a different domain ID. User may also alter the domain ID with [LaunchMemSyncDomainMap] for a specific stream / graph node / kernel launch. See [LaunchAttributeMemSyncDomain], [Stream.SetAttribute], [Function.LaunchKernelEx], [KernelNode.SetAttribute]. Memory operations done in kernels launched in different domains are considered system-scope distanced. In other words, a GPU scoped memory synchronization is not sufficient for memory order to be observed by kernels in another memory synchronization domain even if they are on the same GPU.
+// LaunchMemSyncDomain represents memory Synchronization Domain.
+//
+// A kernel can be launched in a specified memory synchronization domain that affects all memory operations issued by that kernel. A memory barrier issued in one domain will only order memory operations in that domain, thus eliminating latency increase from memory barriers ordering unrelated traffic. By default, kernels are launched in domain 0. Kernel launched with [LaunchMemSyncDomainRemote] will have a different domain ID. User may also alter the domain ID with [LaunchMemSyncDomainMap] for a specific stream / graph node / kernel launch. See [LaunchAttributeMemSyncDomain], [Stream.SetAttribute], [Function.LaunchKernelEx], [KernelNode.SetAttribute]. Memory operations done in kernels launched in different domains are considered system-scope distanced. In other words, a GPU scoped memory synchronization is not sufficient for memory order to be observed by kernels in another memory synchronization domain even if they are on the same GPU.
 type LaunchMemSyncDomain int32
 
 const (
@@ -2581,6 +2589,8 @@ func (e StreamCaptureStatus) String() string {
 }
 
 // StreamCaptureMode represents possible modes for stream capture thread interactions.
+//
+// For more details see [Stream.BeginCapture] and [ThreadExchangeStreamCaptureMode]
 type StreamCaptureMode int32
 
 const (
@@ -2603,6 +2613,8 @@ func (e StreamCaptureMode) String() string {
 }
 
 // DriverprocaddressFlags represents flags to specify search options.
+//
+// For more details see [GetProcAddress]
 type DriverprocaddressFlags int32
 
 const (
@@ -2625,6 +2637,8 @@ func (e DriverprocaddressFlags) String() string {
 }
 
 // DriverProcAddressQueryResult represents flags to indicate search status.
+//
+// For more details see [GetProcAddress]
 type DriverProcAddressQueryResult int32
 
 const (
@@ -3520,6 +3534,8 @@ func (e MempoolAttribute) String() string {
 }
 
 // MemcpyFlags represents flags to specify for copies within a batch.
+//
+// For more details see [Stream.MemcpyBatchAsync].
 type MemcpyFlags int32
 
 const (
@@ -3539,6 +3555,8 @@ func (e MemcpyFlags) String() string {
 }
 
 // MemcpySrcAccessOrder represents flags that allow applications to convey the source access ordering CUDA must maintain.
+//
+// The destination will always be accessed in stream order.
 type MemcpySrcAccessOrder int32
 
 const (

@@ -4,7 +4,7 @@ package nvfatbin
 
 import "unsafe"
 
-// AddCubin [Handle.AddCubin] adds a CUDA binary to the fatbinary.
+// AddCubin adds a CUDA binary to the fatbinary.
 //
 //   - code (in): The cubin
 //   - size (in): The size of the cubin
@@ -16,7 +16,7 @@ func (h Handle) AddCubin(code unsafe.Pointer, size uint, arch string, identifier
 	return addCubin(h, code, size, arch, identifier)
 }
 
-// AddIndex [Handle.AddIndex] adds an index file to the fatbinary.
+// AddIndex adds an index file to the fatbinary.
 //
 //   - code (in): The index
 //   - size (in): The size of the index
@@ -27,7 +27,7 @@ func (h Handle) AddIndex(code unsafe.Pointer, size uint, identifier string) erro
 	return addIndex(h, code, size, identifier)
 }
 
-// AddLTOIR [Handle.AddLTOIR] adds LTOIR to the fatbinary.
+// AddLTOIR adds LTOIR to the fatbinary.
 //
 //   - code (in): The LTOIR code
 //   - size (in): The size of the LTOIR code
@@ -40,7 +40,7 @@ func (h Handle) AddLTOIR(code unsafe.Pointer, size uint, arch string, identifier
 	return addLTOIR(h, code, size, arch, identifier, optionsCmdLine)
 }
 
-// AddPTX [Handle.AddPTX] adds PTX to the fatbinary.
+// AddPTX adds PTX to the fatbinary.
 //
 //   - code (in): The PTX code
 //   - size (in): The size of the PTX code
@@ -53,7 +53,7 @@ func (h Handle) AddPTX(code unsafe.Pointer, size uint, arch string, identifier s
 	return addPTX(h, code, size, arch, identifier, optionsCmdLine)
 }
 
-// AddReloc [Handle.AddReloc] adds relocatable PTX entries from a host object to the fatbinary.
+// AddReloc adds relocatable PTX entries from a host object to the fatbinary.
 //
 //   - code (in): The host object image
 //   - size (in): The size of the host object image code
@@ -63,7 +63,7 @@ func (h Handle) AddReloc(code unsafe.Pointer, size uint) error {
 	return addReloc(h, code, size)
 }
 
-// AddTileIR [Handle.AddTileIR] adds Tile IR to the fatbinary.
+// AddTileIR adds Tile IR to the fatbinary.
 //
 //   - code (in): The Tile IR
 //   - size (in): The size of the Tile IR
@@ -75,21 +75,21 @@ func (h Handle) AddTileIR(code unsafe.Pointer, size uint, identifier string, opt
 	return addTileIR(h, code, size, identifier, optionsCmdLine)
 }
 
-// Get [Handle.Get] returns the completed fatbinary.
+// Get returns the completed fatbinary.
 //
 // Wraps nvFatbinGet.
 func (h Handle) Get() ([]byte, error) {
 	return get(h)
 }
 
-// Size [Handle.Size] returns the fatbinary's size.
+// Size returns the fatbinary's size.
 //
 // Wraps nvFatbinSize.
 func (h Handle) Size() (uint, error) {
 	return size(h)
 }
 
-// Destroy [Handle.Destroy] destroys the handle.
+// Destroy destroys the handle.
 //
 // Wraps nvFatbinDestroy.
 func (h *Handle) Destroy() error {

@@ -25,6 +25,9 @@ func (h Handle) ErrorLog() (string, error) {
 }
 
 // ErrorLogSize wraps nvJitLinkGetErrorLogSize, bound as __nvJitLinkGetErrorLogSize_13_2.
+//
+// The size counts the terminating NUL that [Handle.ErrorLog] drops, so it is one more
+// than the length of that result.
 func (h Handle) ErrorLogSize() (uint, error) {
 	return getErrorLogSize(h)
 }
@@ -35,6 +38,9 @@ func (h Handle) InfoLog() (string, error) {
 }
 
 // InfoLogSize wraps nvJitLinkGetInfoLogSize, bound as __nvJitLinkGetInfoLogSize_13_2.
+//
+// The size counts the terminating NUL that [Handle.InfoLog] drops, so it is one more
+// than the length of that result.
 func (h Handle) InfoLogSize() (uint, error) {
 	return getInfoLogSize(h)
 }
@@ -57,6 +63,9 @@ func (h Handle) LinkedPtx() ([]byte, error) {
 }
 
 // LinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound as __nvJitLinkGetLinkedPtxSize_13_2.
+//
+// The size counts the terminating NUL that [Handle.LinkedPtx] drops, so it is one more
+// than the length of that result.
 func (h Handle) LinkedPtxSize() (uint, error) {
 	return getLinkedPtxSize(h)
 }

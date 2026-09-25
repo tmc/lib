@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func testPhaseConfig() PhaseConfig {
@@ -30,7 +31,7 @@ func TestPhaseCaptureValidation(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		ctx      cupti.Context
+		ctx      driver.Context
 		cfg      func(*PhaseConfig)
 		syncFn   func() error
 		workload func(context.Context) error
@@ -143,7 +144,7 @@ func TestPhaseCaptureLifecycle(t *testing.T) {
 		return origDisable(p)
 	}
 
-	mockStarter := func(ctx cupti.Context, cfg Config) (*Session, error) {
+	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		return startSession(ctx, cfg, api, testPublicInventory, testPublicNames, testPublicOnePC)
 	}
 
@@ -202,7 +203,7 @@ func TestPhaseCaptureLifecycle(t *testing.T) {
 // TestPhaseCaptureWorkloadFailure verifies that workload errors are reported separately,
 // synchronization is still attempted, and session is cleanly closed without leaking resources.
 func TestPhaseCaptureWorkloadFailure(t *testing.T) {
-	mockStarter := func(ctx cupti.Context, cfg Config) (*Session, error) {
+	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		return startSession(ctx, cfg, testPublicControlAPI(), testPublicInventory, testPublicNames, testPublicEmptyQuery)
 	}
 
@@ -237,7 +238,7 @@ func TestPhaseCaptureWorkloadFailure(t *testing.T) {
 
 // TestPhaseCaptureCancellation verifies context cancellation is reported separately in report.Canceled.
 func TestPhaseCaptureCancellation(t *testing.T) {
-	mockStarter := func(ctx cupti.Context, cfg Config) (*Session, error) {
+	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		return startSession(ctx, cfg, testPublicControlAPI(), testPublicInventory, testPublicNames, testPublicEmptyQuery)
 	}
 
@@ -266,7 +267,7 @@ func TestPhaseCaptureCancellation(t *testing.T) {
 
 // TestPhaseCaptureConsumerFailure verifies consumer errors are reported separately in report.ConsumerErr.
 func TestPhaseCaptureConsumerFailure(t *testing.T) {
-	mockStarter := func(ctx cupti.Context, cfg Config) (*Session, error) {
+	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		return startSession(ctx, cfg, testPublicControlAPI(), testPublicInventory, testPublicNames, testPublicOnePC)
 	}
 
@@ -289,7 +290,7 @@ func TestPhaseCaptureConsumerFailure(t *testing.T) {
 // TestPhaseCaptureLossReporting tests that dropped samples and hardware overflow
 // are reported separately in the PhaseReport.
 func TestPhaseCaptureLossReporting(t *testing.T) {
-	mockStarter := func(ctx cupti.Context, cfg Config) (*Session, error) {
+	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		queryWithLoss := func(p *cupti.PCSamplingGetDataParams) error {
 			d := (*cupti.PCSamplingData)(nativePointer(p.PcSamplingData))
 			d.TotalNumPcs = 1
@@ -324,7 +325,7 @@ func TestPhaseCaptureLossReporting(t *testing.T) {
 // TestPhaseCaptureRemainingSamples verifies that when MaxBatches limits drainage,
 // remaining PCs / samples are reported separately.
 func TestPhaseCaptureRemainingSamples(t *testing.T) {
-	mockStarter := func(ctx cupti.Context, cfg Config) (*Session, error) {
+	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		queryRemaining := func(p *cupti.PCSamplingGetDataParams) error {
 			d := (*cupti.PCSamplingData)(nativePointer(p.PcSamplingData))
 			d.TotalNumPcs = 1
@@ -360,7 +361,7 @@ func TestPhaseCaptureRemainingSamples(t *testing.T) {
 // TestPhaseCaptureConcurrentDrainConsumer verifies the full concurrent ring buffer drain path.
 func TestPhaseCaptureConcurrentDrainConsumer(t *testing.T) {
 	var queryCalls int32
-	mockStarter := func(ctx cupti.Context, cfg Config) (*Session, error) {
+	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		cfg.BufferCount = 3
 		cfg.MaxReads = 10
 		query := func(p *cupti.PCSamplingGetDataParams) error {
@@ -425,7 +426,7 @@ func TestPhaseCaptureNoPrematureTeardown(t *testing.T) {
 	consumerActive := false
 	var mu sync.Mutex
 
-	mockStarter := func(ctx cupti.Context, cfg Config) (*Session, error) {
+	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		cfg.BufferCount = 3
 		cfg.MaxReads = 10
 		api := testPublicControlAPI()

@@ -2,7 +2,7 @@
 
 package driver
 
-// Destroy Destroys the specified memory pool.
+// Destroy destroys the specified memory pool.
 //
 // If any pointers obtained from this pool haven’t been freed or the pool has free operations that haven’t completed when [MemoryPool.Destroy] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations.
 // Destroying the current mempool of a device sets the default mempool of that device as the current mempool for that device.
@@ -16,7 +16,7 @@ func (m MemoryPool) Destroy() error {
 	return memPoolDestroy(m)
 }
 
-// ExportToShareableHandle Exports a memory pool to the requested handle type.
+// ExportToShareableHandle exports a memory pool to the requested handle type.
 //
 // Given an IPC capable mempool, create an OS handle to share the pool with another process. A recipient process can convert the shareable handle into a mempool with [MemPoolImportFromShareableHandle]. Individual pointers can then be shared with the [DevicePtr.MemPoolExportPointer] and [MemoryPool.ImportPointer] APIs. The implementation of what the shareable handle is and how it can be transferred is defined by the requested handle type.
 //
@@ -33,7 +33,7 @@ func (m MemoryPool) ExportToShareableHandle(handleOut uintptr, handleType MemAll
 	return memPoolExportToShareableHandle(handleOut, m, handleType, flags)
 }
 
-// Access Returns the accessibility of a pool from a device.
+// Access returns the accessibility of a pool from a device.
 //
 // Returns the accessibility of the pool’s memory from the specified location.
 //
@@ -46,7 +46,7 @@ func (m MemoryPool) Access(location *MemLocation) (MemaccessFlags, error) {
 	return memPoolGetAccess(m, location)
 }
 
-// Attribute Gets attributes of a memory pool.
+// Attribute gets attributes of a memory pool.
 //
 // Supported attributes are:
 // The following properties can be also be queried on imported and default pools:
@@ -63,7 +63,7 @@ func (m MemoryPool) Attribute(attr MempoolAttribute, value uintptr) error {
 	return memPoolGetAttribute(m, attr, value)
 }
 
-// ImportPointer Import a memory pool allocation from another process.
+// ImportPointer imports a memory pool allocation from another process.
 //
 // Returns in ptrOut a pointer to the imported memory. The imported memory must not be accessed before the allocation operation completes in the exporting process. The imported memory must be freed from all importing processes before being freed in the exporting process. The pointer may be freed with [DevicePtr.Free] or [DevicePtr.FreeAsync]. If [DevicePtr.FreeAsync] is used, the free must be completed on the importing process before the free operation on the exporting process.
 //
@@ -78,7 +78,7 @@ func (m MemoryPool) ImportPointer(shareData *MemPoolPtrExportData) (DevicePtr, e
 	return memPoolImportPointer(m, shareData)
 }
 
-// SetAccess Controls visibility of pools between devices.
+// SetAccess controls visibility of pools between devices.
 //
 // See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
@@ -89,7 +89,7 @@ func (m MemoryPool) SetAccess(map_ *MemAccessDesc, count uint) error {
 	return memPoolSetAccess(m, map_, count)
 }
 
-// SetAttribute Sets attributes of a memory pool.
+// SetAttribute sets attributes of a memory pool.
 //
 // Supported attributes are:
 //
@@ -103,7 +103,7 @@ func (m MemoryPool) SetAttribute(attr MempoolAttribute, value uintptr) error {
 	return memPoolSetAttribute(m, attr, value)
 }
 
-// TrimTo Tries to release memory back to the OS.
+// TrimTo tries to release memory back to the OS.
 //
 // Releases memory back to the OS until the pool contains fewer than minBytesToKeep reserved bytes, or there is no more memory that the allocator can safely release. The allocator cannot release OS allocations that back outstanding asynchronous allocations. The OS allocations may happen at different granularity from the user allocations.
 //
@@ -120,7 +120,7 @@ func (m MemoryPool) TrimTo(minBytesToKeep uint) error {
 	return memPoolTrimTo(m, minBytesToKeep)
 }
 
-// MemAllocFromPoolAsync Allocates memory from a specified pool with stream ordered semantics.
+// MemAllocFromPoolAsync allocates memory from a specified pool with stream ordered semantics.
 //
 // Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the specified memory pool.
 //
@@ -156,7 +156,7 @@ func (m MemoryPool) MemAllocFromPoolAsyncBytes(bytesize uint, hStream Stream) (D
 	return memAllocFromPoolAsync(bytesize, m, hStream)
 }
 
-// MemSetMemPool Sets the current memory pool for a memory location and allocation type.
+// MemSetMemPool sets the current memory pool for a memory location and allocation type.
 //
 // The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. In all other cases, the call returns [ErrInvalidValue].
 // When a memory pool is set as the current memory pool, the location parameter should be the same as the location of the pool. The location and allocation type specified must match those of the pool otherwise [ErrInvalidValue] is returned. By default, a memory location’s current memory pool is its default memory pool that can be obtained via [MemGetDefaultMemPool]. If the location type is [MemLocationTypeDevice] and the allocation type is [MemAllocationTypePinned], then this API is the equivalent of calling [Device.SetMemPool] with the location id as the device. For further details on the implications, please refer to the documentation for [Device.SetMemPool].
@@ -170,7 +170,7 @@ func (m MemoryPool) MemSetMemPool(location *MemLocation, type_ MemAllocationType
 	return memSetMemPool(location, type_, m)
 }
 
-// NewMemoryPool Creates a memory pool.
+// NewMemoryPool creates a memory pool.
 //
 // Creates a CUDA memory pool and returns the handle in pool. The poolProps determines the properties of the pool such as the backing device and IPC capabilities.
 // To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHost]. [MemPoolProps].CUmemLocationid is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHostNuma] and [MemPoolProps].CUmemLocationid must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].CUmemLocationtype will result in [ErrInvalidValue]. To create a memory pool targeting a specific device locality domain, applications must set [MemPoolProps].CUmemLocationtype to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN, [MemPoolProps].CUmemLocationlocalized.deviceId must specify the device ID, and [MemPoolProps].CUmemLocationlocalized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT.
@@ -178,7 +178,7 @@ func (m MemoryPool) MemSetMemPool(location *MemLocation, type_ MemAllocationType
 // Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) nvidia-caps-imex-channels character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application.
 // When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory.
 // The IMEX channel security model works on a per user basis. Which means all processes under a user can share memory if the user has access to a valid IMEX channel. When multi-user isolation is desired, a separate IMEX channel is required for each user.
-// These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c 0
+// These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c <major number> 0
 // To create a managed memory pool, applications must set [MemPoolProps].[MemAllocationType] to [MemAllocationTypeManaged]. [MemPoolProps].[MemAllocationHandleType] must also be set to [MemHandleTypeNone] since IPC is not supported. For managed memory pools, [MemPoolProps].[MemLocation] will be treated as the preferred location for all allocations created from the pool. An application can also set [MemLocationTypeNone] to indicate no preferred location. [MemPoolProps].maxSize must be set to zero for managed memory pools. [MemPoolProps].usage should be zero as decompress for managed memory is not supported. For managed memory pools, all devices on the system must have non-zero concurrentManagedAccess. If not, this call returns [ErrNotSupported]
 //
 // Note: On devices with a single locality domain, a memory pool created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 is equivalent to a full-device memory pool created with [MemLocationTypeDevice]. The pool will report [MemLocationTypeDevice] for [MempoolAttrLocationType] and -1 for CU_MEMPOOL_ATTR_LOCALITY_DOMAIN_ID.

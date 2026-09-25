@@ -2,7 +2,7 @@
 
 package driver
 
-// EnumerateFunctions Returns the function handles within a module.
+// EnumerateFunctions returns the function handles within a module.
 //
 // Returns in functions a maximum number of numFunctions function handles within mod. When function loading mode is set to LAZY the function retrieved may be partially loaded. The loading state of a function can be queried using cuFunctionIsLoaded. CUDA APIs may load the function automatically when called with partially loaded function handle which may incur additional latency. Alternatively, cuFunctionLoad can be used to explicitly load a function. The returned function handles become invalid when the module is unloaded.
 //
@@ -16,7 +16,7 @@ func (m Module) EnumerateFunctions(functions *Function, numFunctions uint32) err
 	return moduleEnumerateFunctions(functions, numFunctions, m)
 }
 
-// Function Returns a function handle.
+// Function returns a function handle.
 //
 // Returns in *hfunc the handle of the function of name name located in module hmod. If no function of that name exists, [Module.Function] returns [ErrNotFound].
 //
@@ -31,7 +31,7 @@ func (m Module) Function(name string) (Function, error) {
 	return moduleGetFunction(m, name)
 }
 
-// FunctionCount Returns the number of functions within a module.
+// FunctionCount returns the number of functions within a module.
 //
 // Returns in count the number of functions in mod.
 //
@@ -40,7 +40,7 @@ func (m Module) FunctionCount() (uint32, error) {
 	return moduleGetFunctionCount(m)
 }
 
-// Global Returns a global pointer from a module.
+// Global returns a global pointer from a module.
 //
 // Returns in *dptr and *bytes the base pointer and size of the global of name name located in module hmod. If no variable of that name exists, [Module.Global] returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored.
 //
@@ -55,7 +55,7 @@ func (m Module) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 	return moduleGetGlobal(m, name)
 }
 
-// SurfRef Returns a handle to a surface reference.
+// SurfRef returns a handle to a surface reference.
 //
 // Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.SurfRef] returns [ErrNotFound].
 //
@@ -65,14 +65,14 @@ func (m Module) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 //
 //   - name: Name of surface reference to retrieve
 //
-// Deprecated: Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.SurfRef] returns [ErrNotFound].
+// Deprecated: This function is deprecated.
 //
 // Wraps cuModuleGetSurfRef.
 func (m Module) SurfRef(name *byte) (SurfRef, error) {
 	return moduleGetSurfRef(m, name)
 }
 
-// TexRef Returns a handle to a texture reference.
+// TexRef returns a handle to a texture reference.
 //
 // Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.TexRef] returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded.
 //
@@ -82,14 +82,14 @@ func (m Module) SurfRef(name *byte) (SurfRef, error) {
 //
 //   - name: Name of texture reference to retrieve
 //
-// Deprecated: Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.TexRef] returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuModuleGetTexRef.
 func (m Module) TexRef(name *byte) (TexRef, error) {
 	return moduleGetTexRef(m, name)
 }
 
-// Unload Unloads a module.
+// Unload unloads a module.
 //
 // Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.Module] will return [ErrNotPermitted].
 //
@@ -104,7 +104,7 @@ func (m Module) Unload() error {
 	return moduleUnload(m)
 }
 
-// ModuleLoad Loads a compute module.
+// ModuleLoad loads a compute module.
 //
 // Takes a filename fname and loads the corresponding module module into the current context. The CUDA driver API does not attempt to lazily allocate the resources needed by a module; if the memory for functions and data (constant and global) needed by the module cannot be allocated, [ModuleLoad] fails. The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc from toolchain 4.0 or later, or a Tile IR file.
 //
@@ -119,9 +119,9 @@ func ModuleLoad(fname string) (Module, error) {
 	return moduleLoad(fname)
 }
 
-// ModuleLoadData Load a module’s data.
+// ModuleLoadData loads a module’s data.
 //
-// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data.
+// Takes image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data.
 //
 // Note that this function may also return error codes from previous, asynchronous launches.
 //
@@ -129,17 +129,19 @@ func ModuleLoad(fname string) (Module, error) {
 //
 //   - image: Module data to load
 //
-// If image does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise image is passed without copying.
+// The wrapper passes image to C without copying if a NUL byte ends it or
+// follows it in its capacity, as one does in text a generated getter returns,
+// or if it starts with the ELF or fatbin magic number. Otherwise image is text,
+// and the wrapper copies it once to append a NUL.
 //
 // Wraps cuModuleLoadData.
 func ModuleLoadData(image []byte) (Module, error) {
 	return moduleLoadData(image)
 }
 
-// ModuleLoadDataEx Load a module’s data with options.
+// ModuleLoadDataEx loads a module’s data with options.
 //
-// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data.
+// Takes image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data.
 //
 // Note that this function may also return error codes from previous, asynchronous launches.
 //
@@ -150,17 +152,19 @@ func ModuleLoadData(image []byte) (Module, error) {
 //   - options: Options for JIT
 //   - optionValues: Option values for JIT
 //
-// If image does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise image is passed without copying.
+// The wrapper passes image to C without copying if a NUL byte ends it or
+// follows it in its capacity, as one does in text a generated getter returns,
+// or if it starts with the ELF or fatbin magic number. Otherwise image is text,
+// and the wrapper copies it once to append a NUL.
 //
 // Wraps cuModuleLoadDataEx.
 func ModuleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optionValues *uintptr) (Module, error) {
 	return moduleLoadDataEx(image, numOptions, options, optionValues)
 }
 
-// ModuleLoadFatBinary Load a module’s data.
+// ModuleLoadFatBinary loads a module’s data.
 //
-// Takes a pointer fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures.
+// Takes fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures.
 // Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document.
 //
 // Note that this function may also return error codes from previous, asynchronous launches.
@@ -168,9 +172,6 @@ func ModuleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optio
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [Module.Unload]
 //
 //   - fatCubin: Fat binary to load
-//
-// If fatCubin does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise fatCubin is passed without copying.
 //
 // Wraps cuModuleLoadFatBinary.
 func ModuleLoadFatBinary(fatCubin []byte) (Module, error) {

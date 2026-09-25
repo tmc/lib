@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
@@ -21,7 +20,7 @@ func TestNativeStallReasons(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		ctxHandle := cupti.Context(ctx)
+		ctxHandle := ctx
 		disable, err := cuptipcsampling.Enable(ctxHandle)
 		if disable != nil {
 			defer func() {

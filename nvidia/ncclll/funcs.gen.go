@@ -3,17 +3,73 @@
 package ncclll
 
 import (
+	"sync"
+
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
 // Generated function pointer variables.
 var (
-	fnCalcMinReductionBufferSize func(LLSyncMode, int32, int32, int32, int32, int32) uint
-	fnLLGetPoisonValue           func(nccl.DataType) uint32
-	fnLLPoisonBuffer             func(uintptr, uint, nccl.DataType) nccl.Result
-	fnLLPoisonBufferAsync        func(uintptr, uint, nccl.DataType, driver.Stream) nccl.Result
+	symCalcMinReductionBufferSize uintptr
+	fnLLGetPoisonValue            func(nccl.DataType) uint32
+	fnLLPoisonBuffer              func(uintptr, uint, nccl.DataType) nccl.Result
+	fnLLPoisonBufferAsync         func(uintptr, uint, nccl.DataType, driver.Stream) nccl.Result
 )
+
+// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnCalcMinReductionBufferSize calls ncclCalcMinReductionBufferSize.
+func fnCalcMinReductionBufferSize(a0 LLSyncMode, a1 int32, a2 int32, a3 int32, a4 int32, a5 int32) uint {
+	r1, _ := ffiCall6(symCalcMinReductionBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return uint(r1)
+}
 
 // CalcMinReductionBufferSize wraps ncclCalcMinReductionBufferSize.
 // It panics if the library cannot be loaded or lacks the symbol.

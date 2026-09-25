@@ -325,6 +325,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -412,1082 +427,1082 @@ func checkLibSym(symbol string) error {
 func registerFuncs() {
 	register(&fnGetStatusName, "cublasGetStatusName")
 	register(&fnGetStatusString, "cublasGetStatusString")
-	register(&fnasumEx, "cublasAsumEx")
-	register(&fnasumEx64, "cublasAsumEx_64")
-	register(&fnaxpyEx, "cublasAxpyEx")
-	register(&fnaxpyEx64, "cublasAxpyEx_64")
-	register(&fncaxpy, "cublasCaxpy_v2")
-	register(&fncaxpy64, "cublasCaxpy_v2_64")
-	register(&fnccopy, "cublasCcopy_v2")
-	register(&fnccopy64, "cublasCcopy_v2_64")
-	register(&fncdgmm, "cublasCdgmm")
-	register(&fncdgmm64, "cublasCdgmm_64")
-	register(&fncdotc, "cublasCdotc_v2")
-	register(&fncdotc64, "cublasCdotc_v2_64")
-	register(&fncdotu, "cublasCdotu_v2")
-	register(&fncdotu64, "cublasCdotu_v2_64")
-	register(&fncgbmv, "cublasCgbmv_v2")
-	register(&fncgbmv64, "cublasCgbmv_v2_64")
-	register(&fncgeam, "cublasCgeam")
-	register(&fncgeam64, "cublasCgeam_64")
-	register(&fncgelsBatched, "cublasCgelsBatched")
-	register(&fncgemm3m, "cublasCgemm3m")
-	register(&fncgemm3mBatched, "cublasCgemm3mBatched")
-	register(&fncgemm3mBatched64, "cublasCgemm3mBatched_64")
-	register(&fncgemm3mEx, "cublasCgemm3mEx")
-	register(&fncgemm3mEx64, "cublasCgemm3mEx_64")
-	register(&fncgemm3mStridedBatched, "cublasCgemm3mStridedBatched")
-	register(&fncgemm3mStridedBatched64, "cublasCgemm3mStridedBatched_64")
-	register(&fncgemm3m64, "cublasCgemm3m_64")
-	register(&fncgemmBatched, "cublasCgemmBatched")
-	register(&fncgemmBatched64, "cublasCgemmBatched_64")
-	register(&fncgemmEx, "cublasCgemmEx")
-	register(&fncgemmEx64, "cublasCgemmEx_64")
-	register(&fncgemmStridedBatched, "cublasCgemmStridedBatched")
-	register(&fncgemmStridedBatched64, "cublasCgemmStridedBatched_64")
-	register(&fncgemm, "cublasCgemm_v2")
-	register(&fncgemm64, "cublasCgemm_v2_64")
-	register(&fncgemvBatched, "cublasCgemvBatched")
-	register(&fncgemvBatched64, "cublasCgemvBatched_64")
-	register(&fncgemvStridedBatched, "cublasCgemvStridedBatched")
-	register(&fncgemvStridedBatched64, "cublasCgemvStridedBatched_64")
-	register(&fncgemv, "cublasCgemv_v2")
-	register(&fncgemv64, "cublasCgemv_v2_64")
-	register(&fncgeqrfBatched, "cublasCgeqrfBatched")
-	register(&fncgerc, "cublasCgerc_v2")
-	register(&fncgerc64, "cublasCgerc_v2_64")
-	register(&fncgeru, "cublasCgeru_v2")
-	register(&fncgeru64, "cublasCgeru_v2_64")
-	register(&fncgetrfBatched, "cublasCgetrfBatched")
-	register(&fncgetriBatched, "cublasCgetriBatched")
-	register(&fncgetrsBatched, "cublasCgetrsBatched")
-	register(&fnchbmv, "cublasChbmv_v2")
-	register(&fnchbmv64, "cublasChbmv_v2_64")
-	register(&fnchemm, "cublasChemm_v2")
-	register(&fnchemm64, "cublasChemm_v2_64")
-	register(&fnchemv, "cublasChemv_v2")
-	register(&fnchemv64, "cublasChemv_v2_64")
-	register(&fncher2, "cublasCher2_v2")
-	register(&fncher264, "cublasCher2_v2_64")
-	register(&fncher2k, "cublasCher2k_v2")
-	register(&fncher2k64, "cublasCher2k_v2_64")
-	register(&fncher, "cublasCher_v2")
-	register(&fncher64, "cublasCher_v2_64")
-	register(&fncherk3mEx, "cublasCherk3mEx")
-	register(&fncherk3mEx64, "cublasCherk3mEx_64")
-	register(&fncherkEx, "cublasCherkEx")
-	register(&fncherkEx64, "cublasCherkEx_64")
-	register(&fncherk, "cublasCherk_v2")
-	register(&fncherk64, "cublasCherk_v2_64")
-	register(&fncherkx, "cublasCherkx")
-	register(&fncherkx64, "cublasCherkx_64")
-	register(&fnchpmv, "cublasChpmv_v2")
-	register(&fnchpmv64, "cublasChpmv_v2_64")
-	register(&fnchpr2, "cublasChpr2_v2")
-	register(&fnchpr264, "cublasChpr2_v2_64")
-	register(&fnchpr, "cublasChpr_v2")
-	register(&fnchpr64, "cublasChpr_v2_64")
-	register(&fncmatinvBatched, "cublasCmatinvBatched")
-	register(&fncopyEx, "cublasCopyEx")
-	register(&fncopyEx64, "cublasCopyEx_64")
-	register(&fnCreate, "cublasCreate_v2")
-	register(&fncrot, "cublasCrot_v2")
-	register(&fncrot64, "cublasCrot_v2_64")
-	register(&fncrotg, "cublasCrotg_v2")
-	register(&fncscal, "cublasCscal_v2")
-	register(&fncscal64, "cublasCscal_v2_64")
-	register(&fncsrot, "cublasCsrot_v2")
-	register(&fncsrot64, "cublasCsrot_v2_64")
-	register(&fncsscal, "cublasCsscal_v2")
-	register(&fncsscal64, "cublasCsscal_v2_64")
-	register(&fncswap, "cublasCswap_v2")
-	register(&fncswap64, "cublasCswap_v2_64")
-	register(&fncsymm, "cublasCsymm_v2")
-	register(&fncsymm64, "cublasCsymm_v2_64")
-	register(&fncsymv, "cublasCsymv_v2")
-	register(&fncsymv64, "cublasCsymv_v2_64")
-	register(&fncsyr2, "cublasCsyr2_v2")
-	register(&fncsyr264, "cublasCsyr2_v2_64")
-	register(&fncsyr2k, "cublasCsyr2k_v2")
-	register(&fncsyr2k64, "cublasCsyr2k_v2_64")
-	register(&fncsyr, "cublasCsyr_v2")
-	register(&fncsyr64, "cublasCsyr_v2_64")
-	register(&fncsyrk3mEx, "cublasCsyrk3mEx")
-	register(&fncsyrk3mEx64, "cublasCsyrk3mEx_64")
-	register(&fncsyrkEx, "cublasCsyrkEx")
-	register(&fncsyrkEx64, "cublasCsyrkEx_64")
-	register(&fncsyrk, "cublasCsyrk_v2")
-	register(&fncsyrk64, "cublasCsyrk_v2_64")
-	register(&fncsyrkx, "cublasCsyrkx")
-	register(&fncsyrkx64, "cublasCsyrkx_64")
-	register(&fnctbmv, "cublasCtbmv_v2")
-	register(&fnctbmv64, "cublasCtbmv_v2_64")
-	register(&fnctbsv, "cublasCtbsv_v2")
-	register(&fnctbsv64, "cublasCtbsv_v2_64")
-	register(&fnctpmv, "cublasCtpmv_v2")
-	register(&fnctpmv64, "cublasCtpmv_v2_64")
-	register(&fnctpsv, "cublasCtpsv_v2")
-	register(&fnctpsv64, "cublasCtpsv_v2_64")
-	register(&fnctpttr, "cublasCtpttr")
-	register(&fnctrmm, "cublasCtrmm_v2")
-	register(&fnctrmm64, "cublasCtrmm_v2_64")
-	register(&fnctrmv, "cublasCtrmv_v2")
-	register(&fnctrmv64, "cublasCtrmv_v2_64")
-	register(&fnctrsmBatched, "cublasCtrsmBatched")
-	register(&fnctrsmBatched64, "cublasCtrsmBatched_64")
-	register(&fnctrsm, "cublasCtrsm_v2")
-	register(&fnctrsm64, "cublasCtrsm_v2_64")
-	register(&fnctrsv, "cublasCtrsv_v2")
-	register(&fnctrsv64, "cublasCtrsv_v2_64")
-	register(&fnctrttp, "cublasCtrttp")
-	register(&fndasum, "cublasDasum_v2")
-	register(&fndasum64, "cublasDasum_v2_64")
-	register(&fndaxpy, "cublasDaxpy_v2")
-	register(&fndaxpy64, "cublasDaxpy_v2_64")
-	register(&fndcopy, "cublasDcopy_v2")
-	register(&fndcopy64, "cublasDcopy_v2_64")
-	register(&fnddgmm, "cublasDdgmm")
-	register(&fnddgmm64, "cublasDdgmm_64")
-	register(&fnddot, "cublasDdot_v2")
-	register(&fnddot64, "cublasDdot_v2_64")
-	register(&fndestroy, "cublasDestroy_v2")
-	register(&fndgbmv, "cublasDgbmv_v2")
-	register(&fndgbmv64, "cublasDgbmv_v2_64")
-	register(&fndgeam, "cublasDgeam")
-	register(&fndgeam64, "cublasDgeam_64")
-	register(&fndgelsBatched, "cublasDgelsBatched")
-	register(&fndgemmBatched, "cublasDgemmBatched")
-	register(&fndgemmBatched64, "cublasDgemmBatched_64")
-	register(&fndgemmGroupedBatched, "cublasDgemmGroupedBatched")
-	register(&fndgemmGroupedBatched64, "cublasDgemmGroupedBatched_64")
-	register(&fndgemmStridedBatched, "cublasDgemmStridedBatched")
-	register(&fndgemmStridedBatched64, "cublasDgemmStridedBatched_64")
-	register(&fndgemm, "cublasDgemm_v2")
-	register(&fndgemm64, "cublasDgemm_v2_64")
-	register(&fndgemvBatched, "cublasDgemvBatched")
-	register(&fndgemvBatched64, "cublasDgemvBatched_64")
-	register(&fndgemvStridedBatched, "cublasDgemvStridedBatched")
-	register(&fndgemvStridedBatched64, "cublasDgemvStridedBatched_64")
-	register(&fndgemv, "cublasDgemv_v2")
-	register(&fndgemv64, "cublasDgemv_v2_64")
-	register(&fndgeqrfBatched, "cublasDgeqrfBatched")
-	register(&fndger, "cublasDger_v2")
-	register(&fndger64, "cublasDger_v2_64")
-	register(&fndgetrfBatched, "cublasDgetrfBatched")
-	register(&fndgetriBatched, "cublasDgetriBatched")
-	register(&fndgetrsBatched, "cublasDgetrsBatched")
-	register(&fndmatinvBatched, "cublasDmatinvBatched")
-	register(&fndnrm2, "cublasDnrm2_v2")
-	register(&fndnrm264, "cublasDnrm2_v2_64")
-	register(&fndotEx, "cublasDotEx")
-	register(&fndotEx64, "cublasDotEx_64")
-	register(&fndotcEx, "cublasDotcEx")
-	register(&fndotcEx64, "cublasDotcEx_64")
-	register(&fndrot, "cublasDrot_v2")
-	register(&fndrot64, "cublasDrot_v2_64")
-	register(&fndrotg, "cublasDrotg_v2")
-	register(&fndrotm, "cublasDrotm_v2")
-	register(&fndrotm64, "cublasDrotm_v2_64")
-	register(&fndrotmg, "cublasDrotmg_v2")
-	register(&fndsbmv, "cublasDsbmv_v2")
-	register(&fndsbmv64, "cublasDsbmv_v2_64")
-	register(&fndscal, "cublasDscal_v2")
-	register(&fndscal64, "cublasDscal_v2_64")
-	register(&fndspmv, "cublasDspmv_v2")
-	register(&fndspmv64, "cublasDspmv_v2_64")
-	register(&fndspr2, "cublasDspr2_v2")
-	register(&fndspr264, "cublasDspr2_v2_64")
-	register(&fndspr, "cublasDspr_v2")
-	register(&fndspr64, "cublasDspr_v2_64")
-	register(&fndswap, "cublasDswap_v2")
-	register(&fndswap64, "cublasDswap_v2_64")
-	register(&fndsymm, "cublasDsymm_v2")
-	register(&fndsymm64, "cublasDsymm_v2_64")
-	register(&fndsymv, "cublasDsymv_v2")
-	register(&fndsymv64, "cublasDsymv_v2_64")
-	register(&fndsyr2, "cublasDsyr2_v2")
-	register(&fndsyr264, "cublasDsyr2_v2_64")
-	register(&fndsyr2k, "cublasDsyr2k_v2")
-	register(&fndsyr2k64, "cublasDsyr2k_v2_64")
-	register(&fndsyr, "cublasDsyr_v2")
-	register(&fndsyr64, "cublasDsyr_v2_64")
-	register(&fndsyrk, "cublasDsyrk_v2")
-	register(&fndsyrk64, "cublasDsyrk_v2_64")
-	register(&fndsyrkx, "cublasDsyrkx")
-	register(&fndsyrkx64, "cublasDsyrkx_64")
-	register(&fndtbmv, "cublasDtbmv_v2")
-	register(&fndtbmv64, "cublasDtbmv_v2_64")
-	register(&fndtbsv, "cublasDtbsv_v2")
-	register(&fndtbsv64, "cublasDtbsv_v2_64")
-	register(&fndtpmv, "cublasDtpmv_v2")
-	register(&fndtpmv64, "cublasDtpmv_v2_64")
-	register(&fndtpsv, "cublasDtpsv_v2")
-	register(&fndtpsv64, "cublasDtpsv_v2_64")
-	register(&fndtpttr, "cublasDtpttr")
-	register(&fndtrmm, "cublasDtrmm_v2")
-	register(&fndtrmm64, "cublasDtrmm_v2_64")
-	register(&fndtrmv, "cublasDtrmv_v2")
-	register(&fndtrmv64, "cublasDtrmv_v2_64")
-	register(&fndtrsmBatched, "cublasDtrsmBatched")
-	register(&fndtrsmBatched64, "cublasDtrsmBatched_64")
-	register(&fndtrsm, "cublasDtrsm_v2")
-	register(&fndtrsm64, "cublasDtrsm_v2_64")
-	register(&fndtrsv, "cublasDtrsv_v2")
-	register(&fndtrsv64, "cublasDtrsv_v2_64")
-	register(&fndtrttp, "cublasDtrttp")
-	register(&fndzasum, "cublasDzasum_v2")
-	register(&fndzasum64, "cublasDzasum_v2_64")
-	register(&fndznrm2, "cublasDznrm2_v2")
-	register(&fndznrm264, "cublasDznrm2_v2_64")
-	register(&fngemmBatchedEx, "cublasGemmBatchedEx")
-	register(&fngemmBatchedEx64, "cublasGemmBatchedEx_64")
-	register(&fngemmEx, "cublasGemmEx")
-	register(&fngemmEx64, "cublasGemmEx_64")
-	register(&fngemmGroupedBatchedEx, "cublasGemmGroupedBatchedEx")
-	register(&fngemmGroupedBatchedEx64, "cublasGemmGroupedBatchedEx_64")
-	register(&fngemmStridedBatchedEx, "cublasGemmStridedBatchedEx")
-	register(&fngemmStridedBatchedEx64, "cublasGemmStridedBatchedEx_64")
-	register(&fngetAtomicsMode, "cublasGetAtomicsMode")
-	register(&fngetEmulationSpecialValuesSupport, "cublasGetEmulationSpecialValuesSupport")
-	register(&fngetEmulationStrategy, "cublasGetEmulationStrategy")
-	register(&fngetFixedPointEmulationMantissaBitCountPointer, "cublasGetFixedPointEmulationMantissaBitCountPointer")
-	register(&fngetFixedPointEmulationMantissaBitOffset, "cublasGetFixedPointEmulationMantissaBitOffset")
-	register(&fngetFixedPointEmulationMantissaControl, "cublasGetFixedPointEmulationMantissaControl")
-	register(&fngetFixedPointEmulationMaxMantissaBitCount, "cublasGetFixedPointEmulationMaxMantissaBitCount")
-	register(&fnGetLoggerCallback, "cublasGetLoggerCallback")
-	register(&fngetMathMode, "cublasGetMathMode")
-	register(&fnGetMatrix, "cublasGetMatrix")
+	symasumEx = registerSym("cublasAsumEx")
+	symasumEx64 = registerSym("cublasAsumEx_64")
+	symaxpyEx = registerSym("cublasAxpyEx")
+	symaxpyEx64 = registerSym("cublasAxpyEx_64")
+	symcaxpy = registerSym("cublasCaxpy_v2")
+	symcaxpy64 = registerSym("cublasCaxpy_v2_64")
+	symccopy = registerSym("cublasCcopy_v2")
+	symccopy64 = registerSym("cublasCcopy_v2_64")
+	symcdgmm = registerSym("cublasCdgmm")
+	symcdgmm64 = registerSym("cublasCdgmm_64")
+	symcdotc = registerSym("cublasCdotc_v2")
+	symcdotc64 = registerSym("cublasCdotc_v2_64")
+	symcdotu = registerSym("cublasCdotu_v2")
+	symcdotu64 = registerSym("cublasCdotu_v2_64")
+	symcgbmv = registerSym("cublasCgbmv_v2")
+	symcgbmv64 = registerSym("cublasCgbmv_v2_64")
+	symcgeam = registerSym("cublasCgeam")
+	symcgeam64 = registerSym("cublasCgeam_64")
+	symcgelsBatched = registerSym("cublasCgelsBatched")
+	symcgemm3m = registerSym("cublasCgemm3m")
+	symcgemm3mBatched = registerSym("cublasCgemm3mBatched")
+	symcgemm3mBatched64 = registerSym("cublasCgemm3mBatched_64")
+	symcgemm3mEx = registerSym("cublasCgemm3mEx")
+	symcgemm3mEx64 = registerSym("cublasCgemm3mEx_64")
+	symcgemm3mStridedBatched = registerSym("cublasCgemm3mStridedBatched")
+	symcgemm3mStridedBatched64 = registerSym("cublasCgemm3mStridedBatched_64")
+	symcgemm3m64 = registerSym("cublasCgemm3m_64")
+	symcgemmBatched = registerSym("cublasCgemmBatched")
+	symcgemmBatched64 = registerSym("cublasCgemmBatched_64")
+	symcgemmEx = registerSym("cublasCgemmEx")
+	symcgemmEx64 = registerSym("cublasCgemmEx_64")
+	symcgemmStridedBatched = registerSym("cublasCgemmStridedBatched")
+	symcgemmStridedBatched64 = registerSym("cublasCgemmStridedBatched_64")
+	symcgemm = registerSym("cublasCgemm_v2")
+	symcgemm64 = registerSym("cublasCgemm_v2_64")
+	symcgemvBatched = registerSym("cublasCgemvBatched")
+	symcgemvBatched64 = registerSym("cublasCgemvBatched_64")
+	symcgemvStridedBatched = registerSym("cublasCgemvStridedBatched")
+	symcgemvStridedBatched64 = registerSym("cublasCgemvStridedBatched_64")
+	symcgemv = registerSym("cublasCgemv_v2")
+	symcgemv64 = registerSym("cublasCgemv_v2_64")
+	symcgeqrfBatched = registerSym("cublasCgeqrfBatched")
+	symcgerc = registerSym("cublasCgerc_v2")
+	symcgerc64 = registerSym("cublasCgerc_v2_64")
+	symcgeru = registerSym("cublasCgeru_v2")
+	symcgeru64 = registerSym("cublasCgeru_v2_64")
+	symcgetrfBatched = registerSym("cublasCgetrfBatched")
+	symcgetriBatched = registerSym("cublasCgetriBatched")
+	symcgetrsBatched = registerSym("cublasCgetrsBatched")
+	symchbmv = registerSym("cublasChbmv_v2")
+	symchbmv64 = registerSym("cublasChbmv_v2_64")
+	symchemm = registerSym("cublasChemm_v2")
+	symchemm64 = registerSym("cublasChemm_v2_64")
+	symchemv = registerSym("cublasChemv_v2")
+	symchemv64 = registerSym("cublasChemv_v2_64")
+	symcher2 = registerSym("cublasCher2_v2")
+	symcher264 = registerSym("cublasCher2_v2_64")
+	symcher2k = registerSym("cublasCher2k_v2")
+	symcher2k64 = registerSym("cublasCher2k_v2_64")
+	symcher = registerSym("cublasCher_v2")
+	symcher64 = registerSym("cublasCher_v2_64")
+	symcherk3mEx = registerSym("cublasCherk3mEx")
+	symcherk3mEx64 = registerSym("cublasCherk3mEx_64")
+	symcherkEx = registerSym("cublasCherkEx")
+	symcherkEx64 = registerSym("cublasCherkEx_64")
+	symcherk = registerSym("cublasCherk_v2")
+	symcherk64 = registerSym("cublasCherk_v2_64")
+	symcherkx = registerSym("cublasCherkx")
+	symcherkx64 = registerSym("cublasCherkx_64")
+	symchpmv = registerSym("cublasChpmv_v2")
+	symchpmv64 = registerSym("cublasChpmv_v2_64")
+	symchpr2 = registerSym("cublasChpr2_v2")
+	symchpr264 = registerSym("cublasChpr2_v2_64")
+	symchpr = registerSym("cublasChpr_v2")
+	symchpr64 = registerSym("cublasChpr_v2_64")
+	symcmatinvBatched = registerSym("cublasCmatinvBatched")
+	symcopyEx = registerSym("cublasCopyEx")
+	symcopyEx64 = registerSym("cublasCopyEx_64")
+	symCreate = registerSym("cublasCreate_v2")
+	symcrot = registerSym("cublasCrot_v2")
+	symcrot64 = registerSym("cublasCrot_v2_64")
+	symcrotg = registerSym("cublasCrotg_v2")
+	symcscal = registerSym("cublasCscal_v2")
+	symcscal64 = registerSym("cublasCscal_v2_64")
+	symcsrot = registerSym("cublasCsrot_v2")
+	symcsrot64 = registerSym("cublasCsrot_v2_64")
+	symcsscal = registerSym("cublasCsscal_v2")
+	symcsscal64 = registerSym("cublasCsscal_v2_64")
+	symcswap = registerSym("cublasCswap_v2")
+	symcswap64 = registerSym("cublasCswap_v2_64")
+	symcsymm = registerSym("cublasCsymm_v2")
+	symcsymm64 = registerSym("cublasCsymm_v2_64")
+	symcsymv = registerSym("cublasCsymv_v2")
+	symcsymv64 = registerSym("cublasCsymv_v2_64")
+	symcsyr2 = registerSym("cublasCsyr2_v2")
+	symcsyr264 = registerSym("cublasCsyr2_v2_64")
+	symcsyr2k = registerSym("cublasCsyr2k_v2")
+	symcsyr2k64 = registerSym("cublasCsyr2k_v2_64")
+	symcsyr = registerSym("cublasCsyr_v2")
+	symcsyr64 = registerSym("cublasCsyr_v2_64")
+	symcsyrk3mEx = registerSym("cublasCsyrk3mEx")
+	symcsyrk3mEx64 = registerSym("cublasCsyrk3mEx_64")
+	symcsyrkEx = registerSym("cublasCsyrkEx")
+	symcsyrkEx64 = registerSym("cublasCsyrkEx_64")
+	symcsyrk = registerSym("cublasCsyrk_v2")
+	symcsyrk64 = registerSym("cublasCsyrk_v2_64")
+	symcsyrkx = registerSym("cublasCsyrkx")
+	symcsyrkx64 = registerSym("cublasCsyrkx_64")
+	symctbmv = registerSym("cublasCtbmv_v2")
+	symctbmv64 = registerSym("cublasCtbmv_v2_64")
+	symctbsv = registerSym("cublasCtbsv_v2")
+	symctbsv64 = registerSym("cublasCtbsv_v2_64")
+	symctpmv = registerSym("cublasCtpmv_v2")
+	symctpmv64 = registerSym("cublasCtpmv_v2_64")
+	symctpsv = registerSym("cublasCtpsv_v2")
+	symctpsv64 = registerSym("cublasCtpsv_v2_64")
+	symctpttr = registerSym("cublasCtpttr")
+	symctrmm = registerSym("cublasCtrmm_v2")
+	symctrmm64 = registerSym("cublasCtrmm_v2_64")
+	symctrmv = registerSym("cublasCtrmv_v2")
+	symctrmv64 = registerSym("cublasCtrmv_v2_64")
+	symctrsmBatched = registerSym("cublasCtrsmBatched")
+	symctrsmBatched64 = registerSym("cublasCtrsmBatched_64")
+	symctrsm = registerSym("cublasCtrsm_v2")
+	symctrsm64 = registerSym("cublasCtrsm_v2_64")
+	symctrsv = registerSym("cublasCtrsv_v2")
+	symctrsv64 = registerSym("cublasCtrsv_v2_64")
+	symctrttp = registerSym("cublasCtrttp")
+	symdasum = registerSym("cublasDasum_v2")
+	symdasum64 = registerSym("cublasDasum_v2_64")
+	symdaxpy = registerSym("cublasDaxpy_v2")
+	symdaxpy64 = registerSym("cublasDaxpy_v2_64")
+	symdcopy = registerSym("cublasDcopy_v2")
+	symdcopy64 = registerSym("cublasDcopy_v2_64")
+	symddgmm = registerSym("cublasDdgmm")
+	symddgmm64 = registerSym("cublasDdgmm_64")
+	symddot = registerSym("cublasDdot_v2")
+	symddot64 = registerSym("cublasDdot_v2_64")
+	symdestroy = registerSym("cublasDestroy_v2")
+	symdgbmv = registerSym("cublasDgbmv_v2")
+	symdgbmv64 = registerSym("cublasDgbmv_v2_64")
+	symdgeam = registerSym("cublasDgeam")
+	symdgeam64 = registerSym("cublasDgeam_64")
+	symdgelsBatched = registerSym("cublasDgelsBatched")
+	symdgemmBatched = registerSym("cublasDgemmBatched")
+	symdgemmBatched64 = registerSym("cublasDgemmBatched_64")
+	symdgemmGroupedBatched = registerSym("cublasDgemmGroupedBatched")
+	symdgemmGroupedBatched64 = registerSym("cublasDgemmGroupedBatched_64")
+	symdgemmStridedBatched = registerSym("cublasDgemmStridedBatched")
+	symdgemmStridedBatched64 = registerSym("cublasDgemmStridedBatched_64")
+	symdgemm = registerSym("cublasDgemm_v2")
+	symdgemm64 = registerSym("cublasDgemm_v2_64")
+	symdgemvBatched = registerSym("cublasDgemvBatched")
+	symdgemvBatched64 = registerSym("cublasDgemvBatched_64")
+	symdgemvStridedBatched = registerSym("cublasDgemvStridedBatched")
+	symdgemvStridedBatched64 = registerSym("cublasDgemvStridedBatched_64")
+	symdgemv = registerSym("cublasDgemv_v2")
+	symdgemv64 = registerSym("cublasDgemv_v2_64")
+	symdgeqrfBatched = registerSym("cublasDgeqrfBatched")
+	symdger = registerSym("cublasDger_v2")
+	symdger64 = registerSym("cublasDger_v2_64")
+	symdgetrfBatched = registerSym("cublasDgetrfBatched")
+	symdgetriBatched = registerSym("cublasDgetriBatched")
+	symdgetrsBatched = registerSym("cublasDgetrsBatched")
+	symdmatinvBatched = registerSym("cublasDmatinvBatched")
+	symdnrm2 = registerSym("cublasDnrm2_v2")
+	symdnrm264 = registerSym("cublasDnrm2_v2_64")
+	symdotEx = registerSym("cublasDotEx")
+	symdotEx64 = registerSym("cublasDotEx_64")
+	symdotcEx = registerSym("cublasDotcEx")
+	symdotcEx64 = registerSym("cublasDotcEx_64")
+	symdrot = registerSym("cublasDrot_v2")
+	symdrot64 = registerSym("cublasDrot_v2_64")
+	symdrotg = registerSym("cublasDrotg_v2")
+	symdrotm = registerSym("cublasDrotm_v2")
+	symdrotm64 = registerSym("cublasDrotm_v2_64")
+	symdrotmg = registerSym("cublasDrotmg_v2")
+	symdsbmv = registerSym("cublasDsbmv_v2")
+	symdsbmv64 = registerSym("cublasDsbmv_v2_64")
+	symdscal = registerSym("cublasDscal_v2")
+	symdscal64 = registerSym("cublasDscal_v2_64")
+	symdspmv = registerSym("cublasDspmv_v2")
+	symdspmv64 = registerSym("cublasDspmv_v2_64")
+	symdspr2 = registerSym("cublasDspr2_v2")
+	symdspr264 = registerSym("cublasDspr2_v2_64")
+	symdspr = registerSym("cublasDspr_v2")
+	symdspr64 = registerSym("cublasDspr_v2_64")
+	symdswap = registerSym("cublasDswap_v2")
+	symdswap64 = registerSym("cublasDswap_v2_64")
+	symdsymm = registerSym("cublasDsymm_v2")
+	symdsymm64 = registerSym("cublasDsymm_v2_64")
+	symdsymv = registerSym("cublasDsymv_v2")
+	symdsymv64 = registerSym("cublasDsymv_v2_64")
+	symdsyr2 = registerSym("cublasDsyr2_v2")
+	symdsyr264 = registerSym("cublasDsyr2_v2_64")
+	symdsyr2k = registerSym("cublasDsyr2k_v2")
+	symdsyr2k64 = registerSym("cublasDsyr2k_v2_64")
+	symdsyr = registerSym("cublasDsyr_v2")
+	symdsyr64 = registerSym("cublasDsyr_v2_64")
+	symdsyrk = registerSym("cublasDsyrk_v2")
+	symdsyrk64 = registerSym("cublasDsyrk_v2_64")
+	symdsyrkx = registerSym("cublasDsyrkx")
+	symdsyrkx64 = registerSym("cublasDsyrkx_64")
+	symdtbmv = registerSym("cublasDtbmv_v2")
+	symdtbmv64 = registerSym("cublasDtbmv_v2_64")
+	symdtbsv = registerSym("cublasDtbsv_v2")
+	symdtbsv64 = registerSym("cublasDtbsv_v2_64")
+	symdtpmv = registerSym("cublasDtpmv_v2")
+	symdtpmv64 = registerSym("cublasDtpmv_v2_64")
+	symdtpsv = registerSym("cublasDtpsv_v2")
+	symdtpsv64 = registerSym("cublasDtpsv_v2_64")
+	symdtpttr = registerSym("cublasDtpttr")
+	symdtrmm = registerSym("cublasDtrmm_v2")
+	symdtrmm64 = registerSym("cublasDtrmm_v2_64")
+	symdtrmv = registerSym("cublasDtrmv_v2")
+	symdtrmv64 = registerSym("cublasDtrmv_v2_64")
+	symdtrsmBatched = registerSym("cublasDtrsmBatched")
+	symdtrsmBatched64 = registerSym("cublasDtrsmBatched_64")
+	symdtrsm = registerSym("cublasDtrsm_v2")
+	symdtrsm64 = registerSym("cublasDtrsm_v2_64")
+	symdtrsv = registerSym("cublasDtrsv_v2")
+	symdtrsv64 = registerSym("cublasDtrsv_v2_64")
+	symdtrttp = registerSym("cublasDtrttp")
+	symdzasum = registerSym("cublasDzasum_v2")
+	symdzasum64 = registerSym("cublasDzasum_v2_64")
+	symdznrm2 = registerSym("cublasDznrm2_v2")
+	symdznrm264 = registerSym("cublasDznrm2_v2_64")
+	symgemmBatchedEx = registerSym("cublasGemmBatchedEx")
+	symgemmBatchedEx64 = registerSym("cublasGemmBatchedEx_64")
+	symgemmEx = registerSym("cublasGemmEx")
+	symgemmEx64 = registerSym("cublasGemmEx_64")
+	symgemmGroupedBatchedEx = registerSym("cublasGemmGroupedBatchedEx")
+	symgemmGroupedBatchedEx64 = registerSym("cublasGemmGroupedBatchedEx_64")
+	symgemmStridedBatchedEx = registerSym("cublasGemmStridedBatchedEx")
+	symgemmStridedBatchedEx64 = registerSym("cublasGemmStridedBatchedEx_64")
+	symgetAtomicsMode = registerSym("cublasGetAtomicsMode")
+	symgetEmulationSpecialValuesSupport = registerSym("cublasGetEmulationSpecialValuesSupport")
+	symgetEmulationStrategy = registerSym("cublasGetEmulationStrategy")
+	symgetFixedPointEmulationMantissaBitCountPointer = registerSym("cublasGetFixedPointEmulationMantissaBitCountPointer")
+	symgetFixedPointEmulationMantissaBitOffset = registerSym("cublasGetFixedPointEmulationMantissaBitOffset")
+	symgetFixedPointEmulationMantissaControl = registerSym("cublasGetFixedPointEmulationMantissaControl")
+	symgetFixedPointEmulationMaxMantissaBitCount = registerSym("cublasGetFixedPointEmulationMaxMantissaBitCount")
+	symGetLoggerCallback = registerSym("cublasGetLoggerCallback")
+	symgetMathMode = registerSym("cublasGetMathMode")
+	symGetMatrix = registerSym("cublasGetMatrix")
 	register(&fnGetMatrixAsync, "cublasGetMatrixAsync")
 	register(&fnGetMatrixAsync64, "cublasGetMatrixAsync_64")
-	register(&fnGetMatrix64, "cublasGetMatrix_64")
-	register(&fngetPointerMode, "cublasGetPointerMode_v2")
-	register(&fnGetProperty, "cublasGetProperty")
-	register(&fngetSmCountTarget, "cublasGetSmCountTarget")
-	register(&fngetStream, "cublasGetStream_v2")
-	register(&fnGetVector, "cublasGetVector")
+	symGetMatrix64 = registerSym("cublasGetMatrix_64")
+	symgetPointerMode = registerSym("cublasGetPointerMode_v2")
+	symGetProperty = registerSym("cublasGetProperty")
+	symgetSmCountTarget = registerSym("cublasGetSmCountTarget")
+	symgetStream = registerSym("cublasGetStream_v2")
+	symGetVector = registerSym("cublasGetVector")
 	register(&fnGetVectorAsync, "cublasGetVectorAsync")
 	register(&fnGetVectorAsync64, "cublasGetVectorAsync_64")
-	register(&fnGetVector64, "cublasGetVector_64")
-	register(&fngetVersion, "cublasGetVersion_v2")
-	register(&fnhSHgemvBatched, "cublasHSHgemvBatched")
-	register(&fnhSHgemvBatched64, "cublasHSHgemvBatched_64")
-	register(&fnhSHgemvStridedBatched, "cublasHSHgemvStridedBatched")
-	register(&fnhSHgemvStridedBatched64, "cublasHSHgemvStridedBatched_64")
-	register(&fnhSSgemvBatched, "cublasHSSgemvBatched")
-	register(&fnhSSgemvBatched64, "cublasHSSgemvBatched_64")
-	register(&fnhSSgemvStridedBatched, "cublasHSSgemvStridedBatched")
-	register(&fnhSSgemvStridedBatched64, "cublasHSSgemvStridedBatched_64")
-	register(&fnhgemm, "cublasHgemm")
-	register(&fnhgemmBatched, "cublasHgemmBatched")
-	register(&fnhgemmBatched64, "cublasHgemmBatched_64")
-	register(&fnhgemmStridedBatched, "cublasHgemmStridedBatched")
-	register(&fnhgemmStridedBatched64, "cublasHgemmStridedBatched_64")
-	register(&fnhgemm64, "cublasHgemm_64")
-	register(&fniamaxEx, "cublasIamaxEx")
-	register(&fniamaxEx64, "cublasIamaxEx_64")
-	register(&fniaminEx, "cublasIaminEx")
-	register(&fniaminEx64, "cublasIaminEx_64")
-	register(&fnicamax, "cublasIcamax_v2")
-	register(&fnicamax64, "cublasIcamax_v2_64")
-	register(&fnicamin, "cublasIcamin_v2")
-	register(&fnicamin64, "cublasIcamin_v2_64")
-	register(&fnidamax, "cublasIdamax_v2")
-	register(&fnidamax64, "cublasIdamax_v2_64")
-	register(&fnidamin, "cublasIdamin_v2")
-	register(&fnidamin64, "cublasIdamin_v2_64")
-	register(&fnisamax, "cublasIsamax_v2")
-	register(&fnisamax64, "cublasIsamax_v2_64")
-	register(&fnisamin, "cublasIsamin_v2")
-	register(&fnisamin64, "cublasIsamin_v2_64")
-	register(&fnizamax, "cublasIzamax_v2")
-	register(&fnizamax64, "cublasIzamax_v2_64")
-	register(&fnizamin, "cublasIzamin_v2")
-	register(&fnizamin64, "cublasIzamin_v2_64")
-	register(&fnLoggerConfigure, "cublasLoggerConfigure")
-	register(&fnnrm2Ex, "cublasNrm2Ex")
-	register(&fnnrm2Ex64, "cublasNrm2Ex_64")
-	register(&fnrotEx, "cublasRotEx")
-	register(&fnrotEx64, "cublasRotEx_64")
-	register(&fnrotgEx, "cublasRotgEx")
-	register(&fnrotmEx, "cublasRotmEx")
-	register(&fnrotmEx64, "cublasRotmEx_64")
-	register(&fnrotmgEx, "cublasRotmgEx")
-	register(&fnsasum, "cublasSasum_v2")
-	register(&fnsasum64, "cublasSasum_v2_64")
-	register(&fnsaxpy, "cublasSaxpy_v2")
-	register(&fnsaxpy64, "cublasSaxpy_v2_64")
-	register(&fnscalEx, "cublasScalEx")
-	register(&fnscalEx64, "cublasScalEx_64")
-	register(&fnscasum, "cublasScasum_v2")
-	register(&fnscasum64, "cublasScasum_v2_64")
-	register(&fnscnrm2, "cublasScnrm2_v2")
-	register(&fnscnrm264, "cublasScnrm2_v2_64")
-	register(&fnscopy, "cublasScopy_v2")
-	register(&fnscopy64, "cublasScopy_v2_64")
-	register(&fnsdgmm, "cublasSdgmm")
-	register(&fnsdgmm64, "cublasSdgmm_64")
-	register(&fnsdot, "cublasSdot_v2")
-	register(&fnsdot64, "cublasSdot_v2_64")
-	register(&fnsetAtomicsMode, "cublasSetAtomicsMode")
-	register(&fnsetEmulationSpecialValuesSupport, "cublasSetEmulationSpecialValuesSupport")
-	register(&fnsetEmulationStrategy, "cublasSetEmulationStrategy")
-	register(&fnsetFixedPointEmulationMantissaBitCountPointer, "cublasSetFixedPointEmulationMantissaBitCountPointer")
-	register(&fnsetFixedPointEmulationMantissaBitOffset, "cublasSetFixedPointEmulationMantissaBitOffset")
-	register(&fnsetFixedPointEmulationMantissaControl, "cublasSetFixedPointEmulationMantissaControl")
-	register(&fnsetFixedPointEmulationMaxMantissaBitCount, "cublasSetFixedPointEmulationMaxMantissaBitCount")
-	register(&fnSetLoggerCallback, "cublasSetLoggerCallback")
-	register(&fnsetMathMode, "cublasSetMathMode")
-	register(&fnSetMatrix, "cublasSetMatrix")
+	symGetVector64 = registerSym("cublasGetVector_64")
+	symgetVersion = registerSym("cublasGetVersion_v2")
+	symhSHgemvBatched = registerSym("cublasHSHgemvBatched")
+	symhSHgemvBatched64 = registerSym("cublasHSHgemvBatched_64")
+	symhSHgemvStridedBatched = registerSym("cublasHSHgemvStridedBatched")
+	symhSHgemvStridedBatched64 = registerSym("cublasHSHgemvStridedBatched_64")
+	symhSSgemvBatched = registerSym("cublasHSSgemvBatched")
+	symhSSgemvBatched64 = registerSym("cublasHSSgemvBatched_64")
+	symhSSgemvStridedBatched = registerSym("cublasHSSgemvStridedBatched")
+	symhSSgemvStridedBatched64 = registerSym("cublasHSSgemvStridedBatched_64")
+	symhgemm = registerSym("cublasHgemm")
+	symhgemmBatched = registerSym("cublasHgemmBatched")
+	symhgemmBatched64 = registerSym("cublasHgemmBatched_64")
+	symhgemmStridedBatched = registerSym("cublasHgemmStridedBatched")
+	symhgemmStridedBatched64 = registerSym("cublasHgemmStridedBatched_64")
+	symhgemm64 = registerSym("cublasHgemm_64")
+	symiamaxEx = registerSym("cublasIamaxEx")
+	symiamaxEx64 = registerSym("cublasIamaxEx_64")
+	symiaminEx = registerSym("cublasIaminEx")
+	symiaminEx64 = registerSym("cublasIaminEx_64")
+	symicamax = registerSym("cublasIcamax_v2")
+	symicamax64 = registerSym("cublasIcamax_v2_64")
+	symicamin = registerSym("cublasIcamin_v2")
+	symicamin64 = registerSym("cublasIcamin_v2_64")
+	symidamax = registerSym("cublasIdamax_v2")
+	symidamax64 = registerSym("cublasIdamax_v2_64")
+	symidamin = registerSym("cublasIdamin_v2")
+	symidamin64 = registerSym("cublasIdamin_v2_64")
+	symisamax = registerSym("cublasIsamax_v2")
+	symisamax64 = registerSym("cublasIsamax_v2_64")
+	symisamin = registerSym("cublasIsamin_v2")
+	symisamin64 = registerSym("cublasIsamin_v2_64")
+	symizamax = registerSym("cublasIzamax_v2")
+	symizamax64 = registerSym("cublasIzamax_v2_64")
+	symizamin = registerSym("cublasIzamin_v2")
+	symizamin64 = registerSym("cublasIzamin_v2_64")
+	symLoggerConfigure = registerSym("cublasLoggerConfigure")
+	symnrm2Ex = registerSym("cublasNrm2Ex")
+	symnrm2Ex64 = registerSym("cublasNrm2Ex_64")
+	symrotEx = registerSym("cublasRotEx")
+	symrotEx64 = registerSym("cublasRotEx_64")
+	symrotgEx = registerSym("cublasRotgEx")
+	symrotmEx = registerSym("cublasRotmEx")
+	symrotmEx64 = registerSym("cublasRotmEx_64")
+	symrotmgEx = registerSym("cublasRotmgEx")
+	symsasum = registerSym("cublasSasum_v2")
+	symsasum64 = registerSym("cublasSasum_v2_64")
+	symsaxpy = registerSym("cublasSaxpy_v2")
+	symsaxpy64 = registerSym("cublasSaxpy_v2_64")
+	symscalEx = registerSym("cublasScalEx")
+	symscalEx64 = registerSym("cublasScalEx_64")
+	symscasum = registerSym("cublasScasum_v2")
+	symscasum64 = registerSym("cublasScasum_v2_64")
+	symscnrm2 = registerSym("cublasScnrm2_v2")
+	symscnrm264 = registerSym("cublasScnrm2_v2_64")
+	symscopy = registerSym("cublasScopy_v2")
+	symscopy64 = registerSym("cublasScopy_v2_64")
+	symsdgmm = registerSym("cublasSdgmm")
+	symsdgmm64 = registerSym("cublasSdgmm_64")
+	symsdot = registerSym("cublasSdot_v2")
+	symsdot64 = registerSym("cublasSdot_v2_64")
+	symsetAtomicsMode = registerSym("cublasSetAtomicsMode")
+	symsetEmulationSpecialValuesSupport = registerSym("cublasSetEmulationSpecialValuesSupport")
+	symsetEmulationStrategy = registerSym("cublasSetEmulationStrategy")
+	symsetFixedPointEmulationMantissaBitCountPointer = registerSym("cublasSetFixedPointEmulationMantissaBitCountPointer")
+	symsetFixedPointEmulationMantissaBitOffset = registerSym("cublasSetFixedPointEmulationMantissaBitOffset")
+	symsetFixedPointEmulationMantissaControl = registerSym("cublasSetFixedPointEmulationMantissaControl")
+	symsetFixedPointEmulationMaxMantissaBitCount = registerSym("cublasSetFixedPointEmulationMaxMantissaBitCount")
+	symSetLoggerCallback = registerSym("cublasSetLoggerCallback")
+	symsetMathMode = registerSym("cublasSetMathMode")
+	symSetMatrix = registerSym("cublasSetMatrix")
 	register(&fnSetMatrixAsync, "cublasSetMatrixAsync")
 	register(&fnSetMatrixAsync64, "cublasSetMatrixAsync_64")
-	register(&fnSetMatrix64, "cublasSetMatrix_64")
-	register(&fnsetPointerMode, "cublasSetPointerMode_v2")
-	register(&fnsetSmCountTarget, "cublasSetSmCountTarget")
+	symSetMatrix64 = registerSym("cublasSetMatrix_64")
+	symsetPointerMode = registerSym("cublasSetPointerMode_v2")
+	symsetSmCountTarget = registerSym("cublasSetSmCountTarget")
 	register(&fnsetStream, "cublasSetStream_v2")
-	register(&fnSetVector, "cublasSetVector")
+	symSetVector = registerSym("cublasSetVector")
 	register(&fnSetVectorAsync, "cublasSetVectorAsync")
 	register(&fnSetVectorAsync64, "cublasSetVectorAsync_64")
-	register(&fnSetVector64, "cublasSetVector_64")
-	register(&fnsetWorkspace, "cublasSetWorkspace_v2")
-	register(&fnsgbmv, "cublasSgbmv_v2")
-	register(&fnsgbmv64, "cublasSgbmv_v2_64")
-	register(&fnsgeam, "cublasSgeam")
-	register(&fnsgeam64, "cublasSgeam_64")
-	register(&fnsgelsBatched, "cublasSgelsBatched")
-	register(&fnsgemmBatched, "cublasSgemmBatched")
-	register(&fnsgemmBatched64, "cublasSgemmBatched_64")
-	register(&fnsgemmEx, "cublasSgemmEx")
-	register(&fnsgemmEx64, "cublasSgemmEx_64")
-	register(&fnsgemmGroupedBatched, "cublasSgemmGroupedBatched")
-	register(&fnsgemmGroupedBatched64, "cublasSgemmGroupedBatched_64")
-	register(&fnsgemmStridedBatched, "cublasSgemmStridedBatched")
-	register(&fnsgemmStridedBatched64, "cublasSgemmStridedBatched_64")
-	register(&fnsgemm, "cublasSgemm_v2")
-	register(&fnsgemm64, "cublasSgemm_v2_64")
-	register(&fnsgemvBatched, "cublasSgemvBatched")
-	register(&fnsgemvBatched64, "cublasSgemvBatched_64")
-	register(&fnsgemvStridedBatched, "cublasSgemvStridedBatched")
-	register(&fnsgemvStridedBatched64, "cublasSgemvStridedBatched_64")
-	register(&fnsgemv, "cublasSgemv_v2")
-	register(&fnsgemv64, "cublasSgemv_v2_64")
-	register(&fnsgeqrfBatched, "cublasSgeqrfBatched")
-	register(&fnsger, "cublasSger_v2")
-	register(&fnsger64, "cublasSger_v2_64")
-	register(&fnsgetrfBatched, "cublasSgetrfBatched")
-	register(&fnsgetriBatched, "cublasSgetriBatched")
-	register(&fnsgetrsBatched, "cublasSgetrsBatched")
-	register(&fnsmatinvBatched, "cublasSmatinvBatched")
-	register(&fnsnrm2, "cublasSnrm2_v2")
-	register(&fnsnrm264, "cublasSnrm2_v2_64")
-	register(&fnsrot, "cublasSrot_v2")
-	register(&fnsrot64, "cublasSrot_v2_64")
-	register(&fnsrotg, "cublasSrotg_v2")
-	register(&fnsrotm, "cublasSrotm_v2")
-	register(&fnsrotm64, "cublasSrotm_v2_64")
-	register(&fnsrotmg, "cublasSrotmg_v2")
-	register(&fnssbmv, "cublasSsbmv_v2")
-	register(&fnssbmv64, "cublasSsbmv_v2_64")
-	register(&fnsscal, "cublasSscal_v2")
-	register(&fnsscal64, "cublasSscal_v2_64")
-	register(&fnsspmv, "cublasSspmv_v2")
-	register(&fnsspmv64, "cublasSspmv_v2_64")
-	register(&fnsspr2, "cublasSspr2_v2")
-	register(&fnsspr264, "cublasSspr2_v2_64")
-	register(&fnsspr, "cublasSspr_v2")
-	register(&fnsspr64, "cublasSspr_v2_64")
-	register(&fnsswap, "cublasSswap_v2")
-	register(&fnsswap64, "cublasSswap_v2_64")
-	register(&fnssymm, "cublasSsymm_v2")
-	register(&fnssymm64, "cublasSsymm_v2_64")
-	register(&fnssymv, "cublasSsymv_v2")
-	register(&fnssymv64, "cublasSsymv_v2_64")
-	register(&fnssyr2, "cublasSsyr2_v2")
-	register(&fnssyr264, "cublasSsyr2_v2_64")
-	register(&fnssyr2k, "cublasSsyr2k_v2")
-	register(&fnssyr2k64, "cublasSsyr2k_v2_64")
-	register(&fnssyr, "cublasSsyr_v2")
-	register(&fnssyr64, "cublasSsyr_v2_64")
-	register(&fnssyrk, "cublasSsyrk_v2")
-	register(&fnssyrk64, "cublasSsyrk_v2_64")
-	register(&fnssyrkx, "cublasSsyrkx")
-	register(&fnssyrkx64, "cublasSsyrkx_64")
-	register(&fnstbmv, "cublasStbmv_v2")
-	register(&fnstbmv64, "cublasStbmv_v2_64")
-	register(&fnstbsv, "cublasStbsv_v2")
-	register(&fnstbsv64, "cublasStbsv_v2_64")
-	register(&fnstpmv, "cublasStpmv_v2")
-	register(&fnstpmv64, "cublasStpmv_v2_64")
-	register(&fnstpsv, "cublasStpsv_v2")
-	register(&fnstpsv64, "cublasStpsv_v2_64")
-	register(&fnstpttr, "cublasStpttr")
-	register(&fnstrmm, "cublasStrmm_v2")
-	register(&fnstrmm64, "cublasStrmm_v2_64")
-	register(&fnstrmv, "cublasStrmv_v2")
-	register(&fnstrmv64, "cublasStrmv_v2_64")
-	register(&fnstrsmBatched, "cublasStrsmBatched")
-	register(&fnstrsmBatched64, "cublasStrsmBatched_64")
-	register(&fnstrsm, "cublasStrsm_v2")
-	register(&fnstrsm64, "cublasStrsm_v2_64")
-	register(&fnstrsv, "cublasStrsv_v2")
-	register(&fnstrsv64, "cublasStrsv_v2_64")
-	register(&fnstrttp, "cublasStrttp")
-	register(&fnswapEx, "cublasSwapEx")
-	register(&fnswapEx64, "cublasSwapEx_64")
-	register(&fntSSgemvBatched, "cublasTSSgemvBatched")
-	register(&fntSSgemvBatched64, "cublasTSSgemvBatched_64")
-	register(&fntSSgemvStridedBatched, "cublasTSSgemvStridedBatched")
-	register(&fntSSgemvStridedBatched64, "cublasTSSgemvStridedBatched_64")
-	register(&fntSTgemvBatched, "cublasTSTgemvBatched")
-	register(&fntSTgemvBatched64, "cublasTSTgemvBatched_64")
-	register(&fntSTgemvStridedBatched, "cublasTSTgemvStridedBatched")
-	register(&fntSTgemvStridedBatched64, "cublasTSTgemvStridedBatched_64")
-	register(&fnuint8gemmBias, "cublasUint8gemmBias")
-	register(&fnzaxpy, "cublasZaxpy_v2")
-	register(&fnzaxpy64, "cublasZaxpy_v2_64")
-	register(&fnzcopy, "cublasZcopy_v2")
-	register(&fnzcopy64, "cublasZcopy_v2_64")
-	register(&fnzdgmm, "cublasZdgmm")
-	register(&fnzdgmm64, "cublasZdgmm_64")
-	register(&fnzdotc, "cublasZdotc_v2")
-	register(&fnzdotc64, "cublasZdotc_v2_64")
-	register(&fnzdotu, "cublasZdotu_v2")
-	register(&fnzdotu64, "cublasZdotu_v2_64")
-	register(&fnzdrot, "cublasZdrot_v2")
-	register(&fnzdrot64, "cublasZdrot_v2_64")
-	register(&fnzdscal, "cublasZdscal_v2")
-	register(&fnzdscal64, "cublasZdscal_v2_64")
-	register(&fnzgbmv, "cublasZgbmv_v2")
-	register(&fnzgbmv64, "cublasZgbmv_v2_64")
-	register(&fnzgeam, "cublasZgeam")
-	register(&fnzgeam64, "cublasZgeam_64")
-	register(&fnzgelsBatched, "cublasZgelsBatched")
-	register(&fnzgemm3m, "cublasZgemm3m")
-	register(&fnzgemm3m64, "cublasZgemm3m_64")
-	register(&fnzgemmBatched, "cublasZgemmBatched")
-	register(&fnzgemmBatched64, "cublasZgemmBatched_64")
-	register(&fnzgemmStridedBatched, "cublasZgemmStridedBatched")
-	register(&fnzgemmStridedBatched64, "cublasZgemmStridedBatched_64")
-	register(&fnzgemm, "cublasZgemm_v2")
-	register(&fnzgemm64, "cublasZgemm_v2_64")
-	register(&fnzgemvBatched, "cublasZgemvBatched")
-	register(&fnzgemvBatched64, "cublasZgemvBatched_64")
-	register(&fnzgemvStridedBatched, "cublasZgemvStridedBatched")
-	register(&fnzgemvStridedBatched64, "cublasZgemvStridedBatched_64")
-	register(&fnzgemv, "cublasZgemv_v2")
-	register(&fnzgemv64, "cublasZgemv_v2_64")
-	register(&fnzgeqrfBatched, "cublasZgeqrfBatched")
-	register(&fnzgerc, "cublasZgerc_v2")
-	register(&fnzgerc64, "cublasZgerc_v2_64")
-	register(&fnzgeru, "cublasZgeru_v2")
-	register(&fnzgeru64, "cublasZgeru_v2_64")
-	register(&fnzgetrfBatched, "cublasZgetrfBatched")
-	register(&fnzgetriBatched, "cublasZgetriBatched")
-	register(&fnzgetrsBatched, "cublasZgetrsBatched")
-	register(&fnzhbmv, "cublasZhbmv_v2")
-	register(&fnzhbmv64, "cublasZhbmv_v2_64")
-	register(&fnzhemm, "cublasZhemm_v2")
-	register(&fnzhemm64, "cublasZhemm_v2_64")
-	register(&fnzhemv, "cublasZhemv_v2")
-	register(&fnzhemv64, "cublasZhemv_v2_64")
-	register(&fnzher2, "cublasZher2_v2")
-	register(&fnzher264, "cublasZher2_v2_64")
-	register(&fnzher2k, "cublasZher2k_v2")
-	register(&fnzher2k64, "cublasZher2k_v2_64")
-	register(&fnzher, "cublasZher_v2")
-	register(&fnzher64, "cublasZher_v2_64")
-	register(&fnzherk, "cublasZherk_v2")
-	register(&fnzherk64, "cublasZherk_v2_64")
-	register(&fnzherkx, "cublasZherkx")
-	register(&fnzherkx64, "cublasZherkx_64")
-	register(&fnzhpmv, "cublasZhpmv_v2")
-	register(&fnzhpmv64, "cublasZhpmv_v2_64")
-	register(&fnzhpr2, "cublasZhpr2_v2")
-	register(&fnzhpr264, "cublasZhpr2_v2_64")
-	register(&fnzhpr, "cublasZhpr_v2")
-	register(&fnzhpr64, "cublasZhpr_v2_64")
-	register(&fnzmatinvBatched, "cublasZmatinvBatched")
-	register(&fnzrot, "cublasZrot_v2")
-	register(&fnzrot64, "cublasZrot_v2_64")
-	register(&fnzrotg, "cublasZrotg_v2")
-	register(&fnzscal, "cublasZscal_v2")
-	register(&fnzscal64, "cublasZscal_v2_64")
-	register(&fnzswap, "cublasZswap_v2")
-	register(&fnzswap64, "cublasZswap_v2_64")
-	register(&fnzsymm, "cublasZsymm_v2")
-	register(&fnzsymm64, "cublasZsymm_v2_64")
-	register(&fnzsymv, "cublasZsymv_v2")
-	register(&fnzsymv64, "cublasZsymv_v2_64")
-	register(&fnzsyr2, "cublasZsyr2_v2")
-	register(&fnzsyr264, "cublasZsyr2_v2_64")
-	register(&fnzsyr2k, "cublasZsyr2k_v2")
-	register(&fnzsyr2k64, "cublasZsyr2k_v2_64")
-	register(&fnzsyr, "cublasZsyr_v2")
-	register(&fnzsyr64, "cublasZsyr_v2_64")
-	register(&fnzsyrk, "cublasZsyrk_v2")
-	register(&fnzsyrk64, "cublasZsyrk_v2_64")
-	register(&fnzsyrkx, "cublasZsyrkx")
-	register(&fnzsyrkx64, "cublasZsyrkx_64")
-	register(&fnztbmv, "cublasZtbmv_v2")
-	register(&fnztbmv64, "cublasZtbmv_v2_64")
-	register(&fnztbsv, "cublasZtbsv_v2")
-	register(&fnztbsv64, "cublasZtbsv_v2_64")
-	register(&fnztpmv, "cublasZtpmv_v2")
-	register(&fnztpmv64, "cublasZtpmv_v2_64")
-	register(&fnztpsv, "cublasZtpsv_v2")
-	register(&fnztpsv64, "cublasZtpsv_v2_64")
-	register(&fnztpttr, "cublasZtpttr")
-	register(&fnztrmm, "cublasZtrmm_v2")
-	register(&fnztrmm64, "cublasZtrmm_v2_64")
-	register(&fnztrmv, "cublasZtrmv_v2")
-	register(&fnztrmv64, "cublasZtrmv_v2_64")
-	register(&fnztrsmBatched, "cublasZtrsmBatched")
-	register(&fnztrsmBatched64, "cublasZtrsmBatched_64")
-	register(&fnztrsm, "cublasZtrsm_v2")
-	register(&fnztrsm64, "cublasZtrsm_v2_64")
-	register(&fnztrsv, "cublasZtrsv_v2")
-	register(&fnztrsv64, "cublasZtrsv_v2_64")
-	register(&fnztrttp, "cublasZtrttp")
+	symSetVector64 = registerSym("cublasSetVector_64")
+	symsetWorkspace = registerSym("cublasSetWorkspace_v2")
+	symsgbmv = registerSym("cublasSgbmv_v2")
+	symsgbmv64 = registerSym("cublasSgbmv_v2_64")
+	symsgeam = registerSym("cublasSgeam")
+	symsgeam64 = registerSym("cublasSgeam_64")
+	symsgelsBatched = registerSym("cublasSgelsBatched")
+	symsgemmBatched = registerSym("cublasSgemmBatched")
+	symsgemmBatched64 = registerSym("cublasSgemmBatched_64")
+	symsgemmEx = registerSym("cublasSgemmEx")
+	symsgemmEx64 = registerSym("cublasSgemmEx_64")
+	symsgemmGroupedBatched = registerSym("cublasSgemmGroupedBatched")
+	symsgemmGroupedBatched64 = registerSym("cublasSgemmGroupedBatched_64")
+	symsgemmStridedBatched = registerSym("cublasSgemmStridedBatched")
+	symsgemmStridedBatched64 = registerSym("cublasSgemmStridedBatched_64")
+	symsgemm = registerSym("cublasSgemm_v2")
+	symsgemm64 = registerSym("cublasSgemm_v2_64")
+	symsgemvBatched = registerSym("cublasSgemvBatched")
+	symsgemvBatched64 = registerSym("cublasSgemvBatched_64")
+	symsgemvStridedBatched = registerSym("cublasSgemvStridedBatched")
+	symsgemvStridedBatched64 = registerSym("cublasSgemvStridedBatched_64")
+	symsgemv = registerSym("cublasSgemv_v2")
+	symsgemv64 = registerSym("cublasSgemv_v2_64")
+	symsgeqrfBatched = registerSym("cublasSgeqrfBatched")
+	symsger = registerSym("cublasSger_v2")
+	symsger64 = registerSym("cublasSger_v2_64")
+	symsgetrfBatched = registerSym("cublasSgetrfBatched")
+	symsgetriBatched = registerSym("cublasSgetriBatched")
+	symsgetrsBatched = registerSym("cublasSgetrsBatched")
+	symsmatinvBatched = registerSym("cublasSmatinvBatched")
+	symsnrm2 = registerSym("cublasSnrm2_v2")
+	symsnrm264 = registerSym("cublasSnrm2_v2_64")
+	symsrot = registerSym("cublasSrot_v2")
+	symsrot64 = registerSym("cublasSrot_v2_64")
+	symsrotg = registerSym("cublasSrotg_v2")
+	symsrotm = registerSym("cublasSrotm_v2")
+	symsrotm64 = registerSym("cublasSrotm_v2_64")
+	symsrotmg = registerSym("cublasSrotmg_v2")
+	symssbmv = registerSym("cublasSsbmv_v2")
+	symssbmv64 = registerSym("cublasSsbmv_v2_64")
+	symsscal = registerSym("cublasSscal_v2")
+	symsscal64 = registerSym("cublasSscal_v2_64")
+	symsspmv = registerSym("cublasSspmv_v2")
+	symsspmv64 = registerSym("cublasSspmv_v2_64")
+	symsspr2 = registerSym("cublasSspr2_v2")
+	symsspr264 = registerSym("cublasSspr2_v2_64")
+	symsspr = registerSym("cublasSspr_v2")
+	symsspr64 = registerSym("cublasSspr_v2_64")
+	symsswap = registerSym("cublasSswap_v2")
+	symsswap64 = registerSym("cublasSswap_v2_64")
+	symssymm = registerSym("cublasSsymm_v2")
+	symssymm64 = registerSym("cublasSsymm_v2_64")
+	symssymv = registerSym("cublasSsymv_v2")
+	symssymv64 = registerSym("cublasSsymv_v2_64")
+	symssyr2 = registerSym("cublasSsyr2_v2")
+	symssyr264 = registerSym("cublasSsyr2_v2_64")
+	symssyr2k = registerSym("cublasSsyr2k_v2")
+	symssyr2k64 = registerSym("cublasSsyr2k_v2_64")
+	symssyr = registerSym("cublasSsyr_v2")
+	symssyr64 = registerSym("cublasSsyr_v2_64")
+	symssyrk = registerSym("cublasSsyrk_v2")
+	symssyrk64 = registerSym("cublasSsyrk_v2_64")
+	symssyrkx = registerSym("cublasSsyrkx")
+	symssyrkx64 = registerSym("cublasSsyrkx_64")
+	symstbmv = registerSym("cublasStbmv_v2")
+	symstbmv64 = registerSym("cublasStbmv_v2_64")
+	symstbsv = registerSym("cublasStbsv_v2")
+	symstbsv64 = registerSym("cublasStbsv_v2_64")
+	symstpmv = registerSym("cublasStpmv_v2")
+	symstpmv64 = registerSym("cublasStpmv_v2_64")
+	symstpsv = registerSym("cublasStpsv_v2")
+	symstpsv64 = registerSym("cublasStpsv_v2_64")
+	symstpttr = registerSym("cublasStpttr")
+	symstrmm = registerSym("cublasStrmm_v2")
+	symstrmm64 = registerSym("cublasStrmm_v2_64")
+	symstrmv = registerSym("cublasStrmv_v2")
+	symstrmv64 = registerSym("cublasStrmv_v2_64")
+	symstrsmBatched = registerSym("cublasStrsmBatched")
+	symstrsmBatched64 = registerSym("cublasStrsmBatched_64")
+	symstrsm = registerSym("cublasStrsm_v2")
+	symstrsm64 = registerSym("cublasStrsm_v2_64")
+	symstrsv = registerSym("cublasStrsv_v2")
+	symstrsv64 = registerSym("cublasStrsv_v2_64")
+	symstrttp = registerSym("cublasStrttp")
+	symswapEx = registerSym("cublasSwapEx")
+	symswapEx64 = registerSym("cublasSwapEx_64")
+	symtSSgemvBatched = registerSym("cublasTSSgemvBatched")
+	symtSSgemvBatched64 = registerSym("cublasTSSgemvBatched_64")
+	symtSSgemvStridedBatched = registerSym("cublasTSSgemvStridedBatched")
+	symtSSgemvStridedBatched64 = registerSym("cublasTSSgemvStridedBatched_64")
+	symtSTgemvBatched = registerSym("cublasTSTgemvBatched")
+	symtSTgemvBatched64 = registerSym("cublasTSTgemvBatched_64")
+	symtSTgemvStridedBatched = registerSym("cublasTSTgemvStridedBatched")
+	symtSTgemvStridedBatched64 = registerSym("cublasTSTgemvStridedBatched_64")
+	symuint8gemmBias = registerSym("cublasUint8gemmBias")
+	symzaxpy = registerSym("cublasZaxpy_v2")
+	symzaxpy64 = registerSym("cublasZaxpy_v2_64")
+	symzcopy = registerSym("cublasZcopy_v2")
+	symzcopy64 = registerSym("cublasZcopy_v2_64")
+	symzdgmm = registerSym("cublasZdgmm")
+	symzdgmm64 = registerSym("cublasZdgmm_64")
+	symzdotc = registerSym("cublasZdotc_v2")
+	symzdotc64 = registerSym("cublasZdotc_v2_64")
+	symzdotu = registerSym("cublasZdotu_v2")
+	symzdotu64 = registerSym("cublasZdotu_v2_64")
+	symzdrot = registerSym("cublasZdrot_v2")
+	symzdrot64 = registerSym("cublasZdrot_v2_64")
+	symzdscal = registerSym("cublasZdscal_v2")
+	symzdscal64 = registerSym("cublasZdscal_v2_64")
+	symzgbmv = registerSym("cublasZgbmv_v2")
+	symzgbmv64 = registerSym("cublasZgbmv_v2_64")
+	symzgeam = registerSym("cublasZgeam")
+	symzgeam64 = registerSym("cublasZgeam_64")
+	symzgelsBatched = registerSym("cublasZgelsBatched")
+	symzgemm3m = registerSym("cublasZgemm3m")
+	symzgemm3m64 = registerSym("cublasZgemm3m_64")
+	symzgemmBatched = registerSym("cublasZgemmBatched")
+	symzgemmBatched64 = registerSym("cublasZgemmBatched_64")
+	symzgemmStridedBatched = registerSym("cublasZgemmStridedBatched")
+	symzgemmStridedBatched64 = registerSym("cublasZgemmStridedBatched_64")
+	symzgemm = registerSym("cublasZgemm_v2")
+	symzgemm64 = registerSym("cublasZgemm_v2_64")
+	symzgemvBatched = registerSym("cublasZgemvBatched")
+	symzgemvBatched64 = registerSym("cublasZgemvBatched_64")
+	symzgemvStridedBatched = registerSym("cublasZgemvStridedBatched")
+	symzgemvStridedBatched64 = registerSym("cublasZgemvStridedBatched_64")
+	symzgemv = registerSym("cublasZgemv_v2")
+	symzgemv64 = registerSym("cublasZgemv_v2_64")
+	symzgeqrfBatched = registerSym("cublasZgeqrfBatched")
+	symzgerc = registerSym("cublasZgerc_v2")
+	symzgerc64 = registerSym("cublasZgerc_v2_64")
+	symzgeru = registerSym("cublasZgeru_v2")
+	symzgeru64 = registerSym("cublasZgeru_v2_64")
+	symzgetrfBatched = registerSym("cublasZgetrfBatched")
+	symzgetriBatched = registerSym("cublasZgetriBatched")
+	symzgetrsBatched = registerSym("cublasZgetrsBatched")
+	symzhbmv = registerSym("cublasZhbmv_v2")
+	symzhbmv64 = registerSym("cublasZhbmv_v2_64")
+	symzhemm = registerSym("cublasZhemm_v2")
+	symzhemm64 = registerSym("cublasZhemm_v2_64")
+	symzhemv = registerSym("cublasZhemv_v2")
+	symzhemv64 = registerSym("cublasZhemv_v2_64")
+	symzher2 = registerSym("cublasZher2_v2")
+	symzher264 = registerSym("cublasZher2_v2_64")
+	symzher2k = registerSym("cublasZher2k_v2")
+	symzher2k64 = registerSym("cublasZher2k_v2_64")
+	symzher = registerSym("cublasZher_v2")
+	symzher64 = registerSym("cublasZher_v2_64")
+	symzherk = registerSym("cublasZherk_v2")
+	symzherk64 = registerSym("cublasZherk_v2_64")
+	symzherkx = registerSym("cublasZherkx")
+	symzherkx64 = registerSym("cublasZherkx_64")
+	symzhpmv = registerSym("cublasZhpmv_v2")
+	symzhpmv64 = registerSym("cublasZhpmv_v2_64")
+	symzhpr2 = registerSym("cublasZhpr2_v2")
+	symzhpr264 = registerSym("cublasZhpr2_v2_64")
+	symzhpr = registerSym("cublasZhpr_v2")
+	symzhpr64 = registerSym("cublasZhpr_v2_64")
+	symzmatinvBatched = registerSym("cublasZmatinvBatched")
+	symzrot = registerSym("cublasZrot_v2")
+	symzrot64 = registerSym("cublasZrot_v2_64")
+	symzrotg = registerSym("cublasZrotg_v2")
+	symzscal = registerSym("cublasZscal_v2")
+	symzscal64 = registerSym("cublasZscal_v2_64")
+	symzswap = registerSym("cublasZswap_v2")
+	symzswap64 = registerSym("cublasZswap_v2_64")
+	symzsymm = registerSym("cublasZsymm_v2")
+	symzsymm64 = registerSym("cublasZsymm_v2_64")
+	symzsymv = registerSym("cublasZsymv_v2")
+	symzsymv64 = registerSym("cublasZsymv_v2_64")
+	symzsyr2 = registerSym("cublasZsyr2_v2")
+	symzsyr264 = registerSym("cublasZsyr2_v2_64")
+	symzsyr2k = registerSym("cublasZsyr2k_v2")
+	symzsyr2k64 = registerSym("cublasZsyr2k_v2_64")
+	symzsyr = registerSym("cublasZsyr_v2")
+	symzsyr64 = registerSym("cublasZsyr_v2_64")
+	symzsyrk = registerSym("cublasZsyrk_v2")
+	symzsyrk64 = registerSym("cublasZsyrk_v2_64")
+	symzsyrkx = registerSym("cublasZsyrkx")
+	symzsyrkx64 = registerSym("cublasZsyrkx_64")
+	symztbmv = registerSym("cublasZtbmv_v2")
+	symztbmv64 = registerSym("cublasZtbmv_v2_64")
+	symztbsv = registerSym("cublasZtbsv_v2")
+	symztbsv64 = registerSym("cublasZtbsv_v2_64")
+	symztpmv = registerSym("cublasZtpmv_v2")
+	symztpmv64 = registerSym("cublasZtpmv_v2_64")
+	symztpsv = registerSym("cublasZtpsv_v2")
+	symztpsv64 = registerSym("cublasZtpsv_v2_64")
+	symztpttr = registerSym("cublasZtpttr")
+	symztrmm = registerSym("cublasZtrmm_v2")
+	symztrmm64 = registerSym("cublasZtrmm_v2_64")
+	symztrmv = registerSym("cublasZtrmv_v2")
+	symztrmv64 = registerSym("cublasZtrmv_v2_64")
+	symztrsmBatched = registerSym("cublasZtrsmBatched")
+	symztrsmBatched64 = registerSym("cublasZtrsmBatched_64")
+	symztrsm = registerSym("cublasZtrsm_v2")
+	symztrsm64 = registerSym("cublasZtrsm_v2_64")
+	symztrsv = registerSym("cublasZtrsv_v2")
+	symztrsv64 = registerSym("cublasZtrsv_v2_64")
+	symztrttp = registerSym("cublasZtrttp")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetStatusName = nil
 	fnGetStatusString = nil
-	fnasumEx = nil
-	fnasumEx64 = nil
-	fnaxpyEx = nil
-	fnaxpyEx64 = nil
-	fncaxpy = nil
-	fncaxpy64 = nil
-	fnccopy = nil
-	fnccopy64 = nil
-	fncdgmm = nil
-	fncdgmm64 = nil
-	fncdotc = nil
-	fncdotc64 = nil
-	fncdotu = nil
-	fncdotu64 = nil
-	fncgbmv = nil
-	fncgbmv64 = nil
-	fncgeam = nil
-	fncgeam64 = nil
-	fncgelsBatched = nil
-	fncgemm3m = nil
-	fncgemm3mBatched = nil
-	fncgemm3mBatched64 = nil
-	fncgemm3mEx = nil
-	fncgemm3mEx64 = nil
-	fncgemm3mStridedBatched = nil
-	fncgemm3mStridedBatched64 = nil
-	fncgemm3m64 = nil
-	fncgemmBatched = nil
-	fncgemmBatched64 = nil
-	fncgemmEx = nil
-	fncgemmEx64 = nil
-	fncgemmStridedBatched = nil
-	fncgemmStridedBatched64 = nil
-	fncgemm = nil
-	fncgemm64 = nil
-	fncgemvBatched = nil
-	fncgemvBatched64 = nil
-	fncgemvStridedBatched = nil
-	fncgemvStridedBatched64 = nil
-	fncgemv = nil
-	fncgemv64 = nil
-	fncgeqrfBatched = nil
-	fncgerc = nil
-	fncgerc64 = nil
-	fncgeru = nil
-	fncgeru64 = nil
-	fncgetrfBatched = nil
-	fncgetriBatched = nil
-	fncgetrsBatched = nil
-	fnchbmv = nil
-	fnchbmv64 = nil
-	fnchemm = nil
-	fnchemm64 = nil
-	fnchemv = nil
-	fnchemv64 = nil
-	fncher2 = nil
-	fncher264 = nil
-	fncher2k = nil
-	fncher2k64 = nil
-	fncher = nil
-	fncher64 = nil
-	fncherk3mEx = nil
-	fncherk3mEx64 = nil
-	fncherkEx = nil
-	fncherkEx64 = nil
-	fncherk = nil
-	fncherk64 = nil
-	fncherkx = nil
-	fncherkx64 = nil
-	fnchpmv = nil
-	fnchpmv64 = nil
-	fnchpr2 = nil
-	fnchpr264 = nil
-	fnchpr = nil
-	fnchpr64 = nil
-	fncmatinvBatched = nil
-	fncopyEx = nil
-	fncopyEx64 = nil
-	fnCreate = nil
-	fncrot = nil
-	fncrot64 = nil
-	fncrotg = nil
-	fncscal = nil
-	fncscal64 = nil
-	fncsrot = nil
-	fncsrot64 = nil
-	fncsscal = nil
-	fncsscal64 = nil
-	fncswap = nil
-	fncswap64 = nil
-	fncsymm = nil
-	fncsymm64 = nil
-	fncsymv = nil
-	fncsymv64 = nil
-	fncsyr2 = nil
-	fncsyr264 = nil
-	fncsyr2k = nil
-	fncsyr2k64 = nil
-	fncsyr = nil
-	fncsyr64 = nil
-	fncsyrk3mEx = nil
-	fncsyrk3mEx64 = nil
-	fncsyrkEx = nil
-	fncsyrkEx64 = nil
-	fncsyrk = nil
-	fncsyrk64 = nil
-	fncsyrkx = nil
-	fncsyrkx64 = nil
-	fnctbmv = nil
-	fnctbmv64 = nil
-	fnctbsv = nil
-	fnctbsv64 = nil
-	fnctpmv = nil
-	fnctpmv64 = nil
-	fnctpsv = nil
-	fnctpsv64 = nil
-	fnctpttr = nil
-	fnctrmm = nil
-	fnctrmm64 = nil
-	fnctrmv = nil
-	fnctrmv64 = nil
-	fnctrsmBatched = nil
-	fnctrsmBatched64 = nil
-	fnctrsm = nil
-	fnctrsm64 = nil
-	fnctrsv = nil
-	fnctrsv64 = nil
-	fnctrttp = nil
-	fndasum = nil
-	fndasum64 = nil
-	fndaxpy = nil
-	fndaxpy64 = nil
-	fndcopy = nil
-	fndcopy64 = nil
-	fnddgmm = nil
-	fnddgmm64 = nil
-	fnddot = nil
-	fnddot64 = nil
-	fndestroy = nil
-	fndgbmv = nil
-	fndgbmv64 = nil
-	fndgeam = nil
-	fndgeam64 = nil
-	fndgelsBatched = nil
-	fndgemmBatched = nil
-	fndgemmBatched64 = nil
-	fndgemmGroupedBatched = nil
-	fndgemmGroupedBatched64 = nil
-	fndgemmStridedBatched = nil
-	fndgemmStridedBatched64 = nil
-	fndgemm = nil
-	fndgemm64 = nil
-	fndgemvBatched = nil
-	fndgemvBatched64 = nil
-	fndgemvStridedBatched = nil
-	fndgemvStridedBatched64 = nil
-	fndgemv = nil
-	fndgemv64 = nil
-	fndgeqrfBatched = nil
-	fndger = nil
-	fndger64 = nil
-	fndgetrfBatched = nil
-	fndgetriBatched = nil
-	fndgetrsBatched = nil
-	fndmatinvBatched = nil
-	fndnrm2 = nil
-	fndnrm264 = nil
-	fndotEx = nil
-	fndotEx64 = nil
-	fndotcEx = nil
-	fndotcEx64 = nil
-	fndrot = nil
-	fndrot64 = nil
-	fndrotg = nil
-	fndrotm = nil
-	fndrotm64 = nil
-	fndrotmg = nil
-	fndsbmv = nil
-	fndsbmv64 = nil
-	fndscal = nil
-	fndscal64 = nil
-	fndspmv = nil
-	fndspmv64 = nil
-	fndspr2 = nil
-	fndspr264 = nil
-	fndspr = nil
-	fndspr64 = nil
-	fndswap = nil
-	fndswap64 = nil
-	fndsymm = nil
-	fndsymm64 = nil
-	fndsymv = nil
-	fndsymv64 = nil
-	fndsyr2 = nil
-	fndsyr264 = nil
-	fndsyr2k = nil
-	fndsyr2k64 = nil
-	fndsyr = nil
-	fndsyr64 = nil
-	fndsyrk = nil
-	fndsyrk64 = nil
-	fndsyrkx = nil
-	fndsyrkx64 = nil
-	fndtbmv = nil
-	fndtbmv64 = nil
-	fndtbsv = nil
-	fndtbsv64 = nil
-	fndtpmv = nil
-	fndtpmv64 = nil
-	fndtpsv = nil
-	fndtpsv64 = nil
-	fndtpttr = nil
-	fndtrmm = nil
-	fndtrmm64 = nil
-	fndtrmv = nil
-	fndtrmv64 = nil
-	fndtrsmBatched = nil
-	fndtrsmBatched64 = nil
-	fndtrsm = nil
-	fndtrsm64 = nil
-	fndtrsv = nil
-	fndtrsv64 = nil
-	fndtrttp = nil
-	fndzasum = nil
-	fndzasum64 = nil
-	fndznrm2 = nil
-	fndznrm264 = nil
-	fngemmBatchedEx = nil
-	fngemmBatchedEx64 = nil
-	fngemmEx = nil
-	fngemmEx64 = nil
-	fngemmGroupedBatchedEx = nil
-	fngemmGroupedBatchedEx64 = nil
-	fngemmStridedBatchedEx = nil
-	fngemmStridedBatchedEx64 = nil
-	fngetAtomicsMode = nil
-	fngetEmulationSpecialValuesSupport = nil
-	fngetEmulationStrategy = nil
-	fngetFixedPointEmulationMantissaBitCountPointer = nil
-	fngetFixedPointEmulationMantissaBitOffset = nil
-	fngetFixedPointEmulationMantissaControl = nil
-	fngetFixedPointEmulationMaxMantissaBitCount = nil
-	fnGetLoggerCallback = nil
-	fngetMathMode = nil
-	fnGetMatrix = nil
+	symasumEx = 0
+	symasumEx64 = 0
+	symaxpyEx = 0
+	symaxpyEx64 = 0
+	symcaxpy = 0
+	symcaxpy64 = 0
+	symccopy = 0
+	symccopy64 = 0
+	symcdgmm = 0
+	symcdgmm64 = 0
+	symcdotc = 0
+	symcdotc64 = 0
+	symcdotu = 0
+	symcdotu64 = 0
+	symcgbmv = 0
+	symcgbmv64 = 0
+	symcgeam = 0
+	symcgeam64 = 0
+	symcgelsBatched = 0
+	symcgemm3m = 0
+	symcgemm3mBatched = 0
+	symcgemm3mBatched64 = 0
+	symcgemm3mEx = 0
+	symcgemm3mEx64 = 0
+	symcgemm3mStridedBatched = 0
+	symcgemm3mStridedBatched64 = 0
+	symcgemm3m64 = 0
+	symcgemmBatched = 0
+	symcgemmBatched64 = 0
+	symcgemmEx = 0
+	symcgemmEx64 = 0
+	symcgemmStridedBatched = 0
+	symcgemmStridedBatched64 = 0
+	symcgemm = 0
+	symcgemm64 = 0
+	symcgemvBatched = 0
+	symcgemvBatched64 = 0
+	symcgemvStridedBatched = 0
+	symcgemvStridedBatched64 = 0
+	symcgemv = 0
+	symcgemv64 = 0
+	symcgeqrfBatched = 0
+	symcgerc = 0
+	symcgerc64 = 0
+	symcgeru = 0
+	symcgeru64 = 0
+	symcgetrfBatched = 0
+	symcgetriBatched = 0
+	symcgetrsBatched = 0
+	symchbmv = 0
+	symchbmv64 = 0
+	symchemm = 0
+	symchemm64 = 0
+	symchemv = 0
+	symchemv64 = 0
+	symcher2 = 0
+	symcher264 = 0
+	symcher2k = 0
+	symcher2k64 = 0
+	symcher = 0
+	symcher64 = 0
+	symcherk3mEx = 0
+	symcherk3mEx64 = 0
+	symcherkEx = 0
+	symcherkEx64 = 0
+	symcherk = 0
+	symcherk64 = 0
+	symcherkx = 0
+	symcherkx64 = 0
+	symchpmv = 0
+	symchpmv64 = 0
+	symchpr2 = 0
+	symchpr264 = 0
+	symchpr = 0
+	symchpr64 = 0
+	symcmatinvBatched = 0
+	symcopyEx = 0
+	symcopyEx64 = 0
+	symCreate = 0
+	symcrot = 0
+	symcrot64 = 0
+	symcrotg = 0
+	symcscal = 0
+	symcscal64 = 0
+	symcsrot = 0
+	symcsrot64 = 0
+	symcsscal = 0
+	symcsscal64 = 0
+	symcswap = 0
+	symcswap64 = 0
+	symcsymm = 0
+	symcsymm64 = 0
+	symcsymv = 0
+	symcsymv64 = 0
+	symcsyr2 = 0
+	symcsyr264 = 0
+	symcsyr2k = 0
+	symcsyr2k64 = 0
+	symcsyr = 0
+	symcsyr64 = 0
+	symcsyrk3mEx = 0
+	symcsyrk3mEx64 = 0
+	symcsyrkEx = 0
+	symcsyrkEx64 = 0
+	symcsyrk = 0
+	symcsyrk64 = 0
+	symcsyrkx = 0
+	symcsyrkx64 = 0
+	symctbmv = 0
+	symctbmv64 = 0
+	symctbsv = 0
+	symctbsv64 = 0
+	symctpmv = 0
+	symctpmv64 = 0
+	symctpsv = 0
+	symctpsv64 = 0
+	symctpttr = 0
+	symctrmm = 0
+	symctrmm64 = 0
+	symctrmv = 0
+	symctrmv64 = 0
+	symctrsmBatched = 0
+	symctrsmBatched64 = 0
+	symctrsm = 0
+	symctrsm64 = 0
+	symctrsv = 0
+	symctrsv64 = 0
+	symctrttp = 0
+	symdasum = 0
+	symdasum64 = 0
+	symdaxpy = 0
+	symdaxpy64 = 0
+	symdcopy = 0
+	symdcopy64 = 0
+	symddgmm = 0
+	symddgmm64 = 0
+	symddot = 0
+	symddot64 = 0
+	symdestroy = 0
+	symdgbmv = 0
+	symdgbmv64 = 0
+	symdgeam = 0
+	symdgeam64 = 0
+	symdgelsBatched = 0
+	symdgemmBatched = 0
+	symdgemmBatched64 = 0
+	symdgemmGroupedBatched = 0
+	symdgemmGroupedBatched64 = 0
+	symdgemmStridedBatched = 0
+	symdgemmStridedBatched64 = 0
+	symdgemm = 0
+	symdgemm64 = 0
+	symdgemvBatched = 0
+	symdgemvBatched64 = 0
+	symdgemvStridedBatched = 0
+	symdgemvStridedBatched64 = 0
+	symdgemv = 0
+	symdgemv64 = 0
+	symdgeqrfBatched = 0
+	symdger = 0
+	symdger64 = 0
+	symdgetrfBatched = 0
+	symdgetriBatched = 0
+	symdgetrsBatched = 0
+	symdmatinvBatched = 0
+	symdnrm2 = 0
+	symdnrm264 = 0
+	symdotEx = 0
+	symdotEx64 = 0
+	symdotcEx = 0
+	symdotcEx64 = 0
+	symdrot = 0
+	symdrot64 = 0
+	symdrotg = 0
+	symdrotm = 0
+	symdrotm64 = 0
+	symdrotmg = 0
+	symdsbmv = 0
+	symdsbmv64 = 0
+	symdscal = 0
+	symdscal64 = 0
+	symdspmv = 0
+	symdspmv64 = 0
+	symdspr2 = 0
+	symdspr264 = 0
+	symdspr = 0
+	symdspr64 = 0
+	symdswap = 0
+	symdswap64 = 0
+	symdsymm = 0
+	symdsymm64 = 0
+	symdsymv = 0
+	symdsymv64 = 0
+	symdsyr2 = 0
+	symdsyr264 = 0
+	symdsyr2k = 0
+	symdsyr2k64 = 0
+	symdsyr = 0
+	symdsyr64 = 0
+	symdsyrk = 0
+	symdsyrk64 = 0
+	symdsyrkx = 0
+	symdsyrkx64 = 0
+	symdtbmv = 0
+	symdtbmv64 = 0
+	symdtbsv = 0
+	symdtbsv64 = 0
+	symdtpmv = 0
+	symdtpmv64 = 0
+	symdtpsv = 0
+	symdtpsv64 = 0
+	symdtpttr = 0
+	symdtrmm = 0
+	symdtrmm64 = 0
+	symdtrmv = 0
+	symdtrmv64 = 0
+	symdtrsmBatched = 0
+	symdtrsmBatched64 = 0
+	symdtrsm = 0
+	symdtrsm64 = 0
+	symdtrsv = 0
+	symdtrsv64 = 0
+	symdtrttp = 0
+	symdzasum = 0
+	symdzasum64 = 0
+	symdznrm2 = 0
+	symdznrm264 = 0
+	symgemmBatchedEx = 0
+	symgemmBatchedEx64 = 0
+	symgemmEx = 0
+	symgemmEx64 = 0
+	symgemmGroupedBatchedEx = 0
+	symgemmGroupedBatchedEx64 = 0
+	symgemmStridedBatchedEx = 0
+	symgemmStridedBatchedEx64 = 0
+	symgetAtomicsMode = 0
+	symgetEmulationSpecialValuesSupport = 0
+	symgetEmulationStrategy = 0
+	symgetFixedPointEmulationMantissaBitCountPointer = 0
+	symgetFixedPointEmulationMantissaBitOffset = 0
+	symgetFixedPointEmulationMantissaControl = 0
+	symgetFixedPointEmulationMaxMantissaBitCount = 0
+	symGetLoggerCallback = 0
+	symgetMathMode = 0
+	symGetMatrix = 0
 	fnGetMatrixAsync = nil
 	fnGetMatrixAsync64 = nil
-	fnGetMatrix64 = nil
-	fngetPointerMode = nil
-	fnGetProperty = nil
-	fngetSmCountTarget = nil
-	fngetStream = nil
-	fnGetVector = nil
+	symGetMatrix64 = 0
+	symgetPointerMode = 0
+	symGetProperty = 0
+	symgetSmCountTarget = 0
+	symgetStream = 0
+	symGetVector = 0
 	fnGetVectorAsync = nil
 	fnGetVectorAsync64 = nil
-	fnGetVector64 = nil
-	fngetVersion = nil
-	fnhSHgemvBatched = nil
-	fnhSHgemvBatched64 = nil
-	fnhSHgemvStridedBatched = nil
-	fnhSHgemvStridedBatched64 = nil
-	fnhSSgemvBatched = nil
-	fnhSSgemvBatched64 = nil
-	fnhSSgemvStridedBatched = nil
-	fnhSSgemvStridedBatched64 = nil
-	fnhgemm = nil
-	fnhgemmBatched = nil
-	fnhgemmBatched64 = nil
-	fnhgemmStridedBatched = nil
-	fnhgemmStridedBatched64 = nil
-	fnhgemm64 = nil
-	fniamaxEx = nil
-	fniamaxEx64 = nil
-	fniaminEx = nil
-	fniaminEx64 = nil
-	fnicamax = nil
-	fnicamax64 = nil
-	fnicamin = nil
-	fnicamin64 = nil
-	fnidamax = nil
-	fnidamax64 = nil
-	fnidamin = nil
-	fnidamin64 = nil
-	fnisamax = nil
-	fnisamax64 = nil
-	fnisamin = nil
-	fnisamin64 = nil
-	fnizamax = nil
-	fnizamax64 = nil
-	fnizamin = nil
-	fnizamin64 = nil
-	fnLoggerConfigure = nil
-	fnnrm2Ex = nil
-	fnnrm2Ex64 = nil
-	fnrotEx = nil
-	fnrotEx64 = nil
-	fnrotgEx = nil
-	fnrotmEx = nil
-	fnrotmEx64 = nil
-	fnrotmgEx = nil
-	fnsasum = nil
-	fnsasum64 = nil
-	fnsaxpy = nil
-	fnsaxpy64 = nil
-	fnscalEx = nil
-	fnscalEx64 = nil
-	fnscasum = nil
-	fnscasum64 = nil
-	fnscnrm2 = nil
-	fnscnrm264 = nil
-	fnscopy = nil
-	fnscopy64 = nil
-	fnsdgmm = nil
-	fnsdgmm64 = nil
-	fnsdot = nil
-	fnsdot64 = nil
-	fnsetAtomicsMode = nil
-	fnsetEmulationSpecialValuesSupport = nil
-	fnsetEmulationStrategy = nil
-	fnsetFixedPointEmulationMantissaBitCountPointer = nil
-	fnsetFixedPointEmulationMantissaBitOffset = nil
-	fnsetFixedPointEmulationMantissaControl = nil
-	fnsetFixedPointEmulationMaxMantissaBitCount = nil
-	fnSetLoggerCallback = nil
-	fnsetMathMode = nil
-	fnSetMatrix = nil
+	symGetVector64 = 0
+	symgetVersion = 0
+	symhSHgemvBatched = 0
+	symhSHgemvBatched64 = 0
+	symhSHgemvStridedBatched = 0
+	symhSHgemvStridedBatched64 = 0
+	symhSSgemvBatched = 0
+	symhSSgemvBatched64 = 0
+	symhSSgemvStridedBatched = 0
+	symhSSgemvStridedBatched64 = 0
+	symhgemm = 0
+	symhgemmBatched = 0
+	symhgemmBatched64 = 0
+	symhgemmStridedBatched = 0
+	symhgemmStridedBatched64 = 0
+	symhgemm64 = 0
+	symiamaxEx = 0
+	symiamaxEx64 = 0
+	symiaminEx = 0
+	symiaminEx64 = 0
+	symicamax = 0
+	symicamax64 = 0
+	symicamin = 0
+	symicamin64 = 0
+	symidamax = 0
+	symidamax64 = 0
+	symidamin = 0
+	symidamin64 = 0
+	symisamax = 0
+	symisamax64 = 0
+	symisamin = 0
+	symisamin64 = 0
+	symizamax = 0
+	symizamax64 = 0
+	symizamin = 0
+	symizamin64 = 0
+	symLoggerConfigure = 0
+	symnrm2Ex = 0
+	symnrm2Ex64 = 0
+	symrotEx = 0
+	symrotEx64 = 0
+	symrotgEx = 0
+	symrotmEx = 0
+	symrotmEx64 = 0
+	symrotmgEx = 0
+	symsasum = 0
+	symsasum64 = 0
+	symsaxpy = 0
+	symsaxpy64 = 0
+	symscalEx = 0
+	symscalEx64 = 0
+	symscasum = 0
+	symscasum64 = 0
+	symscnrm2 = 0
+	symscnrm264 = 0
+	symscopy = 0
+	symscopy64 = 0
+	symsdgmm = 0
+	symsdgmm64 = 0
+	symsdot = 0
+	symsdot64 = 0
+	symsetAtomicsMode = 0
+	symsetEmulationSpecialValuesSupport = 0
+	symsetEmulationStrategy = 0
+	symsetFixedPointEmulationMantissaBitCountPointer = 0
+	symsetFixedPointEmulationMantissaBitOffset = 0
+	symsetFixedPointEmulationMantissaControl = 0
+	symsetFixedPointEmulationMaxMantissaBitCount = 0
+	symSetLoggerCallback = 0
+	symsetMathMode = 0
+	symSetMatrix = 0
 	fnSetMatrixAsync = nil
 	fnSetMatrixAsync64 = nil
-	fnSetMatrix64 = nil
-	fnsetPointerMode = nil
-	fnsetSmCountTarget = nil
+	symSetMatrix64 = 0
+	symsetPointerMode = 0
+	symsetSmCountTarget = 0
 	fnsetStream = nil
-	fnSetVector = nil
+	symSetVector = 0
 	fnSetVectorAsync = nil
 	fnSetVectorAsync64 = nil
-	fnSetVector64 = nil
-	fnsetWorkspace = nil
-	fnsgbmv = nil
-	fnsgbmv64 = nil
-	fnsgeam = nil
-	fnsgeam64 = nil
-	fnsgelsBatched = nil
-	fnsgemmBatched = nil
-	fnsgemmBatched64 = nil
-	fnsgemmEx = nil
-	fnsgemmEx64 = nil
-	fnsgemmGroupedBatched = nil
-	fnsgemmGroupedBatched64 = nil
-	fnsgemmStridedBatched = nil
-	fnsgemmStridedBatched64 = nil
-	fnsgemm = nil
-	fnsgemm64 = nil
-	fnsgemvBatched = nil
-	fnsgemvBatched64 = nil
-	fnsgemvStridedBatched = nil
-	fnsgemvStridedBatched64 = nil
-	fnsgemv = nil
-	fnsgemv64 = nil
-	fnsgeqrfBatched = nil
-	fnsger = nil
-	fnsger64 = nil
-	fnsgetrfBatched = nil
-	fnsgetriBatched = nil
-	fnsgetrsBatched = nil
-	fnsmatinvBatched = nil
-	fnsnrm2 = nil
-	fnsnrm264 = nil
-	fnsrot = nil
-	fnsrot64 = nil
-	fnsrotg = nil
-	fnsrotm = nil
-	fnsrotm64 = nil
-	fnsrotmg = nil
-	fnssbmv = nil
-	fnssbmv64 = nil
-	fnsscal = nil
-	fnsscal64 = nil
-	fnsspmv = nil
-	fnsspmv64 = nil
-	fnsspr2 = nil
-	fnsspr264 = nil
-	fnsspr = nil
-	fnsspr64 = nil
-	fnsswap = nil
-	fnsswap64 = nil
-	fnssymm = nil
-	fnssymm64 = nil
-	fnssymv = nil
-	fnssymv64 = nil
-	fnssyr2 = nil
-	fnssyr264 = nil
-	fnssyr2k = nil
-	fnssyr2k64 = nil
-	fnssyr = nil
-	fnssyr64 = nil
-	fnssyrk = nil
-	fnssyrk64 = nil
-	fnssyrkx = nil
-	fnssyrkx64 = nil
-	fnstbmv = nil
-	fnstbmv64 = nil
-	fnstbsv = nil
-	fnstbsv64 = nil
-	fnstpmv = nil
-	fnstpmv64 = nil
-	fnstpsv = nil
-	fnstpsv64 = nil
-	fnstpttr = nil
-	fnstrmm = nil
-	fnstrmm64 = nil
-	fnstrmv = nil
-	fnstrmv64 = nil
-	fnstrsmBatched = nil
-	fnstrsmBatched64 = nil
-	fnstrsm = nil
-	fnstrsm64 = nil
-	fnstrsv = nil
-	fnstrsv64 = nil
-	fnstrttp = nil
-	fnswapEx = nil
-	fnswapEx64 = nil
-	fntSSgemvBatched = nil
-	fntSSgemvBatched64 = nil
-	fntSSgemvStridedBatched = nil
-	fntSSgemvStridedBatched64 = nil
-	fntSTgemvBatched = nil
-	fntSTgemvBatched64 = nil
-	fntSTgemvStridedBatched = nil
-	fntSTgemvStridedBatched64 = nil
-	fnuint8gemmBias = nil
-	fnzaxpy = nil
-	fnzaxpy64 = nil
-	fnzcopy = nil
-	fnzcopy64 = nil
-	fnzdgmm = nil
-	fnzdgmm64 = nil
-	fnzdotc = nil
-	fnzdotc64 = nil
-	fnzdotu = nil
-	fnzdotu64 = nil
-	fnzdrot = nil
-	fnzdrot64 = nil
-	fnzdscal = nil
-	fnzdscal64 = nil
-	fnzgbmv = nil
-	fnzgbmv64 = nil
-	fnzgeam = nil
-	fnzgeam64 = nil
-	fnzgelsBatched = nil
-	fnzgemm3m = nil
-	fnzgemm3m64 = nil
-	fnzgemmBatched = nil
-	fnzgemmBatched64 = nil
-	fnzgemmStridedBatched = nil
-	fnzgemmStridedBatched64 = nil
-	fnzgemm = nil
-	fnzgemm64 = nil
-	fnzgemvBatched = nil
-	fnzgemvBatched64 = nil
-	fnzgemvStridedBatched = nil
-	fnzgemvStridedBatched64 = nil
-	fnzgemv = nil
-	fnzgemv64 = nil
-	fnzgeqrfBatched = nil
-	fnzgerc = nil
-	fnzgerc64 = nil
-	fnzgeru = nil
-	fnzgeru64 = nil
-	fnzgetrfBatched = nil
-	fnzgetriBatched = nil
-	fnzgetrsBatched = nil
-	fnzhbmv = nil
-	fnzhbmv64 = nil
-	fnzhemm = nil
-	fnzhemm64 = nil
-	fnzhemv = nil
-	fnzhemv64 = nil
-	fnzher2 = nil
-	fnzher264 = nil
-	fnzher2k = nil
-	fnzher2k64 = nil
-	fnzher = nil
-	fnzher64 = nil
-	fnzherk = nil
-	fnzherk64 = nil
-	fnzherkx = nil
-	fnzherkx64 = nil
-	fnzhpmv = nil
-	fnzhpmv64 = nil
-	fnzhpr2 = nil
-	fnzhpr264 = nil
-	fnzhpr = nil
-	fnzhpr64 = nil
-	fnzmatinvBatched = nil
-	fnzrot = nil
-	fnzrot64 = nil
-	fnzrotg = nil
-	fnzscal = nil
-	fnzscal64 = nil
-	fnzswap = nil
-	fnzswap64 = nil
-	fnzsymm = nil
-	fnzsymm64 = nil
-	fnzsymv = nil
-	fnzsymv64 = nil
-	fnzsyr2 = nil
-	fnzsyr264 = nil
-	fnzsyr2k = nil
-	fnzsyr2k64 = nil
-	fnzsyr = nil
-	fnzsyr64 = nil
-	fnzsyrk = nil
-	fnzsyrk64 = nil
-	fnzsyrkx = nil
-	fnzsyrkx64 = nil
-	fnztbmv = nil
-	fnztbmv64 = nil
-	fnztbsv = nil
-	fnztbsv64 = nil
-	fnztpmv = nil
-	fnztpmv64 = nil
-	fnztpsv = nil
-	fnztpsv64 = nil
-	fnztpttr = nil
-	fnztrmm = nil
-	fnztrmm64 = nil
-	fnztrmv = nil
-	fnztrmv64 = nil
-	fnztrsmBatched = nil
-	fnztrsmBatched64 = nil
-	fnztrsm = nil
-	fnztrsm64 = nil
-	fnztrsv = nil
-	fnztrsv64 = nil
-	fnztrttp = nil
+	symSetVector64 = 0
+	symsetWorkspace = 0
+	symsgbmv = 0
+	symsgbmv64 = 0
+	symsgeam = 0
+	symsgeam64 = 0
+	symsgelsBatched = 0
+	symsgemmBatched = 0
+	symsgemmBatched64 = 0
+	symsgemmEx = 0
+	symsgemmEx64 = 0
+	symsgemmGroupedBatched = 0
+	symsgemmGroupedBatched64 = 0
+	symsgemmStridedBatched = 0
+	symsgemmStridedBatched64 = 0
+	symsgemm = 0
+	symsgemm64 = 0
+	symsgemvBatched = 0
+	symsgemvBatched64 = 0
+	symsgemvStridedBatched = 0
+	symsgemvStridedBatched64 = 0
+	symsgemv = 0
+	symsgemv64 = 0
+	symsgeqrfBatched = 0
+	symsger = 0
+	symsger64 = 0
+	symsgetrfBatched = 0
+	symsgetriBatched = 0
+	symsgetrsBatched = 0
+	symsmatinvBatched = 0
+	symsnrm2 = 0
+	symsnrm264 = 0
+	symsrot = 0
+	symsrot64 = 0
+	symsrotg = 0
+	symsrotm = 0
+	symsrotm64 = 0
+	symsrotmg = 0
+	symssbmv = 0
+	symssbmv64 = 0
+	symsscal = 0
+	symsscal64 = 0
+	symsspmv = 0
+	symsspmv64 = 0
+	symsspr2 = 0
+	symsspr264 = 0
+	symsspr = 0
+	symsspr64 = 0
+	symsswap = 0
+	symsswap64 = 0
+	symssymm = 0
+	symssymm64 = 0
+	symssymv = 0
+	symssymv64 = 0
+	symssyr2 = 0
+	symssyr264 = 0
+	symssyr2k = 0
+	symssyr2k64 = 0
+	symssyr = 0
+	symssyr64 = 0
+	symssyrk = 0
+	symssyrk64 = 0
+	symssyrkx = 0
+	symssyrkx64 = 0
+	symstbmv = 0
+	symstbmv64 = 0
+	symstbsv = 0
+	symstbsv64 = 0
+	symstpmv = 0
+	symstpmv64 = 0
+	symstpsv = 0
+	symstpsv64 = 0
+	symstpttr = 0
+	symstrmm = 0
+	symstrmm64 = 0
+	symstrmv = 0
+	symstrmv64 = 0
+	symstrsmBatched = 0
+	symstrsmBatched64 = 0
+	symstrsm = 0
+	symstrsm64 = 0
+	symstrsv = 0
+	symstrsv64 = 0
+	symstrttp = 0
+	symswapEx = 0
+	symswapEx64 = 0
+	symtSSgemvBatched = 0
+	symtSSgemvBatched64 = 0
+	symtSSgemvStridedBatched = 0
+	symtSSgemvStridedBatched64 = 0
+	symtSTgemvBatched = 0
+	symtSTgemvBatched64 = 0
+	symtSTgemvStridedBatched = 0
+	symtSTgemvStridedBatched64 = 0
+	symuint8gemmBias = 0
+	symzaxpy = 0
+	symzaxpy64 = 0
+	symzcopy = 0
+	symzcopy64 = 0
+	symzdgmm = 0
+	symzdgmm64 = 0
+	symzdotc = 0
+	symzdotc64 = 0
+	symzdotu = 0
+	symzdotu64 = 0
+	symzdrot = 0
+	symzdrot64 = 0
+	symzdscal = 0
+	symzdscal64 = 0
+	symzgbmv = 0
+	symzgbmv64 = 0
+	symzgeam = 0
+	symzgeam64 = 0
+	symzgelsBatched = 0
+	symzgemm3m = 0
+	symzgemm3m64 = 0
+	symzgemmBatched = 0
+	symzgemmBatched64 = 0
+	symzgemmStridedBatched = 0
+	symzgemmStridedBatched64 = 0
+	symzgemm = 0
+	symzgemm64 = 0
+	symzgemvBatched = 0
+	symzgemvBatched64 = 0
+	symzgemvStridedBatched = 0
+	symzgemvStridedBatched64 = 0
+	symzgemv = 0
+	symzgemv64 = 0
+	symzgeqrfBatched = 0
+	symzgerc = 0
+	symzgerc64 = 0
+	symzgeru = 0
+	symzgeru64 = 0
+	symzgetrfBatched = 0
+	symzgetriBatched = 0
+	symzgetrsBatched = 0
+	symzhbmv = 0
+	symzhbmv64 = 0
+	symzhemm = 0
+	symzhemm64 = 0
+	symzhemv = 0
+	symzhemv64 = 0
+	symzher2 = 0
+	symzher264 = 0
+	symzher2k = 0
+	symzher2k64 = 0
+	symzher = 0
+	symzher64 = 0
+	symzherk = 0
+	symzherk64 = 0
+	symzherkx = 0
+	symzherkx64 = 0
+	symzhpmv = 0
+	symzhpmv64 = 0
+	symzhpr2 = 0
+	symzhpr264 = 0
+	symzhpr = 0
+	symzhpr64 = 0
+	symzmatinvBatched = 0
+	symzrot = 0
+	symzrot64 = 0
+	symzrotg = 0
+	symzscal = 0
+	symzscal64 = 0
+	symzswap = 0
+	symzswap64 = 0
+	symzsymm = 0
+	symzsymm64 = 0
+	symzsymv = 0
+	symzsymv64 = 0
+	symzsyr2 = 0
+	symzsyr264 = 0
+	symzsyr2k = 0
+	symzsyr2k64 = 0
+	symzsyr = 0
+	symzsyr64 = 0
+	symzsyrk = 0
+	symzsyrk64 = 0
+	symzsyrkx = 0
+	symzsyrkx64 = 0
+	symztbmv = 0
+	symztbmv64 = 0
+	symztbsv = 0
+	symztbsv64 = 0
+	symztpmv = 0
+	symztpmv64 = 0
+	symztpsv = 0
+	symztpsv64 = 0
+	symztpttr = 0
+	symztrmm = 0
+	symztrmm64 = 0
+	symztrmv = 0
+	symztrmv64 = 0
+	symztrsmBatched = 0
+	symztrsmBatched64 = 0
+	symztrsm = 0
+	symztrsm64 = 0
+	symztrsv = 0
+	symztrsv64 = 0
+	symztrttp = 0
 }
 
 // HasGetStatusName reports whether cublasGetStatusName resolved in the loaded library.

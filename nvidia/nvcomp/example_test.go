@@ -3,6 +3,7 @@ package nvcomp_test
 import (
 	"fmt"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nvcomp"
 )
 
@@ -77,7 +78,7 @@ func Example() {
 	// the stream has completed.
 	deviceAlloc := func(bytes int) uintptr { panic("supplied by the caller's CUDA binding") }
 	deviceFree := func(uintptr) {}
-	streamSynchronize := func(nvcomp.Stream) error { panic("supplied by the caller's CUDA binding") }
+	streamSynchronize := func(driver.Stream) error { panic("supplied by the caller's CUDA binding") }
 	copyToDevice := func(dst uintptr, src any) {}
 	copyToHost := func(dst any, src uintptr) {}
 
@@ -85,7 +86,7 @@ func Example() {
 		numChunks     = 8
 		maxChunkBytes = 65536
 	)
-	stream := nvcomp.Stream(0) // the CUDA default stream
+	stream := driver.Stream(0) // the CUDA default stream
 	opts := nvcomp.CompressOpts{}
 
 	// 1. Ask for the alignments this options value requires, and honor them in

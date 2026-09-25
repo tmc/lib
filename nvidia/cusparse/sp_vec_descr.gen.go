@@ -6,17 +6,42 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// VecGet wraps cusparseSpVecGet.
+// VecGet returns the fields of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - size: Size of the sparse vector
+//   - nnz: Number of non-zero entries of the sparse vector
+//   - indices: Indices of the sparse vector. Array with nnz elements
+//   - values: Values of the sparse vector. Array with nnz elements
+//   - idxType: Enumerator specifying the data type of indices
+//   - idxBase: Enumerator specifying the the index base of indices
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseSpVecGet.
 func (s SpVecDescr) VecGet(size *int64, nnz *int64, indices *uintptr, values *uintptr, idxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return spVecGet(s, size, nnz, indices, values, idxType, idxBase, valueType)
 }
 
-// VecGetValues wraps cusparseSpVecGetValues.
+// VecGetValues returns the values field of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - values: Values of the sparse vector. Array with nnz elements
+//
+// Wraps cusparseSpVecGetValues.
 func (s SpVecDescr) VecGetValues(values *uintptr) error {
 	return spVecGetValues(s, values)
 }
 
-// VecSetValues wraps cusparseSpVecSetValues.
+// VecSetValues sets the values field of the sparse vector descriptor spVecDescr.
+//
+// [DnVecDescr.VecSetValues] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - values: Values of the sparse vector. Array with nnz elements
+//
+// Wraps cusparseSpVecSetValues.
 func (s SpVecDescr) VecSetValues(values driver.DevicePtr) error {
 	return spVecSetValues(s, values)
 }

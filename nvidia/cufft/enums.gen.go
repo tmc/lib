@@ -70,8 +70,21 @@ func (e Property) String() string {
 	return fmt.Sprintf("Property(%d)", e)
 }
 
-// Transform directions.
+// Direction selects the direction of a transform.
+type Direction int32
+
 const (
-	Forward int32 = -1
-	Inverse int32 = 1
+	Forward Direction = -1
+	Inverse Direction = 1
 )
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e Direction) String() string {
+	switch e {
+	case Forward:
+		return "Forward"
+	case Inverse:
+		return "Inverse"
+	}
+	return fmt.Sprintf("Direction(%d)", e)
+}

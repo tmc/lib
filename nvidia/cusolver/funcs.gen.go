@@ -3,419 +3,3276 @@
 package cusolver
 
 import (
+	"math"
+	"sync"
+	"unsafe"
+
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 // Generated function pointer variables.
 var (
-	fncCgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fncCgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fncCgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fncCgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fncEgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fncEgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fncEgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fncEgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fncKgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fncKgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fncKgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fncKgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fncYgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fncYgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fncYgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fncYgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fncgebrd                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
-	fncgebrdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fncgeqrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fncgeqrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
-	fncgesvd                                    func(Handle, int8, int8, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, uintptr) Result
-	fncgesvdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fncgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, uintptr, int32, uintptr, *float64, int32) Result
-	fncgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, *int32, int32) Result
-	fncgesvdj                                   func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo) Result
-	fncgesvdjBatched                            func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo, int32) Result
-	fncgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo, int32) Result
-	fncgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo) Result
-	fncgetrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr) Result
-	fncgetrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
-	fncgetrs                                    func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fncheevd                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fncheevdBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fncheevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
-	fncheevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, *int32) Result
-	fncheevj                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
-	fncheevjBatched                             func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo, int32) Result
-	fncheevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo, int32) Result
-	fncheevjBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
-	fnchegvd                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnchegvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32) Result
-	fnchegvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
-	fnchegvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, *int32) Result
-	fnchegvj                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
-	fnchegvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
-	fnchetrd                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
-	fnchetrdBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, *int32) Result
-	fnclaswp                                    func(Handle, int32, uintptr, int32, int32, int32, uintptr, int32) Result
-	fnclauum                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnclauumBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fncpotrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fncpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, uintptr, int32) Result
-	fncpotrfBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fncpotri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fncpotriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fncpotrs                                    func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fncpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnCreate                                    func(*Handle) Result
-	fnCreateGesvdjInfo                          func(*GesvdjInfo) Result
-	fnCreateParams                              func(*Params) Result
-	fnCreateSyevjInfo                           func(*SyevjInfo) Result
-	fncsytrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fncsytrfBufferSize                          func(Handle, int32, uintptr, int32, *int32) Result
-	fncsytri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fncsytriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fncungbr                                    func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fncungbrBufferSize                          func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
-	fncungqr                                    func(Handle, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fncungqrBufferSize                          func(Handle, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
-	fncungtr                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fncungtrBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fncunmqr                                    func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
-	fncunmqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
-	fncunmtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
-	fncunmtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
-	fndBgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndBgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndBgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndBgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndDgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndDgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndDgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndDgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndHgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndHgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndHgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndHgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndSgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndSgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndSgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndSgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndXgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndXgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndXgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fndXgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fndestroy                                   func(Handle) Result
-	fndestroyGesvdjInfo                         func(GesvdjInfo) Result
-	fndestroyParams                             func(Params) Result
-	fndestroySyevjInfo                          func(SyevjInfo) Result
-	fndgebrd                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
-	fndgebrdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fndgeqrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndgeqrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
-	fndgesvd                                    func(Handle, int8, int8, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, uintptr) Result
-	fndgesvdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fndgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, uintptr, int32, uintptr, *float64, int32) Result
-	fndgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, *int32, int32) Result
-	fndgesvdj                                   func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo) Result
-	fndgesvdjBatched                            func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo, int32) Result
-	fndgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo, int32) Result
-	fndgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo) Result
-	fndgetrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr) Result
-	fndgetrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
-	fndgetrs                                    func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndlaswp                                    func(Handle, int32, uintptr, int32, int32, int32, uintptr, int32) Result
-	fndlauum                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fndlauumBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fndorgbr                                    func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndorgbrBufferSize                          func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
-	fndorgqr                                    func(Handle, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndorgqrBufferSize                          func(Handle, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
-	fndorgtr                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndorgtrBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fndormqr                                    func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
-	fndormqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
-	fndormtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
-	fndormtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
-	fndpotrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fndpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, uintptr, int32) Result
-	fndpotrfBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fndpotri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fndpotriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fndpotrs                                    func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fndpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fndsyevd                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndsyevdBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fndsyevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
-	fndsyevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, *int32) Result
-	fndsyevj                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
-	fndsyevjBatched                             func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo, int32) Result
-	fndsyevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo, int32) Result
-	fndsyevjBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
-	fndsygvd                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndsygvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32) Result
-	fndsygvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
-	fndsygvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, *int32) Result
-	fndsygvj                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
-	fndsygvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
-	fndsytrd                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
-	fndsytrdBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, *int32) Result
-	fndsytrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndsytrfBufferSize                          func(Handle, int32, uintptr, int32, *int32) Result
-	fndsytri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fndsytriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fngetDeterministicMode                      func(Handle, *DeterministicMode) Result
-	fngetEmulationSpecialValuesSupport          func(Handle, *EmulationSpecialValuesSupport) Result
-	fngetEmulationStrategy                      func(Handle, *EmulationStrategy) Result
-	fngetFixedPointEmulationMantissaBitOffset   func(Handle, *int32) Result
-	fngetFixedPointEmulationMantissaControl     func(Handle, *EmulationMantissaControl) Result
-	fngetFixedPointEmulationMaxMantissaBitCount func(Handle, *int32) Result
-	fngetMathMode                               func(Handle, *MathMode) Result
-	fnGetProperty                               func(LibraryPropertyType, *int32) Result
-	fngetStream                                 func(Handle, *driver.Stream) Result
-	fnGetVersion                                func(*int32) Result
-	fniRSInfosCreate                            func(*IRSInfos) Result
-	fniRSInfosDestroy                           func(IRSInfos) Result
-	fniRSInfosGetMaxIters                       func(IRSInfos, *CusolverInt) Result
-	fniRSInfosGetNiters                         func(IRSInfos, *CusolverInt) Result
-	fniRSInfosGetOuterNiters                    func(IRSInfos, *CusolverInt) Result
-	fniRSInfosGetResidualHistory                func(IRSInfos, *uintptr) Result
-	fniRSInfosRequestResidual                   func(IRSInfos) Result
-	fniRSParamsCreate                           func(*IRSParams) Result
-	fniRSParamsDestroy                          func(IRSParams) Result
-	fniRSParamsDisableFallback                  func(IRSParams) Result
-	fniRSParamsEnableFallback                   func(IRSParams) Result
-	fniRSParamsGetMaxIters                      func(IRSParams, *CusolverInt) Result
-	fniRSParamsSetMaxIters                      func(IRSParams, CusolverInt) Result
-	fniRSParamsSetMaxItersInner                 func(IRSParams, CusolverInt) Result
-	fniRSParamsSetRefinementSolver              func(IRSParams, IRSRefinement) Result
-	fniRSParamsSetSolverLowestPrecision         func(IRSParams, PrecType) Result
-	fniRSParamsSetSolverMainPrecision           func(IRSParams, PrecType) Result
-	fniRSParamsSetSolverPrecisions              func(IRSParams, PrecType, PrecType) Result
-	fniRSParamsSetTol                           func(IRSParams, float64) Result
-	fniRSParamsSetTolInner                      func(IRSParams, float64) Result
-	fniRSXgels                                  func(Handle, IRSParams, IRSInfos, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fniRSXgelsBufferSize                        func(Handle, IRSParams, CusolverInt, CusolverInt, CusolverInt, *uint) Result
-	fniRSXgesv                                  func(Handle, IRSParams, IRSInfos, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fniRSXgesvBufferSize                        func(Handle, IRSParams, CusolverInt, CusolverInt, *uint) Result
-	fnLoggerForceDisable                        func() Result
-	fnLoggerOpenFile                            func(*byte) Result
-	fnLoggerSetCallback                         func(LoggerCallback) Result
-	fnLoggerSetFile                             func(*FILE) Result
-	fnLoggerSetLevel                            func(int32) Result
-	fnLoggerSetMask                             func(int32) Result
-	fnsBgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnsBgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnsBgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnsBgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnsHgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnsHgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnsHgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnsHgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnsSgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnsSgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnsSgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnsSgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnsXgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnsXgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnsXgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnsXgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnsetAdvOptions                             func(Params, Function, AlgMode) Result
-	fnsetDeterministicMode                      func(Handle, DeterministicMode) Result
-	fnsetEmulationSpecialValuesSupport          func(Handle, EmulationSpecialValuesSupport) Result
-	fnsetEmulationStrategy                      func(Handle, EmulationStrategy) Result
-	fnsetFixedPointEmulationMantissaBitOffset   func(Handle, int32) Result
-	fnsetFixedPointEmulationMantissaControl     func(Handle, EmulationMantissaControl) Result
-	fnsetFixedPointEmulationMaxMantissaBitCount func(Handle, int32) Result
-	fnsetMathMode                               func(Handle, MathMode) Result
-	fnsetStream                                 func(Handle, driver.Stream) Result
-	fnsgebrd                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
-	fnsgebrdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fnsgeqrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnsgeqrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
-	fnsgesvd                                    func(Handle, int8, int8, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, uintptr) Result
-	fnsgesvdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fnsgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, uintptr, int32, uintptr, *float64, int32) Result
-	fnsgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, *int32, int32) Result
-	fnsgesvdj                                   func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo) Result
-	fnsgesvdjBatched                            func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo, int32) Result
-	fnsgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo, int32) Result
-	fnsgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo) Result
-	fnsgetrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr) Result
-	fnsgetrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
-	fnsgetrs                                    func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnslaswp                                    func(Handle, int32, uintptr, int32, int32, int32, uintptr, int32) Result
-	fnslauum                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnslauumBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fnsorgbr                                    func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnsorgbrBufferSize                          func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
-	fnsorgqr                                    func(Handle, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnsorgqrBufferSize                          func(Handle, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
-	fnsorgtr                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnsorgtrBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fnsormqr                                    func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
-	fnsormqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
-	fnsormtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
-	fnsormtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
-	fnspotrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnspotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, uintptr, int32) Result
-	fnspotrfBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fnspotri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnspotriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fnspotrs                                    func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnspotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnssyevd                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnssyevdBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fnssyevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
-	fnssyevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, *int32) Result
-	fnssyevj                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
-	fnssyevjBatched                             func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo, int32) Result
-	fnssyevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo, int32) Result
-	fnssyevjBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
-	fnssygvd                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnssygvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32) Result
-	fnssygvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
-	fnssygvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, *int32) Result
-	fnssygvj                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
-	fnssygvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
-	fnssytrd                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
-	fnssytrdBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, *int32) Result
-	fnssytrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnssytrfBufferSize                          func(Handle, int32, uintptr, int32, *int32) Result
-	fnssytri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnssytriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fnxgeev                                     func(Handle, Params, EigMode, EigMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxgeevBufferSize                           func(Handle, Params, EigMode, EigMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgeqrf                                    func(Handle, Params, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxgeqrfBufferSize                          func(Handle, Params, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxgesvd                                    func(Handle, Params, int8, int8, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxgesvdBufferSize                          func(Handle, Params, int8, int8, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgesvdjGetResidual                        func(Handle, GesvdjInfo, *float64) Result
-	fnxgesvdjGetSweeps                          func(Handle, GesvdjInfo, *int32) Result
-	fnxgesvdjSetMaxSweeps                       func(GesvdjInfo, int32) Result
-	fnxgesvdjSetSortEig                         func(GesvdjInfo, int32) Result
-	fnxgesvdjSetTolerance                       func(GesvdjInfo, float64) Result
-	fnxgesvdp                                   func(Handle, Params, EigMode, int32, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr, *float64) Result
-	fnxgesvdpBufferSize                         func(Handle, Params, EigMode, int32, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgesvdr                                   func(Handle, Params, int8, int8, int64, int64, int64, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxgesvdrBufferSize                         func(Handle, Params, int8, int8, int64, int64, int64, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgetrf                                    func(Handle, Params, int64, int64, DataType, uintptr, int64, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxgetrfBufferSize                          func(Handle, Params, int64, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgetrs                                    func(Handle, Params, Operation, int64, int64, DataType, uintptr, int64, uintptr, DataType, uintptr, int64, uintptr) Result
-	fnxlarft                                    func(Handle, Params, DirectMode, StorevMode, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint) Result
-	fnxlarftBufferSize                          func(Handle, Params, DirectMode, StorevMode, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxpotrf                                    func(Handle, Params, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxpotrfBufferSize                          func(Handle, Params, FillMode, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxpotrs                                    func(Handle, Params, FillMode, int64, int64, DataType, uintptr, int64, DataType, uintptr, int64, uintptr) Result
-	fnxsyevBatched                              func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr, int64) Result
-	fnxsyevBatchedBufferSize                    func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, *uint, *uint, int64) Result
-	fnxsyevd                                    func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxsyevdBufferSize                          func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxsyevdx                                   func(Handle, Params, EigMode, EigRange, FillMode, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxsyevdxBufferSize                         func(Handle, Params, EigMode, EigRange, FillMode, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxsyevjGetResidual                         func(Handle, SyevjInfo, *float64) Result
-	fnxsyevjGetSweeps                           func(Handle, SyevjInfo, *int32) Result
-	fnxsyevjSetMaxSweeps                        func(SyevjInfo, int32) Result
-	fnxsyevjSetSortEig                          func(SyevjInfo, int32) Result
-	fnxsyevjSetTolerance                        func(SyevjInfo, float64) Result
-	fnxsygvd                                    func(Handle, Params, EigType, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxsygvdBufferSize                          func(Handle, Params, EigType, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxsygvdx                                   func(Handle, Params, EigType, EigMode, EigRange, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxsygvdxBufferSize                         func(Handle, Params, EigType, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxsytrs                                    func(Handle, FillMode, int64, int64, DataType, uintptr, int64, uintptr, DataType, uintptr, int64, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxsytrsBufferSize                          func(Handle, FillMode, int64, int64, DataType, uintptr, int64, uintptr, DataType, uintptr, int64, *uint, *uint) Result
-	fnxtrtri                                    func(Handle, FillMode, DiagType, int64, DataType, uintptr, int64, uintptr, uint, uintptr, uint, uintptr) Result
-	fnxtrtriBufferSize                          func(Handle, FillMode, DiagType, int64, DataType, uintptr, int64, *uint, *uint) Result
-	fnzCgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzCgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzCgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzCgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzEgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzEgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzEgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzEgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzKgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzKgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzKgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzKgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzYgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzYgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzYgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzYgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzZgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzZgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzZgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
-	fnzZgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
-	fnzgebrd                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
-	fnzgebrdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fnzgeqrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzgeqrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
-	fnzgesvd                                    func(Handle, int8, int8, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, uintptr) Result
-	fnzgesvdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fnzgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, uintptr, int32, uintptr, *float64, int32) Result
-	fnzgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, *int32, int32) Result
-	fnzgesvdj                                   func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo) Result
-	fnzgesvdjBatched                            func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo, int32) Result
-	fnzgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo, int32) Result
-	fnzgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo) Result
-	fnzgetrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr) Result
-	fnzgetrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
-	fnzgetrs                                    func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzheevd                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzheevdBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fnzheevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
-	fnzheevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, *int32) Result
-	fnzheevj                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
-	fnzheevjBatched                             func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo, int32) Result
-	fnzheevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo, int32) Result
-	fnzheevjBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
-	fnzhegvd                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzhegvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32) Result
-	fnzhegvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
-	fnzhegvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, *int32) Result
-	fnzhegvj                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
-	fnzhegvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
-	fnzhetrd                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
-	fnzhetrdBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, *int32) Result
-	fnzlaswp                                    func(Handle, int32, uintptr, int32, int32, int32, uintptr, int32) Result
-	fnzlauum                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnzlauumBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fnzpotrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnzpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, uintptr, int32) Result
-	fnzpotrfBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fnzpotri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnzpotriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
-	fnzpotrs                                    func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnzpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnzsytrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzsytrfBufferSize                          func(Handle, int32, uintptr, int32, *int32) Result
-	fnzsytri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzsytriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fnzungbr                                    func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzungbrBufferSize                          func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
-	fnzungqr                                    func(Handle, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzungqrBufferSize                          func(Handle, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
-	fnzungtr                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
-	fnzungtrBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
-	fnzunmqr                                    func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
-	fnzunmqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
-	fnzunmtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
-	fnzunmtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
+	symcCgels                                    uintptr
+	symcCgelsBufferSize                          uintptr
+	symcCgesv                                    uintptr
+	symcCgesvBufferSize                          uintptr
+	symcEgels                                    uintptr
+	symcEgelsBufferSize                          uintptr
+	symcEgesv                                    uintptr
+	symcEgesvBufferSize                          uintptr
+	symcKgels                                    uintptr
+	symcKgelsBufferSize                          uintptr
+	symcKgesv                                    uintptr
+	symcKgesvBufferSize                          uintptr
+	symcYgels                                    uintptr
+	symcYgelsBufferSize                          uintptr
+	symcYgesv                                    uintptr
+	symcYgesvBufferSize                          uintptr
+	symcgebrd                                    uintptr
+	symcgebrdBufferSize                          uintptr
+	symcgeqrf                                    uintptr
+	symcgeqrfBufferSize                          uintptr
+	symcgesvd                                    uintptr
+	symcgesvdBufferSize                          uintptr
+	symcgesvdaStridedBatched                     uintptr
+	symcgesvdaStridedBatchedBufferSize           uintptr
+	symcgesvdj                                   uintptr
+	symcgesvdjBatched                            uintptr
+	symcgesvdjBatchedBufferSize                  uintptr
+	symcgesvdjBufferSize                         uintptr
+	symcgetrf                                    uintptr
+	symcgetrfBufferSize                          uintptr
+	symcgetrs                                    uintptr
+	symcheevd                                    uintptr
+	symcheevdBufferSize                          uintptr
+	symcheevdx                                   uintptr
+	symcheevdxBufferSize                         uintptr
+	symcheevj                                    uintptr
+	symcheevjBatched                             uintptr
+	symcheevjBatchedBufferSize                   uintptr
+	symcheevjBufferSize                          uintptr
+	symchegvd                                    uintptr
+	symchegvdBufferSize                          uintptr
+	symchegvdx                                   uintptr
+	symchegvdxBufferSize                         uintptr
+	symchegvj                                    uintptr
+	symchegvjBufferSize                          uintptr
+	symchetrd                                    uintptr
+	symchetrdBufferSize                          uintptr
+	symclaswp                                    uintptr
+	symclauum                                    uintptr
+	symclauumBufferSize                          uintptr
+	symcpotrf                                    uintptr
+	symcpotrfBatched                             uintptr
+	symcpotrfBufferSize                          uintptr
+	symcpotri                                    uintptr
+	symcpotriBufferSize                          uintptr
+	symcpotrs                                    uintptr
+	symcpotrsBatched                             uintptr
+	symCreate                                    uintptr
+	symCreateGesvdjInfo                          uintptr
+	symCreateParams                              uintptr
+	symCreateSyevjInfo                           uintptr
+	symcsytrf                                    uintptr
+	symcsytrfBufferSize                          uintptr
+	symcsytri                                    uintptr
+	symcsytriBufferSize                          uintptr
+	symcungbr                                    uintptr
+	symcungbrBufferSize                          uintptr
+	symcungqr                                    uintptr
+	symcungqrBufferSize                          uintptr
+	symcungtr                                    uintptr
+	symcungtrBufferSize                          uintptr
+	symcunmqr                                    uintptr
+	symcunmqrBufferSize                          uintptr
+	symcunmtr                                    uintptr
+	symcunmtrBufferSize                          uintptr
+	symdBgels                                    uintptr
+	symdBgelsBufferSize                          uintptr
+	symdBgesv                                    uintptr
+	symdBgesvBufferSize                          uintptr
+	symdDgels                                    uintptr
+	symdDgelsBufferSize                          uintptr
+	symdDgesv                                    uintptr
+	symdDgesvBufferSize                          uintptr
+	symdHgels                                    uintptr
+	symdHgelsBufferSize                          uintptr
+	symdHgesv                                    uintptr
+	symdHgesvBufferSize                          uintptr
+	symdSgels                                    uintptr
+	symdSgelsBufferSize                          uintptr
+	symdSgesv                                    uintptr
+	symdSgesvBufferSize                          uintptr
+	symdXgels                                    uintptr
+	symdXgelsBufferSize                          uintptr
+	symdXgesv                                    uintptr
+	symdXgesvBufferSize                          uintptr
+	symdestroy                                   uintptr
+	symdestroyGesvdjInfo                         uintptr
+	symdestroyParams                             uintptr
+	symdestroySyevjInfo                          uintptr
+	symdgebrd                                    uintptr
+	symdgebrdBufferSize                          uintptr
+	symdgeqrf                                    uintptr
+	symdgeqrfBufferSize                          uintptr
+	symdgesvd                                    uintptr
+	symdgesvdBufferSize                          uintptr
+	symdgesvdaStridedBatched                     uintptr
+	symdgesvdaStridedBatchedBufferSize           uintptr
+	symdgesvdj                                   uintptr
+	symdgesvdjBatched                            uintptr
+	symdgesvdjBatchedBufferSize                  uintptr
+	symdgesvdjBufferSize                         uintptr
+	symdgetrf                                    uintptr
+	symdgetrfBufferSize                          uintptr
+	symdgetrs                                    uintptr
+	symdlaswp                                    uintptr
+	symdlauum                                    uintptr
+	symdlauumBufferSize                          uintptr
+	symdorgbr                                    uintptr
+	symdorgbrBufferSize                          uintptr
+	symdorgqr                                    uintptr
+	symdorgqrBufferSize                          uintptr
+	symdorgtr                                    uintptr
+	symdorgtrBufferSize                          uintptr
+	symdormqr                                    uintptr
+	symdormqrBufferSize                          uintptr
+	symdormtr                                    uintptr
+	symdormtrBufferSize                          uintptr
+	symdpotrf                                    uintptr
+	symdpotrfBatched                             uintptr
+	symdpotrfBufferSize                          uintptr
+	symdpotri                                    uintptr
+	symdpotriBufferSize                          uintptr
+	symdpotrs                                    uintptr
+	symdpotrsBatched                             uintptr
+	symdsyevd                                    uintptr
+	symdsyevdBufferSize                          uintptr
+	symdsyevdx                                   uintptr
+	symdsyevdxBufferSize                         uintptr
+	symdsyevj                                    uintptr
+	symdsyevjBatched                             uintptr
+	symdsyevjBatchedBufferSize                   uintptr
+	symdsyevjBufferSize                          uintptr
+	symdsygvd                                    uintptr
+	symdsygvdBufferSize                          uintptr
+	symdsygvdx                                   uintptr
+	symdsygvdxBufferSize                         uintptr
+	symdsygvj                                    uintptr
+	symdsygvjBufferSize                          uintptr
+	symdsytrd                                    uintptr
+	symdsytrdBufferSize                          uintptr
+	symdsytrf                                    uintptr
+	symdsytrfBufferSize                          uintptr
+	symdsytri                                    uintptr
+	symdsytriBufferSize                          uintptr
+	symgetDeterministicMode                      uintptr
+	symgetEmulationSpecialValuesSupport          uintptr
+	symgetEmulationStrategy                      uintptr
+	symgetFixedPointEmulationMantissaBitOffset   uintptr
+	symgetFixedPointEmulationMantissaControl     uintptr
+	symgetFixedPointEmulationMaxMantissaBitCount uintptr
+	symgetMathMode                               uintptr
+	symGetProperty                               uintptr
+	symgetStream                                 uintptr
+	fnGetVersion                                 func(*int32) Result
+	symiRSInfosCreate                            uintptr
+	symiRSInfosDestroy                           uintptr
+	symiRSInfosGetMaxIters                       uintptr
+	symiRSInfosGetNiters                         uintptr
+	symiRSInfosGetOuterNiters                    uintptr
+	symiRSInfosGetResidualHistory                uintptr
+	symiRSInfosRequestResidual                   uintptr
+	symiRSParamsCreate                           uintptr
+	symiRSParamsDestroy                          uintptr
+	symiRSParamsDisableFallback                  uintptr
+	symiRSParamsEnableFallback                   uintptr
+	symiRSParamsGetMaxIters                      uintptr
+	symiRSParamsSetMaxIters                      uintptr
+	symiRSParamsSetMaxItersInner                 uintptr
+	symiRSParamsSetRefinementSolver              uintptr
+	symiRSParamsSetSolverLowestPrecision         uintptr
+	symiRSParamsSetSolverMainPrecision           uintptr
+	symiRSParamsSetSolverPrecisions              uintptr
+	symiRSParamsSetTol                           uintptr
+	symiRSParamsSetTolInner                      uintptr
+	symiRSXgels                                  uintptr
+	symiRSXgelsBufferSize                        uintptr
+	symiRSXgesv                                  uintptr
+	symiRSXgesvBufferSize                        uintptr
+	symLoggerForceDisable                        uintptr
+	symLoggerOpenFile                            uintptr
+	symLoggerSetCallback                         uintptr
+	symLoggerSetFile                             uintptr
+	symLoggerSetLevel                            uintptr
+	symLoggerSetMask                             uintptr
+	symsBgels                                    uintptr
+	symsBgelsBufferSize                          uintptr
+	symsBgesv                                    uintptr
+	symsBgesvBufferSize                          uintptr
+	symsHgels                                    uintptr
+	symsHgelsBufferSize                          uintptr
+	symsHgesv                                    uintptr
+	symsHgesvBufferSize                          uintptr
+	symsSgels                                    uintptr
+	symsSgelsBufferSize                          uintptr
+	symsSgesv                                    uintptr
+	symsSgesvBufferSize                          uintptr
+	symsXgels                                    uintptr
+	symsXgelsBufferSize                          uintptr
+	symsXgesv                                    uintptr
+	symsXgesvBufferSize                          uintptr
+	symsetAdvOptions                             uintptr
+	symsetDeterministicMode                      uintptr
+	symsetEmulationSpecialValuesSupport          uintptr
+	symsetEmulationStrategy                      uintptr
+	symsetFixedPointEmulationMantissaBitOffset   uintptr
+	symsetFixedPointEmulationMantissaControl     uintptr
+	symsetFixedPointEmulationMaxMantissaBitCount uintptr
+	symsetMathMode                               uintptr
+	fnsetStream                                  func(Handle, driver.Stream) Result
+	symsgebrd                                    uintptr
+	symsgebrdBufferSize                          uintptr
+	symsgeqrf                                    uintptr
+	symsgeqrfBufferSize                          uintptr
+	symsgesvd                                    uintptr
+	symsgesvdBufferSize                          uintptr
+	symsgesvdaStridedBatched                     uintptr
+	symsgesvdaStridedBatchedBufferSize           uintptr
+	symsgesvdj                                   uintptr
+	symsgesvdjBatched                            uintptr
+	symsgesvdjBatchedBufferSize                  uintptr
+	symsgesvdjBufferSize                         uintptr
+	symsgetrf                                    uintptr
+	symsgetrfBufferSize                          uintptr
+	symsgetrs                                    uintptr
+	symslaswp                                    uintptr
+	symslauum                                    uintptr
+	symslauumBufferSize                          uintptr
+	symsorgbr                                    uintptr
+	symsorgbrBufferSize                          uintptr
+	symsorgqr                                    uintptr
+	symsorgqrBufferSize                          uintptr
+	symsorgtr                                    uintptr
+	symsorgtrBufferSize                          uintptr
+	symsormqr                                    uintptr
+	symsormqrBufferSize                          uintptr
+	symsormtr                                    uintptr
+	symsormtrBufferSize                          uintptr
+	symspotrf                                    uintptr
+	symspotrfBatched                             uintptr
+	symspotrfBufferSize                          uintptr
+	symspotri                                    uintptr
+	symspotriBufferSize                          uintptr
+	symspotrs                                    uintptr
+	symspotrsBatched                             uintptr
+	symssyevd                                    uintptr
+	symssyevdBufferSize                          uintptr
+	symssyevdx                                   uintptr
+	symssyevdxBufferSize                         uintptr
+	symssyevj                                    uintptr
+	symssyevjBatched                             uintptr
+	symssyevjBatchedBufferSize                   uintptr
+	symssyevjBufferSize                          uintptr
+	symssygvd                                    uintptr
+	symssygvdBufferSize                          uintptr
+	symssygvdx                                   uintptr
+	symssygvdxBufferSize                         uintptr
+	symssygvj                                    uintptr
+	symssygvjBufferSize                          uintptr
+	symssytrd                                    uintptr
+	symssytrdBufferSize                          uintptr
+	symssytrf                                    uintptr
+	symssytrfBufferSize                          uintptr
+	symssytri                                    uintptr
+	symssytriBufferSize                          uintptr
+	symxgeev                                     uintptr
+	symxgeevBufferSize                           uintptr
+	symxgeqrf                                    uintptr
+	symxgeqrfBufferSize                          uintptr
+	symxgesvd                                    uintptr
+	symxgesvdBufferSize                          uintptr
+	symxgesvdjGetResidual                        uintptr
+	symxgesvdjGetSweeps                          uintptr
+	symxgesvdjSetMaxSweeps                       uintptr
+	symxgesvdjSetSortEig                         uintptr
+	symxgesvdjSetTolerance                       uintptr
+	symxgesvdp                                   uintptr
+	symxgesvdpBufferSize                         uintptr
+	symxgesvdr                                   uintptr
+	symxgesvdrBufferSize                         uintptr
+	symxgetrf                                    uintptr
+	symxgetrfBufferSize                          uintptr
+	symxgetrs                                    uintptr
+	symxlarft                                    uintptr
+	symxlarftBufferSize                          uintptr
+	symxpotrf                                    uintptr
+	symxpotrfBufferSize                          uintptr
+	symxpotrs                                    uintptr
+	symxsyevBatched                              uintptr
+	symxsyevBatchedBufferSize                    uintptr
+	symxsyevd                                    uintptr
+	symxsyevdBufferSize                          uintptr
+	symxsyevdx                                   uintptr
+	symxsyevdxBufferSize                         uintptr
+	symxsyevjGetResidual                         uintptr
+	symxsyevjGetSweeps                           uintptr
+	symxsyevjSetMaxSweeps                        uintptr
+	symxsyevjSetSortEig                          uintptr
+	symxsyevjSetTolerance                        uintptr
+	symxsygvd                                    uintptr
+	symxsygvdBufferSize                          uintptr
+	symxsygvdx                                   uintptr
+	symxsygvdxBufferSize                         uintptr
+	symxsytrs                                    uintptr
+	symxsytrsBufferSize                          uintptr
+	symxtrtri                                    uintptr
+	symxtrtriBufferSize                          uintptr
+	symzCgels                                    uintptr
+	symzCgelsBufferSize                          uintptr
+	symzCgesv                                    uintptr
+	symzCgesvBufferSize                          uintptr
+	symzEgels                                    uintptr
+	symzEgelsBufferSize                          uintptr
+	symzEgesv                                    uintptr
+	symzEgesvBufferSize                          uintptr
+	symzKgels                                    uintptr
+	symzKgelsBufferSize                          uintptr
+	symzKgesv                                    uintptr
+	symzKgesvBufferSize                          uintptr
+	symzYgels                                    uintptr
+	symzYgelsBufferSize                          uintptr
+	symzYgesv                                    uintptr
+	symzYgesvBufferSize                          uintptr
+	symzZgels                                    uintptr
+	symzZgelsBufferSize                          uintptr
+	symzZgesv                                    uintptr
+	symzZgesvBufferSize                          uintptr
+	symzgebrd                                    uintptr
+	symzgebrdBufferSize                          uintptr
+	symzgeqrf                                    uintptr
+	symzgeqrfBufferSize                          uintptr
+	symzgesvd                                    uintptr
+	symzgesvdBufferSize                          uintptr
+	symzgesvdaStridedBatched                     uintptr
+	symzgesvdaStridedBatchedBufferSize           uintptr
+	symzgesvdj                                   uintptr
+	symzgesvdjBatched                            uintptr
+	symzgesvdjBatchedBufferSize                  uintptr
+	symzgesvdjBufferSize                         uintptr
+	symzgetrf                                    uintptr
+	symzgetrfBufferSize                          uintptr
+	symzgetrs                                    uintptr
+	symzheevd                                    uintptr
+	symzheevdBufferSize                          uintptr
+	symzheevdx                                   uintptr
+	symzheevdxBufferSize                         uintptr
+	symzheevj                                    uintptr
+	symzheevjBatched                             uintptr
+	symzheevjBatchedBufferSize                   uintptr
+	symzheevjBufferSize                          uintptr
+	symzhegvd                                    uintptr
+	symzhegvdBufferSize                          uintptr
+	symzhegvdx                                   uintptr
+	symzhegvdxBufferSize                         uintptr
+	symzhegvj                                    uintptr
+	symzhegvjBufferSize                          uintptr
+	symzhetrd                                    uintptr
+	symzhetrdBufferSize                          uintptr
+	symzlaswp                                    uintptr
+	symzlauum                                    uintptr
+	symzlauumBufferSize                          uintptr
+	symzpotrf                                    uintptr
+	symzpotrfBatched                             uintptr
+	symzpotrfBufferSize                          uintptr
+	symzpotri                                    uintptr
+	symzpotriBufferSize                          uintptr
+	symzpotrs                                    uintptr
+	symzpotrsBatched                             uintptr
+	symzsytrf                                    uintptr
+	symzsytrfBufferSize                          uintptr
+	symzsytri                                    uintptr
+	symzsytriBufferSize                          uintptr
+	symzungbr                                    uintptr
+	symzungbrBufferSize                          uintptr
+	symzungqr                                    uintptr
+	symzungqrBufferSize                          uintptr
+	symzungtr                                    uintptr
+	symzungtrBufferSize                          uintptr
+	symzunmqr                                    uintptr
+	symzunmqrBufferSize                          uintptr
+	symzunmtr                                    uintptr
+	symzunmtrBufferSize                          uintptr
 )
 
-// cCgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+// ffiCall0 through ffiCall26 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
 //
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloat(fn, 9, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	return ffi.CallFloat(fn, 12, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall13(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	return ffi.CallFloat(fn, 13, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	return ffi.CallFloat(fn, 14, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	return ffi.CallFloat(fn, 15, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	return ffi.CallFloat(fn, 16, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall17(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	return ffi.CallFloat(fn, 17, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall18(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	return ffi.CallFloat(fn, 18, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall19(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	return ffi.CallFloat(fn, 19, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall20(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	return ffi.CallFloat(fn, 20, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall21(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	return ffi.CallFloat(fn, 21, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall22(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	return ffi.CallFloat(fn, 22, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall23(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	return ffi.CallFloat(fn, 23, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall24(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	args[23] = a23
+	return ffi.CallFloat(fn, 24, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall26(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	args[23] = a23
+	args[24] = a24
+	args[25] = a25
+	return ffi.CallFloat(fn, 26, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fncCgels calls cusolverDnCCgels.
+func fncCgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcCgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncCgelsBufferSize calls cusolverDnCCgels_bufferSize.
+func fncCgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symcCgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncCgesv calls cusolverDnCCgesv.
+func fncCgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcCgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncCgesvBufferSize calls cusolverDnCCgesv_bufferSize.
+func fncCgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symcCgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncEgels calls cusolverDnCEgels.
+func fncEgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcEgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncEgelsBufferSize calls cusolverDnCEgels_bufferSize.
+func fncEgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symcEgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncEgesv calls cusolverDnCEgesv.
+func fncEgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcEgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncEgesvBufferSize calls cusolverDnCEgesv_bufferSize.
+func fncEgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symcEgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncKgels calls cusolverDnCKgels.
+func fncKgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcKgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncKgelsBufferSize calls cusolverDnCKgels_bufferSize.
+func fncKgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symcKgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncKgesv calls cusolverDnCKgesv.
+func fncKgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcKgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncKgesvBufferSize calls cusolverDnCKgesv_bufferSize.
+func fncKgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symcKgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncYgels calls cusolverDnCYgels.
+func fncYgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcYgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncYgelsBufferSize calls cusolverDnCYgels_bufferSize.
+func fncYgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symcYgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncYgesv calls cusolverDnCYgesv.
+func fncYgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcYgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncYgesvBufferSize calls cusolverDnCYgesv_bufferSize.
+func fncYgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symcYgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncgebrd calls cusolverDnCgebrd.
+func fncgebrd(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr) Result {
+	r1, _ := ffiCall12(symcgebrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fncgebrdBufferSize calls cusolverDnCgebrd_bufferSize.
+func fncgebrdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symcgebrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fncgeqrf calls cusolverDnCgeqrf.
+func fncgeqrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symcgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fncgeqrfBufferSize calls cusolverDnCgeqrf_bufferSize.
+func fncgeqrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symcgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fncgesvd calls cusolverDnCgesvd.
+func fncgesvd(a0 Handle, a1 int8, a2 int8, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 uintptr) Result {
+	r1, _ := ffiCall16(symcgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fncgesvdBufferSize calls cusolverDnCgesvd_bufferSize.
+func fncgesvdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symcgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fncgesvdaStridedBatched calls cusolverDnCgesvdaStridedBatched.
+func fncgesvdaStridedBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 uintptr, a17 int32, a18 uintptr, a19 *float64, a20 int32) Result {
+	r1, _ := ffiCall21(symcgesvdaStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
+	return Result(r1)
+}
+
+// fncgesvdaStridedBatchedBufferSize calls cusolverDnCgesvdaStridedBatched_bufferSize.
+func fncgesvdaStridedBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 *int32, a17 int32) Result {
+	r1, _ := ffiCall18(symcgesvdaStridedBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
+	return Result(r1)
+}
+
+// fncgesvdj calls cusolverDnCgesvdj.
+func fncgesvdj(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 GesvdjInfo) Result {
+	r1, _ := ffiCall16(symcgesvdj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fncgesvdjBatched calls cusolverDnCgesvdjBatched.
+func fncgesvdjBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr, a14 GesvdjInfo, a15 int32) Result {
+	r1, _ := ffiCall16(symcgesvdjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fncgesvdjBatchedBufferSize calls cusolverDnCgesvdjBatched_bufferSize.
+func fncgesvdjBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *int32, a12 GesvdjInfo, a13 int32) Result {
+	r1, _ := ffiCall14(symcgesvdjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncgesvdjBufferSize calls cusolverDnCgesvdj_bufferSize.
+func fncgesvdjBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 *int32, a13 GesvdjInfo) Result {
+	r1, _ := ffiCall14(symcgesvdjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fncgetrf calls cusolverDnCgetrf.
+func fncgetrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr) Result {
+	r1, _ := ffiCall8(symcgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncgetrfBufferSize calls cusolverDnCgetrf_bufferSize.
+func fncgetrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symcgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fncgetrs calls cusolverDnCgetrs.
+func fncgetrs(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symcgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncheevd calls cusolverDnCheevd.
+func fncheevd(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symcheevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncheevdBufferSize calls cusolverDnCheevd_bufferSize.
+func fncheevdBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
+	r1, _ := ffiCall8(symcheevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fncheevdx calls cusolverDnCheevdx.
+func fncheevdx(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float32, a8 float32, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 uintptr, a14 int32, a15 uintptr) Result {
+	r1, _ := ffiCall16(symcheevdx, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fncheevdxBufferSize calls cusolverDnCheevdx_bufferSize.
+func fncheevdxBufferSize(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float32, a8 float32, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 *int32) Result {
+	r1, _ := ffiCall14(symcheevdxBufferSize, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	return Result(r1)
+}
+
+// fncheevj calls cusolverDnCheevj.
+func fncheevj(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo) Result {
+	r1, _ := ffiCall11(symcheevj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncheevjBatched calls cusolverDnCheevjBatched.
+func fncheevjBatched(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo, a11 int32) Result {
+	r1, _ := ffiCall12(symcheevjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fncheevjBatchedBufferSize calls cusolverDnCheevjBatched_bufferSize.
+func fncheevjBatchedBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo, a9 int32) Result {
+	r1, _ := ffiCall10(symcheevjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncheevjBufferSize calls cusolverDnCheevj_bufferSize.
+func fncheevjBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo) Result {
+	r1, _ := ffiCall9(symcheevjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	return Result(r1)
+}
+
+// fnchegvd calls cusolverDnChegvd.
+func fnchegvd(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr) Result {
+	r1, _ := ffiCall13(symchegvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnchegvdBufferSize calls cusolverDnChegvd_bufferSize.
+func fnchegvdBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32) Result {
+	r1, _ := ffiCall11(symchegvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fnchegvdx calls cusolverDnChegvdx.
+func fnchegvdx(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float32, a11 float32, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 uintptr, a17 int32, a18 uintptr) Result {
+	r1, _ := ffiCall19(symchegvdx, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	return Result(r1)
+}
+
+// fnchegvdxBufferSize calls cusolverDnChegvdx_bufferSize.
+func fnchegvdxBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float32, a11 float32, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 *int32) Result {
+	r1, _ := ffiCall17(symchegvdxBufferSize, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
+	return Result(r1)
+}
+
+// fnchegvj calls cusolverDnChegvj.
+func fnchegvj(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr, a13 SyevjInfo) Result {
+	r1, _ := ffiCall14(symchegvj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnchegvjBufferSize calls cusolverDnChegvj_bufferSize.
+func fnchegvjBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32, a11 SyevjInfo) Result {
+	r1, _ := ffiCall12(symchegvjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	return Result(r1)
+}
+
+// fnchetrd calls cusolverDnChetrd.
+func fnchetrd(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
+	r1, _ := ffiCall11(symchetrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnchetrdBufferSize calls cusolverDnChetrd_bufferSize.
+func fnchetrdBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 *int32) Result {
+	r1, _ := ffiCall9(symchetrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnclaswp calls cusolverDnClaswp.
+func fnclaswp(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symclaswp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnclauum calls cusolverDnClauum.
+func fnclauum(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symclauum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnclauumBufferSize calls cusolverDnClauum_bufferSize.
+func fnclauumBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symclauumBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fncpotrf calls cusolverDnCpotrf.
+func fncpotrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symcpotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncpotrfBatched calls cusolverDnCpotrfBatched.
+func fncpotrfBatched(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symcpotrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fncpotrfBufferSize calls cusolverDnCpotrf_bufferSize.
+func fncpotrfBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symcpotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fncpotri calls cusolverDnCpotri.
+func fncpotri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symcpotri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncpotriBufferSize calls cusolverDnCpotri_bufferSize.
+func fncpotriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symcpotriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fncpotrs calls cusolverDnCpotrs.
+func fncpotrs(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symcpotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fncpotrsBatched calls cusolverDnCpotrsBatched.
+func fncpotrsBatched(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symcpotrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnCreate calls cusolverDnCreate.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateGesvdjInfo calls cusolverDnCreateGesvdjInfo.
+func fnCreateGesvdjInfo(a0 *GesvdjInfo) Result {
+	r1, _ := ffiCall1(symCreateGesvdjInfo, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateParams calls cusolverDnCreateParams.
+func fnCreateParams(a0 *Params) Result {
+	r1, _ := ffiCall1(symCreateParams, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateSyevjInfo calls cusolverDnCreateSyevjInfo.
+func fnCreateSyevjInfo(a0 *SyevjInfo) Result {
+	r1, _ := ffiCall1(symCreateSyevjInfo, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fncsytrf calls cusolverDnCsytrf.
+func fncsytrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symcsytrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fncsytrfBufferSize calls cusolverDnCsytrf_bufferSize.
+func fncsytrfBufferSize(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symcsytrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fncsytri calls cusolverDnCsytri.
+func fncsytri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symcsytri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fncsytriBufferSize calls cusolverDnCsytri_bufferSize.
+func fncsytriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
+	r1, _ := ffiCall7(symcsytriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fncungbr calls cusolverDnCungbr.
+func fncungbr(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
+	r1, _ := ffiCall11(symcungbr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncungbrBufferSize calls cusolverDnCungbr_bufferSize.
+func fncungbrBufferSize(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 *int32) Result {
+	r1, _ := ffiCall9(symcungbrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fncungqr calls cusolverDnCungqr.
+func fncungqr(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symcungqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncungqrBufferSize calls cusolverDnCungqr_bufferSize.
+func fncungqrBufferSize(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
+	r1, _ := ffiCall8(symcungqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fncungtr calls cusolverDnCungtr.
+func fncungtr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symcungtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fncungtrBufferSize calls cusolverDnCungtr_bufferSize.
+func fncungtrBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
+	r1, _ := ffiCall7(symcungtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fncunmqr calls cusolverDnCunmqr.
+func fncunmqr(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcunmqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncunmqrBufferSize calls cusolverDnCunmqr_bufferSize.
+func fncunmqrBufferSize(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
+	r1, _ := ffiCall12(symcunmqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fncunmtr calls cusolverDnCunmtr.
+func fncunmtr(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
+	r1, _ := ffiCall14(symcunmtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncunmtrBufferSize calls cusolverDnCunmtr_bufferSize.
+func fncunmtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
+	r1, _ := ffiCall12(symcunmtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndBgels calls cusolverDnDBgels.
+func fndBgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdBgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndBgelsBufferSize calls cusolverDnDBgels_bufferSize.
+func fndBgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdBgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndBgesv calls cusolverDnDBgesv.
+func fndBgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdBgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndBgesvBufferSize calls cusolverDnDBgesv_bufferSize.
+func fndBgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdBgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndDgels calls cusolverDnDDgels.
+func fndDgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdDgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndDgelsBufferSize calls cusolverDnDDgels_bufferSize.
+func fndDgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdDgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndDgesv calls cusolverDnDDgesv.
+func fndDgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdDgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndDgesvBufferSize calls cusolverDnDDgesv_bufferSize.
+func fndDgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdDgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndHgels calls cusolverDnDHgels.
+func fndHgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdHgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndHgelsBufferSize calls cusolverDnDHgels_bufferSize.
+func fndHgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdHgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndHgesv calls cusolverDnDHgesv.
+func fndHgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdHgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndHgesvBufferSize calls cusolverDnDHgesv_bufferSize.
+func fndHgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdHgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndSgels calls cusolverDnDSgels.
+func fndSgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdSgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndSgelsBufferSize calls cusolverDnDSgels_bufferSize.
+func fndSgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdSgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndSgesv calls cusolverDnDSgesv.
+func fndSgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdSgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndSgesvBufferSize calls cusolverDnDSgesv_bufferSize.
+func fndSgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdSgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndXgels calls cusolverDnDXgels.
+func fndXgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdXgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndXgelsBufferSize calls cusolverDnDXgels_bufferSize.
+func fndXgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdXgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndXgesv calls cusolverDnDXgesv.
+func fndXgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdXgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndXgesvBufferSize calls cusolverDnDXgesv_bufferSize.
+func fndXgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symdXgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndestroy calls cusolverDnDestroy.
+func fndestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyGesvdjInfo calls cusolverDnDestroyGesvdjInfo.
+func fndestroyGesvdjInfo(a0 GesvdjInfo) Result {
+	r1, _ := ffiCall1(symdestroyGesvdjInfo, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyParams calls cusolverDnDestroyParams.
+func fndestroyParams(a0 Params) Result {
+	r1, _ := ffiCall1(symdestroyParams, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroySyevjInfo calls cusolverDnDestroySyevjInfo.
+func fndestroySyevjInfo(a0 SyevjInfo) Result {
+	r1, _ := ffiCall1(symdestroySyevjInfo, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndgebrd calls cusolverDnDgebrd.
+func fndgebrd(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr) Result {
+	r1, _ := ffiCall12(symdgebrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndgebrdBufferSize calls cusolverDnDgebrd_bufferSize.
+func fndgebrdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symdgebrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fndgeqrf calls cusolverDnDgeqrf.
+func fndgeqrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symdgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndgeqrfBufferSize calls cusolverDnDgeqrf_bufferSize.
+func fndgeqrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symdgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fndgesvd calls cusolverDnDgesvd.
+func fndgesvd(a0 Handle, a1 int8, a2 int8, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 uintptr) Result {
+	r1, _ := ffiCall16(symdgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fndgesvdBufferSize calls cusolverDnDgesvd_bufferSize.
+func fndgesvdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symdgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fndgesvdaStridedBatched calls cusolverDnDgesvdaStridedBatched.
+func fndgesvdaStridedBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 uintptr, a17 int32, a18 uintptr, a19 *float64, a20 int32) Result {
+	r1, _ := ffiCall21(symdgesvdaStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
+	return Result(r1)
+}
+
+// fndgesvdaStridedBatchedBufferSize calls cusolverDnDgesvdaStridedBatched_bufferSize.
+func fndgesvdaStridedBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 *int32, a17 int32) Result {
+	r1, _ := ffiCall18(symdgesvdaStridedBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
+	return Result(r1)
+}
+
+// fndgesvdj calls cusolverDnDgesvdj.
+func fndgesvdj(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 GesvdjInfo) Result {
+	r1, _ := ffiCall16(symdgesvdj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fndgesvdjBatched calls cusolverDnDgesvdjBatched.
+func fndgesvdjBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr, a14 GesvdjInfo, a15 int32) Result {
+	r1, _ := ffiCall16(symdgesvdjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fndgesvdjBatchedBufferSize calls cusolverDnDgesvdjBatched_bufferSize.
+func fndgesvdjBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *int32, a12 GesvdjInfo, a13 int32) Result {
+	r1, _ := ffiCall14(symdgesvdjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndgesvdjBufferSize calls cusolverDnDgesvdj_bufferSize.
+func fndgesvdjBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 *int32, a13 GesvdjInfo) Result {
+	r1, _ := ffiCall14(symdgesvdjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fndgetrf calls cusolverDnDgetrf.
+func fndgetrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr) Result {
+	r1, _ := ffiCall8(symdgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndgetrfBufferSize calls cusolverDnDgetrf_bufferSize.
+func fndgetrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symdgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fndgetrs calls cusolverDnDgetrs.
+func fndgetrs(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symdgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndlaswp calls cusolverDnDlaswp.
+func fndlaswp(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symdlaswp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndlauum calls cusolverDnDlauum.
+func fndlauum(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symdlauum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndlauumBufferSize calls cusolverDnDlauum_bufferSize.
+func fndlauumBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symdlauumBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fndorgbr calls cusolverDnDorgbr.
+func fndorgbr(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
+	r1, _ := ffiCall11(symdorgbr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndorgbrBufferSize calls cusolverDnDorgbr_bufferSize.
+func fndorgbrBufferSize(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 *int32) Result {
+	r1, _ := ffiCall9(symdorgbrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fndorgqr calls cusolverDnDorgqr.
+func fndorgqr(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symdorgqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndorgqrBufferSize calls cusolverDnDorgqr_bufferSize.
+func fndorgqrBufferSize(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
+	r1, _ := ffiCall8(symdorgqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fndorgtr calls cusolverDnDorgtr.
+func fndorgtr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symdorgtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndorgtrBufferSize calls cusolverDnDorgtr_bufferSize.
+func fndorgtrBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
+	r1, _ := ffiCall7(symdorgtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fndormqr calls cusolverDnDormqr.
+func fndormqr(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdormqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndormqrBufferSize calls cusolverDnDormqr_bufferSize.
+func fndormqrBufferSize(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
+	r1, _ := ffiCall12(symdormqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndormtr calls cusolverDnDormtr.
+func fndormtr(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
+	r1, _ := ffiCall14(symdormtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndormtrBufferSize calls cusolverDnDormtr_bufferSize.
+func fndormtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
+	r1, _ := ffiCall12(symdormtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fndpotrf calls cusolverDnDpotrf.
+func fndpotrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symdpotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndpotrfBatched calls cusolverDnDpotrfBatched.
+func fndpotrfBatched(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symdpotrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fndpotrfBufferSize calls cusolverDnDpotrf_bufferSize.
+func fndpotrfBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symdpotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fndpotri calls cusolverDnDpotri.
+func fndpotri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symdpotri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndpotriBufferSize calls cusolverDnDpotri_bufferSize.
+func fndpotriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symdpotriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fndpotrs calls cusolverDnDpotrs.
+func fndpotrs(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symdpotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndpotrsBatched calls cusolverDnDpotrsBatched.
+func fndpotrsBatched(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symdpotrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndsyevd calls cusolverDnDsyevd.
+func fndsyevd(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symdsyevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndsyevdBufferSize calls cusolverDnDsyevd_bufferSize.
+func fndsyevdBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
+	r1, _ := ffiCall8(symdsyevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fndsyevdx calls cusolverDnDsyevdx.
+func fndsyevdx(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float64, a8 float64, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 uintptr, a14 int32, a15 uintptr) Result {
+	r1, _ := ffiCall16(symdsyevdx, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fndsyevdxBufferSize calls cusolverDnDsyevdx_bufferSize.
+func fndsyevdxBufferSize(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float64, a8 float64, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 *int32) Result {
+	r1, _ := ffiCall14(symdsyevdxBufferSize, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	return Result(r1)
+}
+
+// fndsyevj calls cusolverDnDsyevj.
+func fndsyevj(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo) Result {
+	r1, _ := ffiCall11(symdsyevj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndsyevjBatched calls cusolverDnDsyevjBatched.
+func fndsyevjBatched(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo, a11 int32) Result {
+	r1, _ := ffiCall12(symdsyevjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndsyevjBatchedBufferSize calls cusolverDnDsyevjBatched_bufferSize.
+func fndsyevjBatchedBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo, a9 int32) Result {
+	r1, _ := ffiCall10(symdsyevjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndsyevjBufferSize calls cusolverDnDsyevj_bufferSize.
+func fndsyevjBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo) Result {
+	r1, _ := ffiCall9(symdsyevjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	return Result(r1)
+}
+
+// fndsygvd calls cusolverDnDsygvd.
+func fndsygvd(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr) Result {
+	r1, _ := ffiCall13(symdsygvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndsygvdBufferSize calls cusolverDnDsygvd_bufferSize.
+func fndsygvdBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32) Result {
+	r1, _ := ffiCall11(symdsygvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fndsygvdx calls cusolverDnDsygvdx.
+func fndsygvdx(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float64, a11 float64, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 uintptr, a17 int32, a18 uintptr) Result {
+	r1, _ := ffiCall19(symdsygvdx, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	return Result(r1)
+}
+
+// fndsygvdxBufferSize calls cusolverDnDsygvdx_bufferSize.
+func fndsygvdxBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float64, a11 float64, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 *int32) Result {
+	r1, _ := ffiCall17(symdsygvdxBufferSize, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
+	return Result(r1)
+}
+
+// fndsygvj calls cusolverDnDsygvj.
+func fndsygvj(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr, a13 SyevjInfo) Result {
+	r1, _ := ffiCall14(symdsygvj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndsygvjBufferSize calls cusolverDnDsygvj_bufferSize.
+func fndsygvjBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32, a11 SyevjInfo) Result {
+	r1, _ := ffiCall12(symdsygvjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	return Result(r1)
+}
+
+// fndsytrd calls cusolverDnDsytrd.
+func fndsytrd(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
+	r1, _ := ffiCall11(symdsytrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndsytrdBufferSize calls cusolverDnDsytrd_bufferSize.
+func fndsytrdBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 *int32) Result {
+	r1, _ := ffiCall9(symdsytrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fndsytrf calls cusolverDnDsytrf.
+func fndsytrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symdsytrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndsytrfBufferSize calls cusolverDnDsytrf_bufferSize.
+func fndsytrfBufferSize(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symdsytrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndsytri calls cusolverDnDsytri.
+func fndsytri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symdsytri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndsytriBufferSize calls cusolverDnDsytri_bufferSize.
+func fndsytriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
+	r1, _ := ffiCall7(symdsytriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fngetDeterministicMode calls cusolverDnGetDeterministicMode.
+func fngetDeterministicMode(a0 Handle, a1 *DeterministicMode) Result {
+	r1, _ := ffiCall2(symgetDeterministicMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetEmulationSpecialValuesSupport calls cusolverDnGetEmulationSpecialValuesSupport.
+func fngetEmulationSpecialValuesSupport(a0 Handle, a1 *EmulationSpecialValuesSupport) Result {
+	r1, _ := ffiCall2(symgetEmulationSpecialValuesSupport, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetEmulationStrategy calls cusolverDnGetEmulationStrategy.
+func fngetEmulationStrategy(a0 Handle, a1 *EmulationStrategy) Result {
+	r1, _ := ffiCall2(symgetEmulationStrategy, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetFixedPointEmulationMantissaBitOffset calls cusolverDnGetFixedPointEmulationMantissaBitOffset.
+func fngetFixedPointEmulationMantissaBitOffset(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetFixedPointEmulationMantissaBitOffset, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetFixedPointEmulationMantissaControl calls cusolverDnGetFixedPointEmulationMantissaControl.
+func fngetFixedPointEmulationMantissaControl(a0 Handle, a1 *EmulationMantissaControl) Result {
+	r1, _ := ffiCall2(symgetFixedPointEmulationMantissaControl, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetFixedPointEmulationMaxMantissaBitCount calls cusolverDnGetFixedPointEmulationMaxMantissaBitCount.
+func fngetFixedPointEmulationMaxMantissaBitCount(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetFixedPointEmulationMaxMantissaBitCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetMathMode calls cusolverDnGetMathMode.
+func fngetMathMode(a0 Handle, a1 *MathMode) Result {
+	r1, _ := ffiCall2(symgetMathMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetProperty calls cusolverGetProperty.
+func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetStream calls cusolverDnGetStream.
+func fngetStream(a0 Handle, a1 *driver.Stream) Result {
+	r1, _ := ffiCall2(symgetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fniRSInfosCreate calls cusolverDnIRSInfosCreate.
+func fniRSInfosCreate(a0 *IRSInfos) Result {
+	r1, _ := ffiCall1(symiRSInfosCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fniRSInfosDestroy calls cusolverDnIRSInfosDestroy.
+func fniRSInfosDestroy(a0 IRSInfos) Result {
+	r1, _ := ffiCall1(symiRSInfosDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fniRSInfosGetMaxIters calls cusolverDnIRSInfosGetMaxIters.
+func fniRSInfosGetMaxIters(a0 IRSInfos, a1 *CusolverInt) Result {
+	r1, _ := ffiCall2(symiRSInfosGetMaxIters, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fniRSInfosGetNiters calls cusolverDnIRSInfosGetNiters.
+func fniRSInfosGetNiters(a0 IRSInfos, a1 *CusolverInt) Result {
+	r1, _ := ffiCall2(symiRSInfosGetNiters, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fniRSInfosGetOuterNiters calls cusolverDnIRSInfosGetOuterNiters.
+func fniRSInfosGetOuterNiters(a0 IRSInfos, a1 *CusolverInt) Result {
+	r1, _ := ffiCall2(symiRSInfosGetOuterNiters, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fniRSInfosGetResidualHistory calls cusolverDnIRSInfosGetResidualHistory.
+func fniRSInfosGetResidualHistory(a0 IRSInfos, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symiRSInfosGetResidualHistory, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fniRSInfosRequestResidual calls cusolverDnIRSInfosRequestResidual.
+func fniRSInfosRequestResidual(a0 IRSInfos) Result {
+	r1, _ := ffiCall1(symiRSInfosRequestResidual, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fniRSParamsCreate calls cusolverDnIRSParamsCreate.
+func fniRSParamsCreate(a0 *IRSParams) Result {
+	r1, _ := ffiCall1(symiRSParamsCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fniRSParamsDestroy calls cusolverDnIRSParamsDestroy.
+func fniRSParamsDestroy(a0 IRSParams) Result {
+	r1, _ := ffiCall1(symiRSParamsDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fniRSParamsDisableFallback calls cusolverDnIRSParamsDisableFallback.
+func fniRSParamsDisableFallback(a0 IRSParams) Result {
+	r1, _ := ffiCall1(symiRSParamsDisableFallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fniRSParamsEnableFallback calls cusolverDnIRSParamsEnableFallback.
+func fniRSParamsEnableFallback(a0 IRSParams) Result {
+	r1, _ := ffiCall1(symiRSParamsEnableFallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fniRSParamsGetMaxIters calls cusolverDnIRSParamsGetMaxIters.
+func fniRSParamsGetMaxIters(a0 IRSParams, a1 *CusolverInt) Result {
+	r1, _ := ffiCall2(symiRSParamsGetMaxIters, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fniRSParamsSetMaxIters calls cusolverDnIRSParamsSetMaxIters.
+func fniRSParamsSetMaxIters(a0 IRSParams, a1 CusolverInt) Result {
+	r1, _ := ffiCall2(symiRSParamsSetMaxIters, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fniRSParamsSetMaxItersInner calls cusolverDnIRSParamsSetMaxItersInner.
+func fniRSParamsSetMaxItersInner(a0 IRSParams, a1 CusolverInt) Result {
+	r1, _ := ffiCall2(symiRSParamsSetMaxItersInner, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fniRSParamsSetRefinementSolver calls cusolverDnIRSParamsSetRefinementSolver.
+func fniRSParamsSetRefinementSolver(a0 IRSParams, a1 IRSRefinement) Result {
+	r1, _ := ffiCall2(symiRSParamsSetRefinementSolver, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fniRSParamsSetSolverLowestPrecision calls cusolverDnIRSParamsSetSolverLowestPrecision.
+func fniRSParamsSetSolverLowestPrecision(a0 IRSParams, a1 PrecType) Result {
+	r1, _ := ffiCall2(symiRSParamsSetSolverLowestPrecision, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fniRSParamsSetSolverMainPrecision calls cusolverDnIRSParamsSetSolverMainPrecision.
+func fniRSParamsSetSolverMainPrecision(a0 IRSParams, a1 PrecType) Result {
+	r1, _ := ffiCall2(symiRSParamsSetSolverMainPrecision, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fniRSParamsSetSolverPrecisions calls cusolverDnIRSParamsSetSolverPrecisions.
+func fniRSParamsSetSolverPrecisions(a0 IRSParams, a1 PrecType, a2 PrecType) Result {
+	r1, _ := ffiCall3(symiRSParamsSetSolverPrecisions, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fniRSParamsSetTol calls cusolverDnIRSParamsSetTol.
+func fniRSParamsSetTol(a0 IRSParams, a1 float64) Result {
+	r1, _ := ffiCall2(symiRSParamsSetTol, 0b10, uintptr(a0), uintptr(math.Float64bits(a1)))
+	return Result(r1)
+}
+
+// fniRSParamsSetTolInner calls cusolverDnIRSParamsSetTolInner.
+func fniRSParamsSetTolInner(a0 IRSParams, a1 float64) Result {
+	r1, _ := ffiCall2(symiRSParamsSetTolInner, 0b10, uintptr(a0), uintptr(math.Float64bits(a1)))
+	return Result(r1)
+}
+
+// fniRSXgels calls cusolverDnIRSXgels.
+func fniRSXgels(a0 Handle, a1 IRSParams, a2 IRSInfos, a3 CusolverInt, a4 CusolverInt, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 CusolverInt, a12 uintptr, a13 uint, a14 *CusolverInt, a15 uintptr) Result {
+	r1, _ := ffiCall16(symiRSXgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15))
+	return Result(r1)
+}
+
+// fniRSXgelsBufferSize calls cusolverDnIRSXgels_bufferSize.
+func fniRSXgelsBufferSize(a0 Handle, a1 IRSParams, a2 CusolverInt, a3 CusolverInt, a4 CusolverInt, a5 *uint) Result {
+	r1, _ := ffiCall6(symiRSXgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fniRSXgesv calls cusolverDnIRSXgesv.
+func fniRSXgesv(a0 Handle, a1 IRSParams, a2 IRSInfos, a3 CusolverInt, a4 CusolverInt, a5 uintptr, a6 CusolverInt, a7 uintptr, a8 CusolverInt, a9 uintptr, a10 CusolverInt, a11 uintptr, a12 uint, a13 *CusolverInt, a14 uintptr) Result {
+	r1, _ := ffiCall15(symiRSXgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14))
+	return Result(r1)
+}
+
+// fniRSXgesvBufferSize calls cusolverDnIRSXgesv_bufferSize.
+func fniRSXgesvBufferSize(a0 Handle, a1 IRSParams, a2 CusolverInt, a3 CusolverInt, a4 *uint) Result {
+	r1, _ := ffiCall5(symiRSXgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnLoggerForceDisable calls cusolverDnLoggerForceDisable.
+func fnLoggerForceDisable() Result {
+	r1, _ := ffiCall0(symLoggerForceDisable, 0)
+	return Result(r1)
+}
+
+// fnLoggerOpenFile calls cusolverDnLoggerOpenFile.
+func fnLoggerOpenFile(a0 *byte) Result {
+	r1, _ := ffiCall1(symLoggerOpenFile, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnLoggerSetCallback calls cusolverDnLoggerSetCallback.
+func fnLoggerSetCallback(a0 LoggerCallback) Result {
+	r1, _ := ffiCall1(symLoggerSetCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetFile calls cusolverDnLoggerSetFile.
+func fnLoggerSetFile(a0 *FILE) Result {
+	r1, _ := ffiCall1(symLoggerSetFile, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnLoggerSetLevel calls cusolverDnLoggerSetLevel.
+func fnLoggerSetLevel(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetMask calls cusolverDnLoggerSetMask.
+func fnLoggerSetMask(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnsBgels calls cusolverDnSBgels.
+func fnsBgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsBgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsBgelsBufferSize calls cusolverDnSBgels_bufferSize.
+func fnsBgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symsBgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsBgesv calls cusolverDnSBgesv.
+func fnsBgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsBgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsBgesvBufferSize calls cusolverDnSBgesv_bufferSize.
+func fnsBgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symsBgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsHgels calls cusolverDnSHgels.
+func fnsHgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsHgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsHgelsBufferSize calls cusolverDnSHgels_bufferSize.
+func fnsHgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symsHgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsHgesv calls cusolverDnSHgesv.
+func fnsHgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsHgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsHgesvBufferSize calls cusolverDnSHgesv_bufferSize.
+func fnsHgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symsHgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsSgels calls cusolverDnSSgels.
+func fnsSgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsSgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsSgelsBufferSize calls cusolverDnSSgels_bufferSize.
+func fnsSgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symsSgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsSgesv calls cusolverDnSSgesv.
+func fnsSgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsSgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsSgesvBufferSize calls cusolverDnSSgesv_bufferSize.
+func fnsSgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symsSgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsXgels calls cusolverDnSXgels.
+func fnsXgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsXgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsXgelsBufferSize calls cusolverDnSXgels_bufferSize.
+func fnsXgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symsXgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsXgesv calls cusolverDnSXgesv.
+func fnsXgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsXgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsXgesvBufferSize calls cusolverDnSXgesv_bufferSize.
+func fnsXgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symsXgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsetAdvOptions calls cusolverDnSetAdvOptions.
+func fnsetAdvOptions(a0 Params, a1 Function, a2 AlgMode) Result {
+	r1, _ := ffiCall3(symsetAdvOptions, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsetDeterministicMode calls cusolverDnSetDeterministicMode.
+func fnsetDeterministicMode(a0 Handle, a1 DeterministicMode) Result {
+	r1, _ := ffiCall2(symsetDeterministicMode, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetEmulationSpecialValuesSupport calls cusolverDnSetEmulationSpecialValuesSupport.
+func fnsetEmulationSpecialValuesSupport(a0 Handle, a1 EmulationSpecialValuesSupport) Result {
+	r1, _ := ffiCall2(symsetEmulationSpecialValuesSupport, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetEmulationStrategy calls cusolverDnSetEmulationStrategy.
+func fnsetEmulationStrategy(a0 Handle, a1 EmulationStrategy) Result {
+	r1, _ := ffiCall2(symsetEmulationStrategy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetFixedPointEmulationMantissaBitOffset calls cusolverDnSetFixedPointEmulationMantissaBitOffset.
+func fnsetFixedPointEmulationMantissaBitOffset(a0 Handle, a1 int32) Result {
+	r1, _ := ffiCall2(symsetFixedPointEmulationMantissaBitOffset, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetFixedPointEmulationMantissaControl calls cusolverDnSetFixedPointEmulationMantissaControl.
+func fnsetFixedPointEmulationMantissaControl(a0 Handle, a1 EmulationMantissaControl) Result {
+	r1, _ := ffiCall2(symsetFixedPointEmulationMantissaControl, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetFixedPointEmulationMaxMantissaBitCount calls cusolverDnSetFixedPointEmulationMaxMantissaBitCount.
+func fnsetFixedPointEmulationMaxMantissaBitCount(a0 Handle, a1 int32) Result {
+	r1, _ := ffiCall2(symsetFixedPointEmulationMaxMantissaBitCount, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetMathMode calls cusolverDnSetMathMode.
+func fnsetMathMode(a0 Handle, a1 MathMode) Result {
+	r1, _ := ffiCall2(symsetMathMode, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsgebrd calls cusolverDnSgebrd.
+func fnsgebrd(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr) Result {
+	r1, _ := ffiCall12(symsgebrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnsgebrdBufferSize calls cusolverDnSgebrd_bufferSize.
+func fnsgebrdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symsgebrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnsgeqrf calls cusolverDnSgeqrf.
+func fnsgeqrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symsgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnsgeqrfBufferSize calls cusolverDnSgeqrf_bufferSize.
+func fnsgeqrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symsgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnsgesvd calls cusolverDnSgesvd.
+func fnsgesvd(a0 Handle, a1 int8, a2 int8, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 uintptr) Result {
+	r1, _ := ffiCall16(symsgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnsgesvdBufferSize calls cusolverDnSgesvd_bufferSize.
+func fnsgesvdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symsgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnsgesvdaStridedBatched calls cusolverDnSgesvdaStridedBatched.
+func fnsgesvdaStridedBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 uintptr, a17 int32, a18 uintptr, a19 *float64, a20 int32) Result {
+	r1, _ := ffiCall21(symsgesvdaStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
+	return Result(r1)
+}
+
+// fnsgesvdaStridedBatchedBufferSize calls cusolverDnSgesvdaStridedBatched_bufferSize.
+func fnsgesvdaStridedBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 *int32, a17 int32) Result {
+	r1, _ := ffiCall18(symsgesvdaStridedBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
+	return Result(r1)
+}
+
+// fnsgesvdj calls cusolverDnSgesvdj.
+func fnsgesvdj(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 GesvdjInfo) Result {
+	r1, _ := ffiCall16(symsgesvdj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnsgesvdjBatched calls cusolverDnSgesvdjBatched.
+func fnsgesvdjBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr, a14 GesvdjInfo, a15 int32) Result {
+	r1, _ := ffiCall16(symsgesvdjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnsgesvdjBatchedBufferSize calls cusolverDnSgesvdjBatched_bufferSize.
+func fnsgesvdjBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *int32, a12 GesvdjInfo, a13 int32) Result {
+	r1, _ := ffiCall14(symsgesvdjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsgesvdjBufferSize calls cusolverDnSgesvdj_bufferSize.
+func fnsgesvdjBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 *int32, a13 GesvdjInfo) Result {
+	r1, _ := ffiCall14(symsgesvdjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsgetrf calls cusolverDnSgetrf.
+func fnsgetrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr) Result {
+	r1, _ := ffiCall8(symsgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnsgetrfBufferSize calls cusolverDnSgetrf_bufferSize.
+func fnsgetrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symsgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnsgetrs calls cusolverDnSgetrs.
+func fnsgetrs(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symsgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnslaswp calls cusolverDnSlaswp.
+func fnslaswp(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symslaswp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnslauum calls cusolverDnSlauum.
+func fnslauum(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symslauum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnslauumBufferSize calls cusolverDnSlauum_bufferSize.
+func fnslauumBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symslauumBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnsorgbr calls cusolverDnSorgbr.
+func fnsorgbr(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
+	r1, _ := ffiCall11(symsorgbr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnsorgbrBufferSize calls cusolverDnSorgbr_bufferSize.
+func fnsorgbrBufferSize(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 *int32) Result {
+	r1, _ := ffiCall9(symsorgbrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnsorgqr calls cusolverDnSorgqr.
+func fnsorgqr(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symsorgqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnsorgqrBufferSize calls cusolverDnSorgqr_bufferSize.
+func fnsorgqrBufferSize(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
+	r1, _ := ffiCall8(symsorgqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnsorgtr calls cusolverDnSorgtr.
+func fnsorgtr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symsorgtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnsorgtrBufferSize calls cusolverDnSorgtr_bufferSize.
+func fnsorgtrBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
+	r1, _ := ffiCall7(symsorgtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnsormqr calls cusolverDnSormqr.
+func fnsormqr(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsormqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsormqrBufferSize calls cusolverDnSormqr_bufferSize.
+func fnsormqrBufferSize(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
+	r1, _ := ffiCall12(symsormqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnsormtr calls cusolverDnSormtr.
+func fnsormtr(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
+	r1, _ := ffiCall14(symsormtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsormtrBufferSize calls cusolverDnSormtr_bufferSize.
+func fnsormtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
+	r1, _ := ffiCall12(symsormtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnspotrf calls cusolverDnSpotrf.
+func fnspotrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symspotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnspotrfBatched calls cusolverDnSpotrfBatched.
+func fnspotrfBatched(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symspotrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnspotrfBufferSize calls cusolverDnSpotrf_bufferSize.
+func fnspotrfBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symspotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnspotri calls cusolverDnSpotri.
+func fnspotri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symspotri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnspotriBufferSize calls cusolverDnSpotri_bufferSize.
+func fnspotriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symspotriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnspotrs calls cusolverDnSpotrs.
+func fnspotrs(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symspotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnspotrsBatched calls cusolverDnSpotrsBatched.
+func fnspotrsBatched(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symspotrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnssyevd calls cusolverDnSsyevd.
+func fnssyevd(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symssyevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnssyevdBufferSize calls cusolverDnSsyevd_bufferSize.
+func fnssyevdBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
+	r1, _ := ffiCall8(symssyevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnssyevdx calls cusolverDnSsyevdx.
+func fnssyevdx(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float32, a8 float32, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 uintptr, a14 int32, a15 uintptr) Result {
+	r1, _ := ffiCall16(symssyevdx, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnssyevdxBufferSize calls cusolverDnSsyevdx_bufferSize.
+func fnssyevdxBufferSize(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float32, a8 float32, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 *int32) Result {
+	r1, _ := ffiCall14(symssyevdxBufferSize, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float32bits(a7)), uintptr(math.Float32bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	return Result(r1)
+}
+
+// fnssyevj calls cusolverDnSsyevj.
+func fnssyevj(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo) Result {
+	r1, _ := ffiCall11(symssyevj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnssyevjBatched calls cusolverDnSsyevjBatched.
+func fnssyevjBatched(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo, a11 int32) Result {
+	r1, _ := ffiCall12(symssyevjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnssyevjBatchedBufferSize calls cusolverDnSsyevjBatched_bufferSize.
+func fnssyevjBatchedBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo, a9 int32) Result {
+	r1, _ := ffiCall10(symssyevjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnssyevjBufferSize calls cusolverDnSsyevj_bufferSize.
+func fnssyevjBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo) Result {
+	r1, _ := ffiCall9(symssyevjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	return Result(r1)
+}
+
+// fnssygvd calls cusolverDnSsygvd.
+func fnssygvd(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr) Result {
+	r1, _ := ffiCall13(symssygvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnssygvdBufferSize calls cusolverDnSsygvd_bufferSize.
+func fnssygvdBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32) Result {
+	r1, _ := ffiCall11(symssygvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fnssygvdx calls cusolverDnSsygvdx.
+func fnssygvdx(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float32, a11 float32, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 uintptr, a17 int32, a18 uintptr) Result {
+	r1, _ := ffiCall19(symssygvdx, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	return Result(r1)
+}
+
+// fnssygvdxBufferSize calls cusolverDnSsygvdx_bufferSize.
+func fnssygvdxBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float32, a11 float32, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 *int32) Result {
+	r1, _ := ffiCall17(symssygvdxBufferSize, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float32bits(a10)), uintptr(math.Float32bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
+	return Result(r1)
+}
+
+// fnssygvj calls cusolverDnSsygvj.
+func fnssygvj(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr, a13 SyevjInfo) Result {
+	r1, _ := ffiCall14(symssygvj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnssygvjBufferSize calls cusolverDnSsygvj_bufferSize.
+func fnssygvjBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32, a11 SyevjInfo) Result {
+	r1, _ := ffiCall12(symssygvjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	return Result(r1)
+}
+
+// fnssytrd calls cusolverDnSsytrd.
+func fnssytrd(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
+	r1, _ := ffiCall11(symssytrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnssytrdBufferSize calls cusolverDnSsytrd_bufferSize.
+func fnssytrdBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 *int32) Result {
+	r1, _ := ffiCall9(symssytrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnssytrf calls cusolverDnSsytrf.
+func fnssytrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symssytrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnssytrfBufferSize calls cusolverDnSsytrf_bufferSize.
+func fnssytrfBufferSize(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symssytrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnssytri calls cusolverDnSsytri.
+func fnssytri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symssytri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnssytriBufferSize calls cusolverDnSsytri_bufferSize.
+func fnssytriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
+	r1, _ := ffiCall7(symssytriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnxgeev calls cusolverDnXgeev.
+func fnxgeev(a0 Handle, a1 Params, a2 EigMode, a3 EigMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 uintptr, a12 int64, a13 DataType, a14 uintptr, a15 int64, a16 DataType, a17 uintptr, a18 uint, a19 uintptr, a20 uint, a21 uintptr) Result {
+	r1, _ := ffiCall22(symxgeev, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
+	return Result(r1)
+}
+
+// fnxgeevBufferSize calls cusolverDnXgeev_bufferSize.
+func fnxgeevBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 EigMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 uintptr, a12 int64, a13 DataType, a14 uintptr, a15 int64, a16 DataType, a17 *uint, a18 *uint) Result {
+	r1, _ := ffiCall19(symxgeevBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(unsafe.Pointer(a18)))
+	return Result(r1)
+}
+
+// fnxgeqrf calls cusolverDnXgeqrf.
+func fnxgeqrf(a0 Handle, a1 Params, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 uintptr, a9 DataType, a10 uintptr, a11 uint, a12 uintptr, a13 uint, a14 uintptr) Result {
+	r1, _ := ffiCall15(symxgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnxgeqrfBufferSize calls cusolverDnXgeqrf_bufferSize.
+func fnxgeqrfBufferSize(a0 Handle, a1 Params, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 uintptr, a9 DataType, a10 *uint, a11 *uint) Result {
+	r1, _ := ffiCall12(symxgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnxgesvd calls cusolverDnXgesvd.
+func fnxgesvd(a0 Handle, a1 Params, a2 int8, a3 int8, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 uintptr, a19 uint, a20 uintptr, a21 uint, a22 uintptr) Result {
+	r1, _ := ffiCall23(symxgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22))
+	return Result(r1)
+}
+
+// fnxgesvdBufferSize calls cusolverDnXgesvd_bufferSize.
+func fnxgesvdBufferSize(a0 Handle, a1 Params, a2 int8, a3 int8, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 *uint, a19 *uint) Result {
+	r1, _ := ffiCall20(symxgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(unsafe.Pointer(a18)), uintptr(unsafe.Pointer(a19)))
+	return Result(r1)
+}
+
+// fnxgesvdjGetResidual calls cusolverDnXgesvdjGetResidual.
+func fnxgesvdjGetResidual(a0 Handle, a1 GesvdjInfo, a2 *float64) Result {
+	r1, _ := ffiCall3(symxgesvdjGetResidual, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnxgesvdjGetSweeps calls cusolverDnXgesvdjGetSweeps.
+func fnxgesvdjGetSweeps(a0 Handle, a1 GesvdjInfo, a2 *int32) Result {
+	r1, _ := ffiCall3(symxgesvdjGetSweeps, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnxgesvdjSetMaxSweeps calls cusolverDnXgesvdjSetMaxSweeps.
+func fnxgesvdjSetMaxSweeps(a0 GesvdjInfo, a1 int32) Result {
+	r1, _ := ffiCall2(symxgesvdjSetMaxSweeps, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnxgesvdjSetSortEig calls cusolverDnXgesvdjSetSortEig.
+func fnxgesvdjSetSortEig(a0 GesvdjInfo, a1 int32) Result {
+	r1, _ := ffiCall2(symxgesvdjSetSortEig, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnxgesvdjSetTolerance calls cusolverDnXgesvdjSetTolerance.
+func fnxgesvdjSetTolerance(a0 GesvdjInfo, a1 float64) Result {
+	r1, _ := ffiCall2(symxgesvdjSetTolerance, 0b10, uintptr(a0), uintptr(math.Float64bits(a1)))
+	return Result(r1)
+}
+
+// fnxgesvdp calls cusolverDnXgesvdp.
+func fnxgesvdp(a0 Handle, a1 Params, a2 EigMode, a3 int32, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 uintptr, a19 uint, a20 uintptr, a21 uint, a22 uintptr, a23 *float64) Result {
+	r1, _ := ffiCall24(symxgesvdp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(unsafe.Pointer(a23)))
+	return Result(r1)
+}
+
+// fnxgesvdpBufferSize calls cusolverDnXgesvdp_bufferSize.
+func fnxgesvdpBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 int32, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 *uint, a19 *uint) Result {
+	r1, _ := ffiCall20(symxgesvdpBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(unsafe.Pointer(a18)), uintptr(unsafe.Pointer(a19)))
+	return Result(r1)
+}
+
+// fnxgesvdr calls cusolverDnXgesvdr.
+func fnxgesvdr(a0 Handle, a1 Params, a2 int8, a3 int8, a4 int64, a5 int64, a6 int64, a7 int64, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 DataType, a13 uintptr, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 uintptr, a19 int64, a20 DataType, a21 uintptr, a22 uint, a23 uintptr, a24 uint, a25 uintptr) Result {
+	r1, _ := ffiCall26(symxgesvdr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24), uintptr(a25))
+	return Result(r1)
+}
+
+// fnxgesvdrBufferSize calls cusolverDnXgesvdr_bufferSize.
+func fnxgesvdrBufferSize(a0 Handle, a1 Params, a2 int8, a3 int8, a4 int64, a5 int64, a6 int64, a7 int64, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 DataType, a13 uintptr, a14 DataType, a15 uintptr, a16 int64, a17 DataType, a18 uintptr, a19 int64, a20 DataType, a21 *uint, a22 *uint) Result {
+	r1, _ := ffiCall23(symxgesvdrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(unsafe.Pointer(a21)), uintptr(unsafe.Pointer(a22)))
+	return Result(r1)
+}
+
+// fnxgetrf calls cusolverDnXgetrf.
+func fnxgetrf(a0 Handle, a1 Params, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 uintptr, a8 DataType, a9 uintptr, a10 uint, a11 uintptr, a12 uint, a13 uintptr) Result {
+	r1, _ := ffiCall14(symxgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnxgetrfBufferSize calls cusolverDnXgetrf_bufferSize.
+func fnxgetrfBufferSize(a0 Handle, a1 Params, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 *uint, a9 *uint) Result {
+	r1, _ := ffiCall10(symxgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnxgetrs calls cusolverDnXgetrs.
+func fnxgetrs(a0 Handle, a1 Params, a2 Operation, a3 int64, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 uintptr, a9 DataType, a10 uintptr, a11 int64, a12 uintptr) Result {
+	r1, _ := ffiCall13(symxgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnxlarft calls cusolverDnXlarft.
+func fnxlarft(a0 Handle, a1 Params, a2 DirectMode, a3 StorevMode, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 uintptr, a16 uint, a17 uintptr, a18 uint) Result {
+	r1, _ := ffiCall19(symxlarft, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	return Result(r1)
+}
+
+// fnxlarftBufferSize calls cusolverDnXlarft_bufferSize.
+func fnxlarftBufferSize(a0 Handle, a1 Params, a2 DirectMode, a3 StorevMode, a4 int64, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 DataType, a12 uintptr, a13 int64, a14 DataType, a15 *uint, a16 *uint) Result {
+	r1, _ := ffiCall17(symxlarftBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(unsafe.Pointer(a15)), uintptr(unsafe.Pointer(a16)))
+	return Result(r1)
+}
+
+// fnxpotrf calls cusolverDnXpotrf.
+func fnxpotrf(a0 Handle, a1 Params, a2 FillMode, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 uintptr, a9 uint, a10 uintptr, a11 uint, a12 uintptr) Result {
+	r1, _ := ffiCall13(symxpotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnxpotrfBufferSize calls cusolverDnXpotrf_bufferSize.
+func fnxpotrfBufferSize(a0 Handle, a1 Params, a2 FillMode, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 DataType, a8 *uint, a9 *uint) Result {
+	r1, _ := ffiCall10(symxpotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnxpotrs calls cusolverDnXpotrs.
+func fnxpotrs(a0 Handle, a1 Params, a2 FillMode, a3 int64, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 int64, a11 uintptr) Result {
+	r1, _ := ffiCall12(symxpotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnxsyevBatched calls cusolverDnXsyevBatched.
+func fnxsyevBatched(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 uintptr, a12 uint, a13 uintptr, a14 uint, a15 uintptr, a16 int64) Result {
+	r1, _ := ffiCall17(symxsyevBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16))
+	return Result(r1)
+}
+
+// fnxsyevBatchedBufferSize calls cusolverDnXsyevBatched_bufferSize.
+func fnxsyevBatchedBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 *uint, a12 *uint, a13 int64) Result {
+	r1, _ := ffiCall14(symxsyevBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnxsyevd calls cusolverDnXsyevd.
+func fnxsyevd(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 uintptr, a12 uint, a13 uintptr, a14 uint, a15 uintptr) Result {
+	r1, _ := ffiCall16(symxsyevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnxsyevdBufferSize calls cusolverDnXsyevd_bufferSize.
+func fnxsyevdBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 FillMode, a4 int64, a5 DataType, a6 uintptr, a7 int64, a8 DataType, a9 uintptr, a10 DataType, a11 *uint, a12 *uint) Result {
+	r1, _ := ffiCall13(symxsyevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)))
+	return Result(r1)
+}
+
+// fnxsyevdx calls cusolverDnXsyevdx.
+func fnxsyevdx(a0 Handle, a1 Params, a2 EigMode, a3 EigRange, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 uintptr, a10 uintptr, a11 int64, a12 int64, a13 *int64, a14 DataType, a15 uintptr, a16 DataType, a17 uintptr, a18 uint, a19 uintptr, a20 uint, a21 uintptr) Result {
+	r1, _ := ffiCall22(symxsyevdx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21))
+	return Result(r1)
+}
+
+// fnxsyevdxBufferSize calls cusolverDnXsyevdx_bufferSize.
+func fnxsyevdxBufferSize(a0 Handle, a1 Params, a2 EigMode, a3 EigRange, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 uintptr, a10 uintptr, a11 int64, a12 int64, a13 *int64, a14 DataType, a15 uintptr, a16 DataType, a17 *uint, a18 *uint) Result {
+	r1, _ := ffiCall19(symxsyevdxBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(unsafe.Pointer(a18)))
+	return Result(r1)
+}
+
+// fnxsyevjGetResidual calls cusolverDnXsyevjGetResidual.
+func fnxsyevjGetResidual(a0 Handle, a1 SyevjInfo, a2 *float64) Result {
+	r1, _ := ffiCall3(symxsyevjGetResidual, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnxsyevjGetSweeps calls cusolverDnXsyevjGetSweeps.
+func fnxsyevjGetSweeps(a0 Handle, a1 SyevjInfo, a2 *int32) Result {
+	r1, _ := ffiCall3(symxsyevjGetSweeps, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnxsyevjSetMaxSweeps calls cusolverDnXsyevjSetMaxSweeps.
+func fnxsyevjSetMaxSweeps(a0 SyevjInfo, a1 int32) Result {
+	r1, _ := ffiCall2(symxsyevjSetMaxSweeps, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnxsyevjSetSortEig calls cusolverDnXsyevjSetSortEig.
+func fnxsyevjSetSortEig(a0 SyevjInfo, a1 int32) Result {
+	r1, _ := ffiCall2(symxsyevjSetSortEig, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnxsyevjSetTolerance calls cusolverDnXsyevjSetTolerance.
+func fnxsyevjSetTolerance(a0 SyevjInfo, a1 float64) Result {
+	r1, _ := ffiCall2(symxsyevjSetTolerance, 0b10, uintptr(a0), uintptr(math.Float64bits(a1)))
+	return Result(r1)
+}
+
+// fnxsygvd calls cusolverDnXsygvd.
+func fnxsygvd(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 DataType, a13 uintptr, a14 DataType, a15 uintptr, a16 uint, a17 uintptr, a18 uint, a19 uintptr) Result {
+	r1, _ := ffiCall20(symxsygvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19))
+	return Result(r1)
+}
+
+// fnxsygvdBufferSize calls cusolverDnXsygvd_bufferSize.
+func fnxsygvdBufferSize(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 DataType, a13 uintptr, a14 DataType, a15 *uint, a16 *uint) Result {
+	r1, _ := ffiCall17(symxsygvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(unsafe.Pointer(a15)), uintptr(unsafe.Pointer(a16)))
+	return Result(r1)
+}
+
+// fnxsygvdx calls cusolverDnXsygvdx.
+func fnxsygvdx(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 EigRange, a5 FillMode, a6 int64, a7 DataType, a8 uintptr, a9 int64, a10 DataType, a11 uintptr, a12 int64, a13 uintptr, a14 uintptr, a15 int64, a16 int64, a17 *int64, a18 DataType, a19 uintptr, a20 DataType, a21 uintptr, a22 uint, a23 uintptr, a24 uint, a25 uintptr) Result {
+	r1, _ := ffiCall26(symxsygvdx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(unsafe.Pointer(a17)), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22), uintptr(a23), uintptr(a24), uintptr(a25))
+	return Result(r1)
+}
+
+// fnxsygvdxBufferSize calls cusolverDnXsygvdx_bufferSize.
+func fnxsygvdxBufferSize(a0 Handle, a1 Params, a2 EigType, a3 EigMode, a4 FillMode, a5 int64, a6 DataType, a7 uintptr, a8 int64, a9 DataType, a10 uintptr, a11 int64, a12 uintptr, a13 uintptr, a14 int64, a15 int64, a16 *int64, a17 DataType, a18 uintptr, a19 DataType, a20 *uint, a21 *uint) Result {
+	r1, _ := ffiCall22(symxsygvdxBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(unsafe.Pointer(a20)), uintptr(unsafe.Pointer(a21)))
+	return Result(r1)
+}
+
+// fnxsytrs calls cusolverDnXsytrs.
+func fnxsytrs(a0 Handle, a1 FillMode, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 uintptr, a8 DataType, a9 uintptr, a10 int64, a11 uintptr, a12 uint, a13 uintptr, a14 uint, a15 uintptr) Result {
+	r1, _ := ffiCall16(symxsytrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnxsytrsBufferSize calls cusolverDnXsytrs_bufferSize.
+func fnxsytrsBufferSize(a0 Handle, a1 FillMode, a2 int64, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 uintptr, a8 DataType, a9 uintptr, a10 int64, a11 *uint, a12 *uint) Result {
+	r1, _ := ffiCall13(symxsytrsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(unsafe.Pointer(a12)))
+	return Result(r1)
+}
+
+// fnxtrtri calls cusolverDnXtrtri.
+func fnxtrtri(a0 Handle, a1 FillMode, a2 DiagType, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 uintptr, a8 uint, a9 uintptr, a10 uint, a11 uintptr) Result {
+	r1, _ := ffiCall12(symxtrtri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnxtrtriBufferSize calls cusolverDnXtrtri_bufferSize.
+func fnxtrtriBufferSize(a0 Handle, a1 FillMode, a2 DiagType, a3 int64, a4 DataType, a5 uintptr, a6 int64, a7 *uint, a8 *uint) Result {
+	r1, _ := ffiCall9(symxtrtriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnzCgels calls cusolverDnZCgels.
+func fnzCgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzCgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzCgelsBufferSize calls cusolverDnZCgels_bufferSize.
+func fnzCgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzCgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzCgesv calls cusolverDnZCgesv.
+func fnzCgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzCgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzCgesvBufferSize calls cusolverDnZCgesv_bufferSize.
+func fnzCgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzCgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzEgels calls cusolverDnZEgels.
+func fnzEgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzEgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzEgelsBufferSize calls cusolverDnZEgels_bufferSize.
+func fnzEgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzEgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzEgesv calls cusolverDnZEgesv.
+func fnzEgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzEgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzEgesvBufferSize calls cusolverDnZEgesv_bufferSize.
+func fnzEgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzEgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzKgels calls cusolverDnZKgels.
+func fnzKgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzKgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzKgelsBufferSize calls cusolverDnZKgels_bufferSize.
+func fnzKgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzKgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzKgesv calls cusolverDnZKgesv.
+func fnzKgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzKgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzKgesvBufferSize calls cusolverDnZKgesv_bufferSize.
+func fnzKgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzKgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzYgels calls cusolverDnZYgels.
+func fnzYgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzYgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzYgelsBufferSize calls cusolverDnZYgels_bufferSize.
+func fnzYgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzYgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzYgesv calls cusolverDnZYgesv.
+func fnzYgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzYgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzYgesvBufferSize calls cusolverDnZYgesv_bufferSize.
+func fnzYgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzYgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzZgels calls cusolverDnZZgels.
+func fnzZgels(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzZgels, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzZgelsBufferSize calls cusolverDnZZgels_bufferSize.
+func fnzZgelsBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 CusolverInt, a4 uintptr, a5 CusolverInt, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzZgelsBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzZgesv calls cusolverDnZZgesv.
+func fnzZgesv(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 uint, a12 *CusolverInt, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzZgesv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzZgesvBufferSize calls cusolverDnZZgesv_bufferSize.
+func fnzZgesvBufferSize(a0 Handle, a1 CusolverInt, a2 CusolverInt, a3 uintptr, a4 CusolverInt, a5 uintptr, a6 uintptr, a7 CusolverInt, a8 uintptr, a9 CusolverInt, a10 uintptr, a11 *uint) Result {
+	r1, _ := ffiCall12(symzZgesvBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzgebrd calls cusolverDnZgebrd.
+func fnzgebrd(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr) Result {
+	r1, _ := ffiCall12(symzgebrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnzgebrdBufferSize calls cusolverDnZgebrd_bufferSize.
+func fnzgebrdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symzgebrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnzgeqrf calls cusolverDnZgeqrf.
+func fnzgeqrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symzgeqrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzgeqrfBufferSize calls cusolverDnZgeqrf_bufferSize.
+func fnzgeqrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symzgeqrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnzgesvd calls cusolverDnZgesvd.
+func fnzgesvd(a0 Handle, a1 int8, a2 int8, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 uintptr) Result {
+	r1, _ := ffiCall16(symzgesvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnzgesvdBufferSize calls cusolverDnZgesvd_bufferSize.
+func fnzgesvdBufferSize(a0 Handle, a1 int32, a2 int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symzgesvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnzgesvdaStridedBatched calls cusolverDnZgesvdaStridedBatched.
+func fnzgesvdaStridedBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 uintptr, a17 int32, a18 uintptr, a19 *float64, a20 int32) Result {
+	r1, _ := ffiCall21(symzgesvdaStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(unsafe.Pointer(a19)), uintptr(a20))
+	return Result(r1)
+}
+
+// fnzgesvdaStridedBatchedBufferSize calls cusolverDnZgesvdaStridedBatched_bufferSize.
+func fnzgesvdaStridedBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 uintptr, a14 int32, a15 int64, a16 *int32, a17 int32) Result {
+	r1, _ := ffiCall18(symzgesvdaStridedBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17))
+	return Result(r1)
+}
+
+// fnzgesvdj calls cusolverDnZgesvdj.
+func fnzgesvdj(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32, a14 uintptr, a15 GesvdjInfo) Result {
+	r1, _ := ffiCall16(symzgesvdj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnzgesvdjBatched calls cusolverDnZgesvdjBatched.
+func fnzgesvdjBatched(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr, a14 GesvdjInfo, a15 int32) Result {
+	r1, _ := ffiCall16(symzgesvdjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnzgesvdjBatchedBufferSize calls cusolverDnZgesvdjBatched_bufferSize.
+func fnzgesvdjBatchedBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *int32, a12 GesvdjInfo, a13 int32) Result {
+	r1, _ := ffiCall14(symzgesvdjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzgesvdjBufferSize calls cusolverDnZgesvdj_bufferSize.
+func fnzgesvdjBufferSize(a0 Handle, a1 EigMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 *int32, a13 GesvdjInfo) Result {
+	r1, _ := ffiCall14(symzgesvdjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzgetrf calls cusolverDnZgetrf.
+func fnzgetrf(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr) Result {
+	r1, _ := ffiCall8(symzgetrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzgetrfBufferSize calls cusolverDnZgetrf_bufferSize.
+func fnzgetrfBufferSize(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symzgetrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnzgetrs calls cusolverDnZgetrs.
+func fnzgetrs(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symzgetrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzheevd calls cusolverDnZheevd.
+func fnzheevd(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symzheevd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzheevdBufferSize calls cusolverDnZheevd_bufferSize.
+func fnzheevdBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
+	r1, _ := ffiCall8(symzheevdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnzheevdx calls cusolverDnZheevdx.
+func fnzheevdx(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float64, a8 float64, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 uintptr, a14 int32, a15 uintptr) Result {
+	r1, _ := ffiCall16(symzheevdx, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnzheevdxBufferSize calls cusolverDnZheevdx_bufferSize.
+func fnzheevdxBufferSize(a0 Handle, a1 EigMode, a2 EigRange, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 float64, a8 float64, a9 int32, a10 int32, a11 *int32, a12 uintptr, a13 *int32) Result {
+	r1, _ := ffiCall14(symzheevdxBufferSize, 0b110000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(math.Float64bits(a8)), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)))
+	return Result(r1)
+}
+
+// fnzheevj calls cusolverDnZheevj.
+func fnzheevj(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo) Result {
+	r1, _ := ffiCall11(symzheevj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzheevjBatched calls cusolverDnZheevjBatched.
+func fnzheevjBatched(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr, a10 SyevjInfo, a11 int32) Result {
+	r1, _ := ffiCall12(symzheevjBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnzheevjBatchedBufferSize calls cusolverDnZheevjBatched_bufferSize.
+func fnzheevjBatchedBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo, a9 int32) Result {
+	r1, _ := ffiCall10(symzheevjBatchedBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzheevjBufferSize calls cusolverDnZheevj_bufferSize.
+func fnzheevjBufferSize(a0 Handle, a1 EigMode, a2 FillMode, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32, a8 SyevjInfo) Result {
+	r1, _ := ffiCall9(symzheevjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzhegvd calls cusolverDnZhegvd.
+func fnzhegvd(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr) Result {
+	r1, _ := ffiCall13(symzhegvd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzhegvdBufferSize calls cusolverDnZhegvd_bufferSize.
+func fnzhegvdBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32) Result {
+	r1, _ := ffiCall11(symzhegvdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fnzhegvdx calls cusolverDnZhegvdx.
+func fnzhegvdx(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float64, a11 float64, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 uintptr, a17 int32, a18 uintptr) Result {
+	r1, _ := ffiCall19(symzhegvdx, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	return Result(r1)
+}
+
+// fnzhegvdxBufferSize calls cusolverDnZhegvdx_bufferSize.
+func fnzhegvdxBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 EigRange, a4 FillMode, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 float64, a11 float64, a12 int32, a13 int32, a14 *int32, a15 uintptr, a16 *int32) Result {
+	r1, _ := ffiCall17(symzhegvdxBufferSize, 0b110000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(math.Float64bits(a10)), uintptr(math.Float64bits(a11)), uintptr(a12), uintptr(a13), uintptr(unsafe.Pointer(a14)), uintptr(a15), uintptr(unsafe.Pointer(a16)))
+	return Result(r1)
+}
+
+// fnzhegvj calls cusolverDnZhegvj.
+func fnzhegvj(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 uintptr, a11 int32, a12 uintptr, a13 SyevjInfo) Result {
+	r1, _ := ffiCall14(symzhegvj, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzhegvjBufferSize calls cusolverDnZhegvj_bufferSize.
+func fnzhegvjBufferSize(a0 Handle, a1 EigType, a2 EigMode, a3 FillMode, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 uintptr, a10 *int32, a11 SyevjInfo) Result {
+	r1, _ := ffiCall12(symzhegvjBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11))
+	return Result(r1)
+}
+
+// fnzhetrd calls cusolverDnZhetrd.
+func fnzhetrd(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
+	r1, _ := ffiCall11(symzhetrd, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzhetrdBufferSize calls cusolverDnZhetrd_bufferSize.
+func fnzhetrdBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 uintptr, a8 *int32) Result {
+	r1, _ := ffiCall9(symzhetrdBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnzlaswp calls cusolverDnZlaswp.
+func fnzlaswp(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symzlaswp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzlauum calls cusolverDnZlauum.
+func fnzlauum(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symzlauum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzlauumBufferSize calls cusolverDnZlauum_bufferSize.
+func fnzlauumBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symzlauumBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnzpotrf calls cusolverDnZpotrf.
+func fnzpotrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symzpotrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzpotrfBatched calls cusolverDnZpotrfBatched.
+func fnzpotrfBatched(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symzpotrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnzpotrfBufferSize calls cusolverDnZpotrf_bufferSize.
+func fnzpotrfBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symzpotrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnzpotri calls cusolverDnZpotri.
+func fnzpotri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32, a7 uintptr) Result {
+	r1, _ := ffiCall8(symzpotri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzpotriBufferSize calls cusolverDnZpotri_bufferSize.
+func fnzpotriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symzpotriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnzpotrs calls cusolverDnZpotrs.
+func fnzpotrs(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symzpotrs, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzpotrsBatched calls cusolverDnZpotrsBatched.
+func fnzpotrsBatched(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symzpotrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzsytrf calls cusolverDnZsytrf.
+func fnzsytrf(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symzsytrf, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzsytrfBufferSize calls cusolverDnZsytrf_bufferSize.
+func fnzsytrfBufferSize(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symzsytrfBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnzsytri calls cusolverDnZsytri.
+func fnzsytri(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symzsytri, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzsytriBufferSize calls cusolverDnZsytri_bufferSize.
+func fnzsytriBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
+	r1, _ := ffiCall7(symzsytriBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnzungbr calls cusolverDnZungbr.
+func fnzungbr(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 uintptr, a9 int32, a10 uintptr) Result {
+	r1, _ := ffiCall11(symzungbr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzungbrBufferSize calls cusolverDnZungbr_bufferSize.
+func fnzungbrBufferSize(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 *int32) Result {
+	r1, _ := ffiCall9(symzungbrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnzungqr calls cusolverDnZungqr.
+func fnzungqr(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 uintptr) Result {
+	r1, _ := ffiCall10(symzungqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzungqrBufferSize calls cusolverDnZungqr_bufferSize.
+func fnzungqrBufferSize(a0 Handle, a1 int32, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 *int32) Result {
+	r1, _ := ffiCall8(symzungqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnzungtr calls cusolverDnZungtr.
+func fnzungtr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symzungtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzungtrBufferSize calls cusolverDnZungtr_bufferSize.
+func fnzungtrBufferSize(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32) Result {
+	r1, _ := ffiCall7(symzungtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnzunmqr calls cusolverDnZunmqr.
+func fnzunmqr(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzunmqr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzunmqrBufferSize calls cusolverDnZunmqr_bufferSize.
+func fnzunmqrBufferSize(a0 Handle, a1 SideMode, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
+	r1, _ := ffiCall12(symzunmqrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// fnzunmtr calls cusolverDnZunmtr.
+func fnzunmtr(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 uintptr, a12 int32, a13 uintptr) Result {
+	r1, _ := ffiCall14(symzunmtr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzunmtrBufferSize calls cusolverDnZunmtr_bufferSize.
+func fnzunmtrBufferSize(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 uintptr, a10 int32, a11 *int32) Result {
+	r1, _ := ffiCall12(symzunmtrBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)))
+	return Result(r1)
+}
+
+// cCgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -428,7 +3285,7 @@ var (
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -476,28 +3333,32 @@ func cCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncCgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnCCgels_bufferSize"); err != nil {
+	out := slotCCgelsBufferSize.get()
+	defer slotCCgelsBufferSize.put(out)
+	if err := toError(fncCgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnCCgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cCgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotCCgelsBufferSize outSlot[uint]
+
+// cCgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -510,7 +3371,7 @@ func cCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -558,29 +3419,33 @@ func cCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncCgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnCCgesv_bufferSize"); err != nil {
+	out := slotCCgesvBufferSize.get()
+	defer slotCCgesvBufferSize.put(out)
+	if err := toError(fncCgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnCCgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cEgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotCCgesvBufferSize outSlot[uint]
+
+// cEgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -593,7 +3458,7 @@ func cCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -641,28 +3506,32 @@ func cEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncEgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnCEgels_bufferSize"); err != nil {
+	out := slotCEgelsBufferSize.get()
+	defer slotCEgelsBufferSize.put(out)
+	if err := toError(fncEgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnCEgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cEgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotCEgelsBufferSize outSlot[uint]
+
+// cEgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -675,7 +3544,7 @@ func cEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -723,29 +3592,33 @@ func cEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncEgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnCEgesv_bufferSize"); err != nil {
+	out := slotCEgesvBufferSize.get()
+	defer slotCEgesvBufferSize.put(out)
+	if err := toError(fncEgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnCEgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cKgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotCEgesvBufferSize outSlot[uint]
+
+// cKgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -758,7 +3631,7 @@ func cEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -806,28 +3679,32 @@ func cKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncKgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnCKgels_bufferSize"); err != nil {
+	out := slotCKgelsBufferSize.get()
+	defer slotCKgelsBufferSize.put(out)
+	if err := toError(fncKgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnCKgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cKgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotCKgelsBufferSize outSlot[uint]
+
+// cKgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -840,7 +3717,7 @@ func cKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -888,29 +3765,33 @@ func cKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncKgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnCKgesv_bufferSize"); err != nil {
+	out := slotCKgesvBufferSize.get()
+	defer slotCKgesvBufferSize.put(out)
+	if err := toError(fncKgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnCKgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cYgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotCKgesvBufferSize outSlot[uint]
+
+// cYgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -923,7 +3804,7 @@ func cKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -971,28 +3852,32 @@ func cYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncYgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnCYgels_bufferSize"); err != nil {
+	out := slotCYgelsBufferSize.get()
+	defer slotCYgelsBufferSize.put(out)
+	if err := toError(fncYgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnCYgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cYgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotCYgelsBufferSize outSlot[uint]
+
+// cYgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -1005,7 +3890,7 @@ func cYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -1053,17 +3938,24 @@ func cYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncYgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnCYgesv_bufferSize"); err != nil {
+	out := slotCYgesvBufferSize.get()
+	defer slotCYgesvBufferSize.put(out)
+	if err := toError(fncYgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnCYgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cgebrd reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+var slotCYgesvBufferSize outSlot[uint]
+
+// cgebrd reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: Qᴴ*A*P=B.
 //
-// If m>=n, B is upper bidiagonal; if m=n.
+// If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
+// The matrix Q and P are overwritten into matrix A in the following sense:
+// The user has to provide working space which is pointed by input parameter Work. The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
+// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// Remark: gebrd only supports m>=n.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
@@ -1113,22 +4005,24 @@ func cgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncgebrdBufferSize(handle, m, n, &out), "cusolverDnCgebrd_bufferSize"); err != nil {
+	out := slotCgebrdBufferSize.get()
+	defer slotCgebrdBufferSize.put(out)
+	if err := toError(fncgebrdBufferSize(handle, m, n, out), "cusolverDnCgebrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cgeqrf computes the QR factorization of an m×n matrix
+var slotCgebrdBufferSize outSlot[int32]
+
+// cgeqrf computes the QR factorization of an m×n matrix.
 //
-// A=Q∗R
-// where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
+// A=Q*R, where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
+// I−2*v*vᴴ=I−τ*q*qᴴ
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -1177,24 +4071,26 @@ func cgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncgeqrfBufferSize(handle, m, n, uintptr(a), lda, &out), "cusolverDnCgeqrf_bufferSize"); err != nil {
+	out := slotCgeqrfBufferSize.get()
+	defer slotCgeqrfBufferSize.put(out)
+	if err := toError(fncgeqrfBufferSize(handle, m, n, uintptr(a), lda, out), "cusolverDnCgeqrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCgeqrfBufferSize outSlot[int32]
 
 // cgesvd computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The SVD is written A=U*Σ*Vᴴ, where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, devInfo specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
 // The rwork is real array of dimension (min(m,n)-1). If devInfo >0 and rwork is not NULL, rwork contains the unconverged superdiagonal elements of an upper bidiagonal matrix. This is slightly different from LAPACK which puts unconverged superdiagonal elements in work if type is real; in rwork if type is complex. rwork can be a NULL pointer if the user does not want the information from superdiagonal.
 // Please visit cuSOLVER Library Samples - gesvd for a code example.
 // Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// Remark 2: the routine returns Vᴴ , not V.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobu: Specifies options for computing all or part of the matrix U: = ‘A’: all m columns of U are returned in array U: = ‘S’: the first min(m,n) columns of U (the left singular vectors) are returned in the array U; = ‘O’: the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A; = ‘N’: no columns of U (no left singular vectors) are computed
@@ -1247,35 +4143,37 @@ func cgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncgesvdBufferSize(handle, m, n, &out), "cusolverDnCgesvd_bufferSize"); err != nil {
+	out := slotCgesvdBufferSize.get()
+	defer slotCgesvdBufferSize.put(out)
+	if err := toError(fncgesvdBufferSize(handle, m, n, out), "cusolverDnCgesvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCgesvdBufferSize outSlot[int32]
 
 // cgesvdaStridedBatched gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
+// The economy form of SVD is written by A=U*Σ*Vᴴ, where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
 // gesvda computes eigenvalues of A**T*A, or A**H*A (if A is complex), to approximate singular values and singular vectors. It generates matrices U and V and transforms the matrix A to the following form
-// UH∗A∗V=S+E
+// Uᴴ*A*V=S+E
 // where S is diagonal and E depends on rounding errors. To certain conditions, U, V and S approximate singular values and singular vectors up to machine zero of single precision. In general, V is unitary, S is more accurate than U. If singular value is far from zero, then left singular vector U is accurate. In other words, the accuracy of singular values and left singular vectors depend on the distance between singular value and zero. Since the computation of A**T*A, or A**H*A can greatly amplify errors, it is recommended to use gesvda only with well-conditioned data.
 // The input parameter rank decides the number of singular values and singular vectors are computed in parameter S, U and V.
 // The output parameter h_RnrmF computes Frobenius norm of residual. To compute h_RnrmF, info != NULL is required.
-// A−U∗S∗VH
+// A−U*S*Vᴴ
 // if the parameter rank is equal n. Otherwise, h_RnrmF reports
-// ‖U∗S∗VH‖−‖S‖
+// ‖U*S*Vᴴ‖−‖S‖
 // in Frobenius norm sense, that is, how far U is from unitary.
 // gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+strideA∗k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS∗k] , the formula for random access of U is Uk(i,j)=U [i+ldu∗j+strideU∗k] and the formula for random access of V is Vk(i,j)=V [i+ldv∗j+strideV∗k] .
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS*k] , the formula for random access of U is Uk(i,j)=U [i+ldu*j+strideU*k] and the formula for random access of V is Vk(i,j)=V [i+ldv*j+strideV*k] .
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
 // Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
 // Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
-// Remark 1: The routine returns V, not VH . This is different from gesvd.
+// Remark 1: The routine returns V, not Vᴴ . This is different from gesvd.
 // Remark 2: The routine only supports m >=n.
 // Remark 3: It is recommended to use an FP64 data type, that is [Handle.DgesvdaStridedBatched] or [Handle.ZgesvdaStridedBatched].
 // Remark 4: If the user is confident on the accuracy of singular values and singular vectors, for example, certain conditions hold (required singular value is far from zero), then the performance can be improved by passing a null pointer to h_RnrmF, i.e. no computation of the residual norm.
@@ -1342,27 +4240,28 @@ func cgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m 
 
 // cgesvdj computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
+// The SVD is written:
+// A=U*Σ*Vᴴ
 // where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
 // gesvdj has the same functionality as gesvd. The difference is that gesvd uses QR algorithm and gesvdj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure gesvdj to perform approximation up to certain accuracy.
 // gesvdj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// UH∗A∗V=S+E
+// Uᴴ*A*V=S+E
 // where S is diagonal and diagonal of E is zero.
 // During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, S is the set of singular values. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
+// ‖E‖F≤eps*‖A‖F
 // where eps is given tolerance. Note that if the real residual norm
-// ‖S−UH∗A∗V‖F
+// ‖S−Uᴴ*A*V‖F
 // is computed, it will differ from ‖E‖F up to roundoff errors of order N=max(m,n), to still have the standard SVD accuracy expectation
-// ‖S−UH∗A∗V‖FO(N)∗‖A‖F≤‖E‖F‖A‖F≤eps
-// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps∗N.
+// ‖S−Uᴴ*A*V‖FO(N)*‖A‖F≤‖E‖F‖A‖F≤eps
+// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps*N.
 // gesvdj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [GesvdjInfo.XgesvdjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [GesvdjInfo.XgesvdjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. gesvdj stops either tolerance is met or maximum number of sweeps is met.
 // Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = min(m,n)+1, gesvdj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, gesvdj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // Please visit cuSOLVER Library Samples - gesvdj for a code example.
 // Remark 1: gesvdj supports any combination of m and n.
-// Remark 2: the routine returns V, not VH . This is different from gesvd.
+// Remark 2: the routine returns V, not Vᴴ . This is different from gesvd.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -1395,19 +4294,18 @@ func cgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 	return toError(fncgesvdj(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params), "cusolverDnCgesvdj")
 }
 
-// cgesvdjBatched computes singular values and singular vectors of a sequence of general m×n matrices
+// cgesvdjBatched computes singular values and singular vectors of a sequence of general m×n matrices.
 //
-// Aj=Uj∗Σj∗VjH
-// where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
+// Aj=Uj*Σj*VjH, where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
 // gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter S also contains singular values of each matrix in contiguous way,
 // S=(S0S1⋯)
-// The formula for random access of S is Sk(j)=S [j+min(m,n)∗k] .
+// The formula for random access of S is Sk(j)=S [j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
@@ -1504,10 +4402,9 @@ func cgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 	return toError(fncgesvdjBufferSize(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params), "cusolverDnCgesvdj_bufferSize")
 }
 
-// cgetrf computes the LU factorization of an m×n matrix
+// cgetrf computes the LU factorization of an m×n matrix.
 //
-// P∗A=L∗U
-// where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
+// P*A=L*U, where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -1562,18 +4459,21 @@ func cgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncgetrfBufferSize(handle, m, n, uintptr(a), lda, &out), "cusolverDnCgetrf_bufferSize"); err != nil {
+	out := slotCgetrfBufferSize.get()
+	defer slotCgetrfBufferSize.put(out)
+	if err := toError(fncgetrfBufferSize(handle, m, n, uintptr(a), lda, out), "cusolverDnCgetrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cgetrs solves a linear system of multiple right-hand sides
+var slotCgetrfBufferSize outSlot[int32]
+
+// cgetrs solves a linear system of multiple right-hand sides.
 //
-// op(A)∗X=B
-// where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
+// op(A)*X=B, where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
+// The input parameter trans is defined by op(A) = A if trans == CUBLAS_OP_N, op(A) = Aᵀ if trans == CUBLAS_OP_T, and op(A) = Aᴴ if trans == CUBLAS_OP_C.
 // The input parameter devIpiv is an output of getrf. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine getrf and getrs to complete a linear solver.
@@ -1606,9 +4506,8 @@ func cgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.Device
 
 // cheevd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The standard symmetric eigenvalue problem is A*V=V*Λ, where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - syevd for a code example.
@@ -1661,19 +4560,23 @@ func cheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncheevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), &out), "cusolverDnCheevd_bufferSize"); err != nil {
+	out := slotCheevdBufferSize.get()
+	defer slotCheevdBufferSize.put(out)
+	if err := toError(fncheevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), out), "cusolverDnCheevd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCheevdBufferSize outSlot[int32]
 
 // cheevdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗V=V∗Λ
+// The standard symmetric eigenvalue problem is:
+// A*V=V*Λ
 // where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - syevdx for a code example.
@@ -1685,6 +4588,10 @@ func cheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 //   - n: Number of rows (or columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by syevdx_bufferSize
@@ -1713,6 +4620,10 @@ func cheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - n: Number of rows (or columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of complex64
 //
@@ -1724,36 +4635,39 @@ func cheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnCheevdxBufferSize, bound as cusolverDnCheevdx_bufferSize.
-func cheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
+func cheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
 	if err := checkLibSym("cusolverDnCheevdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+		return 0, 0, err
 	}
-	var out int32
-	if err := toError(fncheevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), &out), "cusolverDnCheevdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+	outs := slotCheevdxBufferSize.get()
+	defer slotCheevdxBufferSize.put(outs)
+	if err := toError(fncheevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, &outs.out0, uintptr(w), &outs.out1), "cusolverDnCheevdx_bufferSize"); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotCheevdxBufferSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // cheevj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗Q=Q∗Λ
-// where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The standard symmetric eigenvalue problem is A*Q=Q*Λ, where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
 // syevj has the same functionality as syevd. The difference is that syevd uses QR algorithm and syevj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure syevj to perform approximation up to certain accuracy.
 // How does it work?
 // syevj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// VH∗A∗V=W+E
+// Vᴴ*A*V=W+E
 // where W is diagonal and E is symmetric without diagonal.
 // During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, W is the set of eigenvalues. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
+// ‖E‖F≤eps*‖A‖F
 // where eps is the given tolerance.
 // syevj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [SyevjInfo.XsyevjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [SyevjInfo.XsyevjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. syevj stops either tolerance is met or maximum number of sweeps is met.
 // The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
 // After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
 // residual=‖E‖F=‖Λ−W‖F
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
@@ -1785,19 +4699,18 @@ func cheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 	return toError(fncheevj(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params), "cusolverDnCheevj")
 }
 
-// cheevjBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+// cheevjBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //
-// Aj∗Qj=Qj∗Λj
-// where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
+// Aj*Qj=Qj*Λj, where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
 // syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter W also contains eigenvalues of each matrix in contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
+// The formula for random access of W is Wk(j)=W [j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors Vj.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
@@ -1884,8 +4797,8 @@ func cheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 
 // chegvd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - sygvd for a code example.
@@ -1944,18 +4857,21 @@ func chegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnchegvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), &out), "cusolverDnChegvd_bufferSize"); err != nil {
+	out := slotChegvdBufferSize.get()
+	defer slotChegvdBufferSize.put(out)
+	if err := toError(fnchegvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), out), "cusolverDnChegvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotChegvdBufferSize outSlot[int32]
 
 // chegvdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - sygvdx for a code example.
@@ -1970,6 +4886,10 @@ func chegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sygvdx_bufferSize
@@ -2001,6 +4921,10 @@ func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of complex64
 //
@@ -2012,32 +4936,36 @@ func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnChegvdxBufferSize, bound as cusolverDnChegvdx_bufferSize.
-func chegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
+func chegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
 	if err := checkLibSym("cusolverDnChegvdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+		return 0, 0, err
 	}
-	var out int32
-	if err := toError(fnchegvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), &out), "cusolverDnChegvdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+	outs := slotChegvdxBufferSize.get()
+	defer slotChegvdxBufferSize.put(outs)
+	if err := toError(fnchegvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, &outs.out0, uintptr(w), &outs.out1), "cusolverDnChegvdx_bufferSize"); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotChegvdxBufferSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // chegvj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
 // This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
 // However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
-// B=L∗LH
+// B=L*Lᴴ
 // transform the problem to standard eigenvalue problem, then calls syevj.
 // For example, the standard eigenvalue problem of type I is
-// M∗Q=Q∗Λ
+// M*Q=Q*Λ
 // where matrix M is symmetric
-// M=L−1∗A∗L−H
+// M=L⁻¹*A*L⁻ᴴ
 // The residual is the result of syevj on matrix M, not A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n), B is not positive definite, the factorization of B could not be completed and no eigenvalues or eigenvectors were computed. If info = n+1, syevj does not converge under given tolerance and maximum sweeps. In this case, the eigenvalues and eigenvectors are still computed because non-convergence comes from improper tolerance of maximum sweeps.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors V.
 // Please visit cuSOLVER Library Samples - sygvj for a code example.
@@ -2098,10 +5026,10 @@ func chegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 	return toError(fnchegvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params), "cusolverDnChegvj_bufferSize")
 }
 
-// chetrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+// chetrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: Qᴴ*A*Q=T.
 //
 // As an output, A contains T and householder reflection vectors. If uplo = CUBLAS_FILL_MODE_UPPER, the diagonal and first superdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements above the first superdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors; If uplo = CUBLAS_FILL_MODE_LOWER, the diagonal and first subdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements below the first subdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). Note that the problem size n is limited by a condition n*lda < INT32_MAX primarily due to the current implementation constraints.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -2151,13 +5079,16 @@ func chetrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnchetrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), &out), "cusolverDnChetrd_bufferSize"); err != nil {
+	out := slotChetrdBufferSize.get()
+	defer slotChetrdBufferSize.put(out)
+	if err := toError(fnchetrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), out), "cusolverDnChetrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotChetrdBufferSize outSlot[int32]
 
 // claswp wraps cusolverDnClaswp.
 func claswp(handle Handle, n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
@@ -2181,21 +5112,24 @@ func clauumBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnclauumBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnClauum_bufferSize"); err != nil {
+	out := slotClauumBufferSize.get()
+	defer slotClauumBufferSize.put(out)
+	if err := toError(fnclauumBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnClauum_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotClauumBufferSize outSlot[int32]
 
 // cpotrf computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //
 // A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only the lower triangular part of A is processed, and replaced by the lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -2228,9 +5162,9 @@ func cpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //
 // Each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter infoArray would indicate smallest leading minor of A which is not positive definite.
 // infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray [i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
 // Remark: the other part of A is used as a workspace. For example, if uplo is CUBLAS_FILL_MODE_UPPER, upper triangle of A contains Cholesky factor U and lower triangle of A is destroyed after potrfBatched.
@@ -2279,18 +5213,20 @@ func cpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncpotrfBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnCpotrf_bufferSize"); err != nil {
+	out := slotCpotrfBufferSize.get()
+	defer slotCpotrfBufferSize.put(out)
+	if err := toError(fncpotrfBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnCpotrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cpotri computes the inverse of a positive-definite matrix A using the Cholesky factorization
+var slotCpotrfBufferSize outSlot[int32]
+
+// cpotri computes the inverse of a positive-definite matrix A using the Cholesky factorization.
 //
-// A=L∗LH=UH∗U
-// computed by potrf().
+// A=L*Lᴴ=Uᴴ*U, computed by potrf().
 // A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
 // If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
 // If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
@@ -2341,19 +5277,21 @@ func cpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncpotriBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnCpotri_bufferSize"); err != nil {
+	out := slotCpotriBufferSize.get()
+	defer slotCpotriBufferSize.put(out)
+	if err := toError(fncpotriBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnCpotri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cpotrs solves a system of linear equations
+var slotCpotriBufferSize outSlot[int32]
+
+// cpotrs solves a system of linear equations.
 //
-// A∗X=B
-// where A is an n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// The user has to call potrf first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A*X=B, where A is an n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
+// The user has to call potrf first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
@@ -2381,11 +5319,10 @@ func cpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePt
 	return toError(fncpotrs(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(devInfo)), "cusolverDnCpotrs")
 }
 
-// cpotrsBatched solves a sequence of linear systems
+// cpotrsBatched solves a sequence of linear systems.
 //
-// A [i]∗X [i]=B [i]
-// where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
-// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A [i]*X [i]=B [i], where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // The output parameter info is a scalar. If info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Remark 1: only nrhs=1 is supported.
@@ -2417,6 +5354,8 @@ func cpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.D
 
 // Create initializes the cuSolverDN library and creates a handle on the cuSolverDN context.
 //
+// It must be called before any other cuSolverDN API function is invoked. It allocates hardware resources necessary for accessing the GPU. This function allocates 4 MiB or 32 MiB of memory (for GPUs with Compute Capability of 9.0 and higher), which will be used as the cuBLAS workspace for the first user-defined stream on which [Handle.SetStream] is called. For the default stream and in all the other cases, cuBLAS will manage its own workspace.
+//
 //   - handle: The pointer to the handle to the cuSolverDN context
 //
 // Returns:
@@ -2431,13 +5370,16 @@ func Create() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "cusolverDnCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "cusolverDnCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // CreateGesvdjInfo creates and initializes the structure of gesvdj and gesvdjBatched to default values.
 //
@@ -2453,13 +5395,16 @@ func CreateGesvdjInfo() (GesvdjInfo, error) {
 		var zero GesvdjInfo
 		return zero, err
 	}
-	var out GesvdjInfo
-	if err := toError(fnCreateGesvdjInfo(&out), "cusolverDnCreateGesvdjInfo"); err != nil {
+	out := slotCreateGesvdjInfo.get()
+	defer slotCreateGesvdjInfo.put(out)
+	if err := toError(fnCreateGesvdjInfo(out), "cusolverDnCreateGesvdjInfo"); err != nil {
 		var zero GesvdjInfo
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateGesvdjInfo outSlot[GesvdjInfo]
 
 // CreateParams creates and initializes the structure of 64-bit API to default values.
 //
@@ -2475,13 +5420,16 @@ func CreateParams() (Params, error) {
 		var zero Params
 		return zero, err
 	}
-	var out Params
-	if err := toError(fnCreateParams(&out), "cusolverDnCreateParams"); err != nil {
+	out := slotCreateParams.get()
+	defer slotCreateParams.put(out)
+	if err := toError(fnCreateParams(out), "cusolverDnCreateParams"); err != nil {
 		var zero Params
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateParams outSlot[Params]
 
 // CreateSyevjInfo creates and initializes the structure of syevj, syevjBatched and sygvj to default values.
 //
@@ -2497,22 +5445,25 @@ func CreateSyevjInfo() (SyevjInfo, error) {
 		var zero SyevjInfo
 		return zero, err
 	}
-	var out SyevjInfo
-	if err := toError(fnCreateSyevjInfo(&out), "cusolverDnCreateSyevjInfo"); err != nil {
+	out := slotCreateSyevjInfo.get()
+	defer slotCreateSyevjInfo.put(out)
+	if err := toError(fnCreateSyevjInfo(out), "cusolverDnCreateSyevjInfo"); err != nil {
 		var zero SyevjInfo
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateSyevjInfo outSlot[SyevjInfo]
 
 // csytrf computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //
 // A is a n×n symmetric matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. If devIpiv is null, no pivoting is performed, which is not numerically stable.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular factor L and block diagonal matrix D. Each block of D is either 1x1 or 2x2 block, depending on pivoting.
-// P∗A∗PT=L∗D∗LT
+// P*A*Pᵀ=L*D*Lᵀ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular factor U and block diagonal matrix D.
-// P∗A∗PT=U∗D∗UT
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
+// P*A*Pᵀ=U*D*Uᵀ
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
 // If Bunch-Kaufman factorization failed, i.e. A is singular. The output parameter devInfo = i would indicate D(i,i)=0.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The output parameter devIpiv contains pivoting sequence. If devIpiv(i) = k > 0, D(i,i) is 1x1 block, and i-th row/column of A is interchanged with k-th row/column of A. If uplo is CUBLAS_FILL_MODE_UPPER and devIpiv(i-1) = devIpiv(i) = -m < 0, D(i-1:i,i-1:i) is a 2x2 block, and (i-1)-th row/column is interchanged with m-th row/column. If uplo is CUBLAS_FILL_MODE_LOWER and devIpiv(i+1) = devIpiv(i) = -m < 0, D(i:i+1,i:i+1) is a 2x2 block, and (i+1)-th row/column is interchanged with m-th row/column.
@@ -2561,13 +5512,16 @@ func csytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (in
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncsytrfBufferSize(handle, n, uintptr(a), lda, &out), "cusolverDnCsytrf_bufferSize"); err != nil {
+	out := slotCsytrfBufferSize.get()
+	defer slotCsytrfBufferSize.put(out)
+	if err := toError(fncsytrfBufferSize(handle, n, uintptr(a), lda, out), "cusolverDnCsytrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCsytrfBufferSize outSlot[int32]
 
 // csytri wraps cusolverDnCsytri.
 func csytri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -2583,18 +5537,21 @@ func csytriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), &out), "cusolverDnCsytri_bufferSize"); err != nil {
+	out := slotCsytriBufferSize.get()
+	defer slotCsytriBufferSize.put(out)
+	if err := toError(fncsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), out), "cusolverDnCsytri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cungbr generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+var slotCsytriBufferSize outSlot[int32]
+
+// cungbr generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: Qᴴ*A*P=B.
 //
 // Q and P**H are defined as products of elementary reflectors H(i) or G(i) respectively.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -2648,19 +5605,21 @@ func cungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncungbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), &out), "cusolverDnCungbr_bufferSize"); err != nil {
+	out := slotCungbrBufferSize.get()
+	defer slotCungbrBufferSize.put(out)
+	if err := toError(fncungbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), out), "cusolverDnCungbr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cungqr overwrites m×n matrix A by
+var slotCungbrBufferSize outSlot[int32]
+
+// cungqr overwrites m×n matrix A.
 //
-// Q=H(1)∗H(2)∗...∗H(k)
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// Q=H(1)*H(2)*...*H(k), where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine geqrf, orgqr to complete orthogonalization.
 //
@@ -2713,17 +5672,20 @@ func cungqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DeviceP
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncungqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), &out), "cusolverDnCungqr_bufferSize"); err != nil {
+	out := slotCungqrBufferSize.get()
+	defer slotCungqrBufferSize.put(out)
+	if err := toError(fncungqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), out), "cusolverDnCungqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCungqrBufferSize outSlot[int32]
 
 // cungtr generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
 //
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -2773,20 +5735,25 @@ func cungtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncungtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), &out), "cusolverDnCungtr_bufferSize"); err != nil {
+	out := slotCungtrBufferSize.get()
+	defer slotCungtrBufferSize.put(out)
+	if err := toError(fncungtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), out), "cusolverDnCungtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCungtrBufferSize outSlot[int32]
 
 // cunmqr overwrites m×n matrix C.
 //
+// C = op(Q)*C if side == CUBLAS_SIDE_LEFT, and C = C*op(Q) if side == CUBLAS_SIDE_RIGHT.
+// The operation of Q is defined by op(Q) = Q if trans == CUBLAS_OP_N, op(Q) = Qᵀ if trans == CUBLAS_OP_T, and op(Q) = Qᴴ if trans == CUBLAS_OP_C.
 // Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
 // Q = H(1) H(2) … H(k)
 // Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine geqrf, ormqr and trsm to complete a linear solver or a least-square solver.
 //
@@ -2848,18 +5815,22 @@ func cunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncunmqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out), "cusolverDnCunmqr_bufferSize"); err != nil {
+	out := slotCunmqrBufferSize.get()
+	defer slotCunmqrBufferSize.put(out)
+	if err := toError(fncunmqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, out), "cusolverDnCunmqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCunmqrBufferSize outSlot[int32]
 
 // cunmtr overwrites m×n matrix C.
 //
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// C = op(Q)*C if side == CUBLAS_SIDE_LEFT, and C = C*op(Q) if side == CUBLAS_SIDE_RIGHT, where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
+// The operation on Q is defined by op(Q) = Q if trans == CUBLAS_OP_N, op(Q) = Qᵀ if trans == CUBLAS_OP_T, and op(Q) = Qᴴ if trans == CUBLAS_OP_C.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -2919,29 +5890,33 @@ func cunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operati
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fncunmtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out), "cusolverDnCunmtr_bufferSize"); err != nil {
+	out := slotCunmtrBufferSize.get()
+	defer slotCunmtrBufferSize.put(out)
+	if err := toError(fncunmtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, out), "cusolverDnCunmtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dBgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotCunmtrBufferSize outSlot[int32]
+
+// dBgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -2954,7 +5929,7 @@ func cunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operati
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3002,28 +5977,32 @@ func dBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndBgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDBgels_bufferSize"); err != nil {
+	out := slotDBgelsBufferSize.get()
+	defer slotDBgelsBufferSize.put(out)
+	if err := toError(fndBgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDBgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dBgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotDBgelsBufferSize outSlot[uint]
+
+// dBgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -3036,7 +6015,7 @@ func dBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3084,29 +6063,33 @@ func dBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndBgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDBgesv_bufferSize"); err != nil {
+	out := slotDBgesvBufferSize.get()
+	defer slotDBgesvBufferSize.put(out)
+	if err := toError(fndBgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDBgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dDgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotDBgesvBufferSize outSlot[uint]
+
+// dDgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -3119,7 +6102,7 @@ func dBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3167,28 +6150,32 @@ func dDgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndDgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDDgels_bufferSize"); err != nil {
+	out := slotDDgelsBufferSize.get()
+	defer slotDDgelsBufferSize.put(out)
+	if err := toError(fndDgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDDgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dDgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotDDgelsBufferSize outSlot[uint]
+
+// dDgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -3201,7 +6188,7 @@ func dDgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3249,29 +6236,33 @@ func dDgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndDgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDDgesv_bufferSize"); err != nil {
+	out := slotDDgesvBufferSize.get()
+	defer slotDDgesvBufferSize.put(out)
+	if err := toError(fndDgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDDgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dHgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotDDgesvBufferSize outSlot[uint]
+
+// dHgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -3284,7 +6275,7 @@ func dDgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3332,28 +6323,32 @@ func dHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndHgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDHgels_bufferSize"); err != nil {
+	out := slotDHgelsBufferSize.get()
+	defer slotDHgelsBufferSize.put(out)
+	if err := toError(fndHgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDHgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dHgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotDHgelsBufferSize outSlot[uint]
+
+// dHgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -3366,7 +6361,7 @@ func dHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3414,29 +6409,33 @@ func dHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndHgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDHgesv_bufferSize"); err != nil {
+	out := slotDHgesvBufferSize.get()
+	defer slotDHgesvBufferSize.put(out)
+	if err := toError(fndHgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDHgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dSgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotDHgesvBufferSize outSlot[uint]
+
+// dSgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -3449,7 +6448,7 @@ func dHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3497,28 +6496,32 @@ func dSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndSgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDSgels_bufferSize"); err != nil {
+	out := slotDSgelsBufferSize.get()
+	defer slotDSgelsBufferSize.put(out)
+	if err := toError(fndSgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDSgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dSgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotDSgelsBufferSize outSlot[uint]
+
+// dSgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -3531,7 +6534,7 @@ func dSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3579,29 +6582,33 @@ func dSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndSgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDSgesv_bufferSize"); err != nil {
+	out := slotDSgesvBufferSize.get()
+	defer slotDSgesvBufferSize.put(out)
+	if err := toError(fndSgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDSgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dXgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotDSgesvBufferSize outSlot[uint]
+
+// dXgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -3614,7 +6621,7 @@ func dSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3662,28 +6669,32 @@ func dXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndXgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDXgels_bufferSize"); err != nil {
+	out := slotDXgelsBufferSize.get()
+	defer slotDXgelsBufferSize.put(out)
+	if err := toError(fndXgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDXgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dXgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotDXgelsBufferSize outSlot[uint]
+
+// dXgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -3696,7 +6707,7 @@ func dXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -3744,13 +6755,16 @@ func dXgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndXgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnDXgesv_bufferSize"); err != nil {
+	out := slotDXgesvBufferSize.get()
+	defer slotDXgesvBufferSize.put(out)
+	if err := toError(fndXgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnDXgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDXgesvBufferSize outSlot[uint]
 
 // destroy releases CPU-side resources used by the cuSolverDN library.
 //
@@ -3813,9 +6827,13 @@ func destroySyevjInfo(info SyevjInfo) error {
 	return toError(fndestroySyevjInfo(info), "cusolverDnDestroySyevjInfo")
 }
 
-// dgebrd reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+// dgebrd reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: Qᴴ*A*P=B.
 //
-// If m>=n, B is upper bidiagonal; if m=n.
+// If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
+// The matrix Q and P are overwritten into matrix A in the following sense:
+// The user has to provide working space which is pointed by input parameter Work. The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
+// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// Remark: gebrd only supports m>=n.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
@@ -3865,22 +6883,24 @@ func dgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndgebrdBufferSize(handle, m, n, &out), "cusolverDnDgebrd_bufferSize"); err != nil {
+	out := slotDgebrdBufferSize.get()
+	defer slotDgebrdBufferSize.put(out)
+	if err := toError(fndgebrdBufferSize(handle, m, n, out), "cusolverDnDgebrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dgeqrf computes the QR factorization of an m×n matrix
+var slotDgebrdBufferSize outSlot[int32]
+
+// dgeqrf computes the QR factorization of an m×n matrix.
 //
-// A=Q∗R
-// where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
+// A=Q*R, where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
+// I−2*v*vᴴ=I−τ*q*qᴴ
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -3929,24 +6949,26 @@ func dgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndgeqrfBufferSize(handle, m, n, uintptr(a), lda, &out), "cusolverDnDgeqrf_bufferSize"); err != nil {
+	out := slotDgeqrfBufferSize.get()
+	defer slotDgeqrfBufferSize.put(out)
+	if err := toError(fndgeqrfBufferSize(handle, m, n, uintptr(a), lda, out), "cusolverDnDgeqrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDgeqrfBufferSize outSlot[int32]
 
 // dgesvd computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The SVD is written A=U*Σ*Vᴴ, where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, devInfo specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
 // The rwork is real array of dimension (min(m,n)-1). If devInfo >0 and rwork is not NULL, rwork contains the unconverged superdiagonal elements of an upper bidiagonal matrix. This is slightly different from LAPACK which puts unconverged superdiagonal elements in work if type is real; in rwork if type is complex. rwork can be a NULL pointer if the user does not want the information from superdiagonal.
 // Please visit cuSOLVER Library Samples - gesvd for a code example.
 // Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// Remark 2: the routine returns Vᴴ , not V.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobu: Specifies options for computing all or part of the matrix U: = ‘A’: all m columns of U are returned in array U: = ‘S’: the first min(m,n) columns of U (the left singular vectors) are returned in the array U; = ‘O’: the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A; = ‘N’: no columns of U (no left singular vectors) are computed
@@ -3999,35 +7021,37 @@ func dgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndgesvdBufferSize(handle, m, n, &out), "cusolverDnDgesvd_bufferSize"); err != nil {
+	out := slotDgesvdBufferSize.get()
+	defer slotDgesvdBufferSize.put(out)
+	if err := toError(fndgesvdBufferSize(handle, m, n, out), "cusolverDnDgesvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDgesvdBufferSize outSlot[int32]
 
 // dgesvdaStridedBatched gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
+// The economy form of SVD is written by A=U*Σ*Vᴴ, where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
 // gesvda computes eigenvalues of A**T*A, or A**H*A (if A is complex), to approximate singular values and singular vectors. It generates matrices U and V and transforms the matrix A to the following form
-// UH∗A∗V=S+E
+// Uᴴ*A*V=S+E
 // where S is diagonal and E depends on rounding errors. To certain conditions, U, V and S approximate singular values and singular vectors up to machine zero of single precision. In general, V is unitary, S is more accurate than U. If singular value is far from zero, then left singular vector U is accurate. In other words, the accuracy of singular values and left singular vectors depend on the distance between singular value and zero. Since the computation of A**T*A, or A**H*A can greatly amplify errors, it is recommended to use gesvda only with well-conditioned data.
 // The input parameter rank decides the number of singular values and singular vectors are computed in parameter S, U and V.
 // The output parameter h_RnrmF computes Frobenius norm of residual. To compute h_RnrmF, info != NULL is required.
-// A−U∗S∗VH
+// A−U*S*Vᴴ
 // if the parameter rank is equal n. Otherwise, h_RnrmF reports
-// ‖U∗S∗VH‖−‖S‖
+// ‖U*S*Vᴴ‖−‖S‖
 // in Frobenius norm sense, that is, how far U is from unitary.
 // gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+strideA∗k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS∗k] , the formula for random access of U is Uk(i,j)=U [i+ldu∗j+strideU∗k] and the formula for random access of V is Vk(i,j)=V [i+ldv∗j+strideV∗k] .
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS*k] , the formula for random access of U is Uk(i,j)=U [i+ldu*j+strideU*k] and the formula for random access of V is Vk(i,j)=V [i+ldv*j+strideV*k] .
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
 // Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
 // Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
-// Remark 1: The routine returns V, not VH . This is different from gesvd.
+// Remark 1: The routine returns V, not Vᴴ . This is different from gesvd.
 // Remark 2: The routine only supports m >=n.
 // Remark 3: It is recommended to use an FP64 data type, that is [Handle.DgesvdaStridedBatched] or [Handle.ZgesvdaStridedBatched].
 // Remark 4: If the user is confident on the accuracy of singular values and singular vectors, for example, certain conditions hold (required singular value is far from zero), then the performance can be improved by passing a null pointer to h_RnrmF, i.e. no computation of the residual norm.
@@ -4094,27 +7118,28 @@ func dgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m 
 
 // dgesvdj computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
+// The SVD is written:
+// A=U*Σ*Vᴴ
 // where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
 // gesvdj has the same functionality as gesvd. The difference is that gesvd uses QR algorithm and gesvdj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure gesvdj to perform approximation up to certain accuracy.
 // gesvdj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// UH∗A∗V=S+E
+// Uᴴ*A*V=S+E
 // where S is diagonal and diagonal of E is zero.
 // During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, S is the set of singular values. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
+// ‖E‖F≤eps*‖A‖F
 // where eps is given tolerance. Note that if the real residual norm
-// ‖S−UH∗A∗V‖F
+// ‖S−Uᴴ*A*V‖F
 // is computed, it will differ from ‖E‖F up to roundoff errors of order N=max(m,n), to still have the standard SVD accuracy expectation
-// ‖S−UH∗A∗V‖FO(N)∗‖A‖F≤‖E‖F‖A‖F≤eps
-// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps∗N.
+// ‖S−Uᴴ*A*V‖FO(N)*‖A‖F≤‖E‖F‖A‖F≤eps
+// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps*N.
 // gesvdj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [GesvdjInfo.XgesvdjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [GesvdjInfo.XgesvdjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. gesvdj stops either tolerance is met or maximum number of sweeps is met.
 // Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = min(m,n)+1, gesvdj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, gesvdj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // Please visit cuSOLVER Library Samples - gesvdj for a code example.
 // Remark 1: gesvdj supports any combination of m and n.
-// Remark 2: the routine returns V, not VH . This is different from gesvd.
+// Remark 2: the routine returns V, not Vᴴ . This is different from gesvd.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -4147,19 +7172,18 @@ func dgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 	return toError(fndgesvdj(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params), "cusolverDnDgesvdj")
 }
 
-// dgesvdjBatched computes singular values and singular vectors of a sequence of general m×n matrices
+// dgesvdjBatched computes singular values and singular vectors of a sequence of general m×n matrices.
 //
-// Aj=Uj∗Σj∗VjH
-// where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
+// Aj=Uj*Σj*VjH, where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
 // gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter S also contains singular values of each matrix in contiguous way,
 // S=(S0S1⋯)
-// The formula for random access of S is Sk(j)=S [j+min(m,n)∗k] .
+// The formula for random access of S is Sk(j)=S [j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
@@ -4256,10 +7280,9 @@ func dgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 	return toError(fndgesvdjBufferSize(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params), "cusolverDnDgesvdj_bufferSize")
 }
 
-// dgetrf computes the LU factorization of an m×n matrix
+// dgetrf computes the LU factorization of an m×n matrix.
 //
-// P∗A=L∗U
-// where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
+// P*A=L*U, where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -4314,18 +7337,21 @@ func dgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndgetrfBufferSize(handle, m, n, uintptr(a), lda, &out), "cusolverDnDgetrf_bufferSize"); err != nil {
+	out := slotDgetrfBufferSize.get()
+	defer slotDgetrfBufferSize.put(out)
+	if err := toError(fndgetrfBufferSize(handle, m, n, uintptr(a), lda, out), "cusolverDnDgetrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dgetrs solves a linear system of multiple right-hand sides
+var slotDgetrfBufferSize outSlot[int32]
+
+// dgetrs solves a linear system of multiple right-hand sides.
 //
-// op(A)∗X=B
-// where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
+// op(A)*X=B, where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
+// The input parameter trans is defined by op(A) = A if trans == CUBLAS_OP_N, op(A) = Aᵀ if trans == CUBLAS_OP_T, and op(A) = Aᴴ if trans == CUBLAS_OP_C.
 // The input parameter devIpiv is an output of getrf. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine getrf and getrs to complete a linear solver.
@@ -4378,18 +7404,21 @@ func dlauumBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndlauumBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnDlauum_bufferSize"); err != nil {
+	out := slotDlauumBufferSize.get()
+	defer slotDlauumBufferSize.put(out)
+	if err := toError(fndlauumBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnDlauum_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dorgbr generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+var slotDlauumBufferSize outSlot[int32]
+
+// dorgbr generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: Qᴴ*A*P=B.
 //
 // Q and P**H are defined as products of elementary reflectors H(i) or G(i) respectively.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -4443,19 +7472,21 @@ func dorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndorgbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), &out), "cusolverDnDorgbr_bufferSize"); err != nil {
+	out := slotDorgbrBufferSize.get()
+	defer slotDorgbrBufferSize.put(out)
+	if err := toError(fndorgbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), out), "cusolverDnDorgbr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dorgqr overwrites m×n matrix A by
+var slotDorgbrBufferSize outSlot[int32]
+
+// dorgqr overwrites m×n matrix A.
 //
-// Q=H(1)∗H(2)∗...∗H(k)
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// Q=H(1)*H(2)*...*H(k), where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine geqrf, orgqr to complete orthogonalization.
 //
@@ -4508,17 +7539,20 @@ func dorgqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DeviceP
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndorgqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), &out), "cusolverDnDorgqr_bufferSize"); err != nil {
+	out := slotDorgqrBufferSize.get()
+	defer slotDorgqrBufferSize.put(out)
+	if err := toError(fndorgqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), out), "cusolverDnDorgqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDorgqrBufferSize outSlot[int32]
 
 // dorgtr generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
 //
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -4568,20 +7602,25 @@ func dorgtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndorgtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), &out), "cusolverDnDorgtr_bufferSize"); err != nil {
+	out := slotDorgtrBufferSize.get()
+	defer slotDorgtrBufferSize.put(out)
+	if err := toError(fndorgtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), out), "cusolverDnDorgtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDorgtrBufferSize outSlot[int32]
 
 // dormqr overwrites m×n matrix C.
 //
+// C = op(Q)*C if side == CUBLAS_SIDE_LEFT, and C = C*op(Q) if side == CUBLAS_SIDE_RIGHT.
+// The operation of Q is defined by op(Q) = Q if trans == CUBLAS_OP_N, op(Q) = Qᵀ if trans == CUBLAS_OP_T, and op(Q) = Qᴴ if trans == CUBLAS_OP_C.
 // Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
 // Q = H(1) H(2) … H(k)
 // Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine geqrf, ormqr and trsm to complete a linear solver or a least-square solver.
 //
@@ -4643,18 +7682,22 @@ func dormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndormqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out), "cusolverDnDormqr_bufferSize"); err != nil {
+	out := slotDormqrBufferSize.get()
+	defer slotDormqrBufferSize.put(out)
+	if err := toError(fndormqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, out), "cusolverDnDormqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDormqrBufferSize outSlot[int32]
 
 // dormtr overwrites m×n matrix C.
 //
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// C = op(Q)*C if side == CUBLAS_SIDE_LEFT, and C = C*op(Q) if side == CUBLAS_SIDE_RIGHT, where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
+// The operation on Q is defined by op(Q) = Q if trans == CUBLAS_OP_N, op(Q) = Qᵀ if trans == CUBLAS_OP_T, and op(Q) = Qᴴ if trans == CUBLAS_OP_C.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -4714,21 +7757,24 @@ func dormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operati
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndormtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out), "cusolverDnDormtr_bufferSize"); err != nil {
+	out := slotDormtrBufferSize.get()
+	defer slotDormtrBufferSize.put(out)
+	if err := toError(fndormtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, out), "cusolverDnDormtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDormtrBufferSize outSlot[int32]
 
 // dpotrf computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //
 // A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only the lower triangular part of A is processed, and replaced by the lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -4761,9 +7807,9 @@ func dpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //
 // Each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter infoArray would indicate smallest leading minor of A which is not positive definite.
 // infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray [i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
 // Remark: the other part of A is used as a workspace. For example, if uplo is CUBLAS_FILL_MODE_UPPER, upper triangle of A contains Cholesky factor U and lower triangle of A is destroyed after potrfBatched.
@@ -4812,18 +7858,20 @@ func dpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndpotrfBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnDpotrf_bufferSize"); err != nil {
+	out := slotDpotrfBufferSize.get()
+	defer slotDpotrfBufferSize.put(out)
+	if err := toError(fndpotrfBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnDpotrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dpotri computes the inverse of a positive-definite matrix A using the Cholesky factorization
+var slotDpotrfBufferSize outSlot[int32]
+
+// dpotri computes the inverse of a positive-definite matrix A using the Cholesky factorization.
 //
-// A=L∗LH=UH∗U
-// computed by potrf().
+// A=L*Lᴴ=Uᴴ*U, computed by potrf().
 // A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
 // If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
 // If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
@@ -4874,19 +7922,21 @@ func dpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndpotriBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnDpotri_bufferSize"); err != nil {
+	out := slotDpotriBufferSize.get()
+	defer slotDpotriBufferSize.put(out)
+	if err := toError(fndpotriBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnDpotri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dpotrs solves a system of linear equations
+var slotDpotriBufferSize outSlot[int32]
+
+// dpotrs solves a system of linear equations.
 //
-// A∗X=B
-// where A is an n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// The user has to call potrf first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A*X=B, where A is an n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
+// The user has to call potrf first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
@@ -4914,11 +7964,10 @@ func dpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePt
 	return toError(fndpotrs(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(devInfo)), "cusolverDnDpotrs")
 }
 
-// dpotrsBatched solves a sequence of linear systems
+// dpotrsBatched solves a sequence of linear systems.
 //
-// A [i]∗X [i]=B [i]
-// where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
-// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A [i]*X [i]=B [i], where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // The output parameter info is a scalar. If info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Remark 1: only nrhs=1 is supported.
@@ -4950,9 +7999,8 @@ func dpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.D
 
 // dsyevd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The standard symmetric eigenvalue problem is A*V=V*Λ, where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - syevd for a code example.
@@ -5005,19 +8053,23 @@ func dsyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndsyevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), &out), "cusolverDnDsyevd_bufferSize"); err != nil {
+	out := slotDsyevdBufferSize.get()
+	defer slotDsyevdBufferSize.put(out)
+	if err := toError(fndsyevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), out), "cusolverDnDsyevd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDsyevdBufferSize outSlot[int32]
 
 // dsyevdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗V=V∗Λ
+// The standard symmetric eigenvalue problem is:
+// A*V=V*Λ
 // where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - syevdx for a code example.
@@ -5029,6 +8081,10 @@ func dsyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 //   - n: Number of rows (or columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by syevdx_bufferSize
@@ -5057,6 +8113,10 @@ func dsyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - n: Number of rows (or columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of float64
 //
@@ -5068,36 +8128,39 @@ func dsyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsyevdxBufferSize, bound as cusolverDnDsyevdx_bufferSize.
-func dsyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
+func dsyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
 	if err := checkLibSym("cusolverDnDsyevdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+		return 0, 0, err
 	}
-	var out int32
-	if err := toError(fndsyevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), &out), "cusolverDnDsyevdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+	outs := slotDsyevdxBufferSize.get()
+	defer slotDsyevdxBufferSize.put(outs)
+	if err := toError(fndsyevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, &outs.out0, uintptr(w), &outs.out1), "cusolverDnDsyevdx_bufferSize"); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotDsyevdxBufferSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // dsyevj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗Q=Q∗Λ
-// where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The standard symmetric eigenvalue problem is A*Q=Q*Λ, where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
 // syevj has the same functionality as syevd. The difference is that syevd uses QR algorithm and syevj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure syevj to perform approximation up to certain accuracy.
 // How does it work?
 // syevj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// VH∗A∗V=W+E
+// Vᴴ*A*V=W+E
 // where W is diagonal and E is symmetric without diagonal.
 // During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, W is the set of eigenvalues. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
+// ‖E‖F≤eps*‖A‖F
 // where eps is the given tolerance.
 // syevj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [SyevjInfo.XsyevjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [SyevjInfo.XsyevjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. syevj stops either tolerance is met or maximum number of sweeps is met.
 // The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
 // After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
 // residual=‖E‖F=‖Λ−W‖F
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
@@ -5129,19 +8192,18 @@ func dsyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 	return toError(fndsyevj(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params), "cusolverDnDsyevj")
 }
 
-// dsyevjBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+// dsyevjBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //
-// Aj∗Qj=Qj∗Λj
-// where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
+// Aj*Qj=Qj*Λj, where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
 // syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter W also contains eigenvalues of each matrix in contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
+// The formula for random access of W is Wk(j)=W [j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors Vj.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
@@ -5228,8 +8290,8 @@ func dsyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 
 // dsygvd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - sygvd for a code example.
@@ -5288,18 +8350,21 @@ func dsygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndsygvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), &out), "cusolverDnDsygvd_bufferSize"); err != nil {
+	out := slotDsygvdBufferSize.get()
+	defer slotDsygvdBufferSize.put(out)
+	if err := toError(fndsygvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), out), "cusolverDnDsygvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDsygvdBufferSize outSlot[int32]
 
 // dsygvdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - sygvdx for a code example.
@@ -5314,6 +8379,10 @@ func dsygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sygvdx_bufferSize
@@ -5345,6 +8414,10 @@ func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of float64
 //
@@ -5356,32 +8429,36 @@ func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnDsygvdxBufferSize, bound as cusolverDnDsygvdx_bufferSize.
-func dsygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
+func dsygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
 	if err := checkLibSym("cusolverDnDsygvdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+		return 0, 0, err
 	}
-	var out int32
-	if err := toError(fndsygvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), &out), "cusolverDnDsygvdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+	outs := slotDsygvdxBufferSize.get()
+	defer slotDsygvdxBufferSize.put(outs)
+	if err := toError(fndsygvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, &outs.out0, uintptr(w), &outs.out1), "cusolverDnDsygvdx_bufferSize"); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotDsygvdxBufferSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // dsygvj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
 // This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
 // However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
-// B=L∗LH
+// B=L*Lᴴ
 // transform the problem to standard eigenvalue problem, then calls syevj.
 // For example, the standard eigenvalue problem of type I is
-// M∗Q=Q∗Λ
+// M*Q=Q*Λ
 // where matrix M is symmetric
-// M=L−1∗A∗L−H
+// M=L⁻¹*A*L⁻ᴴ
 // The residual is the result of syevj on matrix M, not A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n), B is not positive definite, the factorization of B could not be completed and no eigenvalues or eigenvectors were computed. If info = n+1, syevj does not converge under given tolerance and maximum sweeps. In this case, the eigenvalues and eigenvectors are still computed because non-convergence comes from improper tolerance of maximum sweeps.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors V.
 // Please visit cuSOLVER Library Samples - sygvj for a code example.
@@ -5442,10 +8519,10 @@ func dsygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 	return toError(fndsygvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params), "cusolverDnDsygvj_bufferSize")
 }
 
-// dsytrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+// dsytrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: Qᴴ*A*Q=T.
 //
 // As an output, A contains T and householder reflection vectors. If uplo = CUBLAS_FILL_MODE_UPPER, the diagonal and first superdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements above the first superdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors; If uplo = CUBLAS_FILL_MODE_LOWER, the diagonal and first subdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements below the first subdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). Note that the problem size n is limited by a condition n*lda < INT32_MAX primarily due to the current implementation constraints.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -5495,22 +8572,25 @@ func dsytrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndsytrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), &out), "cusolverDnDsytrd_bufferSize"); err != nil {
+	out := slotDsytrdBufferSize.get()
+	defer slotDsytrdBufferSize.put(out)
+	if err := toError(fndsytrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), out), "cusolverDnDsytrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDsytrdBufferSize outSlot[int32]
 
 // dsytrf computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //
 // A is a n×n symmetric matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. If devIpiv is null, no pivoting is performed, which is not numerically stable.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular factor L and block diagonal matrix D. Each block of D is either 1x1 or 2x2 block, depending on pivoting.
-// P∗A∗PT=L∗D∗LT
+// P*A*Pᵀ=L*D*Lᵀ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular factor U and block diagonal matrix D.
-// P∗A∗PT=U∗D∗UT
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
+// P*A*Pᵀ=U*D*Uᵀ
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
 // If Bunch-Kaufman factorization failed, i.e. A is singular. The output parameter devInfo = i would indicate D(i,i)=0.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The output parameter devIpiv contains pivoting sequence. If devIpiv(i) = k > 0, D(i,i) is 1x1 block, and i-th row/column of A is interchanged with k-th row/column of A. If uplo is CUBLAS_FILL_MODE_UPPER and devIpiv(i-1) = devIpiv(i) = -m < 0, D(i-1:i,i-1:i) is a 2x2 block, and (i-1)-th row/column is interchanged with m-th row/column. If uplo is CUBLAS_FILL_MODE_LOWER and devIpiv(i+1) = devIpiv(i) = -m < 0, D(i:i+1,i:i+1) is a 2x2 block, and (i+1)-th row/column is interchanged with m-th row/column.
@@ -5559,13 +8639,16 @@ func dsytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (in
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndsytrfBufferSize(handle, n, uintptr(a), lda, &out), "cusolverDnDsytrf_bufferSize"); err != nil {
+	out := slotDsytrfBufferSize.get()
+	defer slotDsytrfBufferSize.put(out)
+	if err := toError(fndsytrfBufferSize(handle, n, uintptr(a), lda, out), "cusolverDnDsytrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDsytrfBufferSize outSlot[int32]
 
 // dsytri wraps cusolverDnDsytri.
 func dsytri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -5581,13 +8664,16 @@ func dsytriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), &out), "cusolverDnDsytri_bufferSize"); err != nil {
+	out := slotDsytriBufferSize.get()
+	defer slotDsytriBufferSize.put(out)
+	if err := toError(fndsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), out), "cusolverDnDsytri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDsytriBufferSize outSlot[int32]
 
 // getDeterministicMode queries the deterministic mode which is set for handle.
 //
@@ -5605,13 +8691,16 @@ func getDeterministicMode(handle Handle) (DeterministicMode, error) {
 		var zero DeterministicMode
 		return zero, err
 	}
-	var out DeterministicMode
-	if err := toError(fngetDeterministicMode(handle, &out), "cusolverDnGetDeterministicMode"); err != nil {
+	out := slotGetDeterministicMode.get()
+	defer slotGetDeterministicMode.put(out)
+	if err := toError(fngetDeterministicMode(handle, out), "cusolverDnGetDeterministicMode"); err != nil {
 		var zero DeterministicMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetDeterministicMode outSlot[DeterministicMode]
 
 // getEmulationSpecialValuesSupport queries the special floating point value support which is set for handle if floating point emulation is allowed.
 //
@@ -5632,13 +8721,16 @@ func getEmulationSpecialValuesSupport(handle Handle) (EmulationSpecialValuesSupp
 		var zero EmulationSpecialValuesSupport
 		return zero, err
 	}
-	var out EmulationSpecialValuesSupport
-	if err := toError(fngetEmulationSpecialValuesSupport(handle, &out), "cusolverDnGetEmulationSpecialValuesSupport"); err != nil {
+	out := slotGetEmulationSpecialValuesSupport.get()
+	defer slotGetEmulationSpecialValuesSupport.put(out)
+	if err := toError(fngetEmulationSpecialValuesSupport(handle, out), "cusolverDnGetEmulationSpecialValuesSupport"); err != nil {
 		var zero EmulationSpecialValuesSupport
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetEmulationSpecialValuesSupport outSlot[EmulationSpecialValuesSupport]
 
 // getEmulationStrategy queries the emulation strategy which is set for handle.
 //
@@ -5658,13 +8750,16 @@ func getEmulationStrategy(handle Handle) (EmulationStrategy, error) {
 		var zero EmulationStrategy
 		return zero, err
 	}
-	var out EmulationStrategy
-	if err := toError(fngetEmulationStrategy(handle, &out), "cusolverDnGetEmulationStrategy"); err != nil {
+	out := slotGetEmulationStrategy.get()
+	defer slotGetEmulationStrategy.put(out)
+	if err := toError(fngetEmulationStrategy(handle, out), "cusolverDnGetEmulationStrategy"); err != nil {
 		var zero EmulationStrategy
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetEmulationStrategy outSlot[EmulationStrategy]
 
 // getFixedPointEmulationMantissaBitOffset queries the mantissa bit offset for fixed point FP64 emulation in case of dynamic mantissa control mode.
 //
@@ -5686,13 +8781,16 @@ func getFixedPointEmulationMantissaBitOffset(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetFixedPointEmulationMantissaBitOffset(handle, &out), "cusolverDnGetFixedPointEmulationMantissaBitOffset"); err != nil {
+	out := slotGetFixedPointEmulationMantissaBitOffset.get()
+	defer slotGetFixedPointEmulationMantissaBitOffset.put(out)
+	if err := toError(fngetFixedPointEmulationMantissaBitOffset(handle, out), "cusolverDnGetFixedPointEmulationMantissaBitOffset"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetFixedPointEmulationMantissaBitOffset outSlot[int32]
 
 // getFixedPointEmulationMantissaControl queries how the number of mantissa bits is determined for fixed point FP64 emulation.
 //
@@ -5712,13 +8810,16 @@ func getFixedPointEmulationMantissaControl(handle Handle) (EmulationMantissaCont
 		var zero EmulationMantissaControl
 		return zero, err
 	}
-	var out EmulationMantissaControl
-	if err := toError(fngetFixedPointEmulationMantissaControl(handle, &out), "cusolverDnGetFixedPointEmulationMantissaControl"); err != nil {
+	out := slotGetFixedPointEmulationMantissaControl.get()
+	defer slotGetFixedPointEmulationMantissaControl.put(out)
+	if err := toError(fngetFixedPointEmulationMantissaControl(handle, out), "cusolverDnGetFixedPointEmulationMantissaControl"); err != nil {
 		var zero EmulationMantissaControl
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetFixedPointEmulationMantissaControl outSlot[EmulationMantissaControl]
 
 // getFixedPointEmulationMaxMantissaBitCount queries the maximum number of mantissa bits used for fixed point FP64 emulation.
 //
@@ -5738,15 +8839,20 @@ func getFixedPointEmulationMaxMantissaBitCount(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetFixedPointEmulationMaxMantissaBitCount(handle, &out), "cusolverDnGetFixedPointEmulationMaxMantissaBitCount"); err != nil {
+	out := slotGetFixedPointEmulationMaxMantissaBitCount.get()
+	defer slotGetFixedPointEmulationMaxMantissaBitCount.put(out)
+	if err := toError(fngetFixedPointEmulationMaxMantissaBitCount(handle, out), "cusolverDnGetFixedPointEmulationMaxMantissaBitCount"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotGetFixedPointEmulationMaxMantissaBitCount outSlot[int32]
+
 // getMathMode queries the math modes which are set for handle.
+//
+// Note that math modes can be combined, e.g., [Handle.SetMathMode](handle, [FP32EmulatedBf16x9Math] | [FP64EmulatedFixedpointMath]). Please see [MathMode] for allowed combinations.
 //
 //   - handle: Handle to the cuSolverDN library context
 //
@@ -5761,13 +8867,16 @@ func getMathMode(handle Handle) (MathMode, error) {
 		var zero MathMode
 		return zero, err
 	}
-	var out MathMode
-	if err := toError(fngetMathMode(handle, &out), "cusolverDnGetMathMode"); err != nil {
+	out := slotGetMathMode.get()
+	defer slotGetMathMode.put(out)
+	if err := toError(fngetMathMode(handle, out), "cusolverDnGetMathMode"); err != nil {
 		var zero MathMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetMathMode outSlot[MathMode]
 
 // GetProperty wraps cusolverDnGetProperty, bound as cusolverGetProperty.
 func GetProperty(type_ LibraryPropertyType) (int32, error) {
@@ -5775,13 +8884,16 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetProperty(type_, &out), "cusolverGetProperty"); err != nil {
+	out := slotGetProperty.get()
+	defer slotGetProperty.put(out)
+	if err := toError(fnGetProperty(type_, out), "cusolverGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetProperty outSlot[int32]
 
 // getStream queries the stream to be used by the cuSolverDN library to execute its routines.
 //
@@ -5798,13 +8910,16 @@ func getStream(handle Handle) (driver.Stream, error) {
 		var zero driver.Stream
 		return zero, err
 	}
-	var out driver.Stream
-	if err := toError(fngetStream(handle, &out), "cusolverDnGetStream"); err != nil {
+	out := slotGetStream.get()
+	defer slotGetStream.put(out)
+	if err := toError(fngetStream(handle, out), "cusolverDnGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStream outSlot[driver.Stream]
 
 // GetVersion wraps cusolverDnGetVersion, bound as cusolverGetVersion.
 func GetVersion() (int32, error) {
@@ -5822,6 +8937,8 @@ func GetVersion() (int32, error) {
 
 // iRSInfosCreate creates and initializes the Infos structure that will hold the refinement information of an Iterative Refinement Solver (IRS) call.
 //
+// Such information includes the total number of iterations that was needed to converge ( Niters), the outer number of iterations (meaningful when two-levels preconditioner such as [IrsRefineClassicalGmres] is used ), the maximal number of iterations that was allowed for that call, and a pointer to the matrix of the convergence history residual norms. The Infos structure needs to be created before a call to an IRS solver. The Infos structure is valid for only one call to an IRS solver, since it holds info about that solve and thus each solve will requires its own Infos structure.
+//
 // Returns:
 //   - [ErrAllocFailed]: The resources could not be allocated.
 //   - [Success]: The structure was initialized successfully.
@@ -5832,15 +8949,20 @@ func iRSInfosCreate() (IRSInfos, error) {
 		var zero IRSInfos
 		return zero, err
 	}
-	var out IRSInfos
-	if err := toError(fniRSInfosCreate(&out), "cusolverDnIRSInfosCreate"); err != nil {
+	out := slotIRSInfosCreate.get()
+	defer slotIRSInfosCreate.put(out)
+	if err := toError(fniRSInfosCreate(out), "cusolverDnIRSInfosCreate"); err != nil {
 		var zero IRSInfos
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotIRSInfosCreate outSlot[IRSInfos]
+
 // iRSInfosDestroy destroys and releases any memory required by the Infos structure.
+//
+// This function destroys all the information (for example, Niters performed, OuterNiters performed, residual history etc.) about a solver call; thus, this function should only be called after the user is finished with the information.
 //
 // Returns:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
@@ -5856,6 +8978,8 @@ func iRSInfosDestroy(infos IRSInfos) error {
 
 // iRSInfosGetMaxIters returns the maximal allowed number of iterations that was set for the corresponding call to the IRS solver.
 //
+// Note that this function returns the setting that was set when that call happened and is not to be confused with the [IRSParams.MaxIters] which returns the current setting in the params configuration structure. To be clearer, the params structure can be used for many calls to an IRS solver. A user can change the allowed MaxIters between calls while the Infos structure in [IRSInfos.MaxIters] contains information about a particular call and cannot be reused for different calls, thus [IRSInfos.MaxIters] returns the allowed MaxIters for that call.
+//
 //   - infos: The [IRSInfos] Infos structure
 //   - maxiters: The maximal number of iterations that is currently set
 //
@@ -5869,15 +8993,20 @@ func iRSInfosGetMaxIters(infos IRSInfos) (CusolverInt, error) {
 		var zero CusolverInt
 		return zero, err
 	}
-	var out CusolverInt
-	if err := toError(fniRSInfosGetMaxIters(infos, &out), "cusolverDnIRSInfosGetMaxIters"); err != nil {
+	out := slotIRSInfosGetMaxIters.get()
+	defer slotIRSInfosGetMaxIters.put(out)
+	if err := toError(fniRSInfosGetMaxIters(infos, out), "cusolverDnIRSInfosGetMaxIters"); err != nil {
 		var zero CusolverInt
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotIRSInfosGetMaxIters outSlot[CusolverInt]
+
 // iRSInfosGetNiters returns the total number of iterations performed by the IRS solver.
+//
+// If it was negative, it means that the IRS solver did not converge and if the user did not disable the fallback to full precision, then the fallback to a full precision solution happened and solution is good. Please refer to the description of negative niters values in the corresponding IRS linear solver functions such as cusolverDnXgesv() or cusolverDnXgels().
 //
 //   - infos: The [IRSInfos] Infos structure
 //   - niters: The total number of iterations performed by the IRS solver
@@ -5892,15 +9021,20 @@ func iRSInfosGetNiters(infos IRSInfos) (CusolverInt, error) {
 		var zero CusolverInt
 		return zero, err
 	}
-	var out CusolverInt
-	if err := toError(fniRSInfosGetNiters(infos, &out), "cusolverDnIRSInfosGetNiters"); err != nil {
+	out := slotIRSInfosGetNiters.get()
+	defer slotIRSInfosGetNiters.put(out)
+	if err := toError(fniRSInfosGetNiters(infos, out), "cusolverDnIRSInfosGetNiters"); err != nil {
 		var zero CusolverInt
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotIRSInfosGetNiters outSlot[CusolverInt]
+
 // iRSInfosGetOuterNiters returns the number of iterations performed by the outer refinement loop of the IRS solver.
+//
+// When the refinement solver consists of a one-level solver such as [IrsRefineClassical] or [IrsRefineGmres], it is the same as Niters. When the refinement solver consists of a two-levels solver such as [IrsRefineClassicalGmres] or [IrsRefineGmresGmres], it is the number of iterations of the outer loop. Refer to the description of the [IRSRefinement] for more details.
 //
 //   - infos: The [IRSInfos] Infos structure
 //   - outerNiters: The number of iterations of the outer refinement loop of the IRS solver
@@ -5915,16 +9049,20 @@ func iRSInfosGetOuterNiters(infos IRSInfos) (CusolverInt, error) {
 		var zero CusolverInt
 		return zero, err
 	}
-	var out CusolverInt
-	if err := toError(fniRSInfosGetOuterNiters(infos, &out), "cusolverDnIRSInfosGetOuterNiters"); err != nil {
+	out := slotIRSInfosGetOuterNiters.get()
+	defer slotIRSInfosGetOuterNiters.put(out)
+	if err := toError(fniRSInfosGetOuterNiters(infos, out), "cusolverDnIRSInfosGetOuterNiters"); err != nil {
 		var zero CusolverInt
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIRSInfosGetOuterNiters outSlot[CusolverInt]
 
 // iRSInfosGetResidualHistory If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
 //
+// The datatype of the residual norms depends on the input and output data type. If the Inputs/Outputs datatype is double precision real or complex (CUSOLVER_R_FP64 or CUSOLVER_C_FP64), this residual will be of type real double precision (FP64) double, otherwise if the Inputs/Outputs datatype is single precision real or complex (CUSOLVER_R_FP32 or CUSOLVER_C_FP32), this residual will be real single precision FP32 float.
 // The residual history matrix consists of two columns (even for the multiple right-hand side case NRHS) of MaxIters+1 row, thus a matrix of size ( MaxIters+1,2). Only the first OuterNiters+1 rows contains the residual norms the other (e.g., OuterNiters+2:Maxiters+1) are garbage. On the first column, each row “i” specify the total number of iterations happened till this outer iteration “i” and on the second columns the residual norm corresponding to this outer iteration “i”. Thus, the first row (e.g., outer iteration “0”) consists of the initial residual (e.g., the residual before the refinement loop start) then the consecutive rows are the residual obtained at each outer iteration of the refinement loop. Note, it only consists of the history of the outer loop.
 // If the refinement solver was [IrsRefineClassical] or [IrsRefineGmres], then OuterNiters=Niters (Niters is the total number of iterations performed) and there is Niters+1 rows of norms that correspond to the Niters outer iterations.
 // If the refinement solver was [IrsRefineClassicalGmres] or [IrsRefineGmresGmres], then OuterNiters <= Niters corresponds to the outer iterations performed by the outer refinement loop. Thus, there is OuterNiters+1 residual norms where row “i” correspond to the outer iteration “i” and the first column specify the total number of iterations (outer and inner) that were performed till this step the second columns correspond to the residual norm at this step.
@@ -5965,6 +9103,8 @@ func iRSInfosRequestResidual(infos IRSInfos) error {
 
 // iRSParamsCreate creates and initializes the structure of parameters for an IRS solver such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions to default values.
 //
+// The params structure created by this function can be used by one or more call to the same or to a different IRS solver. Note that in CUDA 10.2, the behavior was different and a new params structure was needed to be created per each call to an IRS solver. Also note that the user can also change configurations of the params and then call a new IRS instance, but be careful that the previous call was done because any change to the configuration before the previous call was done could affect it.
+//
 // Returns:
 //   - [ErrAllocFailed]: The resources could not be allocated.
 //   - [Success]: The structure was created and initialized successfully.
@@ -5975,13 +9115,16 @@ func iRSParamsCreate() (IRSParams, error) {
 		var zero IRSParams
 		return zero, err
 	}
-	var out IRSParams
-	if err := toError(fniRSParamsCreate(&out), "cusolverDnIRSParamsCreate"); err != nil {
+	out := slotIRSParamsCreate.get()
+	defer slotIRSParamsCreate.put(out)
+	if err := toError(fniRSParamsCreate(out), "cusolverDnIRSParamsCreate"); err != nil {
 		var zero IRSParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIRSParamsCreate outSlot[IRSParams]
 
 // iRSParamsDestroy destroys and releases any memory required by the Params structure.
 //
@@ -6002,6 +9145,8 @@ func iRSParamsDestroy(params IRSParams) error {
 
 // iRSParamsDisableFallback disables the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
 //
+// In other term, if the IRS solver failed to converge, the solver will return a no convergence code (e.g., niter < 0), but can either return the non-convergent solution as it is (e.g., disable fallback) or can fallback (e.g., enable fallback) to the main precision (which is the precision of the Inputs/Outputs data) and solve the problem from scratch returning the good solution. This function disables the fallback and the returned solution is whatever the refinement solver was able to reach before it returns. Disabling fallback does not guarantee that the solution is the good one. However, if users want to keep getting the solution of the lower precision in case the IRS did not converge after certain number of iterations, they need to disable the fallback. The user can re-enable it by calling [IRSParams.EnableFallback].
+//
 //   - params: The [IRSParams] Params structure
 //
 // Returns:
@@ -6016,7 +9161,9 @@ func iRSParamsDisableFallback(params IRSParams) error {
 	return toError(fniRSParamsDisableFallback(params), "cusolverDnIRSParamsDisableFallback")
 }
 
-// iRSParamsEnableFallback enable the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
+// iRSParamsEnableFallback enables the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
+//
+// In other term, if the IRS solver failed to converge, the solver will return a no convergence code (e.g., niter < 0), but can either return the non-convergent solution as it is (e.g., disable fallback) or can fallback (e.g., enable fallback) to the main precision (which is the precision of the Inputs/Outputs data) and solve the problem from scratch returning the good solution. This is the behavior by default, and it will guarantee that the IRS solver always provide the good solution. This function is provided because we provided [IRSParams.DisableFallback] which allows the user to disable the fallback and thus this function allow the user to re-enable it.
 //
 //   - params: The [IRSParams] Params structure
 //
@@ -6034,6 +9181,8 @@ func iRSParamsEnableFallback(params IRSParams) error {
 
 // iRSParamsGetMaxIters returns the current setting in the params structure for the maximal allowed number of iterations (for example, either the default MaxIters, or the one set by the user in case he set it using [IRSParams.SetMaxIters]).
 //
+// Note that this function returns the current setting in the params configuration and not to be confused with the [IRSInfos.MaxIters] which return the maximal allowed number of iterations for a particular call to an IRS solver. To be clearer, the params structure can be used for many calls to an IRS solver. A user can change the allowed MaxIters between calls while the Infos structure in [IRSInfos.MaxIters] contains information about a particular call and cannot be reused for different calls, and thus, [IRSInfos.MaxIters] returns the allowed MaxIters for that call.
+//
 //   - params: The [IRSParams] Params structure
 //   - maxiters: The maximal number of iterations that is currently set
 //
@@ -6047,15 +9196,20 @@ func iRSParamsGetMaxIters(params IRSParams) (CusolverInt, error) {
 		var zero CusolverInt
 		return zero, err
 	}
-	var out CusolverInt
-	if err := toError(fniRSParamsGetMaxIters(params, &out), "cusolverDnIRSParamsGetMaxIters"); err != nil {
+	out := slotIRSParamsGetMaxIters.get()
+	defer slotIRSParamsGetMaxIters.put(out)
+	if err := toError(fniRSParamsGetMaxIters(params, out), "cusolverDnIRSParamsGetMaxIters"); err != nil {
 		var zero CusolverInt
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotIRSParamsGetMaxIters outSlot[CusolverInt]
+
 // iRSParamsSetMaxIters sets the total number of allowed refinement iterations after which the solver will stop.
+//
+// Total means any iteration which means the sum of the outer and the inner iterations (inner is meaningful when two-levels refinement solver is set). Default value is set to 50. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver.
 //
 //   - params: The [IRSParams] Params structure
 //
@@ -6072,6 +9226,8 @@ func iRSParamsSetMaxIters(params IRSParams, maxiters CusolverInt) error {
 }
 
 // iRSParamsSetMaxItersInner sets the maximal number of iterations allowed for the inner refinement solver.
+//
+// It is not referenced in case of one level refinement solver such as [IrsRefineClassical] or [IrsRefineGmres]. The inner refinement solver will stop after reaching either the inner tolerance or the MaxItersInner value. By default, it is set to 50. Note that this value could not be larger than the MaxIters since MaxIters is the total number of allowed iterations. Note that if the user calls [IRSParams.SetMaxIters] after calling this function, SetMaxIters has priority and will overwrite MaxItersInner to the minimum value of (MaxIters, MaxItersInner).
 //
 //   - params: The [IRSParams] Params structure
 //   - maxitersInner: Maximum number of allowed inner iterations for the inner refinement solver. Meaningful when the refinement solver is a two-levels solver such as [IrsRefineClassicalGmres] or [IrsRefineGmresGmres]. Value should be less or equal to MaxIters
@@ -6090,6 +9246,8 @@ func iRSParamsSetMaxItersInner(params IRSParams, maxitersInner CusolverInt) erro
 }
 
 // iRSParamsSetRefinementSolver sets the refinement solver to be used in the Iterative Refinement Solver functions such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions.
+//
+// Note that the user has to set the refinement algorithm before a first call to the IRS solver because it is NOT set by default with the creating of params. Details about values that can be set to and theirs meaning are described in the table below.
 //
 //   - params: The [IRSParams] Params structure
 //
@@ -6113,6 +9271,8 @@ func iRSParamsSetRefinementSolver(params IRSParams, refinementSolver IRSRefineme
 
 // iRSParamsSetSolverLowestPrecision sets the lowest precision that will be used by Iterative Refinement Solver.
 //
+// By lowest precision, we mean the solver is allowed to use as lowest computational precision during the LU factorization process. Note that the user has to set both the main and lowest precision before a first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. Usually the lowest precision defines the speedup that can be achieved. The ratio of the performance of the lowest precision over the main precision (e.g., Inputs/Outputs datatype) define somehow the upper bound of the speedup that could be obtained. More precisely, it depends on many factors, but for large matrices sizes, it is the ratio of the matrix-matrix rank-k product (e.g., GEMM where K is 256 and M=N=size of the matrix) that define the possible speedup. For instance, if the inout precision is real double precision R64F and the lowest precision is R32F, then we can expect a speedup of at most 2X for large problem sizes. If the lowest precision was R16F, then we can expect 3X-4X. A reasonable strategy should take the number of right-hand sides, the size of the matrix as well as the convergence rate into account.
+//
 //   - params: The [IRSParams] Params structure
 //
 // Returns:
@@ -6128,6 +9288,8 @@ func iRSParamsSetSolverLowestPrecision(params IRSParams, solverLowestPrecision P
 }
 
 // iRSParamsSetSolverMainPrecision sets the main precision for the Iterative Refinement Solver (IRS).
+//
+// By main precision, we mean, the type of the Input and Output data. Note that the user has to set both the main and lowest precision before a first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. user can set it by either calling this function or by calling [IRSParams.SetSolverPrecisions] which set both the main and the lowest precision together. All possible combinations of main/lowest precision are described in the table in the [IRSParams.SetSolverPrecisions] section above.
 //
 //   - params: The [IRSParams] Params structure
 //   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table in the [IRSParams.SetSolverPrecisions] section above for the supported precisions
@@ -6145,6 +9307,8 @@ func iRSParamsSetSolverMainPrecision(params IRSParams, solverMainPrecision PrecT
 }
 
 // iRSParamsSetSolverPrecisions sets both the main and the lowest precision for the Iterative Refinement Solver (IRS).
+//
+// By main precision, we mean the precision of the Input and Output datatype. By lowest precision, we mean the solver is allowed to use as lowest computational precision during the LU factorization process. Note that the user has to set both the main and lowest precision before the first call to the IRS solver because they are NOT set by default with the params structure creation, as it depends on the Input Output data type and user request. It is a wrapper to both [IRSParams.SetSolverMainPrecision] and [IRSParams.SetSolverLowestPrecision]. All possible combinations of main/lowest precision are described in the table below. Usually the lowest precision defines the speedup that can be achieved. The ratio of the performance of the lowest precision over the main precision (e.g., Inputs/Outputs datatype) define the upper bound of the speedup that could be obtained. More precisely, it depends on many factors, but for large matrices sizes, it is the ratio of the matrix-matrix rank-k product (e.g., GEMM where K is 256 and M=N=size of the matrix) that define the possible speedup. For instance, if the inout precision is real double precision R64F and the lowest precision is R32F, then we can expect a speedup of at most 2X for large problem sizes. If the lowest precision was R16F, then we can expect 3X-4X. A reasonable strategy should take the number of right-hand sides, the size of the matrix as well as the convergence rate into account.
 //
 //   - params: The [IRSParams] Params structure
 //   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table below for the supported precisions
@@ -6164,6 +9328,7 @@ func iRSParamsSetSolverPrecisions(params IRSParams, solverMainPrecision PrecType
 
 // iRSParamsSetTol sets the tolerance for the refinement solver.
 //
+// By default it is such that all the RHS satisfy:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX where
 // The user can use this function to change the tolerance to a lower or higher value. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver. Note that the tolerance value is always in real double precision whatever the Inputs/Outputs datatype is.
 //
@@ -6184,6 +9349,8 @@ func iRSParamsSetTol(params IRSParams, val float64) error {
 
 // iRSParamsSetTolInner sets the tolerance for the inner refinement solver when the refinement solver consists of two-levels solver (for example, [IrsRefineClassicalGmres] or [IrsRefineGmresGmres] cases).
 //
+// It is not referenced in case of one level refinement solver such as [IrsRefineClassical] or [IrsRefineGmres]. It is set to 1e-4 by default. This function set the tolerance for the inner solver (e.g. the inner GMRES). For example, if the Refinement Solver was set to [IrsRefineClassicalGmres], setting this tolerance mean that the inner GMRES solver will converge to that tolerance at each outer iteration of the classical refinement solver. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver. Note the, the tolerance value is always in real double precision whatever the Inputs/Outputs datatype is.
+//
 //   - params: The [IRSParams] Params structure
 //   - val: Double precision real value to which the tolerance of the inner refinement solver will be set
 //
@@ -6199,8 +9366,9 @@ func iRSParamsSetTolInner(params IRSParams, val float64) error {
 	return toError(fniRSParamsSetTolInner(params, val), "cusolverDnIRSParamsSetTolInner")
 }
 
-// iRSXgels is designed to perform same functionality as cusolverDngels() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
+// iRSXgels is designed to perform same functionality as cusolverDn<T1><T2>gels() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
 //
+// [Handle.IRSXgels] allows additional control of the solver parameters such as setting:
 // through the configuration parameters structure gelsIrsParams and its helper functions. For more details about what configuration can be set and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSParamsxxxx(). Moreover, [Handle.IRSXgels] provides additional information on the output such as the convergence history (e.g., the residual norms) at each iteration and the number of iterations needed to converge. For more details about what information can be retrieved and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSInfosxxxx().
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the configurations of params/infos structure is incorrect or if the function did not finish with success. More details about the error can be found by checking the niters and the dinfo API parameters. See their description below for further details. Users should provide the required workspace allocated on device for the [Handle.IRSXgels] function. The amount of bytes required for the function can be queried by calling the respective function [Handle.IRSXgelsBufferSize]. Note that, if the user would like a particular configuration to be set via the params structure, it should be set before the call to [Handle.IRSXgelsBufferSize] to get the size of the required workspace.
 // The following table provides all possible combinations values for the lowest precision corresponding to the Inputs/Outputs data type. Note that if the lowest precision matches the Inputs/Outputs datatype, then main precision factorization will be used
@@ -6279,16 +9447,20 @@ func iRSXgelsBufferSize(handle Handle, params IRSParams, m CusolverInt, n Cusolv
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fniRSXgelsBufferSize(handle, params, m, n, nrhs, &out), "cusolverDnIRSXgels_bufferSize"); err != nil {
+	out := slotIRSXgelsBufferSize.get()
+	defer slotIRSXgelsBufferSize.put(out)
+	if err := toError(fniRSXgelsBufferSize(handle, params, m, n, nrhs, out), "cusolverDnIRSXgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// iRSXgesv is designed to perform same functionality as cusolverDngesv() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
+var slotIRSXgelsBufferSize outSlot[uint]
+
+// iRSXgesv is designed to perform same functionality as cusolverDn<T1><T2>gesv() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
 //
+// [Handle.IRSXgesv] allows additional control of the solver parameters such as setting:
 // through the configuration parameters structure gesvIrsParams and its helper functions. For more details about what configuration can be set and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSParamsxxxx(). Moreover, [Handle.IRSXgesv] provides additional information on the output such as the convergence history (e.g., the residual norms) at each iteration and the number of iterations needed to converge. For more details about what information can be retrieved and its meaning please refer to all the functions in the cuSolverDN Helper Function Section that start with cusolverDnIRSInfosxxxx()
 // The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the configurations of params/infos structure is incorrect or if the function did not finish with success. More details about the error can be found by checking the niters and the dinfo API parameters. See their description below for further details. User should provide the required workspace allocated on device for the [Handle.IRSXgesv] function. The amount of bytes required for the function can be queried by calling the respective function [Handle.IRSXgesvBufferSize]. Note that, if the user would like a particular configuration to be set via the params structure, it should be set before the call to [Handle.IRSXgesvBufferSize] to get the size of the required workspace.
 // Tensor Float (TF32), introduced with NVIDIA Ampere architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision.
@@ -6365,13 +9537,16 @@ func iRSXgesvBufferSize(handle Handle, params IRSParams, n CusolverInt, nrhs Cus
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fniRSXgesvBufferSize(handle, params, n, nrhs, &out), "cusolverDnIRSXgesv_bufferSize"); err != nil {
+	out := slotIRSXgesvBufferSize.get()
+	defer slotIRSXgesvBufferSize.put(out)
+	if err := toError(fniRSXgesvBufferSize(handle, params, n, nrhs, out), "cusolverDnIRSXgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIRSXgesvBufferSize outSlot[uint]
 
 // LoggerForceDisable disables logging for the entire run.
 //
@@ -6418,6 +9593,8 @@ func LoggerSetCallback(callback LoggerCallback) error {
 
 // LoggerSetFile sets the logging output file.
 //
+// Note: once registered using this function call, the provided file handle must not be closed unless the function is called again to switch to a different file handle.
+//
 //   - file: Pointer to an open file. File should have write permission
 //
 // Returns:
@@ -6462,21 +9639,22 @@ func LoggerSetMask(mask int32) error {
 	return toError(fnLoggerSetMask(mask), "cusolverDnLoggerSetMask")
 }
 
-// sBgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+// sBgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -6489,7 +9667,7 @@ func LoggerSetMask(mask int32) error {
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -6537,28 +9715,32 @@ func sBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsBgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnSBgels_bufferSize"); err != nil {
+	out := slotSBgelsBufferSize.get()
+	defer slotSBgelsBufferSize.put(out)
+	if err := toError(fnsBgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnSBgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sBgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotSBgelsBufferSize outSlot[uint]
+
+// sBgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -6571,7 +9753,7 @@ func sBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -6619,29 +9801,33 @@ func sBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsBgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnSBgesv_bufferSize"); err != nil {
+	out := slotSBgesvBufferSize.get()
+	defer slotSBgesvBufferSize.put(out)
+	if err := toError(fnsBgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnSBgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sHgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotSBgesvBufferSize outSlot[uint]
+
+// sHgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -6654,7 +9840,7 @@ func sBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -6702,28 +9888,32 @@ func sHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsHgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnSHgels_bufferSize"); err != nil {
+	out := slotSHgelsBufferSize.get()
+	defer slotSHgelsBufferSize.put(out)
+	if err := toError(fnsHgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnSHgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sHgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotSHgelsBufferSize outSlot[uint]
+
+// sHgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -6736,7 +9926,7 @@ func sHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -6784,29 +9974,33 @@ func sHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsHgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnSHgesv_bufferSize"); err != nil {
+	out := slotSHgesvBufferSize.get()
+	defer slotSHgesvBufferSize.put(out)
+	if err := toError(fnsHgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnSHgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sSgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotSHgesvBufferSize outSlot[uint]
+
+// sSgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -6819,7 +10013,7 @@ func sHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -6867,28 +10061,32 @@ func sSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsSgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnSSgels_bufferSize"); err != nil {
+	out := slotSSgelsBufferSize.get()
+	defer slotSSgelsBufferSize.put(out)
+	if err := toError(fnsSgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnSSgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sSgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotSSgelsBufferSize outSlot[uint]
+
+// sSgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -6901,7 +10099,7 @@ func sSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -6949,29 +10147,33 @@ func sSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsSgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnSSgesv_bufferSize"); err != nil {
+	out := slotSSgesvBufferSize.get()
+	defer slotSSgesvBufferSize.put(out)
+	if err := toError(fnsSgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnSSgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sXgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotSSgesvBufferSize outSlot[uint]
+
+// sXgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -6984,7 +10186,7 @@ func sSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7032,28 +10234,32 @@ func sXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsXgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnSXgels_bufferSize"); err != nil {
+	out := slotSXgelsBufferSize.get()
+	defer slotSXgelsBufferSize.put(out)
+	if err := toError(fnsXgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnSXgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sXgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotSXgelsBufferSize outSlot[uint]
+
+// sXgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -7066,7 +10272,7 @@ func sXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -7114,13 +10320,16 @@ func sXgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsXgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnSXgesv_bufferSize"); err != nil {
+	out := slotSXgesvBufferSize.get()
+	defer slotSXgesvBufferSize.put(out)
+	if err := toError(fnsXgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnSXgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSXgesvBufferSize outSlot[uint]
 
 // setAdvOptions configures algorithm algo of function, a 64-bit API routine.
 //
@@ -7141,6 +10350,8 @@ func setAdvOptions(params Params, function Function, algo AlgMode) error {
 }
 
 // setDeterministicMode sets the deterministic mode of all cuSolverDN functions for handle.
+//
+// For improved performance, non-deterministic results can be allowed. Affected functions are cusolverDn<t>geqrf(), cusolverDn<t>syevd(), cusolverDn<t>syevdx(), cusolverDn<t>gesvd() (if m > n), cusolverDn<t>gesvdj(), [Handle.Xgeqrf], [Handle.Xsyevd], [Handle.Xsyevdx], [Handle.Xgesvd] (if m > n), [Handle.Xgesvdr] and [Handle.Xgesvdp].
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - mode: The deterministic mode to be used with handle
@@ -7180,6 +10391,7 @@ func setEmulationSpecialValuesSupport(handle Handle, mask EmulationSpecialValues
 
 // setEmulationStrategy sets the emulation strategy of all cuSolverDN functions for handle.
 //
+// For more information about the effects of the corresponding strategies, please refer to the analogous definition of cublasEmulationStrategy_t.
 // The emulation strategy set by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
 //
 // Note: Please note that the workspace sizes returned by *_bufferSize APIs may depend on the emulation strategy.
@@ -7226,6 +10438,7 @@ func setFixedPointEmulationMantissaBitOffset(handle Handle, mantissaBitOffset in
 
 // setFixedPointEmulationMantissaControl sets how the number of mantissa bits is determined for fixed point FP64 emulation.
 //
+// For more information about the effects of the corresponding control modes, please refer to [EmulationMantissaControl].
 // The mantissa control set by this API only has an effect, once one of the following math modes is enabled (see also [MathMode]):
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -7233,7 +10446,7 @@ func setFixedPointEmulationMantissaBitOffset(handle Handle, mantissaBitOffset in
 //
 // Returns:
 //   - [ErrInternalError]: An internal error occurred.
-//   - [ErrInvalidValue]: control is not a valid cudaEmulationMantissaControl_t value.
+//   - [ErrInvalidValue]: control is not a valid [EmulationMantissaControl] value.
 //   - [ErrNotInitialized]: The library was not initialized.
 //   - [Success]: The mantissa control was set successfully.
 //
@@ -7267,6 +10480,8 @@ func setFixedPointEmulationMaxMantissaBitCount(handle Handle, mantissaBitCount i
 }
 
 // setMathMode sets the math modes of all cuSolverDN functions for handle.
+//
+// For more information about the effects of the corresponding math modes, please refer to [MathMode]. Note that math modes can be combined, e.g., [Handle.SetMathMode](handle, [FP32EmulatedBf16x9Math] | [FP64EmulatedFixedpointMath]). Please see [MathMode] for allowed combinations.
 //
 // Note: Please note that the workspace sizes returned by *_bufferSize APIs may depend on the math mode.
 //
@@ -7303,9 +10518,13 @@ func setStream(handle Handle, streamId driver.Stream) error {
 	return toError(fnsetStream(handle, streamId), "cusolverDnSetStream")
 }
 
-// sgebrd reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+// sgebrd reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: Qᴴ*A*P=B.
 //
-// If m>=n, B is upper bidiagonal; if m=n.
+// If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
+// The matrix Q and P are overwritten into matrix A in the following sense:
+// The user has to provide working space which is pointed by input parameter Work. The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
+// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// Remark: gebrd only supports m>=n.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
@@ -7355,22 +10574,24 @@ func sgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsgebrdBufferSize(handle, m, n, &out), "cusolverDnSgebrd_bufferSize"); err != nil {
+	out := slotSgebrdBufferSize.get()
+	defer slotSgebrdBufferSize.put(out)
+	if err := toError(fnsgebrdBufferSize(handle, m, n, out), "cusolverDnSgebrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sgeqrf computes the QR factorization of an m×n matrix
+var slotSgebrdBufferSize outSlot[int32]
+
+// sgeqrf computes the QR factorization of an m×n matrix.
 //
-// A=Q∗R
-// where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
+// A=Q*R, where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
+// I−2*v*vᴴ=I−τ*q*qᴴ
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -7419,24 +10640,26 @@ func sgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsgeqrfBufferSize(handle, m, n, uintptr(a), lda, &out), "cusolverDnSgeqrf_bufferSize"); err != nil {
+	out := slotSgeqrfBufferSize.get()
+	defer slotSgeqrfBufferSize.put(out)
+	if err := toError(fnsgeqrfBufferSize(handle, m, n, uintptr(a), lda, out), "cusolverDnSgeqrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSgeqrfBufferSize outSlot[int32]
 
 // sgesvd computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The SVD is written A=U*Σ*Vᴴ, where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, devInfo specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
 // The rwork is real array of dimension (min(m,n)-1). If devInfo >0 and rwork is not NULL, rwork contains the unconverged superdiagonal elements of an upper bidiagonal matrix. This is slightly different from LAPACK which puts unconverged superdiagonal elements in work if type is real; in rwork if type is complex. rwork can be a NULL pointer if the user does not want the information from superdiagonal.
 // Please visit cuSOLVER Library Samples - gesvd for a code example.
 // Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// Remark 2: the routine returns Vᴴ , not V.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobu: Specifies options for computing all or part of the matrix U: = ‘A’: all m columns of U are returned in array U: = ‘S’: the first min(m,n) columns of U (the left singular vectors) are returned in the array U; = ‘O’: the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A; = ‘N’: no columns of U (no left singular vectors) are computed
@@ -7489,35 +10712,37 @@ func sgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsgesvdBufferSize(handle, m, n, &out), "cusolverDnSgesvd_bufferSize"); err != nil {
+	out := slotSgesvdBufferSize.get()
+	defer slotSgesvdBufferSize.put(out)
+	if err := toError(fnsgesvdBufferSize(handle, m, n, out), "cusolverDnSgesvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSgesvdBufferSize outSlot[int32]
 
 // sgesvdaStridedBatched gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
+// The economy form of SVD is written by A=U*Σ*Vᴴ, where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
 // gesvda computes eigenvalues of A**T*A, or A**H*A (if A is complex), to approximate singular values and singular vectors. It generates matrices U and V and transforms the matrix A to the following form
-// UH∗A∗V=S+E
+// Uᴴ*A*V=S+E
 // where S is diagonal and E depends on rounding errors. To certain conditions, U, V and S approximate singular values and singular vectors up to machine zero of single precision. In general, V is unitary, S is more accurate than U. If singular value is far from zero, then left singular vector U is accurate. In other words, the accuracy of singular values and left singular vectors depend on the distance between singular value and zero. Since the computation of A**T*A, or A**H*A can greatly amplify errors, it is recommended to use gesvda only with well-conditioned data.
 // The input parameter rank decides the number of singular values and singular vectors are computed in parameter S, U and V.
 // The output parameter h_RnrmF computes Frobenius norm of residual. To compute h_RnrmF, info != NULL is required.
-// A−U∗S∗VH
+// A−U*S*Vᴴ
 // if the parameter rank is equal n. Otherwise, h_RnrmF reports
-// ‖U∗S∗VH‖−‖S‖
+// ‖U*S*Vᴴ‖−‖S‖
 // in Frobenius norm sense, that is, how far U is from unitary.
 // gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+strideA∗k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS∗k] , the formula for random access of U is Uk(i,j)=U [i+ldu∗j+strideU∗k] and the formula for random access of V is Vk(i,j)=V [i+ldv∗j+strideV∗k] .
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS*k] , the formula for random access of U is Uk(i,j)=U [i+ldu*j+strideU*k] and the formula for random access of V is Vk(i,j)=V [i+ldv*j+strideV*k] .
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
 // Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
 // Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
-// Remark 1: The routine returns V, not VH . This is different from gesvd.
+// Remark 1: The routine returns V, not Vᴴ . This is different from gesvd.
 // Remark 2: The routine only supports m >=n.
 // Remark 3: It is recommended to use an FP64 data type, that is [Handle.DgesvdaStridedBatched] or [Handle.ZgesvdaStridedBatched].
 // Remark 4: If the user is confident on the accuracy of singular values and singular vectors, for example, certain conditions hold (required singular value is far from zero), then the performance can be improved by passing a null pointer to h_RnrmF, i.e. no computation of the residual norm.
@@ -7584,27 +10809,28 @@ func sgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m 
 
 // sgesvdj computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
+// The SVD is written:
+// A=U*Σ*Vᴴ
 // where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
 // gesvdj has the same functionality as gesvd. The difference is that gesvd uses QR algorithm and gesvdj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure gesvdj to perform approximation up to certain accuracy.
 // gesvdj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// UH∗A∗V=S+E
+// Uᴴ*A*V=S+E
 // where S is diagonal and diagonal of E is zero.
 // During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, S is the set of singular values. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
+// ‖E‖F≤eps*‖A‖F
 // where eps is given tolerance. Note that if the real residual norm
-// ‖S−UH∗A∗V‖F
+// ‖S−Uᴴ*A*V‖F
 // is computed, it will differ from ‖E‖F up to roundoff errors of order N=max(m,n), to still have the standard SVD accuracy expectation
-// ‖S−UH∗A∗V‖FO(N)∗‖A‖F≤‖E‖F‖A‖F≤eps
-// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps∗N.
+// ‖S−Uᴴ*A*V‖FO(N)*‖A‖F≤‖E‖F‖A‖F≤eps
+// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps*N.
 // gesvdj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [GesvdjInfo.XgesvdjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [GesvdjInfo.XgesvdjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. gesvdj stops either tolerance is met or maximum number of sweeps is met.
 // Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = min(m,n)+1, gesvdj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, gesvdj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // Please visit cuSOLVER Library Samples - gesvdj for a code example.
 // Remark 1: gesvdj supports any combination of m and n.
-// Remark 2: the routine returns V, not VH . This is different from gesvd.
+// Remark 2: the routine returns V, not Vᴴ . This is different from gesvd.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -7637,19 +10863,18 @@ func sgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 	return toError(fnsgesvdj(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params), "cusolverDnSgesvdj")
 }
 
-// sgesvdjBatched computes singular values and singular vectors of a sequence of general m×n matrices
+// sgesvdjBatched computes singular values and singular vectors of a sequence of general m×n matrices.
 //
-// Aj=Uj∗Σj∗VjH
-// where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
+// Aj=Uj*Σj*VjH, where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
 // gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter S also contains singular values of each matrix in contiguous way,
 // S=(S0S1⋯)
-// The formula for random access of S is Sk(j)=S [j+min(m,n)∗k] .
+// The formula for random access of S is Sk(j)=S [j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
@@ -7746,10 +10971,9 @@ func sgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 	return toError(fnsgesvdjBufferSize(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params), "cusolverDnSgesvdj_bufferSize")
 }
 
-// sgetrf computes the LU factorization of an m×n matrix
+// sgetrf computes the LU factorization of an m×n matrix.
 //
-// P∗A=L∗U
-// where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
+// P*A=L*U, where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -7804,18 +11028,21 @@ func sgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsgetrfBufferSize(handle, m, n, uintptr(a), lda, &out), "cusolverDnSgetrf_bufferSize"); err != nil {
+	out := slotSgetrfBufferSize.get()
+	defer slotSgetrfBufferSize.put(out)
+	if err := toError(fnsgetrfBufferSize(handle, m, n, uintptr(a), lda, out), "cusolverDnSgetrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sgetrs solves a linear system of multiple right-hand sides
+var slotSgetrfBufferSize outSlot[int32]
+
+// sgetrs solves a linear system of multiple right-hand sides.
 //
-// op(A)∗X=B
-// where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
+// op(A)*X=B, where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
+// The input parameter trans is defined by op(A) = A if trans == CUBLAS_OP_N, op(A) = Aᵀ if trans == CUBLAS_OP_T, and op(A) = Aᴴ if trans == CUBLAS_OP_C.
 // The input parameter devIpiv is an output of getrf. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine getrf and getrs to complete a linear solver.
@@ -7868,18 +11095,21 @@ func slauumBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnslauumBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnSlauum_bufferSize"); err != nil {
+	out := slotSlauumBufferSize.get()
+	defer slotSlauumBufferSize.put(out)
+	if err := toError(fnslauumBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnSlauum_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sorgbr generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+var slotSlauumBufferSize outSlot[int32]
+
+// sorgbr generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: Qᴴ*A*P=B.
 //
 // Q and P**H are defined as products of elementary reflectors H(i) or G(i) respectively.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -7933,19 +11163,21 @@ func sorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsorgbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), &out), "cusolverDnSorgbr_bufferSize"); err != nil {
+	out := slotSorgbrBufferSize.get()
+	defer slotSorgbrBufferSize.put(out)
+	if err := toError(fnsorgbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), out), "cusolverDnSorgbr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sorgqr overwrites m×n matrix A by
+var slotSorgbrBufferSize outSlot[int32]
+
+// sorgqr overwrites m×n matrix A.
 //
-// Q=H(1)∗H(2)∗...∗H(k)
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// Q=H(1)*H(2)*...*H(k), where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine geqrf, orgqr to complete orthogonalization.
 //
@@ -7998,17 +11230,20 @@ func sorgqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DeviceP
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsorgqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), &out), "cusolverDnSorgqr_bufferSize"); err != nil {
+	out := slotSorgqrBufferSize.get()
+	defer slotSorgqrBufferSize.put(out)
+	if err := toError(fnsorgqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), out), "cusolverDnSorgqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSorgqrBufferSize outSlot[int32]
 
 // sorgtr generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
 //
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -8058,20 +11293,25 @@ func sorgtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsorgtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), &out), "cusolverDnSorgtr_bufferSize"); err != nil {
+	out := slotSorgtrBufferSize.get()
+	defer slotSorgtrBufferSize.put(out)
+	if err := toError(fnsorgtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), out), "cusolverDnSorgtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSorgtrBufferSize outSlot[int32]
 
 // sormqr overwrites m×n matrix C.
 //
+// C = op(Q)*C if side == CUBLAS_SIDE_LEFT, and C = C*op(Q) if side == CUBLAS_SIDE_RIGHT.
+// The operation of Q is defined by op(Q) = Q if trans == CUBLAS_OP_N, op(Q) = Qᵀ if trans == CUBLAS_OP_T, and op(Q) = Qᴴ if trans == CUBLAS_OP_C.
 // Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
 // Q = H(1) H(2) … H(k)
 // Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine geqrf, ormqr and trsm to complete a linear solver or a least-square solver.
 //
@@ -8133,18 +11373,22 @@ func sormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsormqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out), "cusolverDnSormqr_bufferSize"); err != nil {
+	out := slotSormqrBufferSize.get()
+	defer slotSormqrBufferSize.put(out)
+	if err := toError(fnsormqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, out), "cusolverDnSormqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSormqrBufferSize outSlot[int32]
 
 // sormtr overwrites m×n matrix C.
 //
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// C = op(Q)*C if side == CUBLAS_SIDE_LEFT, and C = C*op(Q) if side == CUBLAS_SIDE_RIGHT, where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
+// The operation on Q is defined by op(Q) = Q if trans == CUBLAS_OP_N, op(Q) = Qᵀ if trans == CUBLAS_OP_T, and op(Q) = Qᴴ if trans == CUBLAS_OP_C.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -8204,21 +11448,24 @@ func sormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operati
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnsormtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out), "cusolverDnSormtr_bufferSize"); err != nil {
+	out := slotSormtrBufferSize.get()
+	defer slotSormtrBufferSize.put(out)
+	if err := toError(fnsormtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, out), "cusolverDnSormtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSormtrBufferSize outSlot[int32]
 
 // spotrf computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //
 // A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only the lower triangular part of A is processed, and replaced by the lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -8251,9 +11498,9 @@ func spotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //
 // Each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter infoArray would indicate smallest leading minor of A which is not positive definite.
 // infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray [i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
 // Remark: the other part of A is used as a workspace. For example, if uplo is CUBLAS_FILL_MODE_UPPER, upper triangle of A contains Cholesky factor U and lower triangle of A is destroyed after potrfBatched.
@@ -8302,18 +11549,20 @@ func spotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnspotrfBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnSpotrf_bufferSize"); err != nil {
+	out := slotSpotrfBufferSize.get()
+	defer slotSpotrfBufferSize.put(out)
+	if err := toError(fnspotrfBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnSpotrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spotri computes the inverse of a positive-definite matrix A using the Cholesky factorization
+var slotSpotrfBufferSize outSlot[int32]
+
+// spotri computes the inverse of a positive-definite matrix A using the Cholesky factorization.
 //
-// A=L∗LH=UH∗U
-// computed by potrf().
+// A=L*Lᴴ=Uᴴ*U, computed by potrf().
 // A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
 // If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
 // If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
@@ -8364,19 +11613,21 @@ func spotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnspotriBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnSpotri_bufferSize"); err != nil {
+	out := slotSpotriBufferSize.get()
+	defer slotSpotriBufferSize.put(out)
+	if err := toError(fnspotriBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnSpotri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spotrs solves a system of linear equations
+var slotSpotriBufferSize outSlot[int32]
+
+// spotrs solves a system of linear equations.
 //
-// A∗X=B
-// where A is an n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// The user has to call potrf first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A*X=B, where A is an n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
+// The user has to call potrf first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
@@ -8404,11 +11655,10 @@ func spotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePt
 	return toError(fnspotrs(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(devInfo)), "cusolverDnSpotrs")
 }
 
-// spotrsBatched solves a sequence of linear systems
+// spotrsBatched solves a sequence of linear systems.
 //
-// A [i]∗X [i]=B [i]
-// where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
-// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A [i]*X [i]=B [i], where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // The output parameter info is a scalar. If info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Remark 1: only nrhs=1 is supported.
@@ -8440,9 +11690,8 @@ func spotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.D
 
 // ssyevd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The standard symmetric eigenvalue problem is A*V=V*Λ, where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - syevd for a code example.
@@ -8495,19 +11744,23 @@ func ssyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnssyevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), &out), "cusolverDnSsyevd_bufferSize"); err != nil {
+	out := slotSsyevdBufferSize.get()
+	defer slotSsyevdBufferSize.put(out)
+	if err := toError(fnssyevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), out), "cusolverDnSsyevd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSsyevdBufferSize outSlot[int32]
 
 // ssyevdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗V=V∗Λ
+// The standard symmetric eigenvalue problem is:
+// A*V=V*Λ
 // where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - syevdx for a code example.
@@ -8519,6 +11772,10 @@ func ssyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 //   - n: Number of rows (or columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by syevdx_bufferSize
@@ -8547,6 +11804,10 @@ func ssyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - n: Number of rows (or columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of float32
 //
@@ -8558,36 +11819,39 @@ func ssyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsyevdxBufferSize, bound as cusolverDnSsyevdx_bufferSize.
-func ssyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
+func ssyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
 	if err := checkLibSym("cusolverDnSsyevdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+		return 0, 0, err
 	}
-	var out int32
-	if err := toError(fnssyevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), &out), "cusolverDnSsyevdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+	outs := slotSsyevdxBufferSize.get()
+	defer slotSsyevdxBufferSize.put(outs)
+	if err := toError(fnssyevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, &outs.out0, uintptr(w), &outs.out1), "cusolverDnSsyevdx_bufferSize"); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotSsyevdxBufferSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // ssyevj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗Q=Q∗Λ
-// where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The standard symmetric eigenvalue problem is A*Q=Q*Λ, where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
 // syevj has the same functionality as syevd. The difference is that syevd uses QR algorithm and syevj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure syevj to perform approximation up to certain accuracy.
 // How does it work?
 // syevj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// VH∗A∗V=W+E
+// Vᴴ*A*V=W+E
 // where W is diagonal and E is symmetric without diagonal.
 // During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, W is the set of eigenvalues. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
+// ‖E‖F≤eps*‖A‖F
 // where eps is the given tolerance.
 // syevj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [SyevjInfo.XsyevjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [SyevjInfo.XsyevjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. syevj stops either tolerance is met or maximum number of sweeps is met.
 // The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
 // After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
 // residual=‖E‖F=‖Λ−W‖F
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
@@ -8619,19 +11883,18 @@ func ssyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 	return toError(fnssyevj(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params), "cusolverDnSsyevj")
 }
 
-// ssyevjBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+// ssyevjBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //
-// Aj∗Qj=Qj∗Λj
-// where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
+// Aj*Qj=Qj*Λj, where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
 // syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter W also contains eigenvalues of each matrix in contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
+// The formula for random access of W is Wk(j)=W [j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors Vj.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
@@ -8718,8 +11981,8 @@ func ssyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 
 // ssygvd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - sygvd for a code example.
@@ -8778,18 +12041,21 @@ func ssygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnssygvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), &out), "cusolverDnSsygvd_bufferSize"); err != nil {
+	out := slotSsygvdBufferSize.get()
+	defer slotSsygvdBufferSize.put(out)
+	if err := toError(fnssygvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), out), "cusolverDnSsygvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSsygvdBufferSize outSlot[int32]
 
 // ssygvdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - sygvdx for a code example.
@@ -8804,6 +12070,10 @@ func ssygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sygvdx_bufferSize
@@ -8835,6 +12105,10 @@ func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of float32
 //
@@ -8846,32 +12120,36 @@ func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnSsygvdxBufferSize, bound as cusolverDnSsygvdx_bufferSize.
-func ssygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
+func ssygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
 	if err := checkLibSym("cusolverDnSsygvdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+		return 0, 0, err
 	}
-	var out int32
-	if err := toError(fnssygvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), &out), "cusolverDnSsygvdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+	outs := slotSsygvdxBufferSize.get()
+	defer slotSsygvdxBufferSize.put(outs)
+	if err := toError(fnssygvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, &outs.out0, uintptr(w), &outs.out1), "cusolverDnSsygvdx_bufferSize"); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotSsygvdxBufferSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // ssygvj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
 // This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
 // However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
-// B=L∗LH
+// B=L*Lᴴ
 // transform the problem to standard eigenvalue problem, then calls syevj.
 // For example, the standard eigenvalue problem of type I is
-// M∗Q=Q∗Λ
+// M*Q=Q*Λ
 // where matrix M is symmetric
-// M=L−1∗A∗L−H
+// M=L⁻¹*A*L⁻ᴴ
 // The residual is the result of syevj on matrix M, not A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n), B is not positive definite, the factorization of B could not be completed and no eigenvalues or eigenvectors were computed. If info = n+1, syevj does not converge under given tolerance and maximum sweeps. In this case, the eigenvalues and eigenvectors are still computed because non-convergence comes from improper tolerance of maximum sweeps.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors V.
 // Please visit cuSOLVER Library Samples - sygvj for a code example.
@@ -8932,10 +12210,10 @@ func ssygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 	return toError(fnssygvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params), "cusolverDnSsygvj_bufferSize")
 }
 
-// ssytrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+// ssytrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: Qᴴ*A*Q=T.
 //
 // As an output, A contains T and householder reflection vectors. If uplo = CUBLAS_FILL_MODE_UPPER, the diagonal and first superdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements above the first superdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors; If uplo = CUBLAS_FILL_MODE_LOWER, the diagonal and first subdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements below the first subdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). Note that the problem size n is limited by a condition n*lda < INT32_MAX primarily due to the current implementation constraints.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -8985,22 +12263,25 @@ func ssytrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnssytrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), &out), "cusolverDnSsytrd_bufferSize"); err != nil {
+	out := slotSsytrdBufferSize.get()
+	defer slotSsytrdBufferSize.put(out)
+	if err := toError(fnssytrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), out), "cusolverDnSsytrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSsytrdBufferSize outSlot[int32]
 
 // ssytrf computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //
 // A is a n×n symmetric matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. If devIpiv is null, no pivoting is performed, which is not numerically stable.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular factor L and block diagonal matrix D. Each block of D is either 1x1 or 2x2 block, depending on pivoting.
-// P∗A∗PT=L∗D∗LT
+// P*A*Pᵀ=L*D*Lᵀ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular factor U and block diagonal matrix D.
-// P∗A∗PT=U∗D∗UT
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
+// P*A*Pᵀ=U*D*Uᵀ
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
 // If Bunch-Kaufman factorization failed, i.e. A is singular. The output parameter devInfo = i would indicate D(i,i)=0.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The output parameter devIpiv contains pivoting sequence. If devIpiv(i) = k > 0, D(i,i) is 1x1 block, and i-th row/column of A is interchanged with k-th row/column of A. If uplo is CUBLAS_FILL_MODE_UPPER and devIpiv(i-1) = devIpiv(i) = -m < 0, D(i-1:i,i-1:i) is a 2x2 block, and (i-1)-th row/column is interchanged with m-th row/column. If uplo is CUBLAS_FILL_MODE_LOWER and devIpiv(i+1) = devIpiv(i) = -m < 0, D(i:i+1,i:i+1) is a 2x2 block, and (i+1)-th row/column is interchanged with m-th row/column.
@@ -9049,13 +12330,16 @@ func ssytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (in
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnssytrfBufferSize(handle, n, uintptr(a), lda, &out), "cusolverDnSsytrf_bufferSize"); err != nil {
+	out := slotSsytrfBufferSize.get()
+	defer slotSsytrfBufferSize.put(out)
+	if err := toError(fnssytrfBufferSize(handle, n, uintptr(a), lda, out), "cusolverDnSsytrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSsytrfBufferSize outSlot[int32]
 
 // ssytri wraps cusolverDnSsytri.
 func ssytri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -9071,20 +12355,22 @@ func ssytriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnssytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), &out), "cusolverDnSsytri_bufferSize"); err != nil {
+	out := slotSsytriBufferSize.get()
+	defer slotSsytriBufferSize.put(out)
+	if err := toError(fnssytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), out), "cusolverDnSsytri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSsytriBufferSize outSlot[int32]
 
 // xgeev computes for an n-by-n real non-symmetric or complex non-Hermitian matrix A the eigenvalues and, optionally, the left and/or right eigenvectors.
 //
-// A∗v(j)=w(j)∗v(j)
-// where w(j) is its eigenvalue. The left eigenvalue u(j) of A satisfies
-// u(j)H∗A=w(j)∗v(j)H
-// where u(j)H denotes the conjugate-transpose of u(j).
+// The right eigenvector v(j) of A satisfies A*v(j)=w(j)*v(j), where w(j) is its eigenvalue. The left eigenvalue u(j) of A satisfies
+// u(j)ᴴ*A=w(j)*v(j)ᴴ
+// where u(j)ᴴ denotes the conjugate-transpose of u(j).
 // The computed eigenvectors are normalized to have Euclidean norm equal to 1 and largest component real.
 // If A is real-valued, there are two options to return the eigenvalues in W. The first options sets all data types to real-valued types. Then W holds 2*n entries. The first n entries hold the real parts and the last n entries hold the imaginary parts. The LAPACK interface with separate arrays for the real parts WR and the imaginary parts WI can be recovered by settings pointers WR = W, WI = W+n. The second option uses a complex data type for W. Then W is n entries long; each real eigenvalue is stored as a complex number and for each complex conjugate pair, both eigenvalues are returned. The computation is still executed fully in real arithmetic.
 // The user has to provide device and host working space which are pointed to by the input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost denote the size in bytes of the device and host working space, and returned by [Handle.XgeevBufferSize].
@@ -9169,22 +12455,26 @@ func xgeevBufferSize(handle Handle, params Params, jobvl EigMode, jobvr EigMode,
 	if err := checkLibSym("cusolverDnXgeev_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxgeevBufferSize(handle, params, jobvl, jobvr, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), dataTypeVL, uintptr(vl), ldvl, dataTypeVR, uintptr(vr), ldvr, computeType, &out0, &out1), "cusolverDnXgeev_bufferSize"); err != nil {
+	outs := slotXgeevBufferSize.get()
+	defer slotXgeevBufferSize.put(outs)
+	if err := toError(fnxgeevBufferSize(handle, params, jobvl, jobvr, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), dataTypeVL, uintptr(vl), ldvl, dataTypeVR, uintptr(vr), ldvr, computeType, &outs.out0, &outs.out1), "cusolverDnXgeev_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// xgeqrf computes the QR factorization of a m×n matrix
+var slotXgeevBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
+
+// xgeqrf computes the QR factorization of a m×n matrix.
 //
-// A=Q∗R
-// where A is an m×n matrix, Q is a m×n matrix, and R is an n×n upper triangular matrix using the generic API interface.
+// A=Q*R, where A is an m×n matrix, Q is a m×n matrix, and R is an n×n upper triangular matrix using the generic API interface.
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XgeqrfBufferSize].
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
+// I−2*v*vᴴ=I−τ*q*qᴴ
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Currently, [Handle.Xgeqrf] supports only the default algorithm.
 // Please visit cuSOLVER Library Samples - [Handle.Xgeqrf] for a code example.
@@ -9249,25 +12539,29 @@ func xgeqrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA 
 	if err := checkLibSym("cusolverDnXgeqrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxgeqrfBufferSize(handle, params, m, n, dataTypeA, uintptr(a), lda, dataTypeTau, uintptr(tau), computeType, &out0, &out1), "cusolverDnXgeqrf_bufferSize"); err != nil {
+	outs := slotXgeqrfBufferSize.get()
+	defer slotXgeqrfBufferSize.put(outs)
+	if err := toError(fnxgeqrfBufferSize(handle, params, m, n, dataTypeA, uintptr(a), lda, dataTypeTau, uintptr(tau), computeType, &outs.out0, &outs.out1), "cusolverDnXgeqrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotXgeqrfBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // xgesvd computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
+// The SVD is written A=U*Σ*Vᴴ, where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XgesvdBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, info specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
 // Currently, [Handle.Xgesvd] supports only the default algorithm.
 // Algorithms supported by [Handle.Xgesvd]
 // Please visit cuSOLVER Library Samples - [Handle.Xgesvd] for a code example.
 // Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// Remark 2: the routine returns Vᴴ , not V.
 // List of input arguments for [Handle.XgesvdBufferSize] and [Handle.Xgesvd]:
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeVT is data type of the matrix VT, computeType is compute type of the operation. [Handle.Xgesvd] only supports the following four combinations.
 // Valid combination of data type and compute type
@@ -9344,17 +12638,23 @@ func xgesvdBufferSize(handle Handle, params Params, jobu int8, jobvt int8, m int
 	if err := checkLibSym("cusolverDnXgesvd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxgesvdBufferSize(handle, params, jobu, jobvt, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeVT, uintptr(vt), ldvt, computeType, &out0, &out1), "cusolverDnXgesvd_bufferSize"); err != nil {
+	outs := slotXgesvdBufferSize.get()
+	defer slotXgesvdBufferSize.put(outs)
+	if err := toError(fnxgesvdBufferSize(handle, params, jobu, jobvt, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeVT, uintptr(vt), ldvt, computeType, &outs.out0, &outs.out1), "cusolverDnXgesvd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotXgesvdBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // xgesvdjGetResidual reports the Frobenius norm of the internal residual returned by gesvdj.
 //
-// ‖S−UH∗A∗V‖F
+// Note that this is not the Frobenious norm of the exact residual calculated as
+// ‖S−Uᴴ*A*V‖F
 // This function does not support gesvdjBatched. If the user calls this function after gesvdjBatched, the error [ErrNotSupported] is returned.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -9371,15 +12671,20 @@ func xgesvdjGetResidual(handle Handle, info GesvdjInfo) (float64, error) {
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fnxgesvdjGetResidual(handle, info, &out), "cusolverDnXgesvdjGetResidual"); err != nil {
+	out := slotXgesvdjGetResidual.get()
+	defer slotXgesvdjGetResidual.put(out)
+	if err := toError(fnxgesvdjGetResidual(handle, info, out), "cusolverDnXgesvdjGetResidual"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotXgesvdjGetResidual outSlot[float64]
+
 // xgesvdjGetSweeps reports number of executed sweeps of gesvdj.
+//
+// It does not support gesvdjBatched. If the user calls this function after gesvdjBatched, the error [ErrNotSupported] is returned.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - info: The pointer to the structure of gesvdj
@@ -9395,15 +12700,20 @@ func xgesvdjGetSweeps(handle Handle, info GesvdjInfo) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnxgesvdjGetSweeps(handle, info, &out), "cusolverDnXgesvdjGetSweeps"); err != nil {
+	out := slotXgesvdjGetSweeps.get()
+	defer slotXgesvdjGetSweeps.put(out)
+	if err := toError(fnxgesvdjGetSweeps(handle, info, out), "cusolverDnXgesvdjGetSweeps"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotXgesvdjGetSweeps outSlot[int32]
+
 // xgesvdjSetMaxSweeps configures the maximum number of sweeps in gesvdj.
+//
+// The default value is 100.
 //
 //   - info: The pointer to the structure of gesvdj
 //   - maxSweeps: Maximum number of sweeps
@@ -9420,6 +12730,8 @@ func xgesvdjSetMaxSweeps(info GesvdjInfo, maxSweeps int32) error {
 }
 
 // xgesvdjSetSortEig If sortSvd is zero, the singular values are not sorted.
+//
+// This function only works for gesvdjBatched. gesvdj always sorts singular values in descending order. By default, singular values are always sorted in descending order.
 //
 //   - info: The pointer to the structure of gesvdj
 //   - sortSvd: If sortSvd is zero, the singular values are not sorted
@@ -9453,8 +12765,7 @@ func xgesvdjSetTolerance(info GesvdjInfo, tolerance float64) error {
 
 // xgesvdp computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
+// The SVD is written A=U*Σ*Vᴴ, where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
 // [Handle.Xgesvdp] combines polar decomposition in [14] and [Handle.Xsyevd] to compute SVD. It is much faster than [Handle.Xgesvd] which is based on QR algorithm. However polar decomposition in [14] may not deliver a full unitary matrix when the matrix A has a singular value close to zero. To workaround the issue when the singular value is close to zero, we add a small perturbation so polar decomposition can deliver the correct result. The consequence is inaccurate singular values shifted by this perturbation. The output parameter hErrSigma is the magnitude of this perturbation. In other words, hErrSigma shows the accuracy of SVD.
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XgesvdpBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -9462,7 +12773,7 @@ func xgesvdjSetTolerance(info GesvdjInfo, tolerance float64) error {
 // Algorithms supported by [Handle.Xgesvdp]
 // Please visit cuSOLVER Library Samples - [Handle.Xgesvdp] for a code example.
 // Remark 1: gesvdp supports n>=m as well.
-// Remark 2: the routine returns V, not VH
+// Remark 2: the routine returns V, not Vᴴ
 // List of input arguments for [Handle.XgesvdpBufferSize] and [Handle.Xgesvdp]:
 // The generic API has three different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeV is data type of the matrix V, computeType is compute type of the operation. [Handle.Xgesvdp] only supports the following four combinations:
 // Valid combination of data type and compute type
@@ -9539,18 +12850,22 @@ func xgesvdpBufferSize(handle Handle, params Params, jobz EigMode, econ int32, m
 	if err := checkLibSym("cusolverDnXgesvdp_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxgesvdpBufferSize(handle, params, jobz, econ, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeV, uintptr(v), ldv, computeType, &out0, &out1), "cusolverDnXgesvdp_bufferSize"); err != nil {
+	outs := slotXgesvdpBufferSize.get()
+	defer slotXgesvdpBufferSize.put(outs)
+	if err := toError(fnxgesvdpBufferSize(handle, params, jobz, econ, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeV, uintptr(v), ldv, computeType, &outs.out0, &outs.out1), "cusolverDnXgesvdp_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotXgesvdpBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // xgesvdr computes the approximated rank-k singular value decomposition (k-SVD) of an m×n matrix A and the corresponding left and/or right singular vectors.
 //
-// Ak≈U∗Σ∗VH
-// where Σ is a k×k matrix which is zero except for its diagonal elements, U is an m×k orthonormal matrix, and V is an k×n orthonormal matrix. The diagonal elements of Σ are the approximated singular values of A; they are real and non-negative, and are returned in descending order. The columns of U and V are the top- k left and right singular vectors of A.
+// The k-SVD is written as Ak≈U*Σ*Vᴴ, where Σ is a k×k matrix which is zero except for its diagonal elements, U is an m×k orthonormal matrix, and V is an k×n orthonormal matrix. The diagonal elements of Σ are the approximated singular values of A; they are real and non-negative, and are returned in descending order. The columns of U and V are the top- k left and right singular vectors of A.
 // [Handle.Xgesvdr] implements randomized methods described in [15] to compute k-SVD that is accurate with high probability if the conditions described in [15] hold. [Handle.Xgesvdr] is intended to compute a very small portion of the spectrum (meaning that k is very small compared to min(m,n)). of A fast and with good quality, specially when the dimensions of the matrix are large.
 // The accuracy of the method depends on the spectrum of A, the number of power iterations niters, the oversampling parameter p and the ratio between p and the dimensions of the matrix A. Larger values of oversampling p or larger number of iterations niters might produce more accurate approximations, but it will also increase the run time of [Handle.Xgesvdr].
 // Our recommendation is to use two iterations and set the oversampling to at least 2k. Once the solver provides enough accuracy, adjust the values of k and niters for better performance.
@@ -9560,7 +12875,7 @@ func xgesvdpBufferSize(handle Handle, params Params, jobz EigMode, econ int32, m
 // Algorithms supported by [Handle.Xgesvdr]
 // Please visit cuSOLVER Library Samples - [Handle.Xgesvdr] for a code example.
 // Remark 1: gesvdr supports n>=m as well.
-// Remark 2: the routine returns V, not VH
+// Remark 2: the routine returns V, not Vᴴ
 // List of input arguments for [Handle.XgesvdrBufferSize] and [Handle.Xgesvdr]:
 // The generic API has five different types, dataTypeA is data type of the matrix A, dataTypeS is data type of the vector S and dataTypeU is data type of the matrix U, dataTypeV is data type of the matrix V, computeType is compute type of the operation. [Handle.Xgesvdr] only supports the following four combinations.
 // Valid combination of data type and compute type
@@ -9627,18 +12942,22 @@ func xgesvdrBufferSize(handle Handle, params Params, jobu int8, jobv int8, m int
 	if err := checkLibSym("cusolverDnXgesvdr_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxgesvdrBufferSize(handle, params, jobu, jobv, m, n, k, p, niters, dataTypeA, uintptr(a), lda, dataTypeSrand, uintptr(srand), dataTypeUrand, uintptr(urand), ldUrand, dataTypeVrand, uintptr(vrand), ldVrand, computeType, &out0, &out1), "cusolverDnXgesvdr_bufferSize"); err != nil {
+	outs := slotXgesvdrBufferSize.get()
+	defer slotXgesvdrBufferSize.put(outs)
+	if err := toError(fnxgesvdrBufferSize(handle, params, jobu, jobv, m, n, k, p, niters, dataTypeA, uintptr(a), lda, dataTypeSrand, uintptr(srand), dataTypeUrand, uintptr(urand), ldUrand, dataTypeVrand, uintptr(vrand), ldVrand, computeType, &outs.out0, &outs.out1), "cusolverDnXgesvdr_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// xgetrf computes the LU factorization of a m×n matrix
+var slotXgesvdrBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
+
+// xgetrf computes the LU factorization of a m×n matrix.
 //
-// P∗A=L∗U
-// where A is a m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix using the generic API interface.
+// P*A=L*U, where A is a m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix using the generic API interface.
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter info=i indicates U(i,i) = 0.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // If ipiv is null, no pivoting is performed. The factorization is A=L*U, which is not numerically stable.
@@ -9705,18 +13024,23 @@ func xgetrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA 
 	if err := checkLibSym("cusolverDnXgetrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxgetrfBufferSize(handle, params, m, n, dataTypeA, uintptr(a), lda, computeType, &out0, &out1), "cusolverDnXgetrf_bufferSize"); err != nil {
+	outs := slotXgetrfBufferSize.get()
+	defer slotXgetrfBufferSize.put(outs)
+	if err := toError(fnxgetrfBufferSize(handle, params, m, n, dataTypeA, uintptr(a), lda, computeType, &outs.out0, &outs.out1), "cusolverDnXgetrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// xgetrs solves a linear system of multiple right-hand sides
+var slotXgetrfBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
+
+// xgetrs solves a linear system of multiple right-hand sides.
 //
-// op(A)∗X=B
-// where A is an n×n matrix, and was LU-factored by [Handle.Xgetrf], that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix using the generic API interface.
+// op(A)*X=B, where A is an n×n matrix, and was LU-factored by [Handle.Xgetrf], that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix using the generic API interface.
+// The input parameter trans is defined by op(A) = A if trans == CUBLAS_OP_N, op(A) = Aᵀ if trans == CUBLAS_OP_T, and op(A) = Aᴴ if trans == CUBLAS_OP_C.
 // The input parameter ipiv is an output of [Handle.Xgetrf]. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine [Handle.Xgetrf] and [Handle.Xgetrs] to complete a linear solver.
@@ -9757,7 +13081,8 @@ func xgetrs(handle Handle, params Params, trans Operation, n int64, nrhs int64, 
 
 // xlarft forms the triangular factor T of a real block reflector H of order n, which is defined as a product of k elementary reflectors.
 //
-// Only storev == CUBLAS_STOREV_COLUMNWISE is supported, which indicates that the vector defining the elementary reflector H(i) is stored in the i-th column of the array V, and H=I−V∗T∗VT (H=I−V∗T∗VH for complex types).
+// If:
+// Only storev == CUBLAS_STOREV_COLUMNWISE is supported, which indicates that the vector defining the elementary reflector H(i) is stored in the i-th column of the array V, and H=I−V*T*Vᵀ (H=I−V*T*Vᴴ for complex types).
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XlarftBufferSize].
 // Currently, only n >= k scenario is supported.
 // The generic API has four different types:
@@ -9829,21 +13154,26 @@ func xlarftBufferSize(handle Handle, params Params, direct DirectMode, storev St
 	if err := checkLibSym("cusolverDnXlarft_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxlarftBufferSize(handle, params, direct, storev, n, k, dataTypeV, uintptr(v), ldv, dataTypeTau, uintptr(tau), dataTypeT, uintptr(t), ldt, computeType, &out0, &out1), "cusolverDnXlarft_bufferSize"); err != nil {
+	outs := slotXlarftBufferSize.get()
+	defer slotXlarftBufferSize.put(outs)
+	if err := toError(fnxlarftBufferSize(handle, params, direct, storev, n, k, dataTypeV, uintptr(v), ldv, dataTypeTau, uintptr(tau), dataTypeT, uintptr(t), ldt, computeType, &outs.out0, &outs.out1), "cusolverDnXlarft_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotXlarftBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // xpotrf computes the Cholesky factorization of a Hermitian positive-definite matrix using the generic API interface.
 //
 // A is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XpotrfBufferSize].
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter info would indicate smallest leading minor of A which is not positive definite.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -9906,19 +13236,23 @@ func xpotrfBufferSize(handle Handle, params Params, uplo FillMode, n int64, data
 	if err := checkLibSym("cusolverDnXpotrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxpotrfBufferSize(handle, params, uplo, n, dataTypeA, uintptr(a), lda, computeType, &out0, &out1), "cusolverDnXpotrf_bufferSize"); err != nil {
+	outs := slotXpotrfBufferSize.get()
+	defer slotXpotrfBufferSize.put(outs)
+	if err := toError(fnxpotrfBufferSize(handle, params, uplo, n, dataTypeA, uintptr(a), lda, computeType, &outs.out0, &outs.out1), "cusolverDnXpotrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// xpotrs solves a system of linear equations
+var slotXpotrfBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
+
+// xpotrs solves a system of linear equations.
 //
-// A∗X=B
-// where A is a n×n Hermitian matrix, only lower or upper part is meaningful using the generic API interface. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// The user has to call [Handle.Xpotrf] first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A*X=B, where A is a n×n Hermitian matrix, only lower or upper part is meaningful using the generic API interface. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
+// The user has to call [Handle.Xpotrf] first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Currently, [Handle.Xpotrs] supports only the default algorithm.
@@ -9954,16 +13288,15 @@ func xpotrs(handle Handle, params Params, uplo FillMode, n int64, nrhs int64, da
 	return toError(fnxpotrs(handle, params, uplo, n, nrhs, dataTypeA, uintptr(a), lda, dataTypeB, uintptr(b), ldb, uintptr(info)), "cusolverDnXpotrs")
 }
 
-// xsyevBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+// xsyevBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //
-// Aj∗Vj=Vj∗Λj
-// where Λj is a real n×n diagonal matrix. Vj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in ascending order.
+// Aj*Vj=Vj*Λj, where Λj is a real n×n diagonal matrix. Vj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in ascending order.
 // syevBatched performs an eigendecomposition on each matrix. It requires that all matrices are of the same size n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter W also contains the eigenvalues of each matrix in a contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
+// The formula for random access of W is Wk(j)=W [j+n*k] .
 // The user has to provide device and host working space which are pointed to by the input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost denote the size in bytes of the device and host working space, and returned by [Handle.XsyevBatchedBufferSize].
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates the i-th parameter is wrong (not counting handle). Otherwise, if info [i] > 0, syevBatched does not converge on the i-th matrix.
 // If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors of the matrix Aj.
@@ -10037,8 +13370,7 @@ func xsyevBatchedBufferSize(handle Handle, params Params, jobz EigMode, uplo Fil
 
 // xsyevd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
 //
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The standard symmetric eigenvalue problem is A*V=V*Λ, where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsyevdBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
@@ -10107,18 +13439,22 @@ func xsyevdBufferSize(handle Handle, params Params, jobz EigMode, uplo FillMode,
 	if err := checkLibSym("cusolverDnXsyevd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxsyevdBufferSize(handle, params, jobz, uplo, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), computeType, &out0, &out1), "cusolverDnXsyevd_bufferSize"); err != nil {
+	outs := slotXsyevdBufferSize.get()
+	defer slotXsyevdBufferSize.put(outs)
+	if err := toError(fnxsyevdBufferSize(handle, params, jobz, uplo, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), computeType, &outs.out0, &outs.out1), "cusolverDnXsyevd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotXsyevdBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // xsyevdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
 //
-// A∗V=V∗Λ
-// where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The standard symmetric eigenvalue problem is A*V=V*Λ, where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsyevdxBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // if jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
@@ -10138,6 +13474,10 @@ func xsyevdBufferSize(handle Handle, params Params, jobz EigMode, uplo FillMode,
 //   - dataTypeA: Data type of array A
 //   - a: Array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and info = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - dataTypeW: Data type of array W
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order, i.e., sorted so that W(i) <= W(i+1)
 //   - computeType: Data type of computation
@@ -10172,6 +13512,10 @@ func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo F
 //   - dataTypeA: Data type of array A
 //   - a: Array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and info = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - hMeig: Integer. The total number of eigenvalues found. 0 <= hMeig <= n. If range = [EigRangeAll], hMeig = n, and if range = [EigRangeI], hMeig = iu-il+1
 //   - dataTypeW: Data type of array W
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order, i.e., sorted so that W(i) <= W(i+1)
@@ -10186,19 +13530,27 @@ func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo F
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsyevdxBufferSize, bound as cusolverDnXsyevdx_bufferSize.
-func xsyevdxBufferSize(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, hMeig *int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsyevdxBufferSize(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (hMeig int64, workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsyevdx_bufferSize"); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxsyevdxBufferSize(handle, params, jobz, range_, uplo, n, dataTypeA, uintptr(a), lda, vl, vu, il, iu, hMeig, dataTypeW, uintptr(w), computeType, &out0, &out1), "cusolverDnXsyevdx_bufferSize"); err != nil {
-		return 0, 0, err
+	outs := slotXsyevdxBufferSize.get()
+	defer slotXsyevdxBufferSize.put(outs)
+	if err := toError(fnxsyevdxBufferSize(handle, params, jobz, range_, uplo, n, dataTypeA, uintptr(a), lda, vl, vu, il, iu, &outs.out0, dataTypeW, uintptr(w), computeType, &outs.out1, &outs.out2), "cusolverDnXsyevdx_bufferSize"); err != nil {
+		return 0, 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, outs.out2, nil
 }
 
+var slotXsyevdxBufferSize outSlot[struct {
+	out0 int64
+	out1 uint
+	out2 uint
+}]
+
 // xsyevjGetResidual reports residual of syevj or sygvj.
+//
+// It does not support syevjBatched. If the user calls this function after syevjBatched, the error [ErrNotSupported] is returned.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - info: The pointer to the structure of syevj
@@ -10214,15 +13566,20 @@ func xsyevjGetResidual(handle Handle, info SyevjInfo) (float64, error) {
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fnxsyevjGetResidual(handle, info, &out), "cusolverDnXsyevjGetResidual"); err != nil {
+	out := slotXsyevjGetResidual.get()
+	defer slotXsyevjGetResidual.put(out)
+	if err := toError(fnxsyevjGetResidual(handle, info, out), "cusolverDnXsyevjGetResidual"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotXsyevjGetResidual outSlot[float64]
+
 // xsyevjGetSweeps reports number of executed sweeps of syevj or sygvj.
+//
+// It does not support syevjBatched. If the user calls this function after syevjBatched, the error [ErrNotSupported] is returned.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - info: The pointer to the structure of syevj
@@ -10238,15 +13595,20 @@ func xsyevjGetSweeps(handle Handle, info SyevjInfo) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnxsyevjGetSweeps(handle, info, &out), "cusolverDnXsyevjGetSweeps"); err != nil {
+	out := slotXsyevjGetSweeps.get()
+	defer slotXsyevjGetSweeps.put(out)
+	if err := toError(fnxsyevjGetSweeps(handle, info, out), "cusolverDnXsyevjGetSweeps"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotXsyevjGetSweeps outSlot[int32]
+
 // xsyevjSetMaxSweeps configures maximum number of sweeps in syevj.
+//
+// The default value is 100.
 //
 //   - info: The pointer to the structure of syevj
 //   - maxSweeps: Maximum number of sweeps
@@ -10263,6 +13625,8 @@ func xsyevjSetMaxSweeps(info SyevjInfo, maxSweeps int32) error {
 }
 
 // xsyevjSetSortEig If sortEig is zero, the eigenvalues are not sorted.
+//
+// This function only works for syevjBatched. syevj and sygvj always sort eigenvalues in ascending order. By default, eigenvalues are always sorted in ascending order.
 //
 //   - info: The pointer to the structure of syevj
 //   - sortEig: If sortEig is zero, the eigenvalues are not sorted
@@ -10296,7 +13660,7 @@ func xsyevjSetTolerance(info SyevjInfo, tolerance float64) error {
 
 // xsygvd The following routine computes all the eigenvalues, and optionally, the eigenvectors of a generalized symmetric (Hermitian) definite eigenproblem.
 //
-// where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. V is an n×n orthogonal matrix.
+// The generalized symmetric (Hermitian) definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows:v: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsygvdBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If info = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
@@ -10365,17 +13729,22 @@ func xsygvdBufferSize(handle Handle, params Params, itype EigType, jobz EigMode,
 	if err := checkLibSym("cusolverDnXsygvd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxsygvdBufferSize(handle, params, itype, jobz, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, dataTypeW, uintptr(dW), computeType, &out0, &out1), "cusolverDnXsygvd_bufferSize"); err != nil {
+	outs := slotXsygvdBufferSize.get()
+	defer slotXsygvdBufferSize.put(outs)
+	if err := toError(fnxsygvdBufferSize(handle, params, itype, jobz, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, dataTypeW, uintptr(dW), computeType, &outs.out0, &outs.out1), "cusolverDnXsygvd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotXsygvdBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // xsygvdx The following routine computes all or selection of the eigenvalues, and optionally, the eigenvectors of a generalized symmetric (Hermitian) definite eigenproblem.
 //
-// where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. h_meig represents the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. V is an n×n orthogonal matrix.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix A and B are n×n; A is symmetric/Hermitian and B is symmetrix/Hermitian positive definite. The eigenvalues of ( A, B) are computed and stored in the W vector in ascending order. h_meig represents the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
 // The user has to provide device and host working spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice (and workspaceInBytesOnHost) is size in bytes of the device (and host) working space, and it is returned by [Handle.XsygvdxBufferSize].
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If info = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
@@ -10395,6 +13764,10 @@ func xsygvdBufferSize(handle Handle, params Params, itype EigType, jobz EigMode,
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - dataTypeB: Data type of array B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
+//   - vl: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI].Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI].Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - dataTypeW: Data type of array W
 //   - computeType: Data type of computation
 //   - bufferOnDevice: Device workspace. Array of type void of size workspaceInBytesOnDevice bytes
@@ -10428,6 +13801,10 @@ func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ E
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - dataTypeB: Data type of array B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
+//   - vl: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI].Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. The values are treated as dataTypeW. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI].Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - dataTypeW: Data type of array W
 //   - computeType: Data type of computation
 //   - workspaceInBytesOnDevice: Size of bufferOnDevice, in bytes
@@ -10440,26 +13817,32 @@ func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ E
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnXsygvdxBufferSize, bound as cusolverDnXsygvdx_bufferSize.
-func xsygvdxBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsygvdxBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (meig int64, workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsygvdx_bufferSize"); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxsygvdxBufferSize(handle, params, itype, jobz, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, vl, vu, il, iu, meig, dataTypeW, uintptr(dW), computeType, &out0, &out1), "cusolverDnXsygvdx_bufferSize"); err != nil {
-		return 0, 0, err
+	outs := slotXsygvdxBufferSize.get()
+	defer slotXsygvdxBufferSize.put(outs)
+	if err := toError(fnxsygvdxBufferSize(handle, params, itype, jobz, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, vl, vu, il, iu, &outs.out0, dataTypeW, uintptr(dW), computeType, &outs.out1, &outs.out2), "cusolverDnXsygvdx_bufferSize"); err != nil {
+		return 0, 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, outs.out2, nil
 }
+
+var slotXsygvdxBufferSize outSlot[struct {
+	out0 int64
+	out1 uint
+	out2 uint
+}]
 
 // xsytrs solves a system of linear equations using the generic API interface.
 //
-// A contains the factorization from cusolverDnsytrf(), only lower or upper part is meaningful, the other part is not touched.
+// A contains the factorization from cusolverDn<t>sytrf(), only lower or upper part is meaningful, the other part is not touched.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, the details of the factorization are stores as:
-// A=L∗D∗LT
+// A=L*D*Lᵀ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, the details of the factorization are stores as:
-// A=U∗D∗UT
-// The user has to provide the pivot indices that can be obtained by cusolverDnsytrf() as well as device and host work spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost are sizes in bytes of the device and host work spaces, and they are returned by [Handle.XsytrsBufferSize]. To factorize and solve the symmetric system without pivoting, the user should set devIpiv = NULL when calling cusolverDnsytrf and [Handle.Xsytrs].
+// A=U*D*Uᵀ
+// The user has to provide the pivot indices that can be obtained by cusolverDn<t>sytrf() as well as device and host work spaces which are pointed by input parameters bufferOnDevice and bufferOnHost. The input parameters workspaceInBytesOnDevice and workspaceInBytesOnHost are sizes in bytes of the device and host work spaces, and they are returned by [Handle.XsytrsBufferSize]. To factorize and solve the symmetric system without pivoting, the user should set devIpiv = NULL when calling cusolverDn<t>sytrf and [Handle.Xsytrs].
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // List of input arguments for [Handle.XsytrsBufferSize] and [Handle.Xsytrs]:
 // The generic API has two different types: dataTypeA is data type of the matrix A, dataTypeB is data type of the matrix A. [Handle.Xsytrs] only supports the following four combinations:
@@ -10522,13 +13905,18 @@ func xsytrsBufferSize(handle Handle, uplo FillMode, n int64, nrhs int64, dataTyp
 	if err := checkLibSym("cusolverDnXsytrs_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxsytrsBufferSize(handle, uplo, n, nrhs, dataTypeA, uintptr(a), lda, uintptr(ipiv), dataTypeB, uintptr(b), ldb, &out0, &out1), "cusolverDnXsytrs_bufferSize"); err != nil {
+	outs := slotXsytrsBufferSize.get()
+	defer slotXsytrsBufferSize.put(outs)
+	if err := toError(fnxsytrsBufferSize(handle, uplo, n, nrhs, dataTypeA, uintptr(a), lda, uintptr(ipiv), dataTypeB, uintptr(b), ldb, &outs.out0, &outs.out1), "cusolverDnXsytrs_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotXsytrsBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
 
 // xtrtri computes the inverse of a triangular matrix using the generic API interface.
 //
@@ -10593,29 +13981,35 @@ func xtrtriBufferSize(handle Handle, uplo FillMode, diag DiagType, n int64, data
 	if err := checkLibSym("cusolverDnXtrtri_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnxtrtriBufferSize(handle, uplo, diag, n, dataTypeA, uintptr(a), lda, &out0, &out1), "cusolverDnXtrtri_bufferSize"); err != nil {
+	outs := slotXtrtriBufferSize.get()
+	defer slotXtrtriBufferSize.put(outs)
+	if err := toError(fnxtrtriBufferSize(handle, uplo, diag, n, dataTypeA, uintptr(a), lda, &outs.out0, &outs.out1), "cusolverDnXtrtri_bufferSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// zCgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotXtrtriBufferSize outSlot[struct {
+	out0 uint
+	out1 uint
+}]
+
+// zCgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -10628,7 +14022,7 @@ func xtrtriBufferSize(handle Handle, uplo FillMode, diag DiagType, n int64, data
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -10676,28 +14070,32 @@ func zCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzCgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZCgels_bufferSize"); err != nil {
+	out := slotZCgelsBufferSize.get()
+	defer slotZCgelsBufferSize.put(out)
+	if err := toError(fnzCgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZCgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zCgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotZCgelsBufferSize outSlot[uint]
+
+// zCgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -10710,7 +14108,7 @@ func zCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -10758,29 +14156,33 @@ func zCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzCgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZCgesv_bufferSize"); err != nil {
+	out := slotZCgesvBufferSize.get()
+	defer slotZCgesvBufferSize.put(out)
+	if err := toError(fnzCgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZCgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zEgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotZCgesvBufferSize outSlot[uint]
+
+// zEgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -10793,7 +14195,7 @@ func zCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -10841,28 +14243,32 @@ func zEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzEgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZEgels_bufferSize"); err != nil {
+	out := slotZEgelsBufferSize.get()
+	defer slotZEgelsBufferSize.put(out)
+	if err := toError(fnzEgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZEgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zEgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotZEgelsBufferSize outSlot[uint]
+
+// zEgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -10875,7 +14281,7 @@ func zEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -10923,29 +14329,33 @@ func zEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzEgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZEgesv_bufferSize"); err != nil {
+	out := slotZEgesvBufferSize.get()
+	defer slotZEgesvBufferSize.put(out)
+	if err := toError(fnzEgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZEgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zKgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotZEgesvBufferSize outSlot[uint]
+
+// zKgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -10958,7 +14368,7 @@ func zEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -11006,28 +14416,32 @@ func zKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzKgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZKgels_bufferSize"); err != nil {
+	out := slotZKgelsBufferSize.get()
+	defer slotZKgelsBufferSize.put(out)
+	if err := toError(fnzKgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZKgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zKgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotZKgelsBufferSize outSlot[uint]
+
+// zKgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -11040,7 +14454,7 @@ func zKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -11088,29 +14502,33 @@ func zKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzKgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZKgesv_bufferSize"); err != nil {
+	out := slotZKgesvBufferSize.get()
+	defer slotZKgesvBufferSize.put(out)
+	if err := toError(fnzKgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZKgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zYgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotZKgesvBufferSize outSlot[uint]
+
+// zYgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -11123,7 +14541,7 @@ func zKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -11171,28 +14589,32 @@ func zYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzYgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZYgels_bufferSize"); err != nil {
+	out := slotZYgelsBufferSize.get()
+	defer slotZYgelsBufferSize.put(out)
+	if err := toError(fnzYgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZYgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zYgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotZYgelsBufferSize outSlot[uint]
+
+// zYgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -11205,7 +14627,7 @@ func zYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -11253,29 +14675,33 @@ func zYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzYgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZYgesv_bufferSize"); err != nil {
+	out := slotZYgesvBufferSize.get()
+	defer slotZYgesvBufferSize.put(out)
+	if err := toError(fnzYgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZYgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zZgels These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+var slotZYgesvBufferSize outSlot[uint]
+
+// zZgels computes the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
 //
+// These functions are similar in term of functionalities to the full precision LAPACK QR (least squares) solver (Xgels, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an QR factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is m-by-n matrix and X is n-by-nrhs and B is m-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. gels() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Description of these functions is given below. <t1><t2>gels() functions are designated by two floating point precisions The <t1> corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the <t2> represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gels() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision <t1>. If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgels) such a way that there is always a good solution at the output of these functions. If <t2> is equal to <t1>, then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if:
 // ITER > ITERMAX
 // or for all the RHS we have:
 // RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX
 // where
 // The values ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gels_bufferSize().
-// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function:
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gels_bufferSize().
+// We provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (e.g., main and lowest precision are equal <t2> is equal to <t1>). The following table specifies which precisions will be used for which interface function:
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gels for the FP64 case).
-// cusolverDngels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngels() function.
+// cusolverDn<t1><t2>gels_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gels() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - m: Number of rows of the matrix A. Should be non-negative and n<=m
@@ -11288,7 +14714,7 @@ func zYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. lddx >= max(1,n)
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngels_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gels_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -11336,28 +14762,32 @@ func zZgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzZgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZZgels_bufferSize"); err != nil {
+	out := slotZZgelsBufferSize.get()
+	defer slotZZgelsBufferSize.put(out)
+	if err := toError(fnzZgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZZgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zZgesv These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+var slotZZgelsBufferSize outSlot[uint]
+
+// zZgesv is modelled after functions DSGESV and ZCGESV from LAPACK.
 //
+// They compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the LU factorization Xgesv. These functions are similar in term of functionalities to the full precision LU solver ( Xgesv, where X denotes Z,C,D,S) but it uses lower precision internally in order to provide faster time to solution, from here comes the name mixed precision. Mixed precision iterative refinement techniques means that the solver compute an LU factorization in lower precision and then iteratively refine the solution to achieve the accuracy of the Inputs/Outputs datatype precision. The corresponds to the Inputs/Outputs datatype precision while represent the internal lower precision at which the factorization will be carried on.
 // A×X=B
 // Where A is n-by-n matrix and X and B are n-by-nrhs matrices.
-// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolvergesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
+// Functions API are designed to be as close as possible to LAPACK API to be considered as a quick and easy drop-in replacement. Parameters and behavior are mostly the same as LAPACK counterparts. Description of these functions and differences from LAPACK is given below. <t1><t2>gesv() functions are designated by two floating point precisions The corresponds to the main precision (e.g., Inputs/Outputs datatype precision) and the represent the internal lower precision at which the factorization will be carried on. cusolver<t1><t2>gesv() first attempts to factorize the matrix in lower precision and use this factorization within an iterative refinement procedure to obtain a solution with same normwise backward error as the main precision . If the approach fails to converge, then the method fallback to the main precision factorization and solve (Xgesv) such a way that there is always a good solution at the output of these functions. If is equal to , then it is not a mixed precision process but rather a full one precision factorization, solve and refinement within the same main precision.
 // The iterative refinement process is stopped if
 // or for all the RHS we have:
 // where
 // The value ITERMAX and BWDMAX are fixed to 50 and 1.0 respectively.
-// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function gesv_bufferSize().
+// The function returns value describes the results of the solving process. A [Success] indicates that the function finished with success otherwise, it indicates if one of the API arguments is incorrect, or if the function did not finish with success. More details about the error will be in the niters and the dinfo API parameters. See their description below for more details. User should provide the required workspace allocated on device memory. The amount of bytes required can be queried by calling the respective function <t1><t2>gesv_bufferSize().
 // Note that in addition to the two mixed precision functions available in LAPACK (for example, dsgesv and zcgesv), we provide a large set of mixed precision functions that include half, bfloat and tensorfloat as a lower precision as well as same precision functions (, main and lowest precision are equal is equal to ). The following table specifies which precisions will be used for which interface function.
 // Tensor Float (TF32), introduced with NVIDIA Ampere Architecture GPUs, is the most robust tensor core accelerated compute mode for the iterative refinement solver. It is able to solve the widest range of problems in HPC arising from different applications and provides up to 4X and 5X speedup for real and complex systems, respectively. On Volta and Turing architecture GPUs, half precision tensor core acceleration is recommended. In cases where the iterative refinement solver fails to converge to the desired accuracy (main precision, INOUT data precision), it is recommended to use main precision as internal lowest precision (i.e., cusolverDn [DD,ZZ]gesv for the FP64 case).
 // * Has LAPACK counterparts
-// cusolverDngesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDngesv() function.
+// cusolverDn<t1><t2>gesv_bufferSize() functions will return workspace buffer size in bytes required for the corresponding cusolverDn<t1><t2>gesv() function.
 //
 //   - handle: Handle to the cusolverDN library context
 //   - n: Number of rows and columns of square matrix A. Should be non-negative
@@ -11370,7 +14800,7 @@ func zZgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 //   - dX: Set of solution vectors X of size n-by-nrhs. Can’t be NULL
 //   - lddx: Leading dimension of two-dimensional array used to store matrix of solution vectors X. ldx >= n
 //   - dWorkspace: Pointer to an allocated workspace in device memory of size lworkBytes
-//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDngesv_bufferSize() function
+//   - lworkBytes: Size of the allocated device workspace. Should be at least what was returned by cusolverDn<T1><T2>gesv_bufferSize() function
 //
 // Returns:
 //   - [ErrArchMismatch]: The IRS solver supports compute capability 7.0 and above. The lowest precision options CUSOLVER_CR_16BF and CUSOLVER_CR_TF32 are only available on compute capability 8.0 and above.
@@ -11418,17 +14848,24 @@ func zZgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnzZgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out), "cusolverDnZZgesv_bufferSize"); err != nil {
+	out := slotZZgesvBufferSize.get()
+	defer slotZZgesvBufferSize.put(out)
+	if err := toError(fnzZgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), out), "cusolverDnZZgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zgebrd reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+var slotZZgesvBufferSize outSlot[uint]
+
+// zgebrd reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: Qᴴ*A*P=B.
 //
-// If m>=n, B is upper bidiagonal; if m=n.
+// If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
+// The matrix Q and P are overwritten into matrix A in the following sense:
+// The user has to provide working space which is pointed by input parameter Work. The input parameter Lwork is size of the working space, and it is returned by gebrd_bufferSize().
+// If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
+// Remark: gebrd only supports m>=n.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - m: Number of rows of matrix A
@@ -11478,22 +14915,24 @@ func zgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzgebrdBufferSize(handle, m, n, &out), "cusolverDnZgebrd_bufferSize"); err != nil {
+	out := slotZgebrdBufferSize.get()
+	defer slotZgebrdBufferSize.put(out)
+	if err := toError(fnzgebrdBufferSize(handle, m, n, out), "cusolverDnZgebrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zgeqrf computes the QR factorization of an m×n matrix
+var slotZgebrdBufferSize outSlot[int32]
+
+// zgeqrf computes the QR factorization of an m×n matrix.
 //
-// A=Q∗R
-// where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
+// A=Q*R, where A is an m×n matrix, Q is an m×n matrix, and R is a n×n upper triangular matrix.
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by geqrf_bufferSize().
 // The matrix R is overwritten in upper triangular part of A, including diagonal elements.
 // The matrix Q is not formed explicitly, instead, a sequence of householder vectors are stored in lower triangular part of A. The leading nonzero element of householder vector is assumed to be 1 such that output parameter TAU contains the scaling factor τ. If v is original householder vector, q is the new householder vector corresponding to τ, satisfying the following relation
-// I−2∗v∗vH=I−τ∗q∗qH
+// I−2*v*vᴴ=I−τ*q*qᴴ
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -11542,24 +14981,26 @@ func zgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzgeqrfBufferSize(handle, m, n, uintptr(a), lda, &out), "cusolverDnZgeqrf_bufferSize"); err != nil {
+	out := slotZgeqrfBufferSize.get()
+	defer slotZgeqrfBufferSize.put(out)
+	if err := toError(fnzgeqrfBufferSize(handle, m, n, uintptr(a), lda, out), "cusolverDnZgeqrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZgeqrfBufferSize outSlot[int32]
 
 // zgesvd computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The SVD is written A=U*Σ*Vᴴ, where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by gesvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). if bdsqr did not converge, devInfo specifies how many superdiagonals of an intermediate bidiagonal form did not converge to zero.
 // The rwork is real array of dimension (min(m,n)-1). If devInfo >0 and rwork is not NULL, rwork contains the unconverged superdiagonal elements of an upper bidiagonal matrix. This is slightly different from LAPACK which puts unconverged superdiagonal elements in work if type is real; in rwork if type is complex. rwork can be a NULL pointer if the user does not want the information from superdiagonal.
 // Please visit cuSOLVER Library Samples - gesvd for a code example.
 // Remark 1: gesvd only supports m>=n.
-// Remark 2: the routine returns VH , not V.
+// Remark 2: the routine returns Vᴴ , not V.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobu: Specifies options for computing all or part of the matrix U: = ‘A’: all m columns of U are returned in array U: = ‘S’: the first min(m,n) columns of U (the left singular vectors) are returned in the array U; = ‘O’: the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A; = ‘N’: no columns of U (no left singular vectors) are computed
@@ -11612,35 +15053,37 @@ func zgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzgesvdBufferSize(handle, m, n, &out), "cusolverDnZgesvd_bufferSize"); err != nil {
+	out := slotZgesvdBufferSize.get()
+	defer slotZgesvdBufferSize.put(out)
+	if err := toError(fnzgesvdBufferSize(handle, m, n, out), "cusolverDnZgesvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZgesvdBufferSize outSlot[int32]
 
 // zgesvdaStridedBatched gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
 //
-// A=U∗Σ∗VH
-// where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
+// The economy form of SVD is written by A=U*Σ*Vᴴ, where Σ is an n×n matrix. U is an m×n unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. U and V are the left and right singular vectors of A.
 // gesvda computes eigenvalues of A**T*A, or A**H*A (if A is complex), to approximate singular values and singular vectors. It generates matrices U and V and transforms the matrix A to the following form
-// UH∗A∗V=S+E
+// Uᴴ*A*V=S+E
 // where S is diagonal and E depends on rounding errors. To certain conditions, U, V and S approximate singular values and singular vectors up to machine zero of single precision. In general, V is unitary, S is more accurate than U. If singular value is far from zero, then left singular vector U is accurate. In other words, the accuracy of singular values and left singular vectors depend on the distance between singular value and zero. Since the computation of A**T*A, or A**H*A can greatly amplify errors, it is recommended to use gesvda only with well-conditioned data.
 // The input parameter rank decides the number of singular values and singular vectors are computed in parameter S, U and V.
 // The output parameter h_RnrmF computes Frobenius norm of residual. To compute h_RnrmF, info != NULL is required.
-// A−U∗S∗VH
+// A−U*S*Vᴴ
 // if the parameter rank is equal n. Otherwise, h_RnrmF reports
-// ‖U∗S∗VH‖−‖S‖
+// ‖U*S*Vᴴ‖−‖S‖
 // in Frobenius norm sense, that is, how far U is from unitary.
 // gesvdaStridedBatched performs gesvda on each matrix. It requires that all matrices are of the same size m,n and are packed in a contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+strideA∗k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS∗k] , the formula for random access of U is Uk(i,j)=U [i+ldu∗j+strideU∗k] and the formula for random access of V is Vk(i,j)=V [i+ldv∗j+strideV∗k] .
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+strideA*k] . Similarly, the formula for random access of S is Sk(j)=S [j+StrideS*k] , the formula for random access of U is Uk(i,j)=U [i+ldu*j+strideU*k] and the formula for random access of V is Vk(i,j)=V [i+ldv*j+strideV*k] .
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdaStridedBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdaStridedBatched did not converge on the i-th matrix. If 0 < info [i] < min(m,n)+1, gesvdaStridedBatched could not compute an SVD of the i-th matrix fully; the leading singular values Si [k], 0 <= k <= info [i]-1, and corresponding singular vectors may still be useful. In this case, if h_RnrmF is requested, h_RnrmF reports the residual as if rank was set to info [i]-1.
 // Note that the problem size is limited by the condition batchSize*stride{A/S/U/V}<=INT32_MAX primarily due to the current implementation constraints.
 // Please visit cuSOLVER Library Samples - gesvdaStridedBatched for a code example.
-// Remark 1: The routine returns V, not VH . This is different from gesvd.
+// Remark 1: The routine returns V, not Vᴴ . This is different from gesvd.
 // Remark 2: The routine only supports m >=n.
 // Remark 3: It is recommended to use an FP64 data type, that is [Handle.DgesvdaStridedBatched] or [Handle.ZgesvdaStridedBatched].
 // Remark 4: If the user is confident on the accuracy of singular values and singular vectors, for example, certain conditions hold (required singular value is far from zero), then the performance can be improved by passing a null pointer to h_RnrmF, i.e. no computation of the residual norm.
@@ -11707,27 +15150,28 @@ func zgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m 
 
 // zgesvdj computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //
-// A=U∗Σ∗VH
+// The SVD is written:
+// A=U*Σ*Vᴴ
 // where Σ is an m×n matrix which is zero except for its min(m,n) diagonal elements, U is an m×m unitary matrix, and V is an n×n unitary matrix. The diagonal elements of Σ are the singular values of A; they are real and non-negative, and are returned in descending order. The first min(m,n) columns of U and V are the left and right singular vectors of A.
 // gesvdj has the same functionality as gesvd. The difference is that gesvd uses QR algorithm and gesvdj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure gesvdj to perform approximation up to certain accuracy.
 // gesvdj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// UH∗A∗V=S+E
+// Uᴴ*A*V=S+E
 // where S is diagonal and diagonal of E is zero.
 // During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, S is the set of singular values. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
+// ‖E‖F≤eps*‖A‖F
 // where eps is given tolerance. Note that if the real residual norm
-// ‖S−UH∗A∗V‖F
+// ‖S−Uᴴ*A*V‖F
 // is computed, it will differ from ‖E‖F up to roundoff errors of order N=max(m,n), to still have the standard SVD accuracy expectation
-// ‖S−UH∗A∗V‖FO(N)∗‖A‖F≤‖E‖F‖A‖F≤eps
-// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps∗N.
+// ‖S−Uᴴ*A*V‖FO(N)*‖A‖F≤‖E‖F‖A‖F≤eps
+// O(N) is typically N, but the constant depends on the number of sweeps, which gives an upper roundoff error bound of sweeps*N.
 // gesvdj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [GesvdjInfo.XgesvdjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [GesvdjInfo.XgesvdjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. gesvdj stops either tolerance is met or maximum number of sweeps is met.
 // Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = min(m,n)+1, gesvdj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, gesvdj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // Please visit cuSOLVER Library Samples - gesvdj for a code example.
 // Remark 1: gesvdj supports any combination of m and n.
-// Remark 2: the routine returns V, not VH . This is different from gesvd.
+// Remark 2: the routine returns V, not Vᴴ . This is different from gesvd.
 //
 //   - handle: Handle to the cuSolverDN library context
 //   - jobz: Specifies options to either compute singular value only or singular vectors as well: jobz = [EigModeNovector] : Compute singular values only; jobz = [EigModeVector] : Compute singular values and singular vectors
@@ -11760,19 +15204,18 @@ func zgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver
 	return toError(fnzgesvdj(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params), "cusolverDnZgesvdj")
 }
 
-// zgesvdjBatched computes singular values and singular vectors of a sequence of general m×n matrices
+// zgesvdjBatched computes singular values and singular vectors of a sequence of general m×n matrices.
 //
-// Aj=Uj∗Σj∗VjH
-// where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
+// Aj=Uj*Σj*VjH, where Σj is a real m×n diagonal matrix which is zero except for its min(m,n) diagonal elements. Uj (left singular vectors) is an m×m unitary matrix and Vj (right singular vectors) is a n×n unitary matrix. The diagonal elements of Σj are the singular values of Aj in either descending order or non-sorting order.
 // gesvdjBatched performs gesvdj on each matrix. It requires that all matrices are of the same size m,n no greater than 32 and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter S also contains singular values of each matrix in contiguous way,
 // S=(S0S1⋯)
-// The formula for random access of S is Sk(j)=S [j+min(m,n)∗k] .
+// The formula for random access of S is Sk(j)=S [j+min(m,n)*k] .
 // Except for tolerance and maximum sweeps, gesvdjBatched can either sort the singular values in descending order (default) or chose as-is (without sorting) by the function [GesvdjInfo.XgesvdjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate singular values of those tiny matrices.
 // gesvdjBatched cannot report residual and executed sweeps by function [Handle.XgesvdjGetResidual] and [Handle.XgesvdjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by gesvdjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = min(m,n)+1, gesvdjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // Please visit cuSOLVER Library Samples - gesvdjBatched for a code example.
 //
@@ -11869,10 +15312,9 @@ func zgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32
 	return toError(fnzgesvdjBufferSize(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params), "cusolverDnZgesvdj_bufferSize")
 }
 
-// zgetrf computes the LU factorization of an m×n matrix
+// zgetrf computes the LU factorization of an m×n matrix.
 //
-// P∗A=L∗U
-// where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
+// P*A=L*U, where A is an m×n matrix, P is a permutation matrix, L is a lower triangular matrix with unit diagonal, and U is an upper triangular matrix.
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by getrf_bufferSize().
 // If LU factorization failed, i.e. matrix A ( U) is singular, The output parameter devInfo=i indicates U(i,i) = 0.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -11927,18 +15369,21 @@ func zgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda i
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzgetrfBufferSize(handle, m, n, uintptr(a), lda, &out), "cusolverDnZgetrf_bufferSize"); err != nil {
+	out := slotZgetrfBufferSize.get()
+	defer slotZgetrfBufferSize.put(out)
+	if err := toError(fnzgetrfBufferSize(handle, m, n, uintptr(a), lda, out), "cusolverDnZgetrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zgetrs solves a linear system of multiple right-hand sides
+var slotZgetrfBufferSize outSlot[int32]
+
+// zgetrs solves a linear system of multiple right-hand sides.
 //
-// op(A)∗X=B
-// where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
+// op(A)*X=B, where A is an n×n matrix, and was LU-factored by getrf, that is, lower triangular part of A is L, and upper triangular part (including diagonal elements) of A is U. B is an n×nrhs right-hand side matrix.
+// The input parameter trans is defined by op(A) = A if trans == CUBLAS_OP_N, op(A) = Aᵀ if trans == CUBLAS_OP_T, and op(A) = Aᴴ if trans == CUBLAS_OP_C.
 // The input parameter devIpiv is an output of getrf. It contains pivot indices, which are used to permutate right-hand sides.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine getrf and getrs to complete a linear solver.
@@ -11971,9 +15416,8 @@ func zgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.Device
 
 // zheevd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗V=V∗Λ
-// where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The standard symmetric eigenvalue problem is A*V=V*Λ, where Λ is a real n×n diagonal matrix. V is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - syevd for a code example.
@@ -12026,19 +15470,23 @@ func zheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzheevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), &out), "cusolverDnZheevd_bufferSize"); err != nil {
+	out := slotZheevdBufferSize.get()
+	defer slotZheevdBufferSize.put(out)
+	if err := toError(fnzheevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), out), "cusolverDnZheevd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZheevdBufferSize outSlot[int32]
 
 // zheevdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗V=V∗Λ
+// The standard symmetric eigenvalue problem is:
+// A*V=V*Λ
 // where Λ is a real n×h_meig diagonal matrix. V is an n×h_meig unitary matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (e.g., range = [EigRangeAll]) is requested. The diagonal elements of Λ are the eigenvalues of A in ascending order.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by syevdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (greater than zero), i off-diagonal elements of an intermediate tridiagonal form did not converge to zero.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors of the matrix A. The eigenvectors are computed by a divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - syevdx for a code example.
@@ -12050,6 +15498,10 @@ func zheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 //   - n: Number of rows (or columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by syevdx_bufferSize
@@ -12078,6 +15530,10 @@ func zheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - n: Number of rows (or columns) of matrix A
 //   - a: array of dimension lda * n with lda is not less than max(1,n). If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of A contains the upper triangular part of the matrix A. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of A contains the lower triangular part of the matrix A. On exit, if jobz = [EigModeVector], and devInfo = 0, A contains the orthonormal eigenvectors of the matrix A. If jobz = [EigModeNovector], the contents of A are destroyed
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user wants to be sure not to miss any eigenvalue within the interval bound, we suggest that the user subtract/add epsilon (machine precision) to the interval bound such as (vl=vl-eps, vu=vu+eps]. This suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, in ascending order ie, sorted so that W(i) <= W(i+1)
 //   - lwork: Size of work, in elements of complex128
 //
@@ -12089,36 +15545,39 @@ func zheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int3
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZheevdxBufferSize, bound as cusolverDnZheevdx_bufferSize.
-func zheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
+func zheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
 	if err := checkLibSym("cusolverDnZheevdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+		return 0, 0, err
 	}
-	var out int32
-	if err := toError(fnzheevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), &out), "cusolverDnZheevdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+	outs := slotZheevdxBufferSize.get()
+	defer slotZheevdxBufferSize.put(outs)
+	if err := toError(fnzheevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, &outs.out0, uintptr(w), &outs.out1), "cusolverDnZheevdx_bufferSize"); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotZheevdxBufferSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // zheevj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //
-// A∗Q=Q∗Λ
-// where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
+// The standard symmetric eigenvalue problem is A*Q=Q*Λ, where Λ is a real n×n diagonal matrix. Q is an n×n unitary matrix. The diagonal elements of Λ are the eigenvalues of A in ascending order.
 // syevj has the same functionality as syevd. The difference is that syevd uses QR algorithm and syevj uses Jacobi method. The parallelism of Jacobi method gives GPU better performance on small and medium size matrices. Moreover the user can configure syevj to perform approximation up to certain accuracy.
 // How does it work?
 // syevj iteratively generates a sequence of unitary matrices to transform matrix A to the following form
-// VH∗A∗V=W+E
+// Vᴴ*A*V=W+E
 // where W is diagonal and E is symmetric without diagonal.
 // During the iterations, the Frobenius norm of E decreases monotonically. As E goes down to zero, W is the set of eigenvalues. In practice, Jacobi method stops if
-// ‖E‖F≤eps∗‖A‖F
+// ‖E‖F≤eps*‖A‖F
 // where eps is the given tolerance.
 // syevj has two parameters to control the accuracy. First parameter is tolerance ( eps). The default value is machine accuracy but The user can use function [SyevjInfo.XsyevjSetTolerance] to set a priori tolerance. The second parameter is maximum number of sweeps which controls number of iterations of Jacobi method. The default value is 100 but the user can use function [SyevjInfo.XsyevjSetMaxSweeps] to set a proper bound. The experiments show 15 sweeps are good enough to converge to machine accuracy. syevj stops either tolerance is met or maximum number of sweeps is met.
 // The Jacobi method has quadratic convergence, so the accuracy is not proportional to number of sweeps. To guarantee certain accuracy, the user should configure tolerance only.
 // After syevj, the user can query residual by function [Handle.XsyevjGetResidual] and number of executed sweeps by function [Handle.XsyevjGetSweeps]. However the user needs to be aware that residual is the Frobenius norm of E, not accuracy of individual eigenvalue, i.e.
 // residual=‖E‖F=‖Λ−W‖F
-// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The same as syevd, the user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = n+1, syevj does not converge under given tolerance and maximum sweeps.
 // If the user sets an improper tolerance, syevj may not converge. For example, tolerance should not be smaller than machine accuracy.
 // If jobz = [EigModeVector], A contains the orthonormal eigenvectors V.
@@ -12150,19 +15609,18 @@ func zheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.Device
 	return toError(fnzheevj(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params), "cusolverDnZheevj")
 }
 
-// zheevjBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+// zheevjBatched computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //
-// Aj∗Qj=Qj∗Λj
-// where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
+// Aj*Qj=Qj*Λj, where Λj is a real n×n diagonal matrix. Qj is an n×n unitary matrix. The diagonal elements of Λj are the eigenvalues of Aj in either ascending order or non-sorting order.
 // syevjBatched performs syevj on each matrix. It requires that all matrices are of the same size n and are packed in contiguous way,
 // A=(A0A1⋯)
-// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda∗j+lda∗n∗k] .
+// Each matrix is column-major with leading dimension lda, so the formula for random access is Ak(i,j)=A [i+lda*j+lda*n*k] .
 // The parameter W also contains eigenvalues of each matrix in contiguous way,
 // W=(W0W1⋯)
-// The formula for random access of W is Wk(j)=W [j+n∗k] .
+// The formula for random access of W is Wk(j)=W [j+n*k] .
 // Except for tolerance and maximum sweeps, syevjBatched can either sort the eigenvalues in ascending order (default) or chose as-is (without sorting) by the function [SyevjInfo.XsyevjSetSortEig]. If the user packs several tiny matrices into diagonal blocks of one matrix, non-sorting option can separate spectrum of those tiny matrices.
 // syevjBatched cannot report residual and executed sweeps by function [Handle.XsyevjGetResidual] and [Handle.XsyevjGetSweeps]. Any call of the above two returns [ErrNotSupported]. The user needs to compute residual explicitly.
-// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by syevjBatched_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // The output parameter info is an integer array of size batchSize. If the function returns [ErrInvalidValue], the first element info [0] = -i (less than zero) indicates i-th parameter is wrong (not counting handle). Otherwise, if info [i] = n+1, syevjBatched does not converge on i-th matrix under given tolerance and maximum sweeps.
 // If jobz = [EigModeVector], Aj contains the orthonormal eigenvectors Vj.
 // Please visit cuSOLVER Library Samples - syevjBatched for a code example.
@@ -12249,8 +15707,8 @@ func zheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a dri
 
 // zhegvd computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - sygvd for a code example.
@@ -12309,18 +15767,21 @@ func zhegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzhegvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), &out), "cusolverDnZhegvd_bufferSize"); err != nil {
+	out := slotZhegvdBufferSize.get()
+	defer slotZhegvdBufferSize.put(out)
+	if err := toError(fnzhegvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), out), "cusolverDnZhegvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZhegvdBufferSize outSlot[int32]
 
 // zhegvdx computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×h_meig diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×h_meig orthogonal matrix. h_meig is the number of eigenvalues/eigenvectors computed by the routine, h_meig is equal to n when the whole spectrum (for example, range = [EigRangeAll]) is requested. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sygvdx_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). If devInfo = i (i > 0 and i<=n) and jobz = [EigModeNovector], i off-diagonal elements of an intermediate tridiagonal form did not converge to zero. If devInfo = n + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed.
 // If jobz = [EigModeVector], A contains the orthogonal eigenvectors of the matrix A. The eigenvectors are computed by divide and conquer algorithm.
 // Please visit cuSOLVER Library Samples - sygvdx for a code example.
@@ -12335,6 +15796,10 @@ func zhegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - work: Working space, array of size lwork
 //   - lwork: Size of work, returned by sygvdx_bufferSize
@@ -12366,6 +15831,10 @@ func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda is not less than max(1,n)
 //   - b: array of dimension ldb * n. If uplo = CUBLAS_FILL_MODE_UPPER, the leading n-by-n upper triangular part of B contains the upper triangular part of the matrix B. If uplo = CUBLAS_FILL_MODE_LOWER, the leading n-by-n lower triangular part of B contains the lower triangular part of the matrix B. On exit, if devInfo is less than n, B is overwritten by triangular factor U or L from the Cholesky factorization of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B. ldb is not less than max(1,n)
+//   - vl: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - vu: Real values float or double for (C, S) or (Z, D) precision respectively. If range = [EigRangeV], the lower and upper bounds of the interval to be searched for eigenvalues. vl > vu. Not referenced if range = [EigRangeAll] or range = [EigRangeI]. Note that, if eigenvalues are very close to each other, it is well known that two different eigenvalues routines might find slightly different number of eigenvalues inside the same interval. This is due to the fact that different eigenvalue algorithms, or even same algorithm but different run might find eigenvalues within some rounding error close to the machine precision. Thus, if the user want to be sure not to miss any eigenvalue within the interval bound, we suggest that, the user subtract/add epsilon (machine precision) to the interval bound such as ( vl = vl- eps, vu = vu + eps]. this suggestion is valid for any selective routine from cuSolver or LAPACK
+//   - il: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
+//   - iu: Integer. If range = [EigRangeI], the indices (in ascending order) of the smallest and largest eigenvalues to be returned. 1 <= il <= iu <= n, if n > 0; il = 1 and iu = 0 if n = 0. Not referenced if range = [EigRangeAll] or range = [EigRangeV]
 //   - w: A real array of dimension n. The eigenvalue values of A, sorted so that W(i) >= W(i+1)
 //   - lwork: Size of work, in elements of complex128
 //
@@ -12377,32 +15846,36 @@ func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo F
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cusolverDnZhegvdxBufferSize, bound as cusolverDnZhegvdx_bufferSize.
-func zhegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
+func zhegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, w driver.DevicePtr) (meig int32, lwork int32, err error) {
 	if err := checkLibSym("cusolverDnZhegvdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+		return 0, 0, err
 	}
-	var out int32
-	if err := toError(fnzhegvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), &out), "cusolverDnZhegvdx_bufferSize"); err != nil {
-		var zero int32
-		return zero, err
+	outs := slotZhegvdxBufferSize.get()
+	defer slotZhegvdxBufferSize.put(outs)
+	if err := toError(fnzhegvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, &outs.out0, uintptr(w), &outs.out1), "cusolverDnZhegvdx_bufferSize"); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotZhegvdxBufferSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // zhegvj computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //
-// where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix.
+// The generalized symmetric-definite eigenvalue problem is A*V = B*V*Λ if itype == [EigType1], A*B*V = V*Λ if itype == [EigType2], and B*A*V = V*Λ if itype == [EigType3], where the matrix B is positive definite. Λ is a real n×n diagonal matrix. The diagonal elements of Λ are the eigenvalues of ( A, B) in ascending order. V is an n×n orthogonal matrix. The eigenvectors are normalized as follows: Vᴴ*B*V = I if itype == [EigType1] or [EigType2], and Vᴴ*inv(B)*V = I if itype == [EigType3].
 // This function has the same functionality as sygvd except that syevd in sygvd is replaced by syevj in sygvj. Therefore, sygvj inherits properties of syevj, the user can use [SyevjInfo.XsyevjSetTolerance] and [SyevjInfo.XsyevjSetMaxSweeps] to configure tolerance and maximum sweeps.
 // However the meaning of residual is different from syevj. sygvj first computes Cholesky factorization of matrix B,
-// B=L∗LH
+// B=L*Lᴴ
 // transform the problem to standard eigenvalue problem, then calls syevj.
 // For example, the standard eigenvalue problem of type I is
-// M∗Q=Q∗Λ
+// M*Q=Q*Λ
 // where matrix M is symmetric
-// M=L−1∗A∗L−H
+// M=L⁻¹*A*L⁻ᴴ
 // The residual is the result of syevj on matrix M, not A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is the size of the working space, and it is returned by sygvj_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter info = -i (less than zero), the i-th parameter is wrong (not counting handle). If info = i (i > 0 and i<=n), B is not positive definite, the factorization of B could not be completed and no eigenvalues or eigenvectors were computed. If info = n+1, syevj does not converge under given tolerance and maximum sweeps. In this case, the eigenvalues and eigenvectors are still computed because non-convergence comes from improper tolerance of maximum sweeps.
 // if jobz = [EigModeVector], A contains the orthogonal eigenvectors V.
 // Please visit cuSOLVER Library Samples - sygvj for a code example.
@@ -12463,10 +15936,10 @@ func zhegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 	return toError(fnzhegvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params), "cusolverDnZhegvj_bufferSize")
 }
 
-// zhetrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+// zhetrd reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: Qᴴ*A*Q=T.
 //
 // As an output, A contains T and householder reflection vectors. If uplo = CUBLAS_FILL_MODE_UPPER, the diagonal and first superdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements above the first superdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors; If uplo = CUBLAS_FILL_MODE_LOWER, the diagonal and first subdiagonal of A are overwritten by the corresponding elements of the tridiagonal matrix T, and the elements below the first subdiagonal, with the array tau, represent the orthogonal matrix Q as a product of elementary reflectors.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrd_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle). Note that the problem size n is limited by a condition n*lda < INT32_MAX primarily due to the current implementation constraints.
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -12516,13 +15989,16 @@ func zhetrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzhetrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), &out), "cusolverDnZhetrd_bufferSize"); err != nil {
+	out := slotZhetrdBufferSize.get()
+	defer slotZhetrdBufferSize.put(out)
+	if err := toError(fnzhetrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), out), "cusolverDnZhetrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZhetrdBufferSize outSlot[int32]
 
 // zlaswp wraps cusolverDnZlaswp.
 func zlaswp(handle Handle, n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
@@ -12546,21 +16022,24 @@ func zlauumBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzlauumBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnZlauum_bufferSize"); err != nil {
+	out := slotZlauumBufferSize.get()
+	defer slotZlauumBufferSize.put(out)
+	if err := toError(fnzlauumBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnZlauum_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZlauumBufferSize outSlot[int32]
 
 // zpotrf computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //
 // A is an n×n Hermitian matrix, only the lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only the lower triangular part of A is processed, and replaced by the lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // The user has to provide working space which is pointed by input parameter Workspace. The input parameter Lwork is size of the working space, and it is returned by potrf_bufferSize().
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter devInfo would indicate smallest leading minor of A which is not positive definite.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
@@ -12593,9 +16072,9 @@ func zpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 //
 // Each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L.
-// A=L∗LH
+// A=L*Lᴴ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U.
-// A=UH∗U
+// A=Uᴴ*U
 // If Cholesky factorization failed, i.e. some leading minor of A is not positive definite, or equivalently some diagonal elements of L or U is not a real number. The output parameter infoArray would indicate smallest leading minor of A which is not positive definite.
 // infoArray is an integer array of size batchsize. If potrfBatched returns [ErrInvalidValue], infoArray [0] = -i (less than zero), meaning that the i-th parameter is wrong (not counting handle). If potrfBatched returns [Success] but infoArray [i] = k is positive, then i-th matrix is not positive definite and the Cholesky factorization failed at row k.
 // Remark: the other part of A is used as a workspace. For example, if uplo is CUBLAS_FILL_MODE_UPPER, upper triangle of A contains Cholesky factor U and lower triangle of A is destroyed after potrfBatched.
@@ -12644,18 +16123,20 @@ func zpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzpotrfBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnZpotrf_bufferSize"); err != nil {
+	out := slotZpotrfBufferSize.get()
+	defer slotZpotrfBufferSize.put(out)
+	if err := toError(fnzpotrfBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnZpotrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zpotri computes the inverse of a positive-definite matrix A using the Cholesky factorization
+var slotZpotrfBufferSize outSlot[int32]
+
+// zpotri computes the inverse of a positive-definite matrix A using the Cholesky factorization.
 //
-// A=L∗LH=UH∗U
-// computed by potrf().
+// A=L*Lᴴ=Uᴴ*U, computed by potrf().
 // A is an n×n matrix containing the triangular factor L or U computed by the Cholesky factorization. Only lower or upper part is meaningful and the input parameter uplo indicates which part of the matrix is used. The function would leave the other part untouched.
 // If the input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced the by lower triangular part of the inverse of A.
 // If the input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by the upper triangular part of the inverse of A.
@@ -12706,19 +16187,21 @@ func zpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzpotriBufferSize(handle, uplo, n, uintptr(a), lda, &out), "cusolverDnZpotri_bufferSize"); err != nil {
+	out := slotZpotriBufferSize.get()
+	defer slotZpotriBufferSize.put(out)
+	if err := toError(fnzpotriBufferSize(handle, uplo, n, uintptr(a), lda, out), "cusolverDnZpotri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zpotrs solves a system of linear equations
+var slotZpotriBufferSize outSlot[int32]
+
+// zpotrs solves a system of linear equations.
 //
-// A∗X=B
-// where A is an n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
-// The user has to call potrf first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A*X=B, where A is an n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. The function will leave the other part untouched.
+// The user has to call potrf first to factorize matrix A. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
@@ -12746,11 +16229,10 @@ func zpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePt
 	return toError(fnzpotrs(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(devInfo)), "cusolverDnZpotrs")
 }
 
-// zpotrsBatched solves a sequence of linear systems
+// zpotrsBatched solves a sequence of linear systems.
 //
-// A [i]∗X [i]=B [i]
-// where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
-// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L∗LH . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=UH∗U .
+// A [i]*X [i]=B [i], where each Aarray [i] for i=0,1,..., batchSize-1 is a n×n Hermitian matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used.
+// The user has to call potrfBatched first to factorize matrix Aarray [i]. If input parameter uplo is CUBLAS_FILL_MODE_LOWER, A is lower triangular Cholesky factor L corresponding to A=L*Lᴴ . If input parameter uplo is CUBLAS_FILL_MODE_UPPER, A is upper triangular Cholesky factor U corresponding to A=Uᴴ*U .
 // The operation is in-place, i.e. matrix X overwrites matrix B with the same leading dimension ldb.
 // The output parameter info is a scalar. If info = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // Remark 1: only nrhs=1 is supported.
@@ -12784,10 +16266,10 @@ func zpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.D
 //
 // A is a n×n symmetric matrix, only lower or upper part is meaningful. The input parameter uplo indicates which part of the matrix is used. If devIpiv is null, no pivoting is performed, which is not numerically stable.
 // If input parameter uplo is CUBLAS_FILL_MODE_LOWER, only lower triangular part of A is processed, and replaced by lower triangular factor L and block diagonal matrix D. Each block of D is either 1x1 or 2x2 block, depending on pivoting.
-// P∗A∗PT=L∗D∗LT
+// P*A*Pᵀ=L*D*Lᵀ
 // If input parameter uplo is CUBLAS_FILL_MODE_UPPER, only upper triangular part of A is processed, and replaced by upper triangular factor U and block diagonal matrix D.
-// P∗A∗PT=U∗D∗UT
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
+// P*A*Pᵀ=U*D*Uᵀ
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by sytrf_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork. When no pivoting is performed, the other triangular part of the input matrix A is used as workspace.
 // If Bunch-Kaufman factorization failed, i.e. A is singular. The output parameter devInfo = i would indicate D(i,i)=0.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The output parameter devIpiv contains pivoting sequence. If devIpiv(i) = k > 0, D(i,i) is 1x1 block, and i-th row/column of A is interchanged with k-th row/column of A. If uplo is CUBLAS_FILL_MODE_UPPER and devIpiv(i-1) = devIpiv(i) = -m < 0, D(i-1:i,i-1:i) is a 2x2 block, and (i-1)-th row/column is interchanged with m-th row/column. If uplo is CUBLAS_FILL_MODE_LOWER and devIpiv(i+1) = devIpiv(i) = -m < 0, D(i:i+1,i:i+1) is a 2x2 block, and (i+1)-th row/column is interchanged with m-th row/column.
@@ -12836,13 +16318,16 @@ func zsytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (in
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzsytrfBufferSize(handle, n, uintptr(a), lda, &out), "cusolverDnZsytrf_bufferSize"); err != nil {
+	out := slotZsytrfBufferSize.get()
+	defer slotZsytrfBufferSize.put(out)
+	if err := toError(fnzsytrfBufferSize(handle, n, uintptr(a), lda, out), "cusolverDnZsytrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZsytrfBufferSize outSlot[int32]
 
 // zsytri wraps cusolverDnZsytri.
 func zsytri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
@@ -12858,18 +16343,21 @@ func zsytriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), &out), "cusolverDnZsytri_bufferSize"); err != nil {
+	out := slotZsytriBufferSize.get()
+	defer slotZsytriBufferSize.put(out)
+	if err := toError(fnzsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), out), "cusolverDnZsytri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zungbr generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+var slotZsytriBufferSize outSlot[int32]
+
+// zungbr generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: Qᴴ*A*P=B.
 //
 // Q and P**H are defined as products of elementary reflectors H(i) or G(i) respectively.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgbr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -12923,19 +16411,21 @@ func zungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzungbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), &out), "cusolverDnZungbr_bufferSize"); err != nil {
+	out := slotZungbrBufferSize.get()
+	defer slotZungbrBufferSize.put(out)
+	if err := toError(fnzungbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), out), "cusolverDnZungbr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// zungqr overwrites m×n matrix A by
+var slotZungbrBufferSize outSlot[int32]
+
+// zungqr overwrites m×n matrix A.
 //
-// Q=H(1)∗H(2)∗...∗H(k)
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// Q=H(1)*H(2)*...*H(k), where Q is a unitary matrix formed by a sequence of elementary reflection vectors stored in A.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine geqrf, orgqr to complete orthogonalization.
 //
@@ -12988,17 +16478,20 @@ func zungqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DeviceP
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzungqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), &out), "cusolverDnZungqr_bufferSize"); err != nil {
+	out := slotZungqrBufferSize.get()
+	defer slotZungqrBufferSize.put(out)
+	if err := toError(fnzungqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), out), "cusolverDnZungqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZungqrBufferSize outSlot[int32]
 
 // zungtr generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
 //
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by orgtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -13048,20 +16541,25 @@ func zungtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr,
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzungtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), &out), "cusolverDnZungtr_bufferSize"); err != nil {
+	out := slotZungtrBufferSize.get()
+	defer slotZungtrBufferSize.put(out)
+	if err := toError(fnzungtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), out), "cusolverDnZungtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZungtrBufferSize outSlot[int32]
 
 // zunmqr overwrites m×n matrix C.
 //
+// C = op(Q)*C if side == CUBLAS_SIDE_LEFT, and C = C*op(Q) if side == CUBLAS_SIDE_RIGHT.
+// The operation of Q is defined by op(Q) = Q if trans == CUBLAS_OP_N, op(Q) = Qᵀ if trans == CUBLAS_OP_T, and op(Q) = Qᴴ if trans == CUBLAS_OP_C.
 // Q is a unitary matrix formed by a sequence of elementary reflection vectors from QR factorization ( geqrf) of A.
 // Q = H(1) H(2) … H(k)
 // Q is of order m if side = CUBLAS_SIDE_LEFT and of order n if side = CUBLAS_SIDE_RIGHT.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by geqrf_bufferSize() or ormqr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 // The user can combine geqrf, ormqr and trsm to complete a linear solver or a least-square solver.
 //
@@ -13123,18 +16621,22 @@ func zunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzunmqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out), "cusolverDnZunmqr_bufferSize"); err != nil {
+	out := slotZunmqrBufferSize.get()
+	defer slotZunmqrBufferSize.put(out)
+	if err := toError(fnzunmqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, out), "cusolverDnZunmqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZunmqrBufferSize outSlot[int32]
 
 // zunmtr overwrites m×n matrix C.
 //
-// where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
-// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof() * lwork.
+// C = op(Q)*C if side == CUBLAS_SIDE_LEFT, and C = C*op(Q) if side == CUBLAS_SIDE_RIGHT, where Q is a unitary matrix formed by a sequence of elementary reflection vectors from sytrd.
+// The operation on Q is defined by op(Q) = Q if trans == CUBLAS_OP_N, op(Q) = Qᵀ if trans == CUBLAS_OP_T, and op(Q) = Qᴴ if trans == CUBLAS_OP_C.
+// The user has to provide working space which is pointed by input parameter work. The input parameter lwork is size of the working space, and it is returned by ormtr_bufferSize(). Please note that the size in bytes of the working space is equal to sizeof(<type>) * lwork.
 // If output parameter devInfo = -i (less than zero), the i-th parameter is wrong (not counting handle).
 //
 //   - handle: Handle to the cuSolverDN library context
@@ -13194,10 +16696,13 @@ func zunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operati
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnzunmtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out), "cusolverDnZunmtr_bufferSize"); err != nil {
+	out := slotZunmtrBufferSize.get()
+	defer slotZunmtrBufferSize.put(out)
+	if err := toError(fnzunmtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, out), "cusolverDnZunmtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZunmtrBufferSize outSlot[int32]

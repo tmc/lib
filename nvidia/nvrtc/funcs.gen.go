@@ -4,39 +4,202 @@ package nvrtc
 
 import (
 	"fmt"
+	"unsafe"
 )
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnaddNameExpression      func(Program, *byte) Result
-	fncompileProgram         func(Program, int32, **byte) Result
-	fnCreateProgram          func(*Program, *byte, *byte, int32, **byte, **byte) Result
-	fndestroyProgram         func(*Program) Result
-	fnGetBundledHeadersInfo  func(*BundledHeadersInfo, **byte) Result
-	fngetCUBIN               func(Program, *byte) Result
-	fngetCUBINSize           func(Program, *uint) Result
-	fngetLTOIR               func(Program, *byte) Result
-	fngetLTOIRSize           func(Program, *uint) Result
-	fngetLoweredName         func(Program, *byte, **byte) Result
-	fnGetNumSupportedArchs   func(*int32) Result
-	fngetOptiXIR             func(Program, *byte) Result
-	fngetOptiXIRSize         func(Program, *uint) Result
-	fngetPCHCreateStatus     func(Program) Result
-	fnGetPCHHeapSize         func(*uint) Result
-	fngetPCHHeapSizeRequired func(Program, *uint) Result
-	fngetPTX                 func(Program, *byte) Result
-	fngetPTXSize             func(Program, *uint) Result
-	fngetProgramLog          func(Program, *byte) Result
-	fngetProgramLogSize      func(Program, *uint) Result
-	fnGetSupportedArchs      func(*int32) Result
-	fngetTileIR              func(Program, *byte) Result
-	fngetTileIRSize          func(Program, *uint) Result
-	fnInstallBundledHeaders  func(*byte, uint32, **byte) Result
-	fnRemoveBundledHeaders   func(*byte, **byte) Result
-	fnsetFlowCallback        func(Program, uintptr, uintptr) Result
-	fnSetPCHHeapSize         func(uint) Result
-	fnVersion                func(*int32, *int32) Result
+	symaddNameExpression      uintptr
+	symcompileProgram         uintptr
+	symCreateProgram          uintptr
+	symdestroyProgram         uintptr
+	symGetBundledHeadersInfo  uintptr
+	symgetCUBIN               uintptr
+	symgetCUBINSize           uintptr
+	symgetLTOIR               uintptr
+	symgetLTOIRSize           uintptr
+	symgetLoweredName         uintptr
+	symGetNumSupportedArchs   uintptr
+	symgetOptiXIR             uintptr
+	symgetOptiXIRSize         uintptr
+	symgetPCHCreateStatus     uintptr
+	symGetPCHHeapSize         uintptr
+	symgetPCHHeapSizeRequired uintptr
+	symgetPTX                 uintptr
+	symgetPTXSize             uintptr
+	symgetProgramLog          uintptr
+	symgetProgramLogSize      uintptr
+	symGetSupportedArchs      uintptr
+	symgetTileIR              uintptr
+	symgetTileIRSize          uintptr
+	symInstallBundledHeaders  uintptr
+	symRemoveBundledHeaders   uintptr
+	symsetFlowCallback        uintptr
+	symSetPCHHeapSize         uintptr
+	fnVersion                 func(*int32, *int32) Result
 )
+
+// fnaddNameExpression calls nvrtcAddNameExpression.
+func fnaddNameExpression(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symaddNameExpression, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fncompileProgram calls nvrtcCompileProgram.
+func fncompileProgram(a0 Program, a1 int32, a2 **byte) Result {
+	r1, _ := ffiCall3(symcompileProgram, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnCreateProgram calls nvrtcCreateProgram.
+func fnCreateProgram(a0 *Program, a1 *byte, a2 *byte, a3 int32, a4 **byte, a5 **byte) Result {
+	r1, _ := ffiCall6(symCreateProgram, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fndestroyProgram calls nvrtcDestroyProgram.
+func fndestroyProgram(a0 *Program) Result {
+	r1, _ := ffiCall1(symdestroyProgram, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGetBundledHeadersInfo calls nvrtcGetBundledHeadersInfo.
+func fnGetBundledHeadersInfo(a0 *BundledHeadersInfo, a1 **byte) Result {
+	r1, _ := ffiCall2(symGetBundledHeadersInfo, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetCUBIN calls nvrtcGetCUBIN.
+func fngetCUBIN(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symgetCUBIN, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetCUBINSize calls nvrtcGetCUBINSize.
+func fngetCUBINSize(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetCUBINSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetLTOIR calls nvrtcGetLTOIR.
+func fngetLTOIR(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symgetLTOIR, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetLTOIRSize calls nvrtcGetLTOIRSize.
+func fngetLTOIRSize(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetLTOIRSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetLoweredName calls nvrtcGetLoweredName.
+func fngetLoweredName(a0 Program, a1 *byte, a2 **byte) Result {
+	r1, _ := ffiCall3(symgetLoweredName, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetNumSupportedArchs calls nvrtcGetNumSupportedArchs.
+func fnGetNumSupportedArchs(a0 *int32) Result {
+	r1, _ := ffiCall1(symGetNumSupportedArchs, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fngetOptiXIR calls nvrtcGetOptiXIR.
+func fngetOptiXIR(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symgetOptiXIR, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetOptiXIRSize calls nvrtcGetOptiXIRSize.
+func fngetOptiXIRSize(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetOptiXIRSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetPCHCreateStatus calls nvrtcGetPCHCreateStatus.
+func fngetPCHCreateStatus(a0 Program) Result {
+	r1, _ := ffiCall1(symgetPCHCreateStatus, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnGetPCHHeapSize calls nvrtcGetPCHHeapSize.
+func fnGetPCHHeapSize(a0 *uint) Result {
+	r1, _ := ffiCall1(symGetPCHHeapSize, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fngetPCHHeapSizeRequired calls nvrtcGetPCHHeapSizeRequired.
+func fngetPCHHeapSizeRequired(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetPCHHeapSizeRequired, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetPTX calls nvrtcGetPTX.
+func fngetPTX(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symgetPTX, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetPTXSize calls nvrtcGetPTXSize.
+func fngetPTXSize(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetPTXSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetProgramLog calls nvrtcGetProgramLog.
+func fngetProgramLog(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symgetProgramLog, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetProgramLogSize calls nvrtcGetProgramLogSize.
+func fngetProgramLogSize(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetProgramLogSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetSupportedArchs calls nvrtcGetSupportedArchs.
+func fnGetSupportedArchs(a0 *int32) Result {
+	r1, _ := ffiCall1(symGetSupportedArchs, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fngetTileIR calls nvrtcGetTileIR.
+func fngetTileIR(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symgetTileIR, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetTileIRSize calls nvrtcGetTileIRSize.
+func fngetTileIRSize(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetTileIRSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnInstallBundledHeaders calls nvrtcInstallBundledHeaders.
+func fnInstallBundledHeaders(a0 *byte, a1 uint32, a2 **byte) Result {
+	r1, _ := ffiCall3(symInstallBundledHeaders, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnRemoveBundledHeaders calls nvrtcRemoveBundledHeaders.
+func fnRemoveBundledHeaders(a0 *byte, a1 **byte) Result {
+	r1, _ := ffiCall2(symRemoveBundledHeaders, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnsetFlowCallback calls nvrtcSetFlowCallback.
+func fnsetFlowCallback(a0 Program, a1 uintptr, a2 uintptr) Result {
+	r1, _ := ffiCall3(symsetFlowCallback, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnSetPCHHeapSize calls nvrtcSetPCHHeapSize.
+func fnSetPCHHeapSize(a0 uint) Result {
+	r1, _ := ffiCall1(symSetPCHHeapSize, 0, uintptr(a0))
+	return Result(r1)
+}
 
 // A Header is a header a program can include by name.
 // It is passed to [CreateProgram].
@@ -50,10 +213,11 @@ type Header struct {
 // addNameExpression [Program.AddNameExpression] notes the given name expression denoting the address of a global function or device/__constant__ variable.
 //
 // The identical name expression string must be provided on a subsequent call to [Program.LoweredName] to extract the lowered name.
-// [Program.LoweredName]
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - nameExpression: in constant expression denoting the address of a global function or device/__constant__ variable. Returns [Success] [ErrInvalidProgram] [ErrInvalidInput] [ErrNoNameExpressionsAfterCompilation]
+// See also: [Program.LoweredName]
+//
+//   - prog: CUDA Runtime Compilation program
+//   - nameExpression: constant expression denoting the address of a global function or device/__constant__ variable
 //
 // Wraps nvrtcAddNameExpression.
 func addNameExpression(prog Program, nameExpression *byte) error {
@@ -67,9 +231,9 @@ func addNameExpression(prog Program, nameExpression *byte) error {
 //
 // It supports compile options listed in Supported Compile Options.
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - numOptions: in Number of compiler options passed
-//   - options: in Compiler options in the form of C string array. options can be NULL when numOptions is 0. Returns [Success] [ErrOutOfMemory] [ErrInvalidInput] [ErrInvalidProgram] [ErrInvalidOption] [ErrCompilation] [ErrBuiltinOperationFailure] [ErrTimeFileWriteFailed] [ErrCancelled]
+//   - prog: CUDA Runtime Compilation program
+//   - numOptions: Number of compiler options passed
+//   - options: Compiler options in the form of C string array. options can be NULL when numOptions is 0
 //
 // Wraps nvrtcCompileProgram.
 func compileProgram(prog Program, options ...string) error {
@@ -90,12 +254,12 @@ func compileProgram(prog Program, options ...string) error {
 	return toError(fncompileProgram(prog, int32(len(options)), carg_options), "nvrtcCompileProgram")
 }
 
-// CreateProgram [CreateProgram] creates an instance of [Program] with the given input parameters, and sets the output parameter prog with it.
+// CreateProgram creates an instance of [Program] with the given input parameters, and sets the output parameter prog with it.
 //
-// [Program.Destroy]
+// See also: [Program.Destroy]
 //
-//   - src: in CUDA program source
-//   - name: in CUDA program name. name can be NULL; "default_program" is used when name is NULL or “”
+//   - src: CUDA program source
+//   - name: CUDA program name. name can be NULL; "default_program" is used when name is NULL or “”
 //
 // Wraps nvrtcCreateProgram.
 func CreateProgram(src string, name string, headers ...Header) (Program, error) {
@@ -125,18 +289,21 @@ func CreateProgram(src string, name string, headers ...Header) (Program, error) 
 		carg_headers_Name = &ptrs[0]
 		carg_headers_Source = &ptrs[len(headers)]
 	}
-	var out Program
-	if err := toError(fnCreateProgram(&out, &cstr_src[0], &cstr_name[0], int32(len(headers)), carg_headers_Source, carg_headers_Name), "nvrtcCreateProgram"); err != nil {
+	out := slotCreateProgram.get()
+	defer slotCreateProgram.put(out)
+	if err := toError(fnCreateProgram(out, &cstr_src[0], &cstr_name[0], int32(len(headers)), carg_headers_Source, carg_headers_Name), "nvrtcCreateProgram"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateProgram outSlot[Program]
 
 // destroyProgram [Program.Destroy] destroys the given program.
 //
-// [CreateProgram]
+// See also: [CreateProgram]
 //
-//   - prog: in CUDA Runtime Compilation program. Returns [Success] [ErrInvalidProgram]
+//   - prog: CUDA Runtime Compilation program
 //
 // Wraps nvrtcDestroyProgram.
 func destroyProgram(prog *Program) error {
@@ -146,11 +313,15 @@ func destroyProgram(prog *Program) error {
 	return toError(fndestroyProgram(prog), "nvrtcDestroyProgram")
 }
 
-// GetBundledHeadersInfo [GetBundledHeadersInfo] queries information about the bundled headers without extracting them.
+// GetBundledHeadersInfo queries information about the bundled headers without extracting them.
 //
 // This function allows users to determine if bundled headers are available and get size estimates before calling [InstallBundledHeaders].
 //
-//   - errorLog: out Optional pointer to receive detailed error message on failure. If non-NULL, *errorLog will be set to point to a string describing the error cause. Note: subsequent API calls from the same thread may overwrite this message. May be NULL if error details are not needed. Returns [Success] [ErrInvalidInput] (info is NULL) [ErrBuiltinOperationFailure] (failed to query bundled headers)
+//   - errorLog: Optional pointer to receive detailed error message on failure. If non-NULL, *errorLog will be set to point to a string describing the error cause. Note: subsequent API calls from the same thread may overwrite this message. May be NULL if error details are not needed
+//
+// Returns:
+//   - [ErrBuiltinOperationFailure]: failed to query bundled headers
+//   - [ErrInvalidInput]: info is NULL
 //
 // Wraps nvrtcGetBundledHeadersInfo.
 func GetBundledHeadersInfo() (BundledHeadersInfo, error) {
@@ -158,20 +329,24 @@ func GetBundledHeadersInfo() (BundledHeadersInfo, error) {
 		return BundledHeadersInfo{}, err
 	}
 	var errlog_errorLog *byte
-	var out BundledHeadersInfo
-	if err := toError(fnGetBundledHeadersInfo(&out, &errlog_errorLog), "nvrtcGetBundledHeadersInfo"); err != nil {
+	out := slotGetBundledHeadersInfo.get()
+	defer slotGetBundledHeadersInfo.put(out)
+	if err := toError(fnGetBundledHeadersInfo(out, &errlog_errorLog), "nvrtcGetBundledHeadersInfo"); err != nil {
 		return BundledHeadersInfo{}, errorLogDetail(err, errlog_errorLog)
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getCUBIN [Program.CUBIN] stores the cubin generated by the previous compilation of prog in the memory pointed by cubin.
+var slotGetBundledHeadersInfo outSlot[BundledHeadersInfo]
+
+// getCUBIN [Program.CUBIN] returns the cubin generated by the previous compilation of prog.
 //
 // No cubin is available if the value specified to -arch is a virtual architecture instead of an actual architecture. The cubin does not contain code for the Tile functions ( __tile__ / __tile_global__) or variables ( __tile__); use [Program.TileIR] to extract the cuda_tile IR generated for Tile code.
-// [Program.CUBINSize]
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - cubin: out Compiled and assembled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
+// See also: [Program.CUBINSize]
+//
+//   - prog: CUDA Runtime Compilation program
+//   - cubin: Compiled and assembled result
 //
 // Wraps nvrtcGetCUBIN.
 func getCUBIN(prog Program) ([]byte, error) {
@@ -192,12 +367,13 @@ func getCUBIN(prog Program) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getCUBINSize [Program.CUBINSize] sets the value of cubinSizeRet with the size of the cubin generated by the previous compilation of prog.
+// getCUBINSize [Program.CUBINSize] returns the size of the cubin generated by the previous compilation of prog.
 //
-// The value of cubinSizeRet is set to 0 if the value specified to -arch is a virtual architecture instead of an actual architecture.
-// [Program.CUBIN]
+// The result is 0 if the value specified to -arch is a virtual architecture instead of an actual architecture.
 //
-//   - prog: in CUDA Runtime Compilation program
+// See also: [Program.CUBIN]
+//
+//   - prog: CUDA Runtime Compilation program
 //
 // Wraps nvrtcGetCUBINSize.
 func getCUBINSize(prog Program) (uint, error) {
@@ -205,21 +381,25 @@ func getCUBINSize(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetCUBINSize(prog, &out), "nvrtcGetCUBINSize"); err != nil {
+	out := slotGetCUBINSize.get()
+	defer slotGetCUBINSize.put(out)
+	if err := toError(fngetCUBINSize(prog, out), "nvrtcGetCUBINSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getLTOIR [Program.LTOIR] stores the LTO IR generated by the previous compilation of prog in the memory pointed by LTOIR.
+var slotGetCUBINSize outSlot[uint]
+
+// getLTOIR [Program.LTOIR] returns the LTO IR generated by the previous compilation of prog.
 //
 // No LTO IR is available if the program was compiled without -dlto.
-// [Program.LTOIRSize]
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - ltoir: out Compiled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
+// See also: [Program.LTOIRSize]
+//
+//   - prog: CUDA Runtime Compilation program
+//   - ltoir: Compiled result
 //
 // Wraps nvrtcGetLTOIR.
 func getLTOIR(prog Program) ([]byte, error) {
@@ -240,12 +420,13 @@ func getLTOIR(prog Program) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getLTOIRSize [Program.LTOIRSize] sets the value of LTOIRSizeRet with the size of the LTO IR generated by the previous compilation of prog.
+// getLTOIRSize [Program.LTOIRSize] returns the size of the LTO IR generated by the previous compilation of prog.
 //
-// The value of LTOIRSizeRet is set to 0 if the program was not compiled with -dlto.
-// [Program.LTOIR]
+// The result is 0 if the program was not compiled with -dlto.
 //
-//   - prog: in CUDA Runtime Compilation program
+// See also: [Program.LTOIR]
+//
+//   - prog: CUDA Runtime Compilation program
 //
 // Wraps nvrtcGetLTOIRSize.
 func getLTOIRSize(prog Program) (uint, error) {
@@ -253,22 +434,26 @@ func getLTOIRSize(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetLTOIRSize(prog, &out), "nvrtcGetLTOIRSize"); err != nil {
+	out := slotGetLTOIRSize.get()
+	defer slotGetLTOIRSize.put(out)
+	if err := toError(fngetLTOIRSize(prog, out), "nvrtcGetLTOIRSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetLTOIRSize outSlot[uint]
 
 // getLoweredName [Program.LoweredName] extracts the lowered (mangled) name for a global function or device/__constant__ variable, and updates *lowered_name to point to it.
 //
 // The memory containing the name is released when the NVRTC program is destroyed by [Program.Destroy]. The identical name expression must have been previously provided to [Program.AddNameExpression].
-// [Program.AddNameExpression]
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - nameExpression: in constant expression denoting the address of a global function or device/__constant__ variable
-//   - loweredName: out initialized by the function to point to a C string containing the lowered (mangled) name corresponding to the provided name expression. Returns [Success] [ErrNoLoweredNamesBeforeCompilation] [ErrInvalidProgram] [ErrInvalidInput] [ErrNameExpressionNotValid]
+// See also: [Program.AddNameExpression]
+//
+//   - prog: CUDA Runtime Compilation program
+//   - nameExpression: constant expression denoting the address of a global function or device/__constant__ variable
+//   - loweredName: initialized by the function to point to a C string containing the lowered (mangled) name corresponding to the provided name expression
 //
 // Wraps nvrtcGetLoweredName.
 func getLoweredName(prog Program, nameExpression *byte, loweredName **byte) error {
@@ -278,7 +463,7 @@ func getLoweredName(prog Program, nameExpression *byte, loweredName **byte) erro
 	return toError(fngetLoweredName(prog, nameExpression, loweredName), "nvrtcGetLoweredName")
 }
 
-// GetNumSupportedArchs [GetNumSupportedArchs] sets the output parameter numArchs with the number of architectures supported by NVRTC.
+// GetNumSupportedArchs sets the output parameter numArchs with the number of architectures supported by NVRTC.
 //
 // This can then be used to pass an array to [GetSupportedArchs] to get the supported architectures.
 // see [GetSupportedArchs]
@@ -289,21 +474,25 @@ func GetNumSupportedArchs() (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetNumSupportedArchs(&out), "nvrtcGetNumSupportedArchs"); err != nil {
+	out := slotGetNumSupportedArchs.get()
+	defer slotGetNumSupportedArchs.put(out)
+	if err := toError(fnGetNumSupportedArchs(out), "nvrtcGetNumSupportedArchs"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getOptiXIR [Program.OptiXIR] stores the OptiX IR generated by the previous compilation of prog in the memory pointed by optixir.
+var slotGetNumSupportedArchs outSlot[int32]
+
+// getOptiXIR [Program.OptiXIR] returns the OptiX IR generated by the previous compilation of prog.
 //
 // No OptiX IR is available if the program was compiled with options incompatible with OptiX IR generation.
-// [Program.OptiXIRSize]
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - optixir: out Optix IR Compiled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
+// See also: [Program.OptiXIRSize]
+//
+//   - prog: CUDA Runtime Compilation program
+//   - optixir: Optix IR Compiled result
 //
 // Wraps nvrtcGetOptiXIR.
 func getOptiXIR(prog Program) ([]byte, error) {
@@ -324,12 +513,13 @@ func getOptiXIR(prog Program) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getOptiXIRSize [Program.OptiXIRSize] sets the value of optixirSizeRet with the size of the OptiX IR generated by the previous compilation of prog.
+// getOptiXIRSize [Program.OptiXIRSize] returns the size of the OptiX IR generated by the previous compilation of prog.
 //
 // The value of [Program.OptiXIRSize] is set to 0 if the program was compiled with options incompatible with OptiX IR generation.
-// [Program.OptiXIR]
 //
-//   - prog: in CUDA Runtime Compilation program
+// See also: [Program.OptiXIR]
+//
+//   - prog: CUDA Runtime Compilation program
 //
 // Wraps nvrtcGetOptiXIRSize.
 func getOptiXIRSize(prog Program) (uint, error) {
@@ -337,19 +527,22 @@ func getOptiXIRSize(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetOptiXIRSize(prog, &out), "nvrtcGetOptiXIRSize"); err != nil {
+	out := slotGetOptiXIRSize.get()
+	defer slotGetOptiXIRSize.put(out)
+	if err := toError(fngetOptiXIRSize(prog, out), "nvrtcGetOptiXIRSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetOptiXIRSize outSlot[uint]
 
 // getPCHCreateStatus returns the PCH creation status.
 //
 // [Success] indicates that the PCH was successfully created. [ErrNoPchCreateAttempted] indicates that no PCH creation was attempted, either because PCH functionality was not requested during the preceding [Program.Compile] call, or automatic PCH processing was requested, and compiler chose not to create a PCH file. [ErrPchCreateHeapExhausted] indicates that a PCH file could potentially have been created, but the compiler ran out space in the PCH heap. In this scenario, the [Program.PCHHeapSizeRequired] can be used to query the required heap size, the heap can be reallocated for this size with [SetPCHHeapSize] and PCH creation may be reattempted again invoking [Program.Compile] with a new NVRTC program instance. [ErrPchCreate] indicates that an error condition prevented the PCH file from being created.
 //
-//   - prog: in CUDA Runtime Compilation program. Returns [Success] [ErrNoPchCreateAttempted] [ErrPchCreate] [ErrPchCreateHeapExhausted] [ErrInvalidProgram]
+//   - prog: CUDA Runtime Compilation program
 //
 // Wraps nvrtcGetPCHCreateStatus.
 func getPCHCreateStatus(prog Program) error {
@@ -359,7 +552,7 @@ func getPCHCreateStatus(prog Program) error {
 	return toError(fngetPCHCreateStatus(prog), "nvrtcGetPCHCreateStatus")
 }
 
-// GetPCHHeapSize retrieve the current size of the PCH Heap.
+// GetPCHHeapSize retrieves the current size of the PCH Heap.
 //
 // Wraps nvrtcGetPCHHeapSize.
 func GetPCHHeapSize() (uint, error) {
@@ -367,17 +560,23 @@ func GetPCHHeapSize() (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnGetPCHHeapSize(&out), "nvrtcGetPCHHeapSize"); err != nil {
+	out := slotGetPCHHeapSize.get()
+	defer slotGetPCHHeapSize.put(out)
+	if err := toError(fnGetPCHHeapSize(out), "nvrtcGetPCHHeapSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getPCHHeapSizeRequired retrieve the required size of the PCH heap required to compile the given program.
+var slotGetPCHHeapSize outSlot[uint]
+
+// getPCHHeapSizeRequired retrieves the required size of the PCH heap required to compile the given program.
 //
-//   - prog: in CUDA Runtime Compilation program
+//   - prog: CUDA Runtime Compilation program
+//
+// Returns:
+//   - [ErrInvalidInput]: The size retrieved using this function is only valid if [Program.PCHCreateStatus] returned [Success] or [ErrPchCreateHeapExhausted]
 //
 // Wraps nvrtcGetPCHHeapSizeRequired.
 func getPCHHeapSizeRequired(prog Program) (uint, error) {
@@ -385,20 +584,23 @@ func getPCHHeapSizeRequired(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetPCHHeapSizeRequired(prog, &out), "nvrtcGetPCHHeapSizeRequired"); err != nil {
+	out := slotGetPCHHeapSizeRequired.get()
+	defer slotGetPCHHeapSizeRequired.put(out)
+	if err := toError(fngetPCHHeapSizeRequired(prog, out), "nvrtcGetPCHHeapSizeRequired"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getPTX [Program.PTX] stores the PTX generated by the previous compilation of prog in the memory pointed by ptx.
+var slotGetPCHHeapSizeRequired outSlot[uint]
+
+// getPTX [Program.PTX] returns the PTX generated by the previous compilation of prog.
 //
-// [Program.PTXSize]
+// See also: [Program.PTXSize]
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - ptx: out Compiled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
+//   - prog: CUDA Runtime Compilation program
+//   - ptx: Compiled result
 //
 // The result does not include the C string's terminating NUL.
 //
@@ -424,11 +626,14 @@ func getPTX(prog Program) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getPTXSize [Program.PTXSize] sets the value of ptxSizeRet with the size of the PTX generated by the previous compilation of prog (including the trailing NULL).
+// getPTXSize [Program.PTXSize] returns the size of the PTX generated by the previous compilation of prog (including the trailing NULL).
 //
-// [Program.PTX]
+// See also: [Program.PTX]
 //
-//   - prog: in CUDA Runtime Compilation program
+//   - prog: CUDA Runtime Compilation program
+//
+// The size counts the terminating NUL that [Program.PTX] drops, so it is one more
+// than the length of that result.
 //
 // Wraps nvrtcGetPTXSize.
 func getPTXSize(prog Program) (uint, error) {
@@ -436,20 +641,23 @@ func getPTXSize(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetPTXSize(prog, &out), "nvrtcGetPTXSize"); err != nil {
+	out := slotGetPTXSize.get()
+	defer slotGetPTXSize.put(out)
+	if err := toError(fngetPTXSize(prog, out), "nvrtcGetPTXSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getProgramLog [Program.Log] stores the log generated by the previous compilation of prog in the memory pointed by log.
+var slotGetPTXSize outSlot[uint]
+
+// getProgramLog [Program.Log] returns the log generated by the previous compilation of prog.
 //
-// [Program.LogSize]
+// See also: [Program.LogSize]
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - log: out Compilation log. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
+//   - prog: CUDA Runtime Compilation program
+//   - log: Compilation log
 //
 // Wraps nvrtcGetProgramLog.
 func getProgramLog(prog Program) (string, error) {
@@ -473,12 +681,16 @@ func getProgramLog(prog Program) (string, error) {
 	return string(buf[:size]), nil
 }
 
-// getProgramLogSize [Program.LogSize] sets logSizeRet with the size of the log generated by the previous compilation of prog (including the trailing NULL).
+// getProgramLogSize [Program.LogSize] returns the size of the log generated by the previous compilation of prog (including the trailing NULL).
 //
 // Note that compilation log may be generated with warnings and informative messages, even when the compilation of prog succeeds.
-// [Program.Log]
 //
-//   - prog: in CUDA Runtime Compilation program
+// See also: [Program.Log]
+//
+//   - prog: CUDA Runtime Compilation program
+//
+// The size counts the terminating NUL that [Program.Log] drops, so it is one more
+// than the length of that result.
 //
 // Wraps nvrtcGetProgramLogSize.
 func getProgramLogSize(prog Program) (uint, error) {
@@ -486,20 +698,23 @@ func getProgramLogSize(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetProgramLogSize(prog, &out), "nvrtcGetProgramLogSize"); err != nil {
+	out := slotGetProgramLogSize.get()
+	defer slotGetProgramLogSize.put(out)
+	if err := toError(fngetProgramLogSize(prog, out), "nvrtcGetProgramLogSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetSupportedArchs [GetSupportedArchs] populates the array passed via the output parameter supportedArchs with the architectures supported by NVRTC.
+var slotGetProgramLogSize outSlot[uint]
+
+// GetSupportedArchs populates the array passed via the output parameter supportedArchs with the architectures supported by NVRTC.
 //
 // The array is sorted in the ascending order. The size of the array to be passed can be determined using [GetNumSupportedArchs].
 // see [GetNumSupportedArchs]
 //
-//   - supportedArchs: out sorted array of supported architectures. Returns [Success] [ErrInvalidInput]
+//   - supportedArchs: sorted array of supported architectures
 //
 // Wraps nvrtcGetSupportedArchs.
 func GetSupportedArchs(supportedArchs *int32) error {
@@ -509,12 +724,12 @@ func GetSupportedArchs(supportedArchs *int32) error {
 	return toError(fnGetSupportedArchs(supportedArchs), "nvrtcGetSupportedArchs")
 }
 
-// getTileIR [Program.TileIR] stores the cuda_tile IR generated by the previous compilation of prog in the memory pointed by TileIR.
+// getTileIR [Program.TileIR] returns the cuda_tile IR generated by the previous compilation of prog.
 //
-// [Program.TileIRSize]
+// See also: [Program.TileIRSize]
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - tileIR: out Generated cuda_tile IR. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
+//   - prog: CUDA Runtime Compilation program
+//   - tileIR: Generated cuda_tile IR
 //
 // Wraps nvrtcGetTileIR.
 func getTileIR(prog Program) ([]byte, error) {
@@ -535,11 +750,11 @@ func getTileIR(prog Program) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getTileIRSize [Program.TileIRSize] sets the value of TileIRSizeRet with the size of the cuda_tile IR generated by the previous compilation of prog.
+// getTileIRSize [Program.TileIRSize] returns the size of the cuda_tile IR generated by the previous compilation of prog.
 //
-// [Program.TileIR]
+// See also: [Program.TileIR]
 //
-//   - prog: in CUDA Runtime Compilation program
+//   - prog: CUDA Runtime Compilation program
 //
 // Wraps nvrtcGetTileIRSize.
 func getTileIRSize(prog Program) (uint, error) {
@@ -547,27 +762,36 @@ func getTileIRSize(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetTileIRSize(prog, &out), "nvrtcGetTileIRSize"); err != nil {
+	out := slotGetTileIRSize.get()
+	defer slotGetTileIRSize.put(out)
+	if err := toError(fngetTileIRSize(prog, out), "nvrtcGetTileIRSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// InstallBundledHeaders [InstallBundledHeaders] extracts CUDA headers bundled with NVRTC to a specified directory for use during compilation.
+var slotGetTileIRSize outSlot[uint]
+
+// InstallBundledHeaders extracts CUDA headers bundled with NVRTC to a specified directory for use during compilation.
 //
 // NVRTC bundles a set of CUDA Toolkit headers and CUDA C++ Core Libraries (CCCL) within libnvrtc-builtins. This function extracts these headers to the specified directory, allowing NVRTC programs to compile without requiring a separate CUDA Toolkit installation. The bundled headers match those available in the CUDA Toolkit plus CCCL libraries.
 // After extraction, users can compile kernels by passing appropriate include paths (such as “-I” and “-I/cccl”) to [Program.Compile].
 // A version marker file (.nvrtc_headers_version) is created in the installation directory to track the installed version.
 // This function is thread-safe and process-safe. Concurrent calls from multiple threads or processes will be serialized using file locking. By default, the function waits for the lock; use NVRTC_INSTALL_HEADERS_NO_WAIT to return immediately with [ErrBusy] if another process holds the lock.
-// [Program.Compile]
-// Note
-// Use NVRTC_INSTALL_HEADERS_SKIP_IF_EXISTS to avoid reinstalling if headers already exist. Use NVRTC_INSTALL_HEADERS_FORCE_OVERWRITE to guarantee consistency by clearing the directory first.
 //
-//   - installPath: in Path where headers should be extracted (UTF-8 encoded). The directory will be created if it doesn’t exist
-//   - flags: in NVRTC_INSTALL_HEADERS_* flags:0 (SKIP_IF_EXISTS): Skip if version marker exists and version matches. This is the default.NVRTC_INSTALL_HEADERS_FORCE_OVERWRITE: Clear directory first, then install. Guarantees consistency.NVRTC_INSTALL_HEADERS_NO_WAIT: Return [ErrBusy] immediately if lock cannot be acquired. NO_WAIT can be combined with FORCE_OVERWRITE
-//   - errorLog: out Optional pointer to receive detailed error message on failure. If non-NULL, *errorLog will be set to point to a string describing the error cause. Note: subsequent API calls from the same thread may overwrite this message. May be NULL if error details are not needed. Returns [Success] [ErrInvalidInput] (invalid path or conflicting flags like SKIP_IF_EXISTS | FORCE_OVERWRITE) [ErrBuiltinOperationFailure] (extraction failed or version mismatch) [ErrBusy] (lock held by another process and NVRTC_INSTALL_HEADERS_NO_WAIT was specified)
+// Note: Use NVRTC_INSTALL_HEADERS_SKIP_IF_EXISTS to avoid reinstalling if headers already exist. Use NVRTC_INSTALL_HEADERS_FORCE_OVERWRITE to guarantee consistency by clearing the directory first.
+//
+// See also: [Program.Compile]
+//
+//   - installPath: Path where headers should be extracted (UTF-8 encoded). The directory will be created if it doesn’t exist
+//   - flags: NVRTC_INSTALL_HEADERS_* flags:0 (SKIP_IF_EXISTS): Skip if version marker exists and version matches. This is the default.NVRTC_INSTALL_HEADERS_FORCE_OVERWRITE: Clear directory first, then install. Guarantees consistency.NVRTC_INSTALL_HEADERS_NO_WAIT: Return [ErrBusy] immediately if lock cannot be acquired. NO_WAIT can be combined with FORCE_OVERWRITE
+//   - errorLog: Optional pointer to receive detailed error message on failure. If non-NULL, *errorLog will be set to point to a string describing the error cause. Note: subsequent API calls from the same thread may overwrite this message. May be NULL if error details are not needed
+//
+// Returns:
+//   - [ErrBuiltinOperationFailure]: extraction failed or version mismatch
+//   - [ErrBusy]: lock held by another process and NVRTC_INSTALL_HEADERS_NO_WAIT was specified
+//   - [ErrInvalidInput]: invalid path or conflicting flags like SKIP_IF_EXISTS | FORCE_OVERWRITE
 //
 // Wraps nvrtcInstallBundledHeaders.
 func InstallBundledHeaders(installPath string, flags uint32) error {
@@ -579,14 +803,18 @@ func InstallBundledHeaders(installPath string, flags uint32) error {
 	return errorLogDetail(toError(fnInstallBundledHeaders(&cstr_installPath[0], flags, &errlog_errorLog), "nvrtcInstallBundledHeaders"), errlog_errorLog)
 }
 
-// RemoveBundledHeaders [RemoveBundledHeaders] removes previously installed bundled headers.
+// RemoveBundledHeaders removes previously installed bundled headers.
 //
 // This function removes the headers installed by [InstallBundledHeaders], helping users manage disk space. It recursively removes all files and subdirectories within the installation directory.
-// Note
-// This function will remove ALL contents of the specified directory, not just files installed by NVRTC. Use with caution.
 //
-//   - installPath: in Path where headers were previously installed. Must be the same path used with [InstallBundledHeaders]
-//   - errorLog: out Optional pointer to receive detailed error message on failure. If non-NULL, *errorLog will be set to point to a string describing the error cause. Note: subsequent API calls from the same thread may overwrite this message. May be NULL if error details are not needed. Returns [Success] [ErrInvalidInput] (invalid path) [ErrBuiltinOperationFailure] (removal failed) structnvrtcBundledHeadersInfo  Structure containing information about bundled headers. Public Members intavailable 
+// Note: This function will remove ALL contents of the specified directory, not just files installed by NVRTC. Use with caution.
+//
+//   - installPath: Path where headers were previously installed. Must be the same path used with [InstallBundledHeaders]
+//   - errorLog: Optional pointer to receive detailed error message on failure. If non-NULL, *errorLog will be set to point to a string describing the error cause. Note: subsequent API calls from the same thread may overwrite this message. May be NULL if error details are not needed
+//
+// Returns:
+//   - [ErrBuiltinOperationFailure]: removal failed
+//   - [ErrInvalidInput]: invalid path
 //
 // Wraps nvrtcRemoveBundledHeaders.
 func RemoveBundledHeaders(installPath string) error {
@@ -598,14 +826,19 @@ func RemoveBundledHeaders(installPath string) error {
 	return errorLogDetail(toError(fnRemoveBundledHeaders(&cstr_installPath[0], &errlog_errorLog), "nvrtcRemoveBundledHeaders"), errlog_errorLog)
 }
 
-// setFlowCallback Registers a callback that can cancel program compilation.
+// setFlowCallback [Program.SetFlowCallback] registers a callback function that the compiler will invoke at different points during a call to [Program.Compile], and the callback function can decide whether to cancel compilation by returning specific values.
 //
-// The callback has C signature int callback(void *payload, void *reserved). NVRTC passes the registered payload as the first argument and NULL as the reserved second argument. Return 0 to continue compilation or 1 to cancel; other return values are reserved. Once cancellation is requested, the callback must keep returning 1 for the remainder of the current [Program.Compile] invocation.
-// The callback must be thread-safe and must not invoke any nvrtc, libnvvm, or PTX compiler API. Keep its trampoline and payload storage valid while registered and until all in-flight compilation has returned. Passing a uintptr does not retain or pin Go memory; use an opaque token or storage with an independently managed lifetime.
+// The callback function must satisfy the following constraints:
+// (1) Its signature should be:
+// When invoking the callback, the compiler will always pass payload to param1 so that the callback may make decisions based on payload . It’ll always pass NULL to param2 for now which is reserved for future extensions.
+// (2) It must return 1 to cancel compilation or 0 to continue. Other return values are reserved for future use.
+// (3) It must return consistent values. Once it returns 1 at one point, it must return 1 in all following invocations during the current [Program.Compile] call in progress.
+// (4) It must be thread-safe.
+// (5) It must not invoke any nvrtc/libnvvm/ptx APIs.
 //
-//   - prog: in CUDA Runtime Compilation program
-//   - callback: in Address of a callback with C signature int(void *, void *)
-//   - payload: in Opaque token or stable address passed to the callback; the caller owns its lifetime
+//   - prog: CUDA Runtime Compilation program
+//   - callback: the callback that issues cancellation signal
+//   - payload: to be passed as a parameter when invoking the callback
 //
 // Wraps nvrtcSetFlowCallback.
 func setFlowCallback(prog Program, callback uintptr, payload uintptr) error {
@@ -615,11 +848,11 @@ func setFlowCallback(prog Program, callback uintptr, payload uintptr) error {
 	return toError(fnsetFlowCallback(prog, callback, payload), "nvrtcSetFlowCallback")
 }
 
-// SetPCHHeapSize set the size of the PCH Heap.
+// SetPCHHeapSize sets the size of the PCH Heap.
 //
 // The requested size may be rounded up to a platform dependent alignment (e.g. page size). If the PCH Heap has already been allocated, the heap memory will be freed and a new PCH Heap will be allocated.
 //
-//   - size: in requested size of the PCH Heap, in bytes Returns [Success]
+//   - size: requested size of the PCH Heap, in bytes
 //
 // Wraps nvrtcSetPCHHeapSize.
 func SetPCHHeapSize(size uint) error {
@@ -629,7 +862,7 @@ func SetPCHHeapSize(size uint) error {
 	return toError(fnSetPCHHeapSize(size), "nvrtcSetPCHHeapSize")
 }
 
-// Version [Version] sets the output parameters major and minor with the CUDA Runtime Compilation version number.
+// Version sets the output parameters major and minor with the CUDA Runtime Compilation version number.
 //
 // Wraps nvrtcVersion.
 func Version() (major int32, minor int32, err error) {

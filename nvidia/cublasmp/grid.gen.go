@@ -6,7 +6,7 @@ import (
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
-// NewGrid Creates and initializes a process grid.
+// NewGrid creates and initializes a process grid.
 //
 // This function initializes the [Grid] opaque data structure. It maps the
 // given resources (communicator, grid dimensions and grid layout) to a grid object.
@@ -25,7 +25,7 @@ func NewGrid(nprow int64, npcol int64, layout GridLayout, comm nccl.Comm) (Grid,
 	return GridCreate(nprow, npcol, layout, comm)
 }
 
-// Deregister Deregisters a previously registered device memory buffer from NCCL symmetric memory.
+// Deregister deregisters a previously registered device memory buffer from NCCL symmetric memory.
 //
 // This should be called before freeing the buffer with ncclMemFree. For buffers allocated
 // with [Grid.Malloc], use [Grid.Free] instead, which combines deregistration
@@ -40,7 +40,7 @@ func (g Grid) Deregister(ptr uintptr) error {
 	return BufferDeregister(g, ptr)
 }
 
-// Destroy Destroys a process grid.
+// Destroy destroys a process grid.
 //
 // This function destroys the given grid object. All ranks in the grid
 // communicator must enter this function collectively.
@@ -50,7 +50,7 @@ func (g Grid) Destroy() error {
 	return GridDestroy(g)
 }
 
-// Free Deregisters and frees device memory allocated with [Grid.Malloc].
+// Free deregisters and frees device memory allocated with [Grid.Malloc].
 //
 // This is a convenience function that combines [Grid.Deregister] and
 // ncclMemFree into a single call. It should only be used for buffers allocated with
@@ -66,7 +66,7 @@ func (g Grid) Free(ptr uintptr) error {
 	return Free(g, ptr)
 }
 
-// Malloc Allocates and registers device memory with NCCL symmetric memory.
+// Malloc allocates and registers device memory with NCCL symmetric memory.
 //
 // This is a convenience function that combines ncclMemAlloc and [Grid.Register]
 // into a single call. See [Grid.Register] for details on how workspace registration
@@ -82,7 +82,7 @@ func (g Grid) Malloc(size uint) (uintptr, error) {
 	return Malloc(g, size)
 }
 
-// Register Registers a device memory buffer with NCCL symmetric memory for a process grid.
+// Register registers a device memory buffer with NCCL symmetric memory for a process grid.
 //
 // Registering the device workspace buffer (d_work) enables cublasMpMatmul to use the
 // communication-computation overlap algorithms for AllGather+GEMM, GEMM+ReduceScatter, and GEMM+AllReduce operations.

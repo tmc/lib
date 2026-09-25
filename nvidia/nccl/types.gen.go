@@ -2,5 +2,7 @@
 
 package nccl
 
-// MemLocationType identifies the kind of memory a window segment is backed by. It is the CUDA driver API's CUmemLocationType.
+// MemLocationType identifies the kind of memory a window segment is backed by.
+//
+// It is the CUDA driver API's CUmemLocationType.
 type MemLocationType int32

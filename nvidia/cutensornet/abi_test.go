@@ -6,6 +6,8 @@ import (
 	"sort"
 	"testing"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // These tests check the Go side of the cuTensorNet ABI against the pinned
@@ -93,7 +95,7 @@ var wantSymbols = []string{
 	"cutensornetWorkspaceSetMemory",
 }
 
-var registerRE = regexp.MustCompile(`register\(&\w+, "(\w+)"\)`)
+var registerRE = regexp.MustCompile(`register(?:\(&\w+, |Sym\()"(\w+)"\)`)
 
 // TestBoundSymbols checks that the generated loader binds exactly the symbols
 // this package claims to bind, no more and no fewer. It reads the generated
@@ -286,7 +288,7 @@ func TestHandleWidth(t *testing.T) {
 		"ContractionAutotunePreference": unsafe.Sizeof(ContractionAutotunePreference(0)),
 		"NetworkAutotunePreference":     unsafe.Sizeof(NetworkAutotunePreference(0)),
 		"SliceGroup":                    unsafe.Sizeof(SliceGroup(0)),
-		"Stream":                        unsafe.Sizeof(Stream(0)),
+		"Stream":                        unsafe.Sizeof(driver.Stream(0)),
 	} {
 		if size != want {
 			t.Errorf("sizeof(%s) = %d, want %d", name, size, want)

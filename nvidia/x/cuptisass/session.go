@@ -144,7 +144,7 @@ func (s *Session) Enable() error {
 
 	var enableParams cupti.SassMetricsEnableParams
 	enableParams.StructSize = uint(unsafe.Offsetof(enableParams.EnableLazyPatching) + unsafe.Sizeof(enableParams.EnableLazyPatching))
-	enableParams.Ctx = cupti.Context(s.ctx)
+	enableParams.Ctx = driver.Context(s.ctx)
 	if s.cfg.LazyPatching {
 		enableParams.EnableLazyPatching = 1
 	}
@@ -169,7 +169,7 @@ func (s *Session) Disable() (uint, error) {
 
 	var disableParams cupti.SassMetricsDisableParams
 	disableParams.StructSize = uint(unsafe.Offsetof(disableParams.NumOfDroppedRecords) + unsafe.Sizeof(disableParams.NumOfDroppedRecords))
-	disableParams.Ctx = cupti.Context(s.ctx)
+	disableParams.Ctx = driver.Context(s.ctx)
 
 	if err := s.api.disable(&disableParams); err != nil {
 		return 0, fmt.Errorf("cuptisass: disable: %w", err)
@@ -189,7 +189,7 @@ func (s *Session) DataProperties() (numPatchedRecords, numInstances uint, err er
 
 	var props cupti.SassMetricsGetDataPropertiesParams
 	props.StructSize = uint(unsafe.Offsetof(props.NumOfInstances) + unsafe.Sizeof(props.NumOfInstances))
-	props.Ctx = cupti.Context(s.ctx)
+	props.Ctx = driver.Context(s.ctx)
 
 	if err := cupti.SassMetricsGetDataProperties(&props); err != nil {
 		return 0, 0, fmt.Errorf("cuptisass: get data properties: %w", err)
@@ -208,7 +208,7 @@ func (s *Session) Flush() ([]Record, error) {
 
 	var props cupti.SassMetricsGetDataPropertiesParams
 	props.StructSize = uint(unsafe.Offsetof(props.NumOfInstances) + unsafe.Sizeof(props.NumOfInstances))
-	props.Ctx = cupti.Context(s.ctx)
+	props.Ctx = driver.Context(s.ctx)
 
 	if err := cupti.SassMetricsGetDataProperties(&props); err != nil {
 		return nil, fmt.Errorf("cuptisass: flush query properties: %w", err)
@@ -235,7 +235,7 @@ func (s *Session) Flush() ([]Record, error) {
 
 	var flushParams cupti.SassMetricsFlushDataParams
 	flushParams.StructSize = uint(unsafe.Offsetof(flushParams.NumOfInstances) + unsafe.Sizeof(flushParams.NumOfInstances))
-	flushParams.Ctx = cupti.Context(s.ctx)
+	flushParams.Ctx = driver.Context(s.ctx)
 	flushParams.NumOfPatchedInstructionRecords = numRecords
 	flushParams.NumOfInstances = numInstances
 	flushParams.PMetricsData = uintptr(unsafe.Pointer(&rawRecords[0]))
@@ -284,7 +284,7 @@ func (s *Session) Close() error {
 	}
 	s.closing = true
 	if s.enabled {
-		p := cupti.SassMetricsDisableParams{Ctx: cupti.Context(s.ctx)}
+		p := cupti.SassMetricsDisableParams{Ctx: driver.Context(s.ctx)}
 		p.StructSize = uint(unsafe.Offsetof(p.NumOfDroppedRecords) + unsafe.Sizeof(p.NumOfDroppedRecords))
 		if err := s.api.disable(&p); err != nil {
 			return fmt.Errorf("cuptisass: close disable: %w", err)

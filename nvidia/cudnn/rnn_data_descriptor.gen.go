@@ -4,6 +4,7 @@ package cudnn
 
 // Destroy destroys a previously created RNN data descriptor object.
 //
+// Invoking [RNNDataDescriptor.Destroy] with the NULL argument is a no operation (NOP).
 // The [RNNDataDescriptor.Destroy] function is not able to detect if the RNNDataDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDataDescriptor] function, or in the double deletion scenario of a valid address.
 //
 // Returns:

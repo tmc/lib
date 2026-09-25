@@ -2,40 +2,308 @@
 
 package nvjpeg2k
 
+import (
+	"sync"
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
+)
+
 // Generated function pointer variables.
 var (
-	fnCreate                          func(Backend, *DeviceAllocator, *PinnedAllocator, *Handle) Result
-	fnCreateSimple                    func(*Handle) Result
-	fnCreateV2                        func(Backend, *DeviceAllocatorV2, *PinnedAllocatorV2, *Handle) Result
-	fnDecode                          func(Handle, DecodeState, Bitstream, *Image, Stream) Result
-	fnDecodeImage                     func(Handle, DecodeState, Bitstream, DecodeParams, *Image, Stream) Result
-	fnDecodeParamsCreate              func(*DecodeParams) Result
-	fnDecodeParamsDestroy             func(DecodeParams) Result
-	fnDecodeParamsSetDecodeArea       func(DecodeParams, uint32, uint32, uint32, uint32) Result
-	fnDecodeParamsSetOutputFormat     func(DecodeParams, ImageFormat) Result
-	fnDecodeParamsSetRGBOutput        func(DecodeParams, int32) Result
-	fnDecodeStateCreate               func(Handle, *DecodeState) Result
-	fnDecodeStateDestroy              func(DecodeState) Result
-	fnDecodeTile                      func(Handle, DecodeState, Bitstream, DecodeParams, uint32, uint32, *Image, Stream) Result
-	fnDestroy                         func(Handle) Result
-	fnGetCudartProperty               func(LibraryPropertyType, *int32) Result
-	fnGetDeviceMemoryPadding          func(*uint, Handle) Result
-	fnGetPinnedMemoryPadding          func(*uint, Handle) Result
-	fnGetProperty                     func(LibraryPropertyType, *int32) Result
-	fnSetDeviceMemoryPadding          func(uint, Handle) Result
-	fnSetPinnedMemoryPadding          func(uint, Handle) Result
-	fnStreamCreate                    func(*Bitstream) Result
-	fnStreamDestroy                   func(Bitstream) Result
-	fnStreamGetColorSpace             func(Bitstream, *ColorSpace) Result
-	fnStreamGetComponentNLTInfo       func(Bitstream, uint32, *NLTInfo) Result
-	fnStreamGetImageComponentInfo     func(Bitstream, *ImageComponentInfo, uint32) Result
-	fnStreamGetImageInfo              func(Bitstream, *ImageInfo) Result
-	fnStreamGetResolutionComponentDim func(Bitstream, uint32, uint32, uint32, *uint32, *uint32) Result
-	fnStreamGetResolutionsInTile      func(Bitstream, uint32, *uint32) Result
-	fnStreamGetTileComponentDim       func(Bitstream, uint32, uint32, *uint32, *uint32) Result
-	fnStreamParse                     func(Handle, *uint8, uint, int32, int32, Bitstream) Result
-	fnStreamParseFile                 func(Handle, *byte, Bitstream) Result
+	symCreate                          uintptr
+	symCreateSimple                    uintptr
+	symCreateV2                        uintptr
+	fnDecode                           func(Handle, DecodeState, Bitstream, *Image, driver.Stream) Result
+	fnDecodeImage                      func(Handle, DecodeState, Bitstream, DecodeParams, *Image, driver.Stream) Result
+	symDecodeParamsCreate              uintptr
+	symDecodeParamsDestroy             uintptr
+	symDecodeParamsSetDecodeArea       uintptr
+	symDecodeParamsSetOutputFormat     uintptr
+	symDecodeParamsSetRGBOutput        uintptr
+	symDecodeStateCreate               uintptr
+	symDecodeStateDestroy              uintptr
+	fnDecodeTile                       func(Handle, DecodeState, Bitstream, DecodeParams, uint32, uint32, *Image, driver.Stream) Result
+	symDestroy                         uintptr
+	symGetCudartProperty               uintptr
+	symGetDeviceMemoryPadding          uintptr
+	symGetPinnedMemoryPadding          uintptr
+	symGetProperty                     uintptr
+	symSetDeviceMemoryPadding          uintptr
+	symSetPinnedMemoryPadding          uintptr
+	symStreamCreate                    uintptr
+	symStreamDestroy                   uintptr
+	symStreamGetColorSpace             uintptr
+	symStreamGetComponentNLTInfo       uintptr
+	symStreamGetImageComponentInfo     uintptr
+	symStreamGetImageInfo              uintptr
+	symStreamGetResolutionComponentDim uintptr
+	symStreamGetResolutionsInTile      uintptr
+	symStreamGetTileComponentDim       uintptr
+	symStreamParse                     uintptr
+	symStreamParseFile                 uintptr
 )
+
+// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnCreate calls nvjpeg2kCreate.
+func fnCreate(a0 Backend, a1 *DeviceAllocator, a2 *PinnedAllocator, a3 *Handle) Result {
+	r1, _ := ffiCall4(symCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnCreateSimple calls nvjpeg2kCreateSimple.
+func fnCreateSimple(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreateSimple, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateV2 calls nvjpeg2kCreateV2.
+func fnCreateV2(a0 Backend, a1 *DeviceAllocatorV2, a2 *PinnedAllocatorV2, a3 *Handle) Result {
+	r1, _ := ffiCall4(symCreateV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnDecodeParamsCreate calls nvjpeg2kDecodeParamsCreate.
+func fnDecodeParamsCreate(a0 *DecodeParams) Result {
+	r1, _ := ffiCall1(symDecodeParamsCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnDecodeParamsDestroy calls nvjpeg2kDecodeParamsDestroy.
+func fnDecodeParamsDestroy(a0 DecodeParams) Result {
+	r1, _ := ffiCall1(symDecodeParamsDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnDecodeParamsSetDecodeArea calls nvjpeg2kDecodeParamsSetDecodeArea.
+func fnDecodeParamsSetDecodeArea(a0 DecodeParams, a1 uint32, a2 uint32, a3 uint32, a4 uint32) Result {
+	r1, _ := ffiCall5(symDecodeParamsSetDecodeArea, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnDecodeParamsSetOutputFormat calls nvjpeg2kDecodeParamsSetOutputFormat.
+func fnDecodeParamsSetOutputFormat(a0 DecodeParams, a1 ImageFormat) Result {
+	r1, _ := ffiCall2(symDecodeParamsSetOutputFormat, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnDecodeParamsSetRGBOutput calls nvjpeg2kDecodeParamsSetRGBOutput.
+func fnDecodeParamsSetRGBOutput(a0 DecodeParams, a1 int32) Result {
+	r1, _ := ffiCall2(symDecodeParamsSetRGBOutput, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnDecodeStateCreate calls nvjpeg2kDecodeStateCreate.
+func fnDecodeStateCreate(a0 Handle, a1 *DecodeState) Result {
+	r1, _ := ffiCall2(symDecodeStateCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnDecodeStateDestroy calls nvjpeg2kDecodeStateDestroy.
+func fnDecodeStateDestroy(a0 DecodeState) Result {
+	r1, _ := ffiCall1(symDecodeStateDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnDestroy calls nvjpeg2kDestroy.
+func fnDestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnGetCudartProperty calls nvjpeg2kGetCudartProperty.
+func fnGetCudartProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetCudartProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetDeviceMemoryPadding calls nvjpeg2kGetDeviceMemoryPadding.
+func fnGetDeviceMemoryPadding(a0 *uint, a1 Handle) Result {
+	r1, _ := ffiCall2(symGetDeviceMemoryPadding, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGetPinnedMemoryPadding calls nvjpeg2kGetPinnedMemoryPadding.
+func fnGetPinnedMemoryPadding(a0 *uint, a1 Handle) Result {
+	r1, _ := ffiCall2(symGetPinnedMemoryPadding, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGetProperty calls nvjpeg2kGetProperty.
+func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnSetDeviceMemoryPadding calls nvjpeg2kSetDeviceMemoryPadding.
+func fnSetDeviceMemoryPadding(a0 uint, a1 Handle) Result {
+	r1, _ := ffiCall2(symSetDeviceMemoryPadding, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnSetPinnedMemoryPadding calls nvjpeg2kSetPinnedMemoryPadding.
+func fnSetPinnedMemoryPadding(a0 uint, a1 Handle) Result {
+	r1, _ := ffiCall2(symSetPinnedMemoryPadding, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnStreamCreate calls nvjpeg2kStreamCreate.
+func fnStreamCreate(a0 *Bitstream) Result {
+	r1, _ := ffiCall1(symStreamCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnStreamDestroy calls nvjpeg2kStreamDestroy.
+func fnStreamDestroy(a0 Bitstream) Result {
+	r1, _ := ffiCall1(symStreamDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnStreamGetColorSpace calls nvjpeg2kStreamGetColorSpace.
+func fnStreamGetColorSpace(a0 Bitstream, a1 *ColorSpace) Result {
+	r1, _ := ffiCall2(symStreamGetColorSpace, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnStreamGetComponentNLTInfo calls nvjpeg2kStreamGetComponentNLTInfo.
+func fnStreamGetComponentNLTInfo(a0 Bitstream, a1 uint32, a2 *NLTInfo) Result {
+	r1, _ := ffiCall3(symStreamGetComponentNLTInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnStreamGetImageComponentInfo calls nvjpeg2kStreamGetImageComponentInfo.
+func fnStreamGetImageComponentInfo(a0 Bitstream, a1 *ImageComponentInfo, a2 uint32) Result {
+	r1, _ := ffiCall3(symStreamGetImageComponentInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnStreamGetImageInfo calls nvjpeg2kStreamGetImageInfo.
+func fnStreamGetImageInfo(a0 Bitstream, a1 *ImageInfo) Result {
+	r1, _ := ffiCall2(symStreamGetImageInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnStreamGetResolutionComponentDim calls nvjpeg2kStreamGetResolutionComponentDim.
+func fnStreamGetResolutionComponentDim(a0 Bitstream, a1 uint32, a2 uint32, a3 uint32, a4 *uint32, a5 *uint32) Result {
+	r1, _ := ffiCall6(symStreamGetResolutionComponentDim, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnStreamGetResolutionsInTile calls nvjpeg2kStreamGetResolutionsInTile.
+func fnStreamGetResolutionsInTile(a0 Bitstream, a1 uint32, a2 *uint32) Result {
+	r1, _ := ffiCall3(symStreamGetResolutionsInTile, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnStreamGetTileComponentDim calls nvjpeg2kStreamGetTileComponentDim.
+func fnStreamGetTileComponentDim(a0 Bitstream, a1 uint32, a2 uint32, a3 *uint32, a4 *uint32) Result {
+	r1, _ := ffiCall5(symStreamGetTileComponentDim, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnStreamParse calls nvjpeg2kStreamParse.
+func fnStreamParse(a0 Handle, a1 *uint8, a2 uint, a3 int32, a4 int32, a5 Bitstream) Result {
+	r1, _ := ffiCall6(symStreamParse, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnStreamParseFile calls nvjpeg2kStreamParseFile.
+func fnStreamParseFile(a0 Handle, a1 *byte, a2 Bitstream) Result {
+	r1, _ := ffiCall3(symStreamParseFile, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
 
 // Create creates a library handle with caller-supplied device and pinned allocators.
 //
@@ -52,13 +320,16 @@ func Create(backend Backend, deviceAllocator *DeviceAllocator, pinnedAllocator *
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(backend, deviceAllocator, pinnedAllocator, &out), "nvjpeg2kCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(backend, deviceAllocator, pinnedAllocator, out), "nvjpeg2kCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // CreateSimple creates a library handle with the default backend and allocators.
 //
@@ -71,13 +342,16 @@ func CreateSimple() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreateSimple(&out), "nvjpeg2kCreateSimple"); err != nil {
+	out := slotCreateSimple.get()
+	defer slotCreateSimple.put(out)
+	if err := toError(fnCreateSimple(out), "nvjpeg2kCreateSimple"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateSimple outSlot[Handle]
 
 // CreateV2 creates a library handle with stream-ordered caller-supplied allocators.
 //
@@ -94,13 +368,16 @@ func CreateV2(backend Backend, devAllocator *DeviceAllocatorV2, pinnedAllocator 
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreateV2(backend, devAllocator, pinnedAllocator, &out), "nvjpeg2kCreateV2"); err != nil {
+	out := slotCreateV2.get()
+	defer slotCreateV2.put(out)
+	if err := toError(fnCreateV2(backend, devAllocator, pinnedAllocator, out), "nvjpeg2kCreateV2"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreateV2 outSlot[Handle]
 
 // Decode decodes a whole image into caller-allocated device buffers.
 //
@@ -119,7 +396,7 @@ func CreateV2(backend Backend, devAllocator *DeviceAllocatorV2, pinnedAllocator 
 //   - stream: [in] CUDA stream. Can be set to 0
 //
 // Wraps nvjpeg2kDecode.
-func Decode(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, decodeOutput *Image, stream Stream) error {
+func Decode(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, decodeOutput *Image, stream driver.Stream) error {
 	if err := checkLibSym("nvjpeg2kDecode"); err != nil {
 		return err
 	}
@@ -145,7 +422,7 @@ func Decode(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, deco
 //   - stream: [in] CUDA stream. Can be set to 0
 //
 // Wraps nvjpeg2kDecodeImage.
-func DecodeImage(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, decodeOutput *Image, stream Stream) error {
+func DecodeImage(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, decodeOutput *Image, stream driver.Stream) error {
 	if err := checkLibSym("nvjpeg2kDecodeImage"); err != nil {
 		return err
 	}
@@ -160,13 +437,16 @@ func DecodeParamsCreate() (DecodeParams, error) {
 		var zero DecodeParams
 		return zero, err
 	}
-	var out DecodeParams
-	if err := toError(fnDecodeParamsCreate(&out), "nvjpeg2kDecodeParamsCreate"); err != nil {
+	out := slotDecodeParamsCreate.get()
+	defer slotDecodeParamsCreate.put(out)
+	if err := toError(fnDecodeParamsCreate(out), "nvjpeg2kDecodeParamsCreate"); err != nil {
 		var zero DecodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDecodeParamsCreate outSlot[DecodeParams]
 
 // DecodeParamsDestroy releases a decode parameters handle.
 //
@@ -250,13 +530,16 @@ func DecodeStateCreate(handle Handle) (DecodeState, error) {
 		var zero DecodeState
 		return zero, err
 	}
-	var out DecodeState
-	if err := toError(fnDecodeStateCreate(handle, &out), "nvjpeg2kDecodeStateCreate"); err != nil {
+	out := slotDecodeStateCreate.get()
+	defer slotDecodeStateCreate.put(out)
+	if err := toError(fnDecodeStateCreate(handle, out), "nvjpeg2kDecodeStateCreate"); err != nil {
 		var zero DecodeState
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDecodeStateCreate outSlot[DecodeState]
 
 // DecodeStateDestroy releases a decode state.
 //
@@ -290,7 +573,7 @@ func DecodeStateDestroy(decodeState DecodeState) error {
 //   - stream: [in] CUDA stream. Can be set to 0
 //
 // Wraps nvjpeg2kDecodeTile.
-func DecodeTile(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, tileId uint32, numResLevels uint32, decodeOutput *Image, stream Stream) error {
+func DecodeTile(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, decodeParams DecodeParams, tileId uint32, numResLevels uint32, decodeOutput *Image, stream driver.Stream) error {
 	if err := checkLibSym("nvjpeg2kDecodeTile"); err != nil {
 		return err
 	}
@@ -325,13 +608,16 @@ func GetCudartProperty(property LibraryPropertyType) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetCudartProperty(property, &out), "nvjpeg2kGetCudartProperty"); err != nil {
+	out := slotGetCudartProperty.get()
+	defer slotGetCudartProperty.put(out)
+	if err := toError(fnGetCudartProperty(property, out), "nvjpeg2kGetCudartProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetCudartProperty outSlot[int32]
 
 // GetDeviceMemoryPadding returns the current device allocation padding in bytes.
 //
@@ -343,13 +629,16 @@ func GetDeviceMemoryPadding(handle Handle) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnGetDeviceMemoryPadding(&out, handle), "nvjpeg2kGetDeviceMemoryPadding"); err != nil {
+	out := slotGetDeviceMemoryPadding.get()
+	defer slotGetDeviceMemoryPadding.put(out)
+	if err := toError(fnGetDeviceMemoryPadding(out, handle), "nvjpeg2kGetDeviceMemoryPadding"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetDeviceMemoryPadding outSlot[uint]
 
 // GetPinnedMemoryPadding returns the current pinned host allocation padding in bytes.
 //
@@ -361,13 +650,16 @@ func GetPinnedMemoryPadding(handle Handle) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnGetPinnedMemoryPadding(&out, handle), "nvjpeg2kGetPinnedMemoryPadding"); err != nil {
+	out := slotGetPinnedMemoryPadding.get()
+	defer slotGetPinnedMemoryPadding.put(out)
+	if err := toError(fnGetPinnedMemoryPadding(out, handle), "nvjpeg2kGetPinnedMemoryPadding"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetPinnedMemoryPadding outSlot[uint]
 
 // GetProperty returns one component of the loaded library's version.
 //
@@ -382,13 +674,16 @@ func GetProperty(property LibraryPropertyType) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetProperty(property, &out), "nvjpeg2kGetProperty"); err != nil {
+	out := slotGetProperty.get()
+	defer slotGetProperty.put(out)
+	if err := toError(fnGetProperty(property, out), "nvjpeg2kGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetProperty outSlot[int32]
 
 // SetDeviceMemoryPadding rounds later device allocations up to a multiple of padding bytes.
 //
@@ -432,13 +727,16 @@ func StreamCreate() (Bitstream, error) {
 		var zero Bitstream
 		return zero, err
 	}
-	var out Bitstream
-	if err := toError(fnStreamCreate(&out), "nvjpeg2kStreamCreate"); err != nil {
+	out := slotStreamCreate.get()
+	defer slotStreamCreate.put(out)
+	if err := toError(fnStreamCreate(out), "nvjpeg2kStreamCreate"); err != nil {
 		var zero Bitstream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotStreamCreate outSlot[Bitstream]
 
 // StreamDestroy releases a bitstream handle and the metadata parsed into it.
 //
@@ -465,13 +763,16 @@ func StreamGetColorSpace(streamHandle Bitstream) (ColorSpace, error) {
 		var zero ColorSpace
 		return zero, err
 	}
-	var out ColorSpace
-	if err := toError(fnStreamGetColorSpace(streamHandle, &out), "nvjpeg2kStreamGetColorSpace"); err != nil {
+	out := slotStreamGetColorSpace.get()
+	defer slotStreamGetColorSpace.put(out)
+	if err := toError(fnStreamGetColorSpace(streamHandle, out), "nvjpeg2kStreamGetColorSpace"); err != nil {
 		var zero ColorSpace
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotStreamGetColorSpace outSlot[ColorSpace]
 
 // StreamGetComponentNLTInfo returns one component's nonlinear-transformation parameters.
 //
@@ -498,13 +799,16 @@ func StreamGetComponentNLTInfo(streamHandle Bitstream, componentId uint32) (NLTI
 		var zero NLTInfo
 		return zero, err
 	}
-	var out NLTInfo
-	if err := toError(fnStreamGetComponentNLTInfo(streamHandle, componentId, &out), "nvjpeg2kStreamGetComponentNLTInfo"); err != nil {
+	out := slotStreamGetComponentNLTInfo.get()
+	defer slotStreamGetComponentNLTInfo.put(out)
+	if err := toError(fnStreamGetComponentNLTInfo(streamHandle, componentId, out), "nvjpeg2kStreamGetComponentNLTInfo"); err != nil {
 		var zero NLTInfo
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotStreamGetComponentNLTInfo outSlot[NLTInfo]
 
 // StreamGetImageComponentInfo returns one component's dimensions, bit depth, and signedness.
 //
@@ -522,13 +826,16 @@ func StreamGetImageComponentInfo(streamHandle Bitstream, componentId uint32) (Im
 		var zero ImageComponentInfo
 		return zero, err
 	}
-	var out ImageComponentInfo
-	if err := toError(fnStreamGetImageComponentInfo(streamHandle, &out, componentId), "nvjpeg2kStreamGetImageComponentInfo"); err != nil {
+	out := slotStreamGetImageComponentInfo.get()
+	defer slotStreamGetImageComponentInfo.put(out)
+	if err := toError(fnStreamGetImageComponentInfo(streamHandle, out, componentId), "nvjpeg2kStreamGetImageComponentInfo"); err != nil {
 		var zero ImageComponentInfo
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotStreamGetImageComponentInfo outSlot[ImageComponentInfo]
 
 // StreamGetImageInfo returns the image dimensions, tile grid, and component count.
 //
@@ -543,13 +850,16 @@ func StreamGetImageInfo(streamHandle Bitstream) (ImageInfo, error) {
 		var zero ImageInfo
 		return zero, err
 	}
-	var out ImageInfo
-	if err := toError(fnStreamGetImageInfo(streamHandle, &out), "nvjpeg2kStreamGetImageInfo"); err != nil {
+	out := slotStreamGetImageInfo.get()
+	defer slotStreamGetImageInfo.put(out)
+	if err := toError(fnStreamGetImageInfo(streamHandle, out), "nvjpeg2kStreamGetImageInfo"); err != nil {
 		var zero ImageInfo
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotStreamGetImageInfo outSlot[ImageInfo]
 
 // StreamGetResolutionComponentDim returns one tile component's width and height at a resolution level.
 //
@@ -568,13 +878,18 @@ func StreamGetResolutionComponentDim(streamHandle Bitstream, componentId uint32,
 	if err := checkLibSym("nvjpeg2kStreamGetResolutionComponentDim"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint32
-	var out1 uint32
-	if err := toError(fnStreamGetResolutionComponentDim(streamHandle, componentId, tileId, resLevel, &out0, &out1), "nvjpeg2kStreamGetResolutionComponentDim"); err != nil {
+	outs := slotStreamGetResolutionComponentDim.get()
+	defer slotStreamGetResolutionComponentDim.put(outs)
+	if err := toError(fnStreamGetResolutionComponentDim(streamHandle, componentId, tileId, resLevel, &outs.out0, &outs.out1), "nvjpeg2kStreamGetResolutionComponentDim"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotStreamGetResolutionComponentDim outSlot[struct {
+	out0 uint32
+	out1 uint32
+}]
 
 // StreamGetResolutionsInTile returns the number of resolution levels present in a tile.
 //
@@ -594,13 +909,16 @@ func StreamGetResolutionsInTile(streamHandle Bitstream, tileId uint32) (uint32, 
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnStreamGetResolutionsInTile(streamHandle, tileId, &out), "nvjpeg2kStreamGetResolutionsInTile"); err != nil {
+	out := slotStreamGetResolutionsInTile.get()
+	defer slotStreamGetResolutionsInTile.put(out)
+	if err := toError(fnStreamGetResolutionsInTile(streamHandle, tileId, out), "nvjpeg2kStreamGetResolutionsInTile"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotStreamGetResolutionsInTile outSlot[uint32]
 
 // StreamGetTileComponentDim returns one tile component's width and height.
 //
@@ -616,13 +934,18 @@ func StreamGetTileComponentDim(streamHandle Bitstream, componentId uint32, tileI
 	if err := checkLibSym("nvjpeg2kStreamGetTileComponentDim"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint32
-	var out1 uint32
-	if err := toError(fnStreamGetTileComponentDim(streamHandle, componentId, tileId, &out0, &out1), "nvjpeg2kStreamGetTileComponentDim"); err != nil {
+	outs := slotStreamGetTileComponentDim.get()
+	defer slotStreamGetTileComponentDim.put(outs)
+	if err := toError(fnStreamGetTileComponentDim(streamHandle, componentId, tileId, &outs.out0, &outs.out1), "nvjpeg2kStreamGetTileComponentDim"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotStreamGetTileComponentDim outSlot[struct {
+	out0 uint32
+	out1 uint32
+}]
 
 // StreamParseFile parses a JPEG 2000 file from disk.
 //

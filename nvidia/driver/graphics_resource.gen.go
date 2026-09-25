@@ -2,7 +2,7 @@
 
 package driver
 
-// MappedMipmappedArray Get a mipmapped array through which to access a mapped graphics resource.
+// MappedMipmappedArray gets a mipmapped array through which to access a mapped graphics resource.
 //
 // Returns in *pMipmappedArray a mipmapped array through which the mapped graphics resource resource. The value set in *pMipmappedArray may change every time that resource is mapped.
 // If resource is not a texture then it cannot be accessed via a mipmapped array and [ErrNotMappedAsArray] is returned. If resource is not mapped then [ErrNotMapped] is returned.
@@ -16,7 +16,7 @@ func (g GraphicsResource) MappedMipmappedArray() (MipmappedArray, error) {
 	return graphicsResourceGetMappedMipmappedArray(g)
 }
 
-// MappedPointer Get a device pointer through which to access a mapped graphics resource.
+// MappedPointer gets a device pointer through which to access a mapped graphics resource.
 //
 // Returns in *pDevPtr a pointer through which the mapped graphics resource resource may be accessed. Returns in pSize the size of the memory in bytes which may be accessed from that pointer. The value set in pPointer may change every time that resource is mapped.
 // If resource is not a buffer then it cannot be accessed via a pointer and [ErrNotMappedAsPointer] is returned. If resource is not mapped then [ErrNotMapped] is returned.
@@ -31,7 +31,7 @@ func (g GraphicsResource) MappedPointer() (pDevPtr DevicePtr, pSize uint, err er
 	return graphicsResourceGetMappedPointer(g)
 }
 
-// SetMapFlags Set usage flags for mapping a graphics resource.
+// SetMapFlags sets usage flags for mapping a graphics resource.
 //
 // Set flags for mapping the graphics resource resource.
 // Changes to flags will take effect the next time resource is mapped. The flags argument may be any of the following:
@@ -48,7 +48,7 @@ func (g GraphicsResource) SetMapFlags(flags GraphicsMapResourceFlags) error {
 	return graphicsResourceSetMapFlags(g, flags)
 }
 
-// SubResourceGetMappedArray Get an array through which to access a subresource of a mapped graphics resource.
+// SubResourceGetMappedArray gets an array through which to access a subresource of a mapped graphics resource.
 //
 // Returns in *pArray an array through which the subresource of the mapped graphics resource resource which corresponds to array index arrayIndex and mipmap level mipLevel may be accessed. The value set in *pArray may change every time that resource is mapped.
 // If resource is not a texture then it cannot be accessed via an array and [ErrNotMappedAsArray] is returned. If arrayIndex is not a valid array index for resource then [ErrInvalidValue] is returned. If mipLevel is not a valid mipmap level for resource then [ErrInvalidValue] is returned. If resource is not mapped then [ErrNotMapped] is returned.
@@ -65,7 +65,7 @@ func (g GraphicsResource) SubResourceGetMappedArray(arrayIndex uint32, mipLevel 
 	return graphicsSubResourceGetMappedArray(g, arrayIndex, mipLevel)
 }
 
-// UnregisterResource Unregisters a graphics resource for access by CUDA.
+// UnregisterResource unregisters a graphics resource for access by CUDA.
 //
 // Unregisters the graphics resource resource so it is not accessible by CUDA unless registered again.
 // If resource is invalid then [ErrInvalidHandle] is returned.

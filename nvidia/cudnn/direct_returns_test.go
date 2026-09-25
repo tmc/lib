@@ -1,22 +1,35 @@
+//go:build darwin || linux
+
 package cudnn
 
 import (
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"testing"
-	"unsafe"
 )
+
+// stubDirect stands in for the cuDNN functions that return a value directly.
+const stubDirect = `
+#include <stddef.h>
+#include <string.h>
+#define WANT ((size_t)-1 - 17)
+size_t cudnnGetVersion(void) { return WANT; }
+size_t cudnnGetMaxDeviceVersion(void) { return WANT - 1; }
+size_t cudnnGetCudartVersion(void) { return WANT - 2; }
+void cudnnGetLastErrorString(char *p, size_t n) { if (n == 4) memcpy(p, "ok\0\0", 4); }
+`
 
 func TestDirectReturns(t *testing.T) {
 	oldReady, oldPresent := ready.Load(), present
-	oldVersion, oldMax, oldRuntime, oldLast := fnGetVersion, fnGetMaxDeviceVersion, fnGetCudartVersion, fnGetLastErrorString
 	defer func() {
 		ready.Store(oldReady)
 		present = oldPresent
-		fnGetVersion, fnGetMaxDeviceVersion, fnGetCudartVersion, fnGetLastErrorString = oldVersion, oldMax, oldRuntime, oldLast
 	}()
 	ready.Store(true)
 	present = map[string]bool{}
-	fnGetVersion, fnGetMaxDeviceVersion, fnGetCudartVersion, fnGetLastErrorString = nil, nil, nil, nil
 	for _, tt := range []struct {
 		name string
 		call func() error
@@ -31,13 +44,16 @@ func TestDirectReturns(t *testing.T) {
 		if !errors.As(err, &absent) || absent.Symbol != tt.name {
 			t.Errorf("%s: %v, want named SymbolError", tt.name, err)
 		}
-		present[tt.name] = true
 	}
+
+	bindStub(t, stubDirect, map[string]*uintptr{
+		"cudnnGetVersion":          &symGetVersion,
+		"cudnnGetMaxDeviceVersion": &symGetMaxDeviceVersion,
+		"cudnnGetCudartVersion":    &symGetCudartVersion,
+		"cudnnGetLastErrorString":  &symGetLastErrorString,
+	})
 	// Preserve the full size_t width rather than converting it to a status or int32.
 	want := ^uint(0) - 17
-	fnGetVersion = func() uint { return want }
-	fnGetMaxDeviceVersion = func() uint { return want - 1 }
-	fnGetCudartVersion = func() uint { return want - 2 }
 	for i, f := range []func() (uint, error){GetVersion, GetMaxDeviceVersion, GetCudartVersion} {
 		if v, e := f(); e != nil || v != want-uint(i) {
 			t.Errorf("getter %d = %d,%v", i, v, e)
@@ -45,18 +61,63 @@ func TestDirectReturns(t *testing.T) {
 	}
 	var buf [6]byte
 	buf[0], buf[5] = 0xa5, 0x5a
-	called := false
-	fnGetLastErrorString = func(p *byte, n uint) {
-		called = true
-		if n != 4 {
-			t.Fatalf("buffer capacity=%d", n)
-		}
-		copy(unsafe.Slice(p, int(n)), []byte{'o', 'k', 0, 0})
-	}
 	if err := GetLastErrorString(&buf[1], 4); err != nil {
 		t.Fatal(err)
 	}
-	if !called || buf != [6]byte{0xa5, 'o', 'k', 0, 0, 0x5a} {
-		t.Fatalf("buffer call=%v bytes=%v", called, buf)
+	if buf != [6]byte{0xa5, 'o', 'k', 0, 0, 0x5a} {
+		t.Fatalf("buffer bytes=%v", buf)
 	}
+}
+
+// bindStub compiles csrc with the host C compiler and, until the test ends,
+// binds each symbol in syms to it and marks it present. It skips the test
+// when there is no compiler.
+func bindStub(t *testing.T, csrc string, syms map[string]*uintptr) {
+	cc := os.Getenv("CC")
+	if cc == "" {
+		cc = "cc"
+	}
+	if _, err := exec.LookPath(cc); err != nil {
+		t.Skip("no C compiler")
+	}
+	dir := t.TempDir()
+	src := filepath.Join(dir, "stub.c")
+	if err := os.WriteFile(src, []byte(csrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "libstub.so")
+	args := []string{"-shared", "-fPIC", "-o", path, src}
+	if runtime.GOOS == "darwin" {
+		arch := runtime.GOARCH
+		if arch == "amd64" {
+			arch = "x86_64"
+		}
+		args = append([]string{"-arch", arch}, args...)
+	}
+	if out, err := exec.Command(cc, args...).CombinedOutput(); err != nil {
+		t.Fatalf("cc: %v\n%s", err, out)
+	}
+	h, err := openDynamicLibrary(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldReady, oldPresent := ready.Load(), present
+	old := make(map[string]uintptr)
+	present = make(map[string]bool)
+	for name, p := range syms {
+		old[name] = *p
+		if *p, err = lookupLibrarySymbol(h, name); err != nil {
+			t.Fatal(err)
+		}
+		present[name] = true
+	}
+	ready.Store(true)
+	t.Cleanup(func() {
+		for name, p := range syms {
+			*p = old[name]
+		}
+		present = oldPresent
+		ready.Store(oldReady)
+		closeLibrary(h)
+	})
 }

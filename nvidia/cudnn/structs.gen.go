@@ -20,12 +20,16 @@ type Debug struct {
 }
 
 // Fraction is a structure that allows a user to define int64_t fractions.
+//
+// These are the enumeration types for the cudnn_graph library.
 type Fraction struct {
 	Numerator   int64
 	Denominator int64
 }
 
-// ConvolutionFwdAlgoPerf is deprecated and is currently only used by deprecated APIs.
+// ConvolutionFwdAlgoPerf is a structure containing performance results returned by [Handle.FindConvolutionForwardAlgorithm] or heuristic results returned by [Handle.ConvolutionForwardAlgorithm]. Data Members [ConvolutionFwdAlgo] algo The algorithm runs to obtain the associated performance metrics. [Result] status If any error occurs during the workspace allocation or timing of [Handle.ConvolutionForward], this status will represent that error. Otherwise, this status will be the return status of [Handle.ConvolutionForward]. float time The execution time of [Handle.ConvolutionForward] (in milliseconds). size_t memory The workspace size (in bytes). [Determinism] determinism The determinism of the algorithm. [MathType] mathType The math type provided to the algorithm. int reserved [3] Reserved space for future properties. These are the pointers to the opaque struct types in the cudnn_cnn library.
+//
+// Deprecated: This structure is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this structure.
 type ConvolutionFwdAlgoPerf struct {
 	Algo        ConvolutionFwdAlgo
 	Status      Result
@@ -36,7 +40,9 @@ type ConvolutionFwdAlgoPerf struct {
 	Reserved    [3]int32
 }
 
-// ConvolutionBwdDataAlgoPerf is deprecated and is currently only used by deprecated APIs.
+// ConvolutionBwdDataAlgoPerf is a structure containing performance results returned by [Handle.FindConvolutionBackwardDataAlgorithm] or heuristic results returned by [Handle.ConvolutionBackwardDataAlgorithm]. Data Members [ConvolutionBwdDataAlgo] algo The algorithm runs to obtain the associated performance metrics. [Result] status If any error occurs during the workspace allocation or timing of [Handle.ConvolutionBackwardData], this status will represent that error. Otherwise, this status will be the return status of [Handle.ConvolutionBackwardData]. float time The execution time of [Handle.ConvolutionBackwardData] (in milliseconds). size_t memory The workspace size (in bytes). [Determinism] determinism The determinism of the algorithm. [MathType] mathType The math type provided to the algorithm. int reserved [3] Reserved space for future properties.
+//
+// Deprecated: This structure is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this structure.
 type ConvolutionBwdDataAlgoPerf struct {
 	Algo        ConvolutionBwdDataAlgo
 	Status      Result
@@ -47,7 +53,9 @@ type ConvolutionBwdDataAlgoPerf struct {
 	Reserved    [3]int32
 }
 
-// ConvolutionBwdFilterAlgoPerf is deprecated and is currently only used by deprecated APIs.
+// ConvolutionBwdFilterAlgoPerf is a structure containing performance results returned by [Handle.FindConvolutionBackwardFilterAlgorithm] or heuristic results returned by [Handle.ConvolutionBackwardFilterAlgorithm]. Data Members [ConvolutionBwdFilterAlgo] algo The algorithm runs to obtain the associated performance metrics. [Result] status If any error occurs during the workspace allocation or timing of [Handle.ConvolutionBackwardFilter], this status will represent that error. Otherwise, this status will be the return status of [Handle.ConvolutionBackwardFilter]. float time The execution time of [Handle.ConvolutionBackwardFilter] (in milliseconds). size_t memory The workspace size (in bytes). [Determinism] determinism The determinism of the algorithm. [MathType] mathType The math type provided to the algorithm. int reserved [3] Reserved space for future properties.
+//
+// Deprecated: This structure is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this structure.
 type ConvolutionBwdFilterAlgoPerf struct {
 	Algo        ConvolutionBwdFilterAlgo
 	Status      Result

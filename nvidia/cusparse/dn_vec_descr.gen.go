@@ -6,17 +6,38 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// VecGet wraps cusparseDnVecGet.
+// VecGet returns the fields of the dense vector descriptor dnVecDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - size: Size of the dense vector
+//   - values: Values of the dense vector. Array with nnz elements
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseDnVecGet.
 func (d DnVecDescr) VecGet(size *int64, values *uintptr, valueType *DataType) error {
 	return dnVecGet(d, size, values, valueType)
 }
 
-// VecGetValues wraps cusparseDnVecGetValues.
+// VecGetValues returns the values field of the dense vector descriptor dnVecDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - values: Values of the dense vector
+//
+// Wraps cusparseDnVecGetValues.
 func (d DnVecDescr) VecGetValues(values *uintptr) error {
 	return dnVecGetValues(d, values)
 }
 
-// VecSetValues wraps cusparseDnVecSetValues.
+// VecSetValues sets the values field of the dense vector descriptor dnVecDescr.
+//
+// [DnVecDescr.VecSetValues] has the following constraints:
+// Refer to [Result] for the description of the return status.
+//
+//   - values: Values of the dense vector. Array with size elements
+//
+// Wraps cusparseDnVecSetValues.
 func (d DnVecDescr) VecSetValues(values driver.DevicePtr) error {
 	return dnVecSetValues(d, values)
 }

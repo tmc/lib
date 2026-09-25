@@ -10,7 +10,7 @@ type KernelNode struct {
 	GraphNode
 }
 
-// CopyAttributes Copies attributes from source node to destination node.
+// CopyAttributes copies attributes from source node to destination node.
 //
 // Copies attributes from source node src to destination node dst. Both node must have the same context.
 //
@@ -25,7 +25,7 @@ func (k KernelNode) CopyAttributes(src KernelNode) error {
 	return graphKernelNodeCopyAttributes(k.GraphNode, src.GraphNode)
 }
 
-// Attribute Queries node attribute.
+// Attribute queries node attribute.
 //
 // Queries attribute attr from node hNode and stores it in corresponding member of valueOut.
 //
@@ -38,7 +38,7 @@ func (k KernelNode) Attribute(attr int32) ([8]uint64, error) {
 	return graphKernelNodeGetAttribute(k.GraphNode, attr)
 }
 
-// Params Returns a kernel node’s parameters.
+// Params returns a kernel node’s parameters.
 //
 // Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [KernelNode.SetParams] to update the parameters of this node.
 // The params will contain either kernelParams or extra, according to which of these was most recently set on the node.
@@ -54,7 +54,7 @@ func (k KernelNode) Params() (KernelNodeParams, error) {
 	return graphKernelNodeGetParams(k.GraphNode)
 }
 
-// SetAttribute Sets node attribute.
+// SetAttribute sets node attribute.
 //
 // Sets attribute attr on node hNode from corresponding attribute of value.
 //
@@ -67,7 +67,7 @@ func (k KernelNode) SetAttribute(attr int32, value *[8]uint64) error {
 	return graphKernelNodeSetAttribute(k.GraphNode, attr, value)
 }
 
-// SetParams Sets a kernel node’s parameters.
+// SetParams sets a kernel node’s parameters.
 //
 // Sets the parameters of kernel node hNode to nodeParams.
 //

@@ -8,6 +8,7 @@ import (
 
 	"github.com/ebitengine/purego"
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 var (
@@ -73,7 +74,7 @@ type rawCallbackData struct {
 	functionParams      unsafe.Pointer
 	functionReturnValue unsafe.Pointer
 	symbolName          *byte
-	context             cupti.Context
+	context             driver.Context
 	contextUid          uint32
 	correlationData     *uint64
 	correlationId       uint32

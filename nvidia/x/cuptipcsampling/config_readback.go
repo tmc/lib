@@ -8,12 +8,13 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // verify reads every read/write setting. Write-only reason selection and
 // output buffers are checked by apply's per-attribute status, not fabricated
 // as readable properties. Mismatched effective settings stop collection.
-func (c *samplingConfig) verify(ctx cupti.Context, query func(*cupti.PCSamplingConfigurationInfoParams) error) error {
+func (c *samplingConfig) verify(ctx driver.Context, query func(*cupti.PCSamplingConfigurationInfoParams) error) error {
 	if !c.applied || c.released || c.verified || ctx == 0 || ctx != c.ctx || query == nil {
 		return errors.New("cuptipcsampling: invalid configuration readback")
 	}

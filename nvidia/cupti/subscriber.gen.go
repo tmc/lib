@@ -4,7 +4,7 @@ package cupti
 
 import "unsafe"
 
-// ActivityDisableV2 Disable collection of a specific kind of activity record for the subscriber.
+// ActivityDisableV2 disables collection of a specific kind of activity record for the subscriber.
 //
 // Disable collection of a specific kind of activity record. Multiple kinds can be disabled by calling this function multiple times. By default all activity kinds are disabled for collection.
 //
@@ -19,7 +19,7 @@ func (s Subscriber) ActivityDisableV2(kind ActivityKind, pActivityConfig *Activi
 	return activityDisableV2(s, kind, pActivityConfig)
 }
 
-// ActivityEnableAndDumpV2 Enable collection of a specific kind of activity record.
+// ActivityEnableAndDumpV2 enables collection of a specific kind of activity record.
 //
 // For certain activity kinds it dumps existing records.
 // In general, the behavior of this API is similar to the API [Subscriber.ActivityEnableV2] i.e. it enables the collection of a specific kind of activity record. Additionally, this API can help in dumping the records for activities which happened in the past before enabling the corresponding activity kind. The API allows to get records for the current resource allocations done in CUDA For [ActivityKindDevice], existing device records are dumped For [ActivityKindContext], existing context records are dumped For [ActivityKindStream], existing stream records are dumped For [ActivityKind] NVLINK, existing NVLINK records are dumped For [ActivityKindPcie], existing PCIE records are dumped For other activities, the behavior is similar to the API [ActivityEnable]
@@ -39,7 +39,7 @@ func (s Subscriber) ActivityEnableAndDumpV2(kind ActivityKind, activityConfig *A
 	return activityEnableAndDumpV2(s, kind, activityConfig)
 }
 
-// ActivityEnableV2 Enable collection of a specific kind of activity record for the subscriber.
+// ActivityEnableV2 enables collection of a specific kind of activity record for the subscriber.
 //
 // Enable collection of a specific kind of activity record. Multiple kinds can be enabled by calling this function multiple times. By default all activity kinds are disabled for collection.
 //
@@ -55,7 +55,7 @@ func (s Subscriber) ActivityEnableV2(kind ActivityKind, pActivityConfig *Activit
 	return activityEnableV2(s, kind, pActivityConfig)
 }
 
-// ActivityGetAttributeV2 Read an activity API attribute.
+// ActivityGetAttributeV2 reads an activity API attribute.
 //
 // This function is similar to [ActivityGetAttribute]. Note that in case of multiple subscribers, only [Subscriber.ActivityGetAttributeV2] can be used to read the attribute for the subscriber.
 // Read an activity API attribute and return it in *value.
@@ -73,10 +73,9 @@ func (s Subscriber) ActivityGetAttributeV2(attr ActivityAttribute, valueSize *ui
 	return activityGetAttributeV2(s, attr, valueSize, value)
 }
 
-// ActivityGetEnabledKinds Get the enabled activity kinds for a subscriber.
+// ActivityGetEnabledKinds gets the enabled activity kinds for a subscriber.
 //
-// Note
-// If the provided buffer size is not sufficient to store all the enabled activity kinds, we populate the buffer with as much as we can, but return the true value of the number of enabled activity kinds in enabledKindsCount.
+// Note: If the provided buffer size is not sufficient to store all the enabled activity kinds, we populate the buffer with as much as we can, but return the true value of the number of enabled activity kinds in enabledKindsCount.
 //
 //   - buffer: The buffer to store the enabled activity kinds. If NULL, the number of enabled activity kinds is returned in enabledKindsCount
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled activity kinds is returned in enabledKindsCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
@@ -89,7 +88,7 @@ func (s Subscriber) ActivityGetEnabledKinds(buffer *ActivityKind, bufferSize *ui
 	return activityGetEnabledKinds(s, buffer, bufferSize)
 }
 
-// ActivityRegisterCallbacksV2 Registers callback functions with CUPTI for activity buffer handling for the subscriber.
+// ActivityRegisterCallbacksV2 registers callback functions with CUPTI for activity buffer handling for the subscriber.
 //
 // This function registers two callback functions to be used in asynchronous buffer handling. If registered, activity record buffers are handled using asynchronous requested/completed callbacks from CUPTI.
 // Registering these callbacks prevents the client from using CUPTI’s blocking enqueue/dequeue functions.
@@ -105,7 +104,7 @@ func (s Subscriber) ActivityRegisterCallbacksV2(funcBufferRequested uintptr, fun
 	return activityRegisterCallbacksV2(s, funcBufferRequested, funcBufferCompleted)
 }
 
-// ActivitySetAttributeV2 Write an activity API attribute.
+// ActivitySetAttributeV2 writes an activity API attribute.
 //
 // In case of multiple subscribers, use [Subscriber.ActivitySetAttributeV2] to write the attribute for the subscriber.
 //
@@ -122,10 +121,9 @@ func (s Subscriber) ActivitySetAttributeV2(attr ActivityAttribute, valueSize *ui
 	return activitySetAttributeV2(s, attr, valueSize, value)
 }
 
-// EnableAllDomains Enable or disable all callbacks in all domains.
+// EnableAllDomains enables or disables all callbacks in all domains.
 //
-// Note
-// Thread-safety
+// Note: Thread-safety
 // : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
 // d, *) and [Subscriber.EnableAllDomains](sub) are called concurrently, the results are undefined.
 //
@@ -141,11 +139,11 @@ func (s Subscriber) EnableAllDomains(enable uint32) error {
 	return enableAllDomains(enable, s)
 }
 
-// EnableCallback Enable or disabled callbacks for a specific domain and callback ID.
+// EnableCallback enables or disabled callbacks for a specific domain and callback ID.
 //
 // Enable or disabled callbacks for a subscriber for a specific domain and callback ID.
-// Note
-// Thread-safety
+//
+// Note: Thread-safety
 // : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
 // d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
 //
@@ -163,10 +161,9 @@ func (s Subscriber) EnableCallback(enable uint32, domain CallbackDomain, cbid ui
 	return enableCallback(enable, s, domain, cbid)
 }
 
-// EnableDomain Enable or disabled all callbacks for a specific domain.
+// EnableDomain enables or disabled all callbacks for a specific domain.
 //
-// Note
-// Thread-safety
+// Note: Thread-safety
 // : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if cuptiGetCallbackEnabled(sub,
 // d, *) and [Subscriber.EnableDomain](sub, d) are called concurrently, the results are undefined.
 //
@@ -183,11 +180,11 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 	return enableDomain(enable, s, domain)
 }
 
-// CallbackState Get the current enabled/disabled state of a callback for a specific domain and function ID.
+// CallbackState gets the current enabled/disabled state of a callback for a specific domain and function ID.
 //
 // Returns non-zero in *enable if the callback for a domain and callback ID is enabled, and zero if not enabled.
-// Note
-// Thread-safety
+//
+// Note: Thread-safety
 // : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
 // d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
 //
@@ -204,10 +201,9 @@ func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, e
 	return getCallbackState(s, domain, cbid)
 }
 
-// EnabledCallbacks Get the enabled callbacks for a subscriber.
+// EnabledCallbacks gets the enabled callbacks for a subscriber.
 //
-// Note
-// If the provided buffer size is not sufficient to store all the enabled callbacks, we populate the buffer with as much as we can, but return the true value of the number of enabled callbacks in enabledCallbacksCount.
+// Note: If the provided buffer size is not sufficient to store all the enabled callbacks, we populate the buffer with as much as we can, but return the true value of the number of enabled callbacks in enabledCallbacksCount.
 //
 //   - domain: The domain of the callbacks to get. If NULL, [ErrInvalidParameter] is returned
 //   - buffer: The buffer to store the enabled callbacks. If NULL, the number of enabled callbacks is returned in enabledCallbacksCount
@@ -221,11 +217,11 @@ func (s Subscriber) EnabledCallbacks(domain CallbackDomain, buffer *uint32, buff
 	return getEnabledCallbacks(s, domain, buffer, bufferSize)
 }
 
-// Unsubscribe Unregister a callback subscriber.
+// Unsubscribe unregisters a callback subscriber.
 //
 // Removes a callback subscriber so that no future callbacks will be issued to that subscriber.
-// Note
-// Thread-safety: this function is thread safe.
+//
+// Note: Thread-safety: this function is thread safe.
 //
 // Returns:
 //   - [ErrInvalidParameter]: if subscriber is NULL or not initialized

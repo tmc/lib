@@ -10,7 +10,7 @@ type HostNode struct {
 	GraphNode
 }
 
-// Params Returns a host node’s parameters.
+// Params returns a host node’s parameters.
 //
 // Returns the parameters of host node hNode in nodeParams.
 //
@@ -25,7 +25,7 @@ func (h HostNode) Params() (HostNodeParams, error) {
 	return graphHostNodeGetParams(h.GraphNode)
 }
 
-// SetParams Sets a host node’s parameters.
+// SetParams sets a host node’s parameters.
 //
 // Sets the parameters of host node hNode to nodeParams.
 //

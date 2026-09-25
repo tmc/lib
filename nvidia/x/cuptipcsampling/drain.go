@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // read drains an already enabled, exclusively owned sampling context once.
@@ -13,11 +14,11 @@ import (
 // must not pass the concurrently written configured output buffer here.
 // GetData does not synchronize the device. Even an empty successful read with
 // no remaining PCs is not evidence that workload submission has completed.
-func (b *samplingBuffer) read(ctx cupti.Context, version uint32, names *samplingNames) (samplingBatch, error) {
+func (b *samplingBuffer) read(ctx driver.Context, version uint32, names *samplingNames) (samplingBatch, error) {
 	return b.drainOwned(ctx, version, cupti.PCSamplingGetData, names)
 }
 
-func (b *samplingBuffer) drain(ctx cupti.Context, version uint32, query func(*cupti.PCSamplingGetDataParams) error, copyName func(uintptr) (string, error)) (samplingBatch, error) {
+func (b *samplingBuffer) drain(ctx driver.Context, version uint32, query func(*cupti.PCSamplingGetDataParams) error, copyName func(uintptr) (string, error)) (samplingBatch, error) {
 	out, err := b.fetch(ctx, version, query)
 	if err != nil {
 		return out, err
@@ -25,7 +26,7 @@ func (b *samplingBuffer) drain(ctx cupti.Context, version uint32, query func(*cu
 	return b.snapshot(copyName)
 }
 
-func (b *samplingBuffer) drainOwned(ctx cupti.Context, version uint32, query func(*cupti.PCSamplingGetDataParams) error, names *samplingNames) (samplingBatch, error) {
+func (b *samplingBuffer) drainOwned(ctx driver.Context, version uint32, query func(*cupti.PCSamplingGetDataParams) error, names *samplingNames) (samplingBatch, error) {
 	if names == nil {
 		return samplingBatch{}, errors.New("cuptipcsampling: missing native name owner")
 	}
@@ -69,7 +70,7 @@ func (b *samplingBuffer) snapshotOwned(names *samplingNames) (samplingBatch, err
 	return b.snapshot(names.copy)
 }
 
-func (b *samplingBuffer) fetch(ctx cupti.Context, version uint32, query func(*cupti.PCSamplingGetDataParams) error) (samplingBatch, error) {
+func (b *samplingBuffer) fetch(ctx driver.Context, version uint32, query func(*cupti.PCSamplingGetDataParams) error) (samplingBatch, error) {
 	if b.released || ctx == 0 || query == nil {
 		return samplingBatch{}, errors.New("cuptipcsampling: invalid drain request")
 	}

@@ -4,7 +4,9 @@ package cublaslt
 
 import "fmt"
 
-// MatmulTile represents tile size (in C/D matrix Rows x Cols) General order of tile IDs is sorted by size first and by first dimension second.
+// MatmulTile represents tile size (in C/D matrix Rows x Cols).
+//
+// General order of tile IDs is sorted by size first and by first dimension second.
 type MatmulTile int32
 
 const (
@@ -1925,7 +1927,9 @@ func (e MatmulTile) String() string {
 	return fmt.Sprintf("MatmulTile(%d)", e)
 }
 
-// MatmulStages represents size and number of stages in which elements are read into shared memory General order of stages IDs is sorted by stage size first and by number of stages second.
+// MatmulStages represents size and number of stages in which elements are read into shared memory.
+//
+// General order of stages IDs is sorted by stage size first and by number of stages second.
 type MatmulStages int32
 
 const (
@@ -2052,7 +2056,9 @@ func (e MatmulStages) String() string {
 	return fmt.Sprintf("MatmulStages(%d)", e)
 }
 
-// ClusterShape represents thread Block Cluster size Typically dimensioned similar to [MatmulTile], with the third coordinate unused at this time.
+// ClusterShape represents thread Block Cluster size.
+//
+// Typically dimensioned similar to [MatmulTile], with the third coordinate unused at this time.
 type ClusterShape int32
 
 const (
@@ -2221,7 +2227,9 @@ func (e ClusterShape) String() string {
 	return fmt.Sprintf("ClusterShape(%d)", e)
 }
 
-// MatmulInnerShape represents inner size of the kernel Represents various aspects of internal kernel design, that don't impact CUDA grid size but may have other more subtle effects.
+// MatmulInnerShape represents inner size of the kernel.
+//
+// Represents various aspects of internal kernel design, that don't impact CUDA grid size but may have other more subtle effects.
 type MatmulInnerShape int32
 
 const (
@@ -2253,6 +2261,8 @@ func (e MatmulInnerShape) String() string {
 }
 
 // MatmulMatrixScale represents scaling mode for per-matrix scaling.
+//
+// See documentation for layout information.
 type MatmulMatrixScale int32
 
 const (
@@ -2643,7 +2653,7 @@ func (e EmulationDescAttributes) String() string {
 	return fmt.Sprintf("EmulationDescAttributes(%d)", e)
 }
 
-// ReductionScheme represents reduction scheme for portions of the dot-product calculated in parallel (a.
+// ReductionScheme represents reduction scheme for portions of the dot-product calculated in parallel (a. k. a. "split - K").
 type ReductionScheme int32
 
 const (

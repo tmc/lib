@@ -24,27 +24,27 @@
 //   - [Handle.CYgelsBufferSize]: returns the workspace size, in bytes, for [Handle.CYgels].
 //   - [Handle.CYgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
 //   - [Handle.CYgesvBufferSize]: returns the workspace size, in bytes, for [Handle.CYgesv].
-//   - [Handle.Cgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.Cgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: Qᴴ*A*P=B.
 //   - [Handle.CgebrdBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cgebrd].
-//   - [Handle.Cgeqrf]: computes the QR factorization of an m×n matrix
+//   - [Handle.Cgeqrf]: computes the QR factorization of an m×n matrix.
 //   - [Handle.CgeqrfBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cgeqrf].
 //   - [Handle.Cgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //   - [Handle.CgesvdBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cgesvd].
 //   - [Handle.CgesvdaStridedBatched]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
 //   - [Handle.CgesvdaStridedBatchedBufferSize]: returns the workspace size, in elements of complex64, for [Handle.CgesvdaStridedBatched].
 //   - [Handle.Cgesvdj]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//   - [Handle.CgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.CgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices.
 //   - [Handle.CgesvdjBatchedBufferSize]: returns the workspace size, in elements of complex64, for [Handle.CgesvdjBatched].
 //   - [Handle.CgesvdjBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cgesvdj].
-//   - [Handle.Cgetrf]: computes the LU factorization of an m×n matrix
+//   - [Handle.Cgetrf]: computes the LU factorization of an m×n matrix.
 //   - [Handle.CgetrfBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cgetrf].
-//   - [Handle.Cgetrs]: solves a linear system of multiple right-hand sides
+//   - [Handle.Cgetrs]: solves a linear system of multiple right-hand sides.
 //   - [Handle.Cheevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //   - [Handle.CheevdBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cheevd].
 //   - [Handle.Cheevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //   - [Handle.CheevdxBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cheevdx].
 //   - [Handle.Cheevj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//   - [Handle.CheevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.CheevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //   - [Handle.CheevjBatchedBufferSize]: returns the workspace size, in elements of complex64, for [Handle.CheevjBatched].
 //   - [Handle.CheevjBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cheevj].
 //   - [Handle.Chegvd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
@@ -53,7 +53,7 @@
 //   - [Handle.ChegvdxBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Chegvdx].
 //   - [Handle.Chegvj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //   - [Handle.ChegvjBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Chegvj].
-//   - [Handle.Chetrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.Chetrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: Qᴴ*A*Q=T.
 //   - [Handle.ChetrdBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Chetrd].
 //   - [Handle.Claswp].
 //   - [Handle.Clauum].
@@ -61,17 +61,17 @@
 //   - [Handle.Cpotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //   - [Handle.CpotrfBatched]: computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
 //   - [Handle.CpotrfBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cpotrf].
-//   - [Handle.Cpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.Cpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization.
 //   - [Handle.CpotriBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cpotri].
-//   - [Handle.Cpotrs]: solves a system of linear equations
-//   - [Handle.CpotrsBatched]: solves a sequence of linear systems
+//   - [Handle.Cpotrs]: solves a system of linear equations.
+//   - [Handle.CpotrsBatched]: solves a sequence of linear systems.
 //   - [Handle.Csytrf]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //   - [Handle.CsytrfBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Csytrf].
 //   - [Handle.Csytri].
 //   - [Handle.CsytriBufferSize].
-//   - [Handle.Cungbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.Cungbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: Qᴴ*A*P=B.
 //   - [Handle.CungbrBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cungbr].
-//   - [Handle.Cungqr]: overwrites m×n matrix A by
+//   - [Handle.Cungqr]: overwrites m×n matrix A.
 //   - [Handle.CungqrBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cungqr].
 //   - [Handle.Cungtr]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
 //   - [Handle.CungtrBufferSize]: returns the workspace size, in elements of complex64, for [Handle.Cungtr].
@@ -113,27 +113,27 @@
 //   - [Handle.DXgelsBufferSize]: returns the workspace size, in bytes, for [Handle.DXgels].
 //   - [Handle.DXgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
 //   - [Handle.DXgesvBufferSize]: returns the workspace size, in bytes, for [Handle.DXgesv].
-//   - [Handle.Dgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.Dgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: Qᴴ*A*P=B.
 //   - [Handle.DgebrdBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dgebrd].
-//   - [Handle.Dgeqrf]: computes the QR factorization of an m×n matrix
+//   - [Handle.Dgeqrf]: computes the QR factorization of an m×n matrix.
 //   - [Handle.DgeqrfBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dgeqrf].
 //   - [Handle.Dgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //   - [Handle.DgesvdBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dgesvd].
 //   - [Handle.DgesvdaStridedBatched]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
 //   - [Handle.DgesvdaStridedBatchedBufferSize]: returns the workspace size, in elements of float64, for [Handle.DgesvdaStridedBatched].
 //   - [Handle.Dgesvdj]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//   - [Handle.DgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.DgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices.
 //   - [Handle.DgesvdjBatchedBufferSize]: returns the workspace size, in elements of float64, for [Handle.DgesvdjBatched].
 //   - [Handle.DgesvdjBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dgesvdj].
-//   - [Handle.Dgetrf]: computes the LU factorization of an m×n matrix
+//   - [Handle.Dgetrf]: computes the LU factorization of an m×n matrix.
 //   - [Handle.DgetrfBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dgetrf].
-//   - [Handle.Dgetrs]: solves a linear system of multiple right-hand sides
+//   - [Handle.Dgetrs]: solves a linear system of multiple right-hand sides.
 //   - [Handle.Dlaswp].
 //   - [Handle.Dlauum].
 //   - [Handle.DlauumBufferSize].
-//   - [Handle.Dorgbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.Dorgbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: Qᴴ*A*P=B.
 //   - [Handle.DorgbrBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dorgbr].
-//   - [Handle.Dorgqr]: overwrites m×n matrix A by
+//   - [Handle.Dorgqr]: overwrites m×n matrix A.
 //   - [Handle.DorgqrBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dorgqr].
 //   - [Handle.Dorgtr]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
 //   - [Handle.DorgtrBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dorgtr].
@@ -144,16 +144,16 @@
 //   - [Handle.Dpotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //   - [Handle.DpotrfBatched]: computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
 //   - [Handle.DpotrfBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dpotrf].
-//   - [Handle.Dpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.Dpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization.
 //   - [Handle.DpotriBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dpotri].
-//   - [Handle.Dpotrs]: solves a system of linear equations
-//   - [Handle.DpotrsBatched]: solves a sequence of linear systems
+//   - [Handle.Dpotrs]: solves a system of linear equations.
+//   - [Handle.DpotrsBatched]: solves a sequence of linear systems.
 //   - [Handle.Dsyevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //   - [Handle.DsyevdBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dsyevd].
 //   - [Handle.Dsyevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //   - [Handle.DsyevdxBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dsyevdx].
 //   - [Handle.Dsyevj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//   - [Handle.DsyevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.DsyevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //   - [Handle.DsyevjBatchedBufferSize]: returns the workspace size, in elements of float64, for [Handle.DsyevjBatched].
 //   - [Handle.DsyevjBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dsyevj].
 //   - [Handle.Dsygvd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
@@ -162,7 +162,7 @@
 //   - [Handle.DsygvdxBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dsygvdx].
 //   - [Handle.Dsygvj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //   - [Handle.DsygvjBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dsygvj].
-//   - [Handle.Dsytrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.Dsytrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: Qᴴ*A*Q=T.
 //   - [Handle.DsytrdBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dsytrd].
 //   - [Handle.Dsytrf]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //   - [Handle.DsytrfBufferSize]: returns the workspace size, in elements of float64, for [Handle.Dsytrf].
@@ -216,9 +216,9 @@
 //   - [IRSParams.SetSolverPrecisions]: sets both the main and the lowest precision for the Iterative Refinement Solver (IRS).
 //   - [IRSParams.SetTol]: sets the tolerance for the refinement solver.
 //   - [IRSParams.SetTolInner]: sets the tolerance for the inner refinement solver when the refinement solver consists of two-levels solver (for example, [IrsRefineClassicalGmres] or [IrsRefineGmresGmres] cases).
-//   - [Handle.IRSXgels]: is designed to perform same functionality as cusolverDngels() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
+//   - [Handle.IRSXgels]: is designed to perform same functionality as cusolverDn<T1><T2>gels() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
 //   - [Handle.IRSXgelsBufferSize]: returns the workspace size, in bytes, for [Handle.IRSXgels].
-//   - [Handle.IRSXgesv]: is designed to perform same functionality as cusolverDngesv() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
+//   - [Handle.IRSXgesv]: is designed to perform same functionality as cusolverDn<T1><T2>gesv() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
 //   - [Handle.IRSXgesvBufferSize]: returns the workspace size, in bytes, for [Handle.IRSXgesv].
 //
 // # Logging
@@ -248,27 +248,27 @@
 //   - [Handle.SXgelsBufferSize]: returns the workspace size, in bytes, for [Handle.SXgels].
 //   - [Handle.SXgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
 //   - [Handle.SXgesvBufferSize]: returns the workspace size, in bytes, for [Handle.SXgesv].
-//   - [Handle.Sgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.Sgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: Qᴴ*A*P=B.
 //   - [Handle.SgebrdBufferSize]: returns the workspace size, in elements of float32, for [Handle.Sgebrd].
-//   - [Handle.Sgeqrf]: computes the QR factorization of an m×n matrix
+//   - [Handle.Sgeqrf]: computes the QR factorization of an m×n matrix.
 //   - [Handle.SgeqrfBufferSize]: returns the workspace size, in elements of float32, for [Handle.Sgeqrf].
 //   - [Handle.Sgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //   - [Handle.SgesvdBufferSize]: returns the workspace size, in elements of float32, for [Handle.Sgesvd].
 //   - [Handle.SgesvdaStridedBatched]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
 //   - [Handle.SgesvdaStridedBatchedBufferSize]: returns the workspace size, in elements of float32, for [Handle.SgesvdaStridedBatched].
 //   - [Handle.Sgesvdj]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//   - [Handle.SgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.SgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices.
 //   - [Handle.SgesvdjBatchedBufferSize]: returns the workspace size, in elements of float32, for [Handle.SgesvdjBatched].
 //   - [Handle.SgesvdjBufferSize]: returns the workspace size, in elements of float32, for [Handle.Sgesvdj].
-//   - [Handle.Sgetrf]: computes the LU factorization of an m×n matrix
+//   - [Handle.Sgetrf]: computes the LU factorization of an m×n matrix.
 //   - [Handle.SgetrfBufferSize]: returns the workspace size, in elements of float32, for [Handle.Sgetrf].
-//   - [Handle.Sgetrs]: solves a linear system of multiple right-hand sides
+//   - [Handle.Sgetrs]: solves a linear system of multiple right-hand sides.
 //   - [Handle.Slaswp].
 //   - [Handle.Slauum].
 //   - [Handle.SlauumBufferSize].
-//   - [Handle.Sorgbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.Sorgbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: Qᴴ*A*P=B.
 //   - [Handle.SorgbrBufferSize]: returns the workspace size, in elements of float32, for [Handle.Sorgbr].
-//   - [Handle.Sorgqr]: overwrites m×n matrix A by
+//   - [Handle.Sorgqr]: overwrites m×n matrix A.
 //   - [Handle.SorgqrBufferSize]: returns the workspace size, in elements of float32, for [Handle.Sorgqr].
 //   - [Handle.Sorgtr]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
 //   - [Handle.SorgtrBufferSize]: returns the workspace size, in elements of float32, for [Handle.Sorgtr].
@@ -279,16 +279,16 @@
 //   - [Handle.Spotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //   - [Handle.SpotrfBatched]: computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
 //   - [Handle.SpotrfBufferSize]: returns the workspace size, in elements of float32, for [Handle.Spotrf].
-//   - [Handle.Spotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.Spotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization.
 //   - [Handle.SpotriBufferSize]: returns the workspace size, in elements of float32, for [Handle.Spotri].
-//   - [Handle.Spotrs]: solves a system of linear equations
-//   - [Handle.SpotrsBatched]: solves a sequence of linear systems
+//   - [Handle.Spotrs]: solves a system of linear equations.
+//   - [Handle.SpotrsBatched]: solves a sequence of linear systems.
 //   - [Handle.Ssyevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //   - [Handle.SsyevdBufferSize]: returns the workspace size, in elements of float32, for [Handle.Ssyevd].
 //   - [Handle.Ssyevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //   - [Handle.SsyevdxBufferSize]: returns the workspace size, in elements of float32, for [Handle.Ssyevdx].
 //   - [Handle.Ssyevj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//   - [Handle.SsyevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.SsyevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //   - [Handle.SsyevjBatchedBufferSize]: returns the workspace size, in elements of float32, for [Handle.SsyevjBatched].
 //   - [Handle.SsyevjBufferSize]: returns the workspace size, in elements of float32, for [Handle.Ssyevj].
 //   - [Handle.Ssygvd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
@@ -297,7 +297,7 @@
 //   - [Handle.SsygvdxBufferSize]: returns the workspace size, in elements of float32, for [Handle.Ssygvdx].
 //   - [Handle.Ssygvj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //   - [Handle.SsygvjBufferSize]: returns the workspace size, in elements of float32, for [Handle.Ssygvj].
-//   - [Handle.Ssytrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.Ssytrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: Qᴴ*A*Q=T.
 //   - [Handle.SsytrdBufferSize]: returns the workspace size, in elements of float32, for [Handle.Ssytrd].
 //   - [Handle.Ssytrf]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //   - [Handle.SsytrfBufferSize]: returns the workspace size, in elements of float32, for [Handle.Ssytrf].
@@ -308,7 +308,7 @@
 //
 //   - [Handle.Xgeev]: computes for an n-by-n real non-symmetric or complex non-Hermitian matrix A the eigenvalues and, optionally, the left and/or right eigenvectors.
 //   - [Handle.XgeevBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xgeev].
-//   - [Handle.Xgeqrf]: computes the QR factorization of a m×n matrix
+//   - [Handle.Xgeqrf]: computes the QR factorization of a m×n matrix.
 //   - [Handle.XgeqrfBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xgeqrf].
 //   - [Handle.Xgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //   - [Handle.XgesvdBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xgesvd].
@@ -321,15 +321,15 @@
 //   - [Handle.XgesvdpBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xgesvdp].
 //   - [Handle.Xgesvdr]: computes the approximated rank-k singular value decomposition (k-SVD) of an m×n matrix A and the corresponding left and/or right singular vectors.
 //   - [Handle.XgesvdrBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xgesvdr].
-//   - [Handle.Xgetrf]: computes the LU factorization of a m×n matrix
+//   - [Handle.Xgetrf]: computes the LU factorization of a m×n matrix.
 //   - [Handle.XgetrfBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xgetrf].
-//   - [Handle.Xgetrs]: solves a linear system of multiple right-hand sides
+//   - [Handle.Xgetrs]: solves a linear system of multiple right-hand sides.
 //   - [Handle.Xlarft]: forms the triangular factor T of a real block reflector H of order n, which is defined as a product of k elementary reflectors.
 //   - [Handle.XlarftBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xlarft].
 //   - [Handle.Xpotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix using the generic API interface.
 //   - [Handle.XpotrfBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xpotrf].
-//   - [Handle.Xpotrs]: solves a system of linear equations
-//   - [Handle.XsyevBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.Xpotrs]: solves a system of linear equations.
+//   - [Handle.XsyevBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //   - [Handle.XsyevBatchedBufferSize]: returns the workspace sizes, in bytes, for [Handle.XsyevBatched].
 //   - [Handle.Xsyevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
 //   - [Handle.XsyevdBufferSize]: returns the workspace sizes, in bytes, for [Handle.Xsyevd].
@@ -371,27 +371,27 @@
 //   - [Handle.ZZgelsBufferSize]: returns the workspace size, in bytes, for [Handle.ZZgels].
 //   - [Handle.ZZgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
 //   - [Handle.ZZgesvBufferSize]: returns the workspace size, in bytes, for [Handle.ZZgesv].
-//   - [Handle.Zgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.Zgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: Qᴴ*A*P=B.
 //   - [Handle.ZgebrdBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zgebrd].
-//   - [Handle.Zgeqrf]: computes the QR factorization of an m×n matrix
+//   - [Handle.Zgeqrf]: computes the QR factorization of an m×n matrix.
 //   - [Handle.ZgeqrfBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zgeqrf].
 //   - [Handle.Zgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
 //   - [Handle.ZgesvdBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zgesvd].
 //   - [Handle.ZgesvdaStridedBatched]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
 //   - [Handle.ZgesvdaStridedBatchedBufferSize]: returns the workspace size, in elements of complex128, for [Handle.ZgesvdaStridedBatched].
 //   - [Handle.Zgesvdj]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
-//   - [Handle.ZgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.ZgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices.
 //   - [Handle.ZgesvdjBatchedBufferSize]: returns the workspace size, in elements of complex128, for [Handle.ZgesvdjBatched].
 //   - [Handle.ZgesvdjBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zgesvdj].
-//   - [Handle.Zgetrf]: computes the LU factorization of an m×n matrix
+//   - [Handle.Zgetrf]: computes the LU factorization of an m×n matrix.
 //   - [Handle.ZgetrfBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zgetrf].
-//   - [Handle.Zgetrs]: solves a linear system of multiple right-hand sides
+//   - [Handle.Zgetrs]: solves a linear system of multiple right-hand sides.
 //   - [Handle.Zheevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //   - [Handle.ZheevdBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zheevd].
 //   - [Handle.Zheevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
 //   - [Handle.ZheevdxBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zheevdx].
 //   - [Handle.Zheevj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
-//   - [Handle.ZheevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.ZheevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices.
 //   - [Handle.ZheevjBatchedBufferSize]: returns the workspace size, in elements of complex128, for [Handle.ZheevjBatched].
 //   - [Handle.ZheevjBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zheevj].
 //   - [Handle.Zhegvd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
@@ -400,7 +400,7 @@
 //   - [Handle.ZhegvdxBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zhegvdx].
 //   - [Handle.Zhegvj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //   - [Handle.ZhegvjBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zhegvj].
-//   - [Handle.Zhetrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.Zhetrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: Qᴴ*A*Q=T.
 //   - [Handle.ZhetrdBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zhetrd].
 //   - [Handle.Zlaswp].
 //   - [Handle.Zlauum].
@@ -408,17 +408,17 @@
 //   - [Handle.Zpotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
 //   - [Handle.ZpotrfBatched]: computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
 //   - [Handle.ZpotrfBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zpotrf].
-//   - [Handle.Zpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.Zpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization.
 //   - [Handle.ZpotriBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zpotri].
-//   - [Handle.Zpotrs]: solves a system of linear equations
-//   - [Handle.ZpotrsBatched]: solves a sequence of linear systems
+//   - [Handle.Zpotrs]: solves a system of linear equations.
+//   - [Handle.ZpotrsBatched]: solves a sequence of linear systems.
 //   - [Handle.Zsytrf]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //   - [Handle.ZsytrfBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zsytrf].
 //   - [Handle.Zsytri].
 //   - [Handle.ZsytriBufferSize].
-//   - [Handle.Zungbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.Zungbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: Qᴴ*A*P=B.
 //   - [Handle.ZungbrBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zungbr].
-//   - [Handle.Zungqr]: overwrites m×n matrix A by
+//   - [Handle.Zungqr]: overwrites m×n matrix A.
 //   - [Handle.ZungqrBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zungqr].
 //   - [Handle.Zungtr]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
 //   - [Handle.ZungtrBufferSize]: returns the workspace size, in elements of complex128, for [Handle.Zungtr].

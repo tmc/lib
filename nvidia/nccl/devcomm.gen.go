@@ -2,21 +2,46 @@
 
 package nccl
 
+import "unsafe"
+
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fncommQueryProperties func(Comm, *CommProperties) Result
-	fndevCommCreate       func(Comm, *DevCommRequirements, *DevComm) Result
-	fndevCommDestroy      func(Comm, *DevComm) Result
-	fnteamCft             func(Comm, CftTeamMode) Team
-	fnteamCftMultimem     func(Comm) Team
-	fnteamLsa             func(Comm) Team
-	fnteamRail            func(Comm) Team
-	fnteamRankToLsa       func(Comm, Team, int32) int32
-	fnteamRankToWorld     func(Comm, Team, int32) int32
-	fnteamWorld           func(Comm) Team
+	symcommQueryProperties uintptr
+	symdevCommCreate       uintptr
+	symdevCommDestroy      uintptr
+	fnteamCft              func(Comm, CftTeamMode) Team
+	fnteamCftMultimem      func(Comm) Team
+	fnteamLsa              func(Comm) Team
+	fnteamRail             func(Comm) Team
+	fnteamRankToLsa        func(Comm, Team, int32) int32
+	fnteamRankToWorld      func(Comm, Team, int32) int32
+	fnteamWorld            func(Comm) Team
 )
 
-// commQueryProperties wraps ncclCommQueryProperties.
+// fncommQueryProperties calls ncclCommQueryProperties.
+func fncommQueryProperties(a0 Comm, a1 *CommProperties) Result {
+	r1, _ := ffiCall2(symcommQueryProperties, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndevCommCreate calls ncclDevCommCreate.
+func fndevCommCreate(a0 Comm, a1 *DevCommRequirements, a2 *DevComm) Result {
+	r1, _ := ffiCall3(symdevCommCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fndevCommDestroy calls ncclDevCommDestroy.
+func fndevCommDestroy(a0 Comm, a1 *DevComm) Result {
+	r1, _ := ffiCall2(symdevCommDestroy, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// commQueryProperties Exposes communicator properties by filling in props.
+//
+// Before calling this function, props must be initialized using NCCL_COMM_PROPERTIES_INITIALIZER. Introduced in NCCL 2.29.
+// Note that this is a host-side function.
+//
+// Wraps ncclCommQueryProperties.
 func commQueryProperties(comm Comm, props *CommProperties) error {
 	if err := checkLibSym("ncclCommQueryProperties"); err != nil {
 		return err
@@ -24,7 +49,12 @@ func commQueryProperties(comm Comm, props *CommProperties) error {
 	return toError(fncommQueryProperties(comm, props), "ncclCommQueryProperties")
 }
 
-// devCommCreate wraps ncclDevCommCreate.
+// devCommCreate creates a new device communicator (see ncclDevComm) corresponding to the supplied host-side communicator comm.
+//
+// The result is returned in the outDevComm buffer (which needs to be supplied by the caller). The caller needs to also provide a filled-in list of requirements via the reqs argument (see ncclDevCommRequirements); the function will allocate any necessary resources to meet them. It is recommended to call [Comm.QueryProperties] before calling the function; the function will fail if the specified requirements are not supported. Since this is a collective call, every rank in the communicator needs to participate. If called within a group, outDevComm may not be filled in until [GroupEnd] has completed.
+// Note that this is a host-side function.
+//
+// Wraps ncclDevCommCreate.
 func devCommCreate(comm Comm, reqs *DevCommRequirements, outDevComm *DevComm) error {
 	if err := checkLibSym("ncclDevCommCreate"); err != nil {
 		return err
@@ -32,7 +62,12 @@ func devCommCreate(comm Comm, reqs *DevCommRequirements, outDevComm *DevComm) er
 	return toError(fndevCommCreate(comm, reqs, outDevComm), "ncclDevCommCreate")
 }
 
-// devCommDestroy wraps ncclDevCommDestroy.
+// devCommDestroy destroys a device communicator (see ncclDevComm) previously created using [Comm.DevCommCreate] and releases any allocated resources.
+//
+// The caller must ensure that no device kernel that uses this device communicator could be running at the time this function is invoked.
+// Note that this is a host-side function.
+//
+// Wraps ncclDevCommDestroy.
 func devCommDestroy(comm Comm, devComm *DevComm) error {
 	if err := checkLibSym("ncclDevCommDestroy"); err != nil {
 		return err
@@ -40,12 +75,18 @@ func devCommDestroy(comm Comm, devComm *DevComm) error {
 	return toError(fndevCommDestroy(comm, devComm), "ncclDevCommDestroy")
 }
 
-// teamCft wraps ncclTeamCft.
+// teamCft returns the host-side unicast CFT team containing ranks that are part of the CFT unicast group.
+//
+// comm is the host-side communicator and mode is a selector used to filter the subset of CFT unicast group ranks that are part of the team (useful to build hierarchical communication patterns).
+//
+// Wraps ncclTeamCft.
 func teamCft(comm Comm, mode CftTeamMode) Team {
 	return fnteamCft(comm, mode)
 }
 
-// teamCftMultimem wraps ncclTeamCftMultimem.
+// teamCftMultimem returns the host-side multicast CFT team containing all the ranks that are part of the CFT multicast group.
+//
+// Wraps ncclTeamCftMultimem.
 func teamCftMultimem(comm Comm) Team {
 	return fnteamCftMultimem(comm)
 }
@@ -83,27 +124,48 @@ func teamWorld(comm Comm) Team {
 	return fnteamWorld(comm)
 }
 
-// QueryProperties wraps ncclCommQueryProperties.
+// QueryProperties Exposes communicator properties by filling in props.
+//
+// Before calling this function, props must be initialized using NCCL_COMM_PROPERTIES_INITIALIZER. Introduced in NCCL 2.29.
+// Note that this is a host-side function.
+//
+// Wraps ncclCommQueryProperties.
 func (c Comm) QueryProperties(props *CommProperties) error {
 	return commQueryProperties(c, props)
 }
 
-// DevCommCreate wraps ncclDevCommCreate.
+// DevCommCreate creates a new device communicator (see ncclDevComm) corresponding to the supplied host-side communicator comm.
+//
+// The result is returned in the outDevComm buffer (which needs to be supplied by the caller). The caller needs to also provide a filled-in list of requirements via the reqs argument (see ncclDevCommRequirements); the function will allocate any necessary resources to meet them. It is recommended to call [Comm.QueryProperties] before calling the function; the function will fail if the specified requirements are not supported. Since this is a collective call, every rank in the communicator needs to participate. If called within a group, outDevComm may not be filled in until [GroupEnd] has completed.
+// Note that this is a host-side function.
+//
+// Wraps ncclDevCommCreate.
 func (c Comm) DevCommCreate(reqs *DevCommRequirements, outDevComm *DevComm) error {
 	return devCommCreate(c, reqs, outDevComm)
 }
 
-// DevCommDestroy wraps ncclDevCommDestroy.
+// DevCommDestroy destroys a device communicator (see ncclDevComm) previously created using [Comm.DevCommCreate] and releases any allocated resources.
+//
+// The caller must ensure that no device kernel that uses this device communicator could be running at the time this function is invoked.
+// Note that this is a host-side function.
+//
+// Wraps ncclDevCommDestroy.
 func (c Comm) DevCommDestroy(devComm *DevComm) error {
 	return devCommDestroy(c, devComm)
 }
 
-// TeamCft wraps ncclTeamCft.
+// TeamCft returns the host-side unicast CFT team containing ranks that are part of the CFT unicast group.
+//
+// comm is the host-side communicator and mode is a selector used to filter the subset of CFT unicast group ranks that are part of the team (useful to build hierarchical communication patterns).
+//
+// Wraps ncclTeamCft.
 func (c Comm) TeamCft(mode CftTeamMode) Team {
 	return teamCft(c, mode)
 }
 
-// TeamCftMultimem wraps ncclTeamCftMultimem.
+// TeamCftMultimem returns the host-side multicast CFT team containing all the ranks that are part of the CFT multicast group.
+//
+// Wraps ncclTeamCftMultimem.
 func (c Comm) TeamCftMultimem() Team {
 	return teamCftMultimem(c)
 }

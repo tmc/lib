@@ -8,6 +8,8 @@ import (
 
 // Destroy releases hardware resources used by the cuBLASLt library.
 //
+// This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
+//
 // Wraps cublasLtDestroy.
 func (h Handle) Destroy() error {
 	return destroy(h)
@@ -69,6 +71,8 @@ func (h Handle) Matmul(computeDesc MatmulDesc, alpha uintptr, a driver.DevicePtr
 
 // MatmulAlgoCheck performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
+// It checks whether the descriptor is supported on the current device, and returns the result containing the required workspace and the calculated wave count.
+//
 // Note: [Success] doesn’t fully guarantee that the algo will run. The algo will fail if, for example, the buffers are not correctly aligned. However, if [Handle.MatmulAlgoCheck] fails, the algo will not run.
 //
 //   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
@@ -92,6 +96,8 @@ func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bd
 
 // MatmulAlgoGetHeuristic retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
+// The output is placed in heuristicResultsArray[] in the order of increasing estimated compute time.
+//
 // Note: This function may load some kernels using CUDA Driver API which may fail when there is no available GPU memory. Do not allocate the entire VRAM before running [Handle.MatmulAlgoGetHeuristic].
 //
 //   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
@@ -101,6 +107,7 @@ func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bd
 //   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
 //   - requestedAlgoCount: Size of the heuristicResultsArray (in elements). This is the requested maximum number of algorithms to return
+//   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
 //   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
 //
 // Returns:
@@ -124,6 +131,7 @@ func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLay
 //   - ctype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - dtype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - requestedAlgoCount: Number of algorithms requested. Must be > 0
+//   - algoIdsArray: Array containing the algorithm IDs returned by this function
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
 // Returns:

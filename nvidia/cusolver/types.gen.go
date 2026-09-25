@@ -18,23 +18,8 @@ type Complex64 struct {
 // DataType identifies a CUDA data representation.
 type DataType int32
 
-// DiagType selects whether a matrix diagonal is unit.
-type DiagType int32
-
-// EmulationMantissaControl controls emulated mantissa precision.
-type EmulationMantissaControl int32
-
-// EmulationSpecialValuesSupport controls special-value emulation.
-type EmulationSpecialValuesSupport int32
-
-// EmulationStrategy selects CUDA floating-point emulation.
-type EmulationStrategy int32
-
 // FILE is an opaque C standard I/O stream.
 type FILE uintptr
-
-// FillMode selects the stored triangle of a matrix.
-type FillMode int32
 
 // LibraryPropertyType identifies a CUDA library property.
 type LibraryPropertyType int32
@@ -45,12 +30,6 @@ const (
 	MinorVersion LibraryPropertyType = 1
 	PatchLevel   LibraryPropertyType = 2
 )
-
-// Operation selects a matrix operation.
-type Operation int32
-
-// SideMode selects the side of a matrix operation.
-type SideMode int32
 
 // CusolverInt represents cusolver_int_t.
 type CusolverInt int32

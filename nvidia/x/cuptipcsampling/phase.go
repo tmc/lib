@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // PhaseLimits specifies explicit bounds for bounded phase capture.
@@ -60,9 +60,9 @@ func (r PhaseReport) Loss() bool {
 
 // phaseController coordinates the phase capture lifecycle with separate dependency tracking.
 type phaseController struct {
-	ctx      cupti.Context
+	ctx      driver.Context
 	cfg      PhaseConfig
-	starter  func(cupti.Context, Config) (*Session, error)
+	starter  func(driver.Context, Config) (*Session, error)
 	syncFn   func() error
 	workload func(context.Context) error
 
@@ -138,20 +138,20 @@ func (c *phaseController) recordBatch(b Batch) error {
 //
 // Remaining samples, dropped samples, consumer failure, and cancellation are
 // reported separately in the returned [PhaseReport].
-func CapturePhase(ctx context.Context, cuCtx cupti.Context, cfg PhaseConfig, syncWorkload func() error, workload func(context.Context) error) (PhaseReport, error) {
+func CapturePhase(ctx context.Context, cuCtx driver.Context, cfg PhaseConfig, syncWorkload func() error, workload func(context.Context) error) (PhaseReport, error) {
 	return capturePhase(ctx, cuCtx, cfg, Start, syncWorkload, workload)
 }
 
 // PhaseCapture is an alias for [CapturePhase].
-func PhaseCapture(ctx context.Context, cuCtx cupti.Context, cfg PhaseConfig, syncWorkload func() error, workload func(context.Context) error) (PhaseReport, error) {
+func PhaseCapture(ctx context.Context, cuCtx driver.Context, cfg PhaseConfig, syncWorkload func() error, workload func(context.Context) error) (PhaseReport, error) {
 	return CapturePhase(ctx, cuCtx, cfg, syncWorkload, workload)
 }
 
 func capturePhase(
 	ctx context.Context,
-	cuCtx cupti.Context,
+	cuCtx driver.Context,
 	cfg PhaseConfig,
-	starter func(cupti.Context, Config) (*Session, error),
+	starter func(driver.Context, Config) (*Session, error),
 	syncWorkload func() error,
 	workload func(context.Context) error,
 ) (PhaseReport, error) {

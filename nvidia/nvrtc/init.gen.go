@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -412,6 +413,92 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
+// ffiCall0 through ffiCall6 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
 // BindFailure names a symbol the loaded library exports but that could not
 // be bound, and why.
 type BindFailure struct {
@@ -473,66 +560,66 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorString, "nvrtcGetErrorString")
-	register(&fnaddNameExpression, "nvrtcAddNameExpression")
-	register(&fncompileProgram, "nvrtcCompileProgram")
-	register(&fnCreateProgram, "nvrtcCreateProgram")
-	register(&fndestroyProgram, "nvrtcDestroyProgram")
-	register(&fnGetBundledHeadersInfo, "nvrtcGetBundledHeadersInfo")
-	register(&fngetCUBIN, "nvrtcGetCUBIN")
-	register(&fngetCUBINSize, "nvrtcGetCUBINSize")
-	register(&fngetLTOIR, "nvrtcGetLTOIR")
-	register(&fngetLTOIRSize, "nvrtcGetLTOIRSize")
-	register(&fngetLoweredName, "nvrtcGetLoweredName")
-	register(&fnGetNumSupportedArchs, "nvrtcGetNumSupportedArchs")
-	register(&fngetOptiXIR, "nvrtcGetOptiXIR")
-	register(&fngetOptiXIRSize, "nvrtcGetOptiXIRSize")
-	register(&fngetPCHCreateStatus, "nvrtcGetPCHCreateStatus")
-	register(&fnGetPCHHeapSize, "nvrtcGetPCHHeapSize")
-	register(&fngetPCHHeapSizeRequired, "nvrtcGetPCHHeapSizeRequired")
-	register(&fngetPTX, "nvrtcGetPTX")
-	register(&fngetPTXSize, "nvrtcGetPTXSize")
-	register(&fngetProgramLog, "nvrtcGetProgramLog")
-	register(&fngetProgramLogSize, "nvrtcGetProgramLogSize")
-	register(&fnGetSupportedArchs, "nvrtcGetSupportedArchs")
-	register(&fngetTileIR, "nvrtcGetTileIR")
-	register(&fngetTileIRSize, "nvrtcGetTileIRSize")
-	register(&fnInstallBundledHeaders, "nvrtcInstallBundledHeaders")
-	register(&fnRemoveBundledHeaders, "nvrtcRemoveBundledHeaders")
-	register(&fnsetFlowCallback, "nvrtcSetFlowCallback")
-	register(&fnSetPCHHeapSize, "nvrtcSetPCHHeapSize")
+	symaddNameExpression = registerSym("nvrtcAddNameExpression")
+	symcompileProgram = registerSym("nvrtcCompileProgram")
+	symCreateProgram = registerSym("nvrtcCreateProgram")
+	symdestroyProgram = registerSym("nvrtcDestroyProgram")
+	symGetBundledHeadersInfo = registerSym("nvrtcGetBundledHeadersInfo")
+	symgetCUBIN = registerSym("nvrtcGetCUBIN")
+	symgetCUBINSize = registerSym("nvrtcGetCUBINSize")
+	symgetLTOIR = registerSym("nvrtcGetLTOIR")
+	symgetLTOIRSize = registerSym("nvrtcGetLTOIRSize")
+	symgetLoweredName = registerSym("nvrtcGetLoweredName")
+	symGetNumSupportedArchs = registerSym("nvrtcGetNumSupportedArchs")
+	symgetOptiXIR = registerSym("nvrtcGetOptiXIR")
+	symgetOptiXIRSize = registerSym("nvrtcGetOptiXIRSize")
+	symgetPCHCreateStatus = registerSym("nvrtcGetPCHCreateStatus")
+	symGetPCHHeapSize = registerSym("nvrtcGetPCHHeapSize")
+	symgetPCHHeapSizeRequired = registerSym("nvrtcGetPCHHeapSizeRequired")
+	symgetPTX = registerSym("nvrtcGetPTX")
+	symgetPTXSize = registerSym("nvrtcGetPTXSize")
+	symgetProgramLog = registerSym("nvrtcGetProgramLog")
+	symgetProgramLogSize = registerSym("nvrtcGetProgramLogSize")
+	symGetSupportedArchs = registerSym("nvrtcGetSupportedArchs")
+	symgetTileIR = registerSym("nvrtcGetTileIR")
+	symgetTileIRSize = registerSym("nvrtcGetTileIRSize")
+	symInstallBundledHeaders = registerSym("nvrtcInstallBundledHeaders")
+	symRemoveBundledHeaders = registerSym("nvrtcRemoveBundledHeaders")
+	symsetFlowCallback = registerSym("nvrtcSetFlowCallback")
+	symSetPCHHeapSize = registerSym("nvrtcSetPCHHeapSize")
 	register(&fnVersion, "nvrtcVersion")
 }
 
 // clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
 	fnGetErrorString = nil
-	fnaddNameExpression = nil
-	fncompileProgram = nil
-	fnCreateProgram = nil
-	fndestroyProgram = nil
-	fnGetBundledHeadersInfo = nil
-	fngetCUBIN = nil
-	fngetCUBINSize = nil
-	fngetLTOIR = nil
-	fngetLTOIRSize = nil
-	fngetLoweredName = nil
-	fnGetNumSupportedArchs = nil
-	fngetOptiXIR = nil
-	fngetOptiXIRSize = nil
-	fngetPCHCreateStatus = nil
-	fnGetPCHHeapSize = nil
-	fngetPCHHeapSizeRequired = nil
-	fngetPTX = nil
-	fngetPTXSize = nil
-	fngetProgramLog = nil
-	fngetProgramLogSize = nil
-	fnGetSupportedArchs = nil
-	fngetTileIR = nil
-	fngetTileIRSize = nil
-	fnInstallBundledHeaders = nil
-	fnRemoveBundledHeaders = nil
-	fnsetFlowCallback = nil
-	fnSetPCHHeapSize = nil
+	symaddNameExpression = 0
+	symcompileProgram = 0
+	symCreateProgram = 0
+	symdestroyProgram = 0
+	symGetBundledHeadersInfo = 0
+	symgetCUBIN = 0
+	symgetCUBINSize = 0
+	symgetLTOIR = 0
+	symgetLTOIRSize = 0
+	symgetLoweredName = 0
+	symGetNumSupportedArchs = 0
+	symgetOptiXIR = 0
+	symgetOptiXIRSize = 0
+	symgetPCHCreateStatus = 0
+	symGetPCHHeapSize = 0
+	symgetPCHHeapSizeRequired = 0
+	symgetPTX = 0
+	symgetPTXSize = 0
+	symgetProgramLog = 0
+	symgetProgramLogSize = 0
+	symGetSupportedArchs = 0
+	symgetTileIR = 0
+	symgetTileIRSize = 0
+	symInstallBundledHeaders = 0
+	symRemoveBundledHeaders = 0
+	symsetFlowCallback = 0
+	symSetPCHHeapSize = 0
 	fnVersion = nil
 }
 

@@ -2,20 +2,88 @@
 
 package fabricmanager
 
+import "unsafe"
+
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnactivateFabricPartition        func(Handle, uint32) Result
-	fnactivateFabricPartitionWithVFs func(Handle, uint32, *PciDevice, uint32) Result
-	fnConnect                        func(*ConnectParams, *Handle) Result
-	fndeactivateFabricPartition      func(Handle, uint32) Result
-	fndisconnect                     func(Handle) Result
-	fngetNvlinkFailedDevices         func(Handle, *NvlinkFailedDevices) Result
-	fngetSupportedFabricPartitions   func(Handle, *FabricPartitionList) Result
-	fngetUnsupportedFabricPartitions func(Handle, *UnsupportedFabricPartitionList) Result
-	fnLibInit                        func() Result
-	fnLibShutdown                    func() Result
-	fnsetActivatedFabricPartitions   func(Handle, *ActivatedFabricPartitionList) Result
+	symactivateFabricPartition        uintptr
+	symactivateFabricPartitionWithVFs uintptr
+	symConnect                        uintptr
+	symdeactivateFabricPartition      uintptr
+	symdisconnect                     uintptr
+	symgetNvlinkFailedDevices         uintptr
+	symgetSupportedFabricPartitions   uintptr
+	symgetUnsupportedFabricPartitions uintptr
+	symLibInit                        uintptr
+	symLibShutdown                    uintptr
+	symsetActivatedFabricPartitions   uintptr
 )
+
+// fnactivateFabricPartition calls fmActivateFabricPartition.
+func fnactivateFabricPartition(a0 Handle, a1 uint32) Result {
+	r1, _ := ffiCall2(symactivateFabricPartition, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnactivateFabricPartitionWithVFs calls fmActivateFabricPartitionWithVFs.
+func fnactivateFabricPartitionWithVFs(a0 Handle, a1 uint32, a2 *PciDevice, a3 uint32) Result {
+	r1, _ := ffiCall4(symactivateFabricPartitionWithVFs, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnConnect calls fmConnect.
+func fnConnect(a0 *ConnectParams, a1 *Handle) Result {
+	r1, _ := ffiCall2(symConnect, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndeactivateFabricPartition calls fmDeactivateFabricPartition.
+func fndeactivateFabricPartition(a0 Handle, a1 uint32) Result {
+	r1, _ := ffiCall2(symdeactivateFabricPartition, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fndisconnect calls fmDisconnect.
+func fndisconnect(a0 Handle) Result {
+	r1, _ := ffiCall1(symdisconnect, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fngetNvlinkFailedDevices calls fmGetNvlinkFailedDevices.
+func fngetNvlinkFailedDevices(a0 Handle, a1 *NvlinkFailedDevices) Result {
+	r1, _ := ffiCall2(symgetNvlinkFailedDevices, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetSupportedFabricPartitions calls fmGetSupportedFabricPartitions.
+func fngetSupportedFabricPartitions(a0 Handle, a1 *FabricPartitionList) Result {
+	r1, _ := ffiCall2(symgetSupportedFabricPartitions, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetUnsupportedFabricPartitions calls fmGetUnsupportedFabricPartitions.
+func fngetUnsupportedFabricPartitions(a0 Handle, a1 *UnsupportedFabricPartitionList) Result {
+	r1, _ := ffiCall2(symgetUnsupportedFabricPartitions, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnLibInit calls fmLibInit.
+func fnLibInit() Result {
+	r1, _ := ffiCall0(symLibInit, 0)
+	return Result(r1)
+}
+
+// fnLibShutdown calls fmLibShutdown.
+func fnLibShutdown() Result {
+	r1, _ := ffiCall0(symLibShutdown, 0)
+	return Result(r1)
+}
+
+// fnsetActivatedFabricPartitions calls fmSetActivatedFabricPartitions.
+func fnsetActivatedFabricPartitions(a0 Handle, a1 *ActivatedFabricPartitionList) Result {
+	r1, _ := ffiCall2(symsetActivatedFabricPartitions, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
 
 // activateFabricPartition wraps fmActivateFabricPartition.
 //
@@ -43,19 +111,22 @@ func activateFabricPartitionWithVFs(pFmHandle Handle, partitionId uint32, vfList
 
 // Connect wraps fmConnect.
 //
-//   - connectParams: IN : Valid IP address for the remote host engine to connect to. If addressInfo is specified as x.x.x.x it will attempt to connect to the default port specified by FM_CMD_PORT_NUMBER If addressInfo is specified as x.x.x.x:yyyy it will attempt to connect to the port specified by yyyy To connect to an FM instance that was started with unix domain socket, fill the socket path in addressInfo member and set addressType to NV_FM_API_ADDR_TYPE_UNIX. To connect to an FM instance on a vsock connection fill addressInfo with `:`. Supported address types are listed in [NvFmApiAddrTypes] enumeration. For additional connection parameters. See [ConnectParams] for details
+//   - connectParams: IN : Valid IP address for the remote host engine to connect to. If addressInfo is specified as x.x.x.x it will attempt to connect to the default port specified by FM_CMD_PORT_NUMBER If addressInfo is specified as x.x.x.x:yyyy it will attempt to connect to the port specified by yyyy To connect to an FM instance that was started with unix domain socket, fill the socket path in addressInfo member and set addressType to NV_FM_API_ADDR_TYPE_UNIX. To connect to an FM instance on a vsock connection fill addressInfo with `<cid>:<port_number>`. Supported address types are listed in [NvFmApiAddrTypes] enumeration. For additional connection parameters. See [ConnectParams] for details
 func Connect(connectParams *ConnectParams) (Handle, error) {
 	if err := checkLibSym("fmConnect"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnConnect(connectParams, &out), "fmConnect"); err != nil {
+	out := slotConnect.get()
+	defer slotConnect.put(out)
+	if err := toError(fnConnect(connectParams, out), "fmConnect"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotConnect outSlot[Handle]
 
 // deactivateFabricPartition wraps fmDeactivateFabricPartition.
 //

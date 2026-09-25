@@ -2,7 +2,7 @@
 
 package cudensitymat
 
-// AppendElementaryProduct Appends a product of elementary tensor operators acting on quantum state modes to the operator term.
+// AppendElementaryProduct appends a product of elementary tensor operators acting on quantum state modes to the operator term.
 //
 // The elementary tensor operators constituting the provided
 // tensor operator product are applied to the quantum state in-order,
@@ -23,7 +23,7 @@ func (o OperatorTerm) AppendElementaryProduct(handle Handle, numElemOperators in
 	return operatorTermAppendElementaryProduct(handle, o, numElemOperators, elemOperators, stateModesActedOn, modeActionDuality, coefficient, coefficientCallback, coefficientGradientCallback)
 }
 
-// Destroy Destroys an operator term.
+// Destroy destroys an operator term.
 //
 // Wraps cudensitymatDestroyOperatorTerm.
 func (o OperatorTerm) Destroy() error {

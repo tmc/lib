@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // The checks here are hand-written from cudensitymat.h and need no GPU and no
@@ -66,7 +68,7 @@ func TestHandleWidth(t *testing.T) {
 		{"Operator", unsafe.Sizeof(Operator(0))},
 		{"Expectation", unsafe.Sizeof(Expectation(0))},
 		{"WorkspaceDescriptor", unsafe.Sizeof(WorkspaceDescriptor(0))},
-		{"Stream", unsafe.Sizeof(Stream(0))},
+		{"Stream", unsafe.Sizeof(driver.Stream(0))},
 	} {
 		if tc.size != want {
 			t.Errorf("sizeof(%s) = %d, want %d", tc.name, tc.size, want)

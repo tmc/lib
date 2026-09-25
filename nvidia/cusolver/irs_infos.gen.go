@@ -4,6 +4,8 @@ package cusolver
 
 // NewIRSInfos creates and initializes the Infos structure that will hold the refinement information of an Iterative Refinement Solver (IRS) call.
 //
+// Such information includes the total number of iterations that was needed to converge ( Niters), the outer number of iterations (meaningful when two-levels preconditioner such as [IrsRefineClassicalGmres] is used ), the maximal number of iterations that was allowed for that call, and a pointer to the matrix of the convergence history residual norms. The Infos structure needs to be created before a call to an IRS solver. The Infos structure is valid for only one call to an IRS solver, since it holds info about that solve and thus each solve will requires its own Infos structure.
+//
 // Returns:
 //   - [ErrAllocFailed]: The resources could not be allocated.
 //   - [Success]: The structure was initialized successfully.
@@ -15,6 +17,8 @@ func NewIRSInfos() (IRSInfos, error) {
 
 // Destroy destroys and releases any memory required by the Infos structure.
 //
+// This function destroys all the information (for example, Niters performed, OuterNiters performed, residual history etc.) about a solver call; thus, this function should only be called after the user is finished with the information.
+//
 // Returns:
 //   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
 //   - [Success]: The resources were released successfully.
@@ -25,6 +29,8 @@ func (i IRSInfos) Destroy() error {
 }
 
 // MaxIters returns the maximal allowed number of iterations that was set for the corresponding call to the IRS solver.
+//
+// Note that this function returns the setting that was set when that call happened and is not to be confused with the [IRSParams.MaxIters] which returns the current setting in the params configuration structure. To be clearer, the params structure can be used for many calls to an IRS solver. A user can change the allowed MaxIters between calls while the Infos structure in [IRSInfos.MaxIters] contains information about a particular call and cannot be reused for different calls, thus [IRSInfos.MaxIters] returns the allowed MaxIters for that call.
 //
 //   - maxiters: The maximal number of iterations that is currently set
 //
@@ -39,6 +45,8 @@ func (i IRSInfos) MaxIters() (CusolverInt, error) {
 
 // Niters returns the total number of iterations performed by the IRS solver.
 //
+// If it was negative, it means that the IRS solver did not converge and if the user did not disable the fallback to full precision, then the fallback to a full precision solution happened and solution is good. Please refer to the description of negative niters values in the corresponding IRS linear solver functions such as cusolverDnXgesv() or cusolverDnXgels().
+//
 //   - niters: The total number of iterations performed by the IRS solver
 //
 // Returns:
@@ -51,6 +59,8 @@ func (i IRSInfos) Niters() (CusolverInt, error) {
 }
 
 // OuterNiters returns the number of iterations performed by the outer refinement loop of the IRS solver.
+//
+// When the refinement solver consists of a one-level solver such as [IrsRefineClassical] or [IrsRefineGmres], it is the same as Niters. When the refinement solver consists of a two-levels solver such as [IrsRefineClassicalGmres] or [IrsRefineGmresGmres], it is the number of iterations of the outer loop. Refer to the description of the [IRSRefinement] for more details.
 //
 //   - outerNiters: The number of iterations of the outer refinement loop of the IRS solver
 //
@@ -76,6 +86,7 @@ func (i IRSInfos) RequestResidual() error {
 
 // ResidualHistory If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
 //
+// The datatype of the residual norms depends on the input and output data type. If the Inputs/Outputs datatype is double precision real or complex (CUSOLVER_R_FP64 or CUSOLVER_C_FP64), this residual will be of type real double precision (FP64) double, otherwise if the Inputs/Outputs datatype is single precision real or complex (CUSOLVER_R_FP32 or CUSOLVER_C_FP32), this residual will be real single precision FP32 float.
 // The residual history matrix consists of two columns (even for the multiple right-hand side case NRHS) of MaxIters+1 row, thus a matrix of size ( MaxIters+1,2). Only the first OuterNiters+1 rows contains the residual norms the other (e.g., OuterNiters+2:Maxiters+1) are garbage. On the first column, each row “i” specify the total number of iterations happened till this outer iteration “i” and on the second columns the residual norm corresponding to this outer iteration “i”. Thus, the first row (e.g., outer iteration “0”) consists of the initial residual (e.g., the residual before the refinement loop start) then the consecutive rows are the residual obtained at each outer iteration of the refinement loop. Note, it only consists of the history of the outer loop.
 // If the refinement solver was [IrsRefineClassical] or [IrsRefineGmres], then OuterNiters=Niters (Niters is the total number of iterations performed) and there is Niters+1 rows of norms that correspond to the Niters outer iterations.
 // If the refinement solver was [IrsRefineClassicalGmres] or [IrsRefineGmresGmres], then OuterNiters <= Niters corresponds to the outer iterations performed by the outer refinement loop. Thus, there is OuterNiters+1 residual norms where row “i” correspond to the outer iteration “i” and the first column specify the total number of iterations (outer and inner) that were performed till this step the second columns correspond to the residual norm at this step.

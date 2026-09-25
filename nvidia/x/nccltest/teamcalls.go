@@ -257,8 +257,7 @@ func checkCftDeviceLeInfo(comm nccl.Comm, cft nccl.Team) (result TeamCallResult,
 	defer func() { err = errors.Join(err, comm.WindowDeregister(win)) }()
 
 	for _, offset := range []uint{0, 64, 1024} {
-		var leOffset uint
-		leID, err := win.CftDeviceLeInfo(offset, 0, cft, &leOffset)
+		leID, leOffset, err := win.CftDeviceLeInfo(offset, 0, cft)
 		if err != nil {
 			var code nccl.Result
 			if !errors.As(err, &code) {
@@ -266,8 +265,7 @@ func checkCftDeviceLeInfo(comm nccl.Comm, cft nccl.Team) (result TeamCallResult,
 			}
 			return rejected(name, err), nil
 		}
-		var peerOffset uint
-		peerID, err := win.PeerDeviceLeInfo(offset, 0, &peerOffset)
+		peerID, peerOffset, err := win.PeerDeviceLeInfo(offset, 0)
 		if err != nil {
 			return result, fmt.Errorf("peer LE control at offset %d: %w", offset, err)
 		}

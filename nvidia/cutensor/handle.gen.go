@@ -3,16 +3,17 @@
 package cutensor
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"unsafe"
 )
 
 // Contract wraps cutensorContract.
-func (h Handle) Contract(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+func (h Handle) Contract(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
 	return contract(h, plan, alpha, a, b, beta, c, d, workspace, workspaceSize, stream)
 }
 
 // ContractTrinary wraps cutensorContractTrinary.
-func (h Handle) ContractTrinary(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, c uintptr, beta unsafe.Pointer, d uintptr, e uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+func (h Handle) ContractTrinary(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, c uintptr, beta unsafe.Pointer, d uintptr, e uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
 	return contractTrinary(h, plan, alpha, a, b, c, beta, d, e, workspace, workspaceSize, stream)
 }
 
@@ -67,12 +68,12 @@ func (h Handle) Destroy() error {
 }
 
 // ElementwiseBinaryExecute wraps cutensorElementwiseBinaryExecute.
-func (h Handle) ElementwiseBinaryExecute(plan Plan, alpha unsafe.Pointer, a uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream Stream) error {
+func (h Handle) ElementwiseBinaryExecute(plan Plan, alpha unsafe.Pointer, a uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream driver.Stream) error {
 	return elementwiseBinaryExecute(h, plan, alpha, a, gamma, c, d, stream)
 }
 
 // ElementwiseTrinaryExecute wraps cutensorElementwiseTrinaryExecute.
-func (h Handle) ElementwiseTrinaryExecute(plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, b uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream Stream) error {
+func (h Handle) ElementwiseTrinaryExecute(plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, b uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream driver.Stream) error {
 	return elementwiseTrinaryExecute(h, plan, alpha, a, beta, b, gamma, c, d, stream)
 }
 
@@ -82,7 +83,7 @@ func (h Handle) EstimateWorkspaceSize(desc OperationDescriptor, planPref PlanPre
 }
 
 // Permute wraps cutensorPermute.
-func (h Handle) Permute(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, stream Stream) error {
+func (h Handle) Permute(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, stream driver.Stream) error {
 	return permute(h, plan, alpha, a, b, stream)
 }
 
@@ -97,7 +98,7 @@ func (h Handle) ReadPlanCacheFromFile(filename *byte) (uint32, error) {
 }
 
 // Reduce wraps cutensorReduce.
-func (h Handle) Reduce(plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+func (h Handle) Reduce(plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
 	return reduce(h, plan, alpha, a, beta, c, d, workspace, workspaceSize, stream)
 }
 

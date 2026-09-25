@@ -92,7 +92,7 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	// Every allocation below has to outlive the stream. Nothing here uses a
 	// non-default stream, and the context synchronization after each launch is
 	// what makes that safe.
-	stream := nvcomp.Stream(0)
+	stream := driver.Stream(0)
 	inData := deviceAllocT(t, uint(len(uncompressed)))
 	inPtrs := deviceAllocT(t, numChunks*nvcomp.SizeofDevicePointer)
 	inBytes := deviceAllocT(t, numChunks*nvcomp.SizeofDeviceSize)

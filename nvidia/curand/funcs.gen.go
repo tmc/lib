@@ -2,80 +2,554 @@
 
 package curand
 
-// Generated function pointer variables.
-var (
-	fnCreateGenerator                   func(*Generator, RngType) Result
-	fnCreateGeneratorHost               func(*Generator, RngType) Result
-	fnCreatePoissonDistribution         func(float64, *DiscreteDistribution) Result
-	fndestroyDistribution               func(DiscreteDistribution) Result
-	fndestroyGenerator                  func(Generator) Result
-	fngenerate                          func(Generator, *uint32, uint) Result
-	fngenerateBinomial                  func(Generator, *uint32, uint, uint32, float64) Result
-	fngenerateLogNormal                 func(Generator, *float32, uint, float32, float32) Result
-	fngenerateLogNormalDouble           func(Generator, *float64, uint, float64, float64) Result
-	fngenerateLongLong                  func(Generator, *uint64, uint) Result
-	fngenerateNormal                    func(Generator, *float32, uint, float32, float32) Result
-	fngenerateNormalDouble              func(Generator, *float64, uint, float64, float64) Result
-	fngeneratePoisson                   func(Generator, *uint32, uint, float64) Result
-	fngenerateSeeds                     func(Generator) Result
-	fngenerateUniform                   func(Generator, *float32, uint) Result
-	fngenerateUniformDouble             func(Generator, *float64, uint) Result
-	fnGetDirectionVectors32             func(**DirectionVectors32, DirectionVectorSet) Result
-	fnGetDirectionVectors64             func(**DirectionVectors64, DirectionVectorSet) Result
-	fnGetProperty                       func(LibraryPropertyType, *int32) Result
-	fnGetScrambleConstants32            func(**uint32) Result
-	fnGetScrambleConstants64            func(**uint64) Result
-	fnGetVersion                        func(*int32) Result
-	fnsetGeneratorOffset                func(Generator, uint64) Result
-	fnsetGeneratorOrdering              func(Generator, Ordering) Result
-	fnsetPseudoRandomGeneratorSeed      func(Generator, uint64) Result
-	fnsetQuasiRandomGeneratorDimensions func(Generator, uint32) Result
-	fnsetStream                         func(Generator, Stream) Result
+import (
+	"math"
+	"sync"
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
-// CreateGenerator wraps curandCreateGenerator.
+// Generated function pointer variables.
+var (
+	symCreateGenerator                   uintptr
+	symCreateGeneratorHost               uintptr
+	symCreatePoissonDistribution         uintptr
+	symdestroyDistribution               uintptr
+	symdestroyGenerator                  uintptr
+	symgenerate                          uintptr
+	symgenerateBinomial                  uintptr
+	symgenerateBinomialHost              uintptr
+	symgenerateHost                      uintptr
+	symgenerateLogNormal                 uintptr
+	symgenerateLogNormalDouble           uintptr
+	symgenerateLogNormalDoubleHost       uintptr
+	symgenerateLogNormalHost             uintptr
+	symgenerateLongLong                  uintptr
+	symgenerateLongLongHost              uintptr
+	symgenerateNormal                    uintptr
+	symgenerateNormalDouble              uintptr
+	symgenerateNormalDoubleHost          uintptr
+	symgenerateNormalHost                uintptr
+	symgeneratePoisson                   uintptr
+	symgeneratePoissonHost               uintptr
+	symgenerateSeeds                     uintptr
+	symgenerateUniform                   uintptr
+	symgenerateUniformDouble             uintptr
+	symgenerateUniformDoubleHost         uintptr
+	symgenerateUniformHost               uintptr
+	symGetDirectionVectors32             uintptr
+	symGetDirectionVectors64             uintptr
+	symGetProperty                       uintptr
+	symGetScrambleConstants32            uintptr
+	symGetScrambleConstants64            uintptr
+	fnGetVersion                         func(*int32) Result
+	symsetGeneratorOffset                uintptr
+	symsetGeneratorOrdering              uintptr
+	symsetPseudoRandomGeneratorSeed      uintptr
+	symsetQuasiRandomGeneratorDimensions uintptr
+	fnsetStream                          func(Generator, driver.Stream) Result
+)
+
+// ffiCall0 through ffiCall5 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnCreateGenerator calls curandCreateGenerator.
+func fnCreateGenerator(a0 *Generator, a1 RngType) Result {
+	r1, _ := ffiCall2(symCreateGenerator, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCreateGeneratorHost calls curandCreateGeneratorHost.
+func fnCreateGeneratorHost(a0 *Generator, a1 RngType) Result {
+	r1, _ := ffiCall2(symCreateGeneratorHost, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCreatePoissonDistribution calls curandCreatePoissonDistribution.
+func fnCreatePoissonDistribution(a0 float64, a1 *DiscreteDistribution) Result {
+	r1, _ := ffiCall2(symCreatePoissonDistribution, 0b1, uintptr(math.Float64bits(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndestroyDistribution calls curandDestroyDistribution.
+func fndestroyDistribution(a0 DiscreteDistribution) Result {
+	r1, _ := ffiCall1(symdestroyDistribution, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyGenerator calls curandDestroyGenerator.
+func fndestroyGenerator(a0 Generator) Result {
+	r1, _ := ffiCall1(symdestroyGenerator, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fngenerate calls curandGenerate.
+func fngenerate(a0 Generator, a1 uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symgenerate, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngenerateBinomial calls curandGenerateBinomial.
+func fngenerateBinomial(a0 Generator, a1 uintptr, a2 uint, a3 uint32, a4 float64) Result {
+	r1, _ := ffiCall5(symgenerateBinomial, 0b10000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateBinomialHost calls curandGenerateBinomial.
+func fngenerateBinomialHost(a0 Generator, a1 *uint32, a2 uint, a3 uint32, a4 float64) Result {
+	r1, _ := ffiCall5(symgenerateBinomialHost, 0b10000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateHost calls curandGenerate.
+func fngenerateHost(a0 Generator, a1 *uint32, a2 uint) Result {
+	r1, _ := ffiCall3(symgenerateHost, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngenerateLogNormal calls curandGenerateLogNormal.
+func fngenerateLogNormal(a0 Generator, a1 uintptr, a2 uint, a3 float32, a4 float32) Result {
+	r1, _ := ffiCall5(symgenerateLogNormal, 0b11000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateLogNormalDouble calls curandGenerateLogNormalDouble.
+func fngenerateLogNormalDouble(a0 Generator, a1 uintptr, a2 uint, a3 float64, a4 float64) Result {
+	r1, _ := ffiCall5(symgenerateLogNormalDouble, 0b11000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float64bits(a3)), uintptr(math.Float64bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateLogNormalDoubleHost calls curandGenerateLogNormalDouble.
+func fngenerateLogNormalDoubleHost(a0 Generator, a1 *float64, a2 uint, a3 float64, a4 float64) Result {
+	r1, _ := ffiCall5(symgenerateLogNormalDoubleHost, 0b11000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float64bits(a3)), uintptr(math.Float64bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateLogNormalHost calls curandGenerateLogNormal.
+func fngenerateLogNormalHost(a0 Generator, a1 *float32, a2 uint, a3 float32, a4 float32) Result {
+	r1, _ := ffiCall5(symgenerateLogNormalHost, 0b11000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateLongLong calls curandGenerateLongLong.
+func fngenerateLongLong(a0 Generator, a1 uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symgenerateLongLong, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngenerateLongLongHost calls curandGenerateLongLong.
+func fngenerateLongLongHost(a0 Generator, a1 *uint64, a2 uint) Result {
+	r1, _ := ffiCall3(symgenerateLongLongHost, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngenerateNormal calls curandGenerateNormal.
+func fngenerateNormal(a0 Generator, a1 uintptr, a2 uint, a3 float32, a4 float32) Result {
+	r1, _ := ffiCall5(symgenerateNormal, 0b11000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateNormalDouble calls curandGenerateNormalDouble.
+func fngenerateNormalDouble(a0 Generator, a1 uintptr, a2 uint, a3 float64, a4 float64) Result {
+	r1, _ := ffiCall5(symgenerateNormalDouble, 0b11000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float64bits(a3)), uintptr(math.Float64bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateNormalDoubleHost calls curandGenerateNormalDouble.
+func fngenerateNormalDoubleHost(a0 Generator, a1 *float64, a2 uint, a3 float64, a4 float64) Result {
+	r1, _ := ffiCall5(symgenerateNormalDoubleHost, 0b11000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float64bits(a3)), uintptr(math.Float64bits(a4)))
+	return Result(r1)
+}
+
+// fngenerateNormalHost calls curandGenerateNormal.
+func fngenerateNormalHost(a0 Generator, a1 *float32, a2 uint, a3 float32, a4 float32) Result {
+	r1, _ := ffiCall5(symgenerateNormalHost, 0b11000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float32bits(a3)), uintptr(math.Float32bits(a4)))
+	return Result(r1)
+}
+
+// fngeneratePoisson calls curandGeneratePoisson.
+func fngeneratePoisson(a0 Generator, a1 uintptr, a2 uint, a3 float64) Result {
+	r1, _ := ffiCall4(symgeneratePoisson, 0b1000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(math.Float64bits(a3)))
+	return Result(r1)
+}
+
+// fngeneratePoissonHost calls curandGeneratePoisson.
+func fngeneratePoissonHost(a0 Generator, a1 *uint32, a2 uint, a3 float64) Result {
+	r1, _ := ffiCall4(symgeneratePoissonHost, 0b1000, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(math.Float64bits(a3)))
+	return Result(r1)
+}
+
+// fngenerateSeeds calls curandGenerateSeeds.
+func fngenerateSeeds(a0 Generator) Result {
+	r1, _ := ffiCall1(symgenerateSeeds, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fngenerateUniform calls curandGenerateUniform.
+func fngenerateUniform(a0 Generator, a1 uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symgenerateUniform, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngenerateUniformDouble calls curandGenerateUniformDouble.
+func fngenerateUniformDouble(a0 Generator, a1 uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symgenerateUniformDouble, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngenerateUniformDoubleHost calls curandGenerateUniformDouble.
+func fngenerateUniformDoubleHost(a0 Generator, a1 *float64, a2 uint) Result {
+	r1, _ := ffiCall3(symgenerateUniformDoubleHost, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngenerateUniformHost calls curandGenerateUniform.
+func fngenerateUniformHost(a0 Generator, a1 *float32, a2 uint) Result {
+	r1, _ := ffiCall3(symgenerateUniformHost, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnGetDirectionVectors32 calls curandGetDirectionVectors32.
+func fnGetDirectionVectors32(a0 **DirectionVectors32, a1 DirectionVectorSet) Result {
+	r1, _ := ffiCall2(symGetDirectionVectors32, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGetDirectionVectors64 calls curandGetDirectionVectors64.
+func fnGetDirectionVectors64(a0 **DirectionVectors64, a1 DirectionVectorSet) Result {
+	r1, _ := ffiCall2(symGetDirectionVectors64, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGetProperty calls curandGetProperty.
+func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetScrambleConstants32 calls curandGetScrambleConstants32.
+func fnGetScrambleConstants32(a0 **uint32) Result {
+	r1, _ := ffiCall1(symGetScrambleConstants32, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnGetScrambleConstants64 calls curandGetScrambleConstants64.
+func fnGetScrambleConstants64(a0 **uint64) Result {
+	r1, _ := ffiCall1(symGetScrambleConstants64, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnsetGeneratorOffset calls curandSetGeneratorOffset.
+func fnsetGeneratorOffset(a0 Generator, a1 uint64) Result {
+	r1, _ := ffiCall2(symsetGeneratorOffset, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetGeneratorOrdering calls curandSetGeneratorOrdering.
+func fnsetGeneratorOrdering(a0 Generator, a1 Ordering) Result {
+	r1, _ := ffiCall2(symsetGeneratorOrdering, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetPseudoRandomGeneratorSeed calls curandSetPseudoRandomGeneratorSeed.
+func fnsetPseudoRandomGeneratorSeed(a0 Generator, a1 uint64) Result {
+	r1, _ := ffiCall2(symsetPseudoRandomGeneratorSeed, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetQuasiRandomGeneratorDimensions calls curandSetQuasiRandomGeneratorDimensions.
+func fnsetQuasiRandomGeneratorDimensions(a0 Generator, a1 uint32) Result {
+	r1, _ := ffiCall2(symsetQuasiRandomGeneratorDimensions, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// CreateGenerator creates new random number generator.
+//
+// Creates a new random number generator of type rngType
+// and returns it in *generator.
+//
+// Legal values for rngType are:
+// - [CURAND_RNG_PseudoDefault]
+// - [CURAND_RNG_PseudoXorwow]
+// - [CURAND_RNG_PseudoMrg32k3a]
+// - [CURAND_RNG_PseudoMtgp32]
+// - [CURAND_RNG_PseudoMt19937]
+// - [CURAND_RNG_PseudoPhilox43210]
+// - [CURAND_RNG_QuasiDefault]
+// - [CURAND_RNG_QuasiSobol32]
+// - [CURAND_RNG_QuasiScrambledSobol32]
+// - [CURAND_RNG_QuasiSobol64]
+// - [CURAND_RNG_QuasiScrambledSobol64]
+//
+// When rngType is [CURAND_RNG_PseudoDefault], the type chosen
+// is [CURAND_RNG_PseudoXorwow]. \n
+// When rngType is [CURAND_RNG_QuasiDefault],
+// the type chosen is [CURAND_RNG_QuasiSobol32].
+//
+// The default values for rngType = [CURAND_RNG_PseudoXorwow] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// The default values for rngType = [CURAND_RNG_PseudoMrg32k3a] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// The default values for rngType = [CURAND_RNG_PseudoMtgp32] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// The default values for rngType = [CURAND_RNG_PseudoMt19937] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// * The default values for rngType = [CURAND_RNG_PseudoPhilox43210] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// The default values for rngType = [CURAND_RNG_QuasiSobol32] are:
+// - dimensions = 1
+// - offset = 0
+// - ordering = [CURAND_ORDERING_QuasiDefault]
+//
+// The default values for rngType = [CURAND_RNG_QuasiSobol64] are:
+// - dimensions = 1
+// - offset = 0
+// - ordering = [CURAND_ORDERING_QuasiDefault]
+//
+// The default values for rngType = CURAND_RNG_QUASI_SCRAMBBLED_SOBOL32 are:
+// - dimensions = 1
+// - offset = 0
+// - ordering = [CURAND_ORDERING_QuasiDefault]
+//
+// The default values for rngType = [CURAND_RNG_QuasiScrambledSobol64] are:
+// - dimensions = 1
+// - offset = 0
+// - ordering = [CURAND_ORDERING_QuasiDefault]
+//
+//   - generator: Pointer to generator
+//   - rngType: Type of generator to create
+//
+// Wraps curandCreateGenerator.
 func CreateGenerator(rngType RngType) (Generator, error) {
 	if err := checkLibSym("curandCreateGenerator"); err != nil {
 		var zero Generator
 		return zero, err
 	}
-	var out Generator
-	if err := toError(fnCreateGenerator(&out, rngType), "curandCreateGenerator"); err != nil {
+	out := slotCreateGenerator.get()
+	defer slotCreateGenerator.put(out)
+	if err := toError(fnCreateGenerator(out, rngType), "curandCreateGenerator"); err != nil {
 		var zero Generator
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateGeneratorHost wraps curandCreateGeneratorHost.
+var slotCreateGenerator outSlot[Generator]
+
+// CreateGeneratorHost creates new host CPU random number generator.
+//
+// Creates a new host CPU random number generator of type rngType
+// and returns it in *generator.
+//
+// Legal values for rngType are:
+// - [CURAND_RNG_PseudoDefault]
+// - [CURAND_RNG_PseudoXorwow]
+// - [CURAND_RNG_PseudoMrg32k3a]
+// - [CURAND_RNG_PseudoMtgp32]
+// - [CURAND_RNG_PseudoMt19937]
+// - [CURAND_RNG_PseudoPhilox43210]
+// - [CURAND_RNG_QuasiDefault]
+// - [CURAND_RNG_QuasiSobol32]
+// - [CURAND_RNG_QuasiScrambledSobol32]
+// - [CURAND_RNG_QuasiSobol64]
+// - [CURAND_RNG_QuasiScrambledSobol64]
+//
+// When rngType is [CURAND_RNG_PseudoDefault], the type chosen
+// is [CURAND_RNG_PseudoXorwow]. \n
+// When rngType is [CURAND_RNG_QuasiDefault],
+// the type chosen is [CURAND_RNG_QuasiSobol32].
+//
+// The default values for rngType = [CURAND_RNG_PseudoXorwow] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// The default values for rngType = [CURAND_RNG_PseudoMrg32k3a] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// The default values for rngType = [CURAND_RNG_PseudoMtgp32] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// The default values for rngType = [CURAND_RNG_PseudoMt19937] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// * The default values for rngType = [CURAND_RNG_PseudoPhilox43210] are:
+// - seed = 0
+// - offset = 0
+// - ordering = [CURAND_ORDERING_PseudoDefault]
+//
+// The default values for rngType = [CURAND_RNG_QuasiSobol32] are:
+// - dimensions = 1
+// - offset = 0
+// - ordering = [CURAND_ORDERING_QuasiDefault]
+//
+// The default values for rngType = [CURAND_RNG_QuasiSobol64] are:
+// - dimensions = 1
+// - offset = 0
+// - ordering = [CURAND_ORDERING_QuasiDefault]
+//
+// The default values for rngType = [CURAND_RNG_QuasiScrambledSobol32] are:
+// - dimensions = 1
+// - offset = 0
+// - ordering = [CURAND_ORDERING_QuasiDefault]
+//
+// The default values for rngType = [CURAND_RNG_QuasiScrambledSobol64] are:
+// - dimensions = 1
+// - offset = 0
+// - ordering = [CURAND_ORDERING_QuasiDefault]
+//
+//   - generator: Pointer to generator
+//   - rngType: Type of generator to create
+//
+// Wraps curandCreateGeneratorHost.
 func CreateGeneratorHost(rngType RngType) (Generator, error) {
 	if err := checkLibSym("curandCreateGeneratorHost"); err != nil {
 		var zero Generator
 		return zero, err
 	}
-	var out Generator
-	if err := toError(fnCreateGeneratorHost(&out, rngType), "curandCreateGeneratorHost"); err != nil {
+	out := slotCreateGeneratorHost.get()
+	defer slotCreateGeneratorHost.put(out)
+	if err := toError(fnCreateGeneratorHost(out, rngType), "curandCreateGeneratorHost"); err != nil {
 		var zero Generator
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreatePoissonDistribution wraps curandCreatePoissonDistribution.
+var slotCreateGeneratorHost outSlot[Generator]
+
+// CreatePoissonDistribution Construct the histogram array for a Poisson distribution.
+//
+// Construct the histogram array for the Poisson distribution with lambda lambda.
+// For lambda greater than 2000, an approximation with a normal distribution is used.
+//
+//   - lambda: lambda for the Poisson distribution
+//   - discreteDistribution: pointer to the histogram in device memory
+//
+// Wraps curandCreatePoissonDistribution.
 func CreatePoissonDistribution(lambda float64) (DiscreteDistribution, error) {
 	if err := checkLibSym("curandCreatePoissonDistribution"); err != nil {
 		var zero DiscreteDistribution
 		return zero, err
 	}
-	var out DiscreteDistribution
-	if err := toError(fnCreatePoissonDistribution(lambda, &out), "curandCreatePoissonDistribution"); err != nil {
+	out := slotCreatePoissonDistribution.get()
+	defer slotCreatePoissonDistribution.put(out)
+	if err := toError(fnCreatePoissonDistribution(lambda, out), "curandCreatePoissonDistribution"); err != nil {
 		var zero DiscreteDistribution
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// destroyDistribution wraps curandDestroyDistribution.
+var slotCreatePoissonDistribution outSlot[DiscreteDistribution]
+
+// destroyDistribution destroys the histogram array for a discrete distribution (e.g. Poisson).
+//
+// Destroy the histogram array for a discrete distribution created by [CreatePoissonDistribution].
+//
+//   - discreteDistribution: pointer to device memory where the histogram is stored
+//
+// Wraps curandDestroyDistribution.
 func destroyDistribution(discreteDistribution DiscreteDistribution) error {
 	if err := checkLibSym("curandDestroyDistribution"); err != nil {
 		return err
@@ -83,7 +557,13 @@ func destroyDistribution(discreteDistribution DiscreteDistribution) error {
 	return toError(fndestroyDistribution(discreteDistribution), "curandDestroyDistribution")
 }
 
-// destroyGenerator wraps curandDestroyGenerator.
+// destroyGenerator destroys an existing generator.
+//
+// Destroy an existing generator and free all memory associated with its state.
+//
+//   - generator: Generator to destroy
+//
+// Wraps curandDestroyGenerator.
 func destroyGenerator(generator Generator) error {
 	if err := checkLibSym("curandDestroyGenerator"); err != nil {
 		return err
@@ -91,71 +571,323 @@ func destroyGenerator(generator Generator) error {
 	return toError(fndestroyGenerator(generator), "curandDestroyGenerator")
 }
 
-// generate wraps curandGenerate.
-func generate(generator Generator, outputPtr *uint32, num uint) error {
+// generate [Generator.Generate] 32-bit pseudo or quasirandom numbers.
+//
+// Use generator to generate num 32-bit results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit values with every bit random.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - num: Number of random 32-bit values to generate
+//
+// Wraps curandGenerate.
+func generate(generator Generator, outputPtr driver.DevicePtr, num uint) error {
 	if err := checkLibSym("curandGenerate"); err != nil {
 		return err
 	}
-	return toError(fngenerate(generator, outputPtr, num), "curandGenerate")
+	return toError(fngenerate(generator, uintptr(outputPtr), num), "curandGenerate")
 }
 
 // generateBinomial wraps curandGenerateBinomial.
-func generateBinomial(generator Generator, outputPtr *uint32, num uint, n uint32, p float64) error {
+func generateBinomial(generator Generator, outputPtr driver.DevicePtr, num uint, n uint32, p float64) error {
 	if err := checkLibSym("curandGenerateBinomial"); err != nil {
 		return err
 	}
-	return toError(fngenerateBinomial(generator, outputPtr, num, n, p), "curandGenerateBinomial")
+	return toError(fngenerateBinomial(generator, uintptr(outputPtr), num, n, p), "curandGenerateBinomial")
 }
 
-// generateLogNormal wraps curandGenerateLogNormal.
-func generateLogNormal(generator Generator, outputPtr *float32, n uint, mean float32, stddev float32) error {
+// generateBinomialHost is generateBinomial for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateBinomialHost(generator Generator, output []uint32, n uint32, p float64) error {
+	if err := checkLibSym("curandGenerateBinomial"); err != nil {
+		return err
+	}
+	return toError(fngenerateBinomialHost(generator, unsafe.SliceData(output), uint(len(output)), n, p), "curandGenerateBinomial")
+}
+
+// generateHost is generate for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateHost(generator Generator, output []uint32) error {
+	if err := checkLibSym("curandGenerate"); err != nil {
+		return err
+	}
+	return toError(fngenerateHost(generator, unsafe.SliceData(output), uint(len(output))), "curandGenerate")
+}
+
+// generateLogNormal [Generator.Generate] log-normally distributed floats.
+//
+// Use generator to generate n float results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit floating point values with log-normal distribution based on
+// an associated normal distribution with mean mean and standard deviation stddev.
+//
+// Normally distributed results are generated from pseudorandom generators
+// with a Box-Muller transform, and so require n to be even.
+// Quasirandom generators use an inverse cumulative distribution
+// function to preserve dimensionality.
+// The normally distributed results are transformed into log-normal distribution.
+//
+// There may be slight numerical differences between results generated
+// on the GPU with generators created with [CreateGenerator]
+// and results calculated on the CPU with generators created with
+// [CreateGeneratorHost]. These differences arise because of
+// differences in results for transcendental functions. In addition,
+// future versions of CURAND may use newer versions of the CUDA math
+// library, so different versions of CURAND may give slightly different
+// numerical values.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of floats to generate
+//   - mean: Mean of associated normal distribution
+//   - stddev: Standard deviation of associated normal distribution
+//
+// Wraps curandGenerateLogNormal.
+func generateLogNormal(generator Generator, outputPtr driver.DevicePtr, n uint, mean float32, stddev float32) error {
 	if err := checkLibSym("curandGenerateLogNormal"); err != nil {
 		return err
 	}
-	return toError(fngenerateLogNormal(generator, outputPtr, n, mean, stddev), "curandGenerateLogNormal")
+	return toError(fngenerateLogNormal(generator, uintptr(outputPtr), n, mean, stddev), "curandGenerateLogNormal")
 }
 
-// generateLogNormalDouble wraps curandGenerateLogNormalDouble.
-func generateLogNormalDouble(generator Generator, outputPtr *float64, n uint, mean float64, stddev float64) error {
+// generateLogNormalDouble [Generator.Generate] log-normally distributed doubles.
+//
+// Use generator to generate n double results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 64-bit floating point values with log-normal distribution based on
+// an associated normal distribution with mean mean and standard deviation stddev.
+//
+// Normally distributed results are generated from pseudorandom generators
+// with a Box-Muller transform, and so require n to be even.
+// Quasirandom generators use an inverse cumulative distribution
+// function to preserve dimensionality.
+// The normally distributed results are transformed into log-normal distribution.
+//
+// There may be slight numerical differences between results generated
+// on the GPU with generators created with [CreateGenerator]
+// and results calculated on the CPU with generators created with
+// [CreateGeneratorHost]. These differences arise because of
+// differences in results for transcendental functions. In addition,
+// future versions of CURAND may use newer versions of the CUDA math
+// library, so different versions of CURAND may give slightly different
+// numerical values.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of doubles to generate
+//   - mean: Mean of normal distribution
+//   - stddev: Standard deviation of normal distribution
+//
+// Wraps curandGenerateLogNormalDouble.
+func generateLogNormalDouble(generator Generator, outputPtr driver.DevicePtr, n uint, mean float64, stddev float64) error {
 	if err := checkLibSym("curandGenerateLogNormalDouble"); err != nil {
 		return err
 	}
-	return toError(fngenerateLogNormalDouble(generator, outputPtr, n, mean, stddev), "curandGenerateLogNormalDouble")
+	return toError(fngenerateLogNormalDouble(generator, uintptr(outputPtr), n, mean, stddev), "curandGenerateLogNormalDouble")
 }
 
-// generateLongLong wraps curandGenerateLongLong.
-func generateLongLong(generator Generator, outputPtr *uint64, num uint) error {
+// generateLogNormalDoubleHost is generateLogNormalDouble for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateLogNormalDoubleHost(generator Generator, output []float64, mean float64, stddev float64) error {
+	if err := checkLibSym("curandGenerateLogNormalDouble"); err != nil {
+		return err
+	}
+	return toError(fngenerateLogNormalDoubleHost(generator, unsafe.SliceData(output), uint(len(output)), mean, stddev), "curandGenerateLogNormalDouble")
+}
+
+// generateLogNormalHost is generateLogNormal for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateLogNormalHost(generator Generator, output []float32, mean float32, stddev float32) error {
+	if err := checkLibSym("curandGenerateLogNormal"); err != nil {
+		return err
+	}
+	return toError(fngenerateLogNormalHost(generator, unsafe.SliceData(output), uint(len(output)), mean, stddev), "curandGenerateLogNormal")
+}
+
+// generateLongLong [Generator.Generate] 64-bit quasirandom numbers.
+//
+// Use generator to generate num 64-bit results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 64-bit values with every bit random.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - num: Number of random 64-bit values to generate
+//
+// Wraps curandGenerateLongLong.
+func generateLongLong(generator Generator, outputPtr driver.DevicePtr, num uint) error {
 	if err := checkLibSym("curandGenerateLongLong"); err != nil {
 		return err
 	}
-	return toError(fngenerateLongLong(generator, outputPtr, num), "curandGenerateLongLong")
+	return toError(fngenerateLongLong(generator, uintptr(outputPtr), num), "curandGenerateLongLong")
 }
 
-// generateNormal wraps curandGenerateNormal.
-func generateNormal(generator Generator, outputPtr *float32, n uint, mean float32, stddev float32) error {
+// generateLongLongHost is generateLongLong for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateLongLongHost(generator Generator, output []uint64) error {
+	if err := checkLibSym("curandGenerateLongLong"); err != nil {
+		return err
+	}
+	return toError(fngenerateLongLongHost(generator, unsafe.SliceData(output), uint(len(output))), "curandGenerateLongLong")
+}
+
+// generateNormal [Generator.Generate] normally distributed doubles.
+//
+// Use generator to generate n float results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit floating point values with mean mean and standard
+// deviation stddev.
+//
+// Normally distributed results are generated from pseudorandom generators
+// with a Box-Muller transform, and so require n to be even.
+// Quasirandom generators use an inverse cumulative distribution
+// function to preserve dimensionality.
+//
+// There may be slight numerical differences between results generated
+// on the GPU with generators created with [CreateGenerator]
+// and results calculated on the CPU with generators created with
+// [CreateGeneratorHost]. These differences arise because of
+// differences in results for transcendental functions. In addition,
+// future versions of CURAND may use newer versions of the CUDA math
+// library, so different versions of CURAND may give slightly different
+// numerical values.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of floats to generate
+//   - mean: Mean of normal distribution
+//   - stddev: Standard deviation of normal distribution
+//
+// Wraps curandGenerateNormal.
+func generateNormal(generator Generator, outputPtr driver.DevicePtr, n uint, mean float32, stddev float32) error {
 	if err := checkLibSym("curandGenerateNormal"); err != nil {
 		return err
 	}
-	return toError(fngenerateNormal(generator, outputPtr, n, mean, stddev), "curandGenerateNormal")
+	return toError(fngenerateNormal(generator, uintptr(outputPtr), n, mean, stddev), "curandGenerateNormal")
 }
 
-// generateNormalDouble wraps curandGenerateNormalDouble.
-func generateNormalDouble(generator Generator, outputPtr *float64, n uint, mean float64, stddev float64) error {
+// generateNormalDouble [Generator.Generate] normally distributed doubles.
+//
+// Use generator to generate n double results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 64-bit floating point values with mean mean and standard
+// deviation stddev.
+//
+// Normally distributed results are generated from pseudorandom generators
+// with a Box-Muller transform, and so require n to be even.
+// Quasirandom generators use an inverse cumulative distribution
+// function to preserve dimensionality.
+//
+// There may be slight numerical differences between results generated
+// on the GPU with generators created with [CreateGenerator]
+// and results calculated on the CPU with generators created with
+// [CreateGeneratorHost]. These differences arise because of
+// differences in results for transcendental functions. In addition,
+// future versions of CURAND may use newer versions of the CUDA math
+// library, so different versions of CURAND may give slightly different
+// numerical values.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of doubles to generate
+//   - mean: Mean of normal distribution
+//   - stddev: Standard deviation of normal distribution
+//
+// Wraps curandGenerateNormalDouble.
+func generateNormalDouble(generator Generator, outputPtr driver.DevicePtr, n uint, mean float64, stddev float64) error {
 	if err := checkLibSym("curandGenerateNormalDouble"); err != nil {
 		return err
 	}
-	return toError(fngenerateNormalDouble(generator, outputPtr, n, mean, stddev), "curandGenerateNormalDouble")
+	return toError(fngenerateNormalDouble(generator, uintptr(outputPtr), n, mean, stddev), "curandGenerateNormalDouble")
 }
 
-// generatePoisson wraps curandGeneratePoisson.
-func generatePoisson(generator Generator, outputPtr *uint32, n uint, lambda float64) error {
+// generateNormalDoubleHost is generateNormalDouble for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateNormalDoubleHost(generator Generator, output []float64, mean float64, stddev float64) error {
+	if err := checkLibSym("curandGenerateNormalDouble"); err != nil {
+		return err
+	}
+	return toError(fngenerateNormalDoubleHost(generator, unsafe.SliceData(output), uint(len(output)), mean, stddev), "curandGenerateNormalDouble")
+}
+
+// generateNormalHost is generateNormal for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateNormalHost(generator Generator, output []float32, mean float32, stddev float32) error {
+	if err := checkLibSym("curandGenerateNormal"); err != nil {
+		return err
+	}
+	return toError(fngenerateNormalHost(generator, unsafe.SliceData(output), uint(len(output)), mean, stddev), "curandGenerateNormal")
+}
+
+// generatePoisson [Generator.Generate] Poisson-distributed unsigned ints.
+//
+// Use generator to generate n unsigned int results into device memory at
+// outputPtr. The device memory must have been previously allocated and must be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit unsigned int point values with Poisson distribution, with lambda lambda.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - n: Number of unsigned ints to generate
+//   - lambda: lambda for the Poisson distribution
+//
+// Wraps curandGeneratePoisson.
+func generatePoisson(generator Generator, outputPtr driver.DevicePtr, n uint, lambda float64) error {
 	if err := checkLibSym("curandGeneratePoisson"); err != nil {
 		return err
 	}
-	return toError(fngeneratePoisson(generator, outputPtr, n, lambda), "curandGeneratePoisson")
+	return toError(fngeneratePoisson(generator, uintptr(outputPtr), n, lambda), "curandGeneratePoisson")
 }
 
-// generateSeeds wraps curandGenerateSeeds.
+// generatePoissonHost is generatePoisson for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generatePoissonHost(generator Generator, output []uint32, lambda float64) error {
+	if err := checkLibSym("curandGeneratePoisson"); err != nil {
+		return err
+	}
+	return toError(fngeneratePoissonHost(generator, unsafe.SliceData(output), uint(len(output)), lambda), "curandGeneratePoisson")
+}
+
+// generateSeeds Setup starting states.
+//
+// [Generator.Generate] the starting state of the generator. This function is
+// automatically called by generation functions such as
+// [Generator.Generate] and [Generator.GenerateUniform].
+// It can be called manually for performance testing reasons to separate
+// timings for starting state generation and random number generation.
+//
+//   - generator: Generator to update
+//
+// Wraps curandGenerateSeeds.
 func generateSeeds(generator Generator) error {
 	if err := checkLibSym("curandGenerateSeeds"); err != nil {
 		return err
@@ -163,93 +895,227 @@ func generateSeeds(generator Generator) error {
 	return toError(fngenerateSeeds(generator), "curandGenerateSeeds")
 }
 
-// generateUniform wraps curandGenerateUniform.
-func generateUniform(generator Generator, outputPtr *float32, num uint) error {
+// generateUniform [Generator.Generate] uniformly distributed floats.
+//
+// Use generator to generate num float results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 32-bit floating point values between 0.0f and 1.0f,
+// excluding 0.0f and including 1.0f.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - num: Number of floats to generate
+//
+// Wraps curandGenerateUniform.
+func generateUniform(generator Generator, outputPtr driver.DevicePtr, num uint) error {
 	if err := checkLibSym("curandGenerateUniform"); err != nil {
 		return err
 	}
-	return toError(fngenerateUniform(generator, outputPtr, num), "curandGenerateUniform")
+	return toError(fngenerateUniform(generator, uintptr(outputPtr), num), "curandGenerateUniform")
 }
 
-// generateUniformDouble wraps curandGenerateUniformDouble.
-func generateUniformDouble(generator Generator, outputPtr *float64, num uint) error {
+// generateUniformDouble [Generator.Generate] uniformly distributed doubles.
+//
+// Use generator to generate num double results into the device memory at
+// outputPtr. The device memory must have been previously allocated and be
+// large enough to hold all the results. Launches are done with the stream
+// set using [Generator.SetStream], or the null stream if no stream has been set.
+//
+// Results are 64-bit double precision floating point values between
+// 0.0 and 1.0, excluding 0.0 and including 1.0.
+//
+//   - generator: Generator to use
+//   - outputPtr: Pointer to device memory to store CUDA-generated results, or Pointer to host memory to store CPU-generated results
+//   - num: Number of doubles to generate
+//
+// Wraps curandGenerateUniformDouble.
+func generateUniformDouble(generator Generator, outputPtr driver.DevicePtr, num uint) error {
 	if err := checkLibSym("curandGenerateUniformDouble"); err != nil {
 		return err
 	}
-	return toError(fngenerateUniformDouble(generator, outputPtr, num), "curandGenerateUniformDouble")
+	return toError(fngenerateUniformDouble(generator, uintptr(outputPtr), num), "curandGenerateUniformDouble")
 }
 
-// GetDirectionVectors32 wraps curandGetDirectionVectors32.
+// generateUniformDoubleHost is generateUniformDouble for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateUniformDoubleHost(generator Generator, output []float64) error {
+	if err := checkLibSym("curandGenerateUniformDouble"); err != nil {
+		return err
+	}
+	return toError(fngenerateUniformDoubleHost(generator, unsafe.SliceData(output), uint(len(output))), "curandGenerateUniformDouble")
+}
+
+// generateUniformHost is generateUniform for host memory.
+// It fills all of output, len(output) values, for a handle
+// whose results are in host memory.
+func generateUniformHost(generator Generator, output []float32) error {
+	if err := checkLibSym("curandGenerateUniform"); err != nil {
+		return err
+	}
+	return toError(fngenerateUniformHost(generator, unsafe.SliceData(output), uint(len(output))), "curandGenerateUniform")
+}
+
+// GetDirectionVectors32 gets direction vectors for 32-bit quasirandom number generation.
+//
+// Get a pointer to an array of direction vectors that can be used
+// for quasirandom number generation. The resulting pointer will
+// reference an array of direction vectors in host memory.
+//
+// The array contains vectors for many dimensions. Each dimension
+// has 32 vectors. Each individual vector is an unsigned int.
+//
+// Legal values for set are:
+// - [CURAND_DirectionVectors32Joekuo6] (20,000 dimensions)
+// - [CURAND_ScrambledDirectionVectors32Joekuo6] (20,000 dimensions)
+//
+//   - vectors: Address of pointer in which to return direction vectors
+//   - set: Which set of direction vectors to use
+//
+// Wraps curandGetDirectionVectors32.
 func GetDirectionVectors32(set DirectionVectorSet) (*DirectionVectors32, error) {
 	if err := checkLibSym("curandGetDirectionVectors32"); err != nil {
 		var zero *DirectionVectors32
 		return zero, err
 	}
-	var out *DirectionVectors32
-	if err := toError(fnGetDirectionVectors32(&out, set), "curandGetDirectionVectors32"); err != nil {
+	out := slotGetDirectionVectors32.get()
+	defer slotGetDirectionVectors32.put(out)
+	if err := toError(fnGetDirectionVectors32(out, set), "curandGetDirectionVectors32"); err != nil {
 		var zero *DirectionVectors32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetDirectionVectors64 wraps curandGetDirectionVectors64.
+var slotGetDirectionVectors32 outSlot[*DirectionVectors32]
+
+// GetDirectionVectors64 gets direction vectors for 64-bit quasirandom number generation.
+//
+// Get a pointer to an array of direction vectors that can be used
+// for quasirandom number generation. The resulting pointer will
+// reference an array of direction vectors in host memory.
+//
+// The array contains vectors for many dimensions. Each dimension
+// has 64 vectors. Each individual vector is an unsigned long long.
+//
+// Legal values for set are:
+// - [CURAND_DirectionVectors64Joekuo6] (20,000 dimensions)
+// - [CURAND_ScrambledDirectionVectors64Joekuo6] (20,000 dimensions)
+//
+//   - vectors: Address of pointer in which to return direction vectors
+//   - set: Which set of direction vectors to use
+//
+// Wraps curandGetDirectionVectors64.
 func GetDirectionVectors64(set DirectionVectorSet) (*DirectionVectors64, error) {
 	if err := checkLibSym("curandGetDirectionVectors64"); err != nil {
 		var zero *DirectionVectors64
 		return zero, err
 	}
-	var out *DirectionVectors64
-	if err := toError(fnGetDirectionVectors64(&out, set), "curandGetDirectionVectors64"); err != nil {
+	out := slotGetDirectionVectors64.get()
+	defer slotGetDirectionVectors64.put(out)
+	if err := toError(fnGetDirectionVectors64(out, set), "curandGetDirectionVectors64"); err != nil {
 		var zero *DirectionVectors64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetProperty wraps curandGetProperty.
+var slotGetDirectionVectors64 outSlot[*DirectionVectors64]
+
+// GetProperty returns the value of the curand property.
+//
+// Return in *value the number for the property described by type of the
+// dynamically linked CURAND library.
+//
+//   - type_: CUDA library property
+//   - value: integer value for the requested property
+//
+// Wraps curandGetProperty.
 func GetProperty(type_ LibraryPropertyType) (int32, error) {
 	if err := checkLibSym("curandGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetProperty(type_, &out), "curandGetProperty"); err != nil {
+	out := slotGetProperty.get()
+	defer slotGetProperty.put(out)
+	if err := toError(fnGetProperty(type_, out), "curandGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetScrambleConstants32 wraps curandGetScrambleConstants32.
+var slotGetProperty outSlot[int32]
+
+// GetScrambleConstants32 gets scramble constants for 32-bit scrambled Sobol' .
+//
+// Get a pointer to an array of scramble constants that can be used
+// for quasirandom number generation. The resulting pointer will
+// reference an array of unsinged ints in host memory.
+//
+// The array contains constants for many dimensions. Each dimension
+// has a single unsigned int constant.
+//
+//   - constants: Address of pointer in which to return scramble constants
+//
+// Wraps curandGetScrambleConstants32.
 func GetScrambleConstants32() (*uint32, error) {
 	if err := checkLibSym("curandGetScrambleConstants32"); err != nil {
 		var zero *uint32
 		return zero, err
 	}
-	var out *uint32
-	if err := toError(fnGetScrambleConstants32(&out), "curandGetScrambleConstants32"); err != nil {
+	out := slotGetScrambleConstants32.get()
+	defer slotGetScrambleConstants32.put(out)
+	if err := toError(fnGetScrambleConstants32(out), "curandGetScrambleConstants32"); err != nil {
 		var zero *uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetScrambleConstants64 wraps curandGetScrambleConstants64.
+var slotGetScrambleConstants32 outSlot[*uint32]
+
+// GetScrambleConstants64 gets scramble constants for 64-bit scrambled Sobol' .
+//
+// Get a pointer to an array of scramble constants that can be used
+// for quasirandom number generation. The resulting pointer will
+// reference an array of unsinged long longs in host memory.
+//
+// The array contains constants for many dimensions. Each dimension
+// has a single unsigned long long constant.
+//
+//   - constants: Address of pointer in which to return scramble constants
+//
+// Wraps curandGetScrambleConstants64.
 func GetScrambleConstants64() (*uint64, error) {
 	if err := checkLibSym("curandGetScrambleConstants64"); err != nil {
 		var zero *uint64
 		return zero, err
 	}
-	var out *uint64
-	if err := toError(fnGetScrambleConstants64(&out), "curandGetScrambleConstants64"); err != nil {
+	out := slotGetScrambleConstants64.get()
+	defer slotGetScrambleConstants64.put(out)
+	if err := toError(fnGetScrambleConstants64(out), "curandGetScrambleConstants64"); err != nil {
 		var zero *uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetVersion wraps curandGetVersion.
+var slotGetScrambleConstants64 outSlot[*uint64]
+
+// GetVersion returns the version number of the library.
+//
+// Return in *version the version number of the dynamically linked CURAND
+// library. The format is the same as CUDART_VERSION from the CUDA Runtime.
+// The only supported configuration is CURAND version equal to CUDA Runtime
+// version.
+//
+//   - version: CURAND library version
+//
+// Wraps curandGetVersion.
 func GetVersion() (int32, error) {
 	if err := checkLibSym("curandGetVersion"); err != nil {
 		var zero int32
@@ -263,7 +1129,15 @@ func GetVersion() (int32, error) {
 	return out, nil
 }
 
-// setGeneratorOffset wraps curandSetGeneratorOffset.
+// setGeneratorOffset sets the absolute offset of the pseudo or quasirandom number generator.
+//
+// All values of offset are valid. The offset position is absolute, not
+// relative to the current position in the sequence.
+//
+//   - generator: Generator to modify
+//   - offset: Absolute offset position
+//
+// Wraps curandSetGeneratorOffset.
 func setGeneratorOffset(generator Generator, offset uint64) error {
 	if err := checkLibSym("curandSetGeneratorOffset"); err != nil {
 		return err
@@ -271,7 +1145,21 @@ func setGeneratorOffset(generator Generator, offset uint64) error {
 	return toError(fnsetGeneratorOffset(generator, offset), "curandSetGeneratorOffset")
 }
 
-// setGeneratorOrdering wraps curandSetGeneratorOrdering.
+// setGeneratorOrdering sets the ordering of results of the pseudo or quasirandom number generator.
+//
+// Legal values of order for pseudorandom generators are:
+// - [CURAND_ORDERING_PseudoDefault]
+// - [CURAND_ORDERING_PseudoBest]
+// - [CURAND_ORDERING_PseudoSeeded]
+// - [CURAND_ORDERING_PseudoLegacy]
+//
+// Legal values of order for quasirandom generators are:
+// - [CURAND_ORDERING_QuasiDefault]
+//
+//   - generator: Generator to modify
+//   - order: Ordering of results
+//
+// Wraps curandSetGeneratorOrdering.
 func setGeneratorOrdering(generator Generator, order Ordering) error {
 	if err := checkLibSym("curandSetGeneratorOrdering"); err != nil {
 		return err
@@ -279,7 +1167,17 @@ func setGeneratorOrdering(generator Generator, order Ordering) error {
 	return toError(fnsetGeneratorOrdering(generator, order), "curandSetGeneratorOrdering")
 }
 
-// setPseudoRandomGeneratorSeed wraps curandSetPseudoRandomGeneratorSeed.
+// setPseudoRandomGeneratorSeed sets the seed value of the pseudo-random number generator.
+//
+// Set the seed value of the pseudorandom number generator.
+// All values of seed are valid. Different seeds will produce different sequences.
+// Different seeds will often not be statistically correlated with each other,
+// but some pairs of seed values may generate sequences which are statistically correlated.
+//
+//   - generator: Generator to modify
+//   - seed: Seed value
+//
+// Wraps curandSetPseudoRandomGeneratorSeed.
 func setPseudoRandomGeneratorSeed(generator Generator, seed uint64) error {
 	if err := checkLibSym("curandSetPseudoRandomGeneratorSeed"); err != nil {
 		return err
@@ -287,7 +1185,17 @@ func setPseudoRandomGeneratorSeed(generator Generator, seed uint64) error {
 	return toError(fnsetPseudoRandomGeneratorSeed(generator, seed), "curandSetPseudoRandomGeneratorSeed")
 }
 
-// setQuasiRandomGeneratorDimensions wraps curandSetQuasiRandomGeneratorDimensions.
+// setQuasiRandomGeneratorDimensions sets the number of dimensions.
+//
+// Set the number of dimensions to be generated by the quasirandom number
+// generator.
+//
+// Legal values for numDimensions are 1 to 20000.
+//
+//   - generator: Generator to modify
+//   - numDimensions: Number of dimensions
+//
+// Wraps curandSetQuasiRandomGeneratorDimensions.
 func setQuasiRandomGeneratorDimensions(generator Generator, numDimensions uint32) error {
 	if err := checkLibSym("curandSetQuasiRandomGeneratorDimensions"); err != nil {
 		return err
@@ -295,8 +1203,16 @@ func setQuasiRandomGeneratorDimensions(generator Generator, numDimensions uint32
 	return toError(fnsetQuasiRandomGeneratorDimensions(generator, numDimensions), "curandSetQuasiRandomGeneratorDimensions")
 }
 
-// setStream wraps curandSetStream.
-func setStream(generator Generator, stream Stream) error {
+// setStream sets the current stream for CURAND kernel launches.
+//
+// All library functions
+// will use this stream until set again.
+//
+//   - generator: Generator to modify
+//   - stream: Stream to use or NULL for null stream
+//
+// Wraps curandSetStream.
+func setStream(generator Generator, stream driver.Stream) error {
 	if err := checkLibSym("curandSetStream"); err != nil {
 		return err
 	}

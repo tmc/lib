@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Config specifies PC sampling policy. There are no implicit memory limits:
@@ -125,7 +126,7 @@ type Batch struct {
 // not collection success. Failed is sticky across successful cleanup retries.
 type Info struct {
 	CUPTIVersion             uint32
-	Context                  cupti.Context
+	Context                  driver.Context
 	Config                   Config
 	Inventory                ReasonInventory
 	Effective                []cupti.PCSamplingConfigurationInfo
@@ -157,7 +158,7 @@ type Session struct {
 // every external registrant. A nonnil Session returned with an
 // error retains cleanup ownership: call Close, retrying explicitly if native
 // teardown fails. Do not destroy the context or discard that Session first.
-func Start(ctx cupti.Context, config Config) (*Session, error) {
+func Start(ctx driver.Context, config Config) (*Session, error) {
 	if err := validateConfig(ctx, config); err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func Start(ctx cupti.Context, config Config) (*Session, error) {
 	return startSession(ctx, config, nativeSamplingControlAPI(), StallReasons, newNativeSamplingNames, cupti.PCSamplingGetData)
 }
 
-func validateConfig(ctx cupti.Context, c Config) error {
+func validateConfig(ctx driver.Context, c Config) error {
 	if ctx == 0 || c.Period < 5 || c.Period > 31 || c.WorkerSleepMS == 0 || len(c.ReasonIDs) == 0 || c.MaxReasons < 1 || c.MaxReasons > 65536 || len(c.ReasonIDs) > c.MaxReasons || c.PCsPerBuffer < 1 || c.MaxReads == 0 || c.MaxNames < 1 || c.MaxNameBytes < 1 || c.MaxTotalNameBytes < 1 || c.BufferCount < 0 {
 		return errors.New("cuptipcsampling: invalid sampling configuration or limits")
 	}
@@ -196,7 +197,7 @@ func validateConfig(ctx cupti.Context, c Config) error {
 	return nil
 }
 
-func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventoryQuery func(cupti.Context, int) (ReasonInventory, error), nameOwner func(int, int, int) (*samplingNames, error), query func(*cupti.PCSamplingGetDataParams) error) (result *Session, err error) {
+func startSession(ctx driver.Context, c Config, api samplingControlAPI, inventoryQuery func(driver.Context, int) (ReasonInventory, error), nameOwner func(int, int, int) (*samplingNames, error), query func(*cupti.PCSamplingGetDataParams) error) (result *Session, err error) {
 	if err := validateConfig(ctx, c); err != nil {
 		return nil, err
 	}

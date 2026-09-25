@@ -2,7 +2,7 @@
 
 package driver
 
-// AddData Add an input to a pending linker invocation.
+// AddData adds an input to a pending linker invocation.
 //
 // Ownership of data is retained by the caller. No reference is retained to any inputs after this call returns.
 // This method accepts only compiler options, which are used if the data must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget].
@@ -11,21 +11,23 @@ package driver
 //
 // See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy]
 //
-//   - data: The input data. PTX must be NULL-terminated
+//   - data: The input data
 //   - name: An optional name for this input in log messages
 //   - numOptions: Size of options
 //   - options: Options to be applied only for this input (overrides options from [LinkCreate])
 //   - optionValues: Array of option values, each cast to void *
 //
-// If data does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise data is passed without copying.
+// The wrapper passes data to C without copying if a NUL byte ends it or
+// follows it in its capacity, as one does in text a generated getter returns,
+// or if it starts with the ELF or fatbin magic number. Otherwise data is text,
+// and the wrapper copies it once to append a NUL.
 //
 // Wraps cuLinkAddData, bound as cuLinkAddData_v2.
 func (l LinkState) AddData(type_ JitInputType, data []byte, name *byte, numOptions uint32, options *JITOption, optionValues *uintptr) error {
 	return linkAddData(l, type_, data, name, numOptions, options, optionValues)
 }
 
-// AddFile Add a file input to a pending linker invocation.
+// AddFile adds a file input to a pending linker invocation.
 //
 // No reference is retained to any inputs after this call returns.
 // This method accepts only compiler options, which are used if the input must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget].
@@ -45,7 +47,7 @@ func (l LinkState) AddFile(type_ JitInputType, path *byte, numOptions uint32, op
 	return linkAddFile(l, type_, path, numOptions, options, optionValues)
 }
 
-// Complete Complete a pending linker invocation.
+// Complete completes a pending linker invocation.
 //
 // Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state.
 //
@@ -56,7 +58,7 @@ func (l LinkState) Complete() (cubinOut uintptr, sizeOut uint, err error) {
 	return linkComplete(l)
 }
 
-// Destroy Destroys state for a JIT linker invocation.
+// Destroy destroys state for a JIT linker invocation.
 //
 // See also: [LinkCreate]
 //

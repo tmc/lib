@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Errors reported by the workspace and plan ownership layer.
@@ -232,7 +234,7 @@ func (p *Plan) Plan() ContractionPlan { return p.plan }
 //
 // All the buffers must be accessible from the device that is current on the
 // calling thread, and that must be the same device the [Handle] was created on.
-func (p *Plan) Contract(in []uintptr, out uintptr, accumulate bool, slices SliceGroup, stream Stream) error {
+func (p *Plan) Contract(in []uintptr, out uintptr, accumulate bool, slices SliceGroup, stream driver.Stream) error {
 	if err := p.check(in, out); err != nil {
 		return err
 	}
@@ -251,7 +253,7 @@ func (p *Plan) Contract(in []uintptr, out uintptr, accumulate bool, slices Slice
 // It writes to out and to the workspace exactly as [Plan.Contract] does, and is
 // asynchronous in the same way. Pass a zero [ContractionAutotunePreference] to
 // use the library defaults.
-func (p *Plan) Autotune(in []uintptr, out uintptr, pref ContractionAutotunePreference, stream Stream) error {
+func (p *Plan) Autotune(in []uintptr, out uintptr, pref ContractionAutotunePreference, stream driver.Stream) error {
 	if err := p.check(in, out); err != nil {
 		return err
 	}

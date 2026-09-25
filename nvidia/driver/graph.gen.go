@@ -2,7 +2,7 @@
 
 package driver
 
-// AddBatchMemOpNode Creates a batch memory operation node and adds it to a graph.
+// AddBatchMemOpNode creates a batch memory operation node and adds it to a graph.
 //
 // Creates a new batch memory operation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When the node is added, the paramArray inside nodeParams is copied and therefore it can be freed after the call returns.
@@ -25,7 +25,7 @@ func (g Graph) AddBatchMemOpNode(dependencies *GraphNode, numDependencies uint, 
 	return BatchMemOpNode{h}, err
 }
 
-// AddChildGraphNode Creates a child graph node and adds it to a graph.
+// AddChildGraphNode creates a child graph node and adds it to a graph.
 //
 // Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error.
@@ -47,7 +47,7 @@ func (g Graph) AddChildGraphNode(dependencies *GraphNode, numDependencies uint, 
 	return ChildGraphNode{h}, err
 }
 
-// AddDependencies Adds dependency edges to a graph.
+// AddDependencies adds dependency edges to a graph.
 //
 // The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
 // If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error.
@@ -68,7 +68,7 @@ func (g Graph) AddDependencies(from *GraphNode, to *GraphNode, edgeData *GraphEd
 	return graphAddDependencies(g, from, to, edgeData, numDependencies)
 }
 
-// AddEmptyNode Creates an empty node and adds it to a graph.
+// AddEmptyNode creates an empty node and adds it to a graph.
 //
 // Creates a new node which performs no operation, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // An empty node performs no operation during execution, but can be used for transitive ordering. For example, a phased execution graph with 2 groups of n nodes with a barrier between them can be represented using an empty node and 2*n dependency edges, rather than no empty node and n^2 dependency edges.
@@ -87,7 +87,7 @@ func (g Graph) AddEmptyNode(dependencies *GraphNode, numDependencies uint) (Grap
 	return graphAddEmptyNode(g, dependencies, numDependencies)
 }
 
-// AddEventRecordNode Creates an event record node and adds it to a graph.
+// AddEventRecordNode creates an event record node and adds it to a graph.
 //
 // Creates a new event record node and adds it to hGraph with numDependencies dependencies specified via dependencies and event specified in event. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Each launch of the graph will record event to capture execution of the node’s dependencies.
@@ -108,7 +108,7 @@ func (g Graph) AddEventRecordNode(dependencies *GraphNode, numDependencies uint,
 	return EventRecordNode{h}, err
 }
 
-// AddEventWaitNode Creates an event wait node and adds it to a graph.
+// AddEventWaitNode creates an event wait node and adds it to a graph.
 //
 // Creates a new event wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and event specified in event. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The graph node will wait for all work captured in event. See [Event.Record] for details on what is captured by an event. event may be from a different context or device than the launch stream.
@@ -129,7 +129,7 @@ func (g Graph) AddEventWaitNode(dependencies *GraphNode, numDependencies uint, e
 	return EventWaitNode{h}, err
 }
 
-// AddExternalSemaphoresSignalNode Creates an external semaphore signal node and adds it to a graph.
+// AddExternalSemaphoresSignalNode creates an external semaphore signal node and adds it to a graph.
 //
 // Creates a new external semaphore signal node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Performs a signal operation on a set of externally allocated semaphore objects when the node is launched. The operation(s) will occur after all of the node’s dependencies have completed.
@@ -150,7 +150,7 @@ func (g Graph) AddExternalSemaphoresSignalNode(dependencies *GraphNode, numDepen
 	return ExternalSemaphoresSignalNode{h}, err
 }
 
-// AddExternalSemaphoresWaitNode Creates an external semaphore wait node and adds it to a graph.
+// AddExternalSemaphoresWaitNode creates an external semaphore wait node and adds it to a graph.
 //
 // Creates a new external semaphore wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Performs a wait operation on a set of externally allocated semaphore objects when the node is launched. The node’s dependencies will not be launched until the wait operation has completed.
@@ -171,7 +171,7 @@ func (g Graph) AddExternalSemaphoresWaitNode(dependencies *GraphNode, numDepende
 	return ExternalSemaphoresWaitNode{h}, err
 }
 
-// AddHostNode Creates a host execution node and adds it to a graph.
+// AddHostNode creates a host execution node and adds it to a graph.
 //
 // Creates a new CPU execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When the graph is launched, the node will invoke the specified CPU function. Host nodes are not supported under MPS with pre-Volta GPUs.
@@ -192,7 +192,7 @@ func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodePa
 	return HostNode{h}, err
 }
 
-// AddKernelNode Creates a kernel execution node and adds it to a graph.
+// AddKernelNode creates a kernel execution node and adds it to a graph.
 //
 // Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The [KernelNodeParams] structure is defined as:
@@ -220,7 +220,7 @@ func (g Graph) AddKernelNode(dependencies *GraphNode, numDependencies uint, node
 	return KernelNode{h}, err
 }
 
-// AddMemAllocNode Creates an allocation node and adds it to a graph.
+// AddMemAllocNode creates an allocation node and adds it to a graph.
 //
 // Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation’s address remains fixed across instantiations and launches.
@@ -246,7 +246,7 @@ func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, no
 	return MemAllocNode{h}, err
 }
 
-// AddMemFreeNode Creates a memory free node and adds it to a graph.
+// AddMemFreeNode creates a memory free node and adds it to a graph.
 //
 // Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free:
@@ -268,7 +268,7 @@ func (g Graph) AddMemFreeNode(dependencies *GraphNode, numDependencies uint, dpt
 	return MemFreeNode{h}, err
 }
 
-// AddMemcpyNode Creates a memcpy node and adds it to a graph.
+// AddMemcpyNode creates a memcpy node and adds it to a graph.
 //
 // Creates a new memcpy node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When the graph is launched, the node will perform the memcpy described by copyParams. See [Memcpy3D] for a description of the structure and its restrictions.
@@ -291,7 +291,7 @@ func (g Graph) AddMemcpyNode(dependencies *GraphNode, numDependencies uint, copy
 	return MemcpyNode{h}, err
 }
 
-// AddMemsetNode Creates a memset node and adds it to a graph.
+// AddMemsetNode creates a memset node and adds it to a graph.
 //
 // Creates a new memset node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The element size must be 1, 2, or 4 bytes. When the graph is launched, the node will perform the memset described by memsetParams.
@@ -313,7 +313,7 @@ func (g Graph) AddMemsetNode(dependencies *GraphNode, numDependencies uint, mems
 	return MemsetNode{h}, err
 }
 
-// AddNode Adds a node of arbitrary type to a graph.
+// AddNode adds a node of arbitrary type to a graph.
 //
 // Creates a new node in hGraph described by nodeParams with numDependencies dependencies specified via dependencies. numDependencies may be 0. dependencies may be null if numDependencies is 0. dependencies may not have any duplicate entries.
 // nodeParams is a tagged union. The node type should be specified in the type field, and type-specific parameters in the corresponding union member. All unused bytes - that is, reserved0 and all bytes past the utilized union member - must be set to zero. It is recommended to use brace initialization or memset to ensure all bytes are initialized.
@@ -336,7 +336,7 @@ func (g Graph) AddNode(dependencies *GraphNode, dependencyData *GraphEdgeData, n
 	return graphAddNode(g, dependencies, dependencyData, numDependencies, nodeParams)
 }
 
-// Clone Clones a graph.
+// Clone clones a graph.
 //
 // This function creates a copy of originalGraph and returns it in phGraphClone. All parameters are copied into the cloned graph. The original graph may be modified after this call without affecting the clone.
 // Child graph nodes in the original graph are recursively copied into the clone.
@@ -354,7 +354,7 @@ func (g Graph) Clone() (Graph, error) {
 	return graphClone(g)
 }
 
-// ConditionalHandleCreate Create a conditional handle.
+// ConditionalHandleCreate creates a conditional handle.
 //
 // Creates a conditional handle associated with hGraph.
 // The conditional handle must be associated with a conditional node in this graph or one of its children.
@@ -376,7 +376,7 @@ func (g Graph) ConditionalHandleCreate(ctx Context, defaultLaunchValue uint32, f
 	return graphConditionalHandleCreate(g, ctx, defaultLaunchValue, flags)
 }
 
-// DebugDotPrint Write a DOT file describing graph structure.
+// DebugDotPrint writes a DOT file describing graph structure.
 //
 // Using the provided hGraph, write to path a DOT formatted description of the graph. By default this includes the graph topology, node types, node id, kernel names and memcpy direction. flags can be specified to write more detailed information about each node type such as parameter values, kernel attributes, node and function handles.
 //
@@ -388,7 +388,7 @@ func (g Graph) DebugDotPrint(path string, flags GraphdebugdotFlags) error {
 	return graphDebugDotPrint(g, path, flags)
 }
 
-// Destroy Destroys a graph.
+// Destroy destroys a graph.
 //
 // Destroys the graph specified by hGraph, as well as all of its nodes.
 //
@@ -403,7 +403,7 @@ func (g Graph) Destroy() error {
 	return graphDestroy(g)
 }
 
-// Edges Returns a graph’s dependency edges.
+// Edges returns a graph’s dependency edges.
 //
 // Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well.
 //
@@ -423,7 +423,7 @@ func (g Graph) Edges(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, nu
 	return graphGetEdges(g, from, to, edgeData, numEdges)
 }
 
-// Id Returns the id of a given graph.
+// Id returns the id of a given graph.
 //
 // Returns the id of hGraph in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint].
 //
@@ -434,7 +434,7 @@ func (g Graph) Id() (uint32, error) {
 	return graphGetId(g)
 }
 
-// GetNodes Returns a graph’s nodes.
+// GetNodes returns a graph’s nodes.
 //
 // Returns a list of hGraph's nodes. nodes may be NULL, in which case this function will return the number of nodes in numNodes. Otherwise, numNodes entries will be filled in. If numNodes is higher than the actual number of nodes, the remaining entries in nodes will be set to NULL, and the number of nodes actually obtained will be returned in numNodes.
 //
@@ -444,14 +444,15 @@ func (g Graph) Id() (uint32, error) {
 //
 // See also: [NewGraph], [Graph.RootNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
+//   - nodes: Pointer to return the nodes
 //   - numNodes: See description
 //
 // Wraps cuGraphGetNodes.
-func (g Graph) GetNodes(numNodes *uint) (GraphNode, error) {
-	return graphGetNodes(g, numNodes)
+func (g Graph) GetNodes(nodes *GraphNode, numNodes *uint) error {
+	return graphGetNodes(g, nodes, numNodes)
 }
 
-// RootNodes Returns a graph’s root nodes.
+// RootNodes returns a graph’s root nodes.
 //
 // Returns a list of hGraph's root nodes. rootNodes may be NULL, in which case this function will return the number of root nodes in numRootNodes. Otherwise, numRootNodes entries will be filled in. If numRootNodes is higher than the actual number of root nodes, the remaining entries in rootNodes will be set to NULL, and the number of nodes actually obtained will be returned in numRootNodes.
 //
@@ -461,14 +462,15 @@ func (g Graph) GetNodes(numNodes *uint) (GraphNode, error) {
 //
 // See also: [NewGraph], [Graph.GetNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
+//   - rootNodes: Pointer to return the root nodes
 //   - numRootNodes: See description
 //
 // Wraps cuGraphGetRootNodes.
-func (g Graph) RootNodes(numRootNodes *uint) (GraphNode, error) {
-	return graphGetRootNodes(g, numRootNodes)
+func (g Graph) RootNodes(rootNodes *GraphNode, numRootNodes *uint) error {
+	return graphGetRootNodes(g, rootNodes, numRootNodes)
 }
 
-// Instantiate Creates an executable graph from a graph.
+// Instantiate creates an executable graph from a graph.
 //
 // Instantiates hGraph as an executable graph. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
 // The flags parameter controls the behavior of instantiation and subsequent graph launches. Valid flags are:
@@ -489,7 +491,7 @@ func (g Graph) Instantiate(flags GraphinstantiateFlags) (GraphExec, error) {
 	return graphInstantiate(g, flags)
 }
 
-// InstantiateWithParams Creates an executable graph from a graph.
+// InstantiateWithParams creates an executable graph from a graph.
 //
 // Instantiates hGraph as an executable graph according to the instantiateParams structure. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
 // instantiateParams controls the behavior of instantiation and subsequent graph launches, as well as returning more detailed information in the event of an error. [GraphInstantiateParams] is defined as:
@@ -513,7 +515,7 @@ func (g Graph) InstantiateWithParams(instantiateParams *GraphInstantiateParams) 
 	return graphInstantiateWithParams(g, instantiateParams)
 }
 
-// ReleaseUserObject Release a user object reference from a graph.
+// ReleaseUserObject releases a user object reference from a graph.
 //
 // Releases user object references owned by a graph.
 // See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
@@ -528,7 +530,7 @@ func (g Graph) ReleaseUserObject(object UserObject, count uint32) error {
 	return graphReleaseUserObject(g, object, count)
 }
 
-// RemoveDependencies Removes dependency edges from a graph.
+// RemoveDependencies removes dependency edges from a graph.
 //
 // The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
 // If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge.
@@ -550,7 +552,7 @@ func (g Graph) RemoveDependencies(from *GraphNode, to *GraphNode, edgeData *Grap
 	return graphRemoveDependencies(g, from, to, edgeData, numDependencies)
 }
 
-// RetainUserObject Retain a reference to a user object from a graph.
+// RetainUserObject retains a reference to a user object from a graph.
 //
 // Creates or moves user object references that will be owned by a CUDA graph.
 // See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
@@ -566,7 +568,7 @@ func (g Graph) RetainUserObject(object UserObject, count uint32, flags Userobjec
 	return graphRetainUserObject(g, object, count, flags)
 }
 
-// NewGraph Creates a graph.
+// NewGraph creates a graph.
 //
 // Creates an empty graph, which is returned via phGraph.
 //

@@ -3,6 +3,8 @@
 package ncclep
 
 import (
+	"sync"
+
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
@@ -28,6 +30,27 @@ var (
 	fnTensorDestroy func(*Tensor) nccl.Result
 	fnUpdateHandle  func(Handle, *Tensor, *LayoutInfo, driver.Stream) nccl.Result
 )
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
 
 // Combine combines expert outputs in the original token order.
 //

@@ -10,7 +10,7 @@ type MemFreeNode struct {
 	GraphNode
 }
 
-// Params Returns a memory free node’s parameters.
+// Params returns a memory free node’s parameters.
 //
 // Returns the address of a memory free node hNode in dptrOut.
 //

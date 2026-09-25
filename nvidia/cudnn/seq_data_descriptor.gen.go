@@ -62,6 +62,9 @@ func (s SeqDataDescriptor) Get(nbDimsRequested int, seqLengthSizeRequested int, 
 // The sequence data descriptor allows the user to select 3! = 6 different data layouts or permutations of BEAM, BATCH, and TIME dimensions. The multihead attention API supports all six layouts.
 //
 //   - dataType: Input. Data type of the sequence data buffer ( [DataHalf], [DataFloat], or [DataDouble])
+//   - dimA: Input. Integer array specifying sequence data dimensions. Use the [SeqDataAxis] enumerated type to index all active dimA[] elements
+//   - axes: Input. Array of [SeqDataAxis] that defines the layout of sequence data in memory. The first nbDims elements of axes[] should be initialized with the outermost dimension in axes [0] and the innermost dimension in axes [nbDims-1]
+//   - seqLengthArray: Input. An integer array that defines all sequence lengths of the container
 //   - paddingFill: Input. Must be NULL. Pointer to a value of dataType that is used to fill up output vectors beyond the valid length of each sequence or NULL to ignore this setting
 //
 // Returns:

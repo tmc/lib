@@ -2,34 +2,44 @@
 
 package sanitizer
 
+import "github.com/tmc/lib/nvidia/driver"
+
 // CallbackData represents data passed into a runtime or driver API callback function.
+//
+// Data passed into a runtime or driver API callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainDriverApi] or [CbDomainRuntimeApi]. The callback data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make of a copy of that data. For example, if you make a shallow copy of [CallbackData] within a callback, you cannot dereference functionParams outside of that callback to access the function parameters. functionName is an exception: the string pointed to by functionName is a global constant and so may be accessed outside of the callback.
 type CallbackData struct {
 	CallbackSite        ApiCallbackSite
 	FunctionName        uintptr
 	FunctionParams      uintptr
 	FunctionReturnValue uintptr
 	SymbolName          uintptr
-	Context             Context
+	Context             driver.Context
 }
 
 // ResourceContextData represents data passed into a context resource callback function.
+//
+// Data passed into a context resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource] and cbid equal to [CbidResourceContextCreationStarting], [CbidResourceContextCreationFinished], [CbidResourceContextDestroyStarting] or [CbidResourceContextDestroyFinished]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceContextData struct {
-	Context      Context
+	Context      driver.Context
 	GreenContext GreenContext
 	Device       Device
 }
 
 // ResourceStreamData represents data passed into a stream resource callback function.
+//
+// Data passed into a stream resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource] and cbid equal to [CbidResourceStreamCreated], [CbidResourceStreamDestroyStarting] or [CbidResourceStreamDestroyFinished]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceStreamData struct {
-	Context      Context
+	Context      driver.Context
 	GreenContext GreenContext
-	Stream       Stream
+	Stream       driver.Stream
 	HStream      StreamHandle
 }
 
 // ResourceModuleData represents data passed into a module resource callback function.
+//
+// Data passed into a module resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource] and cbid equal to [CbidResourceModuleLoaded] or [CbidResourceModuleUnloadStarting]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceModuleData struct {
-	Context   Context
+	Context   driver.Context
 	Module    Module
 	CubinSize uint
 	PCubin    uintptr
@@ -37,12 +47,14 @@ type ResourceModuleData struct {
 }
 
 // ResourceMemoryData represents data passed into a memory resource callback function.
+//
+// Data passed into a memory resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource] and cbid equal to [CbidResourceDeviceMemoryAlloc], [CbidResourceDeviceMemoryFree], [CbidResourceHostMemoryAlloc], [CbidResourceHostMemoryFree], [CbidResourceMemoryAllocAsync], [CbidResourceMemoryFreeAsync] or [CbidResourceMemoryFreeAsyncDone] or [CbidResourceMempoolImportPointer]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceMemoryData struct {
 	Address      uint64
 	Size         uint64
-	Context      Context
+	Context      driver.Context
 	Device       Device
-	Stream       Stream
+	Stream       driver.Stream
 	HStream      StreamHandle
 	MemoryPool   MemoryPool
 	Flags        uint32
@@ -52,6 +64,8 @@ type ResourceMemoryData struct {
 }
 
 // ResourceMempoolData represents data passed into a mempool resource callback function.
+//
+// Data passed into a mempool resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource] and cbid equal to [CbidResourceMempoolCreated], [CbidResourceMempoolDestroying], [CbidResourceMempoolPeerAccessEnabled] or [CbidResourceMempoolPeerAccessDisabling]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceMempoolData struct {
 	MemoryPool MemoryPool
 	Device     Device
@@ -59,8 +73,10 @@ type ResourceMempoolData struct {
 }
 
 // ResourceArrayData represents data passed into a CUDA array callback function.
+//
+// Data passed into a CUDA array callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal tp [CbDomainResource] and cbid equal to [CbidResourceArrayCreated] or [CbidResourceArrayDestroyed]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceArrayData struct {
-	Context Context
+	Context driver.Context
 	HArray  Array
 	Width   uint64
 	Height  uint64
@@ -68,37 +84,47 @@ type ResourceArrayData struct {
 }
 
 // ResourceLogicalEndpointData represents data passed into a logical endpoint resource callback function.
+//
+// Data passed into a logical endpoint resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource] and cbid equal to [CbidResourceLogicalEndpointCreated] or [CbidResourceLogicalEndpointDestroyed]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceLogicalEndpointData struct {
 	Address uint64
 	Size    uint64
 }
 
 // ResourceFunctionsLazyLoadedData represents data passed into a CUDA function callback function.
+//
+// Data passed into a CUDA function callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal tp [CbDomainResource] and cbid equal to [CbidResourceFunctionsLazyLoaded] or [CbidResourceFunctionsLazyPatched]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ResourceFunctionsLazyLoadedData struct {
-	Context      Context
+	Context      driver.Context
 	Module       Module
 	Functions    uintptr
 	NumFunctions uint32
 }
 
 // ResourceVirtualRange represents data passed into a VA reservation callback function.
+//
+// Data passed into a VA reservation callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal tp [CbDomainResource] and cbid equal to [CbidResourceVirtualReserve]. or [CbidResourceVirtualRelease]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it. Available with a driver version of 535 or newer.
 type ResourceVirtualRange struct {
 	Address uint64
 	Size    uint64
 }
 
 // SynchronizeData represents data passed into a synchronization callback function.
+//
+// Data passed into a synchronization callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainSynchronize]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type SynchronizeData struct {
-	Context      Context
-	Stream       Stream
+	Context      driver.Context
+	Stream       driver.Stream
 	HStream      StreamHandle
 	GreenContext GreenContext
 }
 
 // LaunchData represents data passed into a launch callback function.
+//
+// Data passed into a launch callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainLaunch]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type LaunchData struct {
-	Context      Context
-	Stream       Stream
+	Context      driver.Context
+	Stream       driver.Stream
 	HStream      StreamHandle
 	Module       Module
 	Function     Function
@@ -109,18 +135,20 @@ type LaunchData struct {
 	GridId       uint64
 	HLaunch      LaunchHandle
 	Device       Device
-	ApiContext   Context
-	ApiStream    Stream
+	ApiContext   driver.Context
+	ApiStream    driver.Stream
 	HApiStream   StreamHandle
 }
 
 // MemcpyData represents data passed into a memcpy callback function.
+//
+// Data passed into a launch callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainMemcpy]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type MemcpyData struct {
-	SrcContext Context
-	DstContext Context
-	SrcStream  Stream
+	SrcContext driver.Context
+	DstContext driver.Context
+	SrcStream  driver.Stream
 	HSrcStream StreamHandle
-	DstStream  Stream
+	DstStream  driver.Stream
 	HDstStream StreamHandle
 	SrcAddress uint64
 	DstAddress uint64
@@ -132,15 +160,17 @@ type MemcpyData struct {
 	DstPitch   uint64
 	IsAsync    uint32
 	Direction  MemcpyDirection
-	ApiContext Context
-	ApiStream  Stream
+	ApiContext driver.Context
+	ApiStream  driver.Stream
 	HApiStream StreamHandle
 }
 
 // MemsetData represents data passed into a memset callback function.
+//
+// Data passed into a launch callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainMemset]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type MemsetData struct {
-	Context     Context
-	Stream      Stream
+	Context     driver.Context
+	Stream      driver.Stream
 	HStream     StreamHandle
 	Address     uint64
 	Width       uint64
@@ -152,9 +182,11 @@ type MemsetData struct {
 }
 
 // BatchMemopData represents data passed into a batch memop callback function.
+//
+// Data passed into a batch memop callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainBatchMemop]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type BatchMemopData struct {
-	Context         Context
-	Stream          Stream
+	Context         driver.Context
+	Stream          driver.Stream
 	HStream         StreamHandle
 	Address         uint64
 	Value           uint64
@@ -162,25 +194,31 @@ type BatchMemopData struct {
 	AtomicOperation BatchMemopAtomicOp
 }
 
-// UvmData represents data passed into a managed memory callback function Data passed into a managed memory callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainUvm]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
+// UvmData represents data passed into a managed memory callback function.
+//
+// Data passed into a managed memory callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainUvm]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type UvmData struct {
-	Context    Context
+	Context    driver.Context
 	Visibility MemoryVisibility
-	Stream     Stream
+	Stream     driver.Stream
 	HStream    StreamHandle
 	Address    uint64
 }
 
-// GraphExecData represents data passed into a graphexec creation callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to [CbidGraphsGraphexecCreating]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
+// GraphExecData represents data passed into a graphexec creation callback function.
+//
+// Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to [CbidGraphsGraphexecCreating]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type GraphExecData struct {
 	Graph                       Graph
 	GraphExec                   GraphExec
 	IsDeviceLaunch              uint32
 	ContainsDeviceGraphLaunches uint32
-	DeviceGraphLaunchesContext  Context
+	DeviceGraphLaunchesContext  driver.Context
 }
 
-// GraphNodeLaunchData represents data passed into a graph node launch callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to SANITIZER_CBID_GRAPHS_LAUNCH_NODE_BEGIN or SANITIZER_CBID_GRAPHS_LAUNCH_NODE_END. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
+// GraphNodeLaunchData represents data passed into a graph node launch callback function.
+//
+// Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to SANITIZER_CBID_GRAPHS_LAUNCH_NODE_BEGIN or SANITIZER_CBID_GRAPHS_LAUNCH_NODE_END. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type GraphNodeLaunchData struct {
 	GraphExec      GraphExec
 	LaunchId       uint32
@@ -190,27 +228,33 @@ type GraphNodeLaunchData struct {
 	IsGraphUpload  uint32
 }
 
-// GraphLaunchData represents data passed into a graph launch callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to [CbidGraphsLaunchBegin] or [CbidGraphsLaunchEnd]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
+// GraphLaunchData represents data passed into a graph launch callback function.
+//
+// Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to [CbidGraphsLaunchBegin] or [CbidGraphsLaunchEnd]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type GraphLaunchData struct {
-	Context       Context
-	Stream        Stream
+	Context       driver.Context
+	Stream        driver.Stream
 	HStream       StreamHandle
 	GraphExec     GraphExec
 	IsGraphUpload uint32
 }
 
 // EventData represents data passed into an event callback function.
+//
+// Data passed into an event callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal tp [CbDomainEvents]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type EventData struct {
-	Event    Event
-	Context  Context
+	Event    driver.Event
+	Context  driver.Context
 	GreenCtx GreenContext
-	Stream   Stream
+	Stream   driver.Stream
 	HStream  StreamHandle
 }
 
 // ExternalMemoryData represents data passed into an external memory callback function.
+//
+// Data passed into an event callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal tp [CbDomainExternalMemory]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ExternalMemoryData struct {
-	Context   Context
+	Context   driver.Context
 	Device    Device
 	ExtMemory ExternalMemory
 	Address   uint64
@@ -218,6 +262,8 @@ type ExternalMemoryData struct {
 }
 
 // ErrorLoggingData represents data passed into an error logging callback function.
+//
+// Data passed into an error logging callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal tp SANITIZER_CBID_ERROR_LOGGING. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type ErrorLoggingData struct {
 	Message  uintptr
 	Tid      uint32

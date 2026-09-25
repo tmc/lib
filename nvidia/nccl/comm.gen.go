@@ -4,7 +4,7 @@ package nccl
 
 import "github.com/tmc/lib/nvidia/driver"
 
-// Abort [Comm.Abort] frees resources that are allocated to a communicator object comm and aborts any uncompleted operations before destroying the communicator.
+// Abort frees resources that are allocated to a communicator object comm and aborts any uncompleted operations before destroying the communicator.
 //
 // All active ranks are required to call this function in order to abort the NCCL communicator successfully. For more use cases, please check Fault Tolerance.
 //
@@ -13,29 +13,30 @@ func (c Comm) Abort() error {
 	return commAbort(c)
 }
 
-// Count Returns in count the number of ranks in the NCCL communicator comm.
+// Count returns in count the number of ranks in the NCCL communicator comm.
 //
 // Wraps ncclCommCount.
 func (c Comm) Count() (int32, error) {
 	return commCount(c)
 }
 
-// CuDevice Returns in device the CUDA device associated with the NCCL communicator comm.
+// CuDevice returns in device the CUDA device associated with the NCCL communicator comm.
 //
 // Wraps ncclCommCuDevice.
 func (c Comm) CuDevice() (int32, error) {
 	return commCuDevice(c)
 }
 
-// Deregister Deregister buffer represented by handle under communicator comm.
+// Deregister deregisters buffer represented by handle under communicator comm.
 //
 // Wraps ncclCommDeregister.
 func (c Comm) Deregister(handle Registration) error {
 	return commDeregister(c, handle)
 }
 
-// Destroy Destroy a communicator object comm.
+// Destroy destroys a communicator object comm.
 //
+// If [Comm.Finalize] is called by users, users should guarantee that the state of the communicator becomes ncclSuccess before calling [Comm.Destroy]. In all cases, the communicator should no longer be accessed after [Comm.Destroy] returns. It is recommended that users call [Comm.Finalize] and then [Comm.Destroy].
 // [Comm.Destroy] will call [Comm.Finalize] internally, unless [Comm.Finalize] was previously called on the communicator. If [Comm.Finalize] was previously called on the communicator object comm, then [Comm.Destroy] is a purely local operation.
 // This function is an intra-node collective call, which all ranks on the same node should call to avoid a hang.
 //
@@ -44,16 +45,17 @@ func (c Comm) Destroy() error {
 	return commDestroy(c)
 }
 
-// Finalize Finalize a communicator object comm.
+// Finalize finalizes a communicator object comm.
 //
 // When the communicator is marked as nonblocking, [Comm.Finalize] is a nonblocking function. Successful return from it will set communicator state as ncclInProgress and indicates the communicator is under finalization where all uncompleted operations and the network-related resources are being flushed and freed. Once all NCCL operations are complete, the communicator will transition to the ncclSuccess state. Users can query that state with [Comm.AsyncError].
+// This function is an intra-node collective call. When a single thread finalizes multiple ranks (multiple GPUs per thread), the calls must be grouped with [GroupStart]/ [GroupEnd] to avoid a hang.
 //
 // Wraps ncclCommFinalize.
 func (c Comm) Finalize() error {
 	return commFinalize(c)
 }
 
-// AsyncError Queries the progress and potential errors of asynchronous NCCL operations.
+// AsyncError queries the progress and potential errors of asynchronous NCCL operations.
 //
 // Operations which do not require a stream argument (e.g. [Comm.Finalize]) can be considered complete as soon as the function returns ncclSuccess; operations with a stream argument (e.g. [Comm.AllReduce]) will return ncclSuccess as soon as the operation is posted on the stream but may also report errors through [Comm.AsyncError] until they are completed. If the return code of any NCCL function is ncclInProgress, it means the operation is in the process of being enqueued in the background, and users must query the states of the communicators until all the states become ncclSuccess before calling another NCCL function. Before the states change into ncclSuccess, users are not allowed to issue CUDA kernel to the streams being used by NCCL. If there has been an error on the communicator, user should destroy the communicator with [Comm.Abort]. If an error occurs on the communicator, nothing can be assumed about the completion or correctness of operations enqueued on that communicator.
 //
@@ -62,7 +64,7 @@ func (c Comm) AsyncError() (Result, error) {
 	return commGetAsyncError(c)
 }
 
-// UniqueId The [Comm.UniqueId] function generates a unique identifier for growing an existing communicator exactly once.
+// UniqueId generates a unique identifier for growing an existing communicator exactly once.
 //
 // This function must be called by only one rank (the coordinator) before each grow operation on the existing communicator. The coordinator is responsible for distributing the uniqueId to all new ranks before they join the communicator via [Comm.Grow]. This function should only be called when there are no outstanding NCCL operations on the communicator.
 //
@@ -71,8 +73,9 @@ func (c Comm) UniqueId() (UniqueId, error) {
 	return commGetUniqueId(c)
 }
 
-// Grow The [Comm.Grow] function creates a new communicator by adding new ranks to an existing communicator.
+// Grow creates a new communicator by adding new ranks to an existing communicator.
 //
+// It must be called by both existing ranks (from the parent communicator) and new ranks (joining the communicator).
 // For existing ranks:
 // For new ranks:
 // The nRanks parameter specifies the total number of ranks in the new communicator and must be greater than the size of the parent communicator. If the new communicator needs a special configuration, it can be passed as config; otherwise, setting config to NULL will make the new communicator inherit the configuration of the parent communicator (for existing ranks) or use default configuration (for new ranks).
@@ -84,7 +87,7 @@ func (c Comm) Grow(nRanks int32, uniqueId *UniqueId, rank int32, config *Config)
 	return commGrow(c, nRanks, uniqueId, rank, config)
 }
 
-// MemStats Query communicator memory statistics.
+// MemStats queries communicator memory statistics.
 //
 // The stat parameter selects which statistic to retrieve, and the result is written to *value. See [CommMemStat] for the list of available statistics.
 //
@@ -93,7 +96,7 @@ func (c Comm) MemStats(stat CommMemStat) (uint64, error) {
 	return commMemStats(c, stat)
 }
 
-// Register Registers the buffer buff with size under communicator comm for zero-copy communication; handle is returned for future deregistration.
+// Register registers the buffer buff with size under communicator comm for zero-copy communication; handle is returned for future deregistration.
 //
 // See buff and size requirements and more instructions in User Buffer Registration.
 //
@@ -102,7 +105,7 @@ func (c Comm) Register(buff driver.DevicePtr, size uint) (Registration, error) {
 	return commRegister(c, buff, size)
 }
 
-// Resume Resume all previously suspended resources on communicator comm.
+// Resume resumes all previously suspended resources on communicator comm.
 //
 // After this call returns successfully, the communicator is fully operational and can be used for NCCL operations again.
 //
@@ -111,8 +114,9 @@ func (c Comm) Resume() error {
 	return commResume(c)
 }
 
-// Revoke Revokes in-flight operations on a communicator without destroying resources.
+// Revoke revokes in-flight operations on a communicator without destroying resources.
 //
+// Successful return may be ncclInProgress (non-blocking) while revocation completes asynchronously; applications can query [Comm.AsyncError] until it returns ncclSuccess.
 // revokeFlags must be set to NCCL_REVOKE_DEFAULT (0). Other values are reserved for future use.
 // After revoke completes, the communicator is quiesced and safe for destroy, split, and shrink. Launching new collectives on a revoked communicator returns ncclInvalidUsage. Calling [Comm.Finalize] after revoke is not supported. Resource sharing via splitShare/ shrinkShare is disabled when the parent communicator is revoked.
 //
@@ -121,8 +125,9 @@ func (c Comm) Revoke(revokeFlags int32) error {
 	return commRevoke(c, revokeFlags)
 }
 
-// Shrink The [Comm.Shrink] function creates a new communicator by removing specified ranks from an existing communicator.
+// Shrink creates a new communicator by removing specified ranks from an existing communicator.
 //
+// It is a collective function that must be called by all participating ranks in the newly created communicator. Ranks that are part of excludeRanksList should not call this function. The original ranks listed in excludeRanksList (of size excludeRanksCount) will be excluded from the new communicator. Within the new communicator, ranks will be updated to maintain a contiguous set of ids. If the new communicator needs a special configuration, it can be passed as config; otherwise, setting config to NULL will make the new communicator inherit the configuration of the parent communicator.
 // The shrinkFlags parameter controls the behavior of the operation. Use NCCL_SHRINK_DEFAULT (or 0) for normal operation, or NCCL_SHRINK_ABORT when shrinking after an error on the parent communicator. Specifically, when using NCCL_SHRINK_DEFAULT, there should not be any outstanding NCCL operations on the comm to avoid potential deadlocks. Further, if the parent communicator has the flag config.shrinkShare set to 1, NCCL will reuse the parent communicator resources. On the other hand, when using NCCL_SHRINK_ABORT, NCCL will automatically abort any outstanding operations on the parent communicator, and no resources will be shared between the parent and the newly created communicator.
 //
 // Wraps ncclCommShrink.
@@ -130,7 +135,7 @@ func (c Comm) Shrink(excludeRanksList *int32, excludeRanksCount int32, config *C
 	return commShrink(c, excludeRanksList, excludeRanksCount, config, shrinkFlags)
 }
 
-// Split The [Comm.Split] is a collective function and creates a set of new communicators from an existing one.
+// Split is a collective function and creates a set of new communicators from an existing one.
 //
 // Ranks which pass the same color value will be part of the same group; color must be a non-negative value. If it is passed as NCCL_SPLIT_NOCOLOR, it means that the rank will not be part of any group, therefore returning NULL as newcomm. The value of key will determine the rank order, and the smaller key means the smaller rank in new communicator. If keys are equal between ranks, then the rank in the original communicator will be used to order ranks. If the new communicator needs to have a special configuration, it can be passed as config, otherwise setting config to NULL will make the new communicator inherit the original communicator’s configuration. When split, there should not be any outstanding NCCL operations on the comm. Otherwise, it might cause a deadlock.
 //
@@ -139,8 +144,9 @@ func (c Comm) Split(color int32, key int32, config *Config) (Comm, error) {
 	return commSplit(c, color, key, config)
 }
 
-// Suspend Suspend communicator operations to free resources.
+// Suspend suspends communicator operations to free resources.
 //
+// The communicator cannot be used for any NCCL operations while suspended. There should be no outstanding NCCL operations on comm when this function is called.
 // The flags parameter controls which resources are released:
 // A suspended communicator can be restored to an active state by calling [Comm.Resume].
 //
@@ -149,14 +155,14 @@ func (c Comm) Suspend(flags int32) error {
 	return commSuspend(c, flags)
 }
 
-// UserRank Returns in rank the rank of the caller in the NCCL communicator comm.
+// UserRank returns in rank the rank of the caller in the NCCL communicator comm.
 //
 // Wraps ncclCommUserRank.
 func (c Comm) UserRank() (int32, error) {
 	return commUserRank(c)
 }
 
-// WindowDeregister Deregister NCCL window represented by win under communicator comm.
+// WindowDeregister deregisters NCCL window represented by win under communicator comm.
 //
 // Deregistration is local to the rank, and caller needs to make sure the corresponding buffer within the window is not being accessed by any NCCL operation.
 //
@@ -165,7 +171,7 @@ func (c Comm) WindowDeregister(win Window) error {
 	return commWindowDeregister(c, win)
 }
 
-// WindowRegister Collectively register local buffer buff with size under communicator comm into NCCL window.
+// WindowRegister collectively registers local buffer buff with size under communicator comm into NCCL window.
 //
 // Since this is a collective call, every rank in the communicator needs to participate in the registration. Size may differ across ranks; callers are responsible for ensuring later operations only access ranges that are valid for the ranks participating in that operation. win is returned for future deregistration (if called within a group, the value may not be filled in until [GroupEnd] has completed). See buff requirement and more instructions in User Buffer Registration. User can also pass different win flags to control the registration behavior. For more win flags information, please refer to Window Registration Flags. Host APIs do not accept buffers that are symmetrically registered more than once. Passing such buffers to host APIs results in undefined behavior.
 //
@@ -174,7 +180,7 @@ func (c Comm) WindowRegister(buff driver.DevicePtr, size uint, winFlags int32) (
 	return commWindowRegister(c, buff, size, winFlags)
 }
 
-// AllGather Gathers sendcount values from all GPUs and leaves identical copies of the result in each recvbuff, receiving data from rank i at offset i*sendcount.
+// AllGather gathers sendcount values from all GPUs and leaves identical copies of the result in each recvbuff, receiving data from rank i at offset i*sendcount.
 //
 // Note: This assumes the receive count is equal to nranks*sendcount, which means that recvbuff should have a size of at least nranks*sendcount elements.
 // In-place operation will happen if sendbuff == recvbuff + rank * sendcount.
@@ -184,12 +190,14 @@ func (c Comm) AllGather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, se
 	return allGather(sendbuff, recvbuff, sendcount, datatype, c, stream)
 }
 
-// AllGatherConfig wraps ncclAllGatherConfig.
+// AllGatherConfig Configurable variant of [Comm.AllGather].
+//
+// Wraps ncclAllGatherConfig.
 func (c Comm) AllGatherConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, sendcount uint, datatype DataType, stream driver.Stream, config *CollConfig) error {
 	return allGatherConfig(sendbuff, recvbuff, sendcount, datatype, c, stream, config)
 }
 
-// AllReduce Reduces data arrays of length count in sendbuff using the op operation and leaves identical copies of the result in each recvbuff.
+// AllReduce reduces data arrays of length count in sendbuff using the op operation and leaves identical copies of the result in each recvbuff.
 //
 // In-place operation will happen if sendbuff == recvbuff.
 //
@@ -198,12 +206,16 @@ func (c Comm) AllReduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, co
 	return allReduce(sendbuff, recvbuff, count, datatype, op, c, stream)
 }
 
-// AllReduceConfig wraps ncclAllReduceConfig.
+// AllReduceConfig Configurable variant of [Comm.AllReduce].
+//
+// Wraps ncclAllReduceConfig.
 func (c Comm) AllReduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, stream driver.Stream, config *CollConfig) error {
 	return allReduceConfig(sendbuff, recvbuff, count, datatype, op, c, stream, config)
 }
 
 // AlltoAll Each rank sends count values to all other ranks and receives count values from all other ranks.
+//
+// Data to send to destination rank j is taken from sendbuff+j*count and data received from source rank i is placed at recvbuff+i*count.
 //
 // Note: This assumes both the total send and receive count is equal to nranks*count, which means that sendbuff and recvbuff should have a size of at least nranks*count elements.
 // In-place operation is currently not supported.
@@ -213,13 +225,16 @@ func (c Comm) AlltoAll(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, cou
 	return alltoAll(sendbuff, recvbuff, count, datatype, c, stream)
 }
 
-// AlltoAllConfig wraps ncclAlltoAllConfig.
+// AlltoAllConfig Configurable variant of [Comm.AlltoAll].
+//
+// Wraps ncclAlltoAllConfig.
 func (c Comm) AlltoAllConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, stream driver.Stream, config *CollConfig) error {
 	return alltoAllConfig(sendbuff, recvbuff, count, datatype, c, stream, config)
 }
 
-// Broadcast Copies count elements from sendbuff on the root rank to all ranks’ recvbuff.
+// Broadcast copies count elements from sendbuff on the root rank to all ranks’ recvbuff.
 //
+// sendbuff is only used on rank root and ignored for other ranks.
 // In-place operation will happen if sendbuff == recvbuff.
 //
 // Wraps ncclBroadcast.
@@ -227,12 +242,16 @@ func (c Comm) Broadcast(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, co
 	return broadcast(sendbuff, recvbuff, count, datatype, root, c, stream)
 }
 
-// BroadcastConfig wraps ncclBroadcastConfig.
+// BroadcastConfig Configurable variant of [Comm.Broadcast].
+//
+// Wraps ncclBroadcastConfig.
 func (c Comm) BroadcastConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, stream driver.Stream, config *CollConfig) error {
 	return broadcastConfig(sendbuff, recvbuff, count, datatype, root, c, stream, config)
 }
 
 // Gather Each rank sends count elements from sendbuff to the root rank.
+//
+// On the root rank, data from rank i is placed at recvbuff + i*count. On non-root ranks, recvbuff is not used.
 //
 // Note: This assumes the receive count is equal to nranks*count, which means that recvbuff should have a size of at least nranks*count elements.
 // In-place operation will happen if sendbuff == recvbuff + root * count.
@@ -242,21 +261,23 @@ func (c Comm) Gather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count
 	return gather(sendbuff, recvbuff, count, datatype, root, c, stream)
 }
 
-// GatherConfig wraps ncclGatherConfig.
+// GatherConfig Configurable variant of [Comm.Gather].
+//
+// Wraps ncclGatherConfig.
 func (c Comm) GatherConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, stream driver.Stream, config *CollConfig) error {
 	return gatherConfig(sendbuff, recvbuff, count, datatype, root, c, stream, config)
 }
 
-// LastError constchar*[Comm.LastError]( [Comm] comm) 
+// LastError returns a human-readable string corresponding to the last error that occurred in NCCL.
 //
-// Returns a human-readable string corresponding to the last error that occurred in NCCL. Note: The error is not cleared by calling this function. Please note that the string returned by [Comm.LastError] could be unrelated to the current call and can be a result of previously launched asynchronous operations, if any.
+// Note: The error is not cleared by calling this function. Please note that the string returned by [Comm.LastError] could be unrelated to the current call and can be a result of previously launched asynchronous operations, if any.
 //
 // Wraps ncclGetLastError.
 func (c Comm) LastError() (string, error) {
 	return getLastError(c)
 }
 
-// Recv Receive data from rank peer into recvbuff.
+// Recv receives data from rank peer into recvbuff.
 //
 // Rank peer needs to call [Comm.Send] with the same datatype and the same count as this rank.
 // This operation is blocking for the GPU. If multiple [Comm.Send] and [Comm.Recv] operations need to progress concurrently to complete, they must be fused within a [GroupStart]/ [GroupEnd] section.
@@ -267,16 +288,16 @@ func (c Comm) Recv(recvbuff driver.DevicePtr, count uint, datatype DataType, pee
 	return recv(recvbuff, count, datatype, peer, c, stream)
 }
 
-// RedOpCreatePreMulSum Creates a new reduction operator which pre-multiplies input values by a given scalar locally before reducing them with peer values via summation.
+// RedOpCreatePreMulSum creates a new reduction operator which pre-multiplies input values by a given scalar locally before reducing them with peer values via summation.
 //
-// Both the input values and the scalar are of type datatype. For use only with collectives launched against comm and datatype. The residence argument indicates whether the memory pointed to by scalar should be dereferenced immediately by the host before this function returns (ncclScalarHostImmediate), or by the device during execution of the reduction collective (ncclScalarDevice). Upon return, the newly created operator’s handle is stored in op.
+// Both the input values and the scalar are of type datatype. For use only with collectives launched against comm and datatype. The residence argument indicates whether the memory pointed to by scalar should be dereferenced immediately by the host before this function returns (ncclScalarHostImmediate), or by the device during execution of the reduction collective (ncclScalarDevice).
 //
 // Wraps ncclRedOpCreatePreMulSum.
 func (c Comm) RedOpCreatePreMulSum(scalar Buffer, datatype DataType, residence ScalarResidence) (RedOp, error) {
 	return redOpCreatePreMulSum(scalar, datatype, residence, c)
 }
 
-// RedOpDestroy Destroys the reduction operator op.
+// RedOpDestroy destroys the reduction operator op.
 //
 // The operator must have been created by ncclRedOpCreatePreMul with the matching communicator comm. An operator may be destroyed as soon as the last NCCL function which is given that operator returns.
 //
@@ -285,8 +306,9 @@ func (c Comm) RedOpDestroy(op RedOp) error {
 	return redOpDestroy(op, c)
 }
 
-// Reduce Reduce data arrays of length count in sendbuff into recvbuff on the root rank using the op operation.
+// Reduce reduces data arrays of length count in sendbuff into recvbuff on the root rank using the op operation.
 //
+// recvbuff is only used on rank root and ignored for other ranks.
 // In-place operation will happen if sendbuff == recvbuff.
 //
 // Wraps ncclReduce.
@@ -294,12 +316,14 @@ func (c Comm) Reduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count
 	return reduce(sendbuff, recvbuff, count, datatype, op, root, c, stream)
 }
 
-// ReduceConfig wraps ncclReduceConfig.
+// ReduceConfig Configurable variant of [Comm.Reduce].
+//
+// Wraps ncclReduceConfig.
 func (c Comm) ReduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, root int32, stream driver.Stream, config *CollConfig) error {
 	return reduceConfig(sendbuff, recvbuff, count, datatype, op, root, c, stream, config)
 }
 
-// ReduceScatter Reduce data in sendbuff from all GPUs using the op operation and leave the reduced result scattered over the devices so that the recvbuff on rank i will contain the i-th block of the result.
+// ReduceScatter reduces data in sendbuff from all GPUs using the op operation and leaves the reduced result scattered over the devices so that the recvbuff on rank i will contain the i-th block of the result.
 //
 // Note: This assumes the send count is equal to nranks*recvcount, which means that sendbuff should have a size of at least nranks*recvcount elements.
 // In-place operation will happen if recvbuff == sendbuff + rank * recvcount.
@@ -309,27 +333,34 @@ func (c Comm) ReduceScatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr
 	return reduceScatter(sendbuff, recvbuff, recvcount, datatype, op, c, stream)
 }
 
-// ReduceScatterConfig wraps ncclReduceScatterConfig.
+// ReduceScatterConfig Configurable variant of [Comm.ReduceScatter].
+//
+// Wraps ncclReduceScatterConfig.
 func (c Comm) ReduceScatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, recvcount uint, datatype DataType, op RedOp, stream driver.Stream, config *CollConfig) error {
 	return reduceScatterConfig(sendbuff, recvbuff, recvcount, datatype, op, c, stream, config)
 }
 
 // Scatter Each rank receives count elements from the root rank.
 //
+// On the root rank, count elements from sendbuff + i*count are sent to rank i. On non-root ranks, sendbuff is not used.
+//
 // Note: This assumes the send count is equal to nranks*count, which means that sendbuff should have a size of at least nranks*count elements.
 // In-place operation will happen if recvbuff == sendbuff + root * count.
+// Every collective above also has an *Config variant that takes a trailing [CollConfig] argument for per-call customization (algorithm selection, CTA counts, and similar overrides described under [CollConfig]). Initialize the config with NCCL_COLLCONFIG_INITIALIZER and set it identically on every rank. Passing config == NULL is equivalent to calling the plain API.
 //
 // Wraps ncclScatter.
 func (c Comm) Scatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, stream driver.Stream) error {
 	return scatter(sendbuff, recvbuff, count, datatype, root, c, stream)
 }
 
-// ScatterConfig wraps ncclScatterConfig.
+// ScatterConfig Configurable variant of [Comm.Scatter].
+//
+// Wraps ncclScatterConfig.
 func (c Comm) ScatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, stream driver.Stream, config *CollConfig) error {
 	return scatterConfig(sendbuff, recvbuff, count, datatype, root, c, stream, config)
 }
 
-// Send Send data from sendbuff to rank peer.
+// Send sends data from sendbuff to rank peer.
 //
 // Rank peer needs to call [Comm.Recv] with the same datatype and the same count as this rank.
 // This operation is blocking for the GPU. If multiple [Comm.Send] and [Comm.Recv] operations need to progress concurrently to complete, they must be fused within a [GroupStart]/ [GroupEnd] section.
@@ -339,29 +370,19 @@ func (c Comm) Send(sendbuff driver.DevicePtr, count uint, datatype DataType, pee
 	return send(sendbuff, count, datatype, peer, c, stream)
 }
 
-// Signal Send a signal to rank peer without transferring data.
+// Signal sends a signal to rank peer without transferring data.
 //
-// The sigIdx is the signal index identifier for the operation. It must be set to 0 for now.
-// The ctx is the context identifier for the operation. It must be set to 0 for now.
+// The sigIdx is the signal index identifier for the operation. Prior to NCCL 2.31, it must be set to 0. Since NCCL 2.31, it may be set in the range [0, numRmaSig) (see numRmaSig).
+// The ctx selects the communication context. Prior to NCCL 2.31, it must be set to 0. Since NCCL 2.31, it may be set in the range [0, numRmaCtx) (see numRmaCtx).
 // The flags parameter is reserved for future use. It must be set to 0 for now.
 // When a signal is updated on the remote peer, all prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
-// typencclWaitSignalDesc_t 
-// Descriptor that specifies how many signal operations to wait for from a particular rank on a given signal index and context.
-// intopCnt 
-// Number of signal operations to wait for.
-// intpeer 
-// Target peer to wait for signals from.
-// intsigIdx 
-// Signal index identifier. Must be set to 0 for now.
-// intctx 
-// Context identifier. Must be set to 0 for now.
 //
 // Wraps ncclSignal.
 func (c Comm) Signal(peer int32, sigIdx int32, ctx int32, flags uint32, stream driver.Stream) error {
 	return signal(peer, sigIdx, ctx, flags, c, stream)
 }
 
-// WaitSignal Wait for signals as described in the signal descriptor array.
+// WaitSignal waits for signals as described in the signal descriptor array.
 //
 // The nDesc parameter specifies the number of signal descriptors in the signalDescs array. Each descriptor indicates how many signals ( opCnt) to expect from a specific peer on a particular signal index ( sigIdx) and context ( ctx).
 // The return of [Comm.WaitSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Comm.WaitSignal] on the CUDA stream, all specified signal operations have been received and the corresponding data is visible in local memory.
@@ -376,7 +397,7 @@ func (c Comm) WinGetUserPtr(win Window) (driver.DevicePtr, error) {
 	return winGetUserPtr(c, win)
 }
 
-// CommInitRank Creates a new communicator (multi thread/process version).
+// CommInitRank creates a new communicator (multi thread/process version).
 //
 // rank must be between 0 and nranks-1 and unique within a communicator clique. Each rank is associated to a CUDA device, which has to be set before calling [CommInitRank]. [CommInitRank] implicitly synchronizes with other ranks, hence it must be called by different threads/processes or used within [GroupStart]/[GroupEnd].
 //
@@ -387,6 +408,7 @@ func CommInitRank(nranks int32, commId UniqueId, rank int32) (Comm, error) {
 
 // CommInitRankConfig works the same way as [CommInitRank] but accepts a configuration argument of extra attributes for the communicator.
 //
+// If config is passed as NULL, the communicator will have the default behavior, as if [CommInitRank] was called.
 // See the Creating a communicator with options section for details on configuration options.
 //
 // Wraps ncclCommInitRankConfig.
@@ -396,6 +418,7 @@ func CommInitRankConfig(nranks int32, commId UniqueId, rank int32, config *Confi
 
 // CommInitRankScalable works the same way as [CommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
 //
+// If only one [UniqueId] is passed, the communicator will be initialized as if [CommInitRankConfig] was called. The provided ncclUniqueIds will all be used to initialize the single communicator given in argument.
 // See the Creating a communicator with options section for details on how to create and distribute the list of ncclUniqueIds.
 //
 // Wraps ncclCommInitRankScalable.

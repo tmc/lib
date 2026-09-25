@@ -4,7 +4,7 @@ package driver
 
 import "unsafe"
 
-// Attribute Returns information about a function.
+// Attribute returns information about a function.
 //
 // Returns in *pi the integer value of the attribute attrib on the kernel given by hfunc. The supported attributes are:
 // With a few execeptions, function attributes may also be queried on unloaded function handles returned from [Module.EnumerateFunctions]. [ErrFunctionNotLoaded] is returned if the attribute requires a fully loaded function but the function is not loaded. The loading state of a function may be queried using cuFuncIsloaded. [Function.Load] may be called to explicitly load a function before querying the following attributes that require the function to be loaded:
@@ -20,7 +20,7 @@ func (f Function) Attribute(attrib FunctionAttribute) (int32, error) {
 	return funcGetAttribute(attrib, f)
 }
 
-// Module Returns a module handle.
+// Module returns a module handle.
 //
 // Returns in *hmod the handle of the module that function hfunc is located in. The lifetime of the module corresponds to the lifetime of the context it was loaded in or until the module is explicitly unloaded.
 // The CUDA runtime manages its own modules loaded into the primary context. If the handle returned by this API refers to a module loaded by the CUDA runtime, calling [Module.Unload] on that module will result in undefined behavior.
@@ -32,7 +32,7 @@ func (f Function) Module() (Module, error) {
 	return funcGetModule(f)
 }
 
-// Name Returns the function name for a [Function] handle.
+// Name returns the function name for a [Function] handle.
 //
 // Returns in **name the function name associated with the function handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the function handle is valid. If the module is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned.
 //
@@ -43,7 +43,7 @@ func (f Function) Name() (string, error) {
 	return funcGetName(f)
 }
 
-// ParamCount Returns the number of parameters used by the function.
+// ParamCount returns the number of parameters used by the function.
 //
 // Queries the number of kernel parameters used by func and returns it in paramCount.
 //
@@ -56,7 +56,7 @@ func (f Function) ParamCount() (uint, error) {
 	return funcGetParamCount(f)
 }
 
-// ParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout.
+// ParamInfo returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
 // Queries the kernel parameter at paramIndex into func's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that func takes. paramSize can be set to NULL if only the parameter offset is desired.
 //
@@ -71,7 +71,7 @@ func (f Function) ParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, 
 	return funcGetParamInfo(f, paramIndex)
 }
 
-// IsLoaded Returns if the function is loaded.
+// IsLoaded returns if the function is loaded.
 //
 // Returns in state the loading state of function.
 //
@@ -82,7 +82,7 @@ func (f Function) IsLoaded() (FunctionLoadingState, error) {
 	return funcIsLoaded(f)
 }
 
-// Load Loads a function.
+// Load loads a function.
 //
 // Finalizes function loading for function. Calling this API with a fully loaded function has no effect.
 //
@@ -93,7 +93,7 @@ func (f Function) Load() error {
 	return funcLoad(f)
 }
 
-// SetAttribute Sets information about a function.
+// SetAttribute sets information about a function.
 //
 // This call sets the value of a specified attribute attrib on the kernel given by hfunc to an integer value specified by val This function returns [Success] if the new value of the attribute could be successfully set. If the set fails, this call will return an error. Not all attributes can have values set. Attempting to set a value on a read-only attribute will result in an error ([ErrInvalidValue])
 // Supported attributes for the [Function.SetAttribute] call are:
@@ -110,7 +110,7 @@ func (f Function) SetAttribute(attrib FunctionAttribute, value int32) error {
 	return funcSetAttribute(f, attrib, value)
 }
 
-// SetBlockShape Sets the block-dimensions for the function.
+// SetBlockShape sets the block-dimensions for the function.
 //
 // Specifies the x, y, and z dimensions of the thread blocks that are created when the kernel given by hfunc is launched.
 //
@@ -122,14 +122,14 @@ func (f Function) SetAttribute(attrib FunctionAttribute, value int32) error {
 //   - y: Y dimension
 //   - z: Z dimension
 //
-// Deprecated: Specifies the x, y, and z dimensions of the thread blocks that are created when the kernel given by hfunc is launched.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuFuncSetBlockShape.
 func (f Function) SetBlockShape(x int32, y int32, z int32) error {
 	return funcSetBlockShape(f, x, y, z)
 }
 
-// SetCacheConfig Sets the preferred cache configuration for a device function.
+// SetCacheConfig sets the preferred cache configuration for a device function.
 //
 // On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the device function hfunc. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute hfunc. Any context-wide preference set via [CtxSetCacheConfig] will be overridden by this per-function setting unless the per-function setting is [FuncCachePreferNone]. In that case, the current context-wide setting will be used.
 // This setting does nothing on devices where the size of the L1 cache and shared memory are fixed.
@@ -147,7 +147,7 @@ func (f Function) SetCacheConfig(config FuncCacheConfig) error {
 	return funcSetCacheConfig(f, config)
 }
 
-// SetSharedMemConfig Sets the shared memory configuration for a device function.
+// SetSharedMemConfig sets the shared memory configuration for a device function.
 //
 // On devices with configurable shared memory banks, this function will force all subsequent launches of the specified device function to have the given shared memory bank size configuration. On any given launch of the function, the shared memory configuration of the device will be temporarily changed if needed to suit the function’s preferred configuration. Changes in shared memory configuration between subsequent launches of functions, may introduce a device side synchronization point.
 // Any per-function setting of shared memory bank size set via [Function.SetSharedMemConfig] will override the context wide setting set with [CtxSetSharedMemConfig].
@@ -161,14 +161,14 @@ func (f Function) SetCacheConfig(config FuncCacheConfig) error {
 //
 //   - config: requested shared memory configuration
 //
-// Deprecated: On devices with configurable shared memory banks, this function will force all subsequent launches of the specified device function to have the given shared memory bank size configuration. On any given launch of the function, the shared memory configuration of the device will be temporarily changed if needed to suit the function's preferred configuration. Changes in shared memory configuration between subsequent launches of functions, may introduce a device side synchronization point. Any per-function setting of shared memory bank size set via [Function.SetSharedMemConfig] will override the context wide setting set with [CtxSetSharedMemConfig]. Changing the shared memory bank size will not increase shared memory usage or affect occupancy of kernels, but may have major effects on performance. Larger bank sizes will allow for greater potential bandwidth to shared memory, but will change what kinds of accesses to shared memory will result in bank conflicts. This function will do nothing on devices with fixed shared memory bank size. The supported bank configurations are: - [SharedMemConfigDefaultBankSize]: use the context's shared memory configuration when launching this function. - [SharedMemConfigFourByteBankSize]: set shared memory bank width to be natively four bytes when launching this function. - [SharedMemConfigEightByteBankSize]: set shared memory bank width to be natively eight bytes when launching this function.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuFuncSetSharedMemConfig.
 func (f Function) SetSharedMemConfig(config Sharedconfig) error {
 	return funcSetSharedMemConfig(f, config)
 }
 
-// SetSharedSize Sets the dynamic shared-memory size for the function.
+// SetSharedSize sets the dynamic shared-memory size for the function.
 //
 // Sets through bytes the amount of dynamic shared memory that will be available to each thread block when the kernel given by hfunc is launched.
 //
@@ -178,14 +178,14 @@ func (f Function) SetSharedMemConfig(config Sharedconfig) error {
 //
 //   - bytes: Dynamic shared-memory size per thread in bytes
 //
-// Deprecated: Sets through bytes the amount of dynamic shared memory that will be available to each thread block when the kernel given by hfunc is launched.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuFuncSetSharedSize.
 func (f Function) SetSharedSize(bytes uint32) error {
 	return funcSetSharedSize(f, bytes)
 }
 
-// AvailableDynamicSMemPerBlock Returns dynamic shared memory available per block when launching numBlocks blocks on SM.
+// AvailableDynamicSMemPerBlock returns dynamic shared memory available per block when launching numBlocks blocks on SM.
 //
 // Returns in *dynamicSmemSize the maximum size of dynamic shared memory to allow numBlocks blocks per SM.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
@@ -200,7 +200,7 @@ func (f Function) AvailableDynamicSMemPerBlock(numBlocks int32, blockSize int32)
 	return occupancyAvailableDynamicSMemPerBlock(f, numBlocks, blockSize)
 }
 
-// MaxActiveBlocksPerMultiprocessor Returns occupancy of a function.
+// MaxActiveBlocksPerMultiprocessor returns occupancy of a function.
 //
 // Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
@@ -217,7 +217,7 @@ func (f Function) MaxActiveBlocksPerMultiprocessor(blockSize int32, dynamicSMemS
 	return occupancyMaxActiveBlocksPerMultiprocessor(f, blockSize, dynamicSMemSize)
 }
 
-// MaxActiveBlocksPerMultiprocessorWithFlags Returns occupancy of a function.
+// MaxActiveBlocksPerMultiprocessorWithFlags returns occupancy of a function.
 //
 // Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor.
 // The Flags parameter controls how special cases are handled. The valid flags are:
@@ -253,7 +253,7 @@ func (f Function) MaxActiveClusters(config *LaunchConfig) (int32, error) {
 	return occupancyMaxActiveClusters(f, config)
 }
 
-// MaxPotentialBlockSize Suggest a launch configuration with reasonable occupancy.
+// MaxPotentialBlockSize suggests a launch configuration with reasonable occupancy.
 //
 // Returns in *blockSize a reasonable block size that can achieve the maximum occupancy (or, the maximum number of active warps with the fewest blocks per multiprocessor), and in *minGridSize the minimum grid size to achieve the maximum occupancy.
 // If blockSizeLimit is 0, the configurator will use the maximum block size permitted by the device / function instead.
@@ -275,7 +275,7 @@ func (f Function) MaxPotentialBlockSize(blockSizeToDynamicSMemSize uintptr, dyna
 	return occupancyMaxPotentialBlockSize(f, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit)
 }
 
-// MaxPotentialBlockSizeWithFlags Suggest a launch configuration with reasonable occupancy.
+// MaxPotentialBlockSizeWithFlags suggests a launch configuration with reasonable occupancy.
 //
 // An extended version of [Function.MaxPotentialBlockSize]. In addition to arguments passed to [Function.MaxPotentialBlockSize], [Function.MaxPotentialBlockSizeWithFlags] also takes a Flags parameter.
 // The Flags parameter controls how special cases are handled. The valid flags are:
@@ -313,7 +313,7 @@ func (f Function) MaxPotentialClusterSize(config *LaunchConfig) (int32, error) {
 	return occupancyMaxPotentialClusterSize(f, config)
 }
 
-// Launch Launches a CUDA function.
+// Launch launches a CUDA function.
 //
 // Invokes the kernel f on a 1 x 1 x 1 grid of blocks. The block contains the number of threads specified by a previous call to [Function.SetBlockShape].
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
@@ -323,14 +323,14 @@ func (f Function) MaxPotentialClusterSize(config *LaunchConfig) (int32, error) {
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
-// Deprecated: Invokes the kernel f on a 1 x 1 x 1 grid of blocks. The block contains the number of threads specified by a previous call to [Function.SetBlockShape]. The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function. Launching a function via [Function.LaunchKernel] invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuLaunch.
 func (f Function) Launch() error {
 	return launch(f)
 }
 
-// LaunchCooperativeKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel] where thread blocks can cooperate and synchronize as they execute.
+// LaunchCooperativeKernel launches a CUDA function [Function] or a CUDA kernel [Kernel] where thread blocks can cooperate and synchronize as they execute.
 //
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
@@ -370,7 +370,7 @@ func (f Function) LaunchCooperativeKernel(gridDim Dim3, blockDim Dim3, sharedMem
 	return launchCooperativeKernel(f, gridDim.X, gridDim.Y, gridDim.Z, blockDim.X, blockDim.Y, blockDim.Z, sharedMemBytes, hStream, kernelParams)
 }
 
-// LaunchGrid Launches a CUDA function.
+// LaunchGrid launches a CUDA function.
 //
 // Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape].
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
@@ -383,14 +383,14 @@ func (f Function) LaunchCooperativeKernel(gridDim Dim3, blockDim Dim3, sharedMem
 //   - gridWidth: Width of grid in blocks
 //   - gridHeight: Height of grid in blocks
 //
-// Deprecated: Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape]. The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function. Launching a function via [Function.LaunchKernel] invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuLaunchGrid.
 func (f Function) LaunchGrid(gridWidth int32, gridHeight int32) error {
 	return launchGrid(f, gridWidth, gridHeight)
 }
 
-// LaunchGridAsync Launches a CUDA function.
+// LaunchGridAsync launches a CUDA function.
 //
 // Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape].
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
@@ -408,14 +408,14 @@ func (f Function) LaunchGrid(gridWidth int32, gridHeight int32) error {
 //   - gridHeight: Height of grid in blocks
 //   - hStream: Stream identifier
 //
-// Deprecated: Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape]. The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function. Launching a function via [Function.LaunchKernel] invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuLaunchGridAsync.
 func (f Function) LaunchGridAsync(gridWidth int32, gridHeight int32, hStream Stream) error {
 	return launchGridAsync(f, gridWidth, gridHeight, hStream)
 }
 
-// LaunchKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel].
+// LaunchKernel launches a CUDA function [Function] or a CUDA kernel [Kernel].
 //
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
@@ -453,7 +453,7 @@ func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint3
 	return launchKernel(f, gridDim.X, gridDim.Y, gridDim.Z, blockDim.X, blockDim.Y, blockDim.Z, sharedMemBytes, hStream, kernelParams)
 }
 
-// LaunchKernelEx Launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
+// LaunchKernelEx launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
 //
 // Invokes the function [Function] or the kernel [Kernel] f with the specified launch-time configuration config.
 // The [LaunchConfig] structure is defined as:
@@ -498,7 +498,7 @@ func (f Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Poi
 	return launchKernelEx(config, f, kernelParams, extra)
 }
 
-// ParamSetSize Sets the parameter size for the function.
+// ParamSetSize sets the parameter size for the function.
 //
 // Sets through numbytes the total size in bytes needed by the function parameters of the kernel corresponding to hfunc.
 //
@@ -508,14 +508,14 @@ func (f Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Poi
 //
 //   - numbytes: Size of parameter list in bytes
 //
-// Deprecated: Sets through numbytes the total size in bytes needed by the function parameters of the kernel corresponding to hfunc.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSetSize.
 func (f Function) ParamSetSize(numbytes uint32) error {
 	return paramSetSize(f, numbytes)
 }
 
-// ParamSetTexRef Adds a texture-reference to the function’s argument list.
+// ParamSetTexRef adds a texture-reference to the function’s argument list.
 //
 // Makes the CUDA array or linear memory bound to the texture reference hTexRef available to a device program as a texture. In this version of CUDA, the texture-reference must be obtained via [Module.TexRef] and the texunit parameter must be set to CU_PARAM_TR_DEFAULT.
 //
@@ -524,14 +524,14 @@ func (f Function) ParamSetSize(numbytes uint32) error {
 //   - texunit: Texture unit (must be CU_PARAM_TR_DEFAULT)
 //   - hTexRef: Texture-reference to add to argument list
 //
-// Deprecated: Makes the CUDA array or linear memory bound to the texture reference hTexRef available to a device program as a texture. In this version of CUDA, the texture-reference must be obtained via [Module.TexRef] and the texunit parameter must be set to CU_PARAM_TR_DEFAULT.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSetTexRef.
 func (f Function) ParamSetTexRef(texunit int32, hTexRef TexRef) error {
 	return paramSetTexRef(f, texunit, hTexRef)
 }
 
-// ParamSetf Adds a floating-point parameter to the function’s argument list.
+// ParamSetf adds a floating-point parameter to the function’s argument list.
 //
 // Sets a floating-point parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
 //
@@ -542,14 +542,14 @@ func (f Function) ParamSetTexRef(texunit int32, hTexRef TexRef) error {
 //   - offset: Offset to add parameter to argument list
 //   - value: Value of parameter
 //
-// Deprecated: Sets a floating-point parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSetf.
 func (f Function) ParamSetf(offset int32, value float32) error {
 	return paramSetf(f, offset, value)
 }
 
-// ParamSeti Adds an integer parameter to the function’s argument list.
+// ParamSeti adds an integer parameter to the function’s argument list.
 //
 // Sets an integer parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
 //
@@ -560,14 +560,14 @@ func (f Function) ParamSetf(offset int32, value float32) error {
 //   - offset: Offset to add parameter to argument list
 //   - value: Value of parameter
 //
-// Deprecated: Sets an integer parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSeti.
 func (f Function) ParamSeti(offset int32, value uint32) error {
 	return paramSeti(f, offset, value)
 }
 
-// ParamSetv Adds arbitrary data to the function’s argument list.
+// ParamSetv adds arbitrary data to the function’s argument list.
 //
 // Copies an arbitrary amount of data (specified in numbytes) from ptr into the parameter space of the kernel corresponding to hfunc. offset is a byte offset.
 //
@@ -579,7 +579,7 @@ func (f Function) ParamSeti(offset int32, value uint32) error {
 //   - ptr: Pointer to arbitrary data
 //   - numbytes: Size of data to copy in bytes
 //
-// Deprecated: Copies an arbitrary amount of data (specified in numbytes) from ptr into the parameter space of the kernel corresponding to hfunc. offset is a byte offset.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSetv.
 func (f Function) ParamSetv(offset int32, ptr unsafe.Pointer, numbytes uint32) error {

@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func TestRingBufferValidation(t *testing.T) {
@@ -535,7 +536,7 @@ func TestSessionRingBufferConcurrent(t *testing.T) {
 				saved         []cupti.PCSamplingConfigurationInfo
 			)
 			api := samplingControlAPI{
-				device:  func(cupti.Context) (uint32, error) { return 0, nil },
+				device:  func(driver.Context) (uint32, error) { return 0, nil },
 				version: func() (uint32, error) { return version, nil },
 				set: func(p *cupti.PCSamplingConfigurationInfoParams) error {
 					attrs := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))
@@ -562,7 +563,7 @@ func TestSessionRingBufferConcurrent(t *testing.T) {
 				disable: func(*cupti.PCSamplingDisableParams) error { return nil },
 			}
 
-			inventory := func(cupti.Context, int) (ReasonInventory, error) {
+			inventory := func(driver.Context, int) (ReasonInventory, error) {
 				return ReasonInventory{CUPTIVersion: version, Reasons: []StallReason{{Index: 7, Name: "warp"}}}, nil
 			}
 

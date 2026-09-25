@@ -323,6 +323,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -573,44 +588,44 @@ func registerFuncs() {
 	register(&fnGetErrorString, "cutensorGetErrorString")
 	register(&fncontract, "cutensorContract")
 	register(&fncontractTrinary, "cutensorContractTrinary")
-	register(&fnCreate, "cutensorCreate")
-	register(&fncreateContraction, "cutensorCreateContraction")
-	register(&fncreateContractionTrinary, "cutensorCreateContractionTrinary")
-	register(&fncreateElementwiseBinary, "cutensorCreateElementwiseBinary")
-	register(&fncreateElementwiseTrinary, "cutensorCreateElementwiseTrinary")
-	register(&fncreatePermutation, "cutensorCreatePermutation")
-	register(&fncreatePlan, "cutensorCreatePlan")
-	register(&fncreatePlanPreference, "cutensorCreatePlanPreference")
-	register(&fncreateReduction, "cutensorCreateReduction")
-	register(&fncreateTensorDescriptor, "cutensorCreateTensorDescriptor")
-	register(&fndestroy, "cutensorDestroy")
-	register(&fndestroyOperationDescriptor, "cutensorDestroyOperationDescriptor")
-	register(&fndestroyPlan, "cutensorDestroyPlan")
-	register(&fndestroyPlanPreference, "cutensorDestroyPlanPreference")
-	register(&fndestroyTensorDescriptor, "cutensorDestroyTensorDescriptor")
+	symCreate = registerSym("cutensorCreate")
+	symcreateContraction = registerSym("cutensorCreateContraction")
+	symcreateContractionTrinary = registerSym("cutensorCreateContractionTrinary")
+	symcreateElementwiseBinary = registerSym("cutensorCreateElementwiseBinary")
+	symcreateElementwiseTrinary = registerSym("cutensorCreateElementwiseTrinary")
+	symcreatePermutation = registerSym("cutensorCreatePermutation")
+	symcreatePlan = registerSym("cutensorCreatePlan")
+	symcreatePlanPreference = registerSym("cutensorCreatePlanPreference")
+	symcreateReduction = registerSym("cutensorCreateReduction")
+	symcreateTensorDescriptor = registerSym("cutensorCreateTensorDescriptor")
+	symdestroy = registerSym("cutensorDestroy")
+	symdestroyOperationDescriptor = registerSym("cutensorDestroyOperationDescriptor")
+	symdestroyPlan = registerSym("cutensorDestroyPlan")
+	symdestroyPlanPreference = registerSym("cutensorDestroyPlanPreference")
+	symdestroyTensorDescriptor = registerSym("cutensorDestroyTensorDescriptor")
 	register(&fnelementwiseBinaryExecute, "cutensorElementwiseBinaryExecute")
 	register(&fnelementwiseTrinaryExecute, "cutensorElementwiseTrinaryExecute")
-	register(&fnestimateWorkspaceSize, "cutensorEstimateWorkspaceSize")
-	register(&fnGetCudartVersion, "cutensorGetCudartVersion")
-	register(&fnGetVersion, "cutensorGetVersion")
-	register(&fnhandleReadPlanCacheFromFile, "cutensorHandleReadPlanCacheFromFile")
-	register(&fnhandleResizePlanCache, "cutensorHandleResizePlanCache")
-	register(&fnhandleWritePlanCacheToFile, "cutensorHandleWritePlanCacheToFile")
-	register(&fnLoggerForceDisable, "cutensorLoggerForceDisable")
-	register(&fnLoggerOpenFile, "cutensorLoggerOpenFile")
-	register(&fnLoggerSetCallback, "cutensorLoggerSetCallback")
-	register(&fnLoggerSetFile, "cutensorLoggerSetFile")
-	register(&fnLoggerSetLevel, "cutensorLoggerSetLevel")
-	register(&fnLoggerSetMask, "cutensorLoggerSetMask")
-	register(&fnoperationDescriptorGetAttribute, "cutensorOperationDescriptorGetAttribute")
-	register(&fnoperationDescriptorSetAttribute, "cutensorOperationDescriptorSetAttribute")
+	symestimateWorkspaceSize = registerSym("cutensorEstimateWorkspaceSize")
+	symGetCudartVersion = registerSym("cutensorGetCudartVersion")
+	symGetVersion = registerSym("cutensorGetVersion")
+	symhandleReadPlanCacheFromFile = registerSym("cutensorHandleReadPlanCacheFromFile")
+	symhandleResizePlanCache = registerSym("cutensorHandleResizePlanCache")
+	symhandleWritePlanCacheToFile = registerSym("cutensorHandleWritePlanCacheToFile")
+	symLoggerForceDisable = registerSym("cutensorLoggerForceDisable")
+	symLoggerOpenFile = registerSym("cutensorLoggerOpenFile")
+	symLoggerSetCallback = registerSym("cutensorLoggerSetCallback")
+	symLoggerSetFile = registerSym("cutensorLoggerSetFile")
+	symLoggerSetLevel = registerSym("cutensorLoggerSetLevel")
+	symLoggerSetMask = registerSym("cutensorLoggerSetMask")
+	symoperationDescriptorGetAttribute = registerSym("cutensorOperationDescriptorGetAttribute")
+	symoperationDescriptorSetAttribute = registerSym("cutensorOperationDescriptorSetAttribute")
 	register(&fnpermute, "cutensorPermute")
-	register(&fnplanGetAttribute, "cutensorPlanGetAttribute")
-	register(&fnplanPreferenceGetAttribute, "cutensorPlanPreferenceGetAttribute")
-	register(&fnplanPreferenceSetAttribute, "cutensorPlanPreferenceSetAttribute")
-	register(&fnreadKernelCacheFromFile, "cutensorReadKernelCacheFromFile")
+	symplanGetAttribute = registerSym("cutensorPlanGetAttribute")
+	symplanPreferenceGetAttribute = registerSym("cutensorPlanPreferenceGetAttribute")
+	symplanPreferenceSetAttribute = registerSym("cutensorPlanPreferenceSetAttribute")
+	symreadKernelCacheFromFile = registerSym("cutensorReadKernelCacheFromFile")
 	register(&fnreduce, "cutensorReduce")
-	register(&fnwriteKernelCacheToFile, "cutensorWriteKernelCacheToFile")
+	symwriteKernelCacheToFile = registerSym("cutensorWriteKernelCacheToFile")
 }
 
 // clearFuncs unbinds all function pointers.
@@ -618,44 +633,44 @@ func clearFuncs() {
 	fnGetErrorString = nil
 	fncontract = nil
 	fncontractTrinary = nil
-	fnCreate = nil
-	fncreateContraction = nil
-	fncreateContractionTrinary = nil
-	fncreateElementwiseBinary = nil
-	fncreateElementwiseTrinary = nil
-	fncreatePermutation = nil
-	fncreatePlan = nil
-	fncreatePlanPreference = nil
-	fncreateReduction = nil
-	fncreateTensorDescriptor = nil
-	fndestroy = nil
-	fndestroyOperationDescriptor = nil
-	fndestroyPlan = nil
-	fndestroyPlanPreference = nil
-	fndestroyTensorDescriptor = nil
+	symCreate = 0
+	symcreateContraction = 0
+	symcreateContractionTrinary = 0
+	symcreateElementwiseBinary = 0
+	symcreateElementwiseTrinary = 0
+	symcreatePermutation = 0
+	symcreatePlan = 0
+	symcreatePlanPreference = 0
+	symcreateReduction = 0
+	symcreateTensorDescriptor = 0
+	symdestroy = 0
+	symdestroyOperationDescriptor = 0
+	symdestroyPlan = 0
+	symdestroyPlanPreference = 0
+	symdestroyTensorDescriptor = 0
 	fnelementwiseBinaryExecute = nil
 	fnelementwiseTrinaryExecute = nil
-	fnestimateWorkspaceSize = nil
-	fnGetCudartVersion = nil
-	fnGetVersion = nil
-	fnhandleReadPlanCacheFromFile = nil
-	fnhandleResizePlanCache = nil
-	fnhandleWritePlanCacheToFile = nil
-	fnLoggerForceDisable = nil
-	fnLoggerOpenFile = nil
-	fnLoggerSetCallback = nil
-	fnLoggerSetFile = nil
-	fnLoggerSetLevel = nil
-	fnLoggerSetMask = nil
-	fnoperationDescriptorGetAttribute = nil
-	fnoperationDescriptorSetAttribute = nil
+	symestimateWorkspaceSize = 0
+	symGetCudartVersion = 0
+	symGetVersion = 0
+	symhandleReadPlanCacheFromFile = 0
+	symhandleResizePlanCache = 0
+	symhandleWritePlanCacheToFile = 0
+	symLoggerForceDisable = 0
+	symLoggerOpenFile = 0
+	symLoggerSetCallback = 0
+	symLoggerSetFile = 0
+	symLoggerSetLevel = 0
+	symLoggerSetMask = 0
+	symoperationDescriptorGetAttribute = 0
+	symoperationDescriptorSetAttribute = 0
 	fnpermute = nil
-	fnplanGetAttribute = nil
-	fnplanPreferenceGetAttribute = nil
-	fnplanPreferenceSetAttribute = nil
-	fnreadKernelCacheFromFile = nil
+	symplanGetAttribute = 0
+	symplanPreferenceGetAttribute = 0
+	symplanPreferenceSetAttribute = 0
+	symreadKernelCacheFromFile = 0
 	fnreduce = nil
-	fnwriteKernelCacheToFile = nil
+	symwriteKernelCacheToFile = 0
 }
 
 // HasGetErrorString reports whether cutensorGetErrorString resolved in the loaded library.

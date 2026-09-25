@@ -18,5 +18,7 @@ const (
 	PatchLevel LibraryPropertyType = 2
 )
 
-// RuntimeTag is an opaque runtime tag (deprecated).
+// RuntimeTag is an opaque runtime tag.
+//
+// Deprecated: This type is deprecated.
 type RuntimeTag uintptr

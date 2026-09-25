@@ -323,6 +323,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -411,70 +426,70 @@ func registerFuncs() {
 	register(&fnGetErrorString, "cutensornetGetErrorString")
 	register(&fncontractSlices, "cutensornetContractSlices")
 	register(&fncontractionAutotune, "cutensornetContractionAutotune")
-	register(&fncontractionAutotunePreferenceGetAttribute, "cutensornetContractionAutotunePreferenceGetAttribute")
-	register(&fncontractionAutotunePreferenceSetAttribute, "cutensornetContractionAutotunePreferenceSetAttribute")
-	register(&fncontractionOptimize, "cutensornetContractionOptimize")
-	register(&fncontractionOptimizerConfigGetAttribute, "cutensornetContractionOptimizerConfigGetAttribute")
-	register(&fncontractionOptimizerConfigSetAttribute, "cutensornetContractionOptimizerConfigSetAttribute")
-	register(&fncontractionOptimizerInfoGetAttribute, "cutensornetContractionOptimizerInfoGetAttribute")
-	register(&fncontractionOptimizerInfoGetPackedSize, "cutensornetContractionOptimizerInfoGetPackedSize")
-	register(&fncontractionOptimizerInfoPackData, "cutensornetContractionOptimizerInfoPackData")
-	register(&fncontractionOptimizerInfoSetAttribute, "cutensornetContractionOptimizerInfoSetAttribute")
-	register(&fnCreate, "cutensornetCreate")
-	register(&fncreateContractionAutotunePreference, "cutensornetCreateContractionAutotunePreference")
-	register(&fncreateContractionOptimizerConfig, "cutensornetCreateContractionOptimizerConfig")
-	register(&fncreateContractionOptimizerInfo, "cutensornetCreateContractionOptimizerInfo")
-	register(&fncreateContractionOptimizerInfoFromPackedData, "cutensornetCreateContractionOptimizerInfoFromPackedData")
-	register(&fncreateContractionPlan, "cutensornetCreateContractionPlan")
-	register(&fncreateNetwork, "cutensornetCreateNetwork")
-	register(&fncreateNetworkAutotunePreference, "cutensornetCreateNetworkAutotunePreference")
-	register(&fncreateNetworkDescriptor, "cutensornetCreateNetworkDescriptor")
-	register(&fncreateSliceGroupFromIDRange, "cutensornetCreateSliceGroupFromIDRange")
-	register(&fncreateSliceGroupFromIDs, "cutensornetCreateSliceGroupFromIDs")
-	register(&fncreateTensorDescriptor, "cutensornetCreateTensorDescriptor")
-	register(&fncreateWorkspaceDescriptor, "cutensornetCreateWorkspaceDescriptor")
-	register(&fndestroy, "cutensornetDestroy")
-	register(&fndestroyContractionAutotunePreference, "cutensornetDestroyContractionAutotunePreference")
-	register(&fndestroyContractionOptimizerConfig, "cutensornetDestroyContractionOptimizerConfig")
-	register(&fndestroyContractionOptimizerInfo, "cutensornetDestroyContractionOptimizerInfo")
-	register(&fndestroyContractionPlan, "cutensornetDestroyContractionPlan")
-	register(&fndestroyNetwork, "cutensornetDestroyNetwork")
-	register(&fndestroyNetworkAutotunePreference, "cutensornetDestroyNetworkAutotunePreference")
-	register(&fndestroyNetworkDescriptor, "cutensornetDestroyNetworkDescriptor")
-	register(&fndestroySliceGroup, "cutensornetDestroySliceGroup")
-	register(&fndestroyTensorDescriptor, "cutensornetDestroyTensorDescriptor")
-	register(&fndestroyWorkspaceDescriptor, "cutensornetDestroyWorkspaceDescriptor")
-	register(&fndistributedGetNumRanks, "cutensornetDistributedGetNumRanks")
-	register(&fndistributedGetProcRank, "cutensornetDistributedGetProcRank")
-	register(&fndistributedResetConfiguration, "cutensornetDistributedResetConfiguration")
-	register(&fndistributedSynchronize, "cutensornetDistributedSynchronize")
-	register(&fnGetCudartVersion, "cutensornetGetCudartVersion")
-	register(&fngetOutputTensorDescriptor, "cutensornetGetOutputTensorDescriptor")
-	register(&fngetOutputTensorDetails, "cutensornetGetOutputTensorDetails")
-	register(&fngetTensorDetails, "cutensornetGetTensorDetails")
-	register(&fnGetVersion, "cutensornetGetVersion")
-	register(&fnLoggerForceDisable, "cutensornetLoggerForceDisable")
-	register(&fnLoggerOpenFile, "cutensornetLoggerOpenFile")
-	register(&fnLoggerSetLevel, "cutensornetLoggerSetLevel")
-	register(&fnLoggerSetMask, "cutensornetLoggerSetMask")
-	register(&fnnetworkAppendTensor, "cutensornetNetworkAppendTensor")
+	symcontractionAutotunePreferenceGetAttribute = registerSym("cutensornetContractionAutotunePreferenceGetAttribute")
+	symcontractionAutotunePreferenceSetAttribute = registerSym("cutensornetContractionAutotunePreferenceSetAttribute")
+	symcontractionOptimize = registerSym("cutensornetContractionOptimize")
+	symcontractionOptimizerConfigGetAttribute = registerSym("cutensornetContractionOptimizerConfigGetAttribute")
+	symcontractionOptimizerConfigSetAttribute = registerSym("cutensornetContractionOptimizerConfigSetAttribute")
+	symcontractionOptimizerInfoGetAttribute = registerSym("cutensornetContractionOptimizerInfoGetAttribute")
+	symcontractionOptimizerInfoGetPackedSize = registerSym("cutensornetContractionOptimizerInfoGetPackedSize")
+	symcontractionOptimizerInfoPackData = registerSym("cutensornetContractionOptimizerInfoPackData")
+	symcontractionOptimizerInfoSetAttribute = registerSym("cutensornetContractionOptimizerInfoSetAttribute")
+	symCreate = registerSym("cutensornetCreate")
+	symcreateContractionAutotunePreference = registerSym("cutensornetCreateContractionAutotunePreference")
+	symcreateContractionOptimizerConfig = registerSym("cutensornetCreateContractionOptimizerConfig")
+	symcreateContractionOptimizerInfo = registerSym("cutensornetCreateContractionOptimizerInfo")
+	symcreateContractionOptimizerInfoFromPackedData = registerSym("cutensornetCreateContractionOptimizerInfoFromPackedData")
+	symcreateContractionPlan = registerSym("cutensornetCreateContractionPlan")
+	symcreateNetwork = registerSym("cutensornetCreateNetwork")
+	symcreateNetworkAutotunePreference = registerSym("cutensornetCreateNetworkAutotunePreference")
+	symcreateNetworkDescriptor = registerSym("cutensornetCreateNetworkDescriptor")
+	symcreateSliceGroupFromIDRange = registerSym("cutensornetCreateSliceGroupFromIDRange")
+	symcreateSliceGroupFromIDs = registerSym("cutensornetCreateSliceGroupFromIDs")
+	symcreateTensorDescriptor = registerSym("cutensornetCreateTensorDescriptor")
+	symcreateWorkspaceDescriptor = registerSym("cutensornetCreateWorkspaceDescriptor")
+	symdestroy = registerSym("cutensornetDestroy")
+	symdestroyContractionAutotunePreference = registerSym("cutensornetDestroyContractionAutotunePreference")
+	symdestroyContractionOptimizerConfig = registerSym("cutensornetDestroyContractionOptimizerConfig")
+	symdestroyContractionOptimizerInfo = registerSym("cutensornetDestroyContractionOptimizerInfo")
+	symdestroyContractionPlan = registerSym("cutensornetDestroyContractionPlan")
+	symdestroyNetwork = registerSym("cutensornetDestroyNetwork")
+	symdestroyNetworkAutotunePreference = registerSym("cutensornetDestroyNetworkAutotunePreference")
+	symdestroyNetworkDescriptor = registerSym("cutensornetDestroyNetworkDescriptor")
+	symdestroySliceGroup = registerSym("cutensornetDestroySliceGroup")
+	symdestroyTensorDescriptor = registerSym("cutensornetDestroyTensorDescriptor")
+	symdestroyWorkspaceDescriptor = registerSym("cutensornetDestroyWorkspaceDescriptor")
+	symdistributedGetNumRanks = registerSym("cutensornetDistributedGetNumRanks")
+	symdistributedGetProcRank = registerSym("cutensornetDistributedGetProcRank")
+	symdistributedResetConfiguration = registerSym("cutensornetDistributedResetConfiguration")
+	symdistributedSynchronize = registerSym("cutensornetDistributedSynchronize")
+	symGetCudartVersion = registerSym("cutensornetGetCudartVersion")
+	symgetOutputTensorDescriptor = registerSym("cutensornetGetOutputTensorDescriptor")
+	symgetOutputTensorDetails = registerSym("cutensornetGetOutputTensorDetails")
+	symgetTensorDetails = registerSym("cutensornetGetTensorDetails")
+	symGetVersion = registerSym("cutensornetGetVersion")
+	symLoggerForceDisable = registerSym("cutensornetLoggerForceDisable")
+	symLoggerOpenFile = registerSym("cutensornetLoggerOpenFile")
+	symLoggerSetLevel = registerSym("cutensornetLoggerSetLevel")
+	symLoggerSetMask = registerSym("cutensornetLoggerSetMask")
+	symnetworkAppendTensor = registerSym("cutensornetNetworkAppendTensor")
 	register(&fnnetworkAutotuneContraction, "cutensornetNetworkAutotuneContraction")
-	register(&fnnetworkAutotunePreferenceGetAttribute, "cutensornetNetworkAutotunePreferenceGetAttribute")
-	register(&fnnetworkAutotunePreferenceSetAttribute, "cutensornetNetworkAutotunePreferenceSetAttribute")
+	symnetworkAutotunePreferenceGetAttribute = registerSym("cutensornetNetworkAutotunePreferenceGetAttribute")
+	symnetworkAutotunePreferenceSetAttribute = registerSym("cutensornetNetworkAutotunePreferenceSetAttribute")
 	register(&fnnetworkContract, "cutensornetNetworkContract")
-	register(&fnnetworkGetAttribute, "cutensornetNetworkGetAttribute")
-	register(&fnnetworkPrepareContraction, "cutensornetNetworkPrepareContraction")
-	register(&fnnetworkSetAttribute, "cutensornetNetworkSetAttribute")
-	register(&fnnetworkSetInputTensorMemory, "cutensornetNetworkSetInputTensorMemory")
-	register(&fnnetworkSetOptimizerInfo, "cutensornetNetworkSetOptimizerInfo")
-	register(&fnnetworkSetOutputTensor, "cutensornetNetworkSetOutputTensor")
-	register(&fnnetworkSetOutputTensorMemory, "cutensornetNetworkSetOutputTensorMemory")
-	register(&fnupdateContractionOptimizerInfoFromPackedData, "cutensornetUpdateContractionOptimizerInfoFromPackedData")
-	register(&fnworkspaceComputeContractionSizes, "cutensornetWorkspaceComputeContractionSizes")
-	register(&fnworkspaceGetMemory, "cutensornetWorkspaceGetMemory")
-	register(&fnworkspaceGetMemorySize, "cutensornetWorkspaceGetMemorySize")
-	register(&fnworkspacePurgeCache, "cutensornetWorkspacePurgeCache")
-	register(&fnworkspaceSetMemory, "cutensornetWorkspaceSetMemory")
+	symnetworkGetAttribute = registerSym("cutensornetNetworkGetAttribute")
+	symnetworkPrepareContraction = registerSym("cutensornetNetworkPrepareContraction")
+	symnetworkSetAttribute = registerSym("cutensornetNetworkSetAttribute")
+	symnetworkSetInputTensorMemory = registerSym("cutensornetNetworkSetInputTensorMemory")
+	symnetworkSetOptimizerInfo = registerSym("cutensornetNetworkSetOptimizerInfo")
+	symnetworkSetOutputTensor = registerSym("cutensornetNetworkSetOutputTensor")
+	symnetworkSetOutputTensorMemory = registerSym("cutensornetNetworkSetOutputTensorMemory")
+	symupdateContractionOptimizerInfoFromPackedData = registerSym("cutensornetUpdateContractionOptimizerInfoFromPackedData")
+	symworkspaceComputeContractionSizes = registerSym("cutensornetWorkspaceComputeContractionSizes")
+	symworkspaceGetMemory = registerSym("cutensornetWorkspaceGetMemory")
+	symworkspaceGetMemorySize = registerSym("cutensornetWorkspaceGetMemorySize")
+	symworkspacePurgeCache = registerSym("cutensornetWorkspacePurgeCache")
+	symworkspaceSetMemory = registerSym("cutensornetWorkspaceSetMemory")
 }
 
 // clearFuncs unbinds all function pointers.
@@ -482,70 +497,70 @@ func clearFuncs() {
 	fnGetErrorString = nil
 	fncontractSlices = nil
 	fncontractionAutotune = nil
-	fncontractionAutotunePreferenceGetAttribute = nil
-	fncontractionAutotunePreferenceSetAttribute = nil
-	fncontractionOptimize = nil
-	fncontractionOptimizerConfigGetAttribute = nil
-	fncontractionOptimizerConfigSetAttribute = nil
-	fncontractionOptimizerInfoGetAttribute = nil
-	fncontractionOptimizerInfoGetPackedSize = nil
-	fncontractionOptimizerInfoPackData = nil
-	fncontractionOptimizerInfoSetAttribute = nil
-	fnCreate = nil
-	fncreateContractionAutotunePreference = nil
-	fncreateContractionOptimizerConfig = nil
-	fncreateContractionOptimizerInfo = nil
-	fncreateContractionOptimizerInfoFromPackedData = nil
-	fncreateContractionPlan = nil
-	fncreateNetwork = nil
-	fncreateNetworkAutotunePreference = nil
-	fncreateNetworkDescriptor = nil
-	fncreateSliceGroupFromIDRange = nil
-	fncreateSliceGroupFromIDs = nil
-	fncreateTensorDescriptor = nil
-	fncreateWorkspaceDescriptor = nil
-	fndestroy = nil
-	fndestroyContractionAutotunePreference = nil
-	fndestroyContractionOptimizerConfig = nil
-	fndestroyContractionOptimizerInfo = nil
-	fndestroyContractionPlan = nil
-	fndestroyNetwork = nil
-	fndestroyNetworkAutotunePreference = nil
-	fndestroyNetworkDescriptor = nil
-	fndestroySliceGroup = nil
-	fndestroyTensorDescriptor = nil
-	fndestroyWorkspaceDescriptor = nil
-	fndistributedGetNumRanks = nil
-	fndistributedGetProcRank = nil
-	fndistributedResetConfiguration = nil
-	fndistributedSynchronize = nil
-	fnGetCudartVersion = nil
-	fngetOutputTensorDescriptor = nil
-	fngetOutputTensorDetails = nil
-	fngetTensorDetails = nil
-	fnGetVersion = nil
-	fnLoggerForceDisable = nil
-	fnLoggerOpenFile = nil
-	fnLoggerSetLevel = nil
-	fnLoggerSetMask = nil
-	fnnetworkAppendTensor = nil
+	symcontractionAutotunePreferenceGetAttribute = 0
+	symcontractionAutotunePreferenceSetAttribute = 0
+	symcontractionOptimize = 0
+	symcontractionOptimizerConfigGetAttribute = 0
+	symcontractionOptimizerConfigSetAttribute = 0
+	symcontractionOptimizerInfoGetAttribute = 0
+	symcontractionOptimizerInfoGetPackedSize = 0
+	symcontractionOptimizerInfoPackData = 0
+	symcontractionOptimizerInfoSetAttribute = 0
+	symCreate = 0
+	symcreateContractionAutotunePreference = 0
+	symcreateContractionOptimizerConfig = 0
+	symcreateContractionOptimizerInfo = 0
+	symcreateContractionOptimizerInfoFromPackedData = 0
+	symcreateContractionPlan = 0
+	symcreateNetwork = 0
+	symcreateNetworkAutotunePreference = 0
+	symcreateNetworkDescriptor = 0
+	symcreateSliceGroupFromIDRange = 0
+	symcreateSliceGroupFromIDs = 0
+	symcreateTensorDescriptor = 0
+	symcreateWorkspaceDescriptor = 0
+	symdestroy = 0
+	symdestroyContractionAutotunePreference = 0
+	symdestroyContractionOptimizerConfig = 0
+	symdestroyContractionOptimizerInfo = 0
+	symdestroyContractionPlan = 0
+	symdestroyNetwork = 0
+	symdestroyNetworkAutotunePreference = 0
+	symdestroyNetworkDescriptor = 0
+	symdestroySliceGroup = 0
+	symdestroyTensorDescriptor = 0
+	symdestroyWorkspaceDescriptor = 0
+	symdistributedGetNumRanks = 0
+	symdistributedGetProcRank = 0
+	symdistributedResetConfiguration = 0
+	symdistributedSynchronize = 0
+	symGetCudartVersion = 0
+	symgetOutputTensorDescriptor = 0
+	symgetOutputTensorDetails = 0
+	symgetTensorDetails = 0
+	symGetVersion = 0
+	symLoggerForceDisable = 0
+	symLoggerOpenFile = 0
+	symLoggerSetLevel = 0
+	symLoggerSetMask = 0
+	symnetworkAppendTensor = 0
 	fnnetworkAutotuneContraction = nil
-	fnnetworkAutotunePreferenceGetAttribute = nil
-	fnnetworkAutotunePreferenceSetAttribute = nil
+	symnetworkAutotunePreferenceGetAttribute = 0
+	symnetworkAutotunePreferenceSetAttribute = 0
 	fnnetworkContract = nil
-	fnnetworkGetAttribute = nil
-	fnnetworkPrepareContraction = nil
-	fnnetworkSetAttribute = nil
-	fnnetworkSetInputTensorMemory = nil
-	fnnetworkSetOptimizerInfo = nil
-	fnnetworkSetOutputTensor = nil
-	fnnetworkSetOutputTensorMemory = nil
-	fnupdateContractionOptimizerInfoFromPackedData = nil
-	fnworkspaceComputeContractionSizes = nil
-	fnworkspaceGetMemory = nil
-	fnworkspaceGetMemorySize = nil
-	fnworkspacePurgeCache = nil
-	fnworkspaceSetMemory = nil
+	symnetworkGetAttribute = 0
+	symnetworkPrepareContraction = 0
+	symnetworkSetAttribute = 0
+	symnetworkSetInputTensorMemory = 0
+	symnetworkSetOptimizerInfo = 0
+	symnetworkSetOutputTensor = 0
+	symnetworkSetOutputTensorMemory = 0
+	symupdateContractionOptimizerInfoFromPackedData = 0
+	symworkspaceComputeContractionSizes = 0
+	symworkspaceGetMemory = 0
+	symworkspaceGetMemorySize = 0
+	symworkspacePurgeCache = 0
+	symworkspaceSetMemory = 0
 }
 
 // HasGetErrorString reports whether cutensornetGetErrorString resolved in the loaded library.

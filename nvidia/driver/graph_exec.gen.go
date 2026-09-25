@@ -2,7 +2,7 @@
 
 package driver
 
-// BatchMemOpNodeSetParams Sets the parameters for a batch mem op node in the given graphExec.
+// BatchMemOpNodeSetParams sets the parameters for a batch mem op node in the given graphExec.
 //
 // Sets the parameters of a batch mem op node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The following fields on operations may be modified on an executable graph:
@@ -26,7 +26,7 @@ func (g GraphExec) BatchMemOpNodeSetParams(hNode BatchMemOpNode, nodeParams *Bat
 	return graphExecBatchMemOpNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
-// ChildGraphNodeSetParams Updates node parameters in the child graph node in the given graphExec.
+// ChildGraphNodeSetParams updates node parameters in the child graph node in the given graphExec.
 //
 // Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -46,7 +46,7 @@ func (g GraphExec) ChildGraphNodeSetParams(hNode ChildGraphNode, childGraph Grap
 	return graphExecChildGraphNodeSetParams(g, hNode.GraphNode, childGraph)
 }
 
-// Destroy Destroys an executable graph.
+// Destroy destroys an executable graph.
 //
 // Destroys the executable graph specified by hGraphExec, as well as all of its executable nodes. If the executable graph is in-flight, it will not be terminated, but rather freed asynchronously on completion.
 //
@@ -61,7 +61,7 @@ func (g GraphExec) Destroy() error {
 	return graphExecDestroy(g)
 }
 
-// EventRecordNodeSetEvent Sets the event for an event record node in the given graphExec.
+// EventRecordNodeSetEvent sets the event for an event record node in the given graphExec.
 //
 // Sets the event of an event record node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -80,7 +80,7 @@ func (g GraphExec) EventRecordNodeSetEvent(hNode EventRecordNode, event Event) e
 	return graphExecEventRecordNodeSetEvent(g, hNode.GraphNode, event)
 }
 
-// EventWaitNodeSetEvent Sets the event for an event wait node in the given graphExec.
+// EventWaitNodeSetEvent sets the event for an event wait node in the given graphExec.
 //
 // Sets the event of an event wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -99,7 +99,7 @@ func (g GraphExec) EventWaitNodeSetEvent(hNode EventWaitNode, event Event) error
 	return graphExecEventWaitNodeSetEvent(g, hNode.GraphNode, event)
 }
 
-// ExternalSemaphoresSignalNodeSetParams Sets the parameters for an external semaphore signal node in the given graphExec.
+// ExternalSemaphoresSignalNodeSetParams sets the parameters for an external semaphore signal node in the given graphExec.
 //
 // Sets the parameters of an external semaphore signal node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // hNode must not have been removed from the original graph.
@@ -120,7 +120,7 @@ func (g GraphExec) ExternalSemaphoresSignalNodeSetParams(hNode ExternalSemaphore
 	return graphExecExternalSemaphoresSignalNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
-// ExternalSemaphoresWaitNodeSetParams Sets the parameters for an external semaphore wait node in the given graphExec.
+// ExternalSemaphoresWaitNodeSetParams sets the parameters for an external semaphore wait node in the given graphExec.
 //
 // Sets the parameters of an external semaphore wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // hNode must not have been removed from the original graph.
@@ -141,7 +141,7 @@ func (g GraphExec) ExternalSemaphoresWaitNodeSetParams(hNode ExternalSemaphoresW
 	return graphExecExternalSemaphoresWaitNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
-// Flags Query the instantiation flags of an executable graph.
+// Flags queries the instantiation flags of an executable graph.
 //
 // Returns the flags that were passed to instantiation for the given executable graph. [GraphInstantiateFlagUpload] will not be returned by this API as it does not affect the resulting executable graph.
 //
@@ -156,7 +156,7 @@ func (g GraphExec) Flags() (uint64, error) {
 	return graphExecGetFlags(g)
 }
 
-// Id Returns the id of a given graph exec.
+// Id returns the id of a given graph exec.
 //
 // Returns the id of hGraphExec in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint].
 //
@@ -167,7 +167,7 @@ func (g GraphExec) Id() (uint32, error) {
 	return graphExecGetId(g)
 }
 
-// HostNodeSetParams Sets the parameters for a host node in the given graphExec.
+// HostNodeSetParams sets the parameters for a host node in the given graphExec.
 //
 // Updates the work represented by hNode in hGraphExec as though hNode had contained nodeParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -186,7 +186,7 @@ func (g GraphExec) HostNodeSetParams(hNode HostNode, nodeParams *HostNodeParams)
 	return graphExecHostNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
-// KernelNodeSetParams Sets the parameters for a kernel node in the given graphExec.
+// KernelNodeSetParams sets the parameters for a kernel node in the given graphExec.
 //
 // Sets the parameters of a kernel node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // hNode must not have been removed from the original graph. All nodeParams fields may change, but the following restrictions apply to func updates:
@@ -207,7 +207,7 @@ func (g GraphExec) KernelNodeSetParams(hNode KernelNode, nodeParams *KernelNodeP
 	return graphExecKernelNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
-// MemcpyNodeSetParams Sets the parameters for a memcpy node in the given graphExec.
+// MemcpyNodeSetParams sets the parameters for a memcpy node in the given graphExec.
 //
 // Updates the work represented by hNode in hGraphExec as though hNode had contained copyParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // The source and destination memory in copyParams must be allocated from the same contexts as the original source and destination memory. Both the instantiation-time memory operands and the memory operands in copyParams must be 1-dimensional. Zero-length operations are not supported.
@@ -229,7 +229,7 @@ func (g GraphExec) MemcpyNodeSetParams(hNode MemcpyNode, copyParams *Memcpy3d, c
 	return graphExecMemcpyNodeSetParams(g, hNode.GraphNode, copyParams, ctx)
 }
 
-// MemsetNodeSetParams Sets the parameters for a memset node in the given graphExec.
+// MemsetNodeSetParams sets the parameters for a memset node in the given graphExec.
 //
 // Updates the work represented by hNode in hGraphExec as though hNode had contained memsetParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // Zero sized operations are not supported.
@@ -253,7 +253,7 @@ func (g GraphExec) MemsetNodeSetParams(hNode MemsetNode, memsetParams *MemsetNod
 	return graphExecMemsetNodeSetParams(g, hNode.GraphNode, memsetParams, ctx)
 }
 
-// NodeSetParams Update a graph node’s parameters in an instantiated graph.
+// NodeSetParams updates a graph node’s parameters in an instantiated graph.
 //
 // Sets the parameters of a node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph from which the executable graph was instantiated. hNode must not have been removed from the original graph.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -273,7 +273,7 @@ func (g GraphExec) NodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) e
 	return graphExecNodeSetParams(g, hNode, nodeParams)
 }
 
-// Update Check whether an executable graph can be updated with a graph and perform the update if possible.
+// Update checks whether an executable graph can be updated with a graph and performs the update if possible.
 //
 // Updates the node parameters in the instantiated graph specified by hGraphExec with the node parameters in a topologically identical graph specified by hGraph.
 // Limitations:
@@ -298,7 +298,7 @@ func (g GraphExec) Update(hGraph Graph, resultInfo *GraphExecUpdateResultInfo) e
 	return graphExecUpdate(g, hGraph, resultInfo)
 }
 
-// Launch Launches an executable graph in a stream.
+// Launch launches an executable graph in a stream.
 //
 // Executes hGraphExec in hStream. Only one instance of hGraphExec may be executing at a time. Each launch is ordered behind both any previous work in hStream and any previous launches of hGraphExec. To execute a graph concurrently, it must be instantiated multiple times into multiple executable graphs.
 // If any allocations created by hGraphExec remain unfreed (from a previous launch) and hGraphExec was not instantiated with [GraphInstantiateFlagAutoFreeOnLaunch], the launch will fail with [ErrInvalidValue].
@@ -316,7 +316,7 @@ func (g GraphExec) Launch(hStream Stream) error {
 	return graphLaunch(g, hStream)
 }
 
-// Upload Uploads an executable graph in a stream.
+// Upload uploads an executable graph in a stream.
 //
 // Uploads hGraphExec to the device in hStream without executing it. Uploads of the same hGraphExec will be serialized. Each upload is ordered behind both any previous work in hStream and any previous launches of hGraphExec. Uses memory cached by stream to back the allocations owned by hGraphExec.
 //

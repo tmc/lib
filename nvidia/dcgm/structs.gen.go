@@ -28,7 +28,9 @@ type Link struct {
 	Data [4]byte
 }
 
-// ConnectV2ParamsV1 represents connection options for [ConnectV2] (v1) NOTE: This version is deprecated.
+// ConnectV2ParamsV1 represents connection options for [ConnectV2] (v1).
+//
+// Deprecated: This version is deprecated. use [ConnectV2Params].
 type ConnectV2ParamsV1 struct {
 	Version                uint32
 	PersistAfterDisconnect uint32
@@ -55,13 +57,17 @@ type HostengineHealth struct {
 	OverallHealth uint32
 }
 
-// GroupEntityPair represents a entityGroupId + entityId pair to uniquely identify a given entityId inside a group of entities Added in DCGM 1.5.0.
+// GroupEntityPair represents a entityGroupId + entityId pair to uniquely identify a given entityId inside a group of entities.
+//
+// Added in DCGM 1.5.0.
 type GroupEntityPair struct {
 	EntityGroupId FieldEntityGroup
 	EntityId      FieldEid
 }
 
-// GroupInfoV2 stores information for DCGM group Added in DCGM 1.5.0.
+// GroupInfoV2 stores information for DCGM group.
+//
+// Added in DCGM 1.5.0.
 type GroupInfoV2 struct {
 	Version    uint32
 	Count      uint32
@@ -69,7 +75,9 @@ type GroupInfoV2 struct {
 	EntityList [64]GroupEntityPair
 }
 
-// GroupInfo stores information for DCGM group Added in DCGM 1.5.0.
+// GroupInfo stores information for DCGM group.
+//
+// Added in DCGM 1.5.0.
 type GroupInfo struct {
 	Version    uint32
 	Count      uint32
@@ -165,6 +173,8 @@ type ErrorInfo struct {
 }
 
 // ClockSet represents a set of memory, SM, and video clocks for a device.
+//
+// This can be current values or a target values based on context.
 type ClockSet struct {
 	Version  int32
 	MemClock uint32
@@ -506,7 +516,9 @@ type WorkloadPowerProfile struct {
 	ProfileMask [8]uint32
 }
 
-// PolicyViolation represents remove from doxygen documentation Define the structure that contains specific policy information.
+// PolicyViolation represents remove from doxygen documentation.
+//
+// Define the structure that contains specific policy information.
 type PolicyViolation struct {
 	Version                 uint32
 	NotifyOnEccDbe          uint32
@@ -515,6 +527,8 @@ type PolicyViolation struct {
 }
 
 // PolicyConditionParams is a structure for policy condition parameters.
+//
+// This structure contains a tag that represents the type of the value being passed as well as a "val" which is a union of the possible value types. For example, to pass a true boolean: tag = BOOL, val.boolean = 1.
 type PolicyConditionParams struct {
 	Tag int32
 	Val [1]uint64
@@ -615,6 +629,8 @@ type FieldValueV2 struct {
 }
 
 // StatSummaryInt64 represents summary of time series data in int64 format.
+//
+// Each value will either be set or be a BLANK value. Check for blank with the DCGM_INT64_IS_BLANK() macro. dcgmvalue.h for the actual values of BLANK values.
 type StatSummaryInt64 struct {
 	MinValue int64
 	MaxValue int64
@@ -629,6 +645,8 @@ type StatSummaryInt32 struct {
 }
 
 // StatSummaryFp64 represents summary of time series data in double-precision format.
+//
+// Each value will either be set or be a BLANK value. Check for blank with the DCGM_FP64_IS_BLANK() macro. dcgmvalue.h for the actual values of BLANK values.
 type StatSummaryFp64 struct {
 	MinValue float64
 	MaxValue float64
@@ -641,7 +659,9 @@ type DiagErrorDetail struct {
 	Code uint32
 }
 
-// DiagErrorDetailV2 represents error details Since DCGM 3.3.
+// DiagErrorDetailV2 represents error details.
+//
+// Since DCGM 3.3.
 type DiagErrorDetailV2 struct {
 	Msg      [512]byte
 	GpuId    int32
@@ -650,14 +670,18 @@ type DiagErrorDetailV2 struct {
 	Severity uint32
 }
 
-// DiagInfoV1 represents diagnostic plugin per-entity info results v1 Since DCGM 4.0.
+// DiagInfoV1 represents diagnostic plugin per-entity info results v1.
+//
+// Since DCGM 4.0.
 type DiagInfoV1 struct {
 	Entity GroupEntityPair
 	Msg    [512]byte
 	TestId uint32
 }
 
-// DiagErrorV1 represents diagnostic plugin per-entity error results v1 Since DCGM 4.0.
+// DiagErrorV1 represents diagnostic plugin per-entity error results v1.
+//
+// Since DCGM 4.0.
 type DiagErrorV1 struct {
 	Entity   GroupEntityPair
 	Code     uint32
@@ -667,20 +691,28 @@ type DiagErrorV1 struct {
 	TestId   uint32
 }
 
-// DiagEntityResultV1 represents diagnostic plugin per-entity error results v1 Since DCGM 4.0 See also PluginInterface.h: dcgmDiagEntityResults_v1.
+// DiagEntityResultV1 represents diagnostic plugin per-entity error results v1.
+//
+// Since DCGM 4.0 See also PluginInterface.h: dcgmDiagEntityResults_v1.
 type DiagEntityResultV1 struct {
 	Entity GroupEntityPair
 	Result DiagResult
 	TestId uint32
 }
 
-// DiagTestAuxDataV1 represents per test aux data structure v1 Since DCGM 4.0.
+// DiagTestAuxDataV1 represents per test aux data structure v1.
+//
+// Since DCGM 4.0.
 type DiagTestAuxDataV1 struct {
 	Version uint32
 	Data    [2048]byte
 }
 
 // DiagTestRunV2 represents information about each test run.
+//
+// Since DCGM 4.2.
+//
+// Note: This structure is not byte-for-byte compatible with v1. Conversion is required.
 type DiagTestRunV2 struct {
 	Name          [32]byte
 	PluginName    [32]byte
@@ -697,6 +729,10 @@ type DiagTestRunV2 struct {
 }
 
 // DiagTestRunV1 represents information about each test run.
+//
+// Since DCGM 4.0.
+//
+// Deprecated: Use [DiagTestRunV2] instead.
 type DiagTestRunV1 struct {
 	Name          [32]byte
 	PluginName    [32]byte
@@ -713,6 +749,8 @@ type DiagTestRunV1 struct {
 }
 
 // DiagEntityV1 represents additional entity details for entity-centric diagnostic run.
+//
+// Since DCGM 4.0.
 type DiagEntityV1 struct {
 	Entity      GroupEntityPair
 	SerialNum   [256]byte
@@ -727,7 +765,9 @@ type IncidentInfo struct {
 	EntityInfo GroupEntityPair
 }
 
-// HealthResponse represents health response structure version 4 - Simply list the incidents instead of reporting by entity Since DCGM 2.0.
+// HealthResponse represents health response structure version 4 - Simply list the incidents instead of reporting by entity.
+//
+// Since DCGM 2.0.
 type HealthResponse struct {
 	Version       uint32
 	OverallHealth HealthWatchResults
@@ -835,7 +875,7 @@ type GpuUsageInfo struct {
 	Systems                  [10][2]uint32
 }
 
-// JobInfo represents to store job statistics The following fields are not applicable in the summary info: - pcieRxBandwidth (Min/Max) - pcieTxBandwidth (Min/Max) - smUtilization (Min/Max) - memoryUtilization (Min/Max) - memoryClock (Min/Max) - smClock (Min/Max) - processSamples The average value in the above fields (in the summary) is the average of the averages of respective fields from all GPUs.
+// JobInfo represents to store job statistics The following fields are not applicable in the summary info: - pcieRxBandwidth (Min/Max) - pcieTxBandwidth (Min/Max) - smUtilization (Min/Max) - memoryUtilization (Min/Max) - memoryClock (Min/Max) - smClock (Min/Max) - processSamples. The average value in the above fields (in the summary) is the average of the averages of respective fields from all GPUs.
 type JobInfo struct {
 	Version uint32
 	NumGpus int32
@@ -878,14 +918,20 @@ type DiagResponsePerGpuV5 struct {
 	Results            [13]DiagTestResultV3
 }
 
-// DiagResponsePerGpuV3 represents per gpu response structure v3 Since DCGM 2.4.
+// DiagResponsePerGpuV3 represents per gpu response structure v3.
+//
+// Since DCGM 2.4.
 type DiagResponsePerGpuV3 struct {
 	GpuId              uint32
 	HwDiagnosticReturn uint32
 	Results            [9]DiagTestResultV2
 }
 
-// DiagResponse represents global diagnostics result structure v12 Since DCGM 4.2 Note: This structure is not byte-for-byte compatible with v11.
+// DiagResponse represents global diagnostics result structure v12.
+//
+// Since DCGM 4.2.
+//
+// Note: This structure is not byte-for-byte compatible with v11. Conversion is required.
 type DiagResponse struct {
 	Version       uint32
 	NumTests      uint8
@@ -905,7 +951,9 @@ type DiagResponse struct {
 	Unused        [621952]byte
 }
 
-// DiagResponseV11 represents global diagnostics result structure v11 Since DCGM 4.0 @deprecated Use [DiagResponse] instead.
+// DiagResponseV11 represents global diagnostics result structure v11 Since DCGM 4.0.
+//
+// Deprecated: Use [DiagResponse] instead.
 type DiagResponseV11 struct {
 	Version       uint32
 	NumTests      uint8
@@ -925,7 +973,9 @@ type DiagResponseV11 struct {
 	Unused        [682880]byte
 }
 
-// DiagResponseV10 represents global diagnostics result structure v10 Since DCGM 3.3.7 @deprecated Use [DiagResponse] instead.
+// DiagResponseV10 represents global diagnostics result structure v10 Since DCGM 3.3.7.
+//
+// Deprecated: Use [DiagResponse] instead.
 type DiagResponseV10 struct {
 	Version           uint32
 	GpuCount          uint32
@@ -940,7 +990,9 @@ type DiagResponseV10 struct {
 	AuxDataPerTest    [13]DiagTestAuxDataV1
 }
 
-// DiagResponseV9 represents global diagnostics result structure v9 Since DCGM 3.3.
+// DiagResponseV9 represents global diagnostics result structure v9.
+//
+// Since DCGM 3.3.
 type DiagResponseV9 struct {
 	Version           uint32
 	GpuCount          uint32
@@ -955,7 +1007,9 @@ type DiagResponseV9 struct {
 	Unused            [596]byte
 }
 
-// DiagResponseV8 represents global diagnostics result structure v8 Since DCGM 3.0.
+// DiagResponseV8 represents global diagnostics result structure v8.
+//
+// Since DCGM 3.0.
 type DiagResponseV8 struct {
 	Version           uint32
 	GpuCount          uint32
@@ -969,7 +1023,9 @@ type DiagResponseV8 struct {
 	Unused            [596]byte
 }
 
-// DiagResponseV7 represents global diagnostics result structure v7 Since DCGM 2.4.
+// DiagResponseV7 represents global diagnostics result structure v7.
+//
+// Since DCGM 2.4.
 type DiagResponseV7 struct {
 	Version           uint32
 	GpuCount          uint32
@@ -980,7 +1036,9 @@ type DiagResponseV7 struct {
 	Unused            [1024]byte
 }
 
-// DiagStatus represents diagnostics live status structure v1 Since DCGM 4.0.
+// DiagStatus represents diagnostics live status structure v1.
+//
+// Since DCGM 4.0.
 type DiagStatus struct {
 	Version        uint32
 	TotalTests     uint32
@@ -1028,6 +1086,8 @@ type IntrospectMemory struct {
 }
 
 // IntrospectCpuUtil represents DCGM CPU Utilization information.
+//
+// Multiply values by 100 to get them in %.
 type IntrospectCpuUtil struct {
 	Version uint32
 	Total   float64
@@ -1035,7 +1095,9 @@ type IntrospectCpuUtil struct {
 	User    float64
 }
 
-// RunDiagV7 represents run diagnostic structure v7 @deprecated Use [RunDiagV10] instead.
+// RunDiagV7 represents run diagnostic structure v7.
+//
+// Deprecated: Use [RunDiagV10] instead.
 type RunDiagV7 struct {
 	Version            uint32
 	Flags              uint32
@@ -1058,7 +1120,9 @@ type RunDiagV7 struct {
 	FailCheckInterval  uint32
 }
 
-// RunDiagV8 represents run diagnostic structure v8 @deprecated Use [RunDiagV10] instead.
+// RunDiagV8 represents run diagnostic structure v8.
+//
+// Deprecated: Use [RunDiagV10] instead.
 type RunDiagV8 struct {
 	Version             uint32
 	Flags               uint32
@@ -1082,7 +1146,9 @@ type RunDiagV8 struct {
 	ExpectedNumEntities [50]byte
 }
 
-// RunDiagV9 represents run diagnostic structure v9 @deprecated Use [RunDiagV10] instead.
+// RunDiagV9 represents run diagnostic structure v9.
+//
+// Deprecated: Use [RunDiagV10] instead.
 type RunDiagV9 struct {
 	Version             uint32
 	Flags               uint32
@@ -1291,6 +1357,8 @@ type NvLinkGpuLinkP2PStatusV1 struct {
 }
 
 // NvLinkP2PStatus represents P2P status of all of the NvLinks in a given system.
+//
+// numGPUs should be 0 if it is desired to query all GPUs, or the number of gpus entries that have entityId members specifying the GPUs to query. In the former case the entityId members are filled in on exist.
 type NvLinkP2PStatus struct {
 	Version uint32
 	NumGpus uint32
@@ -1329,7 +1397,11 @@ type ModuleGetStatusesStruct struct {
 	Statuses    [16]ModuleGetStatusesModule
 }
 
-// StartEmbeddedV2ParamsV1 represents options for [StartEmbeddedV2] Added in DCGM 2.0.0 Note: size of denyList is changed from DcgmModuleIdCount to a fixed value of DCGM_MODULE_IDS_COUNT_V1.
+// StartEmbeddedV2ParamsV1 represents options for [StartEmbeddedV2].
+//
+// Added in DCGM 2.0.0.
+//
+// Note: size of denyList is changed from DcgmModuleIdCount to a fixed value of DCGM_MODULE_IDS_COUNT_V1.
 type StartEmbeddedV2ParamsV1 struct {
 	Version       uint32
 	OpMode        OperationMode
@@ -1340,7 +1412,11 @@ type StartEmbeddedV2ParamsV1 struct {
 	DenyList      [10]uint32
 }
 
-// StartEmbeddedV2ParamsV2 represents options for [StartEmbeddedV2ParamsV2] Added in DCGM 2.4.0, renamed members in 3.0.0 Note: size of denyList is changed from DcgmModuleIdCount to a fixed value of DCGM_MODULE_IDS_COUNT_V1.
+// StartEmbeddedV2ParamsV2 represents options for [StartEmbeddedV2ParamsV2].
+//
+// Added in DCGM 2.4.0, renamed members in 3.0.0.
+//
+// Note: size of denyList is changed from DcgmModuleIdCount to a fixed value of DCGM_MODULE_IDS_COUNT_V1.
 type StartEmbeddedV2ParamsV2 struct {
 	Version        uint32
 	OpMode         OperationMode
@@ -1352,7 +1428,9 @@ type StartEmbeddedV2ParamsV2 struct {
 	DenyList       [10]uint32
 }
 
-// StartEmbeddedV2Params represents options for [StartEmbeddedV2Params] Added in DCGM 4.3, expanded the size of denyList from [ModuleIdCountV1] to [ModuleIdCountV2].
+// StartEmbeddedV2Params represents options for [StartEmbeddedV2Params].
+//
+// Added in DCGM 4.3, expanded the size of denyList from [ModuleIdCountV1] to [ModuleIdCountV2]
 type StartEmbeddedV2Params struct {
 	Version        uint32
 	OpMode         OperationMode

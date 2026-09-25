@@ -39,10 +39,3 @@ type DeviceSizeArray uintptr
 // The zero value disables per-chunk reporting. The C API permits that, and it
 // turns a failed chunk into silently wrong output.
 type DeviceStatusArray uintptr
-
-// Stream is an opaque CUDA stream handle.
-//
-// The zero value is the CUDA default stream. This package does not create,
-// destroy or synchronize streams; obtain one from whichever CUDA binding the
-// program already uses.
-type Stream uintptr

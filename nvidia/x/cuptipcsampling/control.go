@@ -6,10 +6,11 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 type samplingControlAPI struct {
-	device   func(cupti.Context) (uint32, error)
+	device   func(driver.Context) (uint32, error)
 	version  func() (uint32, error)
 	set, get func(*cupti.PCSamplingConfigurationInfoParams) error
 	enable   func(*cupti.PCSamplingEnableParams) error
@@ -42,11 +43,11 @@ func nativeSamplingControlAPI() samplingControlAPI {
 // The returned function retries failed native cleanup. After successful cleanup,
 // further calls are harmless. A nonnil function returned with an error still owns
 // cleanup and must be called before the context is destroyed.
-func Enable(ctx cupti.Context) (disable func() error, err error) {
+func Enable(ctx driver.Context) (disable func() error, err error) {
 	return enableSampling(ctx, nativeSamplingControlAPI())
 }
 
-func enableSampling(ctx cupti.Context, api samplingControlAPI) (func() error, error) {
+func enableSampling(ctx driver.Context, api samplingControlAPI) (func() error, error) {
 	if ctx == 0 || api.device == nil || api.enable == nil || api.disable == nil {
 		return nil, errors.New("cuptipcsampling: invalid enable request")
 	}
@@ -74,7 +75,7 @@ func enableSampling(ctx cupti.Context, api samplingControlAPI) (func() error, er
 
 // enableSamplingNative leaves ownership to the caller, including on malformed
 // successful output. A failed enable did not acquire native sampling state.
-func enableSamplingNative(ctx cupti.Context, api samplingControlAPI) (func() error, error) {
+func enableSamplingNative(ctx driver.Context, api samplingControlAPI) (func() error, error) {
 	size := enableParamsSize()
 	p := cupti.PCSamplingEnableParams{Size: size, Ctx: ctx}
 	if err := api.enable(&p); err != nil {
@@ -106,7 +107,7 @@ func enableSamplingNative(ctx cupti.Context, api samplingControlAPI) (func() err
 // leave state partly changed, so touched state requires successful disable
 // before any pinned buffers or shared names may be released.
 type samplingControl struct {
-	ctx                                                          cupti.Context
+	ctx                                                          driver.Context
 	config                                                       *samplingConfig
 	api                                                          samplingControlAPI
 	prepared, touched, enabled, startAttempted, failed, disabled bool

@@ -14,6 +14,8 @@ func (s SyevjInfo) Destroy() error {
 
 // XsyevjSetMaxSweeps configures maximum number of sweeps in syevj.
 //
+// The default value is 100.
+//
 //   - maxSweeps: Maximum number of sweeps
 //
 // Returns:
@@ -25,6 +27,8 @@ func (s SyevjInfo) XsyevjSetMaxSweeps(maxSweeps int32) error {
 }
 
 // XsyevjSetSortEig If sortEig is zero, the eigenvalues are not sorted.
+//
+// This function only works for syevjBatched. syevj and sygvj always sort eigenvalues in ascending order. By default, eigenvalues are always sorted in ascending order.
 //
 //   - sortEig: If sortEig is zero, the eigenvalues are not sorted
 //

@@ -6,67 +6,195 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// BlockedEllGet wraps cusparseBlockedEllGet.
+// BlockedEllGet returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - ellBlockSize: Size of the ELL-Block
+//   - ellCols: Actual number of columns of the Blocked-Ellpack format
+//   - ellColInd: Column indices for the ELL-Block. Array with [cols / ellBlockSize][rows / ellBlockSize] elements
+//   - ellValue: Values of the sparse matrix. Array with rows * ellCols elements
+//   - ellIdxType: Data type of ellColInd
+//   - idxBase: Index base of ellColInd
+//   - valueType: Datatype of ellValue
+//
+// Wraps cusparseBlockedEllGet.
 func (s SpMatDescr) BlockedEllGet(rows *int64, cols *int64, ellBlockSize *int64, ellCols *int64, ellColInd *uintptr, ellValue *uintptr, ellIdxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return blockedEllGet(s, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType)
 }
 
-// BsrSetStridedBatch wraps cusparseBsrSetStridedBatch.
+// BsrSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - batchCount: Number of batches of the sparse matrix
+//   - offsetsBatchStride: Address offset between consecutive batches for the row offset array
+//   - columnsBatchStride: Address offset between consecutive batches for the column array
+//
+// Wraps cusparseBsrSetStridedBatch.
 func (s SpMatDescr) BsrSetStridedBatch(batchCount int32, offsetsBatchStride int64, columnsBatchStride int64, valuesBatchStride int64) error {
 	return bsrSetStridedBatch(s, batchCount, offsetsBatchStride, columnsBatchStride, valuesBatchStride)
 }
 
-// CooGet wraps cusparseCooGet.
+// CooGet returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cooRowInd: Row indices of the sparse matrix. Array nnz elements
+//   - cooColInd: Column indices of the sparse matrix. Array nnz elements
+//   - cooValues: Values of the sparse matrix. Array nnz elements
+//   - idxBase: Index base of cooRowInd and cooColInd
+//   - valueType: Datatype of cooValues
+//
+// Wraps cusparseCooGet.
 func (s SpMatDescr) CooGet(rows *int64, cols *int64, nnz *int64, cooRowInd *uintptr, cooColInd *uintptr, cooValues *uintptr, idxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return cooGet(s, rows, cols, nnz, cooRowInd, cooColInd, cooValues, idxType, idxBase, valueType)
 }
 
-// CooSetPointers wraps cusparseCooSetPointers.
+// CooSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
+//
+// [SpMatDescr.CooSetPointers] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - cooRows: Row indices of the sparse matrix. Array with nnz elements
+//   - cooColumns: Column indices of the sparse matrix. Array with nnz elements
+//   - cooValues: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseCooSetPointers.
 func (s SpMatDescr) CooSetPointers(cooRows driver.DevicePtr, cooColumns driver.DevicePtr, cooValues driver.DevicePtr) error {
 	return cooSetPointers(s, cooRows, cooColumns, cooValues)
 }
 
-// CooSetStridedBatch wraps cusparseCooSetStridedBatch.
+// CooSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - batchCount: Number of batches of the sparse matrix
+//   - batchStride: address offset between consecutive batches
+//
+// Wraps cusparseCooSetStridedBatch.
 func (s SpMatDescr) CooSetStridedBatch(batchCount int32, batchStride int64) error {
 	return cooSetStridedBatch(s, batchCount, batchStride)
 }
 
-// CscGet wraps cusparseCscGet.
+// CscGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSC format.
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cscColOffsets: Col offsets of the sparse matrix. Array with cols + 1 elements
+//   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cscValues: Values of the sparse matrix. Array with nnz elements
+//   - cscColOffsetsType: Data type of cscColOffsets
+//   - cscRowIndType: Data type of cscRowInd
+//   - idxBase: Index base of cscColOffsets and cscRowInd
+//   - valueType: Datatype of cscValues
+//
+// Wraps cusparseCscGet.
 func (s SpMatDescr) CscGet(rows *int64, cols *int64, nnz *int64, cscColOffsets *uintptr, cscRowInd *uintptr, cscValues *uintptr, cscColOffsetsType *IndexType, cscRowIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return cscGet(s, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType)
 }
 
-// CscSetPointers wraps cusparseCscSetPointers.
+// CscSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
+//
+// [SpMatDescr.CscSetPointers] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - cscColOffsets: Col offsets of the sparse matrix. Array with cols + 1 elements
+//   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cscValues: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseCscSetPointers.
 func (s SpMatDescr) CscSetPointers(cscColOffsets driver.DevicePtr, cscRowInd driver.DevicePtr, cscValues driver.DevicePtr) error {
 	return cscSetPointers(s, cscColOffsets, cscRowInd, cscValues)
 }
 
-// CsrGet wraps cusparseCsrGet.
+// CsrGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSR format.
+//
+// See [Result] for the description of the return status.
+//
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
+//   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - csrValues: Values of the sparse matrix. Array with nnz elements
+//   - csrRowOffsetsType: Data type of csrRowOffsets
+//   - csrColIndType: Data type of csrColInd
+//   - idxBase: Index base of csrRowOffsets and csrColInd
+//   - valueType: Datatype of csrValues
+//
+// Wraps cusparseCsrGet.
 func (s SpMatDescr) CsrGet(rows *int64, cols *int64, nnz *int64, csrRowOffsets *uintptr, csrColInd *uintptr, csrValues *uintptr, csrRowOffsetsType *IndexType, csrColIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return csrGet(s, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType)
 }
 
-// CsrSetPointers wraps cusparseCsrSetPointers.
+// CsrSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
+//
+// [SpMatDescr.CsrSetPointers] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
+//   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - csrValues: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseCsrSetPointers.
 func (s SpMatDescr) CsrSetPointers(csrRowOffsets driver.DevicePtr, csrColInd driver.DevicePtr, csrValues driver.DevicePtr) error {
 	return csrSetPointers(s, csrRowOffsets, csrColInd, csrValues)
 }
 
-// CsrSetStridedBatch wraps cusparseCsrSetStridedBatch.
+// CsrSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - batchCount: Number of batches of the sparse matrix
+//   - offsetsBatchStride: Address offset between consecutive batches for the row offset array
+//   - columnsValuesBatchStride: Address offset between consecutive batches for the column and value arrays
+//
+// Wraps cusparseCsrSetStridedBatch.
 func (s SpMatDescr) CsrSetStridedBatch(batchCount int32, offsetsBatchStride int64, columnsValuesBatchStride int64) error {
 	return csrSetStridedBatch(s, batchCount, offsetsBatchStride, columnsValuesBatchStride)
 }
 
-// MatGetValues wraps cusparseSpMatGetValues.
+// MatGetValues returns the values field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - values: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseSpMatGetValues.
 func (s SpMatDescr) MatGetValues(values *uintptr) error {
 	return spMatGetValues(s, values)
 }
 
-// MatSetAttribute wraps cusparseSpMatSetAttribute.
+// MatSetAttribute sets the attributes of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - attribute: Attribute enumerator
+//   - data: Attribute value
+//   - dataSize: Size of the attribute in bytes for safety
+//
+// Wraps cusparseSpMatSetAttribute.
 func (s SpMatDescr) MatSetAttribute(attribute SpMatAttribute, data uintptr, dataSize uint) error {
 	return spMatSetAttribute(s, attribute, data, dataSize)
 }
 
-// MatSetValues wraps cusparseSpMatSetValues.
+// MatSetValues sets the values field of the sparse matrix descriptor spMatDescr.
+//
+// [SpMatDescr.MatSetValues] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - values: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseSpMatSetValues.
 func (s SpMatDescr) MatSetValues(values driver.DevicePtr) error {
 	return spMatSetValues(s, values)
 }

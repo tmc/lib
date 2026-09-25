@@ -239,8 +239,8 @@
 //
 // # Stream API
 //
-//   - [StreamHandle.Stream]: Retrieve a [Stream] handle from a [StreamHandle] handle.
-//   - [GetStreamHandle]: Retrieve a [StreamHandle] handle from a [Stream] handle
+//   - [StreamHandle.Stream]: Retrieve a CUstream handle from a [StreamHandle] handle.
+//   - [GetStreamHandle]: Retrieve a [StreamHandle] handle from a CUstream handle
 //   - [StreamHandle.Synchronize]: Synchronize a given stream.
 //
 // [Compute Sanitizer API Documentation]: https://docs.nvidia.com/compute-sanitizer/SanitizerApiGuide/

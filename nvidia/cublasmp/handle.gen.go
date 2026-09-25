@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-// NewHandle Initializes the cuBLASMp library handle.
+// NewHandle initializes the cuBLASMp library handle.
 //
 // This function initializes the cuBLASMp library handle ([Handle]) which holds
 // the cuBLASMp library context. It allocates light hardware resources on the host, and
@@ -27,7 +27,7 @@ func NewHandle(stream driver.Stream) (Handle, error) {
 	return Create(stream)
 }
 
-// Destroy Destroys the cuBLASMp library handle.
+// Destroy destroys the cuBLASMp library handle.
 //
 // This function destroys the cuBLASMp library handle ([Handle]) which holds
 // the cuBLASMp library context. The handle remains associated with the CUDA
@@ -38,7 +38,7 @@ func (h Handle) Destroy() error {
 	return Destroy(h)
 }
 
-// Gemm Performs a distributed matrix-matrix multiplication (C = alpha * op(A) * op(B) + beta * C).
+// Gemm performs a distributed matrix-matrix multiplication (C = alpha * op(A) * op(B) + beta * C).
 //
 // This function performs the matrix-matrix multiplication:
 // C = alpha * op(A) * op(B) + beta * C
@@ -90,7 +90,7 @@ func (h Handle) Gemm(transA cublas.Operation, transB cublas.Operation, m int64, 
 	return Gemm(h, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, dWork, workspaceSizeInBytesOnDevice, hWork, workspaceSizeInBytesOnHost)
 }
 
-// GemmBufferSize Computes the workspace size required by [Handle.Gemm].
+// GemmBufferSize computes the workspace size required by [Handle.Gemm].
 //
 // This function returns the required buffer sizes to perform [Handle.Gemm] on the
 // given input. [Handle.Gemm] uses cublasMpMatmul() semantics with D == C.
@@ -135,7 +135,7 @@ func (h Handle) GemmBufferSize(transA cublas.Operation, transB cublas.Operation,
 	return GemmBufferSize(h, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType)
 }
 
-// SetStream Sets the CUDA stream for cuBLASMp computations.
+// SetStream sets the CUDA stream for cuBLASMp computations.
 //
 // This function sets the CUDA stream to be used in the computations.
 // The new stream must belong to the same CUDA context as the stream associated
@@ -148,7 +148,7 @@ func (h Handle) SetStream(stream driver.Stream) error {
 	return SetStream(h, stream)
 }
 
-// Stream Gets the current CUDA stream used by the cuBLASMp library.
+// Stream gets the current CUDA stream used by the cuBLASMp library.
 //
 // This function returns the current CUDA stream that is being used in the computations.
 //

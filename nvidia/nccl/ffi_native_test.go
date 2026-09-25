@@ -74,8 +74,7 @@ func testTeamFFI(t *testing.T, lib string) {
 	if err := CftBarrierCreateRequirement(team, 42, &cft, &req); err != nil || cft.NBarriers != 42 {
 		t.Fatalf("cft = %+v, %v", cft, err)
 	}
-	var offset uint
-	if id, err := Window(7).CftDeviceLeInfo(19, 42, team, &offset); err != nil || id != 42 || offset != 19 {
+	if id, offset, err := Window(7).CftDeviceLeInfo(19, 42, team); err != nil || id != 42 || offset != 19 {
 		t.Fatalf("device = %d/%d, %v", id, offset, err)
 	}
 	// The 128-byte UniqueId stays on stock purego, independently of Team.

@@ -8,9 +8,6 @@ package cufile
 // CudaResult is a CUDA driver result code.
 type CudaResult int32
 
-// Stream is an opaque CUDA stream handle.
-type Stream uintptr
-
 // Timespec is a Linux timespec value.
 type Timespec struct {
 	_    [0]uint64

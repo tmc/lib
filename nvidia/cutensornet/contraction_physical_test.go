@@ -234,7 +234,7 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 	defer stream.Destroy()
 
 	in := []uintptr{uintptr(dA), uintptr(dB)}
-	if err := plan.Contract(in, uintptr(dC), false, 0, cutensornet.Stream(stream)); err != nil {
+	if err := plan.Contract(in, uintptr(dC), false, 0, driver.Stream(stream)); err != nil {
 		t.Fatalf("ContractSlices: %v", err)
 	}
 	if err := stream.Synchronize(); err != nil {

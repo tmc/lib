@@ -2,7 +2,7 @@
 
 package nvml
 
-// NewEventSet Create an empty set of events.
+// NewEventSet creates an empty set of events.
 //
 // Event set should be freed by [EventSet.Free]
 // For Fermi or newer fully supported devices.
@@ -11,6 +11,12 @@ package nvml
 //
 //   - set: Reference in which to return the event handle
 //
+// Returns:
+//   - [ErrInvalidArgument]: if set is NULL
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if the event has been set
+//
 // Wraps [nvmlEventSetCreate].
 //
 // [nvmlEventSetCreate]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv418nvmlEventSetCreateP14nvmlEventSet_t
@@ -18,11 +24,16 @@ func NewEventSet() (EventSet, error) {
 	return eventSetCreate()
 }
 
-// Free Releases events in the set.
+// Free releases events in the set.
 //
 // For Fermi or newer fully supported devices.
 //
 // See also: [Device.RegisterEvents]
+//
+// Returns:
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if the event has been successfully released
 //
 // Wraps [nvmlEventSetFree].
 //
@@ -31,7 +42,7 @@ func (e EventSet) Free() error {
 	return eventSetFree(e)
 }
 
-// Wait Waits on events and delivers events.
+// Wait waits on events and delivers events.
 //
 // For Fermi or newer fully supported devices.
 // If some events are ready to be delivered at the time of the call, function returns immediately. If there are no events ready to be delivered, function sleeps till event arrives but not longer than specified timeout. This function in certain conditions can return before specified timeout passes (e.g. when interrupt arrives)
@@ -44,6 +55,14 @@ func (e EventSet) Free() error {
 //
 //   - data: Reference in which to return event data
 //   - timeoutms: Maximum amount of wait time in milliseconds for registered event
+//
+// Returns:
+//   - [ErrGpuIsLost]: if a GPU has fallen off the bus or is otherwise inaccessible
+//   - [ErrInvalidArgument]: if set or data is NULL
+//   - [ErrTimeout]: if no event arrived in specified timeout or interrupt arrived
+//   - [ErrUninitialized]: if the library has not been successfully initialized
+//   - [ErrUnknown]: on any unexpected error
+//   - [Success]: if the data has been set
 //
 // Wraps [nvmlEventSetWait], bound as nvmlEventSetWait_v2.
 //

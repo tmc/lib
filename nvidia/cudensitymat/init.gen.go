@@ -321,6 +321,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -406,90 +421,90 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnCreate, "cudensitymatCreate")
+	symCreate = registerSym("cudensitymatCreate")
 	register(&fncreateElementaryOperator, "cudensitymatCreateElementaryOperator")
-	register(&fncreateExpectation, "cudensitymatCreateExpectation")
-	register(&fncreateOperator, "cudensitymatCreateOperator")
-	register(&fncreateOperatorTerm, "cudensitymatCreateOperatorTerm")
-	register(&fncreateState, "cudensitymatCreateState")
-	register(&fncreateWorkspace, "cudensitymatCreateWorkspace")
-	register(&fndestroy, "cudensitymatDestroy")
-	register(&fndestroyElementaryOperator, "cudensitymatDestroyElementaryOperator")
-	register(&fndestroyExpectation, "cudensitymatDestroyExpectation")
-	register(&fndestroyOperator, "cudensitymatDestroyOperator")
-	register(&fndestroyOperatorTerm, "cudensitymatDestroyOperatorTerm")
-	register(&fndestroyState, "cudensitymatDestroyState")
-	register(&fndestroyWorkspace, "cudensitymatDestroyWorkspace")
-	register(&fnelementaryOperatorAttachBuffer, "cudensitymatElementaryOperatorAttachBuffer")
+	symcreateExpectation = registerSym("cudensitymatCreateExpectation")
+	symcreateOperator = registerSym("cudensitymatCreateOperator")
+	symcreateOperatorTerm = registerSym("cudensitymatCreateOperatorTerm")
+	symcreateState = registerSym("cudensitymatCreateState")
+	symcreateWorkspace = registerSym("cudensitymatCreateWorkspace")
+	symdestroy = registerSym("cudensitymatDestroy")
+	symdestroyElementaryOperator = registerSym("cudensitymatDestroyElementaryOperator")
+	symdestroyExpectation = registerSym("cudensitymatDestroyExpectation")
+	symdestroyOperator = registerSym("cudensitymatDestroyOperator")
+	symdestroyOperatorTerm = registerSym("cudensitymatDestroyOperatorTerm")
+	symdestroyState = registerSym("cudensitymatDestroyState")
+	symdestroyWorkspace = registerSym("cudensitymatDestroyWorkspace")
+	symelementaryOperatorAttachBuffer = registerSym("cudensitymatElementaryOperatorAttachBuffer")
 	register(&fnexpectationCompute, "cudensitymatExpectationCompute")
 	register(&fnexpectationPrepare, "cudensitymatExpectationPrepare")
-	register(&fngetNumRanks, "cudensitymatGetNumRanks")
-	register(&fngetProcRank, "cudensitymatGetProcRank")
-	register(&fnGetVersion, "cudensitymatGetVersion")
+	symgetNumRanks = registerSym("cudensitymatGetNumRanks")
+	symgetProcRank = registerSym("cudensitymatGetProcRank")
+	symGetVersion = registerSym("cudensitymatGetVersion")
 	register(&fnoperatorAppendTerm, "cudensitymatOperatorAppendTerm")
 	register(&fnoperatorComputeAction, "cudensitymatOperatorComputeAction")
 	register(&fnoperatorPrepareAction, "cudensitymatOperatorPrepareAction")
 	register(&fnoperatorTermAppendElementaryProduct, "cudensitymatOperatorTermAppendElementaryProduct")
-	register(&fnresetDistributedConfiguration, "cudensitymatResetDistributedConfiguration")
-	register(&fnresetRandomSeed, "cudensitymatResetRandomSeed")
-	register(&fnstateAttachComponentStorage, "cudensitymatStateAttachComponentStorage")
+	symresetDistributedConfiguration = registerSym("cudensitymatResetDistributedConfiguration")
+	symresetRandomSeed = registerSym("cudensitymatResetRandomSeed")
+	symstateAttachComponentStorage = registerSym("cudensitymatStateAttachComponentStorage")
 	register(&fnstateComputeAccumulation, "cudensitymatStateComputeAccumulation")
 	register(&fnstateComputeInnerProduct, "cudensitymatStateComputeInnerProduct")
 	register(&fnstateComputeNorm, "cudensitymatStateComputeNorm")
 	register(&fnstateComputeScaling, "cudensitymatStateComputeScaling")
 	register(&fnstateComputeTrace, "cudensitymatStateComputeTrace")
-	register(&fnstateGetComponentInfo, "cudensitymatStateGetComponentInfo")
-	register(&fnstateGetComponentNumModes, "cudensitymatStateGetComponentNumModes")
-	register(&fnstateGetComponentStorageSize, "cudensitymatStateGetComponentStorageSize")
-	register(&fnstateGetNumComponents, "cudensitymatStateGetNumComponents")
+	symstateGetComponentInfo = registerSym("cudensitymatStateGetComponentInfo")
+	symstateGetComponentNumModes = registerSym("cudensitymatStateGetComponentNumModes")
+	symstateGetComponentStorageSize = registerSym("cudensitymatStateGetComponentStorageSize")
+	symstateGetNumComponents = registerSym("cudensitymatStateGetNumComponents")
 	register(&fnstateInitializeZero, "cudensitymatStateInitializeZero")
-	register(&fnworkspaceGetMemory, "cudensitymatWorkspaceGetMemory")
-	register(&fnworkspaceGetMemorySize, "cudensitymatWorkspaceGetMemorySize")
-	register(&fnworkspaceSetMemory, "cudensitymatWorkspaceSetMemory")
+	symworkspaceGetMemory = registerSym("cudensitymatWorkspaceGetMemory")
+	symworkspaceGetMemorySize = registerSym("cudensitymatWorkspaceGetMemorySize")
+	symworkspaceSetMemory = registerSym("cudensitymatWorkspaceSetMemory")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnCreate = nil
+	symCreate = 0
 	fncreateElementaryOperator = nil
-	fncreateExpectation = nil
-	fncreateOperator = nil
-	fncreateOperatorTerm = nil
-	fncreateState = nil
-	fncreateWorkspace = nil
-	fndestroy = nil
-	fndestroyElementaryOperator = nil
-	fndestroyExpectation = nil
-	fndestroyOperator = nil
-	fndestroyOperatorTerm = nil
-	fndestroyState = nil
-	fndestroyWorkspace = nil
-	fnelementaryOperatorAttachBuffer = nil
+	symcreateExpectation = 0
+	symcreateOperator = 0
+	symcreateOperatorTerm = 0
+	symcreateState = 0
+	symcreateWorkspace = 0
+	symdestroy = 0
+	symdestroyElementaryOperator = 0
+	symdestroyExpectation = 0
+	symdestroyOperator = 0
+	symdestroyOperatorTerm = 0
+	symdestroyState = 0
+	symdestroyWorkspace = 0
+	symelementaryOperatorAttachBuffer = 0
 	fnexpectationCompute = nil
 	fnexpectationPrepare = nil
-	fngetNumRanks = nil
-	fngetProcRank = nil
-	fnGetVersion = nil
+	symgetNumRanks = 0
+	symgetProcRank = 0
+	symGetVersion = 0
 	fnoperatorAppendTerm = nil
 	fnoperatorComputeAction = nil
 	fnoperatorPrepareAction = nil
 	fnoperatorTermAppendElementaryProduct = nil
-	fnresetDistributedConfiguration = nil
-	fnresetRandomSeed = nil
-	fnstateAttachComponentStorage = nil
+	symresetDistributedConfiguration = 0
+	symresetRandomSeed = 0
+	symstateAttachComponentStorage = 0
 	fnstateComputeAccumulation = nil
 	fnstateComputeInnerProduct = nil
 	fnstateComputeNorm = nil
 	fnstateComputeScaling = nil
 	fnstateComputeTrace = nil
-	fnstateGetComponentInfo = nil
-	fnstateGetComponentNumModes = nil
-	fnstateGetComponentStorageSize = nil
-	fnstateGetNumComponents = nil
+	symstateGetComponentInfo = 0
+	symstateGetComponentNumModes = 0
+	symstateGetComponentStorageSize = 0
+	symstateGetNumComponents = 0
 	fnstateInitializeZero = nil
-	fnworkspaceGetMemory = nil
-	fnworkspaceGetMemorySize = nil
-	fnworkspaceSetMemory = nil
+	symworkspaceGetMemory = 0
+	symworkspaceGetMemorySize = 0
+	symworkspaceSetMemory = 0
 }
 
 // HasCreate reports whether cudensitymatCreate resolved in the loaded library.

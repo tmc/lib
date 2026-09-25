@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cutensor"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Example creates a cuTENSOR handle and describes a rank-2 tensor.
@@ -105,7 +106,7 @@ func ExampleHandle_Contract() {
 	err = h.Contract(plan,
 		unsafe.Pointer(&alpha), dA, dB,
 		unsafe.Pointer(&beta), dC, dC,
-		dWorkspace, wsSize, cutensor.Stream(0))
+		dWorkspace, wsSize, driver.Stream(0))
 	if err != nil {
 		fmt.Println("contract:", err)
 		return

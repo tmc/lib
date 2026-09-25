@@ -324,6 +324,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := purego.Dlsym(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -409,90 +424,90 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnConfigCreate, "cudssConfigCreate")
-	register(&fnConfigDestroy, "cudssConfigDestroy")
-	register(&fnConfigGet, "cudssConfigGet")
-	register(&fnConfigSet, "cudssConfigSet")
-	register(&fnCreate, "cudssCreate")
-	register(&fnCreateMg, "cudssCreateMg")
-	register(&fnDataCreate, "cudssDataCreate")
-	register(&fnDataDestroy, "cudssDataDestroy")
-	register(&fnDataGet, "cudssDataGet")
-	register(&fnDataSet, "cudssDataSet")
-	register(&fnDestroy, "cudssDestroy")
-	register(&fnExecute, "cudssExecute")
-	register(&fnGetDeviceMemHandler, "cudssGetDeviceMemHandler")
-	register(&fnGetProperty, "cudssGetProperty")
-	register(&fnLoggerForceDisable, "cudssLoggerForceDisable")
-	register(&fnLoggerOpenFile, "cudssLoggerOpenFile")
-	register(&fnLoggerSetCallback, "cudssLoggerSetCallback")
-	register(&fnLoggerSetLevel, "cudssLoggerSetLevel")
-	register(&fnLoggerSetMask, "cudssLoggerSetMask")
-	register(&fnMatrixCreateBatchCsr, "cudssMatrixCreateBatchCsr")
-	register(&fnMatrixCreateBatchDn, "cudssMatrixCreateBatchDn")
-	register(&fnMatrixCreateCsr, "cudssMatrixCreateCsr")
-	register(&fnMatrixCreateDn, "cudssMatrixCreateDn")
-	register(&fnMatrixDestroy, "cudssMatrixDestroy")
-	register(&fnMatrixGetBatchCsr, "cudssMatrixGetBatchCsr")
-	register(&fnMatrixGetBatchDn, "cudssMatrixGetBatchDn")
-	register(&fnMatrixGetCsr, "cudssMatrixGetCsr")
-	register(&fnMatrixGetDistributionRow1d, "cudssMatrixGetDistributionRow1d")
-	register(&fnMatrixGetDn, "cudssMatrixGetDn")
-	register(&fnMatrixGetFormat, "cudssMatrixGetFormat")
-	register(&fnMatrixSetBatchCsrPointers, "cudssMatrixSetBatchCsrPointers")
-	register(&fnMatrixSetBatchValues, "cudssMatrixSetBatchValues")
-	register(&fnMatrixSetCsrPointers, "cudssMatrixSetCsrPointers")
-	register(&fnMatrixSetDistributionRow1d, "cudssMatrixSetDistributionRow1d")
-	register(&fnMatrixSetValues, "cudssMatrixSetValues")
-	register(&fnSetCommLayer, "cudssSetCommLayer")
-	register(&fnSetDeviceMemHandler, "cudssSetDeviceMemHandler")
-	register(&fnSetMgStreams, "cudssSetMgStreams")
+	symConfigCreate = registerSym("cudssConfigCreate")
+	symConfigDestroy = registerSym("cudssConfigDestroy")
+	symConfigGet = registerSym("cudssConfigGet")
+	symConfigSet = registerSym("cudssConfigSet")
+	symCreate = registerSym("cudssCreate")
+	symCreateMg = registerSym("cudssCreateMg")
+	symDataCreate = registerSym("cudssDataCreate")
+	symDataDestroy = registerSym("cudssDataDestroy")
+	symDataGet = registerSym("cudssDataGet")
+	symDataSet = registerSym("cudssDataSet")
+	symDestroy = registerSym("cudssDestroy")
+	symExecute = registerSym("cudssExecute")
+	symGetDeviceMemHandler = registerSym("cudssGetDeviceMemHandler")
+	symGetProperty = registerSym("cudssGetProperty")
+	symLoggerForceDisable = registerSym("cudssLoggerForceDisable")
+	symLoggerOpenFile = registerSym("cudssLoggerOpenFile")
+	symLoggerSetCallback = registerSym("cudssLoggerSetCallback")
+	symLoggerSetLevel = registerSym("cudssLoggerSetLevel")
+	symLoggerSetMask = registerSym("cudssLoggerSetMask")
+	symMatrixCreateBatchCsr = registerSym("cudssMatrixCreateBatchCsr")
+	symMatrixCreateBatchDn = registerSym("cudssMatrixCreateBatchDn")
+	symMatrixCreateCsr = registerSym("cudssMatrixCreateCsr")
+	symMatrixCreateDn = registerSym("cudssMatrixCreateDn")
+	symMatrixDestroy = registerSym("cudssMatrixDestroy")
+	symMatrixGetBatchCsr = registerSym("cudssMatrixGetBatchCsr")
+	symMatrixGetBatchDn = registerSym("cudssMatrixGetBatchDn")
+	symMatrixGetCsr = registerSym("cudssMatrixGetCsr")
+	symMatrixGetDistributionRow1d = registerSym("cudssMatrixGetDistributionRow1d")
+	symMatrixGetDn = registerSym("cudssMatrixGetDn")
+	symMatrixGetFormat = registerSym("cudssMatrixGetFormat")
+	symMatrixSetBatchCsrPointers = registerSym("cudssMatrixSetBatchCsrPointers")
+	symMatrixSetBatchValues = registerSym("cudssMatrixSetBatchValues")
+	symMatrixSetCsrPointers = registerSym("cudssMatrixSetCsrPointers")
+	symMatrixSetDistributionRow1d = registerSym("cudssMatrixSetDistributionRow1d")
+	symMatrixSetValues = registerSym("cudssMatrixSetValues")
+	symSetCommLayer = registerSym("cudssSetCommLayer")
+	symSetDeviceMemHandler = registerSym("cudssSetDeviceMemHandler")
+	symSetMgStreams = registerSym("cudssSetMgStreams")
 	register(&fnSetStream, "cudssSetStream")
-	register(&fnSetThreadingLayer, "cudssSetThreadingLayer")
+	symSetThreadingLayer = registerSym("cudssSetThreadingLayer")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnConfigCreate = nil
-	fnConfigDestroy = nil
-	fnConfigGet = nil
-	fnConfigSet = nil
-	fnCreate = nil
-	fnCreateMg = nil
-	fnDataCreate = nil
-	fnDataDestroy = nil
-	fnDataGet = nil
-	fnDataSet = nil
-	fnDestroy = nil
-	fnExecute = nil
-	fnGetDeviceMemHandler = nil
-	fnGetProperty = nil
-	fnLoggerForceDisable = nil
-	fnLoggerOpenFile = nil
-	fnLoggerSetCallback = nil
-	fnLoggerSetLevel = nil
-	fnLoggerSetMask = nil
-	fnMatrixCreateBatchCsr = nil
-	fnMatrixCreateBatchDn = nil
-	fnMatrixCreateCsr = nil
-	fnMatrixCreateDn = nil
-	fnMatrixDestroy = nil
-	fnMatrixGetBatchCsr = nil
-	fnMatrixGetBatchDn = nil
-	fnMatrixGetCsr = nil
-	fnMatrixGetDistributionRow1d = nil
-	fnMatrixGetDn = nil
-	fnMatrixGetFormat = nil
-	fnMatrixSetBatchCsrPointers = nil
-	fnMatrixSetBatchValues = nil
-	fnMatrixSetCsrPointers = nil
-	fnMatrixSetDistributionRow1d = nil
-	fnMatrixSetValues = nil
-	fnSetCommLayer = nil
-	fnSetDeviceMemHandler = nil
-	fnSetMgStreams = nil
+	symConfigCreate = 0
+	symConfigDestroy = 0
+	symConfigGet = 0
+	symConfigSet = 0
+	symCreate = 0
+	symCreateMg = 0
+	symDataCreate = 0
+	symDataDestroy = 0
+	symDataGet = 0
+	symDataSet = 0
+	symDestroy = 0
+	symExecute = 0
+	symGetDeviceMemHandler = 0
+	symGetProperty = 0
+	symLoggerForceDisable = 0
+	symLoggerOpenFile = 0
+	symLoggerSetCallback = 0
+	symLoggerSetLevel = 0
+	symLoggerSetMask = 0
+	symMatrixCreateBatchCsr = 0
+	symMatrixCreateBatchDn = 0
+	symMatrixCreateCsr = 0
+	symMatrixCreateDn = 0
+	symMatrixDestroy = 0
+	symMatrixGetBatchCsr = 0
+	symMatrixGetBatchDn = 0
+	symMatrixGetCsr = 0
+	symMatrixGetDistributionRow1d = 0
+	symMatrixGetDn = 0
+	symMatrixGetFormat = 0
+	symMatrixSetBatchCsrPointers = 0
+	symMatrixSetBatchValues = 0
+	symMatrixSetCsrPointers = 0
+	symMatrixSetDistributionRow1d = 0
+	symMatrixSetValues = 0
+	symSetCommLayer = 0
+	symSetDeviceMemHandler = 0
+	symSetMgStreams = 0
 	fnSetStream = nil
-	fnSetThreadingLayer = nil
+	symSetThreadingLayer = 0
 }
 
 // HasConfigCreate reports whether cudssConfigCreate resolved in the loaded library.

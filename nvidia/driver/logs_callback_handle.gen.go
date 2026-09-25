@@ -2,7 +2,7 @@
 
 package driver
 
-// UnregisterCallback Unregister a log message callback.
+// UnregisterCallback unregisters a log message callback.
 //
 // Wraps cuLogsUnregisterCallback.
 func (l LogsCallbackHandle) UnregisterCallback() error {

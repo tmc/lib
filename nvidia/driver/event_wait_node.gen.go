@@ -10,7 +10,7 @@ type EventWaitNode struct {
 	GraphNode
 }
 
-// Event Returns the event associated with an event wait node.
+// Event returns the event associated with an event wait node.
 //
 // Returns the event of event wait node hNode in eventOut.
 //
@@ -25,7 +25,7 @@ func (e EventWaitNode) Event() (Event, error) {
 	return graphEventWaitNodeGetEvent(e.GraphNode)
 }
 
-// SetEvent Sets an event wait node’s event.
+// SetEvent sets an event wait node’s event.
 //
 // Sets the event of event wait node hNode to event.
 //

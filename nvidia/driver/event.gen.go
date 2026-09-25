@@ -2,7 +2,7 @@
 
 package driver
 
-// Destroy Destroys an event.
+// Destroy destroys an event.
 //
 // Destroys the event specified by hEvent.
 // An event may be destroyed before it is complete (i.e., while [Event.Query] would return [ErrNotReady]). In this case, the call does not block on completion of the event, and any associated resources will automatically be released asynchronously at completion.
@@ -16,7 +16,7 @@ func (e Event) Destroy() error {
 	return eventDestroy(e)
 }
 
-// ElapsedTime Computes the elapsed time between two events.
+// ElapsedTime computes the elapsed time between two events.
 //
 // Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds). Note this API is not guaranteed to return the latest errors for pending work. As such this API is intended to serve as an elapsed time calculation only and any polling for completion on the events to be compared should be done with [Event.Query] instead.
 // If either event was last recorded in a non-NULL stream, the resulting time may be greater than expected (even if both used the same stream handle). This happens because the [Event.Record] operation takes place asynchronously and there is no guarantee that the measured latency is actually just between the two events. Any number of other different stream operations could execute in between the two measured events, thus altering the timing in a significant way.
@@ -33,7 +33,7 @@ func (e Event) ElapsedTime(hEnd Event) (float32, error) {
 	return eventElapsedTime(e, hEnd)
 }
 
-// Query Queries an event’s status.
+// Query queries an event’s status.
 //
 // Queries the status of all work currently captured by hEvent. See [Event.Record] for details on what is captured by an event.
 // Returns [Success] if all captured work has been completed, or [ErrNotReady] if any captured work is incomplete.
@@ -48,7 +48,7 @@ func (e Event) Query() error {
 	return eventQuery(e)
 }
 
-// Record Records an event.
+// Record records an event.
 //
 // Captures in hEvent the contents of hStream at the time of this call. hEvent and hStream must be from the same context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [Stream.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hStream after this call do not modify hEvent. See note on default stream behavior for what is captured in the default case.
 // [Event.Record] can be called multiple times on the same event and will overwrite the previously captured state. Other APIs such as [Stream.WaitEvent] use the most recently captured state at the time of the API call, and are not affected by later calls to [Event.Record]. Before the first call to [Event.Record], an event represents an empty set of work, so for example [Event.Query] would return [Success].
@@ -66,7 +66,7 @@ func (e Event) Record(hStream Stream) error {
 	return eventRecord(e, hStream)
 }
 
-// RecordWithFlags Records an event.
+// RecordWithFlags records an event.
 //
 // Captures in hEvent the contents of hStream at the time of this call. hEvent and hStream must be from the same context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [Stream.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hStream after this call do not modify hEvent. See note on default stream behavior for what is captured in the default case.
 // [Event.RecordWithFlags] can be called multiple times on the same event and will overwrite the previously captured state. Other APIs such as [Stream.WaitEvent] use the most recently captured state at the time of the API call, and are not affected by later calls to [Event.RecordWithFlags]. Before the first call to [Event.RecordWithFlags], an event represents an empty set of work, so for example [Event.Query] would return [Success].
@@ -86,7 +86,7 @@ func (e Event) RecordWithFlags(hStream Stream, flags EventRecordFlags) error {
 	return eventRecordWithFlags(e, hStream, flags)
 }
 
-// Synchronize Waits for an event to complete.
+// Synchronize waits for an event to complete.
 //
 // Waits until the completion of all work currently captured in hEvent. See [Event.Record] for details on what is captured by an event.
 // Waiting for an event that was created with the [EventBlockingSync] flag will cause the calling CPU thread to block until the event has been completed by the device. If the [EventBlockingSync] flag has not been set, then the CPU thread will busy-wait until the event has been completed by the device.
@@ -100,7 +100,7 @@ func (e Event) Synchronize() error {
 	return eventSynchronize(e)
 }
 
-// IpcGetEventHandle Gets an interprocess handle for a previously allocated event.
+// IpcGetEventHandle gets an interprocess handle for a previously allocated event.
 //
 // Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes.
 // After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior.
@@ -113,7 +113,7 @@ func (e Event) IpcGetEventHandle() (IpcEventHandle, error) {
 	return ipcGetEventHandle(e)
 }
 
-// NewEvent Creates an event.
+// NewEvent creates an event.
 //
 // Creates an event *phEvent for the current context with the flags specified via Flags. Valid flags include:
 //

@@ -27,6 +27,8 @@ type PciInfo struct {
 }
 
 // EccErrorCounts represents detailed ECC error counts for a device.
+//
+// Deprecated: Different GPU families can have different memory error counters See [Device.MemoryErrorCounter].
 type EccErrorCounts struct {
 	L1Cache      uint64
 	L2Cache      uint64
@@ -35,12 +37,16 @@ type EccErrorCounts struct {
 }
 
 // Utilization represents utilization information for a device.
+//
+// Each sample period may be between 1 second and 1/6 second, depending on the product being queried.
 type Utilization struct {
 	Gpu    uint32
 	Memory uint32
 }
 
 // Memory represents memory allocation information for a device (v1).
+//
+// The total amount is equal to the sum of the amounts of free and used memory.
 type Memory struct {
 	Total uint64
 	Free  uint64
@@ -48,6 +54,8 @@ type Memory struct {
 }
 
 // MemoryV2 represents memory allocation information for a device (v2).
+//
+// Version 2 adds versioning for the struct and the amount of system-reserved memory as an output.
 type MemoryV2 struct {
 	Version  uint32
 	Total    uint64
@@ -133,6 +141,8 @@ type UnrepairableMemoryStatusV1 struct {
 }
 
 // RowRemapperHistogramValues represents possible values that classify the remap availability for each bank.
+//
+// The max field will contain the number of banks that have maximum remap availability (all reserved rows are available). None means that there are no reserved rows available.
 type RowRemapperHistogramValues struct {
 	Max     uint32
 	High    uint32
@@ -154,6 +164,8 @@ type BridgeChipInfo struct {
 }
 
 // BridgeChipHierarchy stores the complete Hierarchy of the Bridge Chip within the board.
+//
+// The immediate bridge is stored at index 0 of bridgeInfoList, parent to immediate bridge is at index 1 and so forth.
 type BridgeChipHierarchy struct {
 	BridgeCount    uint8
 	BridgeChipInfo [128]BridgeChipInfo
@@ -322,7 +334,9 @@ type EccSramErrorStatus struct {
 	BThresholdExceeded      uint32
 }
 
-// PlatformInfoV1 stores platform information @deprecated The [PlatformInfoV1] will be deprecated in the subsequent releases.
+// PlatformInfoV1 stores platform information.
+//
+// Deprecated: The [PlatformInfoV1] will be deprecated in the subsequent releases. Use [PlatformInfo].
 type PlatformInfoV1 struct {
 	Version                   uint32
 	IbGuid                    [16]uint8
@@ -743,6 +757,8 @@ type UnitInfo struct {
 }
 
 // PSUInfo represents power usage information for an S-class unit.
+//
+// The power supply state is a human readable string that equals "Normal" or contains a combination of "Abnormal" plus one or more of the following: - High voltage - Fan failure - Heatsink temperature - Current limit - Voltage below UV alarm threshold - Low-voltage - SI2C remote off command - MOD_DISABLE input - Short pin transition.
 type PSUInfo struct {
 	State   [256]byte
 	Current uint32
@@ -931,6 +947,10 @@ type GpuFabricInfo struct {
 }
 
 // GpuFabricInfoV2 represents GPU Fabric information (v2).
+//
+// Version 2 adds the [GpuFabricInfoV2].version field to the start of the structure, and the [GpuFabricInfoV2].healthMask field to the end. This structure is not backwards-compatible with [GpuFabricInfo].
+//
+// Deprecated: [GpuFabricInfoV2] is deprecated and will be removed in a future release. Use [GpuFabricInfoV] instead.
 type GpuFabricInfoV2 struct {
 	Version     uint32
 	ClusterUuid [16]uint8
@@ -1118,6 +1138,8 @@ type GpuInstanceProfileInfo struct {
 }
 
 // GpuInstanceProfileInfoV2 represents GPU instance profile information (v2).
+//
+// Version 2 adds the [GpuInstanceProfileInfoV2].version field to the start of the structure, and the [GpuInstanceProfileInfoV2].name field to the end. This structure is not backwards-compatible with [GpuInstanceProfileInfo].
 type GpuInstanceProfileInfoV2 struct {
 	Version             uint32
 	Id                  uint32
@@ -1135,6 +1157,8 @@ type GpuInstanceProfileInfoV2 struct {
 }
 
 // GpuInstanceProfileInfoV3 represents GPU instance profile information (v3).
+//
+// Version 3 removes isP2pSupported field and adds the [GpuInstanceProfileInfoV3].capabilities field [GpuInstanceProfileInfo].
 type GpuInstanceProfileInfoV3 struct {
 	Version             uint32
 	Id                  uint32
@@ -1183,6 +1207,8 @@ type ComputeInstanceProfileInfo struct {
 }
 
 // ComputeInstanceProfileInfoV2 represents compute instance profile information (v2).
+//
+// Version 2 adds the [ComputeInstanceProfileInfoV2].version field to the start of the structure, and the [ComputeInstanceProfileInfoV2].name field to the end. This structure is not backwards-compatible with [ComputeInstanceProfileInfo].
 type ComputeInstanceProfileInfoV2 struct {
 	Version               uint32
 	Id                    uint32
@@ -1198,6 +1224,8 @@ type ComputeInstanceProfileInfoV2 struct {
 }
 
 // ComputeInstanceProfileInfoV3 represents compute instance profile information (v3).
+//
+// Version 3 adds the [ComputeInstanceProfileInfoV3].capabilities field [ComputeInstanceProfileInfo].
 type ComputeInstanceProfileInfoV3 struct {
 	Version               uint32
 	Id                    uint32

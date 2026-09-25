@@ -14,6 +14,8 @@ func (g GesvdjInfo) Destroy() error {
 
 // XgesvdjSetMaxSweeps configures the maximum number of sweeps in gesvdj.
 //
+// The default value is 100.
+//
 //   - maxSweeps: Maximum number of sweeps
 //
 // Returns:
@@ -25,6 +27,8 @@ func (g GesvdjInfo) XgesvdjSetMaxSweeps(maxSweeps int32) error {
 }
 
 // XgesvdjSetSortEig If sortSvd is zero, the singular values are not sorted.
+//
+// This function only works for gesvdjBatched. gesvdj always sorts singular values in descending order. By default, singular values are always sorted in descending order.
 //
 //   - sortSvd: If sortSvd is zero, the singular values are not sorted
 //

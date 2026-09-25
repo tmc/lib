@@ -325,6 +325,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -410,260 +425,260 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnblockedEllGet, "cusparseBlockedEllGet")
-	register(&fnbsrSetStridedBatch, "cusparseBsrSetStridedBatch")
-	register(&fnconstBlockedEllGet, "cusparseConstBlockedEllGet")
-	register(&fnconstCooGet, "cusparseConstCooGet")
-	register(&fnconstCscGet, "cusparseConstCscGet")
-	register(&fnconstCsrGet, "cusparseConstCsrGet")
-	register(&fnconstDnMatGet, "cusparseConstDnMatGet")
-	register(&fnconstDnMatGetValues, "cusparseConstDnMatGetValues")
-	register(&fnconstDnVecGet, "cusparseConstDnVecGet")
-	register(&fnconstDnVecGetValues, "cusparseConstDnVecGetValues")
-	register(&fnconstSpMatGetValues, "cusparseConstSpMatGetValues")
-	register(&fnconstSpVecGet, "cusparseConstSpVecGet")
-	register(&fnconstSpVecGetValues, "cusparseConstSpVecGetValues")
-	register(&fncooGet, "cusparseCooGet")
-	register(&fncooSetPointers, "cusparseCooSetPointers")
-	register(&fncooSetStridedBatch, "cusparseCooSetStridedBatch")
-	register(&fnCreate, "cusparseCreate")
-	register(&fnCreateBlockedEll, "cusparseCreateBlockedEll")
-	register(&fnCreateBsr, "cusparseCreateBsr")
-	register(&fnCreateConstBlockedEll, "cusparseCreateConstBlockedEll")
-	register(&fnCreateConstBsr, "cusparseCreateConstBsr")
-	register(&fnCreateConstCoo, "cusparseCreateConstCoo")
-	register(&fnCreateConstCsc, "cusparseCreateConstCsc")
-	register(&fnCreateConstCsr, "cusparseCreateConstCsr")
-	register(&fnCreateConstDnMat, "cusparseCreateConstDnMat")
-	register(&fnCreateConstDnVec, "cusparseCreateConstDnVec")
-	register(&fnCreateConstSlicedEll, "cusparseCreateConstSlicedEll")
-	register(&fnCreateConstSpVec, "cusparseCreateConstSpVec")
-	register(&fnCreateCoo, "cusparseCreateCoo")
-	register(&fnCreateCsc, "cusparseCreateCsc")
-	register(&fnCreateCsr, "cusparseCreateCsr")
-	register(&fnCreateDnMat, "cusparseCreateDnMat")
-	register(&fnCreateDnVec, "cusparseCreateDnVec")
-	register(&fnCreateSlicedEll, "cusparseCreateSlicedEll")
-	register(&fnCreateSpVec, "cusparseCreateSpVec")
-	register(&fncscGet, "cusparseCscGet")
-	register(&fncscSetPointers, "cusparseCscSetPointers")
-	register(&fncsrGet, "cusparseCsrGet")
-	register(&fncsrSetPointers, "cusparseCsrSetPointers")
-	register(&fncsrSetStridedBatch, "cusparseCsrSetStridedBatch")
-	register(&fndenseToSparseAnalysis, "cusparseDenseToSparse_analysis")
-	register(&fndenseToSparseBufferSize, "cusparseDenseToSparse_bufferSize")
-	register(&fndenseToSparseConvert, "cusparseDenseToSparse_convert")
-	register(&fndestroy, "cusparseDestroy")
-	register(&fndestroyDnMat, "cusparseDestroyDnMat")
-	register(&fndestroyDnVec, "cusparseDestroyDnVec")
-	register(&fndestroySpMat, "cusparseDestroySpMat")
-	register(&fndestroySpVec, "cusparseDestroySpVec")
-	register(&fndnMatGet, "cusparseDnMatGet")
-	register(&fndnMatGetStridedBatch, "cusparseDnMatGetStridedBatch")
-	register(&fndnMatGetValues, "cusparseDnMatGetValues")
-	register(&fndnMatSetStridedBatch, "cusparseDnMatSetStridedBatch")
-	register(&fndnMatSetValues, "cusparseDnMatSetValues")
-	register(&fndnVecGet, "cusparseDnVecGet")
-	register(&fndnVecGetValues, "cusparseDnVecGetValues")
-	register(&fndnVecSetValues, "cusparseDnVecSetValues")
-	register(&fngather, "cusparseGather")
-	register(&fnGetErrorName, "cusparseGetErrorName")
-	register(&fnGetErrorString, "cusparseGetErrorString")
-	register(&fngetPointerMode, "cusparseGetPointerMode")
-	register(&fnGetProperty, "cusparseGetProperty")
-	register(&fngetStream, "cusparseGetStream")
-	register(&fngetVersion, "cusparseGetVersion")
-	register(&fnLoggerForceDisable, "cusparseLoggerForceDisable")
-	register(&fnLoggerOpenFile, "cusparseLoggerOpenFile")
-	register(&fnLoggerSetCallback, "cusparseLoggerSetCallback")
-	register(&fnLoggerSetFile, "cusparseLoggerSetFile")
-	register(&fnLoggerSetLevel, "cusparseLoggerSetLevel")
-	register(&fnLoggerSetMask, "cusparseLoggerSetMask")
-	register(&fnsDDMM, "cusparseSDDMM")
-	register(&fnsDDMMBufferSize, "cusparseSDDMM_bufferSize")
-	register(&fnsDDMMPreprocess, "cusparseSDDMM_preprocess")
-	register(&fnscatter, "cusparseScatter")
-	register(&fnsetPointerMode, "cusparseSetPointerMode")
+	symblockedEllGet = registerSym("cusparseBlockedEllGet")
+	symbsrSetStridedBatch = registerSym("cusparseBsrSetStridedBatch")
+	symconstBlockedEllGet = registerSym("cusparseConstBlockedEllGet")
+	symconstCooGet = registerSym("cusparseConstCooGet")
+	symconstCscGet = registerSym("cusparseConstCscGet")
+	symconstCsrGet = registerSym("cusparseConstCsrGet")
+	symconstDnMatGet = registerSym("cusparseConstDnMatGet")
+	symconstDnMatGetValues = registerSym("cusparseConstDnMatGetValues")
+	symconstDnVecGet = registerSym("cusparseConstDnVecGet")
+	symconstDnVecGetValues = registerSym("cusparseConstDnVecGetValues")
+	symconstSpMatGetValues = registerSym("cusparseConstSpMatGetValues")
+	symconstSpVecGet = registerSym("cusparseConstSpVecGet")
+	symconstSpVecGetValues = registerSym("cusparseConstSpVecGetValues")
+	symcooGet = registerSym("cusparseCooGet")
+	symcooSetPointers = registerSym("cusparseCooSetPointers")
+	symcooSetStridedBatch = registerSym("cusparseCooSetStridedBatch")
+	symCreate = registerSym("cusparseCreate")
+	symCreateBlockedEll = registerSym("cusparseCreateBlockedEll")
+	symCreateBsr = registerSym("cusparseCreateBsr")
+	symCreateConstBlockedEll = registerSym("cusparseCreateConstBlockedEll")
+	symCreateConstBsr = registerSym("cusparseCreateConstBsr")
+	symCreateConstCoo = registerSym("cusparseCreateConstCoo")
+	symCreateConstCsc = registerSym("cusparseCreateConstCsc")
+	symCreateConstCsr = registerSym("cusparseCreateConstCsr")
+	symCreateConstDnMat = registerSym("cusparseCreateConstDnMat")
+	symCreateConstDnVec = registerSym("cusparseCreateConstDnVec")
+	symCreateConstSlicedEll = registerSym("cusparseCreateConstSlicedEll")
+	symCreateConstSpVec = registerSym("cusparseCreateConstSpVec")
+	symCreateCoo = registerSym("cusparseCreateCoo")
+	symCreateCsc = registerSym("cusparseCreateCsc")
+	symCreateCsr = registerSym("cusparseCreateCsr")
+	symCreateDnMat = registerSym("cusparseCreateDnMat")
+	symCreateDnVec = registerSym("cusparseCreateDnVec")
+	symCreateSlicedEll = registerSym("cusparseCreateSlicedEll")
+	symCreateSpVec = registerSym("cusparseCreateSpVec")
+	symcscGet = registerSym("cusparseCscGet")
+	symcscSetPointers = registerSym("cusparseCscSetPointers")
+	symcsrGet = registerSym("cusparseCsrGet")
+	symcsrSetPointers = registerSym("cusparseCsrSetPointers")
+	symcsrSetStridedBatch = registerSym("cusparseCsrSetStridedBatch")
+	symdenseToSparseAnalysis = registerSym("cusparseDenseToSparse_analysis")
+	symdenseToSparseBufferSize = registerSym("cusparseDenseToSparse_bufferSize")
+	symdenseToSparseConvert = registerSym("cusparseDenseToSparse_convert")
+	symdestroy = registerSym("cusparseDestroy")
+	symdestroyDnMat = registerSym("cusparseDestroyDnMat")
+	symdestroyDnVec = registerSym("cusparseDestroyDnVec")
+	symdestroySpMat = registerSym("cusparseDestroySpMat")
+	symdestroySpVec = registerSym("cusparseDestroySpVec")
+	symdnMatGet = registerSym("cusparseDnMatGet")
+	symdnMatGetStridedBatch = registerSym("cusparseDnMatGetStridedBatch")
+	symdnMatGetValues = registerSym("cusparseDnMatGetValues")
+	symdnMatSetStridedBatch = registerSym("cusparseDnMatSetStridedBatch")
+	symdnMatSetValues = registerSym("cusparseDnMatSetValues")
+	symdnVecGet = registerSym("cusparseDnVecGet")
+	symdnVecGetValues = registerSym("cusparseDnVecGetValues")
+	symdnVecSetValues = registerSym("cusparseDnVecSetValues")
+	symgather = registerSym("cusparseGather")
+	symGetErrorName = registerSym("cusparseGetErrorName")
+	symGetErrorString = registerSym("cusparseGetErrorString")
+	symgetPointerMode = registerSym("cusparseGetPointerMode")
+	symGetProperty = registerSym("cusparseGetProperty")
+	symgetStream = registerSym("cusparseGetStream")
+	symgetVersion = registerSym("cusparseGetVersion")
+	symLoggerForceDisable = registerSym("cusparseLoggerForceDisable")
+	symLoggerOpenFile = registerSym("cusparseLoggerOpenFile")
+	symLoggerSetCallback = registerSym("cusparseLoggerSetCallback")
+	symLoggerSetFile = registerSym("cusparseLoggerSetFile")
+	symLoggerSetLevel = registerSym("cusparseLoggerSetLevel")
+	symLoggerSetMask = registerSym("cusparseLoggerSetMask")
+	symsDDMM = registerSym("cusparseSDDMM")
+	symsDDMMBufferSize = registerSym("cusparseSDDMM_bufferSize")
+	symsDDMMPreprocess = registerSym("cusparseSDDMM_preprocess")
+	symscatter = registerSym("cusparseScatter")
+	symsetPointerMode = registerSym("cusparseSetPointerMode")
 	register(&fnsetStream, "cusparseSetStream")
-	register(&fnspGEMMCompute, "cusparseSpGEMM_compute")
-	register(&fnspGEMMCopy, "cusparseSpGEMM_copy")
-	register(&fnSpGEMMCreateDescr, "cusparseSpGEMM_createDescr")
-	register(&fnspGEMMDestroyDescr, "cusparseSpGEMM_destroyDescr")
-	register(&fnspGEMMEstimateMemory, "cusparseSpGEMM_estimateMemory")
-	register(&fnspGEMMGetNumProducts, "cusparseSpGEMM_getNumProducts")
-	register(&fnspGEMMWorkEstimation, "cusparseSpGEMM_workEstimation")
-	register(&fnspGEMMreuseCompute, "cusparseSpGEMMreuse_compute")
-	register(&fnspGEMMreuseCopy, "cusparseSpGEMMreuse_copy")
-	register(&fnspGEMMreuseNnz, "cusparseSpGEMMreuse_nnz")
-	register(&fnspGEMMreuseWorkEstimation, "cusparseSpGEMMreuse_workEstimation")
-	register(&fnspMM, "cusparseSpMM")
-	register(&fnspMMBufferSize, "cusparseSpMM_bufferSize")
-	register(&fnspMMPreprocess, "cusparseSpMM_preprocess")
-	register(&fnspMV, "cusparseSpMV")
-	register(&fnspMVBufferSize, "cusparseSpMV_bufferSize")
-	register(&fnspMVOp, "cusparseSpMVOp")
-	register(&fnspMVOpBufferSize, "cusparseSpMVOp_bufferSize")
-	register(&fnspMVOpCreateDescr, "cusparseSpMVOp_createDescr")
-	register(&fnspMVOpCreatePlan, "cusparseSpMVOp_createPlan")
-	register(&fnspMVOpDestroyDescr, "cusparseSpMVOp_destroyDescr")
-	register(&fnspMVOpDestroyPlan, "cusparseSpMVOp_destroyPlan")
-	register(&fnspMVOpSetGlobalUserData, "cusparseSpMVOp_setGlobalUserData")
-	register(&fnspMVPreprocess, "cusparseSpMV_preprocess")
-	register(&fnspMatGetAttribute, "cusparseSpMatGetAttribute")
-	register(&fnspMatGetFormat, "cusparseSpMatGetFormat")
-	register(&fnspMatGetIndexBase, "cusparseSpMatGetIndexBase")
-	register(&fnspMatGetSize, "cusparseSpMatGetSize")
-	register(&fnspMatGetStridedBatch, "cusparseSpMatGetStridedBatch")
-	register(&fnspMatGetValues, "cusparseSpMatGetValues")
-	register(&fnspMatSetAttribute, "cusparseSpMatSetAttribute")
-	register(&fnspMatSetValues, "cusparseSpMatSetValues")
-	register(&fnspSMAnalysis, "cusparseSpSM_analysis")
-	register(&fnspSMBufferSize, "cusparseSpSM_bufferSize")
-	register(&fnSpSMCreateDescr, "cusparseSpSM_createDescr")
-	register(&fnspSMDestroyDescr, "cusparseSpSM_destroyDescr")
-	register(&fnspSMSolve, "cusparseSpSM_solve")
-	register(&fnspSMUpdateMatrix, "cusparseSpSM_updateMatrix")
-	register(&fnspSVAnalysis, "cusparseSpSV_analysis")
-	register(&fnspSVBufferSize, "cusparseSpSV_bufferSize")
-	register(&fnSpSVCreateDescr, "cusparseSpSV_createDescr")
-	register(&fnspSVDestroyDescr, "cusparseSpSV_destroyDescr")
-	register(&fnspSVSolve, "cusparseSpSV_solve")
-	register(&fnspSVUpdateMatrix, "cusparseSpSV_updateMatrix")
-	register(&fnspVecGet, "cusparseSpVecGet")
-	register(&fnspVecGetIndexBase, "cusparseSpVecGetIndexBase")
-	register(&fnspVecGetValues, "cusparseSpVecGetValues")
-	register(&fnspVecSetValues, "cusparseSpVecSetValues")
-	register(&fnsparseToDense, "cusparseSparseToDense")
-	register(&fnsparseToDenseBufferSize, "cusparseSparseToDense_bufferSize")
+	symspGEMMCompute = registerSym("cusparseSpGEMM_compute")
+	symspGEMMCopy = registerSym("cusparseSpGEMM_copy")
+	symSpGEMMCreateDescr = registerSym("cusparseSpGEMM_createDescr")
+	symspGEMMDestroyDescr = registerSym("cusparseSpGEMM_destroyDescr")
+	symspGEMMEstimateMemory = registerSym("cusparseSpGEMM_estimateMemory")
+	symspGEMMGetNumProducts = registerSym("cusparseSpGEMM_getNumProducts")
+	symspGEMMWorkEstimation = registerSym("cusparseSpGEMM_workEstimation")
+	symspGEMMreuseCompute = registerSym("cusparseSpGEMMreuse_compute")
+	symspGEMMreuseCopy = registerSym("cusparseSpGEMMreuse_copy")
+	symspGEMMreuseNnz = registerSym("cusparseSpGEMMreuse_nnz")
+	symspGEMMreuseWorkEstimation = registerSym("cusparseSpGEMMreuse_workEstimation")
+	symspMM = registerSym("cusparseSpMM")
+	symspMMBufferSize = registerSym("cusparseSpMM_bufferSize")
+	symspMMPreprocess = registerSym("cusparseSpMM_preprocess")
+	symspMV = registerSym("cusparseSpMV")
+	symspMVBufferSize = registerSym("cusparseSpMV_bufferSize")
+	symspMVOp = registerSym("cusparseSpMVOp")
+	symspMVOpBufferSize = registerSym("cusparseSpMVOp_bufferSize")
+	symspMVOpCreateDescr = registerSym("cusparseSpMVOp_createDescr")
+	symspMVOpCreatePlan = registerSym("cusparseSpMVOp_createPlan")
+	symspMVOpDestroyDescr = registerSym("cusparseSpMVOp_destroyDescr")
+	symspMVOpDestroyPlan = registerSym("cusparseSpMVOp_destroyPlan")
+	symspMVOpSetGlobalUserData = registerSym("cusparseSpMVOp_setGlobalUserData")
+	symspMVPreprocess = registerSym("cusparseSpMV_preprocess")
+	symspMatGetAttribute = registerSym("cusparseSpMatGetAttribute")
+	symspMatGetFormat = registerSym("cusparseSpMatGetFormat")
+	symspMatGetIndexBase = registerSym("cusparseSpMatGetIndexBase")
+	symspMatGetSize = registerSym("cusparseSpMatGetSize")
+	symspMatGetStridedBatch = registerSym("cusparseSpMatGetStridedBatch")
+	symspMatGetValues = registerSym("cusparseSpMatGetValues")
+	symspMatSetAttribute = registerSym("cusparseSpMatSetAttribute")
+	symspMatSetValues = registerSym("cusparseSpMatSetValues")
+	symspSMAnalysis = registerSym("cusparseSpSM_analysis")
+	symspSMBufferSize = registerSym("cusparseSpSM_bufferSize")
+	symSpSMCreateDescr = registerSym("cusparseSpSM_createDescr")
+	symspSMDestroyDescr = registerSym("cusparseSpSM_destroyDescr")
+	symspSMSolve = registerSym("cusparseSpSM_solve")
+	symspSMUpdateMatrix = registerSym("cusparseSpSM_updateMatrix")
+	symspSVAnalysis = registerSym("cusparseSpSV_analysis")
+	symspSVBufferSize = registerSym("cusparseSpSV_bufferSize")
+	symSpSVCreateDescr = registerSym("cusparseSpSV_createDescr")
+	symspSVDestroyDescr = registerSym("cusparseSpSV_destroyDescr")
+	symspSVSolve = registerSym("cusparseSpSV_solve")
+	symspSVUpdateMatrix = registerSym("cusparseSpSV_updateMatrix")
+	symspVecGet = registerSym("cusparseSpVecGet")
+	symspVecGetIndexBase = registerSym("cusparseSpVecGetIndexBase")
+	symspVecGetValues = registerSym("cusparseSpVecGetValues")
+	symspVecSetValues = registerSym("cusparseSpVecSetValues")
+	symsparseToDense = registerSym("cusparseSparseToDense")
+	symsparseToDenseBufferSize = registerSym("cusparseSparseToDense_bufferSize")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnblockedEllGet = nil
-	fnbsrSetStridedBatch = nil
-	fnconstBlockedEllGet = nil
-	fnconstCooGet = nil
-	fnconstCscGet = nil
-	fnconstCsrGet = nil
-	fnconstDnMatGet = nil
-	fnconstDnMatGetValues = nil
-	fnconstDnVecGet = nil
-	fnconstDnVecGetValues = nil
-	fnconstSpMatGetValues = nil
-	fnconstSpVecGet = nil
-	fnconstSpVecGetValues = nil
-	fncooGet = nil
-	fncooSetPointers = nil
-	fncooSetStridedBatch = nil
-	fnCreate = nil
-	fnCreateBlockedEll = nil
-	fnCreateBsr = nil
-	fnCreateConstBlockedEll = nil
-	fnCreateConstBsr = nil
-	fnCreateConstCoo = nil
-	fnCreateConstCsc = nil
-	fnCreateConstCsr = nil
-	fnCreateConstDnMat = nil
-	fnCreateConstDnVec = nil
-	fnCreateConstSlicedEll = nil
-	fnCreateConstSpVec = nil
-	fnCreateCoo = nil
-	fnCreateCsc = nil
-	fnCreateCsr = nil
-	fnCreateDnMat = nil
-	fnCreateDnVec = nil
-	fnCreateSlicedEll = nil
-	fnCreateSpVec = nil
-	fncscGet = nil
-	fncscSetPointers = nil
-	fncsrGet = nil
-	fncsrSetPointers = nil
-	fncsrSetStridedBatch = nil
-	fndenseToSparseAnalysis = nil
-	fndenseToSparseBufferSize = nil
-	fndenseToSparseConvert = nil
-	fndestroy = nil
-	fndestroyDnMat = nil
-	fndestroyDnVec = nil
-	fndestroySpMat = nil
-	fndestroySpVec = nil
-	fndnMatGet = nil
-	fndnMatGetStridedBatch = nil
-	fndnMatGetValues = nil
-	fndnMatSetStridedBatch = nil
-	fndnMatSetValues = nil
-	fndnVecGet = nil
-	fndnVecGetValues = nil
-	fndnVecSetValues = nil
-	fngather = nil
-	fnGetErrorName = nil
-	fnGetErrorString = nil
-	fngetPointerMode = nil
-	fnGetProperty = nil
-	fngetStream = nil
-	fngetVersion = nil
-	fnLoggerForceDisable = nil
-	fnLoggerOpenFile = nil
-	fnLoggerSetCallback = nil
-	fnLoggerSetFile = nil
-	fnLoggerSetLevel = nil
-	fnLoggerSetMask = nil
-	fnsDDMM = nil
-	fnsDDMMBufferSize = nil
-	fnsDDMMPreprocess = nil
-	fnscatter = nil
-	fnsetPointerMode = nil
+	symblockedEllGet = 0
+	symbsrSetStridedBatch = 0
+	symconstBlockedEllGet = 0
+	symconstCooGet = 0
+	symconstCscGet = 0
+	symconstCsrGet = 0
+	symconstDnMatGet = 0
+	symconstDnMatGetValues = 0
+	symconstDnVecGet = 0
+	symconstDnVecGetValues = 0
+	symconstSpMatGetValues = 0
+	symconstSpVecGet = 0
+	symconstSpVecGetValues = 0
+	symcooGet = 0
+	symcooSetPointers = 0
+	symcooSetStridedBatch = 0
+	symCreate = 0
+	symCreateBlockedEll = 0
+	symCreateBsr = 0
+	symCreateConstBlockedEll = 0
+	symCreateConstBsr = 0
+	symCreateConstCoo = 0
+	symCreateConstCsc = 0
+	symCreateConstCsr = 0
+	symCreateConstDnMat = 0
+	symCreateConstDnVec = 0
+	symCreateConstSlicedEll = 0
+	symCreateConstSpVec = 0
+	symCreateCoo = 0
+	symCreateCsc = 0
+	symCreateCsr = 0
+	symCreateDnMat = 0
+	symCreateDnVec = 0
+	symCreateSlicedEll = 0
+	symCreateSpVec = 0
+	symcscGet = 0
+	symcscSetPointers = 0
+	symcsrGet = 0
+	symcsrSetPointers = 0
+	symcsrSetStridedBatch = 0
+	symdenseToSparseAnalysis = 0
+	symdenseToSparseBufferSize = 0
+	symdenseToSparseConvert = 0
+	symdestroy = 0
+	symdestroyDnMat = 0
+	symdestroyDnVec = 0
+	symdestroySpMat = 0
+	symdestroySpVec = 0
+	symdnMatGet = 0
+	symdnMatGetStridedBatch = 0
+	symdnMatGetValues = 0
+	symdnMatSetStridedBatch = 0
+	symdnMatSetValues = 0
+	symdnVecGet = 0
+	symdnVecGetValues = 0
+	symdnVecSetValues = 0
+	symgather = 0
+	symGetErrorName = 0
+	symGetErrorString = 0
+	symgetPointerMode = 0
+	symGetProperty = 0
+	symgetStream = 0
+	symgetVersion = 0
+	symLoggerForceDisable = 0
+	symLoggerOpenFile = 0
+	symLoggerSetCallback = 0
+	symLoggerSetFile = 0
+	symLoggerSetLevel = 0
+	symLoggerSetMask = 0
+	symsDDMM = 0
+	symsDDMMBufferSize = 0
+	symsDDMMPreprocess = 0
+	symscatter = 0
+	symsetPointerMode = 0
 	fnsetStream = nil
-	fnspGEMMCompute = nil
-	fnspGEMMCopy = nil
-	fnSpGEMMCreateDescr = nil
-	fnspGEMMDestroyDescr = nil
-	fnspGEMMEstimateMemory = nil
-	fnspGEMMGetNumProducts = nil
-	fnspGEMMWorkEstimation = nil
-	fnspGEMMreuseCompute = nil
-	fnspGEMMreuseCopy = nil
-	fnspGEMMreuseNnz = nil
-	fnspGEMMreuseWorkEstimation = nil
-	fnspMM = nil
-	fnspMMBufferSize = nil
-	fnspMMPreprocess = nil
-	fnspMV = nil
-	fnspMVBufferSize = nil
-	fnspMVOp = nil
-	fnspMVOpBufferSize = nil
-	fnspMVOpCreateDescr = nil
-	fnspMVOpCreatePlan = nil
-	fnspMVOpDestroyDescr = nil
-	fnspMVOpDestroyPlan = nil
-	fnspMVOpSetGlobalUserData = nil
-	fnspMVPreprocess = nil
-	fnspMatGetAttribute = nil
-	fnspMatGetFormat = nil
-	fnspMatGetIndexBase = nil
-	fnspMatGetSize = nil
-	fnspMatGetStridedBatch = nil
-	fnspMatGetValues = nil
-	fnspMatSetAttribute = nil
-	fnspMatSetValues = nil
-	fnspSMAnalysis = nil
-	fnspSMBufferSize = nil
-	fnSpSMCreateDescr = nil
-	fnspSMDestroyDescr = nil
-	fnspSMSolve = nil
-	fnspSMUpdateMatrix = nil
-	fnspSVAnalysis = nil
-	fnspSVBufferSize = nil
-	fnSpSVCreateDescr = nil
-	fnspSVDestroyDescr = nil
-	fnspSVSolve = nil
-	fnspSVUpdateMatrix = nil
-	fnspVecGet = nil
-	fnspVecGetIndexBase = nil
-	fnspVecGetValues = nil
-	fnspVecSetValues = nil
-	fnsparseToDense = nil
-	fnsparseToDenseBufferSize = nil
+	symspGEMMCompute = 0
+	symspGEMMCopy = 0
+	symSpGEMMCreateDescr = 0
+	symspGEMMDestroyDescr = 0
+	symspGEMMEstimateMemory = 0
+	symspGEMMGetNumProducts = 0
+	symspGEMMWorkEstimation = 0
+	symspGEMMreuseCompute = 0
+	symspGEMMreuseCopy = 0
+	symspGEMMreuseNnz = 0
+	symspGEMMreuseWorkEstimation = 0
+	symspMM = 0
+	symspMMBufferSize = 0
+	symspMMPreprocess = 0
+	symspMV = 0
+	symspMVBufferSize = 0
+	symspMVOp = 0
+	symspMVOpBufferSize = 0
+	symspMVOpCreateDescr = 0
+	symspMVOpCreatePlan = 0
+	symspMVOpDestroyDescr = 0
+	symspMVOpDestroyPlan = 0
+	symspMVOpSetGlobalUserData = 0
+	symspMVPreprocess = 0
+	symspMatGetAttribute = 0
+	symspMatGetFormat = 0
+	symspMatGetIndexBase = 0
+	symspMatGetSize = 0
+	symspMatGetStridedBatch = 0
+	symspMatGetValues = 0
+	symspMatSetAttribute = 0
+	symspMatSetValues = 0
+	symspSMAnalysis = 0
+	symspSMBufferSize = 0
+	symSpSMCreateDescr = 0
+	symspSMDestroyDescr = 0
+	symspSMSolve = 0
+	symspSMUpdateMatrix = 0
+	symspSVAnalysis = 0
+	symspSVBufferSize = 0
+	symSpSVCreateDescr = 0
+	symspSVDestroyDescr = 0
+	symspSVSolve = 0
+	symspSVUpdateMatrix = 0
+	symspVecGet = 0
+	symspVecGetIndexBase = 0
+	symspVecGetValues = 0
+	symspVecSetValues = 0
+	symsparseToDense = 0
+	symsparseToDenseBufferSize = 0
 }
 
 // HasBlockedEllGet reports whether cusparseBlockedEllGet resolved in the loaded library.

@@ -20,7 +20,7 @@ import (
 // the sequence again on every replay. It adds no CUDA work or synchronization.
 type kernelNames struct {
 	mu                 sync.Mutex
-	context            cupti.Context
+	context            driver.Context
 	limit              uint
 	active             bool
 	current            []kernelLaunch
@@ -38,7 +38,7 @@ type kernelLaunch struct {
 	Graph       driver.GraphExec
 }
 
-func newKernelNames(context cupti.Context, limit uint) (*kernelNames, error) {
+func newKernelNames(context driver.Context, limit uint) (*kernelNames, error) {
 	k := &kernelNames{context: context, limit: limit}
 	sub, err := cupticallback.Subscribe(cupticallback.Options{AllowReentrant: true}, cupticallback.HandlerFunc(k.callback))
 	if err != nil {

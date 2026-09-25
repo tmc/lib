@@ -150,7 +150,11 @@ func (e MathType) String() string {
 	return fmt.Sprintf("MathType(%d)", e)
 }
 
-// NanPropagation is deprecated and is currently only used by deprecated APIs.
+// NanPropagation is an enumerated type used to indicate if a given routine should propagate Nan numbers.
+//
+// This enumerated type is used as a field for the [ActivationDescriptor] descriptor and [PoolingDescriptor] descriptor.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type NanPropagation int32
 
 const (
@@ -213,7 +217,9 @@ func (e TensorFormat) String() string {
 	return fmt.Sprintf("TensorFormat(%d)", e)
 }
 
-// ReduceTensorOp is deprecated and is currently only used by deprecated APIs.
+// ReduceTensorOp is an enumerated type used to indicate the Tensor Core operation to be used by the [Handle.ReduceTensor] routine. This enumerated type is used as a field for the [ReduceTensorDescriptor] descriptor.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type ReduceTensorOp int32
 
 const (
@@ -257,7 +263,9 @@ func (e ReduceTensorOp) String() string {
 	return fmt.Sprintf("ReduceTensorOp(%d)", e)
 }
 
-// ActivationMode is deprecated and is currently only used by deprecated APIs.
+// ActivationMode is an enumerated type used to select the neuron activation function used in [Handle.ActivationForward], [Handle.ActivationBackward], and [Handle.ConvolutionBiasActivationForward].
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type ActivationMode int32
 
 const (
@@ -293,6 +301,8 @@ func (e ActivationMode) String() string {
 }
 
 // Severity is an enumerated type passed to the customized callback function for logging that users may set.
+//
+// This enumerate describes the severity level of the item, so the customized logging call back may react differently. The numerical values are the same that are to be used for setting the CUDNN_LOGLEVEL_DBG environment variable.
 type Severity int32
 
 const (
@@ -317,7 +327,9 @@ func (e Severity) String() string {
 	return fmt.Sprintf("Severity(%d)", e)
 }
 
-// ConvolutionMode is deprecated and is currently only used by deprecated APIs.
+// ConvolutionMode is an enumerated type used by [ConvolutionDescriptor.Set2D] to configure a convolution descriptor. The filter used for the convolution can be applied in two different ways, corresponding mathematically to a convolution or to a cross-correlation. (A cross-correlation is equivalent to a convolution with its filter rotated by 180 degrees.).
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type ConvolutionMode int32
 
 const (
@@ -338,7 +350,11 @@ func (e ConvolutionMode) String() string {
 	return fmt.Sprintf("ConvolutionMode(%d)", e)
 }
 
-// ReorderType is deprecated and is currently only used by deprecated APIs.
+// ReorderType is an enumerated type to set the convolution reordering type.
+//
+// The reordering type can be set by [ConvolutionDescriptor.SetReorderType] and its status can be read by [ConvolutionDescriptor.ReorderType].
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type ReorderType int32
 
 const (
@@ -411,7 +427,7 @@ const (
 	PointwiseSoftplusFwd PointwiseMode = 105
 	// PointwiseSwishFwd: A pointwise swish activation function of the input tensor is computed.
 	PointwiseSwishFwd PointwiseMode = 106
-	// PointwiseGeluApproxTanhFwd: A pointwise tanh approximation of the Gaussian Error Linear Unit activation function of the input tensor is computed. The tanh GELU approximation is computed as 0.5x(1+tanh⁡[2/π(x+0.044715x3)]). For more information, refer to the GAUSSIAN ERROR LINEAR UNIT (GELUS) paper.
+	// PointwiseGeluApproxTanhFwd: A pointwise tanh approximation of the Gaussian Error Linear Unit activation function of the input tensor is computed. The tanh GELU approximation is computed as 0.5x(1+tanh⁡[2/π(x+0.044715x³)]). For more information, refer to the GAUSSIAN ERROR LINEAR UNIT (GELUS) paper.
 	PointwiseGeluApproxTanhFwd PointwiseMode = 107
 	// PointwiseReluBwd: A pointwise first derivative of rectified linear activation of the input tensor is computed.
 	PointwiseReluBwd PointwiseMode = 200
@@ -427,7 +443,7 @@ const (
 	PointwiseSoftplusBwd PointwiseMode = 205
 	// PointwiseSwishBwd: A pointwise first derivative of swish activation of the input tensor is computed.
 	PointwiseSwishBwd PointwiseMode = 206
-	// PointwiseGeluApproxTanhBwd: A pointwise first derivative of the tanh approximation of the Gaussian Error Linear Unit activation of the input tensor is computed. This is computed as 0.5(1+tanh⁡(b(x+cx3))+bxsech2(b(cx3+x))(3cx2+1)dy) where b is 2/π and c is 0.044715.
+	// PointwiseGeluApproxTanhBwd: A pointwise first derivative of the tanh approximation of the Gaussian Error Linear Unit activation of the input tensor is computed. This is computed as 0.5(1+tanh⁡(b(x+cx³))+bxsech²(b(cx³+x))(3cx²+1)dy) where b is 2/π and c is 0.044715.
 	PointwiseGeluApproxTanhBwd PointwiseMode = 207
 	// PointwiseCmpEq: A pointwise truth value of the first tensor equal to the second tensor is computed.
 	PointwiseCmpEq PointwiseMode = 300
@@ -1638,6 +1654,8 @@ func (e BackendAttributeName) String() string {
 }
 
 // BackendAttributeType specifies the data type of an attribute of a cuDNN backend descriptor.
+//
+// It is used to specify the type of data pointed to by the void *arrayOfElements argument of [BackendDescriptor.SetAttribute] and [BackendDescriptor.Attribute]. Attribute Types for [BackendAttributeType] 
 type BackendAttributeType int32
 
 const (
@@ -1745,6 +1763,8 @@ func (e BackendAttributeType) String() string {
 }
 
 // BackendDescriptorType is an enumerated type that indicates the type of backend descriptors.
+//
+// Users create a backend descriptor of a particular type by passing a value from this enumerate to the [NewBackendDescriptor] function.
 type BackendDescriptorType int32
 
 const (
@@ -1896,6 +1916,8 @@ func (e BackendDescriptorType) String() string {
 }
 
 // BackendNumericalNote cudnnBackendNumericalNot_t is an enumerated type that indicates queryable numerical properties of an engine.
+//
+// Users can query for an array of numerical notes from an [BackendEngineDescriptor] using the [BackendDescriptor.Attribute] function.
 type BackendNumericalNote int32
 
 const (
@@ -1942,6 +1964,8 @@ func (e BackendNumericalNote) String() string {
 }
 
 // BackendBehaviorNote is an enumerated type that indicates queryable behavior notes of an engine.
+//
+// Users can query for an array of behavior notes from an [BackendEngineDescriptor] using the [BackendDescriptor.Attribute] function.
 type BackendBehaviorNote int32
 
 const (
@@ -1973,6 +1997,8 @@ func (e BackendBehaviorNote) String() string {
 }
 
 // BackendKnobType is an enumerated type that indicates the type of performance knobs.
+//
+// Performance knobs are runtime settings to an engine that will affect its performance. Users can query for an array of performance knobs and their valid value range from a [BackendEngineDescriptor] using the [BackendDescriptor.Attribute] function. Users can set the choice for each knob using the [BackendDescriptor.SetAttribute] function with a [BackendKnobChoiceDescriptor].
 type BackendKnobType int32
 
 const (
@@ -2136,6 +2162,8 @@ func (e BackendKnobType) String() string {
 }
 
 // BackendLayoutType is an enumerated type that indicates queryable layout requirements of an engine.
+//
+// Users can query for layout requirements from a [BackendEngineDescriptor] using the [BackendDescriptor.Attribute] function.
 type BackendLayoutType int32
 
 const (
@@ -2291,6 +2319,8 @@ func (e BackendNormFwdPhase) String() string {
 }
 
 // Determinism is an enumerated type used to indicate if the computed results are deterministic (reproducible).
+//
+// For more information, refer to Reproducibility (Determinism).
 type Determinism int32
 
 const (
@@ -2310,6 +2340,8 @@ func (e Determinism) String() string {
 }
 
 // FoldingDirection is an enumerated type used to select the folding direction.
+//
+// For more information, refer to [TensorTransformDescriptor]. Data Member [TransformFold] = 0U Selects folding. [TransformUnfold] = 1U Selects unfolding.
 type FoldingDirection int32
 
 const (
@@ -2361,7 +2393,9 @@ func (e OpTensorOp) String() string {
 	return fmt.Sprintf("OpTensorOp(%d)", e)
 }
 
-// ReduceTensorIndices is deprecated and is currently only used by deprecated APIs.
+// ReduceTensorIndices is an enumerated type used to indicate whether indices are to be computed by the [Handle.ReduceTensor] routine. This enumerated type is used as a field for the [ReduceTensorDescriptor] descriptor.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type ReduceTensorIndices int32
 
 const (
@@ -2381,7 +2415,9 @@ func (e ReduceTensorIndices) String() string {
 	return fmt.Sprintf("ReduceTensorIndices(%d)", e)
 }
 
-// IndicesType is deprecated and is currently only used by deprecated APIs.
+// IndicesType is an enumerated type used to indicate the data type for the indices to be computed by the [Handle.ReduceTensor] routine. This enumerated type is used as a field for the [ReduceTensorDescriptor] descriptor.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type IndicesType int32
 
 const (
@@ -2448,7 +2484,9 @@ func (e SoftmaxMode) String() string {
 	return fmt.Sprintf("SoftmaxMode(%d)", e)
 }
 
-// PoolingMode is deprecated and is currently only used by deprecated APIs.
+// PoolingMode is an enumerated type passed to [PoolingDescriptor.Set2D] to select the pooling method to be used by [Handle.PoolingForward] and [Handle.PoolingBackward].
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type PoolingMode int32
 
 const (
@@ -2507,7 +2545,9 @@ func (e DivNormMode) String() string {
 	return fmt.Sprintf("DivNormMode(%d)", e)
 }
 
-// BatchNormMode is deprecated and is currently only used by deprecated APIs.
+// BatchNormMode is an enumerated type used to specify the mode of operation in [Handle.BatchNormalizationForwardInference], [Handle.BatchNormalizationForwardTraining], [Handle.BatchNormalizationBackward], and [TensorDescriptor.DeriveBN] routines.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type BatchNormMode int32
 
 const (
@@ -2532,7 +2572,9 @@ func (e BatchNormMode) String() string {
 	return fmt.Sprintf("BatchNormMode(%d)", e)
 }
 
-// BatchNormOps is deprecated and is currently only used by deprecated APIs.
+// BatchNormOps is an enumerated type used to specify the mode of operation in [Handle.BatchNormalizationForwardTrainingExWorkspaceSize], [Handle.BatchNormalizationForwardTrainingEx], [Handle.BatchNormalizationBackwardExWorkspaceSize], [Handle.BatchNormalizationBackwardEx], and [Handle.BatchNormalizationTrainingExReserveSpaceSize] functions.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type BatchNormOps int32
 
 const (
@@ -2554,7 +2596,9 @@ func (e BatchNormOps) String() string {
 	return fmt.Sprintf("BatchNormOps(%d)", e)
 }
 
-// NormMode is deprecated and is currently only used by deprecated APIs.
+// NormMode is an enumerated type used to specify the mode of operation in [Handle.NormalizationForwardInference], [Handle.NormalizationForwardTraining], [Handle.BatchNormalizationBackward], [Handle.NormalizationForwardTrainingWorkspaceSize], [Handle.NormalizationBackwardWorkspaceSize], and [Handle.NormalizationTrainingReserveSpaceSize] routines.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type NormMode int32
 
 const (
@@ -2575,7 +2619,9 @@ func (e NormMode) String() string {
 	return fmt.Sprintf("NormMode(%d)", e)
 }
 
-// NormAlgo is deprecated and is currently only used by deprecated APIs.
+// NormAlgo is an enumerated type used to specify the algorithm to execute the normalization operation.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type NormAlgo int32
 
 const (
@@ -2595,7 +2641,9 @@ func (e NormAlgo) String() string {
 	return fmt.Sprintf("NormAlgo(%d)", e)
 }
 
-// NormOps is deprecated and is currently only used by deprecated APIs.
+// NormOps is an enumerated type used to specify the mode of operation in [Handle.NormalizationForwardTrainingWorkspaceSize], [Handle.NormalizationForwardTraining], [Handle.NormalizationBackwardWorkspaceSize], [Handle.NormalizationBackward], and [Handle.NormalizationTrainingReserveSpaceSize] functions.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type NormOps int32
 
 const (
@@ -2813,6 +2861,8 @@ func (e RNNAlgo) String() string {
 }
 
 // ForwardMode is an enumerated type to specify inference or training mode in RNN API.
+//
+// This parameter allows the cuDNN library to tune more precisely the size of the workspace buffer that could be different in inference and training regimens.
 type ForwardMode int32
 
 const (
@@ -2858,6 +2908,8 @@ func (e RNNMode) String() string {
 }
 
 // RNNBiasMode is an enumerated type used to specify the number of bias vectors for RNN functions.
+//
+// Refer to the description of the [RNNMode] enumerated type for the equations for each cell type based on the bias mode.
 type RNNBiasMode int32
 
 const (
@@ -2940,6 +2992,8 @@ func (e RNNClipMode) String() string {
 }
 
 // RNNDataLayout is an enumerated type used to select the RNN data layout.
+//
+// It is used in the API calls [RNNDataDescriptor.Get] and [RNNDataDescriptor.Set].
 type RNNDataLayout int32
 
 const (
@@ -3047,6 +3101,8 @@ func (e WgradMode) String() string {
 }
 
 // LossNormalizationMode is an enumerated type that controls the input normalization mode for a loss function.
+//
+// This type can be used with cudnnSetCTCLossDescriptorEx().
 type LossNormalizationMode int32
 
 const (
@@ -3067,7 +3123,9 @@ func (e LossNormalizationMode) String() string {
 	return fmt.Sprintf("LossNormalizationMode(%d)", e)
 }
 
-// FusedOps is deprecated and is currently only used by deprecated APIs.
+// FusedOps represents the [FusedOps] type is an enumerated type to select a specific sequence of computations to perform in the fused operations. Members and Descriptions [FusedScaleBiasActivationConvBnstats] = 0 On a per-channel basis, it performs these operations in this order: scale, add bias, activation, convolution, and generate batchNorm statistics. cudnnFusedOps_tCUDNN_FUSED_SCALE_BIAS_ACTIVATION_WGRAD = 1 On a per-channel basis, it performs these operations in this order: scale, add bias, activation, convolution backward weights, and generate batchNorm statistics. cudnnFusedOps_tCUDNN_FUSED_BN_FINALIZE_STATISTICS_TRAINING = 2 Computes the equivalent scale and bias from ySum, ySqSum, learned scale, and bias. Optionally, update running statistics and generate saved stats. [FusedBnFinalizeStatisticsInference] = 3 Computes the equivalent scale and bias from the learned running statistics and the learned scale and bias. [FusedConvScaleBiasAddActivation] = 4 On a per-channel basis, performs these operations in this order: convolution, scale, add bias, element-wise addition with another tensor, and activation. [FusedScaleBiasAddActivationGenBitmask] = 5 On a per-channel basis, performs these operations in this order: scale and bias on one tensor, scale and bias on a second tensor, element-wise addition of these two tensors, and on the resulting tensor performs activation and generates activation bit mask. [FusedDactivationForkDbatchnorm] = 6 On a per-channel basis, performs these operations in this order: backward activation, fork (meaning, write out gradient for the residual branch), and backward batch norm.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type FusedOps int32
 
 const (
@@ -3101,7 +3159,7 @@ func (e FusedOps) String() string {
 	return fmt.Sprintf("FusedOps(%d)", e)
 }
 
-// FusedOpsConstParamLabel represents for the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsVariantParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Forward) for [FusedOpsConstParamLabel]  For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsConstParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Backward) for [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsConstParamLabel]  The following operation performs the computation, where ∗ denotes convolution operator: y=α1(w∗x)+α2z+b For the attribute CUDNN_FUSED_CONVOLUTION_SCALE_BIAS_ADD_RELU in [FusedOpsConstParamLabel] .
+// FusedOpsConstParamLabel represents for the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsVariantParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Forward) for [FusedOpsConstParamLabel]  For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsConstParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Backward) for [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsConstParamLabel]  The following operation performs the computation, where * denotes convolution operator: y=α1(w*x)+α2z+b For the attribute CUDNN_FUSED_CONVOLUTION_SCALE_BIAS_ADD_RELU in [FusedOpsConstParamLabel] .
 type FusedOpsConstParamLabel int32
 
 const (
@@ -3231,7 +3289,9 @@ func (e FusedOpsConstParamLabel) String() string {
 	return fmt.Sprintf("FusedOpsConstParamLabel(%d)", e)
 }
 
-// FusedOpsPointerPlaceHolder is deprecated and is currently only used by deprecated APIs.
+// FusedOpsPointerPlaceHolder is an enumerated type used to select the alignment type of the cudnnFusedOps descriptor pointer. Members and Descriptions [PtrNull] = 0 Indicates that the pointer to the tensor in the variantPack will be NULL. [PtrElemAligned] = 1 Indicates that the pointer to the tensor in the variantPack will not be NULL, and will have element alignment. [Ptr16BAligned] = 2 Indicates that the pointer to the tensor in the variantPack will not be NULL, and will have 16 byte alignment.
+//
+// Deprecated: This enumerated type is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this enumerated type.
 type FusedOpsPointerPlaceHolder int32
 
 const (

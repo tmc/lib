@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"sort"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // PCSamplingReasonLayout describes the parameter sizes used by the native
@@ -64,7 +66,7 @@ type PCSamplingReasonInventory struct {
 // PCSamplingStallReasons queries the native reason inventory without
 // launching work. It owns the temporary C storage and rejects malformed or
 // out-of-bounds native output before returning it to a caller.
-func PCSamplingStallReasons(ctx Context, maxReasons int) (PCSamplingReasonInventory, error) {
+func PCSamplingStallReasons(ctx driver.Context, maxReasons int) (PCSamplingReasonInventory, error) {
 	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
 		return PCSamplingReasonInventory{}, errors.New("cupti: invalid reason inventory request")
 	}
@@ -75,7 +77,7 @@ func PCSamplingStallReasons(ctx Context, maxReasons int) (PCSamplingReasonInvent
 	return pcSamplingStallReasons(ctx, maxReasons, version, PCSamplingGetNumStallReasons, PCSamplingGetStallReasons)
 }
 
-func pcSamplingStallReasons(ctx Context, maxReasons int, version uint32, countQuery func(*PCSamplingGetNumStallReasonsParams) error, namesQuery func(*PCSamplingGetStallReasonsParams) error) (PCSamplingReasonInventory, error) {
+func pcSamplingStallReasons(ctx driver.Context, maxReasons int, version uint32, countQuery func(*PCSamplingGetNumStallReasonsParams) error, namesQuery func(*PCSamplingGetStallReasonsParams) error) (PCSamplingReasonInventory, error) {
 	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
 		return PCSamplingReasonInventory{}, errors.New("cupti: invalid reason inventory request")
 	}

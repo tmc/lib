@@ -9,22 +9,100 @@ import (
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnaddModuleToProgram     func(Program, unsafe.Pointer, uint, *byte) Result
-	fncompileProgram         func(Program, int32, **byte) Result
-	fnCreateProgram          func(*Program) Result
-	fndestroyProgram         func(*Program) Result
-	fngetCompiledResult      func(Program, *byte) Result
-	fngetCompiledResultSize  func(Program, *uint) Result
-	fngetProgramLog          func(Program, *byte) Result
-	fngetProgramLogSize      func(Program, *uint) Result
-	fnIRVersion              func(*int32, *int32, *int32, *int32) Result
-	fnLLVMVersion            func(*byte, *int32) Result
-	fnlazyAddModuleToProgram func(Program, unsafe.Pointer, uint, *byte) Result
-	fnverifyProgram          func(Program, int32, **byte) Result
-	fnVersion                func(*int32, *int32) Result
+	symaddModuleToProgram     uintptr
+	symcompileProgram         uintptr
+	symCreateProgram          uintptr
+	symdestroyProgram         uintptr
+	symgetCompiledResult      uintptr
+	symgetCompiledResultSize  uintptr
+	symgetProgramLog          uintptr
+	symgetProgramLogSize      uintptr
+	symIRVersion              uintptr
+	symLLVMVersion            uintptr
+	symlazyAddModuleToProgram uintptr
+	symverifyProgram          uintptr
+	symVersion                uintptr
 )
 
-// addModuleToProgram Add a module level NVVM IR to a program.
+// fnaddModuleToProgram calls nvvmAddModuleToProgram.
+func fnaddModuleToProgram(a0 Program, a1 unsafe.Pointer, a2 uint, a3 *byte) Result {
+	r1, _ := ffiCall4(symaddModuleToProgram, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fncompileProgram calls nvvmCompileProgram.
+func fncompileProgram(a0 Program, a1 int32, a2 **byte) Result {
+	r1, _ := ffiCall3(symcompileProgram, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnCreateProgram calls nvvmCreateProgram.
+func fnCreateProgram(a0 *Program) Result {
+	r1, _ := ffiCall1(symCreateProgram, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fndestroyProgram calls nvvmDestroyProgram.
+func fndestroyProgram(a0 *Program) Result {
+	r1, _ := ffiCall1(symdestroyProgram, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fngetCompiledResult calls nvvmGetCompiledResult.
+func fngetCompiledResult(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symgetCompiledResult, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetCompiledResultSize calls nvvmGetCompiledResultSize.
+func fngetCompiledResultSize(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetCompiledResultSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetProgramLog calls nvvmGetProgramLog.
+func fngetProgramLog(a0 Program, a1 *byte) Result {
+	r1, _ := ffiCall2(symgetProgramLog, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetProgramLogSize calls nvvmGetProgramLogSize.
+func fngetProgramLogSize(a0 Program, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetProgramLogSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnIRVersion calls nvvmIRVersion.
+func fnIRVersion(a0 *int32, a1 *int32, a2 *int32, a3 *int32) Result {
+	r1, _ := ffiCall4(symIRVersion, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnLLVMVersion calls nvvmLLVMVersion.
+func fnLLVMVersion(a0 *byte, a1 *int32) Result {
+	r1, _ := ffiCall2(symLLVMVersion, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnlazyAddModuleToProgram calls nvvmLazyAddModuleToProgram.
+func fnlazyAddModuleToProgram(a0 Program, a1 unsafe.Pointer, a2 uint, a3 *byte) Result {
+	r1, _ := ffiCall4(symlazyAddModuleToProgram, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnverifyProgram calls nvvmVerifyProgram.
+func fnverifyProgram(a0 Program, a1 int32, a2 **byte) Result {
+	r1, _ := ffiCall3(symverifyProgram, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnVersion calls nvvmVersion.
+func fnVersion(a0 *int32, a1 *int32) Result {
+	r1, _ := ffiCall2(symVersion, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// addModuleToProgram adds a module level NVVM IR to a program.
 //
 // The buffer should contain an NVVM IR module.
 // The module should have NVVM IR either in the LLVM 7.0.1 bitcode
@@ -35,7 +113,7 @@ var (
 //   - prog (in): NVVM program
 //   - buffer (in): NVVM IR module in the bitcode or text representation
 //   - size (in): Size of the NVVM IR module
-//   - name (in): Name of the NVVM IR module. If NULL, "" is used as the name
+//   - name (in): Name of the NVVM IR module. If NULL, "<unnamed>" is used as the name
 //
 // Wraps nvvmAddModuleToProgram.
 func addModuleToProgram(prog Program, buffer unsafe.Pointer, size uint, name string) error {
@@ -46,7 +124,7 @@ func addModuleToProgram(prog Program, buffer unsafe.Pointer, size uint, name str
 	return toError(fnaddModuleToProgram(prog, buffer, size, &cstr_name[0]), "nvvmAddModuleToProgram")
 }
 
-// compileProgram Compile the NVVM program.
+// compileProgram compiles the NVVM program.
 //
 // The NVVM IR modules in the program will be linked at the IR level.
 // The linked IR program is compiled to PTX.
@@ -134,7 +212,7 @@ func compileProgram(prog Program, options ...string) error {
 	return toError(fncompileProgram(prog, int32(len(options)), carg_options), "nvvmCompileProgram")
 }
 
-// CreateProgram Create a program, and set the value of its handle to *prog.
+// CreateProgram creates a program, and sets the value of its handle to *prog.
 //
 // Wraps nvvmCreateProgram.
 func CreateProgram() (Program, error) {
@@ -142,15 +220,18 @@ func CreateProgram() (Program, error) {
 		var zero Program
 		return zero, err
 	}
-	var out Program
-	if err := toError(fnCreateProgram(&out), "nvvmCreateProgram"); err != nil {
+	out := slotCreateProgram.get()
+	defer slotCreateProgram.put(out)
+	if err := toError(fnCreateProgram(out), "nvvmCreateProgram"); err != nil {
 		var zero Program
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// destroyProgram Destroy a program.
+var slotCreateProgram outSlot[Program]
+
+// destroyProgram destroys a program.
 //
 //   - prog (in): NVVM program
 //
@@ -162,9 +243,7 @@ func destroyProgram(prog *Program) error {
 	return toError(fndestroyProgram(prog), "nvvmDestroyProgram")
 }
 
-// getCompiledResult Get the compiled result.
-//
-// The result is stored in the memory pointed to by buffer.
+// getCompiledResult gets the compiled result.
 //
 //   - prog (in): NVVM program
 //   - buffer (out): Compiled result
@@ -193,9 +272,12 @@ func getCompiledResult(prog Program) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getCompiledResultSize Get the size of the compiled result.
+// getCompiledResultSize gets the size of the compiled result.
 //
 //   - prog (in): NVVM program
+//
+// The size counts the terminating NUL that [Program.CompiledResult] drops, so it is one more
+// than the length of that result.
 //
 // Wraps nvvmGetCompiledResultSize.
 func getCompiledResultSize(prog Program) (uint, error) {
@@ -203,18 +285,18 @@ func getCompiledResultSize(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetCompiledResultSize(prog, &out), "nvvmGetCompiledResultSize"); err != nil {
+	out := slotGetCompiledResultSize.get()
+	defer slotGetCompiledResultSize.put(out)
+	if err := toError(fngetCompiledResultSize(prog, out), "nvvmGetCompiledResultSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getProgramLog Get the Compiler/Verifier Message.
-//
-// The NULL terminated message string is stored in the memory pointed to by
-// buffer when the return value is [Success].
+var slotGetCompiledResultSize outSlot[uint]
+
+// getProgramLog gets the Compiler/Verifier Message.
 //
 //   - prog (in): NVVM program
 //   - buffer (out): Compilation/Verification log
@@ -241,12 +323,12 @@ func getProgramLog(prog Program) (string, error) {
 	return string(buf[:size]), nil
 }
 
-// getProgramLogSize Get the Size of Compiler/Verifier Message.
-//
-// The size of the message string (including the trailing NULL) is stored into
-// bufferSizeRet when the return value is [Success].
+// getProgramLogSize gets the Size of Compiler/Verifier Message.
 //
 //   - prog (in): NVVM program
+//
+// The size counts the terminating NUL that [Program.Log] drops, so it is one more
+// than the length of that result.
 //
 // Wraps nvvmGetProgramLogSize.
 func getProgramLogSize(prog Program) (uint, error) {
@@ -254,32 +336,40 @@ func getProgramLogSize(prog Program) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetProgramLogSize(prog, &out), "nvvmGetProgramLogSize"); err != nil {
+	out := slotGetProgramLogSize.get()
+	defer slotGetProgramLogSize.put(out)
+	if err := toError(fngetProgramLogSize(prog, out), "nvvmGetProgramLogSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// IRVersion Get the NVVM IR version.
+var slotGetProgramLogSize outSlot[uint]
+
+// IRVersion gets the NVVM IR version.
 //
 // Wraps nvvmIRVersion.
 func IRVersion() (majorIR int32, minorIR int32, majorDbg int32, minorDbg int32, err error) {
 	if err := checkLibSym("nvvmIRVersion"); err != nil {
 		return 0, 0, 0, 0, err
 	}
-	var out0 int32
-	var out1 int32
-	var out2 int32
-	var out3 int32
-	if err := toError(fnIRVersion(&out0, &out1, &out2, &out3), "nvvmIRVersion"); err != nil {
+	outs := slotIRVersion.get()
+	defer slotIRVersion.put(outs)
+	if err := toError(fnIRVersion(&outs.out0, &outs.out1, &outs.out2, &outs.out3), "nvvmIRVersion"); err != nil {
 		return 0, 0, 0, 0, err
 	}
-	return out0, out1, out2, out3, nil
+	return outs.out0, outs.out1, outs.out2, outs.out3, nil
 }
 
-// LLVMVersion Get the LLVM IR version guaranteed to be supported by NVVM.
+var slotIRVersion outSlot[struct {
+	out0 int32
+	out1 int32
+	out2 int32
+	out3 int32
+}]
+
+// LLVMVersion gets the LLVM IR version guaranteed to be supported by NVVM.
 //
 // The valid arch strings are the ones supported by [Program.Compile].
 //
@@ -291,14 +381,17 @@ func LLVMVersion(arch string) (int32, error) {
 		return 0, err
 	}
 	cstr_arch := append([]byte(arch), 0)
-	var out int32
-	if err := toError(fnLLVMVersion(&cstr_arch[0], &out), "nvvmLLVMVersion"); err != nil {
+	out := slotLLVMVersion.get()
+	defer slotLLVMVersion.put(out)
+	if err := toError(fnLLVMVersion(&cstr_arch[0], out), "nvvmLLVMVersion"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// lazyAddModuleToProgram Add a module level NVVM IR to a program.
+var slotLLVMVersion outSlot[int32]
+
+// lazyAddModuleToProgram adds a module level NVVM IR to a program.
 //
 // The buffer should contain an NVVM IR module. The module should have NVVM
 // IR in the LLVM 7.0.1 bitcode representation.
@@ -315,7 +408,7 @@ func LLVMVersion(arch string) (int32, error) {
 //   - prog (in): NVVM program
 //   - buffer (in): NVVM IR module in the bitcode representation
 //   - size (in): Size of the NVVM IR module
-//   - name (in): Name of the NVVM IR module. If NULL, "" is used as the name
+//   - name (in): Name of the NVVM IR module. If NULL, "<unnamed>" is used as the name
 //
 // Wraps nvvmLazyAddModuleToProgram.
 func lazyAddModuleToProgram(prog Program, buffer unsafe.Pointer, size uint, name string) error {
@@ -326,7 +419,7 @@ func lazyAddModuleToProgram(prog Program, buffer unsafe.Pointer, size uint, name
 	return toError(fnlazyAddModuleToProgram(prog, buffer, size, &cstr_name[0]), "nvvmLazyAddModuleToProgram")
 }
 
-// verifyProgram Verify the NVVM program.
+// verifyProgram verifies the NVVM program.
 //
 // The valid compiler options are:
 //
@@ -355,17 +448,22 @@ func verifyProgram(prog Program, options ...string) error {
 	return toError(fnverifyProgram(prog, int32(len(options)), carg_options), "nvvmVerifyProgram")
 }
 
-// Version Get the NVVM version.
+// Version gets the NVVM version.
 //
 // Wraps nvvmVersion.
 func Version() (major int32, minor int32, err error) {
 	if err := checkLibSym("nvvmVersion"); err != nil {
 		return 0, 0, err
 	}
-	var out0 int32
-	var out1 int32
-	if err := toError(fnVersion(&out0, &out1), "nvvmVersion"); err != nil {
+	outs := slotVersion.get()
+	defer slotVersion.put(outs)
+	if err := toError(fnVersion(&outs.out0, &outs.out1), "nvvmVersion"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotVersion outSlot[struct {
+	out0 int32
+	out1 int32
+}]

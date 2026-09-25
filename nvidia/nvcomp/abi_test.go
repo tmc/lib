@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // These tests check the binding's agreement with the pinned C ABI. None of
@@ -98,7 +99,8 @@ func readSymbolList(path string) ([]string, error) {
 	return out, nil
 }
 
-// registeredSymbols returns the symbol names passed to register in path.
+// registeredSymbols returns the symbol names passed to register or
+// registerSym in path.
 //
 // It reads the generated source rather than calling Has, because Has needs the
 // library to be present and this test must run on a machine that has never had
@@ -115,10 +117,19 @@ func registeredSymbols(path string) ([]string, error) {
 			return true
 		}
 		ident, ok := call.Fun.(*ast.Ident)
-		if !ok || ident.Name != "register" || len(call.Args) != 2 {
+		if !ok {
 			return true
 		}
-		lit, ok := call.Args[1].(*ast.BasicLit)
+		var arg ast.Expr
+		switch {
+		case ident.Name == "register" && len(call.Args) == 2:
+			arg = call.Args[1]
+		case ident.Name == "registerSym" && len(call.Args) == 1:
+			arg = call.Args[0]
+		default:
+			return true
+		}
+		lit, ok := arg.(*ast.BasicLit)
 		if !ok || lit.Kind != token.STRING {
 			return true
 		}
@@ -162,7 +173,7 @@ var signatures = []struct {
 	fn: fnCompressAsync,
 	want: "func(nvcomp.DevicePointerArray, nvcomp.DeviceSizeArray, uint, uint, nvcomp.DeviceBuffer, uint, " +
 		"nvcomp.DevicePointerArray, nvcomp.DeviceSizeArray, nvcomp.CompressOpts, nvcomp.DeviceStatusArray, " +
-		"nvcomp.Stream) nvcomp.Result",
+		"driver.Stream) nvcomp.Result",
 }, {
 	symbol: "nvcompBatchedLZ4CompressGetMaxOutputChunkSize",
 	c: "nvcompStatus_t nvcompBatchedLZ4CompressGetMaxOutputChunkSize(size_t max_uncompressed_chunk_bytes, " +
@@ -190,7 +201,7 @@ var signatures = []struct {
 		"cudaStream_t stream)",
 	fn: fnCompressGetTempSizeSync,
 	want: "func(nvcomp.DevicePointerArray, nvcomp.DeviceSizeArray, uint, uint, nvcomp.CompressOpts, *uint, uint, " +
-		"nvcomp.Stream) nvcomp.Result",
+		"driver.Stream) nvcomp.Result",
 }, {
 	symbol: "nvcompBatchedLZ4DecompressAsync",
 	c: "nvcompStatus_t nvcompBatchedLZ4DecompressAsync(const void *const *device_compressed_chunk_ptrs, " +
@@ -201,7 +212,7 @@ var signatures = []struct {
 	fn: fnDecompressAsync,
 	want: "func(nvcomp.DevicePointerArray, nvcomp.DeviceSizeArray, nvcomp.DeviceSizeArray, nvcomp.DeviceSizeArray, " +
 		"uint, nvcomp.DeviceBuffer, uint, nvcomp.DevicePointerArray, nvcomp.DecompressOpts, " +
-		"nvcomp.DeviceStatusArray, nvcomp.Stream) nvcomp.Result",
+		"nvcomp.DeviceStatusArray, driver.Stream) nvcomp.Result",
 }, {
 	symbol: "nvcompBatchedLZ4DecompressGetRequiredAlignments",
 	c: "nvcompStatus_t nvcompBatchedLZ4DecompressGetRequiredAlignments(nvcompBatchedLZ4DecompressOpts_t decompress_opts, " +
@@ -223,7 +234,7 @@ var signatures = []struct {
 		"nvcompStatus_t *device_statuses, cudaStream_t stream)",
 	fn: fnDecompressGetTempSizeSync,
 	want: "func(nvcomp.DevicePointerArray, nvcomp.DeviceSizeArray, uint, uint, *uint, uint, nvcomp.DecompressOpts, " +
-		"nvcomp.DeviceStatusArray, nvcomp.Stream) nvcomp.Result",
+		"nvcomp.DeviceStatusArray, driver.Stream) nvcomp.Result",
 }, {
 	symbol: "nvcompBatchedLZ4GetDecompressSizeAsync",
 	c: "nvcompStatus_t nvcompBatchedLZ4GetDecompressSizeAsync(const void *const *device_compressed_chunk_ptrs, " +
@@ -231,7 +242,7 @@ var signatures = []struct {
 		"cudaStream_t stream)",
 	fn: fnGetDecompressSizeAsync,
 	want: "func(nvcomp.DevicePointerArray, nvcomp.DeviceSizeArray, nvcomp.DeviceSizeArray, uint, " +
-		"nvcomp.Stream) nvcomp.Result",
+		"driver.Stream) nvcomp.Result",
 }, {
 	symbol: "nvcompGetProperties",
 	c:      "nvcompStatus_t nvcompGetProperties(nvcompProperties_t *properties)",
@@ -331,7 +342,7 @@ func TestABIWidths(t *testing.T) {
 		{"DevicePointerArray", "void *const *", unsafe.Sizeof(DevicePointerArray(0)), unsafe.Alignof(DevicePointerArray(0)), 8, 8},
 		{"DeviceSizeArray", "size_t *", unsafe.Sizeof(DeviceSizeArray(0)), unsafe.Alignof(DeviceSizeArray(0)), 8, 8},
 		{"DeviceStatusArray", "nvcompStatus_t *", unsafe.Sizeof(DeviceStatusArray(0)), unsafe.Alignof(DeviceStatusArray(0)), 8, 8},
-		{"Stream", "cudaStream_t, a struct CUstream_st *", unsafe.Sizeof(Stream(0)), unsafe.Alignof(Stream(0)), 8, 8},
+		{"Stream", "cudaStream_t, a struct CUstream_st *", unsafe.Sizeof(driver.Stream(0)), unsafe.Alignof(driver.Stream(0)), 8, 8},
 		{"uint", "size_t", unsafe.Sizeof(uint(0)), unsafe.Alignof(uint(0)), 8, 8},
 		{"uint32", "unsigned int", unsafe.Sizeof(uint32(0)), unsafe.Alignof(uint32(0)), 4, 4},
 	} {

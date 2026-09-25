@@ -2,7 +2,11 @@
 
 package curand
 
-// DestroyDistribution wraps curandDestroyDistribution.
+// DestroyDistribution destroys the histogram array for a discrete distribution (e.g. Poisson).
+//
+// Destroy the histogram array for a discrete distribution created by [CreatePoissonDistribution].
+//
+// Wraps curandDestroyDistribution.
 func (d DiscreteDistribution) DestroyDistribution() error {
 	return destroyDistribution(d)
 }

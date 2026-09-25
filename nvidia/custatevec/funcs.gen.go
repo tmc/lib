@@ -3,42 +3,412 @@
 package custatevec
 
 import (
+	"math"
+	"sync"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 // Generated function pointer variables.
 var (
-	fnabs2SumArray                              func(Handle, uintptr, DataType, uint32, uintptr, *int32, uint32, *int32, *int32, uint32) Result
-	fnapplyMatrix                               func(Handle, uintptr, DataType, uint32, uintptr, DataType, MatrixLayout, int32, *int32, uint32, *int32, *int32, uint32, ComputeType, uintptr, uint) Result
-	fnapplyMatrixGetWorkspaceSize               func(Handle, DataType, uint32, uintptr, DataType, MatrixLayout, int32, uint32, uint32, ComputeType, *uint) Result
-	fncommunicatorCreate                        func(Handle, *Communicator, CommunicatorType, *byte) Result
-	fncommunicatorDestroy                       func(Handle, Communicator) Result
-	fncomputeExpectation                        func(Handle, uintptr, DataType, uint32, unsafe.Pointer, DataType, *float64, uintptr, DataType, MatrixLayout, *int32, uint32, ComputeType, uintptr, uint) Result
-	fncomputeExpectationGetWorkspaceSize        func(Handle, DataType, uint32, uintptr, DataType, MatrixLayout, uint32, ComputeType, *uint) Result
-	fnCreate                                    func(*Handle) Result
-	fndestroy                                   func(Handle) Result
-	fndistIndexBitSwapSchedulerCreate           func(Handle, *DistIndexBitSwapScheduler, uint32, uint32) Result
-	fndistIndexBitSwapSchedulerDestroy          func(Handle, DistIndexBitSwapScheduler) Result
-	fndistIndexBitSwapSchedulerGetParameters    func(Handle, DistIndexBitSwapScheduler, int32, int32, *SVSwapParameters) Result
-	fndistIndexBitSwapSchedulerSetIndexBitSwaps func(Handle, DistIndexBitSwapScheduler, *Int2, uint32, *int32, *int32, uint32, *uint32) Result
-	fngetDefaultWorkspaceSize                   func(Handle, *uint) Result
-	fnGetProperty                               func(PropertyType, *int32) Result
-	fngetStream                                 func(Handle, *Stream) Result
-	fnGetVersion                                func() uint
-	fninitializeStateVector                     func(Handle, uintptr, DataType, uint32, StateVectorType) Result
-	fnmeasureOnZBasis                           func(Handle, uintptr, DataType, uint32, *int32, *int32, uint32, float64, CollapseOp) Result
-	fnsVSwapWorkerCreate                        func(Handle, *SVSwapWorker, Communicator, uintptr, int32, Event, DataType, Stream, *uint, *uint) Result
-	fnsVSwapWorkerCreateWithSemaphore           func(Handle, *SVSwapWorker, Communicator, uintptr, int32, uintptr, DataType, Stream, *uint, *uint) Result
-	fnsVSwapWorkerDestroy                       func(Handle, SVSwapWorker) Result
-	fnsVSwapWorkerExecute                       func(Handle, SVSwapWorker, Index, Index) Result
-	fnsVSwapWorkerSetExtraWorkspace             func(Handle, SVSwapWorker, uintptr, uint) Result
-	fnsVSwapWorkerSetParameters                 func(Handle, SVSwapWorker, *SVSwapParameters, int32) Result
-	fnsVSwapWorkerSetSubSVsP2P                  func(Handle, SVSwapWorker, *uintptr, *int32, *Event, uint32) Result
-	fnsVSwapWorkerSetSubSVsP2PWithSemaphores    func(Handle, SVSwapWorker, *uintptr, *int32, *uintptr, uint32) Result
-	fnsVSwapWorkerSetTransferWorkspace          func(Handle, SVSwapWorker, uintptr, uint) Result
-	fnsetStream                                 func(Handle, Stream) Result
-	fnsetWorkspace                              func(Handle, uintptr, uint) Result
+	symabs2SumArray                              uintptr
+	symapplyMatrix                               uintptr
+	symapplyMatrixGetWorkspaceSize               uintptr
+	symcommunicatorCreate                        uintptr
+	symcommunicatorDestroy                       uintptr
+	symcomputeExpectation                        uintptr
+	symcomputeExpectationGetWorkspaceSize        uintptr
+	symCreate                                    uintptr
+	symdestroy                                   uintptr
+	symdistIndexBitSwapSchedulerCreate           uintptr
+	symdistIndexBitSwapSchedulerDestroy          uintptr
+	symdistIndexBitSwapSchedulerGetParameters    uintptr
+	symdistIndexBitSwapSchedulerSetIndexBitSwaps uintptr
+	symgetDefaultWorkspaceSize                   uintptr
+	symGetProperty                               uintptr
+	symgetStream                                 uintptr
+	symGetVersion                                uintptr
+	syminitializeStateVector                     uintptr
+	symmeasureOnZBasis                           uintptr
+	fnsVSwapWorkerCreate                         func(Handle, *SVSwapWorker, Communicator, uintptr, int32, driver.Event, DataType, driver.Stream, *uint, *uint) Result
+	fnsVSwapWorkerCreateWithSemaphore            func(Handle, *SVSwapWorker, Communicator, uintptr, int32, uintptr, DataType, driver.Stream, *uint, *uint) Result
+	symsVSwapWorkerDestroy                       uintptr
+	symsVSwapWorkerExecute                       uintptr
+	symsVSwapWorkerSetExtraWorkspace             uintptr
+	symsVSwapWorkerSetParameters                 uintptr
+	symsVSwapWorkerSetSubSVsP2P                  uintptr
+	symsVSwapWorkerSetSubSVsP2PWithSemaphores    uintptr
+	symsVSwapWorkerSetTransferWorkspace          uintptr
+	fnsetStream                                  func(Handle, driver.Stream) Result
+	symsetWorkspace                              uintptr
 )
+
+// ffiCall0 through ffiCall16 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloat(fn, 9, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	return ffi.CallFloat(fn, 15, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	return ffi.CallFloat(fn, 16, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnabs2SumArray calls custatevecAbs2SumArray.
+func fnabs2SumArray(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 uintptr, a5 *int32, a6 uint32, a7 *int32, a8 *int32, a9 uint32) Result {
+	r1, _ := ffiCall10(symabs2SumArray, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(a9))
+	return Result(r1)
+}
+
+// fnapplyMatrix calls custatevecApplyMatrix.
+func fnapplyMatrix(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 uintptr, a5 DataType, a6 MatrixLayout, a7 int32, a8 *int32, a9 uint32, a10 *int32, a11 *int32, a12 uint32, a13 ComputeType, a14 uintptr, a15 uint) Result {
+	r1, _ := ffiCall16(symapplyMatrix, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnapplyMatrixGetWorkspaceSize calls custatevecApplyMatrixGetWorkspaceSize.
+func fnapplyMatrixGetWorkspaceSize(a0 Handle, a1 DataType, a2 uint32, a3 uintptr, a4 DataType, a5 MatrixLayout, a6 int32, a7 uint32, a8 uint32, a9 ComputeType, a10 *uint) Result {
+	r1, _ := ffiCall11(symapplyMatrixGetWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fncommunicatorCreate calls custatevecCommunicatorCreate.
+func fncommunicatorCreate(a0 Handle, a1 *Communicator, a2 CommunicatorType, a3 *byte) Result {
+	r1, _ := ffiCall4(symcommunicatorCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fncommunicatorDestroy calls custatevecCommunicatorDestroy.
+func fncommunicatorDestroy(a0 Handle, a1 Communicator) Result {
+	r1, _ := ffiCall2(symcommunicatorDestroy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fncomputeExpectation calls custatevecComputeExpectation.
+func fncomputeExpectation(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 unsafe.Pointer, a5 DataType, a6 *float64, a7 uintptr, a8 DataType, a9 MatrixLayout, a10 *int32, a11 uint32, a12 ComputeType, a13 uintptr, a14 uint) Result {
+	r1, _ := ffiCall15(symcomputeExpectation, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fncomputeExpectationGetWorkspaceSize calls custatevecComputeExpectationGetWorkspaceSize.
+func fncomputeExpectationGetWorkspaceSize(a0 Handle, a1 DataType, a2 uint32, a3 uintptr, a4 DataType, a5 MatrixLayout, a6 uint32, a7 ComputeType, a8 *uint) Result {
+	r1, _ := ffiCall9(symcomputeExpectationGetWorkspaceSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)))
+	return Result(r1)
+}
+
+// fnCreate calls custatevecCreate.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fndestroy calls custatevecDestroy.
+func fndestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndistIndexBitSwapSchedulerCreate calls custatevecDistIndexBitSwapSchedulerCreate.
+func fndistIndexBitSwapSchedulerCreate(a0 Handle, a1 *DistIndexBitSwapScheduler, a2 uint32, a3 uint32) Result {
+	r1, _ := ffiCall4(symdistIndexBitSwapSchedulerCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fndistIndexBitSwapSchedulerDestroy calls custatevecDistIndexBitSwapSchedulerDestroy.
+func fndistIndexBitSwapSchedulerDestroy(a0 Handle, a1 DistIndexBitSwapScheduler) Result {
+	r1, _ := ffiCall2(symdistIndexBitSwapSchedulerDestroy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fndistIndexBitSwapSchedulerGetParameters calls custatevecDistIndexBitSwapSchedulerGetParameters.
+func fndistIndexBitSwapSchedulerGetParameters(a0 Handle, a1 DistIndexBitSwapScheduler, a2 int32, a3 int32, a4 *SVSwapParameters) Result {
+	r1, _ := ffiCall5(symdistIndexBitSwapSchedulerGetParameters, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndistIndexBitSwapSchedulerSetIndexBitSwaps calls custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps.
+func fndistIndexBitSwapSchedulerSetIndexBitSwaps(a0 Handle, a1 DistIndexBitSwapScheduler, a2 *Int2, a3 uint32, a4 *int32, a5 *int32, a6 uint32, a7 *uint32) Result {
+	r1, _ := ffiCall8(symdistIndexBitSwapSchedulerSetIndexBitSwaps, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fngetDefaultWorkspaceSize calls custatevecGetDefaultWorkspaceSize.
+func fngetDefaultWorkspaceSize(a0 Handle, a1 *uint) Result {
+	r1, _ := ffiCall2(symgetDefaultWorkspaceSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetProperty calls custatevecGetProperty.
+func fnGetProperty(a0 PropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetStream calls custatevecGetStream.
+func fngetStream(a0 Handle, a1 *driver.Stream) Result {
+	r1, _ := ffiCall2(symgetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetVersion calls custatevecGetVersion.
+func fnGetVersion() uint {
+	r1, _ := ffiCall0(symGetVersion, 0)
+	return uint(r1)
+}
+
+// fninitializeStateVector calls custatevecInitializeStateVector.
+func fninitializeStateVector(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 StateVectorType) Result {
+	r1, _ := ffiCall5(syminitializeStateVector, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmeasureOnZBasis calls custatevecMeasureOnZBasis.
+func fnmeasureOnZBasis(a0 Handle, a1 uintptr, a2 DataType, a3 uint32, a4 *int32, a5 *int32, a6 uint32, a7 float64, a8 CollapseOp) Result {
+	r1, _ := ffiCall9(symmeasureOnZBasis, 0b10000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(math.Float64bits(a7)), uintptr(a8))
+	return Result(r1)
+}
+
+// fnsVSwapWorkerDestroy calls custatevecSVSwapWorkerDestroy.
+func fnsVSwapWorkerDestroy(a0 Handle, a1 SVSwapWorker) Result {
+	r1, _ := ffiCall2(symsVSwapWorkerDestroy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsVSwapWorkerExecute calls custatevecSVSwapWorkerExecute.
+func fnsVSwapWorkerExecute(a0 Handle, a1 SVSwapWorker, a2 Index, a3 Index) Result {
+	r1, _ := ffiCall4(symsVSwapWorkerExecute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnsVSwapWorkerSetExtraWorkspace calls custatevecSVSwapWorkerSetExtraWorkspace.
+func fnsVSwapWorkerSetExtraWorkspace(a0 Handle, a1 SVSwapWorker, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symsVSwapWorkerSetExtraWorkspace, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnsVSwapWorkerSetParameters calls custatevecSVSwapWorkerSetParameters.
+func fnsVSwapWorkerSetParameters(a0 Handle, a1 SVSwapWorker, a2 *SVSwapParameters, a3 int32) Result {
+	r1, _ := ffiCall4(symsVSwapWorkerSetParameters, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnsVSwapWorkerSetSubSVsP2P calls custatevecSVSwapWorkerSetSubSVsP2P.
+func fnsVSwapWorkerSetSubSVsP2P(a0 Handle, a1 SVSwapWorker, a2 *uintptr, a3 *int32, a4 *driver.Event, a5 uint32) Result {
+	r1, _ := ffiCall6(symsVSwapWorkerSetSubSVsP2P, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	return Result(r1)
+}
+
+// fnsVSwapWorkerSetSubSVsP2PWithSemaphores calls custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores.
+func fnsVSwapWorkerSetSubSVsP2PWithSemaphores(a0 Handle, a1 SVSwapWorker, a2 *uintptr, a3 *int32, a4 *uintptr, a5 uint32) Result {
+	r1, _ := ffiCall6(symsVSwapWorkerSetSubSVsP2PWithSemaphores, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	return Result(r1)
+}
+
+// fnsVSwapWorkerSetTransferWorkspace calls custatevecSVSwapWorkerSetTransferWorkspace.
+func fnsVSwapWorkerSetTransferWorkspace(a0 Handle, a1 SVSwapWorker, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symsVSwapWorkerSetTransferWorkspace, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnsetWorkspace calls custatevecSetWorkspace.
+func fnsetWorkspace(a0 Handle, a1 uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symsetWorkspace, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
 
 // abs2SumArray sums the squared absolute values of state vector elements over a set of index bits.
 //
@@ -160,13 +530,16 @@ func applyMatrixGetWorkspaceSize(handle Handle, svDataType DataType, nIndexBits 
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnapplyMatrixGetWorkspaceSize(handle, svDataType, nIndexBits, matrix, matrixDataType, layout, adjoint, nTargets, nControls, computeType, &out), "custatevecApplyMatrixGetWorkspaceSize"); err != nil {
+	out := slotApplyMatrixGetWorkspaceSize.get()
+	defer slotApplyMatrixGetWorkspaceSize.put(out)
+	if err := toError(fnapplyMatrixGetWorkspaceSize(handle, svDataType, nIndexBits, matrix, matrixDataType, layout, adjoint, nTargets, nControls, computeType, out), "custatevecApplyMatrixGetWorkspaceSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotApplyMatrixGetWorkspaceSize outSlot[uint]
 
 // communicatorCreate [Create] communicator.
 //
@@ -181,13 +554,16 @@ func communicatorCreate(handle Handle, communicatorType CommunicatorType, soname
 		var zero Communicator
 		return zero, err
 	}
-	var out Communicator
-	if err := toError(fncommunicatorCreate(handle, &out, communicatorType, soname), "custatevecCommunicatorCreate"); err != nil {
+	out := slotCommunicatorCreate.get()
+	defer slotCommunicatorCreate.put(out)
+	if err := toError(fncommunicatorCreate(handle, out, communicatorType, soname), "custatevecCommunicatorCreate"); err != nil {
 		var zero Communicator
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCommunicatorCreate outSlot[Communicator]
 
 // communicatorDestroy releases communicator.
 //
@@ -278,13 +654,16 @@ func computeExpectationGetWorkspaceSize(handle Handle, svDataType DataType, nInd
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fncomputeExpectationGetWorkspaceSize(handle, svDataType, nIndexBits, matrix, matrixDataType, layout, nBasisBits, computeType, &out), "custatevecComputeExpectationGetWorkspaceSize"); err != nil {
+	out := slotComputeExpectationGetWorkspaceSize.get()
+	defer slotComputeExpectationGetWorkspaceSize.put(out)
+	if err := toError(fncomputeExpectationGetWorkspaceSize(handle, svDataType, nIndexBits, matrix, matrixDataType, layout, nBasisBits, computeType, out), "custatevecComputeExpectationGetWorkspaceSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotComputeExpectationGetWorkspaceSize outSlot[uint]
 
 // Create creates a cuStateVec library handle bound to the current CUDA device.
 //
@@ -298,13 +677,16 @@ func Create() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "custatevecCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "custatevecCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // destroy releases a handle and the resources it owns.
 //
@@ -333,13 +715,16 @@ func distIndexBitSwapSchedulerCreate(handle Handle, nGlobalIndexBits uint32, nLo
 		var zero DistIndexBitSwapScheduler
 		return zero, err
 	}
-	var out DistIndexBitSwapScheduler
-	if err := toError(fndistIndexBitSwapSchedulerCreate(handle, &out, nGlobalIndexBits, nLocalIndexBits), "custatevecDistIndexBitSwapSchedulerCreate"); err != nil {
+	out := slotDistIndexBitSwapSchedulerCreate.get()
+	defer slotDistIndexBitSwapSchedulerCreate.put(out)
+	if err := toError(fndistIndexBitSwapSchedulerCreate(handle, out, nGlobalIndexBits, nLocalIndexBits), "custatevecDistIndexBitSwapSchedulerCreate"); err != nil {
 		var zero DistIndexBitSwapScheduler
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDistIndexBitSwapSchedulerCreate outSlot[DistIndexBitSwapScheduler]
 
 // distIndexBitSwapSchedulerDestroy releases distributed index bit swap scheduler.
 //
@@ -354,7 +739,7 @@ func distIndexBitSwapSchedulerDestroy(handle Handle, scheduler DistIndexBitSwapS
 	return toError(fndistIndexBitSwapSchedulerDestroy(handle, scheduler), "custatevecDistIndexBitSwapSchedulerDestroy")
 }
 
-// distIndexBitSwapSchedulerGetParameters Get parameters to be set to the state vector swap worker
+// distIndexBitSwapSchedulerGetParameters gets parameters to be set to the state vector swap worker
 //
 //   - handle: in the handle to cuStateVec library
 //   - scheduler: in a pointer to batch swap scheduler descriptor
@@ -370,7 +755,7 @@ func distIndexBitSwapSchedulerGetParameters(handle Handle, scheduler DistIndexBi
 	return toError(fndistIndexBitSwapSchedulerGetParameters(handle, scheduler, swapBatchIndex, orgSubSVIndex, parameters), "custatevecDistIndexBitSwapSchedulerGetParameters")
 }
 
-// distIndexBitSwapSchedulerSetIndexBitSwaps Set index bit swaps to distributed index bit swap scheduler.
+// distIndexBitSwapSchedulerSetIndexBitSwaps sets index bit swaps to distributed index bit swap scheduler.
 //
 //   - handle: in the handle to cuStateVec library
 //   - scheduler: in a pointer to batch swap scheduler descriptor
@@ -387,13 +772,16 @@ func distIndexBitSwapSchedulerSetIndexBitSwaps(handle Handle, scheduler DistInde
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fndistIndexBitSwapSchedulerSetIndexBitSwaps(handle, scheduler, indexBitSwaps, nIndexBitSwaps, maskBitString, maskOrdering, maskLen, &out), "custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps"); err != nil {
+	out := slotDistIndexBitSwapSchedulerSetIndexBitSwaps.get()
+	defer slotDistIndexBitSwapSchedulerSetIndexBitSwaps.put(out)
+	if err := toError(fndistIndexBitSwapSchedulerSetIndexBitSwaps(handle, scheduler, indexBitSwaps, nIndexBitSwaps, maskBitString, maskOrdering, maskLen, out), "custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDistIndexBitSwapSchedulerSetIndexBitSwaps outSlot[uint32]
 
 // getDefaultWorkspaceSize returns the size in bytes of the workspace the handle allocated for itself.
 //
@@ -410,13 +798,16 @@ func getDefaultWorkspaceSize(handle Handle) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fngetDefaultWorkspaceSize(handle, &out), "custatevecGetDefaultWorkspaceSize"); err != nil {
+	out := slotGetDefaultWorkspaceSize.get()
+	defer slotGetDefaultWorkspaceSize.put(out)
+	if err := toError(fngetDefaultWorkspaceSize(handle, out), "custatevecGetDefaultWorkspaceSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetDefaultWorkspaceSize outSlot[uint]
 
 // GetProperty reports one component of the linked library version.
 //
@@ -431,13 +822,16 @@ func GetProperty(type_ PropertyType) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetProperty(type_, &out), "custatevecGetProperty"); err != nil {
+	out := slotGetProperty.get()
+	defer slotGetProperty.put(out)
+	if err := toError(fnGetProperty(type_, out), "custatevecGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetProperty outSlot[int32]
 
 // getStream returns the CUDA stream bound to the handle.
 //
@@ -447,18 +841,21 @@ func GetProperty(type_ PropertyType) (int32, error) {
 //   - streamId: out the stream to be used by the library
 //
 // Wraps custatevecGetStream.
-func getStream(handle Handle) (Stream, error) {
+func getStream(handle Handle) (driver.Stream, error) {
 	if err := checkLibSym("custatevecGetStream"); err != nil {
-		var zero Stream
+		var zero driver.Stream
 		return zero, err
 	}
-	var out Stream
-	if err := toError(fngetStream(handle, &out), "custatevecGetStream"); err != nil {
-		var zero Stream
+	out := slotGetStream.get()
+	defer slotGetStream.put(out)
+	if err := toError(fngetStream(handle, out), "custatevecGetStream"); err != nil {
+		var zero driver.Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStream outSlot[driver.Stream]
 
 // GetVersion returns the linked library version, which the header encodes as major*10000 + minor*100 + patch.
 //
@@ -524,13 +921,16 @@ func measureOnZBasis(handle Handle, sv uintptr, svDataType DataType, nIndexBits 
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnmeasureOnZBasis(handle, sv, svDataType, nIndexBits, &out, basisBits, nBasisBits, randnum, collapse), "custatevecMeasureOnZBasis"); err != nil {
+	out := slotMeasureOnZBasis.get()
+	defer slotMeasureOnZBasis.put(out)
+	if err := toError(fnmeasureOnZBasis(handle, sv, svDataType, nIndexBits, out, basisBits, nBasisBits, randnum, collapse), "custatevecMeasureOnZBasis"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotMeasureOnZBasis outSlot[int32]
 
 // sVSwapWorkerCreate [Create] state vector swap worker.
 //
@@ -546,7 +946,7 @@ func measureOnZBasis(handle Handle, sv uintptr, svDataType DataType, nIndexBits 
 //   - minTransferWorkspaceSizeInBytes: out the minimum-required size of the transfer workspace
 //
 // Wraps custatevecSVSwapWorkerCreate.
-func sVSwapWorkerCreate(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgEvent Event, svDataType DataType, stream Stream) (SVSwapWorker, uint, uint, error) {
+func sVSwapWorkerCreate(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgEvent driver.Event, svDataType DataType, stream driver.Stream) (SVSwapWorker, uint, uint, error) {
 	if err := checkLibSym("custatevecSVSwapWorkerCreate"); err != nil {
 		return *new(SVSwapWorker), 0, 0, err
 	}
@@ -573,7 +973,7 @@ func sVSwapWorkerCreate(handle Handle, communicator Communicator, orgSubSV uintp
 //   - minTransferWorkspaceSizeInBytes: out the minimum-required size of the transfer workspace
 //
 // Wraps custatevecSVSwapWorkerCreateWithSemaphore.
-func sVSwapWorkerCreateWithSemaphore(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgSemaphore uintptr, svDataType DataType, stream Stream) (SVSwapWorker, uint, uint, error) {
+func sVSwapWorkerCreateWithSemaphore(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgSemaphore uintptr, svDataType DataType, stream driver.Stream) (SVSwapWorker, uint, uint, error) {
 	if err := checkLibSym("custatevecSVSwapWorkerCreateWithSemaphore"); err != nil {
 		return *new(SVSwapWorker), 0, 0, err
 	}
@@ -599,7 +999,7 @@ func sVSwapWorkerDestroy(handle Handle, svSwapWorker SVSwapWorker) error {
 	return toError(fnsVSwapWorkerDestroy(handle, svSwapWorker), "custatevecSVSwapWorkerDestroy")
 }
 
-// sVSwapWorkerExecute Execute the data transfer.
+// sVSwapWorkerExecute executes the data transfer.
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: in state vector swap worker
@@ -614,7 +1014,7 @@ func sVSwapWorkerExecute(handle Handle, svSwapWorker SVSwapWorker, begin Index, 
 	return toError(fnsVSwapWorkerExecute(handle, svSwapWorker, begin, end), "custatevecSVSwapWorkerExecute")
 }
 
-// sVSwapWorkerSetExtraWorkspace Set extra workspace.
+// sVSwapWorkerSetExtraWorkspace sets extra workspace.
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: in state vector swap worker
@@ -629,7 +1029,7 @@ func sVSwapWorkerSetExtraWorkspace(handle Handle, svSwapWorker SVSwapWorker, ext
 	return toError(fnsVSwapWorkerSetExtraWorkspace(handle, svSwapWorker, extraWorkspace, extraWorkspaceSizeInBytes), "custatevecSVSwapWorkerSetExtraWorkspace")
 }
 
-// sVSwapWorkerSetParameters Set state vector swap parameters.
+// sVSwapWorkerSetParameters sets state vector swap parameters.
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: in state vector swap worker
@@ -644,7 +1044,7 @@ func sVSwapWorkerSetParameters(handle Handle, svSwapWorker SVSwapWorker, paramet
 	return toError(fnsVSwapWorkerSetParameters(handle, svSwapWorker, parameters, peer), "custatevecSVSwapWorkerSetParameters")
 }
 
-// sVSwapWorkerSetSubSVsP2P Set sub state vector pointers accessible via GPUDirect P2P with CUDA IPC events
+// sVSwapWorkerSetSubSVsP2P sets sub state vector pointers accessible via GPUDirect P2P with CUDA IPC events
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: in state vector swap worker
@@ -654,14 +1054,14 @@ func sVSwapWorkerSetParameters(handle Handle, svSwapWorker SVSwapWorker, paramet
 //   - nDstSubSVsP2P: in the number of sub state vector pointers specified by the dstSubSVsP2P argument
 //
 // Wraps custatevecSVSwapWorkerSetSubSVsP2P.
-func sVSwapWorkerSetSubSVsP2P(handle Handle, svSwapWorker SVSwapWorker, dstSubSVsP2P *uintptr, dstSubSVIndicesP2P *int32, dstEvents *Event, nDstSubSVsP2P uint32) error {
+func sVSwapWorkerSetSubSVsP2P(handle Handle, svSwapWorker SVSwapWorker, dstSubSVsP2P *uintptr, dstSubSVIndicesP2P *int32, dstEvents *driver.Event, nDstSubSVsP2P uint32) error {
 	if err := checkLibSym("custatevecSVSwapWorkerSetSubSVsP2P"); err != nil {
 		return err
 	}
 	return toError(fnsVSwapWorkerSetSubSVsP2P(handle, svSwapWorker, dstSubSVsP2P, dstSubSVIndicesP2P, dstEvents, nDstSubSVsP2P), "custatevecSVSwapWorkerSetSubSVsP2P")
 }
 
-// sVSwapWorkerSetSubSVsP2PWithSemaphores Set sub state vector pointers accessible via GPUDirect P2P with semaphores
+// sVSwapWorkerSetSubSVsP2PWithSemaphores sets sub state vector pointers accessible via GPUDirect P2P with semaphores
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: in state vector swap worker
@@ -678,7 +1078,7 @@ func sVSwapWorkerSetSubSVsP2PWithSemaphores(handle Handle, svSwapWorker SVSwapWo
 	return toError(fnsVSwapWorkerSetSubSVsP2PWithSemaphores(handle, svSwapWorker, dstSubSVsP2P, dstSubSVIndicesP2P, dstSemaphores, nDstSubSVsP2P), "custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores")
 }
 
-// sVSwapWorkerSetTransferWorkspace Set transfer workspace.
+// sVSwapWorkerSetTransferWorkspace sets transfer workspace.
 //
 //   - handle: in the handle to cuStateVec library
 //   - svSwapWorker: in state vector swap worker
@@ -701,7 +1101,7 @@ func sVSwapWorkerSetTransferWorkspace(handle Handle, svSwapWorker SVSwapWorker, 
 //   - streamId: in the stream to be used by the library
 //
 // Wraps custatevecSetStream.
-func setStream(handle Handle, streamId Stream) error {
+func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("custatevecSetStream"); err != nil {
 		return err
 	}

@@ -6,179 +6,179 @@
 //
 // # Sparse Matrix Descriptors
 //
-//   - [SpMatDescr.BlockedEllGet].
-//   - [SpMatDescr.CooGet].
-//   - [SpMatDescr.CooSetPointers].
-//   - [SpMatDescr.CooSetStridedBatch].
-//   - [SpMatDescr.CscGet].
-//   - [SpMatDescr.CscSetPointers].
-//   - [SpMatDescr.CsrGet].
-//   - [SpMatDescr.CsrSetPointers].
-//   - [SpMatDescr.CsrSetStridedBatch].
-//   - [ConstSpMatDescr.SpMatGetAttribute].
-//   - [ConstSpMatDescr.SpMatGetFormat].
-//   - [ConstSpMatDescr.SpMatGetIndexBase].
-//   - [ConstSpMatDescr.SpMatGetSize].
-//   - [ConstSpMatDescr.SpMatGetStridedBatch].
-//   - [SpMatDescr.MatGetValues].
-//   - [SpMatDescr.MatSetAttribute].
-//   - [SpMatDescr.MatSetValues].
+//   - [SpMatDescr.BlockedEllGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
+//   - [SpMatDescr.CooGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
+//   - [SpMatDescr.CooSetPointers]: sets the pointers of the sparse matrix descriptor spMatDescr.
+//   - [SpMatDescr.CooSetStridedBatch]: sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
+//   - [SpMatDescr.CscGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in CSC format.
+//   - [SpMatDescr.CscSetPointers]: sets the pointers of the sparse matrix descriptor spMatDescr.
+//   - [SpMatDescr.CsrGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in CSR format.
+//   - [SpMatDescr.CsrSetPointers]: sets the pointers of the sparse matrix descriptor spMatDescr.
+//   - [SpMatDescr.CsrSetStridedBatch]: sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
+//   - [ConstSpMatDescr.SpMatGetAttribute]: gets the attributes of the sparse matrix descriptor spMatDescr.
+//   - [ConstSpMatDescr.SpMatGetFormat]: returns the format field of the sparse matrix descriptor spMatDescr.
+//   - [ConstSpMatDescr.SpMatGetIndexBase]: returns the idxBase field of the sparse matrix descriptor spMatDescr.
+//   - [ConstSpMatDescr.SpMatGetSize]: returns the sizes of the sparse matrix spMatDescr.
+//   - [ConstSpMatDescr.SpMatGetStridedBatch]: returns the batchCount field of the sparse matrix descriptor spMatDescr.
+//   - [SpMatDescr.MatGetValues]: returns the values field of the sparse matrix descriptor spMatDescr.
+//   - [SpMatDescr.MatSetAttribute]: sets the attributes of the sparse matrix descriptor spMatDescr.
+//   - [SpMatDescr.MatSetValues]: sets the values field of the sparse matrix descriptor spMatDescr.
 //
 // # Read-Only Descriptors
 //
-//   - [ConstSpMatDescr.BlockedEllGet].
-//   - [ConstSpMatDescr.CooGet].
-//   - [ConstSpMatDescr.CscGet].
-//   - [ConstSpMatDescr.CsrGet].
-//   - [ConstDnMatDescr.DnMatGet].
-//   - [ConstDnMatDescr.DnMatGetValues].
-//   - [ConstDnVecDescr.DnVecGet].
-//   - [ConstDnVecDescr.DnVecGetValues].
-//   - [ConstSpMatDescr.SpMatGetValues].
-//   - [ConstSpVecDescr.SpVecGet].
-//   - [ConstSpVecDescr.SpVecGetValues].
+//   - [ConstSpMatDescr.BlockedEllGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
+//   - [ConstSpMatDescr.CooGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
+//   - [ConstSpMatDescr.CscGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in CSC format.
+//   - [ConstSpMatDescr.CsrGet]: returns the fields of the sparse matrix descriptor spMatDescr stored in CSR format.
+//   - [ConstDnMatDescr.DnMatGet]: returns the fields of the dense matrix descriptor dnMatDescr.
+//   - [ConstDnMatDescr.DnMatGetValues]: returns the values field of the dense matrix descriptor dnMatDescr.
+//   - [ConstDnVecDescr.DnVecGet]: returns the fields of the dense vector descriptor dnVecDescr.
+//   - [ConstDnVecDescr.DnVecGetValues]: returns the values field of the dense vector descriptor dnVecDescr.
+//   - [ConstSpMatDescr.SpMatGetValues]: returns the values field of the sparse matrix descriptor spMatDescr.
+//   - [ConstSpVecDescr.SpVecGet]: returns the fields of the sparse vector descriptor spVecDescr.
+//   - [ConstSpVecDescr.SpVecGetValues]: returns the values field of the sparse vector descriptor spVecDescr.
 //
 // # Descriptor Lifecycle
 //
-//   - [Create].
-//   - [CreateBlockedEll].
-//   - [CreateBsr].
-//   - [CreateConstBlockedEll].
-//   - [CreateConstBsr].
-//   - [CreateConstCoo].
-//   - [CreateConstCsc].
-//   - [CreateConstCsr].
-//   - [CreateConstDnMat].
-//   - [CreateConstDnVec].
-//   - [CreateConstSlicedEll].
-//   - [CreateConstSpVec].
-//   - [CreateCoo].
-//   - [CreateCsc].
-//   - [CreateCsr].
-//   - [CreateDnMat].
-//   - [CreateDnVec].
-//   - [CreateSlicedEll].
-//   - [CreateSpVec].
-//   - [Handle.Destroy].
-//   - [ConstDnMatDescr.DestroyDnMat].
-//   - [ConstDnVecDescr.DestroyDnVec].
-//   - [ConstSpMatDescr.DestroySpMat].
-//   - [ConstSpVecDescr.DestroySpVec].
+//   - [Create]: initializes the cuSPARSE library and creates a handle on the cuSPARSE context.
+//   - [CreateBlockedEll]: initializes the sparse matrix descriptor spMatDescr for the Blocked-Ellpack (ELL) format.
+//   - [CreateBsr]: initializes the sparse matrix descriptor spMatDescr for the Block Compressed Row (BSR) format.
+//   - [CreateConstBlockedEll]: initializes the sparse matrix descriptor spMatDescr for the Blocked-Ellpack (ELL) format.
+//   - [CreateConstBsr]: initializes the sparse matrix descriptor spMatDescr for the Block Compressed Row (BSR) format.
+//   - [CreateConstCoo]: initializes the sparse matrix descriptor spMatDescr in the COO format (Structure of Arrays layout).
+//   - [CreateConstCsc]: initializes the sparse matrix descriptor spMatDescr in the CSC format.
+//   - [CreateConstCsr]: initializes the sparse matrix descriptor spMatDescr in the CSR format.
+//   - [CreateConstDnMat]: initializes the dense matrix descriptor dnMatDescr.
+//   - [CreateConstDnVec]: initializes the dense vector descriptor dnVecDescr.
+//   - [CreateConstSlicedEll]: initializes the sparse matrix descriptor spMatDescr for the Sliced Ellpack (SELL) format.
+//   - [CreateConstSpVec]: initializes the sparse matrix descriptor spVecDescr.
+//   - [CreateCoo]: initializes the sparse matrix descriptor spMatDescr in the COO format (Structure of Arrays layout).
+//   - [CreateCsc]: initializes the sparse matrix descriptor spMatDescr in the CSC format.
+//   - [CreateCsr]: initializes the sparse matrix descriptor spMatDescr in the CSR format.
+//   - [CreateDnMat]: initializes the dense matrix descriptor dnMatDescr.
+//   - [CreateDnVec]: initializes the dense vector descriptor dnVecDescr.
+//   - [CreateSlicedEll]: initializes the sparse matrix descriptor spMatDescr for the Sliced Ellpack (SELL) format.
+//   - [CreateSpVec]: initializes the sparse matrix descriptor spVecDescr.
+//   - [Handle.Destroy]: releases CPU-side resources used by the cuSPARSE library.
+//   - [ConstDnMatDescr.DestroyDnMat]: releases the host memory allocated for the dense matrix descriptor dnMatDescr.
+//   - [ConstDnVecDescr.DestroyDnVec]: releases the host memory allocated for the dense vector descriptor dnVecDescr.
+//   - [ConstSpMatDescr.DestroySpMat]: releases the host memory allocated for the sparse matrix descriptor spMatDescr.
+//   - [ConstSpVecDescr.DestroySpVec]: releases the host memory allocated for the sparse vector descriptor spVecDescr.
 //
 // # Format Conversion
 //
-//   - [Handle.DenseToSparseAnalysis].
-//   - [Handle.DenseToSparseBufferSize].
-//   - [Handle.DenseToSparseConvert].
-//   - [Handle.SparseToDense].
-//   - [Handle.SparseToDenseBufferSize].
+//   - [Handle.DenseToSparseAnalysis]: converts the dense matrix matA into a sparse matrix matB in CSR, CSC, COO, or Blocked-ELL format.
+//   - [Handle.DenseToSparseBufferSize]: returns the workspace size for cusparseDenseToSparse.
+//   - [Handle.DenseToSparseConvert]: converts the dense matrix matA into a sparse matrix matB in CSR, CSC, COO, or Blocked-ELL format.
+//   - [Handle.SparseToDense]: converts the sparse matrix matA in CSR, CSC, or COO format into its dense representation matB.
+//   - [Handle.SparseToDenseBufferSize]: returns the workspace size for [Handle.SparseToDense].
 //
 // # Dense Matrix Descriptors
 //
-//   - [DnMatDescr.MatGet].
-//   - [ConstDnMatDescr.DnMatGetStridedBatch].
-//   - [DnMatDescr.MatGetValues].
-//   - [DnMatDescr.MatSetStridedBatch].
-//   - [DnMatDescr.MatSetValues].
+//   - [DnMatDescr.MatGet]: returns the fields of the dense matrix descriptor dnMatDescr.
+//   - [ConstDnMatDescr.DnMatGetStridedBatch]: returns the number of batches and the batch stride of the dense matrix descriptor dnMatDescr.
+//   - [DnMatDescr.MatGetValues]: returns the values field of the dense matrix descriptor dnMatDescr.
+//   - [DnMatDescr.MatSetStridedBatch]: sets the number of batches and the batch stride of the dense matrix descriptor dnMatDescr.
+//   - [DnMatDescr.MatSetValues]: sets the values field of the dense matrix descriptor dnMatDescr.
 //
 // # Dense Vector Descriptors
 //
-//   - [DnVecDescr.VecGet].
-//   - [DnVecDescr.VecGetValues].
-//   - [DnVecDescr.VecSetValues].
+//   - [DnVecDescr.VecGet]: returns the fields of the dense vector descriptor dnVecDescr.
+//   - [DnVecDescr.VecGetValues]: returns the values field of the dense vector descriptor dnVecDescr.
+//   - [DnVecDescr.VecSetValues]: set the values field of the dense vector descriptor dnVecDescr.
 //
 // # Vector Operations
 //
-//   - [Handle.Gather].
-//   - [Handle.Scatter].
+//   - [Handle.Gather]: gathers the elements of the dense vector vecY into the sparse vector vecX.
+//   - [Handle.Scatter]: scatters the elements of the sparse vector vecX into the dense vector vecY.
 //
 // # Library Queries
 //
-//   - [GetErrorName].
-//   - [GetErrorString].
-//   - [Handle.PointerMode].
-//   - [GetProperty].
-//   - [Handle.Stream].
-//   - [Handle.Version].
+//   - [GetErrorName]: returns the string representation of an error code enum name.
+//   - [GetErrorString]: Returns the description string for an error code.
+//   - [Handle.PointerMode]: obtains the pointer mode used by the cuSPARSE library.
+//   - [GetProperty]: returns the value of the requested property.
+//   - [Handle.Stream]: gets the cuSPARSE library stream, which is being used to to execute all calls to the cuSPARSE library functions.
+//   - [Handle.Version]: returns the version number of the cuSPARSE library.
 //
 // # Logging
 //
 //   - [LoggerForceDisable].
-//   - [LoggerOpenFile].
-//   - [LoggerSetCallback].
-//   - [LoggerSetFile].
-//   - [LoggerSetLevel].
-//   - [LoggerSetMask].
+//   - [LoggerOpenFile]: opens a logging output file in the given path.
+//   - [LoggerSetCallback]: sets the logging callback function.
+//   - [LoggerSetFile]: sets the logging output file.
+//   - [LoggerSetLevel]: sets the value of the logging level.
+//   - [LoggerSetMask]: sets the value of the logging mask.
 //
 // # Sampled Dense-Dense Multiplication
 //
-//   - [Handle.SDDMM].
-//   - [Handle.SDDMMBufferSize].
-//   - [Handle.SDDMMPreprocess].
+//   - [Handle.SDDMM]: performs the multiplication of matA and matB, followed by an element-wise multiplication with the sparsity pattern of matC.
+//   - [Handle.SDDMMBufferSize]: returns the workspace size for [Handle.SDDMM].
+//   - [Handle.SDDMMPreprocess]: prepares the workspace buffer for [Handle.SDDMM], which may accelerate subsequent calls to it.
 //
 // # Library Configuration
 //
-//   - [Handle.SetPointerMode].
-//   - [Handle.SetStream].
+//   - [Handle.SetPointerMode]: sets the pointer mode used by the cuSPARSE library.
+//   - [Handle.SetStream]: sets the stream to be used by the cuSPARSE library to execute its routines.
 //
 // # Sparse Matrix Products
 //
-//   - [Handle.SpGEMMCompute].
-//   - [Handle.SpGEMMCopy].
-//   - [SpGEMMCreateDescr].
-//   - [SpGEMMDescr.GEMMDestroyDescr].
-//   - [Handle.SpGEMMEstimateMemory].
-//   - [SpGEMMDescr.GEMMGetNumProducts].
-//   - [Handle.SpGEMMWorkEstimation].
+//   - [Handle.SpGEMMCompute]: performs the multiplication of two sparse matrices matA and matB.
+//   - [Handle.SpGEMMCopy]: performs the multiplication of two sparse matrices matA and matB.
+//   - [SpGEMMCreateDescr]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//   - [SpGEMMDescr.GEMMDestroyDescr]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//   - [Handle.SpGEMMEstimateMemory]: performs the multiplication of two sparse matrices matA and matB.
+//   - [SpGEMMDescr.GEMMGetNumProducts]: performs the multiplication of two sparse matrices matA and matB.
+//   - [Handle.SpGEMMWorkEstimation]: performs the multiplication of two sparse matrices matA and matB.
 //   - [Handle.SpGEMMreuseCompute].
 //   - [Handle.SpGEMMreuseCopy].
-//   - [Handle.SpGEMMreuseNnz].
-//   - [Handle.SpGEMMreuseWorkEstimation].
+//   - [Handle.SpGEMMreuseNnz]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//   - [Handle.SpGEMMreuseWorkEstimation]: performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
 //
 // # Sparse Matrix-Matrix Operations
 //
-//   - [Handle.SpMM].
-//   - [Handle.SpMMBufferSize].
-//   - [Handle.SpMMPreprocess].
+//   - [Handle.SpMM]: performs the multiplication of a sparse matrix matA and a dense matrix matB.
+//   - [Handle.SpMMBufferSize]: returns the workspace size for [Handle.SpMM].
+//   - [Handle.SpMMPreprocess]: prepares the workspace buffer for [Handle.SpMM], which may accelerate subsequent calls to it.
 //
 // # Sparse Matrix-Vector Operations
 //
-//   - [Handle.SpMV].
-//   - [Handle.SpMVBufferSize].
-//   - [Handle.SpMVOp].
-//   - [Handle.SpMVOpBufferSize].
-//   - [Handle.SpMVOpCreateDescr].
-//   - [Handle.SpMVOpCreatePlan].
-//   - [SpMVOpDescr.MVOpDestroyDescr].
-//   - [SpMVOpPlan.MVOpDestroyPlan].
-//   - [Handle.SpMVOpSetGlobalUserData].
-//   - [Handle.SpMVPreprocess].
+//   - [Handle.SpMV]: performs the multiplication of a sparse matrix matA and a dense vector vecX.
+//   - [Handle.SpMVBufferSize]: returns the workspace size for [Handle.SpMV].
+//   - [Handle.SpMVOp]: is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//   - [Handle.SpMVOpBufferSize]: returns the workspace size for [Handle.SpMVOp].
+//   - [Handle.SpMVOpCreateDescr]: is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//   - [Handle.SpMVOpCreatePlan]: is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//   - [SpMVOpDescr.MVOpDestroyDescr]: is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//   - [SpMVOpPlan.MVOpDestroyPlan]: is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//   - [Handle.SpMVOpSetGlobalUserData]: is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//   - [Handle.SpMVPreprocess]: prepares the workspace buffer for [Handle.SpMV], which may accelerate subsequent calls to it.
 //
 // # Sparse Triangular Solves
 //
-//   - [Handle.SpSMAnalysis].
-//   - [Handle.SpSMBufferSize].
-//   - [SpSMCreateDescr].
-//   - [SpSMDescr.SMDestroyDescr].
-//   - [Handle.SpSMSolve].
-//   - [Handle.SpSMUpdateMatrix].
-//   - [Handle.SpSVAnalysis].
-//   - [Handle.SpSVBufferSize].
-//   - [SpSVCreateDescr].
-//   - [SpSVDescr.SVDestroyDescr].
-//   - [Handle.SpSVSolve].
-//   - [Handle.SpSVUpdateMatrix].
+//   - [Handle.SpSMAnalysis]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [Handle.SpSMBufferSize]: returns the workspace size for cusparseSpSM.
+//   - [SpSMCreateDescr]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [SpSMDescr.SMDestroyDescr]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [Handle.SpSMSolve]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [Handle.SpSMUpdateMatrix]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [Handle.SpSVAnalysis]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [Handle.SpSVBufferSize]: returns the workspace size for cusparseSpSV.
+//   - [SpSVCreateDescr]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [SpSVDescr.SVDestroyDescr]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [Handle.SpSVSolve]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//   - [Handle.SpSVUpdateMatrix]: solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
 //
 // # Sparse Vector Descriptors
 //
-//   - [SpVecDescr.VecGet].
-//   - [ConstSpVecDescr.SpVecGetIndexBase].
-//   - [SpVecDescr.VecGetValues].
-//   - [SpVecDescr.VecSetValues].
+//   - [SpVecDescr.VecGet]: returns the fields of the sparse vector descriptor spVecDescr.
+//   - [ConstSpVecDescr.SpVecGetIndexBase]: returns the idxBase field of the sparse vector descriptor spVecDescr.
+//   - [SpVecDescr.VecGetValues]: returns the values field of the sparse vector descriptor spVecDescr.
+//   - [SpVecDescr.VecSetValues]: set the values field of the sparse vector descriptor spVecDescr.
 //
 // # Other
 //
-//   - [SpMatDescr.BsrSetStridedBatch].
+//   - [SpMatDescr.BsrSetStridedBatch]: sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
 //
 // [cuSPARSE Documentation]: https://docs.nvidia.com/cuda/cusparse/index.html
 package cusparse

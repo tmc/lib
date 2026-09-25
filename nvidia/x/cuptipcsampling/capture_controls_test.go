@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // testPublicControlAPI accepts every native call and reports the qualified
@@ -14,7 +15,7 @@ import (
 func testPublicControlAPI() samplingControlAPI {
 	var saved []cupti.PCSamplingConfigurationInfo
 	return samplingControlAPI{
-		device:  func(cupti.Context) (uint32, error) { return 0, nil },
+		device:  func(driver.Context) (uint32, error) { return 0, nil },
 		version: func() (uint32, error) { return 130001, nil },
 		set: func(p *cupti.PCSamplingConfigurationInfoParams) error {
 			a := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))
@@ -42,7 +43,7 @@ func testPublicControlAPI() samplingControlAPI {
 	}
 }
 
-func testPublicInventory(cupti.Context, int) (ReasonInventory, error) {
+func testPublicInventory(driver.Context, int) (ReasonInventory, error) {
 	return ReasonInventory{CUPTIVersion: 130001, Reasons: []StallReason{{Index: 7, Name: "reason"}}}, nil
 }
 
@@ -88,7 +89,7 @@ func TestPublicStartConstructionFailure(t *testing.T) {
 	for _, tt := range []struct {
 		name      string
 		api       func(samplingControlAPI) samplingControlAPI
-		inventory func(cupti.Context, int) (ReasonInventory, error)
+		inventory func(driver.Context, int) (ReasonInventory, error)
 		names     func(int, int, int) (*samplingNames, error)
 		want      string
 	}{
@@ -100,13 +101,13 @@ func TestPublicStartConstructionFailure(t *testing.T) {
 			a.version = func() (uint32, error) { return 130000, nil }
 			return a
 		}, want: "unqualified sampling version 130000"},
-		{name: "inventory error", inventory: func(cupti.Context, int) (ReasonInventory, error) {
+		{name: "inventory error", inventory: func(driver.Context, int) (ReasonInventory, error) {
 			return ReasonInventory{}, inventoryFailure
 		}, want: inventoryFailure.Error()},
-		{name: "inventory version", inventory: func(cupti.Context, int) (ReasonInventory, error) {
+		{name: "inventory version", inventory: func(driver.Context, int) (ReasonInventory, error) {
 			return ReasonInventory{CUPTIVersion: 27, Reasons: []StallReason{{Index: 7}}}, nil
 		}, want: "reason inventory version changed"},
-		{name: "unknown reason", inventory: func(cupti.Context, int) (ReasonInventory, error) {
+		{name: "unknown reason", inventory: func(driver.Context, int) (ReasonInventory, error) {
 			return ReasonInventory{CUPTIVersion: 130001, Reasons: []StallReason{{Index: 8}}}, nil
 		}, want: "unknown or duplicate selected reason"},
 		{name: "name owner", names: func(int, int, int) (*samplingNames, error) { return nil, nameFailure }, want: nameFailure.Error()},

@@ -2,7 +2,11 @@
 
 package cudensitymat
 
-// Compute Computes the operator expectation value(s) with respect to the given quantum state(s).
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
+// Compute computes the operator expectation value(s) with respect to the given quantum state(s).
 //
 // The result is generally a vector of dimension equal to the state batch size.
 //
@@ -17,18 +21,18 @@ package cudensitymat
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatExpectationCompute.
-func (e Expectation) Compute(handle Handle, time float64, batchSize int64, numParams int32, params *float64, state State, expectationValue uintptr, workspace WorkspaceDescriptor, stream Stream) error {
+func (e Expectation) Compute(handle Handle, time float64, batchSize int64, numParams int32, params *float64, state State, expectationValue uintptr, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	return expectationCompute(handle, e, time, batchSize, numParams, params, state, expectationValue, workspace, stream)
 }
 
-// Destroy Destroys an expectation value computation object.
+// Destroy destroys an expectation value computation object.
 //
 // Wraps cudensitymatDestroyExpectation.
 func (e Expectation) Destroy() error {
 	return destroyExpectation(e)
 }
 
-// Prepare Prepares the expectation value object for computation.
+// Prepare prepares the expectation value object for computation.
 //
 // In general, before the expectation value can be computed,
 // it needs to be prepared for computation first, which is the purpose
@@ -46,6 +50,6 @@ func (e Expectation) Destroy() error {
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatExpectationPrepare.
-func (e Expectation) Prepare(handle Handle, state State, computeType ComputeType, workspaceSizeLimit uint, workspace WorkspaceDescriptor, stream Stream) error {
+func (e Expectation) Prepare(handle Handle, state State, computeType ComputeType, workspaceSizeLimit uint, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	return expectationPrepare(handle, e, state, computeType, workspaceSizeLimit, workspace, stream)
 }

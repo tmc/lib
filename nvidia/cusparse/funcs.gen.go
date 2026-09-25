@@ -3,139 +3,1130 @@
 package cusparse
 
 import (
+	"math"
+	"sync"
+	"unsafe"
+
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 // Generated function pointer variables.
 var (
-	fnblockedEllGet             func(SpMatDescr, *int64, *int64, *int64, *int64, *uintptr, *uintptr, *IndexType, *IndexBase, *DataType) Result
-	fnbsrSetStridedBatch        func(SpMatDescr, int32, int64, int64, int64) Result
-	fnconstBlockedEllGet        func(ConstSpMatDescr, *int64, *int64, *int64, *int64, *uintptr, *uintptr, *IndexType, *IndexBase, *DataType) Result
-	fnconstCooGet               func(ConstSpMatDescr, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *IndexType, *IndexBase, *DataType) Result
-	fnconstCscGet               func(ConstSpMatDescr, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *IndexType, *IndexType, *IndexBase, *DataType) Result
-	fnconstCsrGet               func(ConstSpMatDescr, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *IndexType, *IndexType, *IndexBase, *DataType) Result
-	fnconstDnMatGet             func(ConstDnMatDescr, *int64, *int64, *int64, *uintptr, *DataType, *Order) Result
-	fnconstDnMatGetValues       func(ConstDnMatDescr, *uintptr) Result
-	fnconstDnVecGet             func(ConstDnVecDescr, *int64, *uintptr, *DataType) Result
-	fnconstDnVecGetValues       func(ConstDnVecDescr, *uintptr) Result
-	fnconstSpMatGetValues       func(ConstSpMatDescr, *uintptr) Result
-	fnconstSpVecGet             func(ConstSpVecDescr, *int64, *int64, *uintptr, *uintptr, *IndexType, *IndexBase, *DataType) Result
-	fnconstSpVecGetValues       func(ConstSpVecDescr, *uintptr) Result
-	fncooGet                    func(SpMatDescr, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *IndexType, *IndexBase, *DataType) Result
-	fncooSetPointers            func(SpMatDescr, uintptr, uintptr, uintptr) Result
-	fncooSetStridedBatch        func(SpMatDescr, int32, int64) Result
-	fnCreate                    func(*Handle) Result
-	fnCreateBlockedEll          func(*SpMatDescr, int64, int64, int64, int64, uintptr, uintptr, IndexType, IndexBase, DataType) Result
-	fnCreateBsr                 func(*SpMatDescr, int64, int64, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexType, IndexBase, DataType, Order) Result
-	fnCreateConstBlockedEll     func(*ConstSpMatDescr, int64, int64, int64, int64, uintptr, uintptr, IndexType, IndexBase, DataType) Result
-	fnCreateConstBsr            func(*ConstSpMatDescr, int64, int64, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexType, IndexBase, DataType, Order) Result
-	fnCreateConstCoo            func(*ConstSpMatDescr, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexBase, DataType) Result
-	fnCreateConstCsc            func(*ConstSpMatDescr, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexType, IndexBase, DataType) Result
-	fnCreateConstCsr            func(*ConstSpMatDescr, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexType, IndexBase, DataType) Result
-	fnCreateConstDnMat          func(*ConstDnMatDescr, int64, int64, int64, uintptr, DataType, Order) Result
-	fnCreateConstDnVec          func(*ConstDnVecDescr, int64, uintptr, DataType) Result
-	fnCreateConstSlicedEll      func(*ConstSpMatDescr, int64, int64, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexType, IndexBase, DataType) Result
-	fnCreateConstSpVec          func(*ConstSpVecDescr, int64, int64, uintptr, uintptr, IndexType, IndexBase, DataType) Result
-	fnCreateCoo                 func(*SpMatDescr, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexBase, DataType) Result
-	fnCreateCsc                 func(*SpMatDescr, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexType, IndexBase, DataType) Result
-	fnCreateCsr                 func(*SpMatDescr, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexType, IndexBase, DataType) Result
-	fnCreateDnMat               func(*DnMatDescr, int64, int64, int64, uintptr, DataType, Order) Result
-	fnCreateDnVec               func(*DnVecDescr, int64, uintptr, DataType) Result
-	fnCreateSlicedEll           func(*SpMatDescr, int64, int64, int64, int64, int64, uintptr, uintptr, uintptr, IndexType, IndexType, IndexBase, DataType) Result
-	fnCreateSpVec               func(*SpVecDescr, int64, int64, uintptr, uintptr, IndexType, IndexBase, DataType) Result
-	fncscGet                    func(SpMatDescr, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *IndexType, *IndexType, *IndexBase, *DataType) Result
-	fncscSetPointers            func(SpMatDescr, uintptr, uintptr, uintptr) Result
-	fncsrGet                    func(SpMatDescr, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *IndexType, *IndexType, *IndexBase, *DataType) Result
-	fncsrSetPointers            func(SpMatDescr, uintptr, uintptr, uintptr) Result
-	fncsrSetStridedBatch        func(SpMatDescr, int32, int64, int64) Result
-	fndenseToSparseAnalysis     func(Handle, ConstDnMatDescr, SpMatDescr, DenseToSparseAlg, uintptr) Result
-	fndenseToSparseBufferSize   func(Handle, ConstDnMatDescr, SpMatDescr, DenseToSparseAlg, *uint) Result
-	fndenseToSparseConvert      func(Handle, ConstDnMatDescr, SpMatDescr, DenseToSparseAlg, uintptr) Result
-	fndestroy                   func(Handle) Result
-	fndestroyDnMat              func(ConstDnMatDescr) Result
-	fndestroyDnVec              func(ConstDnVecDescr) Result
-	fndestroySpMat              func(ConstSpMatDescr) Result
-	fndestroySpVec              func(ConstSpVecDescr) Result
-	fndnMatGet                  func(DnMatDescr, *int64, *int64, *int64, *uintptr, *DataType, *Order) Result
-	fndnMatGetStridedBatch      func(ConstDnMatDescr, *int32, *int64) Result
-	fndnMatGetValues            func(DnMatDescr, *uintptr) Result
-	fndnMatSetStridedBatch      func(DnMatDescr, int32, int64) Result
-	fndnMatSetValues            func(DnMatDescr, uintptr) Result
-	fndnVecGet                  func(DnVecDescr, *int64, *uintptr, *DataType) Result
-	fndnVecGetValues            func(DnVecDescr, *uintptr) Result
-	fndnVecSetValues            func(DnVecDescr, uintptr) Result
-	fngather                    func(Handle, ConstDnVecDescr, SpVecDescr) Result
-	fnGetErrorName              func(Result) *byte
-	fnGetErrorString            func(Result) *byte
-	fngetPointerMode            func(Handle, *PointerMode) Result
-	fnGetProperty               func(LibraryPropertyType, *int32) Result
-	fngetStream                 func(Handle, *driver.Stream) Result
-	fngetVersion                func(Handle, *int32) Result
-	fnLoggerForceDisable        func() Result
-	fnLoggerOpenFile            func(*byte) Result
-	fnLoggerSetCallback         func(LoggerCallback) Result
-	fnLoggerSetFile             func(*FILE) Result
-	fnLoggerSetLevel            func(int32) Result
-	fnLoggerSetMask             func(int32) Result
-	fnsDDMM                     func(Handle, Operation, Operation, uintptr, ConstDnMatDescr, ConstDnMatDescr, uintptr, SpMatDescr, DataType, SDDMMAlg, uintptr) Result
-	fnsDDMMBufferSize           func(Handle, Operation, Operation, uintptr, ConstDnMatDescr, ConstDnMatDescr, uintptr, SpMatDescr, DataType, SDDMMAlg, *uint) Result
-	fnsDDMMPreprocess           func(Handle, Operation, Operation, uintptr, ConstDnMatDescr, ConstDnMatDescr, uintptr, SpMatDescr, DataType, SDDMMAlg, uintptr) Result
-	fnscatter                   func(Handle, ConstSpVecDescr, DnVecDescr) Result
-	fnsetPointerMode            func(Handle, PointerMode) Result
-	fnsetStream                 func(Handle, driver.Stream) Result
-	fnspGEMMCompute             func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstSpMatDescr, uintptr, SpMatDescr, DataType, SpGEMMAlg, SpGEMMDescr, *uint, uintptr) Result
-	fnspGEMMCopy                func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstSpMatDescr, uintptr, SpMatDescr, DataType, SpGEMMAlg, SpGEMMDescr) Result
-	fnSpGEMMCreateDescr         func(*SpGEMMDescr) Result
-	fnspGEMMDestroyDescr        func(SpGEMMDescr) Result
-	fnspGEMMEstimateMemory      func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstSpMatDescr, uintptr, SpMatDescr, DataType, SpGEMMAlg, SpGEMMDescr, float32, *uint, uintptr, *uint) Result
-	fnspGEMMGetNumProducts      func(SpGEMMDescr, *int64) Result
-	fnspGEMMWorkEstimation      func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstSpMatDescr, uintptr, SpMatDescr, DataType, SpGEMMAlg, SpGEMMDescr, *uint, uintptr) Result
-	fnspGEMMreuseCompute        func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstSpMatDescr, uintptr, SpMatDescr, DataType, SpGEMMAlg, SpGEMMDescr) Result
-	fnspGEMMreuseCopy           func(Handle, Operation, Operation, ConstSpMatDescr, ConstSpMatDescr, SpMatDescr, SpGEMMAlg, SpGEMMDescr, *uint, uintptr) Result
-	fnspGEMMreuseNnz            func(Handle, Operation, Operation, ConstSpMatDescr, ConstSpMatDescr, SpMatDescr, SpGEMMAlg, SpGEMMDescr, *uint, uintptr, *uint, uintptr, *uint, uintptr) Result
-	fnspGEMMreuseWorkEstimation func(Handle, Operation, Operation, ConstSpMatDescr, ConstSpMatDescr, SpMatDescr, SpGEMMAlg, SpGEMMDescr, *uint, uintptr) Result
-	fnspMM                      func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstDnMatDescr, uintptr, DnMatDescr, DataType, SpMMAlg, uintptr) Result
-	fnspMMBufferSize            func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstDnMatDescr, uintptr, DnMatDescr, DataType, SpMMAlg, *uint) Result
-	fnspMMPreprocess            func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstDnMatDescr, uintptr, DnMatDescr, DataType, SpMMAlg, uintptr) Result
-	fnspMV                      func(Handle, Operation, uintptr, ConstSpMatDescr, ConstDnVecDescr, uintptr, DnVecDescr, DataType, SpMVAlg, uintptr) Result
-	fnspMVBufferSize            func(Handle, Operation, uintptr, ConstSpMatDescr, ConstDnVecDescr, uintptr, DnVecDescr, DataType, SpMVAlg, *uint) Result
-	fnspMVOp                    func(Handle, SpMVOpPlan, uintptr, uintptr, ConstDnVecDescr, ConstDnVecDescr, DnVecDescr) Result
-	fnspMVOpBufferSize          func(Handle, Operation, ConstSpMatDescr, ConstDnVecDescr, DnVecDescr, DnVecDescr, DataType, *uint) Result
-	fnspMVOpCreateDescr         func(Handle, *SpMVOpDescr, Operation, ConstSpMatDescr, ConstDnVecDescr, DnVecDescr, DnVecDescr, DataType, uintptr) Result
-	fnspMVOpCreatePlan          func(Handle, SpMVOpDescr, *SpMVOpPlan, uintptr, uint) Result
-	fnspMVOpDestroyDescr        func(SpMVOpDescr) Result
-	fnspMVOpDestroyPlan         func(SpMVOpPlan) Result
-	fnspMVOpSetGlobalUserData   func(Handle, SpMVOpPlan, *byte, uintptr, uint) Result
-	fnspMVPreprocess            func(Handle, Operation, uintptr, ConstSpMatDescr, ConstDnVecDescr, uintptr, DnVecDescr, DataType, SpMVAlg, uintptr) Result
-	fnspMatGetAttribute         func(ConstSpMatDescr, SpMatAttribute, uintptr, uint) Result
-	fnspMatGetFormat            func(ConstSpMatDescr, *Format) Result
-	fnspMatGetIndexBase         func(ConstSpMatDescr, *IndexBase) Result
-	fnspMatGetSize              func(ConstSpMatDescr, *int64, *int64, *int64) Result
-	fnspMatGetStridedBatch      func(ConstSpMatDescr, *int32) Result
-	fnspMatGetValues            func(SpMatDescr, *uintptr) Result
-	fnspMatSetAttribute         func(SpMatDescr, SpMatAttribute, uintptr, uint) Result
-	fnspMatSetValues            func(SpMatDescr, uintptr) Result
-	fnspSMAnalysis              func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstDnMatDescr, DnMatDescr, DataType, SpSMAlg, SpSMDescr, uintptr) Result
-	fnspSMBufferSize            func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstDnMatDescr, DnMatDescr, DataType, SpSMAlg, SpSMDescr, *uint) Result
-	fnSpSMCreateDescr           func(*SpSMDescr) Result
-	fnspSMDestroyDescr          func(SpSMDescr) Result
-	fnspSMSolve                 func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstDnMatDescr, DnMatDescr, DataType, SpSMAlg, SpSMDescr) Result
-	fnspSMUpdateMatrix          func(Handle, SpSMDescr, uintptr, SpSMUpdate) Result
-	fnspSVAnalysis              func(Handle, Operation, uintptr, ConstSpMatDescr, ConstDnVecDescr, DnVecDescr, DataType, SpSVAlg, SpSVDescr, uintptr) Result
-	fnspSVBufferSize            func(Handle, Operation, uintptr, ConstSpMatDescr, ConstDnVecDescr, DnVecDescr, DataType, SpSVAlg, SpSVDescr, *uint) Result
-	fnSpSVCreateDescr           func(*SpSVDescr) Result
-	fnspSVDestroyDescr          func(SpSVDescr) Result
-	fnspSVSolve                 func(Handle, Operation, uintptr, ConstSpMatDescr, ConstDnVecDescr, DnVecDescr, DataType, SpSVAlg, SpSVDescr) Result
-	fnspSVUpdateMatrix          func(Handle, SpSVDescr, uintptr, SpSVUpdate) Result
-	fnspVecGet                  func(SpVecDescr, *int64, *int64, *uintptr, *uintptr, *IndexType, *IndexBase, *DataType) Result
-	fnspVecGetIndexBase         func(ConstSpVecDescr, *IndexBase) Result
-	fnspVecGetValues            func(SpVecDescr, *uintptr) Result
-	fnspVecSetValues            func(SpVecDescr, uintptr) Result
-	fnsparseToDense             func(Handle, ConstSpMatDescr, DnMatDescr, SparseToDenseAlg, uintptr) Result
-	fnsparseToDenseBufferSize   func(Handle, ConstSpMatDescr, DnMatDescr, SparseToDenseAlg, *uint) Result
+	symblockedEllGet             uintptr
+	symbsrSetStridedBatch        uintptr
+	symconstBlockedEllGet        uintptr
+	symconstCooGet               uintptr
+	symconstCscGet               uintptr
+	symconstCsrGet               uintptr
+	symconstDnMatGet             uintptr
+	symconstDnMatGetValues       uintptr
+	symconstDnVecGet             uintptr
+	symconstDnVecGetValues       uintptr
+	symconstSpMatGetValues       uintptr
+	symconstSpVecGet             uintptr
+	symconstSpVecGetValues       uintptr
+	symcooGet                    uintptr
+	symcooSetPointers            uintptr
+	symcooSetStridedBatch        uintptr
+	symCreate                    uintptr
+	symCreateBlockedEll          uintptr
+	symCreateBsr                 uintptr
+	symCreateConstBlockedEll     uintptr
+	symCreateConstBsr            uintptr
+	symCreateConstCoo            uintptr
+	symCreateConstCsc            uintptr
+	symCreateConstCsr            uintptr
+	symCreateConstDnMat          uintptr
+	symCreateConstDnVec          uintptr
+	symCreateConstSlicedEll      uintptr
+	symCreateConstSpVec          uintptr
+	symCreateCoo                 uintptr
+	symCreateCsc                 uintptr
+	symCreateCsr                 uintptr
+	symCreateDnMat               uintptr
+	symCreateDnVec               uintptr
+	symCreateSlicedEll           uintptr
+	symCreateSpVec               uintptr
+	symcscGet                    uintptr
+	symcscSetPointers            uintptr
+	symcsrGet                    uintptr
+	symcsrSetPointers            uintptr
+	symcsrSetStridedBatch        uintptr
+	symdenseToSparseAnalysis     uintptr
+	symdenseToSparseBufferSize   uintptr
+	symdenseToSparseConvert      uintptr
+	symdestroy                   uintptr
+	symdestroyDnMat              uintptr
+	symdestroyDnVec              uintptr
+	symdestroySpMat              uintptr
+	symdestroySpVec              uintptr
+	symdnMatGet                  uintptr
+	symdnMatGetStridedBatch      uintptr
+	symdnMatGetValues            uintptr
+	symdnMatSetStridedBatch      uintptr
+	symdnMatSetValues            uintptr
+	symdnVecGet                  uintptr
+	symdnVecGetValues            uintptr
+	symdnVecSetValues            uintptr
+	symgather                    uintptr
+	symGetErrorName              uintptr
+	symGetErrorString            uintptr
+	symgetPointerMode            uintptr
+	symGetProperty               uintptr
+	symgetStream                 uintptr
+	symgetVersion                uintptr
+	symLoggerForceDisable        uintptr
+	symLoggerOpenFile            uintptr
+	symLoggerSetCallback         uintptr
+	symLoggerSetFile             uintptr
+	symLoggerSetLevel            uintptr
+	symLoggerSetMask             uintptr
+	symsDDMM                     uintptr
+	symsDDMMBufferSize           uintptr
+	symsDDMMPreprocess           uintptr
+	symscatter                   uintptr
+	symsetPointerMode            uintptr
+	fnsetStream                  func(Handle, driver.Stream) Result
+	symspGEMMCompute             uintptr
+	symspGEMMCopy                uintptr
+	symSpGEMMCreateDescr         uintptr
+	symspGEMMDestroyDescr        uintptr
+	symspGEMMEstimateMemory      uintptr
+	symspGEMMGetNumProducts      uintptr
+	symspGEMMWorkEstimation      uintptr
+	symspGEMMreuseCompute        uintptr
+	symspGEMMreuseCopy           uintptr
+	symspGEMMreuseNnz            uintptr
+	symspGEMMreuseWorkEstimation uintptr
+	symspMM                      uintptr
+	symspMMBufferSize            uintptr
+	symspMMPreprocess            uintptr
+	symspMV                      uintptr
+	symspMVBufferSize            uintptr
+	symspMVOp                    uintptr
+	symspMVOpBufferSize          uintptr
+	symspMVOpCreateDescr         uintptr
+	symspMVOpCreatePlan          uintptr
+	symspMVOpDestroyDescr        uintptr
+	symspMVOpDestroyPlan         uintptr
+	symspMVOpSetGlobalUserData   uintptr
+	symspMVPreprocess            uintptr
+	symspMatGetAttribute         uintptr
+	symspMatGetFormat            uintptr
+	symspMatGetIndexBase         uintptr
+	symspMatGetSize              uintptr
+	symspMatGetStridedBatch      uintptr
+	symspMatGetValues            uintptr
+	symspMatSetAttribute         uintptr
+	symspMatSetValues            uintptr
+	symspSMAnalysis              uintptr
+	symspSMBufferSize            uintptr
+	symSpSMCreateDescr           uintptr
+	symspSMDestroyDescr          uintptr
+	symspSMSolve                 uintptr
+	symspSMUpdateMatrix          uintptr
+	symspSVAnalysis              uintptr
+	symspSVBufferSize            uintptr
+	symSpSVCreateDescr           uintptr
+	symspSVDestroyDescr          uintptr
+	symspSVSolve                 uintptr
+	symspSVUpdateMatrix          uintptr
+	symspVecGet                  uintptr
+	symspVecGetIndexBase         uintptr
+	symspVecGetValues            uintptr
+	symspVecSetValues            uintptr
+	symsparseToDense             uintptr
+	symsparseToDenseBufferSize   uintptr
 )
 
-// blockedEllGet wraps cusparseBlockedEllGet.
+// ffiCall0 through ffiCall15 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloat(fn, 9, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall13(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	return ffi.CallFloat(fn, 13, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	return ffi.CallFloat(fn, 14, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	return ffi.CallFloat(fn, 15, &args, floatMask)
+}
+
+// ffiPointer reinterprets an address a C function returned as a pointer.
+// Such an address does not identify a Go allocation.
+func ffiPointer(addr uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&addr))
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnblockedEllGet calls cusparseBlockedEllGet.
+func fnblockedEllGet(a0 SpMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *int64, a5 *uintptr, a6 *uintptr, a7 *IndexType, a8 *IndexBase, a9 *DataType) Result {
+	r1, _ := ffiCall10(symblockedEllGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnbsrSetStridedBatch calls cusparseBsrSetStridedBatch.
+func fnbsrSetStridedBatch(a0 SpMatDescr, a1 int32, a2 int64, a3 int64, a4 int64) Result {
+	r1, _ := ffiCall5(symbsrSetStridedBatch, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnconstBlockedEllGet calls cusparseConstBlockedEllGet.
+func fnconstBlockedEllGet(a0 ConstSpMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *int64, a5 *uintptr, a6 *uintptr, a7 *IndexType, a8 *IndexBase, a9 *DataType) Result {
+	r1, _ := ffiCall10(symconstBlockedEllGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnconstCooGet calls cusparseConstCooGet.
+func fnconstCooGet(a0 ConstSpMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *IndexType, a8 *IndexBase, a9 *DataType) Result {
+	r1, _ := ffiCall10(symconstCooGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnconstCscGet calls cusparseConstCscGet.
+func fnconstCscGet(a0 ConstSpMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *IndexType, a8 *IndexType, a9 *IndexBase, a10 *DataType) Result {
+	r1, _ := ffiCall11(symconstCscGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fnconstCsrGet calls cusparseConstCsrGet.
+func fnconstCsrGet(a0 ConstSpMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *IndexType, a8 *IndexType, a9 *IndexBase, a10 *DataType) Result {
+	r1, _ := ffiCall11(symconstCsrGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fnconstDnMatGet calls cusparseConstDnMatGet.
+func fnconstDnMatGet(a0 ConstDnMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *DataType, a6 *Order) Result {
+	r1, _ := ffiCall7(symconstDnMatGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnconstDnMatGetValues calls cusparseConstDnMatGetValues.
+func fnconstDnMatGetValues(a0 ConstDnMatDescr, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symconstDnMatGetValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnconstDnVecGet calls cusparseConstDnVecGet.
+func fnconstDnVecGet(a0 ConstDnVecDescr, a1 *int64, a2 *uintptr, a3 *DataType) Result {
+	r1, _ := ffiCall4(symconstDnVecGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnconstDnVecGetValues calls cusparseConstDnVecGetValues.
+func fnconstDnVecGetValues(a0 ConstDnVecDescr, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symconstDnVecGetValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnconstSpMatGetValues calls cusparseConstSpMatGetValues.
+func fnconstSpMatGetValues(a0 ConstSpMatDescr, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symconstSpMatGetValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnconstSpVecGet calls cusparseConstSpVecGet.
+func fnconstSpVecGet(a0 ConstSpVecDescr, a1 *int64, a2 *int64, a3 *uintptr, a4 *uintptr, a5 *IndexType, a6 *IndexBase, a7 *DataType) Result {
+	r1, _ := ffiCall8(symconstSpVecGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnconstSpVecGetValues calls cusparseConstSpVecGetValues.
+func fnconstSpVecGetValues(a0 ConstSpVecDescr, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symconstSpVecGetValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fncooGet calls cusparseCooGet.
+func fncooGet(a0 SpMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *IndexType, a8 *IndexBase, a9 *DataType) Result {
+	r1, _ := ffiCall10(symcooGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fncooSetPointers calls cusparseCooSetPointers.
+func fncooSetPointers(a0 SpMatDescr, a1 uintptr, a2 uintptr, a3 uintptr) Result {
+	r1, _ := ffiCall4(symcooSetPointers, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fncooSetStridedBatch calls cusparseCooSetStridedBatch.
+func fncooSetStridedBatch(a0 SpMatDescr, a1 int32, a2 int64) Result {
+	r1, _ := ffiCall3(symcooSetStridedBatch, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnCreate calls cusparseCreate.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCreateBlockedEll calls cusparseCreateBlockedEll.
+func fnCreateBlockedEll(a0 *SpMatDescr, a1 int64, a2 int64, a3 int64, a4 int64, a5 uintptr, a6 uintptr, a7 IndexType, a8 IndexBase, a9 DataType) Result {
+	r1, _ := ffiCall10(symCreateBlockedEll, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnCreateBsr calls cusparseCreateBsr.
+func fnCreateBsr(a0 *SpMatDescr, a1 int64, a2 int64, a3 int64, a4 int64, a5 int64, a6 uintptr, a7 uintptr, a8 uintptr, a9 IndexType, a10 IndexType, a11 IndexBase, a12 DataType, a13 Order) Result {
+	r1, _ := ffiCall14(symCreateBsr, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnCreateConstBlockedEll calls cusparseCreateConstBlockedEll.
+func fnCreateConstBlockedEll(a0 *ConstSpMatDescr, a1 int64, a2 int64, a3 int64, a4 int64, a5 uintptr, a6 uintptr, a7 IndexType, a8 IndexBase, a9 DataType) Result {
+	r1, _ := ffiCall10(symCreateConstBlockedEll, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnCreateConstBsr calls cusparseCreateConstBsr.
+func fnCreateConstBsr(a0 *ConstSpMatDescr, a1 int64, a2 int64, a3 int64, a4 int64, a5 int64, a6 uintptr, a7 uintptr, a8 uintptr, a9 IndexType, a10 IndexType, a11 IndexBase, a12 DataType, a13 Order) Result {
+	r1, _ := ffiCall14(symCreateConstBsr, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnCreateConstCoo calls cusparseCreateConstCoo.
+func fnCreateConstCoo(a0 *ConstSpMatDescr, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 uintptr, a6 uintptr, a7 IndexType, a8 IndexBase, a9 DataType) Result {
+	r1, _ := ffiCall10(symCreateConstCoo, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnCreateConstCsc calls cusparseCreateConstCsc.
+func fnCreateConstCsc(a0 *ConstSpMatDescr, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 uintptr, a6 uintptr, a7 IndexType, a8 IndexType, a9 IndexBase, a10 DataType) Result {
+	r1, _ := ffiCall11(symCreateConstCsc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnCreateConstCsr calls cusparseCreateConstCsr.
+func fnCreateConstCsr(a0 *ConstSpMatDescr, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 uintptr, a6 uintptr, a7 IndexType, a8 IndexType, a9 IndexBase, a10 DataType) Result {
+	r1, _ := ffiCall11(symCreateConstCsr, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnCreateConstDnMat calls cusparseCreateConstDnMat.
+func fnCreateConstDnMat(a0 *ConstDnMatDescr, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 DataType, a6 Order) Result {
+	r1, _ := ffiCall7(symCreateConstDnMat, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnCreateConstDnVec calls cusparseCreateConstDnVec.
+func fnCreateConstDnVec(a0 *ConstDnVecDescr, a1 int64, a2 uintptr, a3 DataType) Result {
+	r1, _ := ffiCall4(symCreateConstDnVec, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnCreateConstSlicedEll calls cusparseCreateConstSlicedEll.
+func fnCreateConstSlicedEll(a0 *ConstSpMatDescr, a1 int64, a2 int64, a3 int64, a4 int64, a5 int64, a6 uintptr, a7 uintptr, a8 uintptr, a9 IndexType, a10 IndexType, a11 IndexBase, a12 DataType) Result {
+	r1, _ := ffiCall13(symCreateConstSlicedEll, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnCreateConstSpVec calls cusparseCreateConstSpVec.
+func fnCreateConstSpVec(a0 *ConstSpVecDescr, a1 int64, a2 int64, a3 uintptr, a4 uintptr, a5 IndexType, a6 IndexBase, a7 DataType) Result {
+	r1, _ := ffiCall8(symCreateConstSpVec, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnCreateCoo calls cusparseCreateCoo.
+func fnCreateCoo(a0 *SpMatDescr, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 uintptr, a6 uintptr, a7 IndexType, a8 IndexBase, a9 DataType) Result {
+	r1, _ := ffiCall10(symCreateCoo, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnCreateCsc calls cusparseCreateCsc.
+func fnCreateCsc(a0 *SpMatDescr, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 uintptr, a6 uintptr, a7 IndexType, a8 IndexType, a9 IndexBase, a10 DataType) Result {
+	r1, _ := ffiCall11(symCreateCsc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnCreateCsr calls cusparseCreateCsr.
+func fnCreateCsr(a0 *SpMatDescr, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 uintptr, a6 uintptr, a7 IndexType, a8 IndexType, a9 IndexBase, a10 DataType) Result {
+	r1, _ := ffiCall11(symCreateCsr, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnCreateDnMat calls cusparseCreateDnMat.
+func fnCreateDnMat(a0 *DnMatDescr, a1 int64, a2 int64, a3 int64, a4 uintptr, a5 DataType, a6 Order) Result {
+	r1, _ := ffiCall7(symCreateDnMat, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnCreateDnVec calls cusparseCreateDnVec.
+func fnCreateDnVec(a0 *DnVecDescr, a1 int64, a2 uintptr, a3 DataType) Result {
+	r1, _ := ffiCall4(symCreateDnVec, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnCreateSlicedEll calls cusparseCreateSlicedEll.
+func fnCreateSlicedEll(a0 *SpMatDescr, a1 int64, a2 int64, a3 int64, a4 int64, a5 int64, a6 uintptr, a7 uintptr, a8 uintptr, a9 IndexType, a10 IndexType, a11 IndexBase, a12 DataType) Result {
+	r1, _ := ffiCall13(symCreateSlicedEll, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnCreateSpVec calls cusparseCreateSpVec.
+func fnCreateSpVec(a0 *SpVecDescr, a1 int64, a2 int64, a3 uintptr, a4 uintptr, a5 IndexType, a6 IndexBase, a7 DataType) Result {
+	r1, _ := ffiCall8(symCreateSpVec, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncscGet calls cusparseCscGet.
+func fncscGet(a0 SpMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *IndexType, a8 *IndexType, a9 *IndexBase, a10 *DataType) Result {
+	r1, _ := ffiCall11(symcscGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fncscSetPointers calls cusparseCscSetPointers.
+func fncscSetPointers(a0 SpMatDescr, a1 uintptr, a2 uintptr, a3 uintptr) Result {
+	r1, _ := ffiCall4(symcscSetPointers, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fncsrGet calls cusparseCsrGet.
+func fncsrGet(a0 SpMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *uintptr, a6 *uintptr, a7 *IndexType, a8 *IndexType, a9 *IndexBase, a10 *DataType) Result {
+	r1, _ := ffiCall11(symcsrGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(unsafe.Pointer(a8)), uintptr(unsafe.Pointer(a9)), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fncsrSetPointers calls cusparseCsrSetPointers.
+func fncsrSetPointers(a0 SpMatDescr, a1 uintptr, a2 uintptr, a3 uintptr) Result {
+	r1, _ := ffiCall4(symcsrSetPointers, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fncsrSetStridedBatch calls cusparseCsrSetStridedBatch.
+func fncsrSetStridedBatch(a0 SpMatDescr, a1 int32, a2 int64, a3 int64) Result {
+	r1, _ := ffiCall4(symcsrSetStridedBatch, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fndenseToSparseAnalysis calls cusparseDenseToSparse_analysis.
+func fndenseToSparseAnalysis(a0 Handle, a1 ConstDnMatDescr, a2 SpMatDescr, a3 DenseToSparseAlg, a4 uintptr) Result {
+	r1, _ := ffiCall5(symdenseToSparseAnalysis, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fndenseToSparseBufferSize calls cusparseDenseToSparse_bufferSize.
+func fndenseToSparseBufferSize(a0 Handle, a1 ConstDnMatDescr, a2 SpMatDescr, a3 DenseToSparseAlg, a4 *uint) Result {
+	r1, _ := ffiCall5(symdenseToSparseBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndenseToSparseConvert calls cusparseDenseToSparse_convert.
+func fndenseToSparseConvert(a0 Handle, a1 ConstDnMatDescr, a2 SpMatDescr, a3 DenseToSparseAlg, a4 uintptr) Result {
+	r1, _ := ffiCall5(symdenseToSparseConvert, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fndestroy calls cusparseDestroy.
+func fndestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyDnMat calls cusparseDestroyDnMat.
+func fndestroyDnMat(a0 ConstDnMatDescr) Result {
+	r1, _ := ffiCall1(symdestroyDnMat, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyDnVec calls cusparseDestroyDnVec.
+func fndestroyDnVec(a0 ConstDnVecDescr) Result {
+	r1, _ := ffiCall1(symdestroyDnVec, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroySpMat calls cusparseDestroySpMat.
+func fndestroySpMat(a0 ConstSpMatDescr) Result {
+	r1, _ := ffiCall1(symdestroySpMat, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroySpVec calls cusparseDestroySpVec.
+func fndestroySpVec(a0 ConstSpVecDescr) Result {
+	r1, _ := ffiCall1(symdestroySpVec, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndnMatGet calls cusparseDnMatGet.
+func fndnMatGet(a0 DnMatDescr, a1 *int64, a2 *int64, a3 *int64, a4 *uintptr, a5 *DataType, a6 *Order) Result {
+	r1, _ := ffiCall7(symdnMatGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fndnMatGetStridedBatch calls cusparseDnMatGetStridedBatch.
+func fndnMatGetStridedBatch(a0 ConstDnMatDescr, a1 *int32, a2 *int64) Result {
+	r1, _ := ffiCall3(symdnMatGetStridedBatch, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fndnMatGetValues calls cusparseDnMatGetValues.
+func fndnMatGetValues(a0 DnMatDescr, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symdnMatGetValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndnMatSetStridedBatch calls cusparseDnMatSetStridedBatch.
+func fndnMatSetStridedBatch(a0 DnMatDescr, a1 int32, a2 int64) Result {
+	r1, _ := ffiCall3(symdnMatSetStridedBatch, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndnMatSetValues calls cusparseDnMatSetValues.
+func fndnMatSetValues(a0 DnMatDescr, a1 uintptr) Result {
+	r1, _ := ffiCall2(symdnMatSetValues, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fndnVecGet calls cusparseDnVecGet.
+func fndnVecGet(a0 DnVecDescr, a1 *int64, a2 *uintptr, a3 *DataType) Result {
+	r1, _ := ffiCall4(symdnVecGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fndnVecGetValues calls cusparseDnVecGetValues.
+func fndnVecGetValues(a0 DnVecDescr, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symdnVecGetValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndnVecSetValues calls cusparseDnVecSetValues.
+func fndnVecSetValues(a0 DnVecDescr, a1 uintptr) Result {
+	r1, _ := ffiCall2(symdnVecSetValues, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngather calls cusparseGather.
+func fngather(a0 Handle, a1 ConstDnVecDescr, a2 SpVecDescr) Result {
+	r1, _ := ffiCall3(symgather, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnGetErrorName calls cusparseGetErrorName.
+func fnGetErrorName(a0 Result) *byte {
+	r1, _ := ffiCall1(symGetErrorName, 0, uintptr(a0))
+	return (*byte)(ffiPointer(r1))
+}
+
+// fnGetErrorString calls cusparseGetErrorString.
+func fnGetErrorString(a0 Result) *byte {
+	r1, _ := ffiCall1(symGetErrorString, 0, uintptr(a0))
+	return (*byte)(ffiPointer(r1))
+}
+
+// fngetPointerMode calls cusparseGetPointerMode.
+func fngetPointerMode(a0 Handle, a1 *PointerMode) Result {
+	r1, _ := ffiCall2(symgetPointerMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetProperty calls cusparseGetProperty.
+func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetStream calls cusparseGetStream.
+func fngetStream(a0 Handle, a1 *driver.Stream) Result {
+	r1, _ := ffiCall2(symgetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetVersion calls cusparseGetVersion.
+func fngetVersion(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnLoggerForceDisable calls cusparseLoggerForceDisable.
+func fnLoggerForceDisable() Result {
+	r1, _ := ffiCall0(symLoggerForceDisable, 0)
+	return Result(r1)
+}
+
+// fnLoggerOpenFile calls cusparseLoggerOpenFile.
+func fnLoggerOpenFile(a0 *byte) Result {
+	r1, _ := ffiCall1(symLoggerOpenFile, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnLoggerSetCallback calls cusparseLoggerSetCallback.
+func fnLoggerSetCallback(a0 LoggerCallback) Result {
+	r1, _ := ffiCall1(symLoggerSetCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetFile calls cusparseLoggerSetFile.
+func fnLoggerSetFile(a0 *FILE) Result {
+	r1, _ := ffiCall1(symLoggerSetFile, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnLoggerSetLevel calls cusparseLoggerSetLevel.
+func fnLoggerSetLevel(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetLevel, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLoggerSetMask calls cusparseLoggerSetMask.
+func fnLoggerSetMask(a0 int32) Result {
+	r1, _ := ffiCall1(symLoggerSetMask, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnsDDMM calls cusparseSDDMM.
+func fnsDDMM(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstDnMatDescr, a5 ConstDnMatDescr, a6 uintptr, a7 SpMatDescr, a8 DataType, a9 SDDMMAlg, a10 uintptr) Result {
+	r1, _ := ffiCall11(symsDDMM, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnsDDMMBufferSize calls cusparseSDDMM_bufferSize.
+func fnsDDMMBufferSize(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstDnMatDescr, a5 ConstDnMatDescr, a6 uintptr, a7 SpMatDescr, a8 DataType, a9 SDDMMAlg, a10 *uint) Result {
+	r1, _ := ffiCall11(symsDDMMBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fnsDDMMPreprocess calls cusparseSDDMM_preprocess.
+func fnsDDMMPreprocess(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstDnMatDescr, a5 ConstDnMatDescr, a6 uintptr, a7 SpMatDescr, a8 DataType, a9 SDDMMAlg, a10 uintptr) Result {
+	r1, _ := ffiCall11(symsDDMMPreprocess, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnscatter calls cusparseScatter.
+func fnscatter(a0 Handle, a1 ConstSpVecDescr, a2 DnVecDescr) Result {
+	r1, _ := ffiCall3(symscatter, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsetPointerMode calls cusparseSetPointerMode.
+func fnsetPointerMode(a0 Handle, a1 PointerMode) Result {
+	r1, _ := ffiCall2(symsetPointerMode, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnspGEMMCompute calls cusparseSpGEMM_compute.
+func fnspGEMMCompute(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstSpMatDescr, a6 uintptr, a7 SpMatDescr, a8 DataType, a9 SpGEMMAlg, a10 SpGEMMDescr, a11 *uint, a12 uintptr) Result {
+	r1, _ := ffiCall13(symspGEMMCompute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12))
+	return Result(r1)
+}
+
+// fnspGEMMCopy calls cusparseSpGEMM_copy.
+func fnspGEMMCopy(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstSpMatDescr, a6 uintptr, a7 SpMatDescr, a8 DataType, a9 SpGEMMAlg, a10 SpGEMMDescr) Result {
+	r1, _ := ffiCall11(symspGEMMCopy, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnSpGEMMCreateDescr calls cusparseSpGEMM_createDescr.
+func fnSpGEMMCreateDescr(a0 *SpGEMMDescr) Result {
+	r1, _ := ffiCall1(symSpGEMMCreateDescr, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnspGEMMDestroyDescr calls cusparseSpGEMM_destroyDescr.
+func fnspGEMMDestroyDescr(a0 SpGEMMDescr) Result {
+	r1, _ := ffiCall1(symspGEMMDestroyDescr, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnspGEMMEstimateMemory calls cusparseSpGEMM_estimateMemory.
+func fnspGEMMEstimateMemory(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstSpMatDescr, a6 uintptr, a7 SpMatDescr, a8 DataType, a9 SpGEMMAlg, a10 SpGEMMDescr, a11 float32, a12 *uint, a13 uintptr, a14 *uint) Result {
+	r1, _ := ffiCall15(symspGEMMEstimateMemory, 0b100000000000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(math.Float32bits(a11)), uintptr(unsafe.Pointer(a12)), uintptr(a13), uintptr(unsafe.Pointer(a14)))
+	return Result(r1)
+}
+
+// fnspGEMMGetNumProducts calls cusparseSpGEMM_getNumProducts.
+func fnspGEMMGetNumProducts(a0 SpGEMMDescr, a1 *int64) Result {
+	r1, _ := ffiCall2(symspGEMMGetNumProducts, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnspGEMMWorkEstimation calls cusparseSpGEMM_workEstimation.
+func fnspGEMMWorkEstimation(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstSpMatDescr, a6 uintptr, a7 SpMatDescr, a8 DataType, a9 SpGEMMAlg, a10 SpGEMMDescr, a11 *uint, a12 uintptr) Result {
+	r1, _ := ffiCall13(symspGEMMWorkEstimation, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12))
+	return Result(r1)
+}
+
+// fnspGEMMreuseCompute calls cusparseSpGEMMreuse_compute.
+func fnspGEMMreuseCompute(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstSpMatDescr, a6 uintptr, a7 SpMatDescr, a8 DataType, a9 SpGEMMAlg, a10 SpGEMMDescr) Result {
+	r1, _ := ffiCall11(symspGEMMreuseCompute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnspGEMMreuseCopy calls cusparseSpGEMMreuse_copy.
+func fnspGEMMreuseCopy(a0 Handle, a1 Operation, a2 Operation, a3 ConstSpMatDescr, a4 ConstSpMatDescr, a5 SpMatDescr, a6 SpGEMMAlg, a7 SpGEMMDescr, a8 *uint, a9 uintptr) Result {
+	r1, _ := ffiCall10(symspGEMMreuseCopy, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9))
+	return Result(r1)
+}
+
+// fnspGEMMreuseNnz calls cusparseSpGEMMreuse_nnz.
+func fnspGEMMreuseNnz(a0 Handle, a1 Operation, a2 Operation, a3 ConstSpMatDescr, a4 ConstSpMatDescr, a5 SpMatDescr, a6 SpGEMMAlg, a7 SpGEMMDescr, a8 *uint, a9 uintptr, a10 *uint, a11 uintptr, a12 *uint, a13 uintptr) Result {
+	r1, _ := ffiCall14(symspGEMMreuseNnz, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13))
+	return Result(r1)
+}
+
+// fnspGEMMreuseWorkEstimation calls cusparseSpGEMMreuse_workEstimation.
+func fnspGEMMreuseWorkEstimation(a0 Handle, a1 Operation, a2 Operation, a3 ConstSpMatDescr, a4 ConstSpMatDescr, a5 SpMatDescr, a6 SpGEMMAlg, a7 SpGEMMDescr, a8 *uint, a9 uintptr) Result {
+	r1, _ := ffiCall10(symspGEMMreuseWorkEstimation, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9))
+	return Result(r1)
+}
+
+// fnspMM calls cusparseSpMM.
+func fnspMM(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstDnMatDescr, a6 uintptr, a7 DnMatDescr, a8 DataType, a9 SpMMAlg, a10 uintptr) Result {
+	r1, _ := ffiCall11(symspMM, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnspMMBufferSize calls cusparseSpMM_bufferSize.
+func fnspMMBufferSize(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstDnMatDescr, a6 uintptr, a7 DnMatDescr, a8 DataType, a9 SpMMAlg, a10 *uint) Result {
+	r1, _ := ffiCall11(symspMMBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fnspMMPreprocess calls cusparseSpMM_preprocess.
+func fnspMMPreprocess(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstDnMatDescr, a6 uintptr, a7 DnMatDescr, a8 DataType, a9 SpMMAlg, a10 uintptr) Result {
+	r1, _ := ffiCall11(symspMMPreprocess, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnspMV calls cusparseSpMV.
+func fnspMV(a0 Handle, a1 Operation, a2 uintptr, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 uintptr, a6 DnVecDescr, a7 DataType, a8 SpMVAlg, a9 uintptr) Result {
+	r1, _ := ffiCall10(symspMV, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnspMVBufferSize calls cusparseSpMV_bufferSize.
+func fnspMVBufferSize(a0 Handle, a1 Operation, a2 uintptr, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 uintptr, a6 DnVecDescr, a7 DataType, a8 SpMVAlg, a9 *uint) Result {
+	r1, _ := ffiCall10(symspMVBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnspMVOp calls cusparseSpMVOp.
+func fnspMVOp(a0 Handle, a1 SpMVOpPlan, a2 uintptr, a3 uintptr, a4 ConstDnVecDescr, a5 ConstDnVecDescr, a6 DnVecDescr) Result {
+	r1, _ := ffiCall7(symspMVOp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnspMVOpBufferSize calls cusparseSpMVOp_bufferSize.
+func fnspMVOpBufferSize(a0 Handle, a1 Operation, a2 ConstSpMatDescr, a3 ConstDnVecDescr, a4 DnVecDescr, a5 DnVecDescr, a6 DataType, a7 *uint) Result {
+	r1, _ := ffiCall8(symspMVOpBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnspMVOpCreateDescr calls cusparseSpMVOp_createDescr.
+func fnspMVOpCreateDescr(a0 Handle, a1 *SpMVOpDescr, a2 Operation, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 DnVecDescr, a6 DnVecDescr, a7 DataType, a8 uintptr) Result {
+	r1, _ := ffiCall9(symspMVOpCreateDescr, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnspMVOpCreatePlan calls cusparseSpMVOp_createPlan.
+func fnspMVOpCreatePlan(a0 Handle, a1 SpMVOpDescr, a2 *SpMVOpPlan, a3 uintptr, a4 uint) Result {
+	r1, _ := ffiCall5(symspMVOpCreatePlan, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnspMVOpDestroyDescr calls cusparseSpMVOp_destroyDescr.
+func fnspMVOpDestroyDescr(a0 SpMVOpDescr) Result {
+	r1, _ := ffiCall1(symspMVOpDestroyDescr, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnspMVOpDestroyPlan calls cusparseSpMVOp_destroyPlan.
+func fnspMVOpDestroyPlan(a0 SpMVOpPlan) Result {
+	r1, _ := ffiCall1(symspMVOpDestroyPlan, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnspMVOpSetGlobalUserData calls cusparseSpMVOp_setGlobalUserData.
+func fnspMVOpSetGlobalUserData(a0 Handle, a1 SpMVOpPlan, a2 *byte, a3 uintptr, a4 uint) Result {
+	r1, _ := ffiCall5(symspMVOpSetGlobalUserData, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnspMVPreprocess calls cusparseSpMV_preprocess.
+func fnspMVPreprocess(a0 Handle, a1 Operation, a2 uintptr, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 uintptr, a6 DnVecDescr, a7 DataType, a8 SpMVAlg, a9 uintptr) Result {
+	r1, _ := ffiCall10(symspMVPreprocess, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnspMatGetAttribute calls cusparseSpMatGetAttribute.
+func fnspMatGetAttribute(a0 ConstSpMatDescr, a1 SpMatAttribute, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symspMatGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnspMatGetFormat calls cusparseSpMatGetFormat.
+func fnspMatGetFormat(a0 ConstSpMatDescr, a1 *Format) Result {
+	r1, _ := ffiCall2(symspMatGetFormat, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnspMatGetIndexBase calls cusparseSpMatGetIndexBase.
+func fnspMatGetIndexBase(a0 ConstSpMatDescr, a1 *IndexBase) Result {
+	r1, _ := ffiCall2(symspMatGetIndexBase, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnspMatGetSize calls cusparseSpMatGetSize.
+func fnspMatGetSize(a0 ConstSpMatDescr, a1 *int64, a2 *int64, a3 *int64) Result {
+	r1, _ := ffiCall4(symspMatGetSize, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnspMatGetStridedBatch calls cusparseSpMatGetStridedBatch.
+func fnspMatGetStridedBatch(a0 ConstSpMatDescr, a1 *int32) Result {
+	r1, _ := ffiCall2(symspMatGetStridedBatch, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnspMatGetValues calls cusparseSpMatGetValues.
+func fnspMatGetValues(a0 SpMatDescr, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symspMatGetValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnspMatSetAttribute calls cusparseSpMatSetAttribute.
+func fnspMatSetAttribute(a0 SpMatDescr, a1 SpMatAttribute, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symspMatSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnspMatSetValues calls cusparseSpMatSetValues.
+func fnspMatSetValues(a0 SpMatDescr, a1 uintptr) Result {
+	r1, _ := ffiCall2(symspMatSetValues, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnspSMAnalysis calls cusparseSpSM_analysis.
+func fnspSMAnalysis(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstDnMatDescr, a6 DnMatDescr, a7 DataType, a8 SpSMAlg, a9 SpSMDescr, a10 uintptr) Result {
+	r1, _ := ffiCall11(symspSMAnalysis, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnspSMBufferSize calls cusparseSpSM_bufferSize.
+func fnspSMBufferSize(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstDnMatDescr, a6 DnMatDescr, a7 DataType, a8 SpSMAlg, a9 SpSMDescr, a10 *uint) Result {
+	r1, _ := ffiCall11(symspSMBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)))
+	return Result(r1)
+}
+
+// fnSpSMCreateDescr calls cusparseSpSM_createDescr.
+func fnSpSMCreateDescr(a0 *SpSMDescr) Result {
+	r1, _ := ffiCall1(symSpSMCreateDescr, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnspSMDestroyDescr calls cusparseSpSM_destroyDescr.
+func fnspSMDestroyDescr(a0 SpSMDescr) Result {
+	r1, _ := ffiCall1(symspSMDestroyDescr, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnspSMSolve calls cusparseSpSM_solve.
+func fnspSMSolve(a0 Handle, a1 Operation, a2 Operation, a3 uintptr, a4 ConstSpMatDescr, a5 ConstDnMatDescr, a6 DnMatDescr, a7 DataType, a8 SpSMAlg, a9 SpSMDescr) Result {
+	r1, _ := ffiCall10(symspSMSolve, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnspSMUpdateMatrix calls cusparseSpSM_updateMatrix.
+func fnspSMUpdateMatrix(a0 Handle, a1 SpSMDescr, a2 uintptr, a3 SpSMUpdate) Result {
+	r1, _ := ffiCall4(symspSMUpdateMatrix, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnspSVAnalysis calls cusparseSpSV_analysis.
+func fnspSVAnalysis(a0 Handle, a1 Operation, a2 uintptr, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 DnVecDescr, a6 DataType, a7 SpSVAlg, a8 SpSVDescr, a9 uintptr) Result {
+	r1, _ := ffiCall10(symspSVAnalysis, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnspSVBufferSize calls cusparseSpSV_bufferSize.
+func fnspSVBufferSize(a0 Handle, a1 Operation, a2 uintptr, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 DnVecDescr, a6 DataType, a7 SpSVAlg, a8 SpSVDescr, a9 *uint) Result {
+	r1, _ := ffiCall10(symspSVBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnSpSVCreateDescr calls cusparseSpSV_createDescr.
+func fnSpSVCreateDescr(a0 *SpSVDescr) Result {
+	r1, _ := ffiCall1(symSpSVCreateDescr, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnspSVDestroyDescr calls cusparseSpSV_destroyDescr.
+func fnspSVDestroyDescr(a0 SpSVDescr) Result {
+	r1, _ := ffiCall1(symspSVDestroyDescr, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnspSVSolve calls cusparseSpSV_solve.
+func fnspSVSolve(a0 Handle, a1 Operation, a2 uintptr, a3 ConstSpMatDescr, a4 ConstDnVecDescr, a5 DnVecDescr, a6 DataType, a7 SpSVAlg, a8 SpSVDescr) Result {
+	r1, _ := ffiCall9(symspSVSolve, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnspSVUpdateMatrix calls cusparseSpSV_updateMatrix.
+func fnspSVUpdateMatrix(a0 Handle, a1 SpSVDescr, a2 uintptr, a3 SpSVUpdate) Result {
+	r1, _ := ffiCall4(symspSVUpdateMatrix, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnspVecGet calls cusparseSpVecGet.
+func fnspVecGet(a0 SpVecDescr, a1 *int64, a2 *int64, a3 *uintptr, a4 *uintptr, a5 *IndexType, a6 *IndexBase, a7 *DataType) Result {
+	r1, _ := ffiCall8(symspVecGet, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnspVecGetIndexBase calls cusparseSpVecGetIndexBase.
+func fnspVecGetIndexBase(a0 ConstSpVecDescr, a1 *IndexBase) Result {
+	r1, _ := ffiCall2(symspVecGetIndexBase, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnspVecGetValues calls cusparseSpVecGetValues.
+func fnspVecGetValues(a0 SpVecDescr, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symspVecGetValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnspVecSetValues calls cusparseSpVecSetValues.
+func fnspVecSetValues(a0 SpVecDescr, a1 uintptr) Result {
+	r1, _ := ffiCall2(symspVecSetValues, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsparseToDense calls cusparseSparseToDense.
+func fnsparseToDense(a0 Handle, a1 ConstSpMatDescr, a2 DnMatDescr, a3 SparseToDenseAlg, a4 uintptr) Result {
+	r1, _ := ffiCall5(symsparseToDense, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnsparseToDenseBufferSize calls cusparseSparseToDense_bufferSize.
+func fnsparseToDenseBufferSize(a0 Handle, a1 ConstSpMatDescr, a2 DnMatDescr, a3 SparseToDenseAlg, a4 *uint) Result {
+	r1, _ := ffiCall5(symsparseToDenseBufferSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// blockedEllGet returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - ellBlockSize: Size of the ELL-Block
+//   - ellCols: Actual number of columns of the Blocked-Ellpack format
+//   - ellColInd: Column indices for the ELL-Block. Array with [cols / ellBlockSize][rows / ellBlockSize] elements
+//   - ellValue: Values of the sparse matrix. Array with rows * ellCols elements
+//   - ellIdxType: Data type of ellColInd
+//   - idxBase: Index base of ellColInd
+//   - valueType: Datatype of ellValue
+//
+// Wraps cusparseBlockedEllGet.
 func blockedEllGet(spMatDescr SpMatDescr, rows *int64, cols *int64, ellBlockSize *int64, ellCols *int64, ellColInd *uintptr, ellValue *uintptr, ellIdxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseBlockedEllGet"); err != nil {
 		return err
@@ -143,7 +1134,16 @@ func blockedEllGet(spMatDescr SpMatDescr, rows *int64, cols *int64, ellBlockSize
 	return toError(fnblockedEllGet(spMatDescr, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType), "cusparseBlockedEllGet")
 }
 
-// bsrSetStridedBatch wraps cusparseBsrSetStridedBatch.
+// bsrSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - batchCount: Number of batches of the sparse matrix
+//   - offsetsBatchStride: Address offset between consecutive batches for the row offset array
+//   - columnsBatchStride: Address offset between consecutive batches for the column array
+//
+// Wraps cusparseBsrSetStridedBatch.
 func bsrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStride int64, columnsBatchStride int64, valuesBatchStride int64) error {
 	if err := checkLibSym("cusparseBsrSetStridedBatch"); err != nil {
 		return err
@@ -151,7 +1151,22 @@ func bsrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStr
 	return toError(fnbsrSetStridedBatch(spMatDescr, batchCount, offsetsBatchStride, columnsBatchStride, valuesBatchStride), "cusparseBsrSetStridedBatch")
 }
 
-// constBlockedEllGet wraps cusparseConstBlockedEllGet.
+// constBlockedEllGet returns the fields of the sparse matrix descriptor spMatDescr stored in Blocked-Ellpack (ELL) format.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - ellBlockSize: Size of the ELL-Block
+//   - ellCols: Actual number of columns of the Blocked-Ellpack format
+//   - ellColInd: Column indices for the ELL-Block. Array with [cols / ellBlockSize][rows / ellBlockSize] elements
+//   - ellValue: Values of the sparse matrix. Array with rows * ellCols elements
+//   - ellIdxType: Data type of ellColInd
+//   - idxBase: Index base of ellColInd
+//   - valueType: Datatype of ellValue
+//
+// Wraps cusparseConstBlockedEllGet.
 func constBlockedEllGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, ellBlockSize *int64, ellCols *int64, ellColInd *uintptr, ellValue *uintptr, ellIdxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseConstBlockedEllGet"); err != nil {
 		return err
@@ -159,7 +1174,21 @@ func constBlockedEllGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, el
 	return toError(fnconstBlockedEllGet(spMatDescr, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType), "cusparseConstBlockedEllGet")
 }
 
-// constCooGet wraps cusparseConstCooGet.
+// constCooGet returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cooRowInd: Row indices of the sparse matrix. Array nnz elements
+//   - cooColInd: Column indices of the sparse matrix. Array nnz elements
+//   - cooValues: Values of the sparse matrix. Array nnz elements
+//   - idxBase: Index base of cooRowInd and cooColInd
+//   - valueType: Datatype of cooValues
+//
+// Wraps cusparseConstCooGet.
 func constCooGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int64, cooRowInd *uintptr, cooColInd *uintptr, cooValues *uintptr, idxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseConstCooGet"); err != nil {
 		return err
@@ -167,7 +1196,23 @@ func constCooGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int6
 	return toError(fnconstCooGet(spMatDescr, rows, cols, nnz, cooRowInd, cooColInd, cooValues, idxType, idxBase, valueType), "cusparseConstCooGet")
 }
 
-// constCscGet wraps cusparseConstCscGet.
+// constCscGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSC format.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cscColOffsets: Col offsets of the sparse matrix. Array with cols + 1 elements
+//   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cscValues: Values of the sparse matrix. Array with nnz elements
+//   - cscColOffsetsType: Data type of cscColOffsets
+//   - cscRowIndType: Data type of cscRowInd
+//   - idxBase: Index base of cscColOffsets and cscRowInd
+//   - valueType: Datatype of cscValues
+//
+// Wraps cusparseConstCscGet.
 func constCscGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int64, cscColOffsets *uintptr, cscRowInd *uintptr, cscValues *uintptr, cscColOffsetsType *IndexType, cscRowIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseConstCscGet"); err != nil {
 		return err
@@ -175,7 +1220,23 @@ func constCscGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int6
 	return toError(fnconstCscGet(spMatDescr, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseConstCscGet")
 }
 
-// constCsrGet wraps cusparseConstCsrGet.
+// constCsrGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSR format.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
+//   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - csrValues: Values of the sparse matrix. Array with nnz elements
+//   - csrRowOffsetsType: Data type of csrRowOffsets
+//   - csrColIndType: Data type of csrColInd
+//   - idxBase: Index base of csrRowOffsets and csrColInd
+//   - valueType: Datatype of csrValues
+//
+// Wraps cusparseConstCsrGet.
 func constCsrGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int64, csrRowOffsets *uintptr, csrColInd *uintptr, csrValues *uintptr, csrRowOffsetsType *IndexType, csrColIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseConstCsrGet"); err != nil {
 		return err
@@ -183,7 +1244,18 @@ func constCsrGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int6
 	return toError(fnconstCsrGet(spMatDescr, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseConstCsrGet")
 }
 
-// constDnMatGet wraps cusparseConstDnMatGet.
+// constDnMatGet returns the fields of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - rows: Number of rows of the dense matrix
+//   - cols: Number of columns of the dense matrix
+//   - ld: Leading dimension of the dense matrix
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//   - order: Enumerator specifying the memory layout of the dense matrix
+//
+// Wraps cusparseConstDnMatGet.
 func constDnMatGet(dnMatDescr ConstDnMatDescr, rows *int64, cols *int64, ld *int64, values *uintptr, type_ *DataType, order *Order) error {
 	if err := checkLibSym("cusparseConstDnMatGet"); err != nil {
 		return err
@@ -191,7 +1263,14 @@ func constDnMatGet(dnMatDescr ConstDnMatDescr, rows *int64, cols *int64, ld *int
 	return toError(fnconstDnMatGet(dnMatDescr, rows, cols, ld, values, type_, order), "cusparseConstDnMatGet")
 }
 
-// constDnMatGetValues wraps cusparseConstDnMatGetValues.
+// constDnMatGetValues returns the values field of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//
+// Wraps cusparseConstDnMatGetValues.
 func constDnMatGetValues(dnMatDescr ConstDnMatDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseConstDnMatGetValues"); err != nil {
 		return err
@@ -199,7 +1278,16 @@ func constDnMatGetValues(dnMatDescr ConstDnMatDescr, values *uintptr) error {
 	return toError(fnconstDnMatGetValues(dnMatDescr, values), "cusparseConstDnMatGetValues")
 }
 
-// constDnVecGet wraps cusparseConstDnVecGet.
+// constDnVecGet returns the fields of the dense vector descriptor dnVecDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnVecDescr: Dense vector descriptor
+//   - size: Size of the dense vector
+//   - values: Values of the dense vector. Array with nnz elements
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseConstDnVecGet.
 func constDnVecGet(dnVecDescr ConstDnVecDescr, size *int64, values *uintptr, valueType *DataType) error {
 	if err := checkLibSym("cusparseConstDnVecGet"); err != nil {
 		return err
@@ -207,7 +1295,14 @@ func constDnVecGet(dnVecDescr ConstDnVecDescr, size *int64, values *uintptr, val
 	return toError(fnconstDnVecGet(dnVecDescr, size, values, valueType), "cusparseConstDnVecGet")
 }
 
-// constDnVecGetValues wraps cusparseConstDnVecGetValues.
+// constDnVecGetValues returns the values field of the dense vector descriptor dnVecDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnVecDescr: Dense vector descriptor
+//   - values: Values of the dense vector
+//
+// Wraps cusparseConstDnVecGetValues.
 func constDnVecGetValues(dnVecDescr ConstDnVecDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseConstDnVecGetValues"); err != nil {
 		return err
@@ -215,7 +1310,14 @@ func constDnVecGetValues(dnVecDescr ConstDnVecDescr, values *uintptr) error {
 	return toError(fnconstDnVecGetValues(dnVecDescr, values), "cusparseConstDnVecGetValues")
 }
 
-// constSpMatGetValues wraps cusparseConstSpMatGetValues.
+// constSpMatGetValues returns the values field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - values: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseConstSpMatGetValues.
 func constSpMatGetValues(spMatDescr ConstSpMatDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseConstSpMatGetValues"); err != nil {
 		return err
@@ -223,7 +1325,20 @@ func constSpMatGetValues(spMatDescr ConstSpMatDescr, values *uintptr) error {
 	return toError(fnconstSpMatGetValues(spMatDescr, values), "cusparseConstSpMatGetValues")
 }
 
-// constSpVecGet wraps cusparseConstSpVecGet.
+// constSpVecGet returns the fields of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//   - size: Size of the sparse vector
+//   - nnz: Number of non-zero entries of the sparse vector
+//   - indices: Indices of the sparse vector. Array with nnz elements
+//   - values: Values of the sparse vector. Array with nnz elements
+//   - idxType: Enumerator specifying the data type of indices
+//   - idxBase: Enumerator specifying the the index base of indices
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseConstSpVecGet.
 func constSpVecGet(spVecDescr ConstSpVecDescr, size *int64, nnz *int64, indices *uintptr, values *uintptr, idxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseConstSpVecGet"); err != nil {
 		return err
@@ -231,7 +1346,14 @@ func constSpVecGet(spVecDescr ConstSpVecDescr, size *int64, nnz *int64, indices 
 	return toError(fnconstSpVecGet(spVecDescr, size, nnz, indices, values, idxType, idxBase, valueType), "cusparseConstSpVecGet")
 }
 
-// constSpVecGetValues wraps cusparseConstSpVecGetValues.
+// constSpVecGetValues returns the values field of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//   - values: Values of the sparse vector. Array with nnz elements
+//
+// Wraps cusparseConstSpVecGetValues.
 func constSpVecGetValues(spVecDescr ConstSpVecDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseConstSpVecGetValues"); err != nil {
 		return err
@@ -239,7 +1361,21 @@ func constSpVecGetValues(spVecDescr ConstSpVecDescr, values *uintptr) error {
 	return toError(fnconstSpVecGetValues(spVecDescr, values), "cusparseConstSpVecGetValues")
 }
 
-// cooGet wraps cusparseCooGet.
+// cooGet returns the fields of the sparse matrix descriptor spMatDescr stored in COO format (Array of Structures layout).
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cooRowInd: Row indices of the sparse matrix. Array nnz elements
+//   - cooColInd: Column indices of the sparse matrix. Array nnz elements
+//   - cooValues: Values of the sparse matrix. Array nnz elements
+//   - idxBase: Index base of cooRowInd and cooColInd
+//   - valueType: Datatype of cooValues
+//
+// Wraps cusparseCooGet.
 func cooGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, cooRowInd *uintptr, cooColInd *uintptr, cooValues *uintptr, idxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseCooGet"); err != nil {
 		return err
@@ -247,7 +1383,17 @@ func cooGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, cooRowI
 	return toError(fncooGet(spMatDescr, rows, cols, nnz, cooRowInd, cooColInd, cooValues, idxType, idxBase, valueType), "cusparseCooGet")
 }
 
-// cooSetPointers wraps cusparseCooSetPointers.
+// cooSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
+//
+// [SpMatDescr.CooSetPointers] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - cooRows: Row indices of the sparse matrix. Array with nnz elements
+//   - cooColumns: Column indices of the sparse matrix. Array with nnz elements
+//   - cooValues: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseCooSetPointers.
 func cooSetPointers(spMatDescr SpMatDescr, cooRows driver.DevicePtr, cooColumns driver.DevicePtr, cooValues driver.DevicePtr) error {
 	if err := checkLibSym("cusparseCooSetPointers"); err != nil {
 		return err
@@ -255,7 +1401,15 @@ func cooSetPointers(spMatDescr SpMatDescr, cooRows driver.DevicePtr, cooColumns 
 	return toError(fncooSetPointers(spMatDescr, uintptr(cooRows), uintptr(cooColumns), uintptr(cooValues)), "cusparseCooSetPointers")
 }
 
-// cooSetStridedBatch wraps cusparseCooSetStridedBatch.
+// cooSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - batchCount: Number of batches of the sparse matrix
+//   - batchStride: address offset between consecutive batches
+//
+// Wraps cusparseCooSetStridedBatch.
 func cooSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, batchStride int64) error {
 	if err := checkLibSym("cusparseCooSetStridedBatch"); err != nil {
 		return err
@@ -263,273 +1417,637 @@ func cooSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, batchStride int
 	return toError(fncooSetStridedBatch(spMatDescr, batchCount, batchStride), "cusparseCooSetStridedBatch")
 }
 
-// Create wraps cusparseCreate.
+// Create initializes the cuSPARSE library and creates a handle on the cuSPARSE context.
+//
+// It must be called before any other cuSPARSE API function is invoked. It allocates hardware resources necessary for accessing the GPU.
+// Refer to [Result] for the description of the return status.
+//
+//   - handle: The pointer to the handle to the cuSPARSE context
+//
+// Wraps cusparseCreate.
 func Create() (Handle, error) {
 	if err := checkLibSym("cusparseCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "cusparseCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "cusparseCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateBlockedEll wraps cusparseCreateBlockedEll.
+var slotCreate outSlot[Handle]
+
+// CreateBlockedEll initializes the sparse matrix descriptor spMatDescr for the Blocked-Ellpack (ELL) format.
+//
+// Blocked-ELL Column indices ( ellColInd) are in the range [0, cols / ellBlockSize -1]. The array can contain -1 values for indicating empty blocks.
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - ellBlockSize: Size of the ELL-Block
+//   - ellCols: Actual number of columns of the Blocked-Ellpack format ( ellValue columns)
+//   - ellColInd: Blocked-ELL Column indices. Array with [ellCols / ellBlockSize][rows / ellBlockSize] elements
+//   - ellValue: Values of the sparse matrix. Array with rows * ellCols elements
+//   - ellIdxType: Data type of ellColInd
+//   - idxBase: Index base of ellColInd
+//   - valueType: Data type of ellValue
+//
+// Wraps cusparseCreateBlockedEll.
 func CreateBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols int64, ellColInd driver.DevicePtr, ellValue driver.DevicePtr, ellIdxType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateBlockedEll"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	var out SpMatDescr
-	if err := toError(fnCreateBlockedEll(&out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType), "cusparseCreateBlockedEll"); err != nil {
+	out := slotCreateBlockedEll.get()
+	defer slotCreateBlockedEll.put(out)
+	if err := toError(fnCreateBlockedEll(out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType), "cusparseCreateBlockedEll"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateBsr wraps cusparseCreateBsr.
+var slotCreateBlockedEll outSlot[SpMatDescr]
+
+// CreateBsr initializes the sparse matrix descriptor spMatDescr for the Block Compressed Row (BSR) format.
+//
+// [CreateBsr] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - brows: Number of block rows of the sparse matrix
+//   - bcols: Number of block columns of the sparse matrix
+//   - bnnz: Number of blocks of the sparse matrix
+//   - rowBlockSize: Number of rows of each block
+//   - colBlockSize: Number of columns of each block
+//   - bsrRowOffsets: Block row offsets of the sparse matrix. Array of size brows + 1
+//   - bsrColInd: Block column indices of the sparse matrix. Array of size bnnz
+//   - bsrValues: Values of the sparse matrix. Array of size bnnz * rowBlockSize * colBlockSize
+//   - bsrRowOffsetsType: Data type of bsrRowOffsets
+//   - bsrColIndType: Data type of bsrColInd
+//   - idxBase: Base index of bsrRowOffsets and bsrColInd
+//   - valueType: Datatype of bsrValues
+//   - order: Enumerator specifying the memory layout of values in each block
+//
+// Wraps cusparseCreateBsr.
 func CreateBsr(brows int64, bcols int64, bnnz int64, rowBlockSize int64, colBlockSize int64, bsrRowOffsets driver.DevicePtr, bsrColInd driver.DevicePtr, bsrValues driver.DevicePtr, bsrRowOffsetsType IndexType, bsrColIndType IndexType, idxBase IndexBase, valueType DataType, order Order) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateBsr"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	var out SpMatDescr
-	if err := toError(fnCreateBsr(&out, brows, bcols, bnnz, rowBlockSize, colBlockSize, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order), "cusparseCreateBsr"); err != nil {
+	out := slotCreateBsr.get()
+	defer slotCreateBsr.put(out)
+	if err := toError(fnCreateBsr(out, brows, bcols, bnnz, rowBlockSize, colBlockSize, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order), "cusparseCreateBsr"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstBlockedEll wraps cusparseCreateConstBlockedEll.
+var slotCreateBsr outSlot[SpMatDescr]
+
+// CreateConstBlockedEll initializes the sparse matrix descriptor spMatDescr for the Blocked-Ellpack (ELL) format.
+//
+// Blocked-ELL Column indices ( ellColInd) are in the range [0, cols / ellBlockSize -1]. The array can contain -1 values for indicating empty blocks.
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - ellBlockSize: Size of the ELL-Block
+//   - ellCols: Actual number of columns of the Blocked-Ellpack format ( ellValue columns)
+//   - ellColInd: Blocked-ELL Column indices. Array with [ellCols / ellBlockSize][rows / ellBlockSize] elements
+//   - ellValue: Values of the sparse matrix. Array with rows * ellCols elements
+//   - ellIdxType: Data type of ellColInd
+//   - idxBase: Index base of ellColInd
+//   - valueType: Data type of ellValue
+//
+// Wraps cusparseCreateConstBlockedEll.
 func CreateConstBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols int64, ellColInd driver.DevicePtr, ellValue driver.DevicePtr, ellIdxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstBlockedEll"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	var out ConstSpMatDescr
-	if err := toError(fnCreateConstBlockedEll(&out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType), "cusparseCreateConstBlockedEll"); err != nil {
+	out := slotCreateConstBlockedEll.get()
+	defer slotCreateConstBlockedEll.put(out)
+	if err := toError(fnCreateConstBlockedEll(out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType), "cusparseCreateConstBlockedEll"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstBsr wraps cusparseCreateConstBsr.
+var slotCreateConstBlockedEll outSlot[ConstSpMatDescr]
+
+// CreateConstBsr initializes the sparse matrix descriptor spMatDescr for the Block Compressed Row (BSR) format.
+//
+// [CreateBsr] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - brows: Number of block rows of the sparse matrix
+//   - bcols: Number of block columns of the sparse matrix
+//   - bnnz: Number of blocks of the sparse matrix
+//   - bsrRowOffsets: Block row offsets of the sparse matrix. Array of size brows + 1
+//   - bsrColInd: Block column indices of the sparse matrix. Array of size bnnz
+//   - bsrValues: Values of the sparse matrix. Array of size bnnz * rowBlockSize * colBlockSize
+//   - bsrRowOffsetsType: Data type of bsrRowOffsets
+//   - bsrColIndType: Data type of bsrColInd
+//   - idxBase: Base index of bsrRowOffsets and bsrColInd
+//   - valueType: Datatype of bsrValues
+//   - order: Enumerator specifying the memory layout of values in each block
+//
+// Wraps cusparseCreateConstBsr.
 func CreateConstBsr(brows int64, bcols int64, bnnz int64, rowBlockDim int64, colBlockDim int64, bsrRowOffsets driver.DevicePtr, bsrColInd driver.DevicePtr, bsrValues driver.DevicePtr, bsrRowOffsetsType IndexType, bsrColIndType IndexType, idxBase IndexBase, valueType DataType, order Order) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstBsr"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	var out ConstSpMatDescr
-	if err := toError(fnCreateConstBsr(&out, brows, bcols, bnnz, rowBlockDim, colBlockDim, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order), "cusparseCreateConstBsr"); err != nil {
+	out := slotCreateConstBsr.get()
+	defer slotCreateConstBsr.put(out)
+	if err := toError(fnCreateConstBsr(out, brows, bcols, bnnz, rowBlockDim, colBlockDim, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order), "cusparseCreateConstBsr"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstCoo wraps cusparseCreateConstCoo.
+var slotCreateConstBsr outSlot[ConstSpMatDescr]
+
+// CreateConstCoo initializes the sparse matrix descriptor spMatDescr in the COO format (Structure of Arrays layout).
+//
+// [CreateCoo] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cooRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cooColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - cooValues: Values of the sparse matrix. Array with nnz elements
+//   - cooIdxType: Data type of cooRowInd and cooColInd
+//   - idxBase: Index base of cooRowInd and cooColInd
+//   - valueType: Datatype of cooValues
+//
+// Wraps cusparseCreateConstCoo.
 func CreateConstCoo(rows int64, cols int64, nnz int64, cooRowInd driver.DevicePtr, cooColInd driver.DevicePtr, cooValues driver.DevicePtr, cooIdxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstCoo"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCoo(&out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType), "cusparseCreateConstCoo"); err != nil {
+	out := slotCreateConstCoo.get()
+	defer slotCreateConstCoo.put(out)
+	if err := toError(fnCreateConstCoo(out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType), "cusparseCreateConstCoo"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstCsc wraps cusparseCreateConstCsc.
+var slotCreateConstCoo outSlot[ConstSpMatDescr]
+
+// CreateConstCsc initializes the sparse matrix descriptor spMatDescr in the CSC format.
+//
+// [CreateCsc] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cscColOffsets: Column offsets of the sparse matrix. Array with cols + 1 elements
+//   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cscValues: Values of the sparse matrix. Array with nnz elements
+//   - cscColOffsetsType: Data type of cscColOffsets
+//   - cscRowIndType: Data type of cscRowInd
+//   - idxBase: Index base of cscColOffsets and cscRowInd
+//   - valueType: Datatype of cscValues
+//
+// Wraps cusparseCreateConstCsc.
 func CreateConstCsc(rows int64, cols int64, nnz int64, cscColOffsets driver.DevicePtr, cscRowInd driver.DevicePtr, cscValues driver.DevicePtr, cscColOffsetsType IndexType, cscRowIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstCsc"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCsc(&out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseCreateConstCsc"); err != nil {
+	out := slotCreateConstCsc.get()
+	defer slotCreateConstCsc.put(out)
+	if err := toError(fnCreateConstCsc(out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseCreateConstCsc"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstCsr wraps cusparseCreateConstCsr.
+var slotCreateConstCsc outSlot[ConstSpMatDescr]
+
+// CreateConstCsr initializes the sparse matrix descriptor spMatDescr in the CSR format.
+//
+// [CreateCsr] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
+//   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - csrValues: Values of the sparse matrix. Array with nnz elements
+//   - csrRowOffsetsType: Data type of csrRowOffsets
+//   - csrColIndType: Data type of csrColInd
+//   - idxBase: Index base of csrRowOffsets and csrColInd
+//   - valueType: Datatype of csrValues
+//
+// Wraps cusparseCreateConstCsr.
 func CreateConstCsr(rows int64, cols int64, nnz int64, csrRowOffsets driver.DevicePtr, csrColInd driver.DevicePtr, csrValues driver.DevicePtr, csrRowOffsetsType IndexType, csrColIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstCsr"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCsr(&out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseCreateConstCsr"); err != nil {
+	out := slotCreateConstCsr.get()
+	defer slotCreateConstCsr.put(out)
+	if err := toError(fnCreateConstCsr(out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseCreateConstCsr"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstDnMat wraps cusparseCreateConstDnMat.
+var slotCreateConstCsr outSlot[ConstSpMatDescr]
+
+// CreateConstDnMat initializes the dense matrix descriptor dnMatDescr.
+//
+// [CreateDnMat] has the following constraints:
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - rows: Number of rows of the dense matrix
+//   - cols: Number of columns of the dense matrix
+//   - ld: Leading dimension of the dense matrix
+//   - values: Values of the dense matrix. Array with size elements
+//   - valueType: Enumerator specifying the datatype of values
+//   - order: Enumerator specifying the memory layout of the dense matrix
+//
+// Wraps cusparseCreateConstDnMat.
 func CreateConstDnMat(rows int64, cols int64, ld int64, values driver.DevicePtr, valueType DataType, order Order) (ConstDnMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstDnMat"); err != nil {
 		var zero ConstDnMatDescr
 		return zero, err
 	}
-	var out ConstDnMatDescr
-	if err := toError(fnCreateConstDnMat(&out, rows, cols, ld, uintptr(values), valueType, order), "cusparseCreateConstDnMat"); err != nil {
+	out := slotCreateConstDnMat.get()
+	defer slotCreateConstDnMat.put(out)
+	if err := toError(fnCreateConstDnMat(out, rows, cols, ld, uintptr(values), valueType, order), "cusparseCreateConstDnMat"); err != nil {
 		var zero ConstDnMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstDnVec wraps cusparseCreateConstDnVec.
+var slotCreateConstDnMat outSlot[ConstDnMatDescr]
+
+// CreateConstDnVec initializes the dense vector descriptor dnVecDescr.
+//
+// [CreateDnVec] has the following constraints:
+// Refer to [Result] for the description of the return status.
+//
+//   - dnVecDescr: Dense vector descriptor
+//   - size: Size of the dense vector
+//   - values: Values of the dense vector. Array with size elements
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseCreateConstDnVec.
 func CreateConstDnVec(size int64, values driver.DevicePtr, valueType DataType) (ConstDnVecDescr, error) {
 	if err := checkLibSym("cusparseCreateConstDnVec"); err != nil {
 		var zero ConstDnVecDescr
 		return zero, err
 	}
-	var out ConstDnVecDescr
-	if err := toError(fnCreateConstDnVec(&out, size, uintptr(values), valueType), "cusparseCreateConstDnVec"); err != nil {
+	out := slotCreateConstDnVec.get()
+	defer slotCreateConstDnVec.put(out)
+	if err := toError(fnCreateConstDnVec(out, size, uintptr(values), valueType), "cusparseCreateConstDnVec"); err != nil {
 		var zero ConstDnVecDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstSlicedEll wraps cusparseCreateConstSlicedEll.
+var slotCreateConstDnVec outSlot[ConstDnVecDescr]
+
+// CreateConstSlicedEll initializes the sparse matrix descriptor spMatDescr for the Sliced Ellpack (SELL) format.
+//
+// Note: Sliced Ellpack Column array sellColInd contains -1 values for indicating padded entries.
+// [CreateSlicedEll] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of nonzero elements in the sparse matrix
+//   - sellValuesSize: Total number of elements in sellValues array (nonzero and padding)
+//   - sliceSize: The number of rows per slice
+//   - sellSliceOffsets: Slice offsets of the sparse matrix. Array of size ⌈rowssliceSize⌉+1
+//   - sellColInd: Column indexes of the sparse matrix. Array of size sellValuesSize
+//   - sellValues: Values of the sparse matrix. Array of size sellValuesSize elements
+//   - sellSliceOffsetsType: Data type of sellSliceOffsets
+//   - sellColIndType: Data type of sellColInd
+//   - idxBase: Index base of sellColInd
+//   - valueType: Data type of sellValues
+//
+// Wraps cusparseCreateConstSlicedEll.
 func CreateConstSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int64, sliceSize int64, sellSliceOffsets driver.DevicePtr, sellColInd driver.DevicePtr, sellValues driver.DevicePtr, sellSliceOffsetsType IndexType, sellColIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstSlicedEll"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	var out ConstSpMatDescr
-	if err := toError(fnCreateConstSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType), "cusparseCreateConstSlicedEll"); err != nil {
+	out := slotCreateConstSlicedEll.get()
+	defer slotCreateConstSlicedEll.put(out)
+	if err := toError(fnCreateConstSlicedEll(out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType), "cusparseCreateConstSlicedEll"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateConstSpVec wraps cusparseCreateConstSpVec.
+var slotCreateConstSlicedEll outSlot[ConstSpMatDescr]
+
+// CreateConstSpVec initializes the sparse matrix descriptor spVecDescr.
+//
+// [CreateSpVec] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//   - size: Size of the sparse vector
+//   - nnz: Number of non-zero entries of the sparse vector
+//   - indices: Indices of the sparse vector. Array with nnz elements
+//   - values: Values of the sparse vector. Array with nnz elements
+//   - idxType: Enumerator specifying the data type of indices
+//   - idxBase: Enumerator specifying the the index base of indices
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseCreateConstSpVec.
 func CreateConstSpVec(size int64, nnz int64, indices driver.DevicePtr, values driver.DevicePtr, idxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpVecDescr, error) {
 	if err := checkLibSym("cusparseCreateConstSpVec"); err != nil {
 		var zero ConstSpVecDescr
 		return zero, err
 	}
-	var out ConstSpVecDescr
-	if err := toError(fnCreateConstSpVec(&out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType), "cusparseCreateConstSpVec"); err != nil {
+	out := slotCreateConstSpVec.get()
+	defer slotCreateConstSpVec.put(out)
+	if err := toError(fnCreateConstSpVec(out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType), "cusparseCreateConstSpVec"); err != nil {
 		var zero ConstSpVecDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateCoo wraps cusparseCreateCoo.
+var slotCreateConstSpVec outSlot[ConstSpVecDescr]
+
+// CreateCoo initializes the sparse matrix descriptor spMatDescr in the COO format (Structure of Arrays layout).
+//
+// [CreateCoo] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cooRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cooColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - cooValues: Values of the sparse matrix. Array with nnz elements
+//   - cooIdxType: Data type of cooRowInd and cooColInd
+//   - idxBase: Index base of cooRowInd and cooColInd
+//   - valueType: Datatype of cooValues
+//
+// Wraps cusparseCreateCoo.
 func CreateCoo(rows int64, cols int64, nnz int64, cooRowInd driver.DevicePtr, cooColInd driver.DevicePtr, cooValues driver.DevicePtr, cooIdxType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateCoo"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	var out SpMatDescr
-	if err := toError(fnCreateCoo(&out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType), "cusparseCreateCoo"); err != nil {
+	out := slotCreateCoo.get()
+	defer slotCreateCoo.put(out)
+	if err := toError(fnCreateCoo(out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType), "cusparseCreateCoo"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateCsc wraps cusparseCreateCsc.
+var slotCreateCoo outSlot[SpMatDescr]
+
+// CreateCsc initializes the sparse matrix descriptor spMatDescr in the CSC format.
+//
+// [CreateCsc] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cscColOffsets: Column offsets of the sparse matrix. Array with cols + 1 elements
+//   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cscValues: Values of the sparse matrix. Array with nnz elements
+//   - cscColOffsetsType: Data type of cscColOffsets
+//   - cscRowIndType: Data type of cscRowInd
+//   - idxBase: Index base of cscColOffsets and cscRowInd
+//   - valueType: Datatype of cscValues
+//
+// Wraps cusparseCreateCsc.
 func CreateCsc(rows int64, cols int64, nnz int64, cscColOffsets driver.DevicePtr, cscRowInd driver.DevicePtr, cscValues driver.DevicePtr, cscColOffsetsType IndexType, cscRowIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateCsc"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	var out SpMatDescr
-	if err := toError(fnCreateCsc(&out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseCreateCsc"); err != nil {
+	out := slotCreateCsc.get()
+	defer slotCreateCsc.put(out)
+	if err := toError(fnCreateCsc(out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseCreateCsc"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateCsr wraps cusparseCreateCsr.
+var slotCreateCsc outSlot[SpMatDescr]
+
+// CreateCsr initializes the sparse matrix descriptor spMatDescr in the CSR format.
+//
+// [CreateCsr] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
+//   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - csrValues: Values of the sparse matrix. Array with nnz elements
+//   - csrRowOffsetsType: Data type of csrRowOffsets
+//   - csrColIndType: Data type of csrColInd
+//   - idxBase: Index base of csrRowOffsets and csrColInd
+//   - valueType: Datatype of csrValues
+//
+// Wraps cusparseCreateCsr.
 func CreateCsr(rows int64, cols int64, nnz int64, csrRowOffsets driver.DevicePtr, csrColInd driver.DevicePtr, csrValues driver.DevicePtr, csrRowOffsetsType IndexType, csrColIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateCsr"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	var out SpMatDescr
-	if err := toError(fnCreateCsr(&out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseCreateCsr"); err != nil {
+	out := slotCreateCsr.get()
+	defer slotCreateCsr.put(out)
+	if err := toError(fnCreateCsr(out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseCreateCsr"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateDnMat wraps cusparseCreateDnMat.
+var slotCreateCsr outSlot[SpMatDescr]
+
+// CreateDnMat initializes the dense matrix descriptor dnMatDescr.
+//
+// [CreateDnMat] has the following constraints:
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - rows: Number of rows of the dense matrix
+//   - cols: Number of columns of the dense matrix
+//   - ld: Leading dimension of the dense matrix
+//   - values: Values of the dense matrix. Array with size elements
+//   - valueType: Enumerator specifying the datatype of values
+//   - order: Enumerator specifying the memory layout of the dense matrix
+//
+// Wraps cusparseCreateDnMat.
 func CreateDnMat(rows int64, cols int64, ld int64, values driver.DevicePtr, valueType DataType, order Order) (DnMatDescr, error) {
 	if err := checkLibSym("cusparseCreateDnMat"); err != nil {
 		var zero DnMatDescr
 		return zero, err
 	}
-	var out DnMatDescr
-	if err := toError(fnCreateDnMat(&out, rows, cols, ld, uintptr(values), valueType, order), "cusparseCreateDnMat"); err != nil {
+	out := slotCreateDnMat.get()
+	defer slotCreateDnMat.put(out)
+	if err := toError(fnCreateDnMat(out, rows, cols, ld, uintptr(values), valueType, order), "cusparseCreateDnMat"); err != nil {
 		var zero DnMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateDnVec wraps cusparseCreateDnVec.
+var slotCreateDnMat outSlot[DnMatDescr]
+
+// CreateDnVec initializes the dense vector descriptor dnVecDescr.
+//
+// [CreateDnVec] has the following constraints:
+// Refer to [Result] for the description of the return status.
+//
+//   - dnVecDescr: Dense vector descriptor
+//   - size: Size of the dense vector
+//   - values: Values of the dense vector. Array with size elements
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseCreateDnVec.
 func CreateDnVec(size int64, values driver.DevicePtr, valueType DataType) (DnVecDescr, error) {
 	if err := checkLibSym("cusparseCreateDnVec"); err != nil {
 		var zero DnVecDescr
 		return zero, err
 	}
-	var out DnVecDescr
-	if err := toError(fnCreateDnVec(&out, size, uintptr(values), valueType), "cusparseCreateDnVec"); err != nil {
+	out := slotCreateDnVec.get()
+	defer slotCreateDnVec.put(out)
+	if err := toError(fnCreateDnVec(out, size, uintptr(values), valueType), "cusparseCreateDnVec"); err != nil {
 		var zero DnVecDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateSlicedEll wraps cusparseCreateSlicedEll.
+var slotCreateDnVec outSlot[DnVecDescr]
+
+// CreateSlicedEll initializes the sparse matrix descriptor spMatDescr for the Sliced Ellpack (SELL) format.
+//
+// Note: Sliced Ellpack Column array sellColInd contains -1 values for indicating padded entries.
+// [CreateSlicedEll] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of nonzero elements in the sparse matrix
+//   - sellValuesSize: Total number of elements in sellValues array (nonzero and padding)
+//   - sliceSize: The number of rows per slice
+//   - sellSliceOffsets: Slice offsets of the sparse matrix. Array of size ⌈rowssliceSize⌉+1
+//   - sellColInd: Column indexes of the sparse matrix. Array of size sellValuesSize
+//   - sellValues: Values of the sparse matrix. Array of size sellValuesSize elements
+//   - sellSliceOffsetsType: Data type of sellSliceOffsets
+//   - sellColIndType: Data type of sellColInd
+//   - idxBase: Index base of sellColInd
+//   - valueType: Data type of sellValues
+//
+// Wraps cusparseCreateSlicedEll.
 func CreateSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int64, sliceSize int64, sellSliceOffsets driver.DevicePtr, sellColInd driver.DevicePtr, sellValues driver.DevicePtr, sellSliceOffsetsType IndexType, sellColIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateSlicedEll"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	var out SpMatDescr
-	if err := toError(fnCreateSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType), "cusparseCreateSlicedEll"); err != nil {
+	out := slotCreateSlicedEll.get()
+	defer slotCreateSlicedEll.put(out)
+	if err := toError(fnCreateSlicedEll(out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType), "cusparseCreateSlicedEll"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CreateSpVec wraps cusparseCreateSpVec.
+var slotCreateSlicedEll outSlot[SpMatDescr]
+
+// CreateSpVec initializes the sparse matrix descriptor spVecDescr.
+//
+// [CreateSpVec] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//   - size: Size of the sparse vector
+//   - nnz: Number of non-zero entries of the sparse vector
+//   - indices: Indices of the sparse vector. Array with nnz elements
+//   - values: Values of the sparse vector. Array with nnz elements
+//   - idxType: Enumerator specifying the data type of indices
+//   - idxBase: Enumerator specifying the the index base of indices
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseCreateSpVec.
 func CreateSpVec(size int64, nnz int64, indices driver.DevicePtr, values driver.DevicePtr, idxType IndexType, idxBase IndexBase, valueType DataType) (SpVecDescr, error) {
 	if err := checkLibSym("cusparseCreateSpVec"); err != nil {
 		var zero SpVecDescr
 		return zero, err
 	}
-	var out SpVecDescr
-	if err := toError(fnCreateSpVec(&out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType), "cusparseCreateSpVec"); err != nil {
+	out := slotCreateSpVec.get()
+	defer slotCreateSpVec.put(out)
+	if err := toError(fnCreateSpVec(out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType), "cusparseCreateSpVec"); err != nil {
 		var zero SpVecDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cscGet wraps cusparseCscGet.
+var slotCreateSpVec outSlot[SpVecDescr]
+
+// cscGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSC format.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - cscColOffsets: Col offsets of the sparse matrix. Array with cols + 1 elements
+//   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cscValues: Values of the sparse matrix. Array with nnz elements
+//   - cscColOffsetsType: Data type of cscColOffsets
+//   - cscRowIndType: Data type of cscRowInd
+//   - idxBase: Index base of cscColOffsets and cscRowInd
+//   - valueType: Datatype of cscValues
+//
+// Wraps cusparseCscGet.
 func cscGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, cscColOffsets *uintptr, cscRowInd *uintptr, cscValues *uintptr, cscColOffsetsType *IndexType, cscRowIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseCscGet"); err != nil {
 		return err
@@ -537,7 +2055,17 @@ func cscGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, cscColO
 	return toError(fncscGet(spMatDescr, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseCscGet")
 }
 
-// cscSetPointers wraps cusparseCscSetPointers.
+// cscSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
+//
+// [SpMatDescr.CscSetPointers] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - cscColOffsets: Col offsets of the sparse matrix. Array with cols + 1 elements
+//   - cscRowInd: Row indices of the sparse matrix. Array with nnz elements
+//   - cscValues: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseCscSetPointers.
 func cscSetPointers(spMatDescr SpMatDescr, cscColOffsets driver.DevicePtr, cscRowInd driver.DevicePtr, cscValues driver.DevicePtr) error {
 	if err := checkLibSym("cusparseCscSetPointers"); err != nil {
 		return err
@@ -545,7 +2073,23 @@ func cscSetPointers(spMatDescr SpMatDescr, cscColOffsets driver.DevicePtr, cscRo
 	return toError(fncscSetPointers(spMatDescr, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues)), "cusparseCscSetPointers")
 }
 
-// csrGet wraps cusparseCsrGet.
+// csrGet returns the fields of the sparse matrix descriptor spMatDescr stored in CSR format.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
+//   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - csrValues: Values of the sparse matrix. Array with nnz elements
+//   - csrRowOffsetsType: Data type of csrRowOffsets
+//   - csrColIndType: Data type of csrColInd
+//   - idxBase: Index base of csrRowOffsets and csrColInd
+//   - valueType: Datatype of csrValues
+//
+// Wraps cusparseCsrGet.
 func csrGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, csrRowOffsets *uintptr, csrColInd *uintptr, csrValues *uintptr, csrRowOffsetsType *IndexType, csrColIndType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseCsrGet"); err != nil {
 		return err
@@ -553,7 +2097,17 @@ func csrGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, csrRowO
 	return toError(fncsrGet(spMatDescr, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseCsrGet")
 }
 
-// csrSetPointers wraps cusparseCsrSetPointers.
+// csrSetPointers sets the pointers of the sparse matrix descriptor spMatDescr.
+//
+// [SpMatDescr.CsrSetPointers] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - csrRowOffsets: Row offsets of the sparse matrix. Array with rows + 1 elements
+//   - csrColInd: Column indices of the sparse matrix. Array with nnz elements
+//   - csrValues: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseCsrSetPointers.
 func csrSetPointers(spMatDescr SpMatDescr, csrRowOffsets driver.DevicePtr, csrColInd driver.DevicePtr, csrValues driver.DevicePtr) error {
 	if err := checkLibSym("cusparseCsrSetPointers"); err != nil {
 		return err
@@ -561,7 +2115,16 @@ func csrSetPointers(spMatDescr SpMatDescr, csrRowOffsets driver.DevicePtr, csrCo
 	return toError(fncsrSetPointers(spMatDescr, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues)), "cusparseCsrSetPointers")
 }
 
-// csrSetStridedBatch wraps cusparseCsrSetStridedBatch.
+// csrSetStridedBatch sets the batchCount and the batchStride fields of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - batchCount: Number of batches of the sparse matrix
+//   - offsetsBatchStride: Address offset between consecutive batches for the row offset array
+//   - columnsValuesBatchStride: Address offset between consecutive batches for the column and value arrays
+//
+// Wraps cusparseCsrSetStridedBatch.
 func csrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStride int64, columnsValuesBatchStride int64) error {
 	if err := checkLibSym("cusparseCsrSetStridedBatch"); err != nil {
 		return err
@@ -569,7 +2132,25 @@ func csrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStr
 	return toError(fncsrSetStridedBatch(spMatDescr, batchCount, offsetsBatchStride, columnsValuesBatchStride), "cusparseCsrSetStridedBatch")
 }
 
-// denseToSparseAnalysis wraps cusparseDenseToSparseAnalysis, bound as cusparseDenseToSparse_analysis.
+// denseToSparseAnalysis converts the dense matrix matA into a sparse matrix matB in CSR, CSC, COO, or Blocked-ELL format.
+//
+// The function [Handle.DenseToSparseBufferSize] returns the size of the workspace needed by [Handle.DenseToSparseAnalysis].
+// The function [Handle.DenseToSparseAnalysis] updates the number of non-zero elements in the sparse matrix descriptor matB. The user is responsible to allocate the memory required by the sparse matrix:
+// Finally, we call [Handle.DenseToSparseConvert] for filling the arrays allocated in the previous step.
+// cusparseDenseToSparse() supports the following index type for representing the sparse vector matB:
+// cusparseDenseToSparse() supports the following data types:
+// cusparseDense2Sparse() supports the following algorithm:
+// cusparseDenseToSparse() has the following properties:
+// cusparseDenseToSparse() supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseDenseToSparse (CSR) and cuSPARSE Library Samples - cusparseDenseToSparse (Blocked-ELL) for code examples.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - matA: Dense matrix A
+//   - matB: Sparse matrix B
+//   - alg: Algorithm for the computation
+//
+// Wraps cusparseDenseToSparseAnalysis, bound as cusparseDenseToSparse_analysis.
 func denseToSparseAnalysis(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDenseToSparse_analysis"); err != nil {
 		return err
@@ -577,21 +2158,50 @@ func denseToSparseAnalysis(handle Handle, matA ConstDnMatDescr, matB SpMatDescr,
 	return toError(fndenseToSparseAnalysis(handle, matA, matB, alg, uintptr(externalBuffer)), "cusparseDenseToSparse_analysis")
 }
 
-// denseToSparseBufferSize wraps cusparseDenseToSparseBufferSize, bound as cusparseDenseToSparse_bufferSize.
+// denseToSparseBufferSize returns the workspace size for cusparseDenseToSparse.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - matA: Dense matrix A
+//   - matB: Sparse matrix B
+//   - alg: Algorithm for the computation
+//   - bufferSize: Workspace size
+//
+// Wraps cusparseDenseToSparseBufferSize, bound as cusparseDenseToSparse_bufferSize.
 func denseToSparseBufferSize(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg) (uint, error) {
 	if err := checkLibSym("cusparseDenseToSparse_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndenseToSparseBufferSize(handle, matA, matB, alg, &out), "cusparseDenseToSparse_bufferSize"); err != nil {
+	out := slotDenseToSparseBufferSize.get()
+	defer slotDenseToSparseBufferSize.put(out)
+	if err := toError(fndenseToSparseBufferSize(handle, matA, matB, alg, out), "cusparseDenseToSparse_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// denseToSparseConvert wraps cusparseDenseToSparseConvert, bound as cusparseDenseToSparse_convert.
+var slotDenseToSparseBufferSize outSlot[uint]
+
+// denseToSparseConvert converts the dense matrix matA into a sparse matrix matB in CSR, CSC, COO, or Blocked-ELL format.
+//
+// The function [Handle.DenseToSparseBufferSize] returns the size of the workspace needed by [Handle.DenseToSparseAnalysis].
+// The function [Handle.DenseToSparseAnalysis] updates the number of non-zero elements in the sparse matrix descriptor matB. The user is responsible to allocate the memory required by the sparse matrix:
+// Finally, we call [Handle.DenseToSparseConvert] for filling the arrays allocated in the previous step.
+// cusparseDenseToSparse() supports the following index type for representing the sparse vector matB:
+// cusparseDenseToSparse() supports the following data types:
+// cusparseDense2Sparse() supports the following algorithm:
+// cusparseDenseToSparse() has the following properties:
+// cusparseDenseToSparse() supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseDenseToSparse (CSR) and cuSPARSE Library Samples - cusparseDenseToSparse (Blocked-ELL) for code examples.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - matA: Dense matrix A
+//   - matB: Sparse matrix B
+//   - alg: Algorithm for the computation
+//
+// Wraps cusparseDenseToSparseConvert, bound as cusparseDenseToSparse_convert.
 func denseToSparseConvert(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDenseToSparse_convert"); err != nil {
 		return err
@@ -599,7 +2209,14 @@ func denseToSparseConvert(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, 
 	return toError(fndenseToSparseConvert(handle, matA, matB, alg, uintptr(externalBuffer)), "cusparseDenseToSparse_convert")
 }
 
-// destroy wraps cusparseDestroy.
+// destroy releases CPU-side resources used by the cuSPARSE library.
+//
+// The release of GPU-side resources may be deferred until the application shuts down.
+// Refer to [Result] for the description of the return status.
+//
+//   - handle: The handle to the cuSPARSE context
+//
+// Wraps cusparseDestroy.
 func destroy(handle Handle) error {
 	if err := checkLibSym("cusparseDestroy"); err != nil {
 		return err
@@ -607,7 +2224,13 @@ func destroy(handle Handle) error {
 	return toError(fndestroy(handle), "cusparseDestroy")
 }
 
-// destroyDnMat wraps cusparseDestroyDnMat.
+// destroyDnMat releases the host memory allocated for the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//
+// Wraps cusparseDestroyDnMat.
 func destroyDnMat(dnMatDescr ConstDnMatDescr) error {
 	if err := checkLibSym("cusparseDestroyDnMat"); err != nil {
 		return err
@@ -615,7 +2238,13 @@ func destroyDnMat(dnMatDescr ConstDnMatDescr) error {
 	return toError(fndestroyDnMat(dnMatDescr), "cusparseDestroyDnMat")
 }
 
-// destroyDnVec wraps cusparseDestroyDnVec.
+// destroyDnVec releases the host memory allocated for the dense vector descriptor dnVecDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnVecDescr: Dense vector descriptor
+//
+// Wraps cusparseDestroyDnVec.
 func destroyDnVec(dnVecDescr ConstDnVecDescr) error {
 	if err := checkLibSym("cusparseDestroyDnVec"); err != nil {
 		return err
@@ -623,7 +2252,13 @@ func destroyDnVec(dnVecDescr ConstDnVecDescr) error {
 	return toError(fndestroyDnVec(dnVecDescr), "cusparseDestroyDnVec")
 }
 
-// destroySpMat wraps cusparseDestroySpMat.
+// destroySpMat releases the host memory allocated for the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//
+// Wraps cusparseDestroySpMat.
 func destroySpMat(spMatDescr ConstSpMatDescr) error {
 	if err := checkLibSym("cusparseDestroySpMat"); err != nil {
 		return err
@@ -631,7 +2266,13 @@ func destroySpMat(spMatDescr ConstSpMatDescr) error {
 	return toError(fndestroySpMat(spMatDescr), "cusparseDestroySpMat")
 }
 
-// destroySpVec wraps cusparseDestroySpVec.
+// destroySpVec releases the host memory allocated for the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//
+// Wraps cusparseDestroySpVec.
 func destroySpVec(spVecDescr ConstSpVecDescr) error {
 	if err := checkLibSym("cusparseDestroySpVec"); err != nil {
 		return err
@@ -639,7 +2280,18 @@ func destroySpVec(spVecDescr ConstSpVecDescr) error {
 	return toError(fndestroySpVec(spVecDescr), "cusparseDestroySpVec")
 }
 
-// dnMatGet wraps cusparseDnMatGet.
+// dnMatGet returns the fields of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - rows: Number of rows of the dense matrix
+//   - cols: Number of columns of the dense matrix
+//   - ld: Leading dimension of the dense matrix
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//   - order: Enumerator specifying the memory layout of the dense matrix
+//
+// Wraps cusparseDnMatGet.
 func dnMatGet(dnMatDescr DnMatDescr, rows *int64, cols *int64, ld *int64, values *uintptr, type_ *DataType, order *Order) error {
 	if err := checkLibSym("cusparseDnMatGet"); err != nil {
 		return err
@@ -647,20 +2299,40 @@ func dnMatGet(dnMatDescr DnMatDescr, rows *int64, cols *int64, ld *int64, values
 	return toError(fndnMatGet(dnMatDescr, rows, cols, ld, values, type_, order), "cusparseDnMatGet")
 }
 
-// dnMatGetStridedBatch wraps cusparseDnMatGetStridedBatch.
+// dnMatGetStridedBatch returns the number of batches and the batch stride of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - batchCount: Number of batches of the dense matrix
+//   - batchStride: Address offset between a matrix and the next one in the batch
+//
+// Wraps cusparseDnMatGetStridedBatch.
 func dnMatGetStridedBatch(dnMatDescr ConstDnMatDescr) (batchCount int32, batchStride int64, err error) {
 	if err := checkLibSym("cusparseDnMatGetStridedBatch"); err != nil {
 		return 0, 0, err
 	}
-	var out0 int32
-	var out1 int64
-	if err := toError(fndnMatGetStridedBatch(dnMatDescr, &out0, &out1), "cusparseDnMatGetStridedBatch"); err != nil {
+	outs := slotDnMatGetStridedBatch.get()
+	defer slotDnMatGetStridedBatch.put(outs)
+	if err := toError(fndnMatGetStridedBatch(dnMatDescr, &outs.out0, &outs.out1), "cusparseDnMatGetStridedBatch"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// dnMatGetValues wraps cusparseDnMatGetValues.
+var slotDnMatGetStridedBatch outSlot[struct {
+	out0 int32
+	out1 int64
+}]
+
+// dnMatGetValues returns the values field of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//
+// Wraps cusparseDnMatGetValues.
 func dnMatGetValues(dnMatDescr DnMatDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseDnMatGetValues"); err != nil {
 		return err
@@ -668,7 +2340,15 @@ func dnMatGetValues(dnMatDescr DnMatDescr, values *uintptr) error {
 	return toError(fndnMatGetValues(dnMatDescr, values), "cusparseDnMatGetValues")
 }
 
-// dnMatSetStridedBatch wraps cusparseDnMatSetStridedBatch.
+// dnMatSetStridedBatch sets the number of batches and the batch stride of the dense matrix descriptor dnMatDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - batchCount: Number of batches of the dense matrix
+//   - batchStride: Address offset between a matrix and the next one in the batch. batchStride ≥ ld * cols if the matrix uses column-major layout, batchStride ≥ ld * rows otherwise
+//
+// Wraps cusparseDnMatSetStridedBatch.
 func dnMatSetStridedBatch(dnMatDescr DnMatDescr, batchCount int32, batchStride int64) error {
 	if err := checkLibSym("cusparseDnMatSetStridedBatch"); err != nil {
 		return err
@@ -676,7 +2356,15 @@ func dnMatSetStridedBatch(dnMatDescr DnMatDescr, batchCount int32, batchStride i
 	return toError(fndnMatSetStridedBatch(dnMatDescr, batchCount, batchStride), "cusparseDnMatSetStridedBatch")
 }
 
-// dnMatSetValues wraps cusparseDnMatSetValues.
+// dnMatSetValues sets the values field of the dense matrix descriptor dnMatDescr.
+//
+// [DnMatDescr.MatSetValues] has the following constraints:
+// Refer to [Result] for the description of the return status.
+//
+//   - dnMatDescr: Dense matrix descriptor
+//   - values: Values of the dense matrix. Array with ld * cols elements
+//
+// Wraps cusparseDnMatSetValues.
 func dnMatSetValues(dnMatDescr DnMatDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDnMatSetValues"); err != nil {
 		return err
@@ -684,7 +2372,16 @@ func dnMatSetValues(dnMatDescr DnMatDescr, values driver.DevicePtr) error {
 	return toError(fndnMatSetValues(dnMatDescr, uintptr(values)), "cusparseDnMatSetValues")
 }
 
-// dnVecGet wraps cusparseDnVecGet.
+// dnVecGet returns the fields of the dense vector descriptor dnVecDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnVecDescr: Dense vector descriptor
+//   - size: Size of the dense vector
+//   - values: Values of the dense vector. Array with nnz elements
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseDnVecGet.
 func dnVecGet(dnVecDescr DnVecDescr, size *int64, values *uintptr, valueType *DataType) error {
 	if err := checkLibSym("cusparseDnVecGet"); err != nil {
 		return err
@@ -692,7 +2389,14 @@ func dnVecGet(dnVecDescr DnVecDescr, size *int64, values *uintptr, valueType *Da
 	return toError(fndnVecGet(dnVecDescr, size, values, valueType), "cusparseDnVecGet")
 }
 
-// dnVecGetValues wraps cusparseDnVecGetValues.
+// dnVecGetValues returns the values field of the dense vector descriptor dnVecDescr.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - dnVecDescr: Dense vector descriptor
+//   - values: Values of the dense vector
+//
+// Wraps cusparseDnVecGetValues.
 func dnVecGetValues(dnVecDescr DnVecDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseDnVecGetValues"); err != nil {
 		return err
@@ -700,7 +2404,15 @@ func dnVecGetValues(dnVecDescr DnVecDescr, values *uintptr) error {
 	return toError(fndnVecGetValues(dnVecDescr, values), "cusparseDnVecGetValues")
 }
 
-// dnVecSetValues wraps cusparseDnVecSetValues.
+// dnVecSetValues sets the values field of the dense vector descriptor dnVecDescr.
+//
+// [DnVecDescr.VecSetValues] has the following constraints:
+// Refer to [Result] for the description of the return status.
+//
+//   - dnVecDescr: Dense vector descriptor
+//   - values: Values of the dense vector. Array with size elements
+//
+// Wraps cusparseDnVecSetValues.
 func dnVecSetValues(dnVecDescr DnVecDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDnVecSetValues"); err != nil {
 		return err
@@ -708,7 +2420,22 @@ func dnVecSetValues(dnVecDescr DnVecDescr, values driver.DevicePtr) error {
 	return toError(fndnVecSetValues(dnVecDescr, uintptr(values)), "cusparseDnVecSetValues")
 }
 
-// gather wraps cusparseGather.
+// gather gathers the elements of the dense vector vecY into the sparse vector vecX.
+//
+// In other words,
+// [Handle.Gather] supports the following index type for representing the sparse vector vecX:
+// [Handle.Gather] supports the following data types:
+// [Handle.Gather] has the following constraints:
+// [Handle.Gather] has the following properties:
+// [Handle.Gather] supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.Gather] for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - vecY: Dense vector Y
+//   - vecX: Sparse vector X
+//
+// Wraps cusparseGather.
 func gather(handle Handle, vecY ConstDnVecDescr, vecX SpVecDescr) error {
 	if err := checkLibSym("cusparseGather"); err != nil {
 		return err
@@ -716,7 +2443,13 @@ func gather(handle Handle, vecY ConstDnVecDescr, vecX SpVecDescr) error {
 	return toError(fngather(handle, vecY, vecX), "cusparseGather")
 }
 
-// GetErrorName wraps cusparseGetErrorName.
+// GetErrorName returns the string representation of an error code enum name.
+//
+// If the error code is not recognized, “unrecognized error code” is returned.
+//
+//   - status: Error code to convert to string
+//
+// Wraps cusparseGetErrorName.
 func GetErrorName(status Result) (string, error) {
 	if err := checkLibSym("cusparseGetErrorName"); err != nil {
 		return "", err
@@ -724,7 +2457,13 @@ func GetErrorName(status Result) (string, error) {
 	return goString(fnGetErrorName(status)), nil
 }
 
-// GetErrorString wraps cusparseGetErrorString.
+// GetErrorString returns the description string for an error code.
+//
+// If the error code is not recognized, “unrecognized error code” is returned.
+//
+//   - status: Error code to convert to string
+//
+// Wraps cusparseGetErrorString.
 func GetErrorString(status Result) (string, error) {
 	if err := checkLibSym("cusparseGetErrorString"); err != nil {
 		return "", err
@@ -732,61 +2471,105 @@ func GetErrorString(status Result) (string, error) {
 	return goString(fnGetErrorString(status)), nil
 }
 
-// getPointerMode wraps cusparseGetPointerMode.
+// getPointerMode obtains the pointer mode used by the cuSPARSE library.
+//
+// Please see the section on the [PointerMode] type for more details.
+// Refer to [Result] for the description of the return status.
+//
+//   - handle: The handle to the cuSPARSE context
+//   - mode: One of the enumerated pointer mode types
+//
+// Wraps cusparseGetPointerMode.
 func getPointerMode(handle Handle) (PointerMode, error) {
 	if err := checkLibSym("cusparseGetPointerMode"); err != nil {
 		var zero PointerMode
 		return zero, err
 	}
-	var out PointerMode
-	if err := toError(fngetPointerMode(handle, &out), "cusparseGetPointerMode"); err != nil {
+	out := slotGetPointerMode.get()
+	defer slotGetPointerMode.put(out)
+	if err := toError(fngetPointerMode(handle, out), "cusparseGetPointerMode"); err != nil {
 		var zero PointerMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetProperty wraps cusparseGetProperty.
+var slotGetPointerMode outSlot[PointerMode]
+
+// GetProperty returns the value of the requested property.
+//
+// Refer to libraryPropertyType for supported types.
+// libraryPropertyType (defined in library_types.h):
+// Refer to [Result] for the description of the return status.
+//
+//   - type_: Requested property
+//   - value: Value of the requested property
+//
+// Wraps cusparseGetProperty.
 func GetProperty(type_ LibraryPropertyType) (int32, error) {
 	if err := checkLibSym("cusparseGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetProperty(type_, &out), "cusparseGetProperty"); err != nil {
+	out := slotGetProperty.get()
+	defer slotGetProperty.put(out)
+	if err := toError(fnGetProperty(type_, out), "cusparseGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getStream wraps cusparseGetStream.
+var slotGetProperty outSlot[int32]
+
+// getStream gets the cuSPARSE library stream, which is being used to to execute all calls to the cuSPARSE library functions.
+//
+// If the cuSPARSE library stream is not set, all kernels use the default NULL stream.
+// Refer to [Result] for the description of the return status.
+//
+//   - handle: The handle to the cuSPARSE context
+//   - streamId: The stream used by the library
+//
+// Wraps cusparseGetStream.
 func getStream(handle Handle) (driver.Stream, error) {
 	if err := checkLibSym("cusparseGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
-	var out driver.Stream
-	if err := toError(fngetStream(handle, &out), "cusparseGetStream"); err != nil {
+	out := slotGetStream.get()
+	defer slotGetStream.put(out)
+	if err := toError(fngetStream(handle, out), "cusparseGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getVersion wraps cusparseGetVersion.
+var slotGetStream outSlot[driver.Stream]
+
+// getVersion returns the version number of the cuSPARSE library.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - handle: cuSPARSE handle
+//   - version: The version number of the library
+//
+// Wraps cusparseGetVersion.
 func getVersion(handle Handle) (int32, error) {
 	if err := checkLibSym("cusparseGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetVersion(handle, &out), "cusparseGetVersion"); err != nil {
+	out := slotGetVersion.get()
+	defer slotGetVersion.put(out)
+	if err := toError(fngetVersion(handle, out), "cusparseGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetVersion outSlot[int32]
 
 // LoggerForceDisable wraps cusparseLoggerForceDisable.
 func LoggerForceDisable() error {
@@ -796,7 +2579,14 @@ func LoggerForceDisable() error {
 	return toError(fnLoggerForceDisable(), "cusparseLoggerForceDisable")
 }
 
-// LoggerOpenFile wraps cusparseLoggerOpenFile.
+// LoggerOpenFile opens a logging output file in the given path.
+//
+// This function is experimental.
+// See [Result] for the description of the return status.
+//
+//   - logFile: Path of the logging output file
+//
+// Wraps cusparseLoggerOpenFile.
 func LoggerOpenFile(logFile *byte) error {
 	if err := checkLibSym("cusparseLoggerOpenFile"); err != nil {
 		return err
@@ -804,7 +2594,15 @@ func LoggerOpenFile(logFile *byte) error {
 	return toError(fnLoggerOpenFile(logFile), "cusparseLoggerOpenFile")
 }
 
-// LoggerSetCallback wraps cusparseLoggerSetCallback.
+// LoggerSetCallback sets the logging callback function.
+//
+// This function is experimental.
+// where cusparseLoggerCallback_t has the following signature:
+// See [Result] for the description of the return status.
+//
+//   - callback: Pointer to a callback function (see [LoggerCallback])
+//
+// Wraps cusparseLoggerSetCallback.
 func LoggerSetCallback(callback LoggerCallback) error {
 	if err := checkLibSym("cusparseLoggerSetCallback"); err != nil {
 		return err
@@ -812,7 +2610,15 @@ func LoggerSetCallback(callback LoggerCallback) error {
 	return toError(fnLoggerSetCallback(callback), "cusparseLoggerSetCallback")
 }
 
-// LoggerSetFile wraps cusparseLoggerSetFile.
+// LoggerSetFile sets the logging output file.
+//
+// Note: once registered using this function call, the provided file handle must not be closed unless the function is called again to switch to a different file handle.
+// This function is experimental.
+// See [Result] for the description of the return status.
+//
+//   - file: Pointer to an open file. File should have write permission
+//
+// Wraps cusparseLoggerSetFile.
 func LoggerSetFile(file *FILE) error {
 	if err := checkLibSym("cusparseLoggerSetFile"); err != nil {
 		return err
@@ -820,7 +2626,15 @@ func LoggerSetFile(file *FILE) error {
 	return toError(fnLoggerSetFile(file), "cusparseLoggerSetFile")
 }
 
-// LoggerSetLevel wraps cusparseLoggerSetLevel.
+// LoggerSetLevel sets the value of the logging level.
+//
+// path.
+// This function is experimental.
+// See [Result] for the description of the return status
+//
+//   - level: Value of the logging level
+//
+// Wraps cusparseLoggerSetLevel.
 func LoggerSetLevel(level int32) error {
 	if err := checkLibSym("cusparseLoggerSetLevel"); err != nil {
 		return err
@@ -828,7 +2642,14 @@ func LoggerSetLevel(level int32) error {
 	return toError(fnLoggerSetLevel(level), "cusparseLoggerSetLevel")
 }
 
-// LoggerSetMask wraps cusparseLoggerSetMask.
+// LoggerSetMask sets the value of the logging mask.
+//
+// This function is experimental.
+// See [Result] for the description of the return status
+//
+//   - mask: Value of the logging mask
+//
+// Wraps cusparseLoggerSetMask.
 func LoggerSetMask(mask int32) error {
 	if err := checkLibSym("cusparseLoggerSetMask"); err != nil {
 		return err
@@ -836,7 +2657,49 @@ func LoggerSetMask(mask int32) error {
 	return toError(fnLoggerSetMask(mask), "cusparseLoggerSetMask")
 }
 
-// sDDMM wraps cusparseSDDMM.
+// sDDMM performs the multiplication of matA and matB, followed by an element-wise multiplication with the sparsity pattern of matC.
+//
+// Formally, it performs the following operation:
+// C=α(op(A)⋅op(B))∘spy(C)+βC
+// where spy(C)ᵢⱼ = 1 if Cᵢⱼ is an entry stored in matC, and 0 otherwise.
+// Also, for matrix A and B: op(A) = A if opA == [OperationNonTranspose], and op(A) = Aᵀ if opA == [OperationTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
+// The function [Handle.SDDMMBufferSize] returns the size of the workspace needed by [Handle.SDDMM] or [Handle.SDDMMPreprocess].
+// Calling [Handle.SDDMMPreprocess] is optional. It may accelerate subsequent calls to [Handle.SDDMM]. It is useful when [Handle.SDDMM] is called multiple times with the same sparsity pattern ( matC).
+// Calling [Handle.SDDMMPreprocess] with buffer makes that buffer “active” for matC [Handle.SDDMM] calls. Subsequent calls to [Handle.SDDMM] with matC and the active buffer must use the same values for all parameters as the call to [Handle.SDDMMPreprocess]. The exceptions are: alpha, beta, matA, matB, and the values (but not indices) of matC may be different. Importantly, the buffer contents must be unmodified since the call to [Handle.SDDMMPreprocess]. When [Handle.SDDMM] is called with matC and its active buffer, it may read acceleration data from the buffer.
+// Calling [Handle.SDDMMPreprocess] again with matC and a new buffer will make the new buffer active, forgetting about the previously-active buffer and making it inactive. For [Handle.SDDMM], there can only be one active buffer per sparse matrix at a time. To get the effect of multiple active buffers for a single sparse matrix, create multiple matrix handles that all point to the same index and value buffers, and call [Handle.SDDMMPreprocess] once per handle with different workspace buffers.
+// Calling [Handle.SDDMM] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
+// For the purposes of thread safety, [Handle.SDDMMPreprocess] is writing to matC internal state.
+// Currently supported sparse matrix formats:
+// [Handle.SDDMM] supports the following index type for representing the sparse matrix matA:
+// The data types combinations currently supported for [Handle.SDDMM] are listed below:
+// Uniform-precision computation:
+// Mixed-precision computation:
+// [Handle.SDDMM] for [FormatBsr] also supports the following mixed-precision computation:
+// NOTE: CUDA_R_16F, CUDA_R_16BF data types always imply mixed-precision computation.
+// [Handle.SDDMM] for CUSPASRE_FORMAT_BSR supports block sizes of 2, 4, 8, 16, 32, 64 and 128.
+// [Handle.SDDMM] supports the following algorithms:
+// Performance notes: [Handle.SDDMM] for [FormatCsr] provides the best performance when matA and matB satisfy:
+// [Handle.SDDMM] for [FormatBsr] provides the best performance when matA and matB satisfy:
+// [Handle.SDDMM] supports the following batch modes:
+// The number of batches and their strides can be set by using [SpMatDescr.CsrSetStridedBatch] and [DnMatDescr.MatSetStridedBatch]. The maximum number of batches for [Handle.SDDMM] is 65,535.
+// [Handle.SDDMM] has the following properties:
+// [Handle.SDDMM] supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SDDMM] for a code example. For batched computation please visit [Handle.SDDMM] CSR Batched.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Dense matrix matA
+//   - matB: Dense matrix matB
+//   - beta: β scalar used for multiplication of type computeType
+//   - matC: Sparse matrix matC
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes
+//
+// Wraps cusparseSDDMM.
 func sDDMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSDDMM"); err != nil {
 		return err
@@ -844,21 +2707,80 @@ func sDDMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA Cons
 	return toError(fnsDDMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)), "cusparseSDDMM")
 }
 
-// sDDMMBufferSize wraps cusparseSDDMMBufferSize, bound as cusparseSDDMM_bufferSize.
+// sDDMMBufferSize returns the workspace size for [Handle.SDDMM].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Dense matrix matA
+//   - matB: Dense matrix matB
+//   - beta: β scalar used for multiplication of type computeType
+//   - matC: Sparse matrix matC
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - bufferSize: Workspace size
+//
+// Wraps cusparseSDDMMBufferSize, bound as cusparseSDDMM_bufferSize.
 func sDDMMBufferSize(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg) (uint, error) {
 	if err := checkLibSym("cusparseSDDMM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsDDMMBufferSize(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, &out), "cusparseSDDMM_bufferSize"); err != nil {
+	out := slotSDDMMBufferSize.get()
+	defer slotSDDMMBufferSize.put(out)
+	if err := toError(fnsDDMMBufferSize(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, out), "cusparseSDDMM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// sDDMMPreprocess wraps cusparseSDDMMPreprocess, bound as cusparseSDDMM_preprocess.
+var slotSDDMMBufferSize outSlot[uint]
+
+// sDDMMPreprocess prepares the workspace buffer for [Handle.SDDMM], which may accelerate subsequent calls to it.
+//
+// [Handle.SDDMM] performs the multiplication of matA and matB, followed by an element-wise multiplication with the sparsity pattern of matC. Formally, it performs the following operation:
+// C=α(op(A)⋅op(B))∘spy(C)+βC
+// where spy(C)ᵢⱼ = 1 if Cᵢⱼ is an entry stored in matC, and 0 otherwise.
+// Also, for matrix A and B: op(A) = A if opA == [OperationNonTranspose], and op(A) = Aᵀ if opA == [OperationTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
+// The function [Handle.SDDMMBufferSize] returns the size of the workspace needed by [Handle.SDDMM] or [Handle.SDDMMPreprocess].
+// Calling [Handle.SDDMMPreprocess] is optional. It may accelerate subsequent calls to [Handle.SDDMM]. It is useful when [Handle.SDDMM] is called multiple times with the same sparsity pattern ( matC).
+// Calling [Handle.SDDMMPreprocess] with buffer makes that buffer “active” for matC [Handle.SDDMM] calls. Subsequent calls to [Handle.SDDMM] with matC and the active buffer must use the same values for all parameters as the call to [Handle.SDDMMPreprocess]. The exceptions are: alpha, beta, matA, matB, and the values (but not indices) of matC may be different. Importantly, the buffer contents must be unmodified since the call to [Handle.SDDMMPreprocess]. When [Handle.SDDMM] is called with matC and its active buffer, it may read acceleration data from the buffer.
+// Calling [Handle.SDDMMPreprocess] again with matC and a new buffer will make the new buffer active, forgetting about the previously-active buffer and making it inactive. For [Handle.SDDMM], there can only be one active buffer per sparse matrix at a time. To get the effect of multiple active buffers for a single sparse matrix, create multiple matrix handles that all point to the same index and value buffers, and call [Handle.SDDMMPreprocess] once per handle with different workspace buffers.
+// Calling [Handle.SDDMM] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
+// For the purposes of thread safety, [Handle.SDDMMPreprocess] is writing to matC internal state.
+// Currently supported sparse matrix formats:
+// [Handle.SDDMM] supports the following index type for representing the sparse matrix matA:
+// The data types combinations currently supported for [Handle.SDDMM] are listed below:
+// Uniform-precision computation:
+// Mixed-precision computation:
+// [Handle.SDDMM] for [FormatBsr] also supports the following mixed-precision computation:
+// NOTE: CUDA_R_16F, CUDA_R_16BF data types always imply mixed-precision computation.
+// [Handle.SDDMM] for CUSPASRE_FORMAT_BSR supports block sizes of 2, 4, 8, 16, 32, 64 and 128.
+// [Handle.SDDMM] supports the following algorithms:
+// Performance notes: [Handle.SDDMM] for [FormatCsr] provides the best performance when matA and matB satisfy:
+// [Handle.SDDMM] for [FormatBsr] provides the best performance when matA and matB satisfy:
+// [Handle.SDDMM] supports the following batch modes:
+// The number of batches and their strides can be set by using [SpMatDescr.CsrSetStridedBatch] and [DnMatDescr.MatSetStridedBatch]. The maximum number of batches for [Handle.SDDMM] is 65,535.
+// [Handle.SDDMM] has the following properties:
+// [Handle.SDDMM] supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SDDMM] for a code example. For batched computation please visit [Handle.SDDMM] CSR Batched.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Dense matrix matA
+//   - matB: Dense matrix matB
+//   - beta: β scalar used for multiplication of type computeType
+//   - matC: Sparse matrix matC
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes
+//
+// Wraps cusparseSDDMMPreprocess, bound as cusparseSDDMM_preprocess.
 func sDDMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSDDMM_preprocess"); err != nil {
 		return err
@@ -866,7 +2788,22 @@ func sDDMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr,
 	return toError(fnsDDMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)), "cusparseSDDMM_preprocess")
 }
 
-// scatter wraps cusparseScatter.
+// scatter scatters the elements of the sparse vector vecX into the dense vector vecY.
+//
+// In other words,
+// [Handle.Scatter] supports the following index type for representing the sparse vector vecX:
+// [Handle.Scatter] supports the following data types:
+// [Handle.Scatter] has the following constraints:
+// [Handle.Scatter] has the following properties:
+// [Handle.Scatter] supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.Scatter] for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - vecX: Sparse vector X
+//   - vecY: Dense vector Y
+//
+// Wraps cusparseScatter.
 func scatter(handle Handle, vecX ConstSpVecDescr, vecY DnVecDescr) error {
 	if err := checkLibSym("cusparseScatter"); err != nil {
 		return err
@@ -874,7 +2811,15 @@ func scatter(handle Handle, vecX ConstSpVecDescr, vecY DnVecDescr) error {
 	return toError(fnscatter(handle, vecX, vecY), "cusparseScatter")
 }
 
-// setPointerMode wraps cusparseSetPointerMode.
+// setPointerMode sets the pointer mode used by the cuSPARSE library.
+//
+// The default is for the values to be passed by reference on the host. Please see the section on the cublasPointerMode_t type for more details.
+// Refer to [Result] for the description of the return status.
+//
+//   - handle: The handle to the cuSPARSE context
+//   - mode: One of the enumerated pointer mode types
+//
+// Wraps cusparseSetPointerMode.
 func setPointerMode(handle Handle, mode PointerMode) error {
 	if err := checkLibSym("cusparseSetPointerMode"); err != nil {
 		return err
@@ -882,7 +2827,14 @@ func setPointerMode(handle Handle, mode PointerMode) error {
 	return toError(fnsetPointerMode(handle, mode), "cusparseSetPointerMode")
 }
 
-// setStream wraps cusparseSetStream.
+// setStream sets the stream to be used by the cuSPARSE library to execute its routines.
+//
+// Refer to [Result] for the description of the return status.
+//
+//   - handle: The handle to the cuSPARSE context
+//   - streamId: The stream to be used by the library
+//
+// Wraps cusparseSetStream.
 func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("cusparseSetStream"); err != nil {
 		return err
@@ -890,7 +2842,36 @@ func setStream(handle Handle, streamId driver.Stream) error {
 	return toError(fnsetStream(handle, streamId), "cusparseSetStream")
 }
 
-// spGEMMCompute wraps cusparseSpGEMMCompute, bound as cusparseSpGEMM_compute.
+// spGEMMCompute performs the multiplication of two sparse matrices matA and matB.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α,β are scalars, and C,C′ have the same sparsity pattern.
+// The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
+// cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMM are listed below :
+// Uniform-precision computation:
+// cusparseSpGEMM routine runs for the following algorithms:
+// cusparseSpGEMM() has the following properties:
+// cusparseSpGEMM() supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication
+//   - matA: Sparse matrix A
+//   - matB: Sparse matrix B
+//   - beta: β scalar used for multiplication
+//   - matC: Sparse matrix C
+//   - computeType: Enumerator specifying the datatype in which the computation is executed
+//   - alg: Enumerator specifying the algorithm for the computation
+//   - spgemmDescr: Opaque descriptor for storing internal data used across the three steps
+//   - bufferSize2: Number of bytes of workspace requested by [Handle.SpGEMMCompute]
+//   - externalBuffer2: Pointer to workspace buffer needed by [Handle.SpGEMMCompute] and [Handle.SpGEMMCopy]
+//
+// Wraps cusparseSpGEMMCompute, bound as cusparseSpGEMM_compute.
 func spGEMMCompute(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMM_compute"); err != nil {
 		return err
@@ -898,7 +2879,34 @@ func spGEMMCompute(handle Handle, opA Operation, opB Operation, alpha uintptr, m
 	return toError(fnspGEMMCompute(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize2, uintptr(externalBuffer2)), "cusparseSpGEMM_compute")
 }
 
-// spGEMMCopy wraps cusparseSpGEMMCopy, bound as cusparseSpGEMM_copy.
+// spGEMMCopy performs the multiplication of two sparse matrices matA and matB.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α,β are scalars, and C,C′ have the same sparsity pattern.
+// The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
+// cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMM are listed below :
+// Uniform-precision computation:
+// cusparseSpGEMM routine runs for the following algorithms:
+// cusparseSpGEMM() has the following properties:
+// cusparseSpGEMM() supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication
+//   - matA: Sparse matrix A
+//   - matB: Sparse matrix B
+//   - beta: β scalar used for multiplication
+//   - matC: Sparse matrix C
+//   - computeType: Enumerator specifying the datatype in which the computation is executed
+//   - alg: Enumerator specifying the algorithm for the computation
+//   - spgemmDescr: Opaque descriptor for storing internal data used across the three steps
+//
+// Wraps cusparseSpGEMMCopy, bound as cusparseSpGEMM_copy.
 func spGEMMCopy(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr) error {
 	if err := checkLibSym("cusparseSpGEMM_copy"); err != nil {
 		return err
@@ -906,21 +2914,60 @@ func spGEMMCopy(handle Handle, opA Operation, opB Operation, alpha uintptr, matA
 	return toError(fnspGEMMCopy(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr), "cusparseSpGEMM_copy")
 }
 
-// SpGEMMCreateDescr wraps cusparseSpGEMMCreateDescr, bound as cusparseSpGEMM_createDescr.
+// SpGEMMCreateDescr performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α and β are scalars.
+// The functions [Handle.SpGEMMreuseWorkEstimation], [Handle.SpGEMMreuseNnz], and [Handle.SpGEMMreuseCopy] are used for determining the buffer size and performing the actual computation.
+//
+// Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
+// MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
+// Uniform-precision computation:
+// Mixed-precision computation: DEPRECATED
+// cusparseSpGEMMreuse routine runs for the following algorithm:
+// cusparseSpGEMMreuse() has the following properties:
+// cusparseSpGEMMreuse() supports the following optimizations:
+// Refer to [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
+//
+// Wraps cusparseSpGEMMCreateDescr, bound as cusparseSpGEMM_createDescr.
 func SpGEMMCreateDescr() (SpGEMMDescr, error) {
 	if err := checkLibSym("cusparseSpGEMM_createDescr"); err != nil {
 		var zero SpGEMMDescr
 		return zero, err
 	}
-	var out SpGEMMDescr
-	if err := toError(fnSpGEMMCreateDescr(&out), "cusparseSpGEMM_createDescr"); err != nil {
+	out := slotSpGEMMCreateDescr.get()
+	defer slotSpGEMMCreateDescr.put(out)
+	if err := toError(fnSpGEMMCreateDescr(out), "cusparseSpGEMM_createDescr"); err != nil {
 		var zero SpGEMMDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spGEMMDestroyDescr wraps cusparseSpGEMMDestroyDescr, bound as cusparseSpGEMM_destroyDescr.
+var slotSpGEMMCreateDescr outSlot[SpGEMMDescr]
+
+// spGEMMDestroyDescr performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α and β are scalars.
+// The functions [Handle.SpGEMMreuseWorkEstimation], [Handle.SpGEMMreuseNnz], and [Handle.SpGEMMreuseCopy] are used for determining the buffer size and performing the actual computation.
+//
+// Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
+// MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
+// Uniform-precision computation:
+// Mixed-precision computation: DEPRECATED
+// cusparseSpGEMMreuse routine runs for the following algorithm:
+// cusparseSpGEMMreuse() has the following properties:
+// cusparseSpGEMMreuse() supports the following optimizations:
+// Refer to [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
+//
+// Wraps cusparseSpGEMMDestroyDescr, bound as cusparseSpGEMM_destroyDescr.
 func spGEMMDestroyDescr(descr SpGEMMDescr) error {
 	if err := checkLibSym("cusparseSpGEMM_destroyDescr"); err != nil {
 		return err
@@ -928,7 +2975,38 @@ func spGEMMDestroyDescr(descr SpGEMMDescr) error {
 	return toError(fnspGEMMDestroyDescr(descr), "cusparseSpGEMM_destroyDescr")
 }
 
-// spGEMMEstimateMemory wraps cusparseSpGEMMEstimateMemory, bound as cusparseSpGEMM_estimateMemory.
+// spGEMMEstimateMemory performs the multiplication of two sparse matrices matA and matB.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α,β are scalars, and C,C′ have the same sparsity pattern.
+// The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
+// cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMM are listed below :
+// Uniform-precision computation:
+// cusparseSpGEMM routine runs for the following algorithms:
+// cusparseSpGEMM() has the following properties:
+// cusparseSpGEMM() supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication
+//   - matA: Sparse matrix A
+//   - matB: Sparse matrix B
+//   - beta: β scalar used for multiplication
+//   - matC: Sparse matrix C
+//   - computeType: Enumerator specifying the datatype in which the computation is executed
+//   - alg: Enumerator specifying the algorithm for the computation
+//   - spgemmDescr: Opaque descriptor for storing internal data used across the three steps
+//   - chunkFraction: The fraction of total intermediate products being computed in a chunk. Used by [SpgemmALG3] only. Value is in range (0,1]
+//   - bufferSize3: Number of bytes of workspace requested by [Handle.SpGEMMEstimateMemory]
+//   - externalBuffer3: Pointer to workspace buffer needed by [Handle.SpGEMMEstimateMemory]
+//   - bufferSize2: Number of bytes of workspace requested by [Handle.SpGEMMCompute]
+//
+// Wraps cusparseSpGEMMEstimateMemory, bound as cusparseSpGEMM_estimateMemory.
 func spGEMMEstimateMemory(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, chunkFraction float32, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize2 *uint) error {
 	if err := checkLibSym("cusparseSpGEMM_estimateMemory"); err != nil {
 		return err
@@ -936,7 +3014,25 @@ func spGEMMEstimateMemory(handle Handle, opA Operation, opB Operation, alpha uin
 	return toError(fnspGEMMEstimateMemory(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, chunkFraction, bufferSize3, uintptr(externalBuffer3), bufferSize2), "cusparseSpGEMM_estimateMemory")
 }
 
-// spGEMMGetNumProducts wraps cusparseSpGEMMGetNumProducts, bound as cusparseSpGEMM_getNumProducts.
+// spGEMMGetNumProducts performs the multiplication of two sparse matrices matA and matB.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α,β are scalars, and C,C′ have the same sparsity pattern.
+// The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
+// cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMM are listed below :
+// Uniform-precision computation:
+// cusparseSpGEMM routine runs for the following algorithms:
+// cusparseSpGEMM() has the following properties:
+// cusparseSpGEMM() supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
+//
+//   - spgemmDescr: Opaque descriptor for storing internal data used across the three steps
+//   - numProds: Pointer to a 64-bit integer that stores the number of intermediate products calculated by [Handle.SpGEMMWorkEstimation]
+//
+// Wraps cusparseSpGEMMGetNumProducts, bound as cusparseSpGEMM_getNumProducts.
 func spGEMMGetNumProducts(spgemmDescr SpGEMMDescr, numProds *int64) error {
 	if err := checkLibSym("cusparseSpGEMM_getNumProducts"); err != nil {
 		return err
@@ -944,7 +3040,36 @@ func spGEMMGetNumProducts(spgemmDescr SpGEMMDescr, numProds *int64) error {
 	return toError(fnspGEMMGetNumProducts(spgemmDescr, numProds), "cusparseSpGEMM_getNumProducts")
 }
 
-// spGEMMWorkEstimation wraps cusparseSpGEMMWorkEstimation, bound as cusparseSpGEMM_workEstimation.
+// spGEMMWorkEstimation performs the multiplication of two sparse matrices matA and matB.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α,β are scalars, and C,C′ have the same sparsity pattern.
+// The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
+// cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMM are listed below :
+// Uniform-precision computation:
+// cusparseSpGEMM routine runs for the following algorithms:
+// cusparseSpGEMM() has the following properties:
+// cusparseSpGEMM() supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication
+//   - matA: Sparse matrix A
+//   - matB: Sparse matrix B
+//   - beta: β scalar used for multiplication
+//   - matC: Sparse matrix C
+//   - computeType: Enumerator specifying the datatype in which the computation is executed
+//   - alg: Enumerator specifying the algorithm for the computation
+//   - spgemmDescr: Opaque descriptor for storing internal data used across the three steps
+//   - bufferSize1: Number of bytes of workspace requested by [Handle.SpGEMMWorkEstimation]
+//   - externalBuffer1: Pointer to workspace buffer needed by [Handle.SpGEMMWorkEstimation] and [Handle.SpGEMMCompute]
+//
+// Wraps cusparseSpGEMMWorkEstimation, bound as cusparseSpGEMM_workEstimation.
 func spGEMMWorkEstimation(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMM_workEstimation"); err != nil {
 		return err
@@ -968,7 +3093,25 @@ func spGEMMreuseCopy(handle Handle, opA Operation, opB Operation, matA ConstSpMa
 	return toError(fnspGEMMreuseCopy(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize5, uintptr(externalBuffer5)), "cusparseSpGEMMreuse_copy")
 }
 
-// spGEMMreuseNnz wraps cusparseSpGEMMreuseNnz, bound as cusparseSpGEMMreuse_nnz.
+// spGEMMreuseNnz performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α and β are scalars.
+// The functions [Handle.SpGEMMreuseWorkEstimation], [Handle.SpGEMMreuseNnz], and [Handle.SpGEMMreuseCopy] are used for determining the buffer size and performing the actual computation.
+//
+// Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
+// MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
+// Uniform-precision computation:
+// Mixed-precision computation: DEPRECATED
+// cusparseSpGEMMreuse routine runs for the following algorithm:
+// cusparseSpGEMMreuse() has the following properties:
+// cusparseSpGEMMreuse() supports the following optimizations:
+// Refer to [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
+//
+// Wraps cusparseSpGEMMreuseNnz, bound as cusparseSpGEMMreuse_nnz.
 func spGEMMreuseNnz(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize4 *uint, externalBuffer4 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMMreuse_nnz"); err != nil {
 		return err
@@ -976,7 +3119,25 @@ func spGEMMreuseNnz(handle Handle, opA Operation, opB Operation, matA ConstSpMat
 	return toError(fnspGEMMreuseNnz(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize2, uintptr(externalBuffer2), bufferSize3, uintptr(externalBuffer3), bufferSize4, uintptr(externalBuffer4)), "cusparseSpGEMMreuse_nnz")
 }
 
-// spGEMMreuseWorkEstimation wraps cusparseSpGEMMreuseWorkEstimation, bound as cusparseSpGEMMreuse_workEstimation.
+// spGEMMreuseWorkEstimation performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α and β are scalars.
+// The functions [Handle.SpGEMMreuseWorkEstimation], [Handle.SpGEMMreuseNnz], and [Handle.SpGEMMreuseCopy] are used for determining the buffer size and performing the actual computation.
+//
+// Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
+// MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
+// Uniform-precision computation:
+// Mixed-precision computation: DEPRECATED
+// cusparseSpGEMMreuse routine runs for the following algorithm:
+// cusparseSpGEMMreuse() has the following properties:
+// cusparseSpGEMMreuse() supports the following optimizations:
+// Refer to [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
+//
+// Wraps cusparseSpGEMMreuseWorkEstimation, bound as cusparseSpGEMMreuse_workEstimation.
 func spGEMMreuseWorkEstimation(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMMreuse_workEstimation"); err != nil {
 		return err
@@ -984,7 +3145,55 @@ func spGEMMreuseWorkEstimation(handle Handle, opA Operation, opB Operation, matA
 	return toError(fnspGEMMreuseWorkEstimation(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize1, uintptr(externalBuffer1)), "cusparseSpGEMMreuse_workEstimation")
 }
 
-// spMM wraps cusparseSpMM.
+// spMM performs the multiplication of a sparse matrix matA and a dense matrix matB.
+//
+// C=αop(A)⋅op(B)+βC
+// where
+// The routine can be also used to perform the multiplication of a dense matrix and a sparse matrix by switching the dense matrices layout:
+// CC=BC⋅A+βCC→CR=Aᵀ⋅BR+βCR
+// where BC , CC indicate column-major layout, while BR , CR refer to row-major layout
+// Also, for matrix A and B: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], op(B) = Bᵀ if opB == [OperationTranspose], and op(B) = Bᴴ if opB == [OperationConjugateTranspose].
+// When using the (conjugate) transpose of the sparse matrix A, this routine may produce slightly different results during different runs with the same input parameters.
+// The function [Handle.SpMMBufferSize] returns the size of the workspace needed by [Handle.SpMM]
+// Calling [Handle.SpMMPreprocess] is optional. It may accelerate subsequent calls to [Handle.SpMM]. It is useful when [Handle.SpMM] is called multiple times with the same sparsity pattern ( matA). It provides performance advantages with [SpmmCsrALG1] or [SpmmCsrALG3]. For all other formats and algorithms have no effect.
+// Calling [Handle.SpMMPreprocess] with buffer makes that buffer “active” for matA [Handle.SpMM] calls. Subsequent calls to [Handle.SpMM] with matA and the active buffer must use the same values for all parameters as the call to [Handle.SpMMPreprocess]. The exceptions are: alpha, beta, matX, matY, and the values (but not indices) of matA may be different. Importantly, the buffer contents must be unmodified since the call to [Handle.SpMMPreprocess]. When [Handle.SpMM] is called with matA and its active buffer, it may read acceleration data from the buffer.
+// Calling [Handle.SpMMPreprocess] again with matA and a new buffer will make the new buffer active, forgetting about the previously-active buffer and making it inactive. For [Handle.SpMM], there can only be one active buffer per sparse matrix at a time. To get the effect of multiple active buffers for a single sparse matrix, create multiple matrix handles that all point to the same index and value buffers, and call [Handle.SpMMPreprocess] once per handle with different workspace buffers.
+// Calling [Handle.SpMM] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
+// For the purposes of thread safety, [Handle.SpMMPreprocess] is writing to matA internal state.
+// [Handle.SpMM] supports the following sparse matrix formats:
+// [Handle.SpMM] supports the following index type for representing the sparse matrix matA:
+// [Handle.SpMM] supports the following data types:
+// Uniform-precision computation:
+// Mixed-precision computation:
+// NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
+// [Handle.SpMM] supports the following algorithms:
+// NOTE: When using [Handle.SpMM] for mixed-precision computation on COO or CSR matrices, it defaults to algorithms [SpmmCooALG2] and [SpmmCsrALG3], respectively. If the required computation isn’t supported by those algorithms, the mixed-precision operation will fail.
+// Performance notes:
+// [Handle.SpMM] with all algorithms support the following batch modes except for [SpmmCsrALG3]:
+// The number of batches and their strides can be set by using [SpMatDescr.CooSetStridedBatch], [SpMatDescr.CsrSetStridedBatch], and [DnMatDescr.MatSetStridedBatch]. The maximum number of batches for [Handle.SpMM] is 65,535.
+// [Handle.SpMM] has the following properties:
+// [Handle.SpMM] supports the following optimizations:
+// Please visit cuSPARSE Library Samples - [Handle.SpMM] CSR and [Handle.SpMM] COO for a code example. For batched computation please visit [Handle.SpMM] CSR Batched and [Handle.SpMM] COO Batched.
+// [Handle.SpMM] supports the following data types for [FormatBlockedEll] format and the following GPU architectures for exploiting NVIDIA Tensor Cores:
+// [Handle.SpMM] supports the following algorithms with [FormatBlockedEll] format:
+// Performance notes:
+// The function has the following limitations:
+// Please visit cuSPARSE Library Samples - [Handle.SpMM] Blocked-ELL for a code example.
+// See [Result] for the description of the return status.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - matB: Dense matrix B
+//   - beta: β scalar used for multiplication of type computeType
+//   - matC: Dense matrix C
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - externalBuffer: Pointer to workspace buffer of at least bufferSize bytes
+//
+// Wraps cusparseSpMM.
 func spMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMM"); err != nil {
 		return err
@@ -992,21 +3201,87 @@ func spMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA Const
 	return toError(fnspMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)), "cusparseSpMM")
 }
 
-// spMMBufferSize wraps cusparseSpMMBufferSize, bound as cusparseSpMM_bufferSize.
+// spMMBufferSize returns the workspace size for [Handle.SpMM].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - matB: Dense matrix B
+//   - beta: β scalar used for multiplication of type computeType
+//   - matC: Dense matrix C
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - bufferSize: Workspace size
+//
+// Wraps cusparseSpMMBufferSize, bound as cusparseSpMM_bufferSize.
 func spMMBufferSize(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg) (uint, error) {
 	if err := checkLibSym("cusparseSpMM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnspMMBufferSize(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, &out), "cusparseSpMM_bufferSize"); err != nil {
+	out := slotSpMMBufferSize.get()
+	defer slotSpMMBufferSize.put(out)
+	if err := toError(fnspMMBufferSize(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, out), "cusparseSpMM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spMMPreprocess wraps cusparseSpMMPreprocess, bound as cusparseSpMM_preprocess.
+var slotSpMMBufferSize outSlot[uint]
+
+// spMMPreprocess prepares the workspace buffer for [Handle.SpMM], which may accelerate subsequent calls to it.
+//
+// [Handle.SpMM] performs the multiplication of a sparse matrix matA and a dense matrix matB.
+// C=αop(A)⋅op(B)+βC
+// where
+// The routine can be also used to perform the multiplication of a dense matrix and a sparse matrix by switching the dense matrices layout:
+// CC=BC⋅A+βCC→CR=Aᵀ⋅BR+βCR
+// where BC , CC indicate column-major layout, while BR , CR refer to row-major layout
+// Also, for matrix A and B: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], op(B) = Bᵀ if opB == [OperationTranspose], and op(B) = Bᴴ if opB == [OperationConjugateTranspose].
+// When using the (conjugate) transpose of the sparse matrix A, this routine may produce slightly different results during different runs with the same input parameters.
+// The function [Handle.SpMMBufferSize] returns the size of the workspace needed by [Handle.SpMM]
+// Calling [Handle.SpMMPreprocess] is optional. It may accelerate subsequent calls to [Handle.SpMM]. It is useful when [Handle.SpMM] is called multiple times with the same sparsity pattern ( matA). It provides performance advantages with [SpmmCsrALG1] or [SpmmCsrALG3]. For all other formats and algorithms have no effect.
+// Calling [Handle.SpMMPreprocess] with buffer makes that buffer “active” for matA [Handle.SpMM] calls. Subsequent calls to [Handle.SpMM] with matA and the active buffer must use the same values for all parameters as the call to [Handle.SpMMPreprocess]. The exceptions are: alpha, beta, matX, matY, and the values (but not indices) of matA may be different. Importantly, the buffer contents must be unmodified since the call to [Handle.SpMMPreprocess]. When [Handle.SpMM] is called with matA and its active buffer, it may read acceleration data from the buffer.
+// Calling [Handle.SpMMPreprocess] again with matA and a new buffer will make the new buffer active, forgetting about the previously-active buffer and making it inactive. For [Handle.SpMM], there can only be one active buffer per sparse matrix at a time. To get the effect of multiple active buffers for a single sparse matrix, create multiple matrix handles that all point to the same index and value buffers, and call [Handle.SpMMPreprocess] once per handle with different workspace buffers.
+// Calling [Handle.SpMM] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
+// For the purposes of thread safety, [Handle.SpMMPreprocess] is writing to matA internal state.
+// [Handle.SpMM] supports the following sparse matrix formats:
+// [Handle.SpMM] supports the following index type for representing the sparse matrix matA:
+// [Handle.SpMM] supports the following data types:
+// Uniform-precision computation:
+// Mixed-precision computation:
+// NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
+// [Handle.SpMM] supports the following algorithms:
+// NOTE: When using [Handle.SpMM] for mixed-precision computation on COO or CSR matrices, it defaults to algorithms [SpmmCooALG2] and [SpmmCsrALG3], respectively. If the required computation isn’t supported by those algorithms, the mixed-precision operation will fail.
+// Performance notes:
+// [Handle.SpMM] with all algorithms support the following batch modes except for [SpmmCsrALG3]:
+// The number of batches and their strides can be set by using [SpMatDescr.CooSetStridedBatch], [SpMatDescr.CsrSetStridedBatch], and [DnMatDescr.MatSetStridedBatch]. The maximum number of batches for [Handle.SpMM] is 65,535.
+// [Handle.SpMM] has the following properties:
+// [Handle.SpMM] supports the following optimizations:
+// Please visit cuSPARSE Library Samples - [Handle.SpMM] CSR and [Handle.SpMM] COO for a code example. For batched computation please visit [Handle.SpMM] CSR Batched and [Handle.SpMM] COO Batched.
+// [Handle.SpMM] supports the following data types for [FormatBlockedEll] format and the following GPU architectures for exploiting NVIDIA Tensor Cores:
+// [Handle.SpMM] supports the following algorithms with [FormatBlockedEll] format:
+// Performance notes:
+// The function has the following limitations:
+// Please visit cuSPARSE Library Samples - [Handle.SpMM] Blocked-ELL for a code example.
+// See [Result] for the description of the return status.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - matB: Dense matrix B
+//   - beta: β scalar used for multiplication of type computeType
+//   - matC: Dense matrix C
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - externalBuffer: Pointer to workspace buffer of at least bufferSize bytes
+//
+// Wraps cusparseSpMMPreprocess, bound as cusparseSpMM_preprocess.
 func spMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMM_preprocess"); err != nil {
 		return err
@@ -1014,7 +3289,42 @@ func spMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr, 
 	return toError(fnspMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)), "cusparseSpMM_preprocess")
 }
 
-// spMV wraps cusparseSpMV.
+// spMV performs the multiplication of a sparse matrix matA and a dense vector vecX.
+//
+// Y=αop(A)⋅X+βY, where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
+// The function [Handle.SpMVBufferSize] returns the size of the workspace needed by [Handle.SpMVPreprocess] and [Handle.SpMV]
+// The sparse matrix formats currently supported are listed below:
+// [Handle.SpMV] supports the following index type for representing the sparse matrix matA:
+// [Handle.SpMV] supports the following data types:
+// Uniform-precision computation:
+// Mixed-precision computation:
+// Mixed Regular/Complex computation:
+// NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
+// [Handle.SpMV] supports the following algorithms:
+// Calling [Handle.SpMVPreprocess] is optional. It may accelerate subsequent calls to [Handle.SpMV]. It is useful when [Handle.SpMV] is called multiple times with the same sparsity pattern ( matA).
+// Calling [Handle.SpMVPreprocess] with buffer makes that buffer “active” for matA [Handle.SpMV] calls. Subsequent calls to [Handle.SpMV] with matA and the active buffer must use the same values for all parameters as the call to [Handle.SpMVPreprocess]. The exceptions are: alpha, beta, vecX, vecY, and the values (but not indices) of matA may be different. Importantly, the buffer contents must be unmodified since the call to [Handle.SpMVPreprocess]. When [Handle.SpMV] is called with matA and its active buffer, it may read acceleration data from the buffer.
+// Calling [Handle.SpMVPreprocess] again with matA and a new buffer will make the new buffer active, forgetting about the previously-active buffer and making it inactive. For [Handle.SpMV], there can only be one active buffer per sparse matrix at a time. To get the effect of multiple active buffers for a single sparse matrix, create multiple matrix handles that all point to the same index and value buffers, and call [Handle.SpMVPreprocess] once per handle with different workspace buffers.
+// Calling [Handle.SpMV] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
+// For the purposes of thread safety, [Handle.SpMVPreprocess] is writing to matA internal state.
+// Performance notes:
+// [Handle.SpMV] has the following properties:
+// [Handle.SpMV] supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMV] CSR and [Handle.SpMV] COO for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - vecX: Dense vector X
+//   - beta: β scalar used for multiplication of type computeType
+//   - vecY: Dense vector Y
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes
+//
+// Wraps cusparseSpMV.
 func spMV(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMV"); err != nil {
 		return err
@@ -1022,21 +3332,62 @@ func spMV(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vec
 	return toError(fnspMV(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, uintptr(externalBuffer)), "cusparseSpMV")
 }
 
-// spMVBufferSize wraps cusparseSpMVBufferSize, bound as cusparseSpMV_bufferSize.
+// spMVBufferSize returns the workspace size for [Handle.SpMV].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - vecX: Dense vector X
+//   - beta: β scalar used for multiplication of type computeType
+//   - vecY: Dense vector Y
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - bufferSize: Workspace size
+//
+// Wraps cusparseSpMVBufferSize, bound as cusparseSpMV_bufferSize.
 func spMVBufferSize(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg) (uint, error) {
 	if err := checkLibSym("cusparseSpMV_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnspMVBufferSize(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, &out), "cusparseSpMV_bufferSize"); err != nil {
+	out := slotSpMVBufferSize.get()
+	defer slotSpMVBufferSize.put(out)
+	if err := toError(fnspMVBufferSize(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, out), "cusparseSpMV_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spMVOp wraps cusparseSpMVOp.
+var slotSpMVBufferSize outSlot[uint]
+
+// spMVOp is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//
+// It performs the multiplication of a sparse matrix matA and a dense vector vecX.
+// This function is experimental.
+// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// where
+// [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+// [Handle.SpMVOp] supports the following type combinations:
+// [Handle.SpMVOp] supports the following algorithms:
+// The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
+// The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
+// The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
+// The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
+// [Handle.SpMVOp] has the following properties:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - plan: Opaque descriptor for storing the multiplication execution plan,namely all the information necessary to execute [Handle.SpMVOp]
+//   - alpha: α scalar used for multiplication of type computeType
+//   - beta: β scalar used for multiplication of type computeType
+//   - vecX: Dense vector X
+//   - vecY: Dense vector Y
+//   - vecZ: Dense vector Z
+//
+// Wraps cusparseSpMVOp.
 func spMVOp(handle Handle, plan SpMVOpPlan, alpha uintptr, beta uintptr, vecX ConstDnVecDescr, vecY ConstDnVecDescr, vecZ DnVecDescr) error {
 	if err := checkLibSym("cusparseSpMVOp"); err != nil {
 		return err
@@ -1044,49 +3395,132 @@ func spMVOp(handle Handle, plan SpMVOpPlan, alpha uintptr, beta uintptr, vecX Co
 	return toError(fnspMVOp(handle, plan, alpha, beta, vecX, vecY, vecZ), "cusparseSpMVOp")
 }
 
-// spMVOpBufferSize wraps cusparseSpMVOpBufferSize, bound as cusparseSpMVOp_bufferSize.
+// spMVOpBufferSize returns the workspace size for [Handle.SpMVOp].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - matA: Sparse matrix A
+//   - vecX: Dense vector X
+//   - vecY: Dense vector Y
+//   - vecZ: Dense vector Z
+//   - computeType: Datatype in which the computation is executed
+//   - bufferSize: Workspace size
+//
+// Wraps cusparseSpMVOpBufferSize, bound as cusparseSpMVOp_bufferSize.
 func spMVOpBufferSize(handle Handle, opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType) (uint, error) {
 	if err := checkLibSym("cusparseSpMVOp_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnspMVOpBufferSize(handle, opA, matA, vecX, vecY, vecZ, computeType, &out), "cusparseSpMVOp_bufferSize"); err != nil {
+	out := slotSpMVOpBufferSize.get()
+	defer slotSpMVOpBufferSize.put(out)
+	if err := toError(fnspMVOpBufferSize(handle, opA, matA, vecX, vecY, vecZ, computeType, out), "cusparseSpMVOp_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spMVOpCreateDescr wraps cusparseSpMVOpCreateDescr, bound as cusparseSpMVOp_createDescr.
+var slotSpMVOpBufferSize outSlot[uint]
+
+// spMVOpCreateDescr is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//
+// It performs the multiplication of a sparse matrix matA and a dense vector vecX.
+// This function is experimental.
+// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// where
+// [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+// [Handle.SpMVOp] supports the following type combinations:
+// [Handle.SpMVOp] supports the following algorithms:
+// The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
+// The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
+// The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
+// The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
+// [Handle.SpMVOp] has the following properties:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - matA: Sparse matrix A
+//   - vecX: Dense vector X
+//   - vecY: Dense vector Y
+//   - vecZ: Dense vector Z
+//   - computeType: Datatype in which the computation is executed
+//   - buffer: Pointer to a workspace buffer of at least bufferSize bytes
+//
+// Wraps cusparseSpMVOpCreateDescr, bound as cusparseSpMVOp_createDescr.
 func spMVOpCreateDescr(handle Handle, opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType, buffer driver.DevicePtr) (SpMVOpDescr, error) {
 	if err := checkLibSym("cusparseSpMVOp_createDescr"); err != nil {
 		var zero SpMVOpDescr
 		return zero, err
 	}
-	var out SpMVOpDescr
-	if err := toError(fnspMVOpCreateDescr(handle, &out, opA, matA, vecX, vecY, vecZ, computeType, uintptr(buffer)), "cusparseSpMVOp_createDescr"); err != nil {
+	out := slotSpMVOpCreateDescr.get()
+	defer slotSpMVOpCreateDescr.put(out)
+	if err := toError(fnspMVOpCreateDescr(handle, out, opA, matA, vecX, vecY, vecZ, computeType, uintptr(buffer)), "cusparseSpMVOp_createDescr"); err != nil {
 		var zero SpMVOpDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spMVOpCreatePlan wraps cusparseSpMVOpCreatePlan, bound as cusparseSpMVOp_createPlan.
+var slotSpMVOpCreateDescr outSlot[SpMVOpDescr]
+
+// spMVOpCreatePlan is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//
+// It performs the multiplication of a sparse matrix matA and a dense vector vecX.
+// This function is experimental.
+// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// where
+// [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+// [Handle.SpMVOp] supports the following type combinations:
+// [Handle.SpMVOp] supports the following algorithms:
+// The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
+// The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
+// The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
+// The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
+// [Handle.SpMVOp] has the following properties:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - plan: Opaque descriptor for storing the multiplication execution plan,namely all the information necessary to execute [Handle.SpMVOp]
+//
+// Wraps cusparseSpMVOpCreatePlan, bound as cusparseSpMVOp_createPlan.
 func spMVOpCreatePlan(handle Handle, desc SpMVOpDescr, code uintptr, codeSize uint) (SpMVOpPlan, error) {
 	if err := checkLibSym("cusparseSpMVOp_createPlan"); err != nil {
 		var zero SpMVOpPlan
 		return zero, err
 	}
-	var out SpMVOpPlan
-	if err := toError(fnspMVOpCreatePlan(handle, desc, &out, code, codeSize), "cusparseSpMVOp_createPlan"); err != nil {
+	out := slotSpMVOpCreatePlan.get()
+	defer slotSpMVOpCreatePlan.put(out)
+	if err := toError(fnspMVOpCreatePlan(handle, desc, out, code, codeSize), "cusparseSpMVOp_createPlan"); err != nil {
 		var zero SpMVOpPlan
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spMVOpDestroyDescr wraps cusparseSpMVOpDestroyDescr, bound as cusparseSpMVOp_destroyDescr.
+var slotSpMVOpCreatePlan outSlot[SpMVOpPlan]
+
+// spMVOpDestroyDescr is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//
+// It performs the multiplication of a sparse matrix matA and a dense vector vecX.
+// This function is experimental.
+// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// where
+// [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+// [Handle.SpMVOp] supports the following type combinations:
+// [Handle.SpMVOp] supports the following algorithms:
+// The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
+// The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
+// The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
+// The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
+// [Handle.SpMVOp] has the following properties:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
+//
+// Wraps cusparseSpMVOpDestroyDescr, bound as cusparseSpMVOp_destroyDescr.
 func spMVOpDestroyDescr(desc SpMVOpDescr) error {
 	if err := checkLibSym("cusparseSpMVOp_destroyDescr"); err != nil {
 		return err
@@ -1094,7 +3528,26 @@ func spMVOpDestroyDescr(desc SpMVOpDescr) error {
 	return toError(fnspMVOpDestroyDescr(desc), "cusparseSpMVOp_destroyDescr")
 }
 
-// spMVOpDestroyPlan wraps cusparseSpMVOpDestroyPlan, bound as cusparseSpMVOp_destroyPlan.
+// spMVOpDestroyPlan is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//
+// It performs the multiplication of a sparse matrix matA and a dense vector vecX.
+// This function is experimental.
+// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// where
+// [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+// [Handle.SpMVOp] supports the following type combinations:
+// [Handle.SpMVOp] supports the following algorithms:
+// The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
+// The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
+// The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
+// The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
+// [Handle.SpMVOp] has the following properties:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
+//
+//   - plan: Opaque descriptor for storing the multiplication execution plan,namely all the information necessary to execute [Handle.SpMVOp]
+//
+// Wraps cusparseSpMVOpDestroyPlan, bound as cusparseSpMVOp_destroyPlan.
 func spMVOpDestroyPlan(plan SpMVOpPlan) error {
 	if err := checkLibSym("cusparseSpMVOp_destroyPlan"); err != nil {
 		return err
@@ -1102,7 +3555,27 @@ func spMVOpDestroyPlan(plan SpMVOpPlan) error {
 	return toError(fnspMVOpDestroyPlan(plan), "cusparseSpMVOp_destroyPlan")
 }
 
-// spMVOpSetGlobalUserData wraps cusparseSpMVOpSetGlobalUserData, bound as cusparseSpMVOp_setGlobalUserData.
+// spMVOpSetGlobalUserData is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//
+// It performs the multiplication of a sparse matrix matA and a dense vector vecX.
+// This function is experimental.
+// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// where
+// [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+// [Handle.SpMVOp] supports the following type combinations:
+// [Handle.SpMVOp] supports the following algorithms:
+// The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
+// The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
+// The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
+// The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
+// [Handle.SpMVOp] has the following properties:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - plan: Opaque descriptor for storing the multiplication execution plan,namely all the information necessary to execute [Handle.SpMVOp]
+//
+// Wraps cusparseSpMVOpSetGlobalUserData, bound as cusparseSpMVOp_setGlobalUserData.
 func spMVOpSetGlobalUserData(handle Handle, plan SpMVOpPlan, globalDataName *byte, inputData uintptr, dataSize uint) error {
 	if err := checkLibSym("cusparseSpMVOp_setGlobalUserData"); err != nil {
 		return err
@@ -1110,7 +3583,43 @@ func spMVOpSetGlobalUserData(handle Handle, plan SpMVOpPlan, globalDataName *byt
 	return toError(fnspMVOpSetGlobalUserData(handle, plan, globalDataName, inputData, dataSize), "cusparseSpMVOp_setGlobalUserData")
 }
 
-// spMVPreprocess wraps cusparseSpMVPreprocess, bound as cusparseSpMV_preprocess.
+// spMVPreprocess prepares the workspace buffer for [Handle.SpMV], which may accelerate subsequent calls to it.
+//
+// [Handle.SpMV] performs the multiplication of a sparse matrix matA and a dense vector vecX.
+// Y=αop(A)⋅X+βY, where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
+// The function [Handle.SpMVBufferSize] returns the size of the workspace needed by [Handle.SpMVPreprocess] and [Handle.SpMV]
+// The sparse matrix formats currently supported are listed below:
+// [Handle.SpMV] supports the following index type for representing the sparse matrix matA:
+// [Handle.SpMV] supports the following data types:
+// Uniform-precision computation:
+// Mixed-precision computation:
+// Mixed Regular/Complex computation:
+// NOTE: CUDA_R_16F, CUDA_R_16BF, CUDA_C_16F, and CUDA_C_16BF data types always imply mixed-precision computation.
+// [Handle.SpMV] supports the following algorithms:
+// Calling [Handle.SpMVPreprocess] is optional. It may accelerate subsequent calls to [Handle.SpMV]. It is useful when [Handle.SpMV] is called multiple times with the same sparsity pattern ( matA).
+// Calling [Handle.SpMVPreprocess] with buffer makes that buffer “active” for matA [Handle.SpMV] calls. Subsequent calls to [Handle.SpMV] with matA and the active buffer must use the same values for all parameters as the call to [Handle.SpMVPreprocess]. The exceptions are: alpha, beta, vecX, vecY, and the values (but not indices) of matA may be different. Importantly, the buffer contents must be unmodified since the call to [Handle.SpMVPreprocess]. When [Handle.SpMV] is called with matA and its active buffer, it may read acceleration data from the buffer.
+// Calling [Handle.SpMVPreprocess] again with matA and a new buffer will make the new buffer active, forgetting about the previously-active buffer and making it inactive. For [Handle.SpMV], there can only be one active buffer per sparse matrix at a time. To get the effect of multiple active buffers for a single sparse matrix, create multiple matrix handles that all point to the same index and value buffers, and call [Handle.SpMVPreprocess] once per handle with different workspace buffers.
+// Calling [Handle.SpMV] with an inactive buffer is always permitted. However, there may be no acceleration from the preprocessing in that case.
+// For the purposes of thread safety, [Handle.SpMVPreprocess] is writing to matA internal state.
+// Performance notes:
+// [Handle.SpMV] has the following properties:
+// [Handle.SpMV] supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMV] CSR and [Handle.SpMV] COO for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - vecX: Dense vector X
+//   - beta: β scalar used for multiplication of type computeType
+//   - vecY: Dense vector Y
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes
+//
+// Wraps cusparseSpMVPreprocess, bound as cusparseSpMV_preprocess.
 func spMVPreprocess(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMV_preprocess"); err != nil {
 		return err
@@ -1118,7 +3627,16 @@ func spMVPreprocess(handle Handle, opA Operation, alpha uintptr, matA ConstSpMat
 	return toError(fnspMVPreprocess(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, uintptr(externalBuffer)), "cusparseSpMV_preprocess")
 }
 
-// spMatGetAttribute wraps cusparseSpMatGetAttribute.
+// spMatGetAttribute gets the attributes of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - attribute: Attribute enumerator
+//   - data: Attribute value
+//   - dataSize: Size of the attribute in bytes for safety
+//
+// Wraps cusparseSpMatGetAttribute.
 func spMatGetAttribute(spMatDescr ConstSpMatDescr, attribute SpMatAttribute, data uintptr, dataSize uint) error {
 	if err := checkLibSym("cusparseSpMatGetAttribute"); err != nil {
 		return err
@@ -1126,63 +3644,114 @@ func spMatGetAttribute(spMatDescr ConstSpMatDescr, attribute SpMatAttribute, dat
 	return toError(fnspMatGetAttribute(spMatDescr, attribute, data, dataSize), "cusparseSpMatGetAttribute")
 }
 
-// spMatGetFormat wraps cusparseSpMatGetFormat.
+// spMatGetFormat returns the format field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - format: Storage format of the sparse matrix
+//
+// Wraps cusparseSpMatGetFormat.
 func spMatGetFormat(spMatDescr ConstSpMatDescr) (Format, error) {
 	if err := checkLibSym("cusparseSpMatGetFormat"); err != nil {
 		var zero Format
 		return zero, err
 	}
-	var out Format
-	if err := toError(fnspMatGetFormat(spMatDescr, &out), "cusparseSpMatGetFormat"); err != nil {
+	out := slotSpMatGetFormat.get()
+	defer slotSpMatGetFormat.put(out)
+	if err := toError(fnspMatGetFormat(spMatDescr, out), "cusparseSpMatGetFormat"); err != nil {
 		var zero Format
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spMatGetIndexBase wraps cusparseSpMatGetIndexBase.
+var slotSpMatGetFormat outSlot[Format]
+
+// spMatGetIndexBase returns the idxBase field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - idxBase: Index base of the sparse matrix
+//
+// Wraps cusparseSpMatGetIndexBase.
 func spMatGetIndexBase(spMatDescr ConstSpMatDescr) (IndexBase, error) {
 	if err := checkLibSym("cusparseSpMatGetIndexBase"); err != nil {
 		var zero IndexBase
 		return zero, err
 	}
-	var out IndexBase
-	if err := toError(fnspMatGetIndexBase(spMatDescr, &out), "cusparseSpMatGetIndexBase"); err != nil {
+	out := slotSpMatGetIndexBase.get()
+	defer slotSpMatGetIndexBase.put(out)
+	if err := toError(fnspMatGetIndexBase(spMatDescr, out), "cusparseSpMatGetIndexBase"); err != nil {
 		var zero IndexBase
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spMatGetSize wraps cusparseSpMatGetSize.
+var slotSpMatGetIndexBase outSlot[IndexBase]
+
+// spMatGetSize returns the sizes of the sparse matrix spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - rows: Number of rows of the sparse matrix
+//   - cols: Number of columns of the sparse matrix
+//   - nnz: Number of non-zero entries of the sparse matrix
+//
+// Wraps cusparseSpMatGetSize.
 func spMatGetSize(spMatDescr ConstSpMatDescr) (rows int64, cols int64, nnz int64, err error) {
 	if err := checkLibSym("cusparseSpMatGetSize"); err != nil {
 		return 0, 0, 0, err
 	}
-	var out0 int64
-	var out1 int64
-	var out2 int64
-	if err := toError(fnspMatGetSize(spMatDescr, &out0, &out1, &out2), "cusparseSpMatGetSize"); err != nil {
+	outs := slotSpMatGetSize.get()
+	defer slotSpMatGetSize.put(outs)
+	if err := toError(fnspMatGetSize(spMatDescr, &outs.out0, &outs.out1, &outs.out2), "cusparseSpMatGetSize"); err != nil {
 		return 0, 0, 0, err
 	}
-	return out0, out1, out2, nil
+	return outs.out0, outs.out1, outs.out2, nil
 }
 
-// spMatGetStridedBatch wraps cusparseSpMatGetStridedBatch.
+var slotSpMatGetSize outSlot[struct {
+	out0 int64
+	out1 int64
+	out2 int64
+}]
+
+// spMatGetStridedBatch returns the batchCount field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - batchCount: Number of batches of the sparse matrix
+//
+// Wraps cusparseSpMatGetStridedBatch.
 func spMatGetStridedBatch(spMatDescr ConstSpMatDescr) (int32, error) {
 	if err := checkLibSym("cusparseSpMatGetStridedBatch"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnspMatGetStridedBatch(spMatDescr, &out), "cusparseSpMatGetStridedBatch"); err != nil {
+	out := slotSpMatGetStridedBatch.get()
+	defer slotSpMatGetStridedBatch.put(out)
+	if err := toError(fnspMatGetStridedBatch(spMatDescr, out), "cusparseSpMatGetStridedBatch"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spMatGetValues wraps cusparseSpMatGetValues.
+var slotSpMatGetStridedBatch outSlot[int32]
+
+// spMatGetValues returns the values field of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - values: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseSpMatGetValues.
 func spMatGetValues(spMatDescr SpMatDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseSpMatGetValues"); err != nil {
 		return err
@@ -1190,7 +3759,16 @@ func spMatGetValues(spMatDescr SpMatDescr, values *uintptr) error {
 	return toError(fnspMatGetValues(spMatDescr, values), "cusparseSpMatGetValues")
 }
 
-// spMatSetAttribute wraps cusparseSpMatSetAttribute.
+// spMatSetAttribute sets the attributes of the sparse matrix descriptor spMatDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - attribute: Attribute enumerator
+//   - data: Attribute value
+//   - dataSize: Size of the attribute in bytes for safety
+//
+// Wraps cusparseSpMatSetAttribute.
 func spMatSetAttribute(spMatDescr SpMatDescr, attribute SpMatAttribute, data uintptr, dataSize uint) error {
 	if err := checkLibSym("cusparseSpMatSetAttribute"); err != nil {
 		return err
@@ -1198,7 +3776,15 @@ func spMatSetAttribute(spMatDescr SpMatDescr, attribute SpMatAttribute, data uin
 	return toError(fnspMatSetAttribute(spMatDescr, attribute, data, dataSize), "cusparseSpMatSetAttribute")
 }
 
-// spMatSetValues wraps cusparseSpMatSetValues.
+// spMatSetValues sets the values field of the sparse matrix descriptor spMatDescr.
+//
+// [SpMatDescr.MatSetValues] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spMatDescr: Sparse matrix descriptor
+//   - values: Values of the sparse matrix. Array with nnz elements
+//
+// Wraps cusparseSpMatSetValues.
 func spMatSetValues(spMatDescr SpMatDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMatSetValues"); err != nil {
 		return err
@@ -1206,7 +3792,42 @@ func spMatSetValues(spMatDescr SpMatDescr, values driver.DevicePtr) error {
 	return toError(fnspMatSetValues(spMatDescr, uintptr(values)), "cusparseSpMatSetValues")
 }
 
-// spSMAnalysis wraps cusparseSpSMAnalysis, bound as cusparseSpSM_analysis.
+// spSMAnalysis solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅C=αop(B)
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
+// The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// [Handle.SpSMBufferSize] requires a buffer size for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+// The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
+// NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSM() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSM() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSM() supports the following algorithms:
+// cusparseSpSM() has the following properties:
+// cusparseSpSM() supports the following optimizations:
+// [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - matB: Dense matrix B
+//   - matC: Dense matrix C
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - spsmDescr: Opaque descriptor for storing internal data used across the three steps
+//   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes. It is used by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
+//
+// Wraps cusparseSpSMAnalysis, bound as cusparseSpSM_analysis.
 func spSMAnalysis(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpSM_analysis"); err != nil {
 		return err
@@ -1214,35 +3835,101 @@ func spSMAnalysis(handle Handle, opA Operation, opB Operation, alpha uintptr, ma
 	return toError(fnspSMAnalysis(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, uintptr(externalBuffer)), "cusparseSpSM_analysis")
 }
 
-// spSMBufferSize wraps cusparseSpSMBufferSize, bound as cusparseSpSM_bufferSize.
+// spSMBufferSize returns the workspace size for cusparseSpSM.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - matB: Dense matrix B
+//   - matC: Dense matrix C
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - spsmDescr: Opaque descriptor for storing internal data used across the three steps
+//   - bufferSize: Workspace size
+//
+// Wraps cusparseSpSMBufferSize, bound as cusparseSpSM_bufferSize.
 func spSMBufferSize(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr) (uint, error) {
 	if err := checkLibSym("cusparseSpSM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnspSMBufferSize(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, &out), "cusparseSpSM_bufferSize"); err != nil {
+	out := slotSpSMBufferSize.get()
+	defer slotSpSMBufferSize.put(out)
+	if err := toError(fnspSMBufferSize(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, out), "cusparseSpSM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// SpSMCreateDescr wraps cusparseSpSMCreateDescr, bound as cusparseSpSM_createDescr.
+var slotSpSMBufferSize outSlot[uint]
+
+// SpSMCreateDescr solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅C=αop(B)
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
+// The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// [Handle.SpSMBufferSize] requires a buffer size for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+// The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
+// NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSM() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSM() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSM() supports the following algorithms:
+// cusparseSpSM() has the following properties:
+// cusparseSpSM() supports the following optimizations:
+// [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
+//
+// Wraps cusparseSpSMCreateDescr, bound as cusparseSpSM_createDescr.
 func SpSMCreateDescr() (SpSMDescr, error) {
 	if err := checkLibSym("cusparseSpSM_createDescr"); err != nil {
 		var zero SpSMDescr
 		return zero, err
 	}
-	var out SpSMDescr
-	if err := toError(fnSpSMCreateDescr(&out), "cusparseSpSM_createDescr"); err != nil {
+	out := slotSpSMCreateDescr.get()
+	defer slotSpSMCreateDescr.put(out)
+	if err := toError(fnSpSMCreateDescr(out), "cusparseSpSM_createDescr"); err != nil {
 		var zero SpSMDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spSMDestroyDescr wraps cusparseSpSMDestroyDescr, bound as cusparseSpSM_destroyDescr.
+var slotSpSMCreateDescr outSlot[SpSMDescr]
+
+// spSMDestroyDescr solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅C=αop(B)
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
+// The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// [Handle.SpSMBufferSize] requires a buffer size for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+// The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
+// NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSM() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSM() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSM() supports the following algorithms:
+// cusparseSpSM() has the following properties:
+// cusparseSpSM() supports the following optimizations:
+// [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
+//
+// Wraps cusparseSpSMDestroyDescr, bound as cusparseSpSM_destroyDescr.
 func spSMDestroyDescr(descr SpSMDescr) error {
 	if err := checkLibSym("cusparseSpSM_destroyDescr"); err != nil {
 		return err
@@ -1250,7 +3937,41 @@ func spSMDestroyDescr(descr SpSMDescr) error {
 	return toError(fnspSMDestroyDescr(descr), "cusparseSpSM_destroyDescr")
 }
 
-// spSMSolve wraps cusparseSpSMSolve, bound as cusparseSpSM_solve.
+// spSMSolve solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅C=αop(B)
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
+// The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// [Handle.SpSMBufferSize] requires a buffer size for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+// The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
+// NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSM() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSM() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSM() supports the following algorithms:
+// cusparseSpSM() has the following properties:
+// cusparseSpSM() supports the following optimizations:
+// [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - opB: Operation op(B)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - matB: Dense matrix B
+//   - matC: Dense matrix C
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - spsmDescr: Opaque descriptor for storing internal data used across the three steps
+//
+// Wraps cusparseSpSMSolve, bound as cusparseSpSM_solve.
 func spSMSolve(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr) error {
 	if err := checkLibSym("cusparseSpSM_solve"); err != nil {
 		return err
@@ -1258,7 +3979,33 @@ func spSMSolve(handle Handle, opA Operation, opB Operation, alpha uintptr, matA 
 	return toError(fnspSMSolve(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr), "cusparseSpSM_solve")
 }
 
-// spSMUpdateMatrix wraps cusparseSpSMUpdateMatrix, bound as cusparseSpSM_updateMatrix.
+// spSMUpdateMatrix solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅C=αop(B)
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
+// The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// [Handle.SpSMBufferSize] requires a buffer size for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+// The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
+// NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSM() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSM() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSM() supports the following algorithms:
+// cusparseSpSM() has the following properties:
+// cusparseSpSM() supports the following optimizations:
+// [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - spsmDescr: Opaque descriptor for storing internal data used across the three steps
+//
+// Wraps cusparseSpSMUpdateMatrix, bound as cusparseSpSM_updateMatrix.
 func spSMUpdateMatrix(handle Handle, spsmDescr SpSMDescr, newValues driver.DevicePtr, updatePart SpSMUpdate) error {
 	if err := checkLibSym("cusparseSpSM_updateMatrix"); err != nil {
 		return err
@@ -1266,7 +4013,39 @@ func spSMUpdateMatrix(handle Handle, spsmDescr SpSMDescr, newValues driver.Devic
 	return toError(fnspSMUpdateMatrix(handle, spsmDescr, uintptr(newValues), updatePart), "cusparseSpSM_updateMatrix")
 }
 
-// spSVAnalysis wraps cusparseSpSVAnalysis, bound as cusparseSpSV_analysis.
+// spSVAnalysis solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅Y=αX
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
+// The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSV() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSV() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSV() supports the following algorithms:
+// cusparseSpSV() has the following properties:
+// cusparseSpSV() supports the following optimizations:
+// [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - vecX: Dense vector X
+//   - vecY: Dense vector Y
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - spsvDescr: Opaque descriptor for storing internal data used across the three steps
+//   - externalBuffer: Pointer to a workspace buffer of at least bufferSize bytes. It is used by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]
+//
+// Wraps cusparseSpSVAnalysis, bound as cusparseSpSV_analysis.
 func spSVAnalysis(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpSV_analysis"); err != nil {
 		return err
@@ -1274,35 +4053,96 @@ func spSVAnalysis(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDe
 	return toError(fnspSVAnalysis(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, uintptr(externalBuffer)), "cusparseSpSV_analysis")
 }
 
-// spSVBufferSize wraps cusparseSpSVBufferSize, bound as cusparseSpSV_bufferSize.
+// spSVBufferSize returns the workspace size for cusparseSpSV.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - vecX: Dense vector X
+//   - vecY: Dense vector Y
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - spsvDescr: Opaque descriptor for storing internal data used across the three steps
+//   - bufferSize: Workspace size
+//
+// Wraps cusparseSpSVBufferSize, bound as cusparseSpSV_bufferSize.
 func spSVBufferSize(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr) (uint, error) {
 	if err := checkLibSym("cusparseSpSV_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnspSVBufferSize(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, &out), "cusparseSpSV_bufferSize"); err != nil {
+	out := slotSpSVBufferSize.get()
+	defer slotSpSVBufferSize.put(out)
+	if err := toError(fnspSVBufferSize(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, out), "cusparseSpSV_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// SpSVCreateDescr wraps cusparseSpSVCreateDescr, bound as cusparseSpSV_createDescr.
+var slotSpSVBufferSize outSlot[uint]
+
+// SpSVCreateDescr solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅Y=αX
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
+// The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSV() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSV() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSV() supports the following algorithms:
+// cusparseSpSV() has the following properties:
+// cusparseSpSV() supports the following optimizations:
+// [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
+//
+// Wraps cusparseSpSVCreateDescr, bound as cusparseSpSV_createDescr.
 func SpSVCreateDescr() (SpSVDescr, error) {
 	if err := checkLibSym("cusparseSpSV_createDescr"); err != nil {
 		var zero SpSVDescr
 		return zero, err
 	}
-	var out SpSVDescr
-	if err := toError(fnSpSVCreateDescr(&out), "cusparseSpSV_createDescr"); err != nil {
+	out := slotSpSVCreateDescr.get()
+	defer slotSpSVCreateDescr.put(out)
+	if err := toError(fnSpSVCreateDescr(out), "cusparseSpSV_createDescr"); err != nil {
 		var zero SpSVDescr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spSVDestroyDescr wraps cusparseSpSVDestroyDescr, bound as cusparseSpSV_destroyDescr.
+var slotSpSVCreateDescr outSlot[SpSVDescr]
+
+// spSVDestroyDescr solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅Y=αX
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
+// The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSV() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSV() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSV() supports the following algorithms:
+// cusparseSpSV() has the following properties:
+// cusparseSpSV() supports the following optimizations:
+// [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
+//
+// Wraps cusparseSpSVDestroyDescr, bound as cusparseSpSV_destroyDescr.
 func spSVDestroyDescr(descr SpSVDescr) error {
 	if err := checkLibSym("cusparseSpSV_destroyDescr"); err != nil {
 		return err
@@ -1310,7 +4150,38 @@ func spSVDestroyDescr(descr SpSVDescr) error {
 	return toError(fnspSVDestroyDescr(descr), "cusparseSpSV_destroyDescr")
 }
 
-// spSVSolve wraps cusparseSpSVSolve, bound as cusparseSpSV_solve.
+// spSVSolve solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅Y=αX
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
+// The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSV() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSV() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSV() supports the following algorithms:
+// cusparseSpSV() has the following properties:
+// cusparseSpSV() supports the following optimizations:
+// [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - opA: Operation op(A)
+//   - alpha: α scalar used for multiplication of type computeType
+//   - matA: Sparse matrix A
+//   - vecX: Dense vector X
+//   - vecY: Dense vector Y
+//   - computeType: Datatype in which the computation is executed
+//   - alg: Algorithm for the computation
+//   - spsvDescr: Opaque descriptor for storing internal data used across the three steps
+//
+// Wraps cusparseSpSVSolve, bound as cusparseSpSV_solve.
 func spSVSolve(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr) error {
 	if err := checkLibSym("cusparseSpSV_solve"); err != nil {
 		return err
@@ -1318,7 +4189,31 @@ func spSVSolve(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr
 	return toError(fnspSVSolve(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr), "cusparseSpSV_solve")
 }
 
-// spSVUpdateMatrix wraps cusparseSpSVUpdateMatrix, bound as cusparseSpSV_updateMatrix.
+// spSVUpdateMatrix solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅Y=αX
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
+// The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSV() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSV() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSV() supports the following algorithms:
+// cusparseSpSV() has the following properties:
+// cusparseSpSV() supports the following optimizations:
+// [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - spsvDescr: Opaque descriptor for storing internal data used across the three steps
+//
+// Wraps cusparseSpSVUpdateMatrix, bound as cusparseSpSV_updateMatrix.
 func spSVUpdateMatrix(handle Handle, spsvDescr SpSVDescr, newValues driver.DevicePtr, updatePart SpSVUpdate) error {
 	if err := checkLibSym("cusparseSpSV_updateMatrix"); err != nil {
 		return err
@@ -1326,7 +4221,20 @@ func spSVUpdateMatrix(handle Handle, spsvDescr SpSVDescr, newValues driver.Devic
 	return toError(fnspSVUpdateMatrix(handle, spsvDescr, uintptr(newValues), updatePart), "cusparseSpSV_updateMatrix")
 }
 
-// spVecGet wraps cusparseSpVecGet.
+// spVecGet returns the fields of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//   - size: Size of the sparse vector
+//   - nnz: Number of non-zero entries of the sparse vector
+//   - indices: Indices of the sparse vector. Array with nnz elements
+//   - values: Values of the sparse vector. Array with nnz elements
+//   - idxType: Enumerator specifying the data type of indices
+//   - idxBase: Enumerator specifying the the index base of indices
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseSpVecGet.
 func spVecGet(spVecDescr SpVecDescr, size *int64, nnz *int64, indices *uintptr, values *uintptr, idxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	if err := checkLibSym("cusparseSpVecGet"); err != nil {
 		return err
@@ -1334,21 +4242,38 @@ func spVecGet(spVecDescr SpVecDescr, size *int64, nnz *int64, indices *uintptr, 
 	return toError(fnspVecGet(spVecDescr, size, nnz, indices, values, idxType, idxBase, valueType), "cusparseSpVecGet")
 }
 
-// spVecGetIndexBase wraps cusparseSpVecGetIndexBase.
+// spVecGetIndexBase returns the idxBase field of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//   - idxBase: Enumerator specifying the the index base of indices
+//
+// Wraps cusparseSpVecGetIndexBase.
 func spVecGetIndexBase(spVecDescr ConstSpVecDescr) (IndexBase, error) {
 	if err := checkLibSym("cusparseSpVecGetIndexBase"); err != nil {
 		var zero IndexBase
 		return zero, err
 	}
-	var out IndexBase
-	if err := toError(fnspVecGetIndexBase(spVecDescr, &out), "cusparseSpVecGetIndexBase"); err != nil {
+	out := slotSpVecGetIndexBase.get()
+	defer slotSpVecGetIndexBase.put(out)
+	if err := toError(fnspVecGetIndexBase(spVecDescr, out), "cusparseSpVecGetIndexBase"); err != nil {
 		var zero IndexBase
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// spVecGetValues wraps cusparseSpVecGetValues.
+var slotSpVecGetIndexBase outSlot[IndexBase]
+
+// spVecGetValues returns the values field of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//   - values: Values of the sparse vector. Array with nnz elements
+//
+// Wraps cusparseSpVecGetValues.
 func spVecGetValues(spVecDescr SpVecDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseSpVecGetValues"); err != nil {
 		return err
@@ -1356,7 +4281,15 @@ func spVecGetValues(spVecDescr SpVecDescr, values *uintptr) error {
 	return toError(fnspVecGetValues(spVecDescr, values), "cusparseSpVecGetValues")
 }
 
-// spVecSetValues wraps cusparseSpVecSetValues.
+// spVecSetValues sets the values field of the sparse vector descriptor spVecDescr.
+//
+// [DnVecDescr.VecSetValues] has the following constraints:
+// See [Result] for the description of the return status.
+//
+//   - spVecDescr: Sparse vector descriptor
+//   - values: Values of the sparse vector. Array with nnz elements
+//
+// Wraps cusparseSpVecSetValues.
 func spVecSetValues(spVecDescr SpVecDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpVecSetValues"); err != nil {
 		return err
@@ -1364,7 +4297,24 @@ func spVecSetValues(spVecDescr SpVecDescr, values driver.DevicePtr) error {
 	return toError(fnspVecSetValues(spVecDescr, uintptr(values)), "cusparseSpVecSetValues")
 }
 
-// sparseToDense wraps cusparseSparseToDense.
+// sparseToDense converts the sparse matrix matA in CSR, CSC, or COO format into its dense representation matB.
+//
+// Blocked-ELL is not currently supported.
+// The function [Handle.SparseToDenseBufferSize] returns the size of the workspace needed by [Handle.SparseToDense].
+// [Handle.SparseToDense] supports the following index type for representing the sparse matrix matA:
+// [Handle.SparseToDense] supports the following data types:
+// cusparseSparse2Dense() supports the following algorithm:
+// [Handle.SparseToDense] has the following properties:
+// [Handle.SparseToDense] supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SparseToDense] for a code example.
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - matA: Sparse matrix A
+//   - matB: Dense matrix B
+//   - alg: Algorithm for the computation
+//
+// Wraps cusparseSparseToDense.
 func sparseToDense(handle Handle, matA ConstSpMatDescr, matB DnMatDescr, alg SparseToDenseAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSparseToDense"); err != nil {
 		return err
@@ -1372,16 +4322,27 @@ func sparseToDense(handle Handle, matA ConstSpMatDescr, matB DnMatDescr, alg Spa
 	return toError(fnsparseToDense(handle, matA, matB, alg, uintptr(externalBuffer)), "cusparseSparseToDense")
 }
 
-// sparseToDenseBufferSize wraps cusparseSparseToDenseBufferSize, bound as cusparseSparseToDense_bufferSize.
+// sparseToDenseBufferSize returns the workspace size for [Handle.SparseToDense].
+//
+//   - handle: Handle to the cuSPARSE library context
+//   - matA: Sparse matrix A
+//   - matB: Dense matrix B
+//   - alg: Algorithm for the computation
+//   - bufferSize: Workspace size
+//
+// Wraps cusparseSparseToDenseBufferSize, bound as cusparseSparseToDense_bufferSize.
 func sparseToDenseBufferSize(handle Handle, matA ConstSpMatDescr, matB DnMatDescr, alg SparseToDenseAlg) (uint, error) {
 	if err := checkLibSym("cusparseSparseToDense_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnsparseToDenseBufferSize(handle, matA, matB, alg, &out), "cusparseSparseToDense_bufferSize"); err != nil {
+	out := slotSparseToDenseBufferSize.get()
+	defer slotSparseToDenseBufferSize.put(out)
+	if err := toError(fnsparseToDenseBufferSize(handle, matA, matB, alg, out), "cusparseSparseToDense_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSparseToDenseBufferSize outSlot[uint]

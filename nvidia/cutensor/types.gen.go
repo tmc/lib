@@ -78,6 +78,3 @@ const (
 	// real as a nv_fp4_e2m1
 	R4F_E2M1 DataType = 33
 )
-
-// Stream is an opaque CUDA stream handle.
-type Stream uintptr

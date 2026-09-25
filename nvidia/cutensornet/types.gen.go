@@ -79,9 +79,6 @@ const (
 	R4F_E2M1 DataType = 33
 )
 
-// Stream is an opaque CUDA stream handle.
-type Stream uintptr
-
 // LoggerCallback represents cutensornetLoggerCallback_t.
 type LoggerCallback uintptr
 

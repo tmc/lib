@@ -7,6 +7,7 @@ import (
 
 	"github.com/ebitengine/purego"
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Config bounds collection memory. Kinds must be nonempty and contain only
@@ -123,7 +124,7 @@ func requestBuffer(buffer *uintptr, size, maxRecords *uint) {
 	}
 }
 
-func completeBuffer(context cupti.Context, stream uint32, buffer uintptr, size, valid uint) {
+func completeBuffer(context driver.Context, stream uint32, buffer uintptr, size, valid uint) {
 	nativeSessions.Lock()
 	c := nativeSessions.active
 	if c != nil {

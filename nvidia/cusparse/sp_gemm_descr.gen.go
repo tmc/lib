@@ -2,12 +2,47 @@
 
 package cusparse
 
-// GEMMDestroyDescr wraps cusparseSpGEMMDestroyDescr, bound as cusparseSpGEMM_destroyDescr.
+// GEMMDestroyDescr performs the multiplication of two sparse matrices matA and matB where the structure of the output matrix matC can be reused for multiple computations with different values.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α and β are scalars.
+// The functions [Handle.SpGEMMreuseWorkEstimation], [Handle.SpGEMMreuseNnz], and [Handle.SpGEMMreuseCopy] are used for determining the buffer size and performing the actual computation.
+//
+// Note: cusparseSpGEMMreuse() output CSR matrix ( matC) is sorted by column indices.
+// MEMORY REQUIREMENT: cusparseSpGEMMreuse requires to keep in memory all intermediate products to reuse the structure of the output matrix. On the other hand, the number of intermediate products is orders of magnitude higher than the number of non-zero entries in general. In order to minimize the memory requirements, the routine uses multiple buffers that can be deallocated after they are no more needed. If the number of intermediate product exceeds 2^31-1, the routine will returns [ErrInsufficientResources] status.
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMMreuse are listed below.
+// Uniform-precision computation:
+// Mixed-precision computation: DEPRECATED
+// cusparseSpGEMMreuse routine runs for the following algorithm:
+// cusparseSpGEMMreuse() has the following properties:
+// cusparseSpGEMMreuse() supports the following optimizations:
+// Refer to [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMMreuse for a code example.
+//
+// Wraps cusparseSpGEMMDestroyDescr, bound as cusparseSpGEMM_destroyDescr.
 func (s SpGEMMDescr) GEMMDestroyDescr() error {
 	return spGEMMDestroyDescr(s)
 }
 
-// GEMMGetNumProducts wraps cusparseSpGEMMGetNumProducts, bound as cusparseSpGEMM_getNumProducts.
+// GEMMGetNumProducts performs the multiplication of two sparse matrices matA and matB.
+//
+// C′=αop(A)⋅op(B)+βC
+// where α,β are scalars, and C,C′ have the same sparsity pattern.
+// The functions [Handle.SpGEMMWorkEstimation], [Handle.SpGEMMEstimateMemory], and [Handle.SpGEMMCompute] are used for both determining the buffer size and performing the actual computation.
+// cusparseSpGEMM supports the following index type for representing the sparse matrix A, B and C (all matrices must have the same index type):
+// Currently, the function has the following limitations:
+// The data types combinations currently supported for cusparseSpGEMM are listed below :
+// Uniform-precision computation:
+// cusparseSpGEMM routine runs for the following algorithms:
+// cusparseSpGEMM() has the following properties:
+// cusparseSpGEMM() supports the following optimizations:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpGEMM for a code example for [SpgemmDefault] and [SpgemmALG1], and cuSPARSE Library Samples - memory-optimzed cusparseSpGEMM for a code example for [SpgemmALG2] and [SpgemmALG3].
+//
+//   - numProds: Pointer to a 64-bit integer that stores the number of intermediate products calculated by [Handle.SpGEMMWorkEstimation]
+//
+// Wraps cusparseSpGEMMGetNumProducts, bound as cusparseSpGEMM_getNumProducts.
 func (s SpGEMMDescr) GEMMGetNumProducts(numProds *int64) error {
 	return spGEMMGetNumProducts(s, numProds)
 }

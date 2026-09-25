@@ -2,70 +2,549 @@
 
 package dcgm
 
+import (
+	"math"
+	"sync"
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/internal/ffi"
+)
+
 // Generated function pointer variables.
 var (
-	fnDcgmFieldGetById                      func(uint16) FieldMetaP
-	fnDcgmFieldGetByTag                     func(*byte) FieldMetaP
-	fnDcgmFieldsGetEntityGroupString        func(FieldEntityGroup) string
-	fnDcgmFieldsInit                        func() int32
-	fnDcgmFieldsTerm                        func() int32
-	fnConnectV2                             func(*byte, *ConnectV2Params, *Handle) Result
-	fnConnectV3                             func(*byte, *ConnectV3Params, *Handle) Result
-	fnDisconnect                            func(Handle) Result
-	fnEntitiesGetLatestValues               func(Handle, *GroupEntityPair, uint32, *uint16, uint32, uint32, *FieldValueV2) Result
-	fnEntityGetLatestValues                 func(Handle, FieldEntityGroup, int32, *uint16, uint32, *FieldValueV1) Result
-	fnFieldGroupCreate                      func(Handle, int32, *uint16, *byte, *FieldGrp) Result
-	fnFieldGroupDestroy                     func(Handle, FieldGrp) Result
-	fnFieldGroupGetAll                      func(Handle, *AllFieldGroup) Result
-	fnFieldGroupGetInfo                     func(Handle, *FieldGroupInfo) Result
-	fnGetAllDevices                         func(Handle, *uint32, *int32) Result
-	fnGetAllSupportedDevices                func(Handle, *uint32, *int32) Result
-	fnGetCpuHierarchyV2                     func(Handle, *CpuHierarchy) Result
-	fnGetDeviceAttributes                   func(Handle, uint32, *DeviceAttributes) Result
-	fnGetDeviceTopology                     func(Handle, uint32, *DeviceTopology) Result
-	fnGetDeviceWorkloadPowerProfileInfo     func(Handle, uint32, *WorkloadPowerProfileProfilesInfo, *DeviceWorkloadPowerProfilesStatus) Result
-	fnGetEntityGroupEntities                func(Handle, FieldEntityGroup, *FieldEid, *int32, uint32) Result
-	fnGetFieldSummary                       func(Handle, *FieldSummaryRequest) Result
-	fnGetGpuChipArchitecture                func(Handle, uint32, *ChipArchitecture) Result
-	fnGetGpuInstanceHierarchy               func(Handle, *MigHierarchyV2) Result
-	fnGetGpuStatus                          func(Handle, uint32, *EntityStatus) Result
-	fnGetGroupTopology                      func(Handle, GpuGrp, *GroupTopology) Result
-	fnGetLatestValuesForFields              func(Handle, int32, *uint16, uint32, *FieldValueV1) Result
-	fnGetNvLinkLinkStatus                   func(Handle, *NvLinkStatus) Result
-	fnGetNvLinkP2PStatus                    func(Handle, *NvLinkP2PStatus) Result
-	fnGroupAddDevice                        func(Handle, GpuGrp, uint32) Result
-	fnGroupAddEntity                        func(Handle, GpuGrp, FieldEntityGroup, FieldEid) Result
-	fnGroupCreate                           func(Handle, GroupType, *byte, *GpuGrp) Result
-	fnGroupDestroy                          func(Handle, GpuGrp) Result
-	fnGroupGetAllIds                        func(Handle, *GpuGrp, *uint32) Result
-	fnGroupGetInfo                          func(Handle, GpuGrp, *GroupInfo) Result
-	fnGroupRemoveDevice                     func(Handle, GpuGrp, uint32) Result
-	fnGroupRemoveEntity                     func(Handle, GpuGrp, FieldEntityGroup, FieldEid) Result
-	fnHealthCheck                           func(Handle, GpuGrp, *HealthResponse) Result
-	fnHealthGet                             func(Handle, GpuGrp, *HealthSystems) Result
-	fnHostengineEnvironmentVariableInfo     func(Handle, *EnvVarInfo) Result
-	fnHostengineIsHealthy                   func(Handle, *HostengineHealth) Result
-	fnHostengineVersionInfo                 func(Handle, *VersionInfoStruct) Result
-	fnInit                                  func() Result
-	fnIntrospectGetHostengineCpuUtilization func(Handle, *IntrospectCpuUtil, int32) Result
-	fnIntrospectGetHostengineMemoryUsage    func(Handle, *IntrospectMemory, int32) Result
-	fnModuleGetStatuses                     func(Handle, *ModuleGetStatusesStruct) Result
-	fnModuleIdToName                        func(ModuleId, *uintptr) Result
-	fnPowerProfileIdToName                  func(PowerProfileType, *uintptr) Result
-	fnProfGetSupportedMetricGroups          func(Handle, *ProfGetMetricGroups) Result
-	fnShutdown                              func() Result
-	fnStartEmbeddedV2                       func(*StartEmbeddedV2ParamsV1) Result
-	fnStatusClear                           func(StatusHandle) Result
-	fnStatusCreate                          func(*StatusHandle) Result
-	fnStatusDestroy                         func(StatusHandle) Result
-	fnStatusGetCount                        func(StatusHandle, *uint32) Result
-	fnStatusPopError                        func(StatusHandle, *ErrorInfo) Result
-	fnStopEmbedded                          func(Handle) Result
-	fnUnwatchFields                         func(Handle, GpuGrp, FieldGrp) Result
-	fnUpdateAllFields                       func(Handle, int32) Result
-	fnVersionInfo                           func(*VersionInfoStruct) Result
-	fnWatchFields                           func(Handle, GpuGrp, FieldGrp, int64, float64, int32) Result
+	symDcgmFieldGetById                      uintptr
+	symDcgmFieldGetByTag                     uintptr
+	fnDcgmFieldsGetEntityGroupString         func(FieldEntityGroup) string
+	symDcgmFieldsInit                        uintptr
+	symDcgmFieldsTerm                        uintptr
+	symConnectV2                             uintptr
+	symConnectV3                             uintptr
+	symDisconnect                            uintptr
+	symEntitiesGetLatestValues               uintptr
+	symEntityGetLatestValues                 uintptr
+	symFieldGroupCreate                      uintptr
+	symFieldGroupDestroy                     uintptr
+	symFieldGroupGetAll                      uintptr
+	symFieldGroupGetInfo                     uintptr
+	symGetAllDevices                         uintptr
+	symGetAllSupportedDevices                uintptr
+	symGetCpuHierarchyV2                     uintptr
+	symGetDeviceAttributes                   uintptr
+	symGetDeviceTopology                     uintptr
+	symGetDeviceWorkloadPowerProfileInfo     uintptr
+	symGetEntityGroupEntities                uintptr
+	symGetFieldSummary                       uintptr
+	symGetGpuChipArchitecture                uintptr
+	symGetGpuInstanceHierarchy               uintptr
+	symGetGpuStatus                          uintptr
+	symGetGroupTopology                      uintptr
+	symGetLatestValuesForFields              uintptr
+	symGetNvLinkLinkStatus                   uintptr
+	symGetNvLinkP2PStatus                    uintptr
+	symGroupAddDevice                        uintptr
+	symGroupAddEntity                        uintptr
+	symGroupCreate                           uintptr
+	symGroupDestroy                          uintptr
+	symGroupGetAllIds                        uintptr
+	symGroupGetInfo                          uintptr
+	symGroupRemoveDevice                     uintptr
+	symGroupRemoveEntity                     uintptr
+	symHealthCheck                           uintptr
+	symHealthGet                             uintptr
+	symHostengineEnvironmentVariableInfo     uintptr
+	symHostengineIsHealthy                   uintptr
+	symHostengineVersionInfo                 uintptr
+	symInit                                  uintptr
+	symIntrospectGetHostengineCpuUtilization uintptr
+	symIntrospectGetHostengineMemoryUsage    uintptr
+	symModuleGetStatuses                     uintptr
+	symModuleIdToName                        uintptr
+	symPowerProfileIdToName                  uintptr
+	symProfGetSupportedMetricGroups          uintptr
+	symShutdown                              uintptr
+	symStartEmbeddedV2                       uintptr
+	symStatusClear                           uintptr
+	symStatusCreate                          uintptr
+	symStatusDestroy                         uintptr
+	symStatusGetCount                        uintptr
+	symStatusPopError                        uintptr
+	symStopEmbedded                          uintptr
+	symUnwatchFields                         uintptr
+	symUpdateAllFields                       uintptr
+	symVersionInfo                           uintptr
+	symWatchFields                           uintptr
 )
+
+// ffiCall0 through ffiCall7 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnDcgmFieldGetById calls DcgmFieldGetById.
+func fnDcgmFieldGetById(a0 uint16) FieldMetaP {
+	r1, _ := ffiCall1(symDcgmFieldGetById, 0, uintptr(a0))
+	return FieldMetaP(r1)
+}
+
+// fnDcgmFieldGetByTag calls DcgmFieldGetByTag.
+func fnDcgmFieldGetByTag(a0 *byte) FieldMetaP {
+	r1, _ := ffiCall1(symDcgmFieldGetByTag, 0, uintptr(unsafe.Pointer(a0)))
+	return FieldMetaP(r1)
+}
+
+// fnDcgmFieldsInit calls DcgmFieldsInit.
+func fnDcgmFieldsInit() int32 {
+	r1, _ := ffiCall0(symDcgmFieldsInit, 0)
+	return int32(r1)
+}
+
+// fnDcgmFieldsTerm calls DcgmFieldsTerm.
+func fnDcgmFieldsTerm() int32 {
+	r1, _ := ffiCall0(symDcgmFieldsTerm, 0)
+	return int32(r1)
+}
+
+// fnConnectV2 calls dcgmConnect_v2.
+func fnConnectV2(a0 *byte, a1 *ConnectV2Params, a2 *Handle) Result {
+	r1, _ := ffiCall3(symConnectV2, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnConnectV3 calls dcgmConnect_v3.
+func fnConnectV3(a0 *byte, a1 *ConnectV3Params, a2 *Handle) Result {
+	r1, _ := ffiCall3(symConnectV3, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnDisconnect calls dcgmDisconnect.
+func fnDisconnect(a0 Handle) Result {
+	r1, _ := ffiCall1(symDisconnect, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnEntitiesGetLatestValues calls dcgmEntitiesGetLatestValues.
+func fnEntitiesGetLatestValues(a0 Handle, a1 *GroupEntityPair, a2 uint32, a3 *uint16, a4 uint32, a5 uint32, a6 *FieldValueV2) Result {
+	r1, _ := ffiCall7(symEntitiesGetLatestValues, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnEntityGetLatestValues calls dcgmEntityGetLatestValues.
+func fnEntityGetLatestValues(a0 Handle, a1 FieldEntityGroup, a2 int32, a3 *uint16, a4 uint32, a5 *FieldValueV1) Result {
+	r1, _ := ffiCall6(symEntityGetLatestValues, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnFieldGroupCreate calls dcgmFieldGroupCreate.
+func fnFieldGroupCreate(a0 Handle, a1 int32, a2 *uint16, a3 *byte, a4 *FieldGrp) Result {
+	r1, _ := ffiCall5(symFieldGroupCreate, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnFieldGroupDestroy calls dcgmFieldGroupDestroy.
+func fnFieldGroupDestroy(a0 Handle, a1 FieldGrp) Result {
+	r1, _ := ffiCall2(symFieldGroupDestroy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnFieldGroupGetAll calls dcgmFieldGroupGetAll.
+func fnFieldGroupGetAll(a0 Handle, a1 *AllFieldGroup) Result {
+	r1, _ := ffiCall2(symFieldGroupGetAll, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnFieldGroupGetInfo calls dcgmFieldGroupGetInfo.
+func fnFieldGroupGetInfo(a0 Handle, a1 *FieldGroupInfo) Result {
+	r1, _ := ffiCall2(symFieldGroupGetInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetAllDevices calls dcgmGetAllDevices.
+func fnGetAllDevices(a0 Handle, a1 *uint32, a2 *int32) Result {
+	r1, _ := ffiCall3(symGetAllDevices, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetAllSupportedDevices calls dcgmGetAllSupportedDevices.
+func fnGetAllSupportedDevices(a0 Handle, a1 *uint32, a2 *int32) Result {
+	r1, _ := ffiCall3(symGetAllSupportedDevices, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetCpuHierarchyV2 calls dcgmGetCpuHierarchy_v2.
+func fnGetCpuHierarchyV2(a0 Handle, a1 *CpuHierarchy) Result {
+	r1, _ := ffiCall2(symGetCpuHierarchyV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetDeviceAttributes calls dcgmGetDeviceAttributes.
+func fnGetDeviceAttributes(a0 Handle, a1 uint32, a2 *DeviceAttributes) Result {
+	r1, _ := ffiCall3(symGetDeviceAttributes, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetDeviceTopology calls dcgmGetDeviceTopology.
+func fnGetDeviceTopology(a0 Handle, a1 uint32, a2 *DeviceTopology) Result {
+	r1, _ := ffiCall3(symGetDeviceTopology, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetDeviceWorkloadPowerProfileInfo calls dcgmGetDeviceWorkloadPowerProfileInfo.
+func fnGetDeviceWorkloadPowerProfileInfo(a0 Handle, a1 uint32, a2 *WorkloadPowerProfileProfilesInfo, a3 *DeviceWorkloadPowerProfilesStatus) Result {
+	r1, _ := ffiCall4(symGetDeviceWorkloadPowerProfileInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnGetEntityGroupEntities calls dcgmGetEntityGroupEntities.
+func fnGetEntityGroupEntities(a0 Handle, a1 FieldEntityGroup, a2 *FieldEid, a3 *int32, a4 uint32) Result {
+	r1, _ := ffiCall5(symGetEntityGroupEntities, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fnGetFieldSummary calls dcgmGetFieldSummary.
+func fnGetFieldSummary(a0 Handle, a1 *FieldSummaryRequest) Result {
+	r1, _ := ffiCall2(symGetFieldSummary, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetGpuChipArchitecture calls dcgmGetGpuChipArchitecture.
+func fnGetGpuChipArchitecture(a0 Handle, a1 uint32, a2 *ChipArchitecture) Result {
+	r1, _ := ffiCall3(symGetGpuChipArchitecture, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetGpuInstanceHierarchy calls dcgmGetGpuInstanceHierarchy.
+func fnGetGpuInstanceHierarchy(a0 Handle, a1 *MigHierarchyV2) Result {
+	r1, _ := ffiCall2(symGetGpuInstanceHierarchy, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetGpuStatus calls dcgmGetGpuStatus.
+func fnGetGpuStatus(a0 Handle, a1 uint32, a2 *EntityStatus) Result {
+	r1, _ := ffiCall3(symGetGpuStatus, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetGroupTopology calls dcgmGetGroupTopology.
+func fnGetGroupTopology(a0 Handle, a1 GpuGrp, a2 *GroupTopology) Result {
+	r1, _ := ffiCall3(symGetGroupTopology, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGetLatestValuesForFields calls dcgmGetLatestValuesForFields.
+func fnGetLatestValuesForFields(a0 Handle, a1 int32, a2 *uint16, a3 uint32, a4 *FieldValueV1) Result {
+	r1, _ := ffiCall5(symGetLatestValuesForFields, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnGetNvLinkLinkStatus calls dcgmGetNvLinkLinkStatus.
+func fnGetNvLinkLinkStatus(a0 Handle, a1 *NvLinkStatus) Result {
+	r1, _ := ffiCall2(symGetNvLinkLinkStatus, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetNvLinkP2PStatus calls dcgmGetNvLinkP2PStatus.
+func fnGetNvLinkP2PStatus(a0 Handle, a1 *NvLinkP2PStatus) Result {
+	r1, _ := ffiCall2(symGetNvLinkP2PStatus, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGroupAddDevice calls dcgmGroupAddDevice.
+func fnGroupAddDevice(a0 Handle, a1 GpuGrp, a2 uint32) Result {
+	r1, _ := ffiCall3(symGroupAddDevice, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnGroupAddEntity calls dcgmGroupAddEntity.
+func fnGroupAddEntity(a0 Handle, a1 GpuGrp, a2 FieldEntityGroup, a3 FieldEid) Result {
+	r1, _ := ffiCall4(symGroupAddEntity, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnGroupCreate calls dcgmGroupCreate.
+func fnGroupCreate(a0 Handle, a1 GroupType, a2 *byte, a3 *GpuGrp) Result {
+	r1, _ := ffiCall4(symGroupCreate, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnGroupDestroy calls dcgmGroupDestroy.
+func fnGroupDestroy(a0 Handle, a1 GpuGrp) Result {
+	r1, _ := ffiCall2(symGroupDestroy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGroupGetAllIds calls dcgmGroupGetAllIds.
+func fnGroupGetAllIds(a0 Handle, a1 *GpuGrp, a2 *uint32) Result {
+	r1, _ := ffiCall3(symGroupGetAllIds, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGroupGetInfo calls dcgmGroupGetInfo.
+func fnGroupGetInfo(a0 Handle, a1 GpuGrp, a2 *GroupInfo) Result {
+	r1, _ := ffiCall3(symGroupGetInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnGroupRemoveDevice calls dcgmGroupRemoveDevice.
+func fnGroupRemoveDevice(a0 Handle, a1 GpuGrp, a2 uint32) Result {
+	r1, _ := ffiCall3(symGroupRemoveDevice, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnGroupRemoveEntity calls dcgmGroupRemoveEntity.
+func fnGroupRemoveEntity(a0 Handle, a1 GpuGrp, a2 FieldEntityGroup, a3 FieldEid) Result {
+	r1, _ := ffiCall4(symGroupRemoveEntity, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnHealthCheck calls dcgmHealthCheck.
+func fnHealthCheck(a0 Handle, a1 GpuGrp, a2 *HealthResponse) Result {
+	r1, _ := ffiCall3(symHealthCheck, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnHealthGet calls dcgmHealthGet.
+func fnHealthGet(a0 Handle, a1 GpuGrp, a2 *HealthSystems) Result {
+	r1, _ := ffiCall3(symHealthGet, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnHostengineEnvironmentVariableInfo calls dcgmHostengineEnvironmentVariableInfo.
+func fnHostengineEnvironmentVariableInfo(a0 Handle, a1 *EnvVarInfo) Result {
+	r1, _ := ffiCall2(symHostengineEnvironmentVariableInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnHostengineIsHealthy calls dcgmHostengineIsHealthy.
+func fnHostengineIsHealthy(a0 Handle, a1 *HostengineHealth) Result {
+	r1, _ := ffiCall2(symHostengineIsHealthy, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnHostengineVersionInfo calls dcgmHostengineVersionInfo.
+func fnHostengineVersionInfo(a0 Handle, a1 *VersionInfoStruct) Result {
+	r1, _ := ffiCall2(symHostengineVersionInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnInit calls dcgmInit.
+func fnInit() Result {
+	r1, _ := ffiCall0(symInit, 0)
+	return Result(r1)
+}
+
+// fnIntrospectGetHostengineCpuUtilization calls dcgmIntrospectGetHostengineCpuUtilization.
+func fnIntrospectGetHostengineCpuUtilization(a0 Handle, a1 *IntrospectCpuUtil, a2 int32) Result {
+	r1, _ := ffiCall3(symIntrospectGetHostengineCpuUtilization, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnIntrospectGetHostengineMemoryUsage calls dcgmIntrospectGetHostengineMemoryUsage.
+func fnIntrospectGetHostengineMemoryUsage(a0 Handle, a1 *IntrospectMemory, a2 int32) Result {
+	r1, _ := ffiCall3(symIntrospectGetHostengineMemoryUsage, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnModuleGetStatuses calls dcgmModuleGetStatuses.
+func fnModuleGetStatuses(a0 Handle, a1 *ModuleGetStatusesStruct) Result {
+	r1, _ := ffiCall2(symModuleGetStatuses, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnModuleIdToName calls dcgmModuleIdToName.
+func fnModuleIdToName(a0 ModuleId, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symModuleIdToName, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnPowerProfileIdToName calls dcgmPowerProfileIdToName.
+func fnPowerProfileIdToName(a0 PowerProfileType, a1 *uintptr) Result {
+	r1, _ := ffiCall2(symPowerProfileIdToName, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnProfGetSupportedMetricGroups calls dcgmProfGetSupportedMetricGroups.
+func fnProfGetSupportedMetricGroups(a0 Handle, a1 *ProfGetMetricGroups) Result {
+	r1, _ := ffiCall2(symProfGetSupportedMetricGroups, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnShutdown calls dcgmShutdown.
+func fnShutdown() Result {
+	r1, _ := ffiCall0(symShutdown, 0)
+	return Result(r1)
+}
+
+// fnStartEmbeddedV2 calls dcgmStartEmbedded_v2.
+func fnStartEmbeddedV2(a0 *StartEmbeddedV2ParamsV1) Result {
+	r1, _ := ffiCall1(symStartEmbeddedV2, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnStatusClear calls dcgmStatusClear.
+func fnStatusClear(a0 StatusHandle) Result {
+	r1, _ := ffiCall1(symStatusClear, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnStatusCreate calls dcgmStatusCreate.
+func fnStatusCreate(a0 *StatusHandle) Result {
+	r1, _ := ffiCall1(symStatusCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnStatusDestroy calls dcgmStatusDestroy.
+func fnStatusDestroy(a0 StatusHandle) Result {
+	r1, _ := ffiCall1(symStatusDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnStatusGetCount calls dcgmStatusGetCount.
+func fnStatusGetCount(a0 StatusHandle, a1 *uint32) Result {
+	r1, _ := ffiCall2(symStatusGetCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnStatusPopError calls dcgmStatusPopError.
+func fnStatusPopError(a0 StatusHandle, a1 *ErrorInfo) Result {
+	r1, _ := ffiCall2(symStatusPopError, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnStopEmbedded calls dcgmStopEmbedded.
+func fnStopEmbedded(a0 Handle) Result {
+	r1, _ := ffiCall1(symStopEmbedded, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnUnwatchFields calls dcgmUnwatchFields.
+func fnUnwatchFields(a0 Handle, a1 GpuGrp, a2 FieldGrp) Result {
+	r1, _ := ffiCall3(symUnwatchFields, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnUpdateAllFields calls dcgmUpdateAllFields.
+func fnUpdateAllFields(a0 Handle, a1 int32) Result {
+	r1, _ := ffiCall2(symUpdateAllFields, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnVersionInfo calls dcgmVersionInfo.
+func fnVersionInfo(a0 *VersionInfoStruct) Result {
+	r1, _ := ffiCall1(symVersionInfo, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnWatchFields calls dcgmWatchFields.
+func fnWatchFields(a0 Handle, a1 GpuGrp, a2 FieldGrp, a3 int64, a4 float64, a5 int32) Result {
+	r1, _ := ffiCall6(symWatchFields, 0b10000, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(math.Float64bits(a4)), uintptr(a5))
+	return Result(r1)
+}
 
 // DcgmFieldGetById wraps DcgmFieldGetById.
 // It panics if the library cannot be loaded or lacks the symbol.
@@ -85,7 +564,7 @@ func DcgmFieldGetByTag(tag *byte) FieldMetaP {
 	return fnDcgmFieldGetByTag(tag)
 }
 
-// DcgmFieldsGetEntityGroupString Get the string version of a entityGroupId
+// DcgmFieldsGetEntityGroupString gets the string version of a entityGroupId
 //
 // Wraps DcgmFieldsGetEntityGroupString.
 // It panics if the library cannot be loaded or lacks the symbol.
@@ -114,7 +593,9 @@ func DcgmFieldsTerm() int32 {
 	return fnDcgmFieldsTerm()
 }
 
-// ConnectV2 This method is used to connect to a stand-alone host engine process.
+// ConnectV2 is used to connect to a stand-alone host engine process.
+//
+// Remote host engines are started by running the nv-hostengine command.
 //
 //   - ipAddress: IN: Valid IP address for the remote host engine to connect to. If ipAddress is specified as x.x.x.x it will attempt to connect to the default port specified by [HePortNumber]. If ipAddress is specified as x.x.x.x:yyyy it will attempt to connect to the port specified by yyyy
 //   - connectParams: IN: Additional connection parameters. See [ConnectV2Params] for details
@@ -126,15 +607,20 @@ func ConnectV2(ipAddress *byte, connectParams *ConnectV2Params) (Handle, error) 
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnConnectV2(ipAddress, connectParams, &out), "dcgmConnect_v2"); err != nil {
+	out := slotConnectV2.get()
+	defer slotConnectV2.put(out)
+	if err := toError(fnConnectV2(ipAddress, connectParams, out), "dcgmConnect_v2"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ConnectV3 This method is used to connect to a stand-alone host engine process.
+var slotConnectV2 outSlot[Handle]
+
+// ConnectV3 is used to connect to a stand-alone host engine process.
+//
+// Remote host engines are started by running the nv-hostengine command.
 //
 //   - connectionString: IN: Valid connection string for the remote host engine to connect to. Use the following format: - tcp://x.x.x.x:yyyy (TCP/IP address) - tcp://x.x.x.x (TCP/IP address with default port [HePortNumber]) - unix:///path/to/socket (Unix Domain socket) - vsock://cid:port (VMware vSock) - vsock://cid (VMware vSock with default port [HePortNumber])
 //   - connectParams: IN: Additional connection parameters. See [ConnectV3Params] for details
@@ -146,15 +632,18 @@ func ConnectV3(connectionString *byte, connectParams *ConnectV3Params) (Handle, 
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnConnectV3(connectionString, connectParams, &out), "dcgmConnect_v3"); err != nil {
+	out := slotConnectV3.get()
+	defer slotConnectV3.put(out)
+	if err := toError(fnConnectV3(connectionString, connectParams, out), "dcgmConnect_v3"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// Disconnect This method is used to disconnect from a stand-alone host engine process.
+var slotConnectV3 outSlot[Handle]
+
+// Disconnect is used to disconnect from a stand-alone host engine process.
 //
 //   - pDcgmHandle: IN: DCGM Handle that came from [ConnectV2]
 //
@@ -166,7 +655,7 @@ func Disconnect(pDcgmHandle Handle) error {
 	return toError(fnDisconnect(pDcgmHandle), "dcgmDisconnect")
 }
 
-// EntitiesGetLatestValues Request the latest cached or live field value for a list of fields for a group of entities
+// EntitiesGetLatestValues requests the latest cached or live field value for a list of fields for a group of entities
 //
 // Note: The returned entities are not guaranteed to be in any order. Reordering can occur internally
 // in order to optimize calls to the NVIDIA driver.
@@ -187,7 +676,7 @@ func EntitiesGetLatestValues(pDcgmHandle Handle, entities *GroupEntityPair, enti
 	return toError(fnEntitiesGetLatestValues(pDcgmHandle, entities, entityCount, fields, fieldCount, flags, values), "dcgmEntitiesGetLatestValues")
 }
 
-// EntityGetLatestValues Request latest cached field value for a group of fields for a specific entity
+// EntityGetLatestValues requests latest cached field value for a group of fields for a specific entity
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - entityGroup: IN: entity_group_t (e.g. switch)
@@ -204,7 +693,7 @@ func EntityGetLatestValues(pDcgmHandle Handle, entityGroup FieldEntityGroup, ent
 	return toError(fnEntityGetLatestValues(pDcgmHandle, entityGroup, entityId, fields, count, values), "dcgmEntityGetLatestValues")
 }
 
-// FieldGroupCreate Used to create a group of fields and return the handle in dcgmFieldGroupId
+// FieldGroupCreate is used to create a group of fields and return the handle in dcgmFieldGroupId
 //
 //   - dcgmHandle: IN: DCGM handle
 //   - numFieldIds: IN: Number of field IDs that are being provided in fieldIds[]. Must be between 1 and [MaxFieldIDsPerFieldGroup]
@@ -218,15 +707,18 @@ func FieldGroupCreate(dcgmHandle Handle, numFieldIds int32, fieldIds *uint16, fi
 		var zero FieldGrp
 		return zero, err
 	}
-	var out FieldGrp
-	if err := toError(fnFieldGroupCreate(dcgmHandle, numFieldIds, fieldIds, fieldGroupName, &out), "dcgmFieldGroupCreate"); err != nil {
+	out := slotFieldGroupCreate.get()
+	defer slotFieldGroupCreate.put(out)
+	if err := toError(fnFieldGroupCreate(dcgmHandle, numFieldIds, fieldIds, fieldGroupName, out), "dcgmFieldGroupCreate"); err != nil {
 		var zero FieldGrp
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// FieldGroupDestroy Used to remove a field group that was created with [Handle.FieldGroupCreate]
+var slotFieldGroupCreate outSlot[FieldGrp]
+
+// FieldGroupDestroy is used to remove a field group that was created with [Handle.FieldGroupCreate]
 //
 //   - dcgmHandle: IN: DCGM handle
 //   - dcgmFieldGroupId: IN: Field group to remove
@@ -239,7 +731,7 @@ func FieldGroupDestroy(dcgmHandle Handle, dcgmFieldGroupId FieldGrp) error {
 	return toError(fnFieldGroupDestroy(dcgmHandle, dcgmFieldGroupId), "dcgmFieldGroupDestroy")
 }
 
-// FieldGroupGetAll Used to get information about all field groups in the system.
+// FieldGroupGetAll is used to get information about all field groups in the system.
 //
 //   - dcgmHandle: IN: DCGM handle
 //   - allGroupInfo: IN/OUT: Info about all of the field groups that exist. .version should be set to dcgmAllFieldGroup_version before this call
@@ -252,7 +744,7 @@ func FieldGroupGetAll(dcgmHandle Handle, allGroupInfo *AllFieldGroup) error {
 	return toError(fnFieldGroupGetAll(dcgmHandle, allGroupInfo), "dcgmFieldGroupGetAll")
 }
 
-// FieldGroupGetInfo Used to get information about a field group that was created with [Handle.FieldGroupCreate].
+// FieldGroupGetInfo is used to get information about a field group that was created with [Handle.FieldGroupCreate].
 //
 //   - dcgmHandle: IN: DCGM handle
 //   - fieldGroupInfo: IN/OUT: Info about all of the field groups that exist. .version should be set to dcgmFieldGroupInfo_version before this call .fieldGroupId should contain the fieldGroupId you are interested in querying information for
@@ -265,8 +757,9 @@ func FieldGroupGetInfo(dcgmHandle Handle, fieldGroupInfo *FieldGroupInfo) error 
 	return toError(fnFieldGroupGetInfo(dcgmHandle, fieldGroupInfo), "dcgmFieldGroupGetInfo")
 }
 
-// GetAllDevices This method is used to get identifiers corresponding to all the devices on the system.
+// GetAllDevices is used to get identifiers corresponding to all the devices on the system.
 //
+// The identifier represents DCGM GPU Id corresponding to each GPU on the system and is immutable during the lifespan of the engine. The list should be queried again if the engine is restarted.
 // The GPUs returned from this function include gpuIds of GPUs that are not supported by DCGM.
 // To only get gpuIds of GPUs that are supported by DCGM, use [Handle.AllSupportedDevices].
 //
@@ -280,16 +773,20 @@ func GetAllDevices(pDcgmHandle Handle, gpuIdList *uint32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetAllDevices(pDcgmHandle, gpuIdList, &out), "dcgmGetAllDevices"); err != nil {
+	out := slotGetAllDevices.get()
+	defer slotGetAllDevices.put(out)
+	if err := toError(fnGetAllDevices(pDcgmHandle, gpuIdList, out), "dcgmGetAllDevices"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetAllSupportedDevices This method is used to get identifiers corresponding to all the DCGM-supported devices on the system.
+var slotGetAllDevices outSlot[int32]
+
+// GetAllSupportedDevices is used to get identifiers corresponding to all the DCGM-supported devices on the system.
 //
+// The identifier represents DCGM GPU Id corresponding to each GPU on the system and is immutable during the lifespan of the engine. The list should be queried again if the engine is restarted.
 // The GPUs returned from this function ONLY includes gpuIds of GPUs that are supported by DCGM.
 // To get gpuIds of all GPUs in the system, use [Handle.AllDevices].
 //
@@ -303,13 +800,16 @@ func GetAllSupportedDevices(pDcgmHandle Handle, gpuIdList *uint32) (int32, error
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetAllSupportedDevices(pDcgmHandle, gpuIdList, &out), "dcgmGetAllSupportedDevices"); err != nil {
+	out := slotGetAllSupportedDevices.get()
+	defer slotGetAllSupportedDevices.put(out)
+	if err := toError(fnGetAllSupportedDevices(pDcgmHandle, gpuIdList, out), "dcgmGetAllSupportedDevices"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetAllSupportedDevices outSlot[int32]
 
 // GetCpuHierarchyV2 List supported CPUs and their cores present on the system
 //
@@ -326,7 +826,9 @@ func GetCpuHierarchyV2(dcgmHandle Handle, cpuHierarchy *CpuHierarchy) error {
 	return toError(fnGetCpuHierarchyV2(dcgmHandle, cpuHierarchy), "dcgmGetCpuHierarchy_v2")
 }
 
-// GetDeviceAttributes Gets device attributes corresponding to the gpuId.
+// GetDeviceAttributes gets device attributes corresponding to the gpuId.
+//
+// If operation is not successful for any of the requested fields then the field is populated with one of DCGM_BLANK_VALUES defined in dcgm_structs.h.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - gpuId: IN: GPU Id corresponding to which the attributes should be fetched
@@ -340,7 +842,7 @@ func GetDeviceAttributes(pDcgmHandle Handle, gpuId uint32, pDcgmAttr *DeviceAttr
 	return toError(fnGetDeviceAttributes(pDcgmHandle, gpuId, pDcgmAttr), "dcgmGetDeviceAttributes")
 }
 
-// GetDeviceTopology Gets device topology corresponding to the gpuId.
+// GetDeviceTopology gets device topology corresponding to the gpuId.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - gpuId: IN: GPU Id corresponding to which topology information should be fetched
@@ -354,7 +856,7 @@ func GetDeviceTopology(pDcgmHandle Handle, gpuId uint32, pDcgmDeviceTopology *De
 	return toError(fnGetDeviceTopology(pDcgmHandle, gpuId, pDcgmDeviceTopology), "dcgmGetDeviceTopology")
 }
 
-// GetDeviceWorkloadPowerProfileInfo Gets device workload power profile information and status.
+// GetDeviceWorkloadPowerProfileInfo gets device workload power profile information and status.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - gpuId: IN: GPU Id corresponding to which the information should be fetched
@@ -369,7 +871,9 @@ func GetDeviceWorkloadPowerProfileInfo(pDcgmHandle Handle, gpuId uint32, profile
 	return toError(fnGetDeviceWorkloadPowerProfileInfo(pDcgmHandle, gpuId, profilesInfo, profilesStatus), "dcgmGetDeviceWorkloadPowerProfileInfo")
 }
 
-// GetEntityGroupEntities Gets the list of entities that exist for a given entity group.
+// GetEntityGroupEntities gets the list of entities that exist for a given entity group.
+//
+// This API can be used in place of [Handle.AllDevices].
 //
 //   - dcgmHandle: IN: DCGM Handle
 //   - entityGroup: IN: Entity group to list entities of
@@ -385,7 +889,7 @@ func GetEntityGroupEntities(dcgmHandle Handle, entityGroup FieldEntityGroup, ent
 	return toError(fnGetEntityGroupEntities(dcgmHandle, entityGroup, entities, numEntities, flags), "dcgmGetEntityGroupEntities")
 }
 
-// GetFieldSummary Get a summary of the values for a field id over a period of time.
+// GetFieldSummary gets a summary of the values for a field id over a period of time.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - request: IN/OUT: a pointer to the struct detailing the request and containing the response
@@ -398,7 +902,7 @@ func GetFieldSummary(pDcgmHandle Handle, request *FieldSummaryRequest) error {
 	return toError(fnGetFieldSummary(pDcgmHandle, request), "dcgmGetFieldSummary")
 }
 
-// GetGpuChipArchitecture Gets simplified GPU chip architecture enumeration.
+// GetGpuChipArchitecture gets simplified GPU chip architecture enumeration.
 //
 //   - dcgmHandle: IN: DCGM Handle
 //   - gpuId: IN: DCGM GPU Id
@@ -410,15 +914,18 @@ func GetGpuChipArchitecture(dcgmHandle Handle, gpuId uint32) (ChipArchitecture, 
 		var zero ChipArchitecture
 		return zero, err
 	}
-	var out ChipArchitecture
-	if err := toError(fnGetGpuChipArchitecture(dcgmHandle, gpuId, &out), "dcgmGetGpuChipArchitecture"); err != nil {
+	out := slotGetGpuChipArchitecture.get()
+	defer slotGetGpuChipArchitecture.put(out)
+	if err := toError(fnGetGpuChipArchitecture(dcgmHandle, gpuId, out), "dcgmGetGpuChipArchitecture"); err != nil {
 		var zero ChipArchitecture
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetGpuInstanceHierarchy Gets the hierarchy of GPUs, GPU Instances, and Compute Instances.
+var slotGetGpuChipArchitecture outSlot[ChipArchitecture]
+
+// GetGpuInstanceHierarchy gets the hierarchy of GPUs, GPU Instances, and Compute Instances.
 //
 //   - dcgmHandle: IN: DCGM Handle
 //   - hierarchy: OUT: Hierarchy of GPUs, GPU Instances, and Compute Instances
@@ -431,7 +938,7 @@ func GetGpuInstanceHierarchy(dcgmHandle Handle, hierarchy *MigHierarchyV2) error
 	return toError(fnGetGpuInstanceHierarchy(dcgmHandle, hierarchy), "dcgmGetGpuInstanceHierarchy")
 }
 
-// GetGpuStatus Get the status of a GPU
+// GetGpuStatus gets the status of a GPU
 //
 //   - pDcgmHandle: in DCGM Handle of an active connection
 //   - gpuId: in GPU ID to query status for
@@ -443,15 +950,18 @@ func GetGpuStatus(pDcgmHandle Handle, gpuId uint32) (EntityStatus, error) {
 		var zero EntityStatus
 		return zero, err
 	}
-	var out EntityStatus
-	if err := toError(fnGetGpuStatus(pDcgmHandle, gpuId, &out), "dcgmGetGpuStatus"); err != nil {
+	out := slotGetGpuStatus.get()
+	defer slotGetGpuStatus.put(out)
+	if err := toError(fnGetGpuStatus(pDcgmHandle, gpuId, out), "dcgmGetGpuStatus"); err != nil {
 		var zero EntityStatus
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetGroupTopology Gets group topology corresponding to the groupId.
+var slotGetGpuStatus outSlot[EntityStatus]
+
+// GetGroupTopology gets group topology corresponding to the groupId.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: GroupId corresponding to which topology information should be fetched
@@ -465,7 +975,7 @@ func GetGroupTopology(pDcgmHandle Handle, groupId GpuGrp, pDcgmGroupTopology *Gr
 	return toError(fnGetGroupTopology(pDcgmHandle, groupId, pDcgmGroupTopology), "dcgmGetGroupTopology")
 }
 
-// GetLatestValuesForFields Request latest cached field value for a GPU
+// GetLatestValuesForFields requests latest cached field value for a GPU
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - gpuId: IN: Gpu ID representing the GPU for which the fields are being requested
@@ -481,7 +991,9 @@ func GetLatestValuesForFields(pDcgmHandle Handle, gpuId int32, fields *uint16, c
 	return toError(fnGetLatestValuesForFields(pDcgmHandle, gpuId, fields, count, values), "dcgmGetLatestValuesForFields")
 }
 
-// GetNvLinkLinkStatus Get the NvLink link status for every NvLink in this system.
+// GetNvLinkLinkStatus gets the NvLink link status for every NvLink in this system.
+//
+// This includes the NvLinks of both GPUs and NvSwitches. Note that only NvSwitches and GPUs that are visible to the current environment will be returned in this structure.
 //
 //   - dcgmHandle: IN: DCGM Handle
 //   - linkStatus: OUT: Structure in which to store NvLink link statuses. .version should be set to dcgmNvLinkStatus_version before calling this
@@ -494,7 +1006,9 @@ func GetNvLinkLinkStatus(dcgmHandle Handle, linkStatus *NvLinkStatus) error {
 	return toError(fnGetNvLinkLinkStatus(dcgmHandle, linkStatus), "dcgmGetNvLinkLinkStatus")
 }
 
-// GetNvLinkP2PStatus Get the NvLink P2P status for every GPU NvLink in this system.
+// GetNvLinkP2PStatus gets the NvLink P2P status for every GPU NvLink in this system.
+//
+// Only GPUs that are visible to the current environment will be returned in this structure.
 //
 //   - dcgmHandle: IN: DCGM Handle
 //   - linkStatus: OUT: Structure in which to store NvLink P2P statuses. .version should be set to dcgmNvLinkP2PStatus_version1 before calling this
@@ -507,7 +1021,7 @@ func GetNvLinkP2PStatus(dcgmHandle Handle, linkStatus *NvLinkP2PStatus) error {
 	return toError(fnGetNvLinkP2PStatus(dcgmHandle, linkStatus), "dcgmGetNvLinkP2PStatus")
 }
 
-// GroupAddDevice Used to add specified GPU Id to the group represented by groupId.
+// GroupAddDevice is used to add specified GPU Id to the group represented by groupId.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group Id to which device should be added
@@ -521,7 +1035,7 @@ func GroupAddDevice(pDcgmHandle Handle, groupId GpuGrp, gpuId uint32) error {
 	return toError(fnGroupAddDevice(pDcgmHandle, groupId, gpuId), "dcgmGroupAddDevice")
 }
 
-// GroupAddEntity Used to add specified entity to the group represented by groupId.
+// GroupAddEntity is used to add specified entity to the group represented by groupId.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group Id to which device should be added
@@ -536,8 +1050,9 @@ func GroupAddEntity(pDcgmHandle Handle, groupId GpuGrp, entityGroupId FieldEntit
 	return toError(fnGroupAddEntity(pDcgmHandle, groupId, entityGroupId, entityId), "dcgmGroupAddEntity")
 }
 
-// GroupCreate Used to create a entity group handle which can store one or more entity Ids as an opaque handle returned in pDcgmGrpId.
+// GroupCreate is used to create a entity group handle which can store one or more entity Ids as an opaque handle returned in pDcgmGrpId.
 //
+// Instead of executing an operation separately for each entity, the DCGM group enables the user to execute same operation on all the entities present in the group as a single API call.
 // To create the group with all the entities present on the system, the type field should be
 // specified as [GroupDefault] or [GroupAllNvSwitches]. To create an empty group,
 // the type field should be specified as [GroupEmpty]. The empty group can be updated
@@ -555,15 +1070,20 @@ func GroupCreate(pDcgmHandle Handle, type_ GroupType, groupName *byte) (GpuGrp, 
 		var zero GpuGrp
 		return zero, err
 	}
-	var out GpuGrp
-	if err := toError(fnGroupCreate(pDcgmHandle, type_, groupName, &out), "dcgmGroupCreate"); err != nil {
+	out := slotGroupCreate.get()
+	defer slotGroupCreate.put(out)
+	if err := toError(fnGroupCreate(pDcgmHandle, type_, groupName, out), "dcgmGroupCreate"); err != nil {
 		var zero GpuGrp
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GroupDestroy Used to destroy a group represented by groupId.
+var slotGroupCreate outSlot[GpuGrp]
+
+// GroupDestroy is used to destroy a group represented by groupId.
+//
+// Since DCGM group is a logical grouping of entities, the properties applied on the group stay intact for the individual entities even after the group is destroyed.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group ID
@@ -576,7 +1096,9 @@ func GroupDestroy(pDcgmHandle Handle, groupId GpuGrp) error {
 	return toError(fnGroupDestroy(pDcgmHandle, groupId), "dcgmGroupDestroy")
 }
 
-// GroupGetAllIds Used to get the Ids of all groups of entities.
+// GroupGetAllIds is used to get the Ids of all groups of entities.
+//
+// The information returned is a list of group ids in groupIdList as well as a count of how many ids there are in count. Please allocate enough memory for groupIdList. Memory of size MAX_NUM_GROUPS should be allocated for groupIdList.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupIdList: OUT: List of Group Ids
@@ -588,15 +1110,20 @@ func GroupGetAllIds(pDcgmHandle Handle, groupIdList *GpuGrp) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnGroupGetAllIds(pDcgmHandle, groupIdList, &out), "dcgmGroupGetAllIds"); err != nil {
+	out := slotGroupGetAllIds.get()
+	defer slotGroupGetAllIds.put(out)
+	if err := toError(fnGroupGetAllIds(pDcgmHandle, groupIdList, out), "dcgmGroupGetAllIds"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GroupGetInfo Used to get information corresponding to the group represented by groupId.
+var slotGroupGetAllIds outSlot[uint32]
+
+// GroupGetInfo is used to get information corresponding to the group represented by groupId.
+//
+// The information returned in pDcgmGroupInfo consists of group name, and the list of entities present in the group.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group ID for which information to be fetched
@@ -610,7 +1137,7 @@ func GroupGetInfo(pDcgmHandle Handle, groupId GpuGrp, pDcgmGroupInfo *GroupInfo)
 	return toError(fnGroupGetInfo(pDcgmHandle, groupId, pDcgmGroupInfo), "dcgmGroupGetInfo")
 }
 
-// GroupRemoveDevice Used to remove specified GPU Id from the group represented by groupId.
+// GroupRemoveDevice is used to remove specified GPU Id from the group represented by groupId.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group ID from which device should be removed
@@ -624,7 +1151,7 @@ func GroupRemoveDevice(pDcgmHandle Handle, groupId GpuGrp, gpuId uint32) error {
 	return toError(fnGroupRemoveDevice(pDcgmHandle, groupId, gpuId), "dcgmGroupRemoveDevice")
 }
 
-// GroupRemoveEntity Used to remove specified entity from the group represented by groupId.
+// GroupRemoveEntity is used to remove specified entity from the group represented by groupId.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group ID from which device should be removed
@@ -639,7 +1166,9 @@ func GroupRemoveEntity(pDcgmHandle Handle, groupId GpuGrp, entityGroupId FieldEn
 	return toError(fnGroupRemoveEntity(pDcgmHandle, groupId, entityGroupId, entityId), "dcgmGroupRemoveEntity")
 }
 
-// HealthCheck Check the configured watches for any errors/failures/warnings that have occurred since the last time this check was invoked.
+// HealthCheck checks the configured watches for any errors/failures/warnings that have occurred since the last time this check was invoked.
+//
+// On the first call, stateful information about all of the enabled watches within a group is created but no error results are provided. On subsequent calls, any error information will be returned.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group ID representing a collection of one or more entities. Refer to [Handle.GroupCreate] for details on creating a group
@@ -653,7 +1182,7 @@ func HealthCheck(pDcgmHandle Handle, groupId GpuGrp, results *HealthResponse) er
 	return toError(fnHealthCheck(pDcgmHandle, groupId, results), "dcgmHealthCheck")
 }
 
-// HealthGet Retrieve the current state of the DCGM health check system
+// HealthGet retrieves the current state of the DCGM health check system
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs or [GroupAllNvSwitches] to perform operation on all the NvSwitches
@@ -667,7 +1196,9 @@ func HealthGet(pDcgmHandle Handle, groupId GpuGrp, systems *HealthSystems) error
 	return toError(fnHealthGet(pDcgmHandle, groupId, systems), "dcgmHealthGet")
 }
 
-// HostengineEnvironmentVariableInfo This method is used to retrieve the value of an environment variable from the hostengine.
+// HostengineEnvironmentVariableInfo is used to retrieve the value of an environment variable from the hostengine.
+//
+// Note: only CUDA_VISIBLE_DEVICES env is supported
 //
 //   - pDcgmHandle: IN: DCGM Handle that came from [ConnectV2]
 //   - pEnvVarInfo: IN/OUT: Pointer to a [EnvVarInfo] structure. - envVarName must be set to the name of the environment variable to query (input). - envVarValue will be filled with the value of the environment variable (output)
@@ -693,7 +1224,7 @@ func HostengineIsHealthy(pDcgmHandle Handle, heHealth *HostengineHealth) error {
 	return toError(fnHostengineIsHealthy(pDcgmHandle, heHealth), "dcgmHostengineIsHealthy")
 }
 
-// HostengineVersionInfo This method is used to return information about the build environment of the hostengine.
+// HostengineVersionInfo is used to return information about the build environment of the hostengine.
 //
 //   - pDcgmHandle: IN: DCGM Handle that came from [ConnectV2]
 //   - pVersionInfo: OUT: Build environment information
@@ -706,8 +1237,9 @@ func HostengineVersionInfo(pDcgmHandle Handle, pVersionInfo *VersionInfoStruct) 
 	return toError(fnHostengineVersionInfo(pDcgmHandle, pVersionInfo), "dcgmHostengineVersionInfo")
 }
 
-// Init This method is used to initialize DCGM within this process.
+// Init is used to initialize DCGM within this process.
 //
+// This must be called before [StartEmbeddedV2] or [ConnectV2]
 // * @return
 // - [Success] if DCGM has been properly initialized
 // - [ErrInitError] if there was an error initializing the library
@@ -720,7 +1252,7 @@ func Init() error {
 	return toError(fnInit(), "dcgmInit")
 }
 
-// IntrospectGetHostengineCpuUtilization Retrieve the CPU utilization of the DCGM hostengine process.
+// IntrospectGetHostengineCpuUtilization retrieves the CPU utilization of the DCGM hostengine process.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - cpuUtil: IN/OUT: see [IntrospectCpuUtil]. cpuUtil->version must be set to dcgmIntrospectCpuUtil_version prior to this call
@@ -734,7 +1266,9 @@ func IntrospectGetHostengineCpuUtilization(pDcgmHandle Handle, cpuUtil *Introspe
 	return toError(fnIntrospectGetHostengineCpuUtilization(pDcgmHandle, cpuUtil, waitIfNoData), "dcgmIntrospectGetHostengineCpuUtilization")
 }
 
-// IntrospectGetHostengineMemoryUsage Retrieve the total amount of memory that the hostengine process is currently using.
+// IntrospectGetHostengineMemoryUsage retrieves the total amount of memory that the hostengine process is currently using.
+//
+// This measurement represents both the resident set size (what is currently in RAM) and the swapped memory that belongs to the process.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - memoryInfo: IN/OUT: see [IntrospectMemory]. memoryInfo->version must be set to dcgmIntrospectMemory_version prior to this call
@@ -748,7 +1282,7 @@ func IntrospectGetHostengineMemoryUsage(pDcgmHandle Handle, memoryInfo *Introspe
 	return toError(fnIntrospectGetHostengineMemoryUsage(pDcgmHandle, memoryInfo, waitIfNoData), "dcgmIntrospectGetHostengineMemoryUsage")
 }
 
-// ModuleGetStatuses Get the status of all of the DCGM modules.
+// ModuleGetStatuses gets the status of all of the DCGM modules.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - moduleStatuses: OUT: Module statuses. .version should be set to dcgmModuleStatuses_version upon calling
@@ -769,15 +1303,18 @@ func ModuleIdToName(id ModuleId) (uintptr, error) {
 		var zero uintptr
 		return zero, err
 	}
-	var out uintptr
-	if err := toError(fnModuleIdToName(id, &out), "dcgmModuleIdToName"); err != nil {
+	out := slotModuleIdToName.get()
+	defer slotModuleIdToName.put(out)
+	if err := toError(fnModuleIdToName(id, out), "dcgmModuleIdToName"); err != nil {
 		var zero uintptr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// PowerProfileIdToName Get Friendly Power Profile name.
+var slotModuleIdToName outSlot[uintptr]
+
+// PowerProfileIdToName gets Friendly Power Profile name.
 //
 // Wraps dcgmPowerProfileIdToName.
 func PowerProfileIdToName(id PowerProfileType) (uintptr, error) {
@@ -785,15 +1322,18 @@ func PowerProfileIdToName(id PowerProfileType) (uintptr, error) {
 		var zero uintptr
 		return zero, err
 	}
-	var out uintptr
-	if err := toError(fnPowerProfileIdToName(id, &out), "dcgmPowerProfileIdToName"); err != nil {
+	out := slotPowerProfileIdToName.get()
+	defer slotPowerProfileIdToName.put(out)
+	if err := toError(fnPowerProfileIdToName(id, out), "dcgmPowerProfileIdToName"); err != nil {
 		var zero uintptr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ProfGetSupportedMetricGroups Get all of the profiling metric groups for a given GPU group.
+var slotPowerProfileIdToName outSlot[uintptr]
+
+// ProfGetSupportedMetricGroups gets all of the profiling metric groups for a given GPU group.
 //
 // The behavior of this API differs depending on the GPU architecture:
 //
@@ -829,7 +1369,9 @@ func ProfGetSupportedMetricGroups(pDcgmHandle Handle, metricGroups *ProfGetMetri
 	return toError(fnProfGetSupportedMetricGroups(pDcgmHandle, metricGroups), "dcgmProfGetSupportedMetricGroups")
 }
 
-// Shutdown This method is used to shut down DCGM.
+// Shutdown is used to shut down DCGM.
+//
+// Any embedded host engines or remote connections will automatically be shut down as well.
 //
 // Wraps dcgmShutdown.
 func Shutdown() error {
@@ -839,7 +1381,7 @@ func Shutdown() error {
 	return toError(fnShutdown(), "dcgmShutdown")
 }
 
-// StartEmbeddedV2 Start an embedded host engine agent within this process.
+// StartEmbeddedV2 starts an embedded host engine agent within this process.
 //
 // The agent is loaded as a shared library. This mode is provided to avoid any
 // extra jitter associated with an additional autonomous agent needs to be managed. In
@@ -857,7 +1399,9 @@ func StartEmbeddedV2(params *StartEmbeddedV2ParamsV1) error {
 	return toError(fnStartEmbeddedV2(params), "dcgmStartEmbedded_v2")
 }
 
-// StatusClear Used to clear all the errors in the status handle created by the API [NewStatusHandle].
+// StatusClear is used to clear all the errors in the status handle created by the API [NewStatusHandle].
+//
+// After one set of operation, the statusHandle can be cleared and reused for the next set of operation.
 //
 //   - statusHandle: IN: Handle to list of statuses
 //
@@ -869,7 +1413,7 @@ func StatusClear(statusHandle StatusHandle) error {
 	return toError(fnStatusClear(statusHandle), "dcgmStatusClear")
 }
 
-// StatusCreate Creates reference to DCGM status handler which can be used to get the statuses for multiple operations on one or more devices.
+// StatusCreate creates reference to DCGM status handler which can be used to get the statuses for multiple operations on one or more devices.
 //
 // The multiple statuses are useful when the operations are performed at group level. The status
 // handle provides a mechanism to access error attributes for the failed operations.
@@ -890,15 +1434,18 @@ func StatusCreate() (StatusHandle, error) {
 		var zero StatusHandle
 		return zero, err
 	}
-	var out StatusHandle
-	if err := toError(fnStatusCreate(&out), "dcgmStatusCreate"); err != nil {
+	out := slotStatusCreate.get()
+	defer slotStatusCreate.put(out)
+	if err := toError(fnStatusCreate(out), "dcgmStatusCreate"); err != nil {
 		var zero StatusHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// StatusDestroy Used to destroy status handle created using [NewStatusHandle].
+var slotStatusCreate outSlot[StatusHandle]
+
+// StatusDestroy is used to destroy status handle created using [NewStatusHandle].
 //
 //   - statusHandle: IN: Handle to list of statuses
 //
@@ -910,7 +1457,7 @@ func StatusDestroy(statusHandle StatusHandle) error {
 	return toError(fnStatusDestroy(statusHandle), "dcgmStatusDestroy")
 }
 
-// StatusGetCount Used to get count of error entries stored inside the opaque handle statusHandle.
+// StatusGetCount is used to get count of error entries stored inside the opaque handle statusHandle.
 //
 //   - statusHandle: IN: Handle to list of statuses
 //   - count: OUT: Number of error entries present in the list of statuses
@@ -921,15 +1468,20 @@ func StatusGetCount(statusHandle StatusHandle) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnStatusGetCount(statusHandle, &out), "dcgmStatusGetCount"); err != nil {
+	out := slotStatusGetCount.get()
+	defer slotStatusGetCount.put(out)
+	if err := toError(fnStatusGetCount(statusHandle, out), "dcgmStatusGetCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// StatusPopError Used to iterate through the list of errors maintained behind statusHandle.
+var slotStatusGetCount outSlot[uint32]
+
+// StatusPopError is used to iterate through the list of errors maintained behind statusHandle.
+//
+// The method pops the first error from the list of DCGM statuses. In order to iterate through all the errors, the user can invoke this API for the number of errors or until all the errors are fetched.
 //
 //   - statusHandle: IN: Handle to list of statuses
 //   - pDcgmErrorInfo: OUT: First error from the list of statuses
@@ -942,7 +1494,7 @@ func StatusPopError(statusHandle StatusHandle, pDcgmErrorInfo *ErrorInfo) error 
 	return toError(fnStatusPopError(statusHandle, pDcgmErrorInfo), "dcgmStatusPopError")
 }
 
-// StopEmbedded Stop the embedded host engine within this process that was started with [StartEmbeddedV2]
+// StopEmbedded stops the embedded host engine within this process that was started with [StartEmbeddedV2]
 //
 //   - pDcgmHandle: IN : DCGM Handle of the embedded host engine that came from [StartEmbeddedV2]
 //
@@ -954,7 +1506,7 @@ func StopEmbedded(pDcgmHandle Handle) error {
 	return toError(fnStopEmbedded(pDcgmHandle), "dcgmStopEmbedded")
 }
 
-// UnwatchFields Request that DCGM stop recording updates for a given field collection.
+// UnwatchFields requests that DCGM stop recording updates for a given field collection.
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs or [GroupAllNvSwitches] to to perform the operation on all NvSwitches
@@ -968,7 +1520,7 @@ func UnwatchFields(pDcgmHandle Handle, groupId GpuGrp, fieldGroupId FieldGrp) er
 	return toError(fnUnwatchFields(pDcgmHandle, groupId, fieldGroupId), "dcgmUnwatchFields")
 }
 
-// UpdateAllFields This method is used to tell the DCGM module to update all the fields being watched.
+// UpdateAllFields is used to tell the DCGM module to update all the fields being watched.
 //
 // Note: If the if the operation mode was set to manual mode ([OperationModeManual]) during
 // initialization ([Init]), this method must be caused periodically to allow field value watches
@@ -985,7 +1537,7 @@ func UpdateAllFields(pDcgmHandle Handle, waitForUpdate int32) error {
 	return toError(fnUpdateAllFields(pDcgmHandle, waitForUpdate), "dcgmUpdateAllFields")
 }
 
-// VersionInfo This method is used to return information about the build environment where DCGM was built.
+// VersionInfo is used to return information about the build environment where DCGM was built.
 //
 //   - pVersionInfo: OUT: Build environment information
 //
@@ -997,7 +1549,7 @@ func VersionInfo(pVersionInfo *VersionInfoStruct) error {
 	return toError(fnVersionInfo(pVersionInfo), "dcgmVersionInfo")
 }
 
-// WatchFields Request that DCGM start recording updates for a given field collection.
+// WatchFields requests that DCGM start recording updates for a given field collection.
 //
 // Note that the first update of the field will not occur until the next field update cycle.
 // To force a field update cycle, call [Handle.UpdateAllFields](1).

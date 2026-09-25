@@ -4125,7 +4125,9 @@ func (e RuntimeAPICBID) String() string {
 	return fmt.Sprintf("RuntimeAPICBID(%d)", e)
 }
 
-// PatchResult represents sanitizer patch result codes Error and result codes returned by Sanitizer patches.
+// PatchResult represents sanitizer patch result codes.
+//
+// Error and result codes returned by Sanitizer patches. If a patch returns [PatchError], the full warp which the thread belongs to will be exited.
 type PatchResult int32
 
 const (
@@ -4147,7 +4149,9 @@ func (e PatchResult) String() string {
 	return fmt.Sprintf("PatchResult(%d)", e)
 }
 
-// DeviceMemoryFlags represents flags describing a memory access Flags describing a memory access.
+// DeviceMemoryFlags represents flags describing a memory access.
+//
+// Flags describing a memory access. These values are to be or-combined in the value of \b flags for a SanitizerCallbackMemoryAccess callback.
 type DeviceMemoryFlags int32
 
 const (
@@ -4190,7 +4194,9 @@ func (e DeviceMemoryFlags) String() string {
 	return fmt.Sprintf("DeviceMemoryFlags(%d)", e)
 }
 
-// BarrierFlags represents flags describing a barrier Flags describing a barrier.
+// BarrierFlags represents flags describing a barrier.
+//
+// Flags describing a barrier. These values are to be or-combined in the value of \b flags for a SanitizerCallbackBarrier callback.
 type BarrierFlags int32
 
 const (
@@ -4218,6 +4224,8 @@ func (e BarrierFlags) String() string {
 }
 
 // CallFlags represents flags describing a function call.
+//
+// Flags describing a function call. These values are to be or-combined in the value of \b flags for a SanitizerCallbackCall callback.
 type CallFlags int32
 
 const (
@@ -4241,6 +4249,8 @@ func (e CallFlags) String() string {
 }
 
 // CudaBarrierInstructionKind represents CUDA Barrier action kind.
+//
+// Refer to the CUDA Barrier interface section of the CUDA toolkit documentation for a more extensive description of these actions.
 type CudaBarrierInstructionKind int32
 
 const (
@@ -4318,6 +4328,8 @@ func (e CacheControlInstructionKind) String() string {
 }
 
 // WarpgroupMMAAsyncFlags represents flags describing a warpgroup aligned MMA async.
+//
+// Flags describing a warpgroup aligned MMA async. These values are to be or-combined in the value of \b flags for a SanitizerCallbackWarpgroupMMAAsync callback.
 type WarpgroupMMAAsyncFlags int32
 
 const (
@@ -4369,6 +4381,8 @@ func (e LoadMode) String() string {
 }
 
 // InstructionId represents instrumentation.
+//
+// Instrumentation. Every entry represent an instruction type or a function call where a callback patch can be inserted.
 type InstructionId int32
 
 const (
@@ -4589,6 +4603,8 @@ func (e FunctionLoadedStatus) String() string {
 }
 
 // CallbackDomain represents callback domains.
+//
+// Callback domain. Each domain represents callback points for a group of related API functions or CUDA driver activity.
 type CallbackDomain int32
 
 const (
@@ -4658,6 +4674,8 @@ func (e CallbackDomain) String() string {
 }
 
 // ApiCallbackSite specifies the point in an API call that a callback is issued.
+//
+// Specifies the point in an API that a callback is issued. This value is communicated to the callback function via [CallbackData]CallbackSize.
 type ApiCallbackSite int32
 
 const (
@@ -4680,6 +4698,8 @@ func (e ApiCallbackSite) String() string {
 }
 
 // CallbackIdResource represents callback IDs for resource domain.
+//
+// Callback IDs for resource domain [CbDomainResource]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdResource int32
 
 const (
@@ -4802,6 +4822,8 @@ func (e CallbackIdResource) String() string {
 }
 
 // ResourceMemoryFlags represents flags describing a memory allocation.
+//
+// Flags describing a memory allocation. These values are to be used in order to interpret the value of [ResourceMemoryData]flags.
 type ResourceMemoryFlags int32
 
 const (
@@ -4848,6 +4870,8 @@ func (e ResourceMemoryFlags) String() string {
 }
 
 // ResourceMemoryPermissions represents permissions for a memory allocation.
+//
+// Permissions for a memory allocation. These values are to be used in order to interpret the value of [ResourceMemoryData]permissions.
 type ResourceMemoryPermissions int32
 
 const (
@@ -4879,7 +4903,9 @@ func (e ResourceMemoryPermissions) String() string {
 	return fmt.Sprintf("ResourceMemoryPermissions(%d)", e)
 }
 
-// MemoryVisibility specifies the visibility of an allocation Specifies the visibility of an allocation.
+// MemoryVisibility specifies the visibility of an allocation.
+//
+// Specifies the visibility of an allocation. This is typically GLOBAL on allocations made via cudaMalloc, cudaHostAlloc and similar APIs. This can be GLOBAL or HOST for cudaMallocManaged allocations depending on the flags parameter. This can be changed after allocation time using cudaMemAttachSingle API (see [CbidUvmAttachMem] for the corresponding callback).
 type MemoryVisibility int32
 
 const (
@@ -4911,6 +4937,8 @@ func (e MemoryVisibility) String() string {
 }
 
 // CallbackIdSync represents callback IDs for synchronization domain.
+//
+// Callback IDs for resource domain [CbDomainSynchronize]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdSync int32
 
 const (
@@ -4943,6 +4971,8 @@ func (e CallbackIdSync) String() string {
 }
 
 // CallbackIdLaunch represents callback IDs for launch domain.
+//
+// Callback IDs for resource domain [CbDomainLaunch]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdLaunch int32
 
 const (
@@ -4974,6 +5004,8 @@ func (e CallbackIdLaunch) String() string {
 }
 
 // CallbackIdMemcpy represents callback IDs for memcpy domain.
+//
+// Callback IDs for resource domain [CbDomainMemcpy]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdMemcpy int32
 
 const (
@@ -4999,6 +5031,8 @@ func (e CallbackIdMemcpy) String() string {
 }
 
 // MemcpyDirection represents memcpy direction.
+//
+// Indicates the direction of a memcpy, passed inside Sanitizer_Memcpydata.
 type MemcpyDirection int32
 
 const (
@@ -5033,6 +5067,8 @@ func (e MemcpyDirection) String() string {
 }
 
 // CallbackIdMemset represents callback IDs for memset domain.
+//
+// Callback IDs for resource domain [CbDomainMemset]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdMemset int32
 
 const (
@@ -5058,6 +5094,8 @@ func (e CallbackIdMemset) String() string {
 }
 
 // CallbackIdBatchMemop represents callback IDs for batch memop domain.
+//
+// Callback IDs for resource domain [CbDomainBatchMemop]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdBatchMemop int32
 
 const (
@@ -5089,6 +5127,8 @@ func (e CallbackIdBatchMemop) String() string {
 }
 
 // BatchMemopType specifies the type of batch memory operation.
+//
+// Specifies the type of batch memory operation reported by a callback in domain [CbDomainBatchMemop]. This value is communicated to the callback function via [BatchMemopData]type.
 type BatchMemopType int32
 
 const (
@@ -5111,6 +5151,8 @@ func (e BatchMemopType) String() string {
 }
 
 // BatchMemopAtomicOp specifies the type of atomic operation for batch memory atomic reduction.
+//
+// Specifies the type ofatomic operation for batch memory atomic reduction reported by a callback in domain [CbDomainBatchMemop]. This value is communicated to the callback function via [BatchMemopData]atomicOperation.
 type BatchMemopAtomicOp int32
 
 const (
@@ -5136,6 +5178,8 @@ func (e BatchMemopAtomicOp) String() string {
 }
 
 // CallbackIdUvm represents callback IDs for managed memory domain.
+//
+// Callback IDs for resource domain [CbDomainUvm]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdUvm int32
 
 const (
@@ -5162,6 +5206,8 @@ func (e CallbackIdUvm) String() string {
 }
 
 // CallbackIdGraphs represents callback IDs for graphs domain.
+//
+// Callback IDs for resource domain [CbDomainGraphs]. This value is communicated to the callback function via the cbid parameter.
 type CallbackIdGraphs int32
 
 const (
@@ -5205,6 +5251,8 @@ func (e CallbackIdGraphs) String() string {
 }
 
 // CallbackIdEvents represents callback IDs for events domain.
+//
+// Callback IDs for resource domain [CbDomainEvents]. This value is communicated to the callback function via the cbid parameter. Available with a driver version of 515 or newer.
 type CallbackIdEvents int32
 
 const (
@@ -5257,6 +5305,8 @@ func (e CallbackIdEvents) String() string {
 }
 
 // CallbackIdExternalMemory represents callback IDs for external memory domain.
+//
+// Callback IDs for resource domain SANITIZER_CB_DOMAIN_EXTERNA_MEMORY. This value is communicated to the callback function via the cbid parameter. Available with a driver version of 535 or newer.
 type CallbackIdExternalMemory int32
 
 const (
@@ -5288,6 +5338,8 @@ func (e CallbackIdExternalMemory) String() string {
 }
 
 // CallbackIdErrorLogging represents callback IDs for external memory domain.
+//
+// Callback IDs for resource domain SANITIZER_CB_DOMAIN_EXTERNA_MEMORY. This value is communicated to the callback function via the cbid parameter. Available with a driver version of 535 or newer.
 type CallbackIdErrorLogging int32
 
 const (

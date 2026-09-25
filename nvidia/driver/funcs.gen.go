@@ -4,14 +4,51 @@ package driver
 
 import (
 	"fmt"
+	"math"
+	"sync"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
-// nulTerminated returns a pointer to b's contents followed by a NUL byte,
-// copying b only when it does not already end in one.
-func nulTerminated(b []byte) *byte {
-	if len(b) == 0 || b[len(b)-1] != 0 {
-		b = append(b[:len(b):len(b)], 0)
+// textImage returns a pointer to b's first byte for a C function that reads
+// b as NUL-terminated text unless it is a self-sized binary image. It copies
+// b to append a NUL only when b is text with no NUL at its end or just past
+// it in its capacity.
+func textImage(b []byte) *byte {
+	n := len(b)
+	switch {
+	case n > 0 && b[n-1] == 0:
+	case cap(b) > n && b[:n+1][n] == 0:
+		b = b[:n+1]
+	case hasBinaryMagic(b):
+	default:
+		b = append(b[:n:n], 0)
+	}
+	return &b[0]
+}
+
+// binaryMagic lists the leading bytes of the self-sized images that
+// textImage passes without a NUL terminator.
+var binaryMagic = [...]string{
+	"\x7fELF",    // ELF
+	"P\xedU\xba", // fatbin
+}
+
+// hasBinaryMagic reports whether b starts with one of binaryMagic.
+func hasBinaryMagic(b []byte) bool {
+	for _, m := range binaryMagic {
+		if len(b) >= len(m) && string(b[:len(m)]) == m {
+			return true
+		}
+	}
+	return false
+}
+
+// binaryImage returns a pointer to b's first byte, or nil if b is empty.
+func binaryImage(b []byte) *byte {
+	if len(b) == 0 {
+		return nil
 	}
 	return &b[0]
 }
@@ -32,475 +69,3466 @@ func elementBytes[T any, S ~uint | ~uint32 | ~uint64 | ~uintptr](fn string, n in
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnarray3DCreate                                      func(*Array, *Array3dDescriptor) Result
-	fnarray3DGetDescriptor                               func(*Array3dDescriptor, Array) Result
-	fnarrayCreate                                        func(*Array, *ArrayDescriptor) Result
-	fnarrayDestroy                                       func(Array) Result
-	fnarrayGetDescriptor                                 func(*ArrayDescriptor, Array) Result
-	fnarrayGetMemoryRequirements                         func(*ArrayMemoryRequirements, Array, Device) Result
-	fnarrayGetPlane                                      func(*Array, Array, uint32) Result
-	fnarrayGetSparseProperties                           func(*ArraySparseProperties, Array) Result
-	fnCheckpointProcessCheckpoint                        func(int32, *CheckpointCheckpointArgs) Result
-	fnCheckpointProcessGetRestoreThreadId                func(int32, *int32) Result
-	fnCheckpointProcessGetState                          func(int32, *ProcessState) Result
-	fnCheckpointProcessLock                              func(int32, *CheckpointLockArgs) Result
-	fnCheckpointProcessRestore                           func(int32, *CheckpointRestoreArgs) Result
-	fnCheckpointProcessUnlock                            func(int32, *CheckpointUnlockArgs) Result
-	fncoredumpDeregisterCompleteCallback                 func(CoredumpCallbackHandle) Result
-	fncoredumpDeregisterStartCallback                    func(CoredumpCallbackHandle) Result
-	fnCoredumpGetAttribute                               func(CoredumpSettings, unsafe.Pointer, *uint) Result
-	fnCoredumpGetAttributeGlobal                         func(CoredumpSettings, uintptr, *uint) Result
-	fnCoredumpRegisterCompleteCallback                   func(uintptr, uintptr, *CoredumpCallbackHandle) Result
-	fnCoredumpRegisterStartCallback                      func(uintptr, uintptr, *CoredumpCallbackHandle) Result
-	fnCoredumpSetAttribute                               func(CoredumpSettings, uintptr, *uint) Result
-	fnCoredumpSetAttributeGlobal                         func(CoredumpSettings, uintptr, *uint) Result
-	fnctxAttach                                          func(*Context, uint32) Result
-	fnctxCreate                                          func(*Context, *CtxCreateParams, uint32, Device) Result
-	fnctxDestroy                                         func(Context) Result
-	fnctxDetach                                          func(Context) Result
-	fnctxDisablePeerAccess                               func(Context) Result
-	fnctxEnablePeerAccess                                func(Context, uint32) Result
-	fnctxFromGreenCtx                                    func(*Context, GreenCtx) Result
-	fnctxGetApiVersion                                   func(Context, *uint32) Result
-	fnCtxGetCacheConfig                                  func(*FuncCacheConfig) Result
-	fnctxGetCurrent                                      func(*Context) Result
-	fnctxGetDevResource                                  func(Context, *DevResource, DevResourceType) Result
-	fnCtxGetDevice                                       func(*Device) Result
-	fnctxGetDeviceV2                                     func(*Device, Context) Result
-	fnCtxGetExecAffinity                                 func(*ExecAffinityParam, ExecAffinityType) Result
-	fnCtxGetFlags                                        func(*uint32) Result
-	fnctxGetId                                           func(Context, *uint64) Result
-	fnCtxGetLimit                                        func(*uint, Limit) Result
-	fnCtxGetSharedMemConfig                              func(*Sharedconfig) Result
-	fnCtxGetStreamPriorityRange                          func(*int32, *int32) Result
-	fnctxPopCurrent                                      func(*Context) Result
-	fnctxPushCurrent                                     func(Context) Result
-	fnctxRecordEvent                                     func(Context, Event) Result
-	fnCtxResetPersistingL2Cache                          func() Result
-	fnCtxSetCacheConfig                                  func(FuncCacheConfig) Result
-	fnctxSetCurrent                                      func(Context) Result
-	fnCtxSetFlags                                        func(uint32) Result
-	fnCtxSetLimit                                        func(Limit, uint) Result
-	fnCtxSetSharedMemConfig                              func(Sharedconfig) Result
-	fnCtxSynchronize                                     func() Result
-	fnctxSynchronizeV2                                   func(Context) Result
-	fnctxWaitEvent                                       func(Context, Event) Result
-	fndestroyExternalMemory                              func(ExternalMemory) Result
-	fndestroyExternalSemaphore                           func(ExternalSemaphore) Result
-	fnDevResourceGenerateDesc                            func(*DevResourceDesc, *DevResource, uint32) Result
-	fnDevSmResourceSplit                                 func(*DevResource, uint32, *DevResource, *DevResource, uint32, *CuDevSmResourceGroupParams) Result
-	fnDevSmResourceSplitByCount                          func(*DevResource, *uint32, *DevResource, *DevResource, uint32, uint32) Result
-	fndeviceCanAccessPeer                                func(*int32, Device, Device) Result
-	fndeviceComputeCapability                            func(*int32, *int32, Device) Result
-	fndeviceGet                                          func(*Device, int) Result
-	fndeviceGetAttribute                                 func(*int32, DeviceAttribute, Device) Result
-	fndeviceGetByPCIBusId                                func(*Device, *byte) Result
-	fnDeviceGetCount                                     func(*int32) Result
-	fndeviceGetDefaultMemPool                            func(*MemoryPool, Device) Result
-	fndeviceGetDevResource                               func(Device, *DevResource, DevResourceType) Result
-	fndeviceGetExecAffinitySupport                       func(*int32, ExecAffinityType, Device) Result
-	fndeviceGetGraphMemAttribute                         func(Device, GraphmemAttribute, unsafe.Pointer) Result
-	fndeviceGetHostAtomicCapabilities                    func(*uint32, *AtomicOperation, uint32, Device) Result
-	fndeviceGetLuid                                      func(*byte, *uint32, Device) Result
-	fndeviceGetMemPool                                   func(*MemoryPool, Device) Result
-	fndeviceGetName                                      func(*byte, int32, Device) Result
-	fndeviceGetNvSciSyncAttributes                       func(unsafe.Pointer, Device, int32) Result
-	fndeviceGetP2PAtomicCapabilities                     func(*uint32, *AtomicOperation, uint32, Device, Device) Result
-	fndeviceGetP2PAttribute                              func(*int32, DeviceP2pattribute, Device, Device) Result
-	fndeviceGetPCIBusId                                  func(*byte, int32, Device) Result
-	fndeviceGetProperties                                func(*Devprop, Device) Result
-	fndeviceGetTexture1DLinearMaxWidth                   func(*uint, ArrayFormat, uint32, Device) Result
-	fndeviceGetUuid                                      func(*Uuid, Device) Result
-	fndeviceGraphMemTrim                                 func(Device) Result
-	fndevicePrimaryCtxGetState                           func(Device, *uint32, *int32) Result
-	fndevicePrimaryCtxRelease                            func(Device) Result
-	fndevicePrimaryCtxReset                              func(Device) Result
-	fndevicePrimaryCtxRetain                             func(*Context, Device) Result
-	fndevicePrimaryCtxSetFlags                           func(Device, uint32) Result
-	fndeviceRegisterAsyncNotification                    func(Device, uintptr, uintptr, *AsyncCallbackHandle) Result
-	fndeviceSetGraphMemAttribute                         func(Device, GraphmemAttribute, uintptr) Result
-	fndeviceSetMemPool                                   func(Device, MemoryPool) Result
-	fndeviceTotalMem                                     func(*uint, Device) Result
-	fndeviceUnregisterAsyncNotification                  func(Device, AsyncCallbackHandle) Result
-	fnDriverGetVersion                                   func(*int32) Result
-	fneventCreate                                        func(*Event, uint32) Result
-	fneventDestroy                                       func(Event) Result
-	fneventElapsedTime                                   func(*float32, Event, Event) Result
-	fneventQuery                                         func(Event) Result
-	fneventRecord                                        func(Event, Stream) Result
-	fneventRecordWithFlags                               func(Event, Stream, uint32) Result
-	fneventSynchronize                                   func(Event) Result
-	fnexternalMemoryGetMappedBuffer                      func(*DevicePtr, ExternalMemory, *ExternalMemoryBufferDesc) Result
-	fnexternalMemoryGetMappedMipmappedArray              func(*MipmappedArray, ExternalMemory, *ExternalMemoryMipmappedArrayDesc) Result
-	fnFlushGPUDirectRDMAWrites                           func(FlushGPUDirectRDMAWritesTarget, FlushGPUDirectRDMAWritesScope) Result
-	fnfuncGetAttribute                                   func(*int32, FunctionAttribute, Function) Result
-	fnfuncGetModule                                      func(*Module, Function) Result
-	fnfuncGetName                                        func(**byte, Function) Result
-	fnfuncGetParamCount                                  func(Function, *uint) Result
-	fnfuncGetParamInfo                                   func(Function, uint, *uint, *uint) Result
-	fnfuncIsLoaded                                       func(*FunctionLoadingState, Function) Result
-	fnfuncLoad                                           func(Function) Result
-	fnfuncSetAttribute                                   func(Function, FunctionAttribute, int32) Result
-	fnfuncSetBlockShape                                  func(Function, int32, int32, int32) Result
-	fnfuncSetCacheConfig                                 func(Function, FuncCacheConfig) Result
-	fnfuncSetSharedMemConfig                             func(Function, Sharedconfig) Result
-	fnfuncSetSharedSize                                  func(Function, uint32) Result
-	fnGetExportTable                                     func(*uintptr, *Uuid) Result
-	fnGetProcAddress                                     func(*byte, *uintptr, int32, uint64, *DriverProcAddressQueryResult) Result
-	fngraphAddBatchMemOpNode                             func(*GraphNode, Graph, *GraphNode, uint, *BatchMemOpNodeParams) Result
-	fngraphAddChildGraphNode                             func(*GraphNode, Graph, *GraphNode, uint, Graph) Result
-	fngraphAddDependencies                               func(Graph, *GraphNode, *GraphNode, *GraphEdgeData, uint) Result
-	fngraphAddEmptyNode                                  func(*GraphNode, Graph, *GraphNode, uint) Result
-	fngraphAddEventRecordNode                            func(*GraphNode, Graph, *GraphNode, uint, Event) Result
-	fngraphAddEventWaitNode                              func(*GraphNode, Graph, *GraphNode, uint, Event) Result
-	fngraphAddExternalSemaphoresSignalNode               func(*GraphNode, Graph, *GraphNode, uint, *ExtSemSignalNodeParams) Result
-	fngraphAddExternalSemaphoresWaitNode                 func(*GraphNode, Graph, *GraphNode, uint, *ExtSemWaitNodeParams) Result
-	fngraphAddHostNode                                   func(*GraphNode, Graph, *GraphNode, uint, *HostNodeParams) Result
-	fngraphAddKernelNode                                 func(*GraphNode, Graph, *GraphNode, uint, *KernelNodeParams) Result
-	fngraphAddMemAllocNode                               func(*GraphNode, Graph, *GraphNode, uint, *MemAllocNodeParams) Result
-	fngraphAddMemFreeNode                                func(*GraphNode, Graph, *GraphNode, uint, DevicePtr) Result
-	fngraphAddMemcpyNode                                 func(*GraphNode, Graph, *GraphNode, uint, *Memcpy3d, Context) Result
-	fngraphAddMemsetNode                                 func(*GraphNode, Graph, *GraphNode, uint, *MemsetNodeParams, Context) Result
-	fngraphAddNode                                       func(*GraphNode, Graph, *GraphNode, *GraphEdgeData, uint, *GraphNodeParams) Result
-	fngraphBatchMemOpNodeGetParams                       func(GraphNode, *BatchMemOpNodeParams) Result
-	fngraphBatchMemOpNodeSetParams                       func(GraphNode, *BatchMemOpNodeParams) Result
-	fngraphChildGraphNodeGetGraph                        func(GraphNode, *Graph) Result
-	fngraphClone                                         func(*Graph, Graph) Result
-	fngraphConditionalHandleCreate                       func(*uint64, Graph, Context, uint32, uint32) Result
-	fngraphCreate                                        func(*Graph, uint32) Result
-	fngraphDebugDotPrint                                 func(Graph, *byte, uint32) Result
-	fngraphDestroy                                       func(Graph) Result
-	fngraphDestroyNode                                   func(GraphNode) Result
-	fngraphEventRecordNodeGetEvent                       func(GraphNode, *Event) Result
-	fngraphEventRecordNodeSetEvent                       func(GraphNode, Event) Result
-	fngraphEventWaitNodeGetEvent                         func(GraphNode, *Event) Result
-	fngraphEventWaitNodeSetEvent                         func(GraphNode, Event) Result
-	fngraphExecBatchMemOpNodeSetParams                   func(GraphExec, GraphNode, *BatchMemOpNodeParams) Result
-	fngraphExecChildGraphNodeSetParams                   func(GraphExec, GraphNode, Graph) Result
-	fngraphExecDestroy                                   func(GraphExec) Result
-	fngraphExecEventRecordNodeSetEvent                   func(GraphExec, GraphNode, Event) Result
-	fngraphExecEventWaitNodeSetEvent                     func(GraphExec, GraphNode, Event) Result
-	fngraphExecExternalSemaphoresSignalNodeSetParams     func(GraphExec, GraphNode, *ExtSemSignalNodeParams) Result
-	fngraphExecExternalSemaphoresWaitNodeSetParams       func(GraphExec, GraphNode, *ExtSemWaitNodeParams) Result
-	fngraphExecGetFlags                                  func(GraphExec, *uint64) Result
-	fngraphExecGetId                                     func(GraphExec, *uint32) Result
-	fngraphExecHostNodeSetParams                         func(GraphExec, GraphNode, *HostNodeParams) Result
-	fngraphExecKernelNodeSetParams                       func(GraphExec, GraphNode, *KernelNodeParams) Result
-	fngraphExecMemcpyNodeSetParams                       func(GraphExec, GraphNode, *Memcpy3d, Context) Result
-	fngraphExecMemsetNodeSetParams                       func(GraphExec, GraphNode, *MemsetNodeParams, Context) Result
-	fngraphExecNodeSetParams                             func(GraphExec, GraphNode, *GraphNodeParams) Result
-	fngraphExecUpdate                                    func(GraphExec, Graph, *GraphExecUpdateResultInfo) Result
-	fngraphExternalSemaphoresSignalNodeGetParams         func(GraphNode, *ExtSemSignalNodeParams) Result
-	fngraphExternalSemaphoresSignalNodeSetParams         func(GraphNode, *ExtSemSignalNodeParams) Result
-	fngraphExternalSemaphoresWaitNodeGetParams           func(GraphNode, *ExtSemWaitNodeParams) Result
-	fngraphExternalSemaphoresWaitNodeSetParams           func(GraphNode, *ExtSemWaitNodeParams) Result
-	fngraphGetEdges                                      func(Graph, *GraphNode, *GraphNode, *GraphEdgeData, *uint) Result
-	fngraphGetId                                         func(Graph, *uint32) Result
-	fngraphGetNodes                                      func(Graph, *GraphNode, *uint) Result
-	fngraphGetRootNodes                                  func(Graph, *GraphNode, *uint) Result
-	fngraphHostNodeGetParams                             func(GraphNode, *HostNodeParams) Result
-	fngraphHostNodeSetParams                             func(GraphNode, *HostNodeParams) Result
-	fngraphInstantiate                                   func(*GraphExec, Graph, uint64) Result
-	fngraphInstantiateWithParams                         func(*GraphExec, Graph, *GraphInstantiateParams) Result
-	fngraphKernelNodeCopyAttributes                      func(GraphNode, GraphNode) Result
-	fngraphKernelNodeGetAttribute                        func(GraphNode, int32, *[8]uint64) Result
-	fngraphKernelNodeGetParams                           func(GraphNode, *KernelNodeParams) Result
-	fngraphKernelNodeSetAttribute                        func(GraphNode, int32, *[8]uint64) Result
-	fngraphKernelNodeSetParams                           func(GraphNode, *KernelNodeParams) Result
-	fngraphLaunch                                        func(GraphExec, Stream) Result
-	fngraphMemAllocNodeGetParams                         func(GraphNode, *MemAllocNodeParams) Result
-	fngraphMemFreeNodeGetParams                          func(GraphNode, *DevicePtr) Result
-	fngraphMemcpyNodeGetParams                           func(GraphNode, *Memcpy3d) Result
-	fngraphMemcpyNodeSetParams                           func(GraphNode, *Memcpy3d) Result
-	fngraphMemsetNodeGetParams                           func(GraphNode, *MemsetNodeParams) Result
-	fngraphMemsetNodeSetParams                           func(GraphNode, *MemsetNodeParams) Result
-	fngraphNodeFindInClone                               func(*GraphNode, GraphNode, Graph) Result
-	fngraphNodeGetContainingGraph                        func(GraphNode, *Graph) Result
-	fngraphNodeGetDependencies                           func(GraphNode, *GraphNode, *GraphEdgeData, *uint) Result
-	fngraphNodeGetDependentNodes                         func(GraphNode, *GraphNode, *GraphEdgeData, *uint) Result
-	fngraphNodeGetEnabled                                func(GraphExec, GraphNode, *uint32) Result
-	fngraphNodeGetLocalId                                func(GraphNode, *uint32) Result
-	fngraphNodeGetParams                                 func(GraphNode, *GraphNodeParams) Result
-	fngraphNodeGetToolsId                                func(GraphNode, *uint64) Result
-	fngraphNodeGetType                                   func(GraphNode, *GraphNodeType) Result
-	fngraphNodeSetEnabled                                func(GraphExec, GraphNode, uint32) Result
-	fngraphNodeSetParams                                 func(GraphNode, *GraphNodeParams) Result
-	fngraphReleaseUserObject                             func(Graph, UserObject, uint32) Result
-	fngraphRemoveDependencies                            func(Graph, *GraphNode, *GraphNode, *GraphEdgeData, uint) Result
-	fngraphRetainUserObject                              func(Graph, UserObject, uint32, uint32) Result
-	fngraphUpload                                        func(GraphExec, Stream) Result
-	fngraphicsMapResources                               func(uint32, *GraphicsResource, Stream) Result
-	fngraphicsResourceGetMappedMipmappedArray            func(*MipmappedArray, GraphicsResource) Result
-	fngraphicsResourceGetMappedPointer                   func(*DevicePtr, *uint, GraphicsResource) Result
-	fngraphicsResourceSetMapFlags                        func(GraphicsResource, uint32) Result
-	fngraphicsSubResourceGetMappedArray                  func(*Array, GraphicsResource, uint32, uint32) Result
-	fngraphicsUnmapResources                             func(uint32, *GraphicsResource, Stream) Result
-	fngraphicsUnregisterResource                         func(GraphicsResource) Result
-	fngreenCtxCreate                                     func(*GreenCtx, DevResourceDesc, Device, uint32) Result
-	fngreenCtxDestroy                                    func(GreenCtx) Result
-	fngreenCtxGetDevResource                             func(GreenCtx, *DevResource, DevResourceType) Result
-	fngreenCtxGetId                                      func(GreenCtx, *uint64) Result
-	fngreenCtxRecordEvent                                func(GreenCtx, Event) Result
-	fngreenCtxStreamCreate                               func(*Stream, GreenCtx, uint32, int32) Result
-	fngreenCtxWaitEvent                                  func(GreenCtx, Event) Result
-	fnImportExternalMemory                               func(*ExternalMemory, *ExternalMemoryHandleDesc) Result
-	fnImportExternalSemaphore                            func(*ExternalSemaphore, *ExternalSemaphoreHandleDesc) Result
-	fnInit                                               func(uint32) Result
-	fnipcCloseMemHandle                                  func(DevicePtr) Result
-	fnipcGetEventHandle                                  func(*IpcEventHandle, Event) Result
-	fnipcGetMemHandle                                    func(*IpcMemHandle, DevicePtr) Result
-	fnIpcOpenEventHandle                                 func(*Event, IpcEventHandle) Result
-	fnIpcOpenMemHandle                                   func(*DevicePtr, IpcMemHandle, uint32) Result
-	fnkernelGetAttribute                                 func(*int32, FunctionAttribute, Kernel, Device) Result
-	fnkernelGetFunction                                  func(*Function, Kernel) Result
-	fnkernelGetLibrary                                   func(*Library, Kernel) Result
-	fnkernelGetName                                      func(**byte, Kernel) Result
-	fnkernelGetParamCount                                func(Kernel, *uint) Result
-	fnkernelGetParamInfo                                 func(Kernel, uint, *uint, *uint) Result
-	fnkernelSetAttribute                                 func(FunctionAttribute, int32, Kernel, Device) Result
-	fnkernelSetCacheConfig                               func(Kernel, FuncCacheConfig, Device) Result
-	fnlaunch                                             func(Function) Result
-	fnlaunchCooperativeKernel                            func(Function, uint32, uint32, uint32, uint32, uint32, uint32, uint32, Stream, *uintptr) Result
-	fnLaunchCooperativeKernelMultiDevice                 func(*LaunchParams, uint32, uint32) Result
-	fnlaunchGrid                                         func(Function, int32, int32) Result
-	fnlaunchGridAsync                                    func(Function, int32, int32, Stream) Result
-	fnlaunchHostFunc                                     func(Stream, uintptr, uintptr, uint32) Result
-	fnlaunchKernel                                       func(Function, uint32, uint32, uint32, uint32, uint32, uint32, uint32, Stream, *uintptr, unsafe.Pointer) Result
-	fnlaunchKernelEx                                     func(*LaunchConfig, Function, *uintptr, *uintptr) Result
-	fnlibraryEnumerateKernels                            func(*Kernel, uint32, Library) Result
-	fnlibraryGetGlobal                                   func(*DevicePtr, *uint, Library, *byte) Result
-	fnlibraryGetKernel                                   func(*Kernel, Library, *byte) Result
-	fnlibraryGetKernelCount                              func(*uint32, Library) Result
-	fnlibraryGetManaged                                  func(*DevicePtr, *uint, Library, *byte) Result
-	fnlibraryGetModule                                   func(*Module, Library) Result
-	fnlibraryGetUnifiedFunction                          func(*uintptr, Library, *byte) Result
-	fnlibraryLoadData                                    func(*Library, unsafe.Pointer, *JITOption, *uintptr, uint32, *LibraryOption, *uintptr, uint32) Result
-	fnlibraryLoadFromFile                                func(*Library, *byte, *JITOption, *uintptr, uint32, *LibraryOption, *uintptr, uint32) Result
-	fnlibraryUnload                                      func(Library) Result
-	fnlinkAddData                                        func(LinkState, JitInputType, unsafe.Pointer, uint, *byte, uint32, *JITOption, *uintptr) Result
-	fnlinkAddFile                                        func(LinkState, JitInputType, *byte, uint32, *JITOption, *uintptr) Result
-	fnlinkComplete                                       func(LinkState, *uintptr, *uint) Result
-	fnLinkCreate                                         func(uint32, *JITOption, *uintptr, *LinkState) Result
-	fnlinkDestroy                                        func(LinkState) Result
-	fnLogsCurrent                                        func(*uint32, uint32) Result
-	fnLogsDumpToFile                                     func(*uint32, *byte, uint32) Result
-	fnLogsDumpToMemory                                   func(*uint32, *byte, *uint, uint32) Result
-	fnLogsRegisterCallback                               func(uintptr, uintptr, *LogsCallbackHandle) Result
-	fnlogsUnregisterCallback                             func(LogsCallbackHandle) Result
-	fnmemAddressFree                                     func(DevicePtr, uint) Result
-	fnmemAddressReserve                                  func(*DevicePtr, uint, uint, DevicePtr, uint64) Result
-	fnmemAdvise                                          func(DevicePtr, uint, MemAdvise, MemLocation) Result
-	fnMemAlloc                                           func(*DevicePtr, uint) Result
-	fnmemAllocAsync                                      func(*DevicePtr, uint, Stream) Result
-	fnmemAllocFromPoolAsync                              func(*DevicePtr, uint, MemoryPool, Stream) Result
-	fnMemAllocHost                                       func(*uintptr, uint) Result
-	fnMemAllocManaged                                    func(*DevicePtr, uint, uint32) Result
-	fnMemAllocPitch                                      func(*DevicePtr, *uint, uint, uint, uint32) Result
-	fnmemBatchDecompressAsync                            func(*MemDecompressParams, uint, uint32, *uint, Stream) Result
-	fnMemCreate                                          func(*uint64, uint, *MemAllocationProp, uint64) Result
-	fnmemDiscardAndPrefetchBatchAsync                    func(*DevicePtr, *uint, uint, *MemLocation, *uint, uint, uint64, Stream) Result
-	fnmemDiscardBatchAsync                               func(*DevicePtr, *uint, uint, uint64, Stream) Result
-	fnMemExportToShareableHandle                         func(uintptr, uint64, MemAllocationHandleType, uint64) Result
-	fnmemFree                                            func(DevicePtr) Result
-	fnmemFreeAsync                                       func(DevicePtr, Stream) Result
-	fnMemFreeHost                                        func(uintptr) Result
-	fnmemGetAccess                                       func(*uint64, *MemLocation, DevicePtr) Result
-	fnmemGetAddressRange                                 func(*DevicePtr, *uint, DevicePtr) Result
-	fnMemGetAllocationGranularity                        func(*uint, *MemAllocationProp, MemallocationgranularityFlags) Result
-	fnMemGetAllocationPropertiesFromHandle               func(*MemAllocationProp, uint64) Result
-	fnMemGetDefaultMemPool                               func(*MemoryPool, *MemLocation, MemAllocationType) Result
-	fnmemGetHandleForAddressRange                        func(uintptr, DevicePtr, uint, MemRangeHandleType, uint64) Result
-	fnMemGetInfo                                         func(*uint, *uint) Result
-	fnMemGetMemPool                                      func(*MemoryPool, *MemLocation, MemAllocationType) Result
-	fnMemHostAlloc                                       func(*uintptr, uint, uint32) Result
-	fnMemHostGetDevicePointer                            func(*DevicePtr, uintptr, uint32) Result
-	fnMemHostGetFlags                                    func(*uint32, uintptr) Result
-	fnMemHostRegister                                    func(uintptr, uint, uint32) Result
-	fnMemHostUnregister                                  func(uintptr) Result
-	fnMemImportFromShareableHandle                       func(*uint64, uintptr, MemAllocationHandleType) Result
-	fnmemMap                                             func(DevicePtr, uint, uint, uint64, uint64) Result
-	fnmemMapArrayAsync                                   func(*ArrayMapInfo, uint32, Stream) Result
-	fnmemPoolCreate                                      func(*MemoryPool, *MemPoolProps) Result
-	fnmemPoolDestroy                                     func(MemoryPool) Result
-	fnmemPoolExportPointer                               func(*MemPoolPtrExportData, DevicePtr) Result
-	fnmemPoolExportToShareableHandle                     func(uintptr, MemoryPool, MemAllocationHandleType, uint64) Result
-	fnmemPoolGetAccess                                   func(*MemaccessFlags, MemoryPool, *MemLocation) Result
-	fnmemPoolGetAttribute                                func(MemoryPool, MempoolAttribute, uintptr) Result
-	fnmemPoolImportFromShareableHandle                   func(*MemoryPool, uintptr, MemAllocationHandleType, uint64) Result
-	fnmemPoolImportPointer                               func(*DevicePtr, MemoryPool, *MemPoolPtrExportData) Result
-	fnmemPoolSetAccess                                   func(MemoryPool, *MemAccessDesc, uint) Result
-	fnmemPoolSetAttribute                                func(MemoryPool, MempoolAttribute, uintptr) Result
-	fnmemPoolTrimTo                                      func(MemoryPool, uint) Result
-	fnmemPrefetchAsync                                   func(DevicePtr, uint, MemLocation, uint32, Stream) Result
-	fnmemPrefetchBatchAsync                              func(*DevicePtr, *uint, uint, *MemLocation, *uint, uint, uint64, Stream) Result
-	fnmemRangeGetAttribute                               func(unsafe.Pointer, uint, MemRangeAttribute, DevicePtr, uint) Result
-	fnmemRangeGetAttributes                              func(*uintptr, *uint, *MemRangeAttribute, uint, DevicePtr, uint) Result
-	fnMemRelease                                         func(uint64) Result
-	fnMemRetainAllocationHandle                          func(*uint64, uintptr) Result
-	fnmemSetAccess                                       func(DevicePtr, uint, *MemAccessDesc, uint) Result
-	fnmemSetMemPool                                      func(*MemLocation, MemAllocationType, MemoryPool) Result
-	fnmemUnmap                                           func(DevicePtr, uint) Result
-	fnmemcpy                                             func(DevicePtr, DevicePtr, uint) Result
-	fnMemcpy2D                                           func(*Memcpy2d) Result
-	fnmemcpy2DAsync                                      func(*Memcpy2d, Stream) Result
-	fnMemcpy2DUnaligned                                  func(*Memcpy2d) Result
-	fnMemcpy3D                                           func(*Memcpy3d) Result
-	fnmemcpy3DAsync                                      func(*Memcpy3d, Stream) Result
-	fnmemcpy3DBatchAsync                                 func(uint, *Memcpy3dBatchOp, uint64, Stream) Result
-	fnMemcpy3DPeer                                       func(*Memcpy3dPeer) Result
-	fnmemcpy3DPeerAsync                                  func(*Memcpy3dPeer, Stream) Result
-	fnmemcpy3DWithAttributesAsync                        func(*Memcpy3dBatchOp, uint64, Stream) Result
-	fnmemcpyAsync                                        func(DevicePtr, DevicePtr, uint, Stream) Result
-	fnmemcpyAtoA                                         func(Array, uint, Array, uint, uint) Result
-	fnmemcpyAtoD                                         func(DevicePtr, Array, uint, uint) Result
-	fnmemcpyAtoH                                         func(unsafe.Pointer, Array, uint, uint) Result
-	fnmemcpyAtoHAsync                                    func(unsafe.Pointer, Array, uint, uint, Stream) Result
-	fnmemcpyBatchAsync                                   func(*DevicePtr, *DevicePtr, *uint, uint, *MemcpyAttributes, *uint, uint, Stream) Result
-	fnmemcpyDtoA                                         func(Array, uint, DevicePtr, uint) Result
-	fnmemcpyDtoD                                         func(DevicePtr, DevicePtr, uint) Result
-	fnmemcpyDtoDAsync                                    func(DevicePtr, DevicePtr, uint, Stream) Result
-	fnmemcpyDtoH                                         func(unsafe.Pointer, DevicePtr, uint) Result
-	fnmemcpyDtoHAsync                                    func(unsafe.Pointer, DevicePtr, uint, Stream) Result
-	fnmemcpyHtoA                                         func(Array, uint, unsafe.Pointer, uint) Result
-	fnmemcpyHtoAAsync                                    func(Array, uint, unsafe.Pointer, uint, Stream) Result
-	fnmemcpyHtoD                                         func(DevicePtr, unsafe.Pointer, uint) Result
-	fnmemcpyHtoDAsync                                    func(DevicePtr, unsafe.Pointer, uint, Stream) Result
-	fnmemcpyPeer                                         func(DevicePtr, Context, DevicePtr, Context, uint) Result
-	fnmemcpyPeerAsync                                    func(DevicePtr, Context, DevicePtr, Context, uint, Stream) Result
-	fnmemcpyWithAttributesAsync                          func(DevicePtr, DevicePtr, uint, *MemcpyAttributes, Stream) Result
-	fnmemsetD16                                          func(DevicePtr, uint16, uint) Result
-	fnmemsetD16Async                                     func(DevicePtr, uint16, uint, Stream) Result
-	fnmemsetD2D16                                        func(DevicePtr, uint, uint16, uint, uint) Result
-	fnmemsetD2D16Async                                   func(DevicePtr, uint, uint16, uint, uint, Stream) Result
-	fnmemsetD2D32                                        func(DevicePtr, uint, uint32, uint, uint) Result
-	fnmemsetD2D32Async                                   func(DevicePtr, uint, uint32, uint, uint, Stream) Result
-	fnmemsetD2D8                                         func(DevicePtr, uint, uint8, uint, uint) Result
-	fnmemsetD2D8Async                                    func(DevicePtr, uint, uint8, uint, uint, Stream) Result
-	fnmemsetD32                                          func(DevicePtr, uint32, uint) Result
-	fnmemsetD32Async                                     func(DevicePtr, uint32, uint, Stream) Result
-	fnmemsetD8                                           func(DevicePtr, uint8, uint) Result
-	fnmemsetD8Async                                      func(DevicePtr, uint8, uint, Stream) Result
-	fnmipmappedArrayCreate                               func(*MipmappedArray, *Array3dDescriptor, uint32) Result
-	fnmipmappedArrayDestroy                              func(MipmappedArray) Result
-	fnmipmappedArrayGetLevel                             func(*Array, MipmappedArray, uint32) Result
-	fnmipmappedArrayGetMemoryRequirements                func(*ArrayMemoryRequirements, MipmappedArray, Device) Result
-	fnmipmappedArrayGetSparseProperties                  func(*ArraySparseProperties, MipmappedArray) Result
-	fnmoduleEnumerateFunctions                           func(*Function, uint32, Module) Result
-	fnmoduleGetFunction                                  func(*Function, Module, *byte) Result
-	fnmoduleGetFunctionCount                             func(*uint32, Module) Result
-	fnmoduleGetGlobal                                    func(*DevicePtr, *uint, Module, *byte) Result
-	fnModuleGetLoadingMode                               func(*ModuleLoadingMode) Result
-	fnmoduleGetSurfRef                                   func(*SurfRef, Module, *byte) Result
-	fnmoduleGetTexRef                                    func(*TexRef, Module, *byte) Result
-	fnmoduleLoad                                         func(*Module, *byte) Result
-	fnmoduleLoadData                                     func(*Module, unsafe.Pointer) Result
-	fnmoduleLoadDataEx                                   func(*Module, unsafe.Pointer, uint32, *JITOption, *uintptr) Result
-	fnmoduleLoadFatBinary                                func(*Module, unsafe.Pointer) Result
-	fnmoduleUnload                                       func(Module) Result
-	fnmulticastAddDevice                                 func(uint64, Device) Result
-	fnmulticastBindAddr                                  func(uint64, uint, DevicePtr, uint, uint64) Result
-	fnmulticastBindAddrV2                                func(uint64, Device, uint, DevicePtr, uint, uint64) Result
-	fnMulticastBindMem                                   func(uint64, uint, uint64, uint, uint, uint64) Result
-	fnmulticastBindMemV2                                 func(uint64, Device, uint, uint64, uint, uint, uint64) Result
-	fnMulticastCreate                                    func(*uint64, *MulticastObjectProp) Result
-	fnMulticastGetGranularity                            func(*uint, *MulticastObjectProp, MulticastgranularityFlags) Result
-	fnmulticastUnbind                                    func(uint64, Device, uint, uint) Result
-	fnoccupancyAvailableDynamicSMemPerBlock              func(*uint, Function, int32, int32) Result
-	fnoccupancyMaxActiveBlocksPerMultiprocessor          func(*int32, Function, int32, uint) Result
-	fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags func(*int32, Function, int32, uint, uint32) Result
-	fnoccupancyMaxActiveClusters                         func(*int32, Function, *LaunchConfig) Result
-	fnoccupancyMaxPotentialBlockSize                     func(*int32, *int32, Function, uintptr, uint, int32) Result
-	fnoccupancyMaxPotentialBlockSizeWithFlags            func(*int32, *int32, Function, uintptr, uint, int32, uint32) Result
-	fnoccupancyMaxPotentialClusterSize                   func(*int32, Function, *LaunchConfig) Result
-	fnparamSetSize                                       func(Function, uint32) Result
-	fnparamSetTexRef                                     func(Function, int32, TexRef) Result
-	fnparamSetf                                          func(Function, int32, float32) Result
-	fnparamSeti                                          func(Function, int32, uint32) Result
-	fnparamSetv                                          func(Function, int32, unsafe.Pointer, uint32) Result
-	fnpointerGetAttribute                                func(unsafe.Pointer, PointerAttribute, DevicePtr) Result
-	fnpointerGetAttributes                               func(uint32, *PointerAttribute, *uintptr, DevicePtr) Result
-	fnpointerSetAttribute                                func(uintptr, PointerAttribute, DevicePtr) Result
-	fnsignalExternalSemaphoresAsync                      func(*ExternalSemaphore, *ExternalSemaphoreSignalParams, uint32, Stream) Result
-	fnstreamAddCallback                                  func(Stream, uintptr, uintptr, uint32) Result
-	fnstreamAttachMemAsync                               func(Stream, DevicePtr, uint, uint32) Result
-	fnstreamBatchMemOp                                   func(Stream, uint32, *[6]uint64, uint32) Result
-	fnstreamBeginCapture                                 func(Stream, StreamCaptureMode) Result
-	fnstreamBeginCaptureToCig                            func(Stream, *StreamCigCaptureParams) Result
-	fnstreamBeginCaptureToGraph                          func(Stream, Graph, *GraphNode, *GraphEdgeData, uint, StreamCaptureMode) Result
-	fnstreamCopyAttributes                               func(Stream, Stream) Result
-	fnstreamCreate                                       func(*Stream, uint32) Result
-	fnstreamCreateWithPriority                           func(*Stream, uint32, int32) Result
-	fnstreamDestroy                                      func(Stream) Result
-	fnstreamEndCapture                                   func(Stream, *Graph) Result
-	fnstreamEndCaptureToCig                              func(Stream) Result
-	fnstreamGetAttribute                                 func(Stream, int32, *[8]uint64) Result
-	fnstreamGetCaptureInfo                               func(Stream, *StreamCaptureStatus, *uint64, *Graph, uintptr, uintptr, *uint) Result
-	fnstreamGetCtx                                       func(Stream, *Context, *GreenCtx) Result
-	fnstreamGetDevResource                               func(Stream, *DevResource, DevResourceType) Result
-	fnstreamGetDevice                                    func(Stream, *Device) Result
-	fnstreamGetFlags                                     func(Stream, *uint32) Result
-	fnstreamGetGreenCtx                                  func(Stream, *GreenCtx) Result
-	fnstreamGetId                                        func(Stream, *uint64) Result
-	fnstreamGetPriority                                  func(Stream, *int32) Result
-	fnstreamIsCapturing                                  func(Stream, *StreamCaptureStatus) Result
-	fnstreamQuery                                        func(Stream) Result
-	fnstreamSetAttribute                                 func(Stream, int32, *[8]uint64) Result
-	fnstreamSynchronize                                  func(Stream) Result
-	fnstreamUpdateCaptureDependencies                    func(Stream, *GraphNode, *GraphEdgeData, uint, uint32) Result
-	fnstreamWaitEvent                                    func(Stream, Event, uint32) Result
-	fnstreamWaitValue32                                  func(Stream, DevicePtr, uint32, uint32) Result
-	fnstreamWaitValue64                                  func(Stream, DevicePtr, uint64, uint32) Result
-	fnstreamWriteValue32                                 func(Stream, DevicePtr, uint32, uint32) Result
-	fnstreamWriteValue64                                 func(Stream, DevicePtr, uint64, uint32) Result
-	fnSurfObjectCreate                                   func(*uint64, *ResourceDesc) Result
-	fnSurfObjectDestroy                                  func(uint64) Result
-	fnSurfObjectGetResourceDesc                          func(*ResourceDesc, uint64) Result
-	fnsurfRefGetArray                                    func(*Array, SurfRef) Result
-	fnsurfRefSetArray                                    func(SurfRef, Array, uint32) Result
-	fnTensorMapEncodeIm2col                              func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *int32, *int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
-	fnTensorMapEncodeIm2colWide                          func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, int32, int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapIm2ColWideMode, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
-	fnTensorMapEncodeTiled                               func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
-	fnTensorMapReplaceAddress                            func(*TensorMap, uintptr) Result
-	fnTexObjectCreate                                    func(*uint64, *ResourceDesc, *TextureDesc, *ResourceViewDesc) Result
-	fnTexObjectDestroy                                   func(uint64) Result
-	fnTexObjectGetResourceDesc                           func(*ResourceDesc, uint64) Result
-	fnTexObjectGetResourceViewDesc                       func(*ResourceViewDesc, uint64) Result
-	fnTexObjectGetTextureDesc                            func(*TextureDesc, uint64) Result
-	fntexRefCreate                                       func(*TexRef) Result
-	fntexRefDestroy                                      func(TexRef) Result
-	fntexRefGetAddress                                   func(*DevicePtr, TexRef) Result
-	fntexRefGetAddressMode                               func(*AddressMode, TexRef, int32) Result
-	fntexRefGetArray                                     func(*Array, TexRef) Result
-	fntexRefGetBorderColor                               func(*float32, TexRef) Result
-	fntexRefGetFilterMode                                func(*FilterMode, TexRef) Result
-	fntexRefGetFlags                                     func(*uint32, TexRef) Result
-	fntexRefGetFormat                                    func(*ArrayFormat, *int32, TexRef) Result
-	fntexRefGetMaxAnisotropy                             func(*int32, TexRef) Result
-	fntexRefGetMipmapFilterMode                          func(*FilterMode, TexRef) Result
-	fntexRefGetMipmapLevelBias                           func(*float32, TexRef) Result
-	fntexRefGetMipmapLevelClamp                          func(*float32, *float32, TexRef) Result
-	fntexRefGetMipmappedArray                            func(*MipmappedArray, TexRef) Result
-	fntexRefSetAddress                                   func(*uint, TexRef, DevicePtr, uint) Result
-	fntexRefSetAddress2D                                 func(TexRef, *ArrayDescriptor, DevicePtr, uint) Result
-	fntexRefSetAddressMode                               func(TexRef, int32, AddressMode) Result
-	fntexRefSetArray                                     func(TexRef, Array, uint32) Result
-	fntexRefSetBorderColor                               func(TexRef, *float32) Result
-	fntexRefSetFilterMode                                func(TexRef, FilterMode) Result
-	fntexRefSetFlags                                     func(TexRef, uint32) Result
-	fntexRefSetFormat                                    func(TexRef, ArrayFormat, int32) Result
-	fntexRefSetMaxAnisotropy                             func(TexRef, uint32) Result
-	fntexRefSetMipmapFilterMode                          func(TexRef, FilterMode) Result
-	fntexRefSetMipmapLevelBias                           func(TexRef, float32) Result
-	fntexRefSetMipmapLevelClamp                          func(TexRef, float32, float32) Result
-	fntexRefSetMipmappedArray                            func(TexRef, MipmappedArray, uint32) Result
-	fnThreadExchangeStreamCaptureMode                    func(*StreamCaptureMode) Result
-	fnuserObjectCreate                                   func(*UserObject, uintptr, uintptr, uint32, uint32) Result
-	fnuserObjectRelease                                  func(UserObject, uint32) Result
-	fnuserObjectRetain                                   func(UserObject, uint32) Result
-	fnwaitExternalSemaphoresAsync                        func(*ExternalSemaphore, *ExternalSemaphoreWaitParams, uint32, Stream) Result
+	symarray3DCreate                                      uintptr
+	symarray3DGetDescriptor                               uintptr
+	symarrayCreate                                        uintptr
+	symarrayDestroy                                       uintptr
+	symarrayGetDescriptor                                 uintptr
+	symarrayGetMemoryRequirements                         uintptr
+	symarrayGetPlane                                      uintptr
+	symarrayGetSparseProperties                           uintptr
+	symCheckpointProcessCheckpoint                        uintptr
+	symCheckpointProcessGetRestoreThreadId                uintptr
+	symCheckpointProcessGetState                          uintptr
+	symCheckpointProcessLock                              uintptr
+	symCheckpointProcessRestore                           uintptr
+	symCheckpointProcessUnlock                            uintptr
+	symcoredumpDeregisterCompleteCallback                 uintptr
+	symcoredumpDeregisterStartCallback                    uintptr
+	symCoredumpGetAttribute                               uintptr
+	symCoredumpGetAttributeGlobal                         uintptr
+	symCoredumpRegisterCompleteCallback                   uintptr
+	symCoredumpRegisterStartCallback                      uintptr
+	symCoredumpSetAttribute                               uintptr
+	symCoredumpSetAttributeGlobal                         uintptr
+	symctxAttach                                          uintptr
+	symctxCreate                                          uintptr
+	symctxDestroy                                         uintptr
+	symctxDetach                                          uintptr
+	symctxDisablePeerAccess                               uintptr
+	symctxEnablePeerAccess                                uintptr
+	symctxFromGreenCtx                                    uintptr
+	symctxGetApiVersion                                   uintptr
+	symCtxGetCacheConfig                                  uintptr
+	symctxGetCurrent                                      uintptr
+	symctxGetDevResource                                  uintptr
+	symCtxGetDevice                                       uintptr
+	symctxGetDeviceV2                                     uintptr
+	symCtxGetExecAffinity                                 uintptr
+	symCtxGetFlags                                        uintptr
+	symctxGetId                                           uintptr
+	symCtxGetLimit                                        uintptr
+	symCtxGetSharedMemConfig                              uintptr
+	symCtxGetStreamPriorityRange                          uintptr
+	symctxPopCurrent                                      uintptr
+	symctxPushCurrent                                     uintptr
+	symctxRecordEvent                                     uintptr
+	symCtxResetPersistingL2Cache                          uintptr
+	symCtxSetCacheConfig                                  uintptr
+	symctxSetCurrent                                      uintptr
+	symCtxSetFlags                                        uintptr
+	symCtxSetLimit                                        uintptr
+	symCtxSetSharedMemConfig                              uintptr
+	symCtxSynchronize                                     uintptr
+	symctxSynchronizeV2                                   uintptr
+	symctxWaitEvent                                       uintptr
+	symdestroyExternalMemory                              uintptr
+	symdestroyExternalSemaphore                           uintptr
+	symDevResourceGenerateDesc                            uintptr
+	symDevSmResourceSplit                                 uintptr
+	symDevSmResourceSplitByCount                          uintptr
+	symdeviceCanAccessPeer                                uintptr
+	symdeviceComputeCapability                            uintptr
+	symdeviceGet                                          uintptr
+	symdeviceGetAttribute                                 uintptr
+	symdeviceGetByPCIBusId                                uintptr
+	symDeviceGetCount                                     uintptr
+	symdeviceGetDefaultMemPool                            uintptr
+	symdeviceGetDevResource                               uintptr
+	symdeviceGetExecAffinitySupport                       uintptr
+	symdeviceGetGraphMemAttribute                         uintptr
+	symdeviceGetHostAtomicCapabilities                    uintptr
+	symdeviceGetLuid                                      uintptr
+	symdeviceGetMemPool                                   uintptr
+	symdeviceGetName                                      uintptr
+	symdeviceGetNvSciSyncAttributes                       uintptr
+	symdeviceGetP2PAtomicCapabilities                     uintptr
+	symdeviceGetP2PAttribute                              uintptr
+	symdeviceGetPCIBusId                                  uintptr
+	symdeviceGetProperties                                uintptr
+	symdeviceGetTexture1DLinearMaxWidth                   uintptr
+	symdeviceGetUuid                                      uintptr
+	symdeviceGraphMemTrim                                 uintptr
+	symdevicePrimaryCtxGetState                           uintptr
+	symdevicePrimaryCtxRelease                            uintptr
+	symdevicePrimaryCtxReset                              uintptr
+	symdevicePrimaryCtxRetain                             uintptr
+	symdevicePrimaryCtxSetFlags                           uintptr
+	symdeviceRegisterAsyncNotification                    uintptr
+	symdeviceSetGraphMemAttribute                         uintptr
+	symdeviceSetMemPool                                   uintptr
+	symdeviceTotalMem                                     uintptr
+	symdeviceUnregisterAsyncNotification                  uintptr
+	symDriverGetVersion                                   uintptr
+	symeventCreate                                        uintptr
+	symeventDestroy                                       uintptr
+	symeventElapsedTime                                   uintptr
+	symeventQuery                                         uintptr
+	symeventRecord                                        uintptr
+	symeventRecordWithFlags                               uintptr
+	symeventSynchronize                                   uintptr
+	symexternalMemoryGetMappedBuffer                      uintptr
+	symexternalMemoryGetMappedMipmappedArray              uintptr
+	symFlushGPUDirectRDMAWrites                           uintptr
+	symfuncGetAttribute                                   uintptr
+	symfuncGetModule                                      uintptr
+	symfuncGetName                                        uintptr
+	symfuncGetParamCount                                  uintptr
+	symfuncGetParamInfo                                   uintptr
+	symfuncIsLoaded                                       uintptr
+	symfuncLoad                                           uintptr
+	symfuncSetAttribute                                   uintptr
+	symfuncSetBlockShape                                  uintptr
+	symfuncSetCacheConfig                                 uintptr
+	symfuncSetSharedMemConfig                             uintptr
+	symfuncSetSharedSize                                  uintptr
+	symGetExportTable                                     uintptr
+	symGetProcAddress                                     uintptr
+	symgraphAddBatchMemOpNode                             uintptr
+	symgraphAddChildGraphNode                             uintptr
+	symgraphAddDependencies                               uintptr
+	symgraphAddEmptyNode                                  uintptr
+	symgraphAddEventRecordNode                            uintptr
+	symgraphAddEventWaitNode                              uintptr
+	symgraphAddExternalSemaphoresSignalNode               uintptr
+	symgraphAddExternalSemaphoresWaitNode                 uintptr
+	symgraphAddHostNode                                   uintptr
+	symgraphAddKernelNode                                 uintptr
+	symgraphAddMemAllocNode                               uintptr
+	symgraphAddMemFreeNode                                uintptr
+	symgraphAddMemcpyNode                                 uintptr
+	symgraphAddMemsetNode                                 uintptr
+	symgraphAddNode                                       uintptr
+	symgraphBatchMemOpNodeGetParams                       uintptr
+	symgraphBatchMemOpNodeSetParams                       uintptr
+	symgraphChildGraphNodeGetGraph                        uintptr
+	symgraphClone                                         uintptr
+	symgraphConditionalHandleCreate                       uintptr
+	symgraphCreate                                        uintptr
+	symgraphDebugDotPrint                                 uintptr
+	symgraphDestroy                                       uintptr
+	symgraphDestroyNode                                   uintptr
+	symgraphEventRecordNodeGetEvent                       uintptr
+	symgraphEventRecordNodeSetEvent                       uintptr
+	symgraphEventWaitNodeGetEvent                         uintptr
+	symgraphEventWaitNodeSetEvent                         uintptr
+	symgraphExecBatchMemOpNodeSetParams                   uintptr
+	symgraphExecChildGraphNodeSetParams                   uintptr
+	symgraphExecDestroy                                   uintptr
+	symgraphExecEventRecordNodeSetEvent                   uintptr
+	symgraphExecEventWaitNodeSetEvent                     uintptr
+	symgraphExecExternalSemaphoresSignalNodeSetParams     uintptr
+	symgraphExecExternalSemaphoresWaitNodeSetParams       uintptr
+	symgraphExecGetFlags                                  uintptr
+	symgraphExecGetId                                     uintptr
+	symgraphExecHostNodeSetParams                         uintptr
+	symgraphExecKernelNodeSetParams                       uintptr
+	symgraphExecMemcpyNodeSetParams                       uintptr
+	symgraphExecMemsetNodeSetParams                       uintptr
+	symgraphExecNodeSetParams                             uintptr
+	symgraphExecUpdate                                    uintptr
+	symgraphExternalSemaphoresSignalNodeGetParams         uintptr
+	symgraphExternalSemaphoresSignalNodeSetParams         uintptr
+	symgraphExternalSemaphoresWaitNodeGetParams           uintptr
+	symgraphExternalSemaphoresWaitNodeSetParams           uintptr
+	symgraphGetEdges                                      uintptr
+	symgraphGetId                                         uintptr
+	symgraphGetNodes                                      uintptr
+	symgraphGetRootNodes                                  uintptr
+	symgraphHostNodeGetParams                             uintptr
+	symgraphHostNodeSetParams                             uintptr
+	symgraphInstantiate                                   uintptr
+	symgraphInstantiateWithParams                         uintptr
+	symgraphKernelNodeCopyAttributes                      uintptr
+	symgraphKernelNodeGetAttribute                        uintptr
+	symgraphKernelNodeGetParams                           uintptr
+	symgraphKernelNodeSetAttribute                        uintptr
+	symgraphKernelNodeSetParams                           uintptr
+	symgraphLaunch                                        uintptr
+	symgraphMemAllocNodeGetParams                         uintptr
+	symgraphMemFreeNodeGetParams                          uintptr
+	symgraphMemcpyNodeGetParams                           uintptr
+	symgraphMemcpyNodeSetParams                           uintptr
+	symgraphMemsetNodeGetParams                           uintptr
+	symgraphMemsetNodeSetParams                           uintptr
+	symgraphNodeFindInClone                               uintptr
+	symgraphNodeGetContainingGraph                        uintptr
+	symgraphNodeGetDependencies                           uintptr
+	symgraphNodeGetDependentNodes                         uintptr
+	symgraphNodeGetEnabled                                uintptr
+	symgraphNodeGetLocalId                                uintptr
+	symgraphNodeGetParams                                 uintptr
+	symgraphNodeGetToolsId                                uintptr
+	symgraphNodeGetType                                   uintptr
+	symgraphNodeSetEnabled                                uintptr
+	symgraphNodeSetParams                                 uintptr
+	symgraphReleaseUserObject                             uintptr
+	symgraphRemoveDependencies                            uintptr
+	symgraphRetainUserObject                              uintptr
+	symgraphUpload                                        uintptr
+	symgraphicsMapResources                               uintptr
+	symgraphicsResourceGetMappedMipmappedArray            uintptr
+	symgraphicsResourceGetMappedPointer                   uintptr
+	symgraphicsResourceSetMapFlags                        uintptr
+	symgraphicsSubResourceGetMappedArray                  uintptr
+	symgraphicsUnmapResources                             uintptr
+	symgraphicsUnregisterResource                         uintptr
+	symgreenCtxCreate                                     uintptr
+	symgreenCtxDestroy                                    uintptr
+	symgreenCtxGetDevResource                             uintptr
+	symgreenCtxGetId                                      uintptr
+	symgreenCtxRecordEvent                                uintptr
+	symgreenCtxStreamCreate                               uintptr
+	symgreenCtxWaitEvent                                  uintptr
+	symImportExternalMemory                               uintptr
+	symImportExternalSemaphore                            uintptr
+	symInit                                               uintptr
+	symipcCloseMemHandle                                  uintptr
+	symipcGetEventHandle                                  uintptr
+	symipcGetMemHandle                                    uintptr
+	fnIpcOpenEventHandle                                  func(*Event, IpcEventHandle) Result
+	fnIpcOpenMemHandle                                    func(*DevicePtr, IpcMemHandle, uint32) Result
+	symkernelGetAttribute                                 uintptr
+	symkernelGetFunction                                  uintptr
+	symkernelGetLibrary                                   uintptr
+	symkernelGetName                                      uintptr
+	symkernelGetParamCount                                uintptr
+	symkernelGetParamInfo                                 uintptr
+	symkernelSetAttribute                                 uintptr
+	symkernelSetCacheConfig                               uintptr
+	symlaunch                                             uintptr
+	symlaunchCooperativeKernel                            uintptr
+	symLaunchCooperativeKernelMultiDevice                 uintptr
+	symlaunchGrid                                         uintptr
+	symlaunchGridAsync                                    uintptr
+	symlaunchHostFunc                                     uintptr
+	symlaunchKernel                                       uintptr
+	symlaunchKernelEx                                     uintptr
+	symlibraryEnumerateKernels                            uintptr
+	symlibraryGetGlobal                                   uintptr
+	symlibraryGetKernel                                   uintptr
+	symlibraryGetKernelCount                              uintptr
+	symlibraryGetManaged                                  uintptr
+	symlibraryGetModule                                   uintptr
+	symlibraryGetUnifiedFunction                          uintptr
+	symlibraryLoadData                                    uintptr
+	symlibraryLoadFromFile                                uintptr
+	symlibraryUnload                                      uintptr
+	symlinkAddData                                        uintptr
+	symlinkAddFile                                        uintptr
+	symlinkComplete                                       uintptr
+	symLinkCreate                                         uintptr
+	symlinkDestroy                                        uintptr
+	symLogsCurrent                                        uintptr
+	symLogsDumpToFile                                     uintptr
+	symLogsDumpToMemory                                   uintptr
+	symLogsRegisterCallback                               uintptr
+	symlogsUnregisterCallback                             uintptr
+	symmemAddressFree                                     uintptr
+	symmemAddressReserve                                  uintptr
+	fnmemAdvise                                           func(DevicePtr, uint, MemAdvise, MemLocation) Result
+	symMemAlloc                                           uintptr
+	symmemAllocAsync                                      uintptr
+	symmemAllocFromPoolAsync                              uintptr
+	symMemAllocHost                                       uintptr
+	symMemAllocManaged                                    uintptr
+	symMemAllocPitch                                      uintptr
+	symmemBatchDecompressAsync                            uintptr
+	symMemCreate                                          uintptr
+	symmemDiscardAndPrefetchBatchAsync                    uintptr
+	symmemDiscardBatchAsync                               uintptr
+	symMemExportToShareableHandle                         uintptr
+	symmemFree                                            uintptr
+	symmemFreeAsync                                       uintptr
+	symMemFreeHost                                        uintptr
+	symmemGetAccess                                       uintptr
+	symmemGetAddressRange                                 uintptr
+	symMemGetAllocationGranularity                        uintptr
+	symMemGetAllocationPropertiesFromHandle               uintptr
+	symMemGetDefaultMemPool                               uintptr
+	symmemGetHandleForAddressRange                        uintptr
+	symMemGetInfo                                         uintptr
+	symMemGetMemPool                                      uintptr
+	symMemHostAlloc                                       uintptr
+	symMemHostGetDevicePointer                            uintptr
+	symMemHostGetFlags                                    uintptr
+	symMemHostRegister                                    uintptr
+	symMemHostUnregister                                  uintptr
+	symMemImportFromShareableHandle                       uintptr
+	symmemMap                                             uintptr
+	symmemMapArrayAsync                                   uintptr
+	symmemPoolCreate                                      uintptr
+	symmemPoolDestroy                                     uintptr
+	symmemPoolExportPointer                               uintptr
+	symmemPoolExportToShareableHandle                     uintptr
+	symmemPoolGetAccess                                   uintptr
+	symmemPoolGetAttribute                                uintptr
+	symmemPoolImportFromShareableHandle                   uintptr
+	symmemPoolImportPointer                               uintptr
+	symmemPoolSetAccess                                   uintptr
+	symmemPoolSetAttribute                                uintptr
+	symmemPoolTrimTo                                      uintptr
+	fnmemPrefetchAsync                                    func(DevicePtr, uint, MemLocation, uint32, Stream) Result
+	symmemPrefetchBatchAsync                              uintptr
+	symmemRangeGetAttribute                               uintptr
+	symmemRangeGetAttributes                              uintptr
+	symMemRelease                                         uintptr
+	symMemRetainAllocationHandle                          uintptr
+	symmemSetAccess                                       uintptr
+	symmemSetMemPool                                      uintptr
+	symmemUnmap                                           uintptr
+	symmemcpy                                             uintptr
+	symMemcpy2D                                           uintptr
+	symmemcpy2DAsync                                      uintptr
+	symMemcpy2DUnaligned                                  uintptr
+	symMemcpy3D                                           uintptr
+	symmemcpy3DAsync                                      uintptr
+	symmemcpy3DBatchAsync                                 uintptr
+	symMemcpy3DPeer                                       uintptr
+	symmemcpy3DPeerAsync                                  uintptr
+	symmemcpy3DWithAttributesAsync                        uintptr
+	symmemcpyAsync                                        uintptr
+	symmemcpyAtoA                                         uintptr
+	symmemcpyAtoD                                         uintptr
+	symmemcpyAtoH                                         uintptr
+	symmemcpyAtoHAsync                                    uintptr
+	symmemcpyBatchAsync                                   uintptr
+	symmemcpyDtoA                                         uintptr
+	symmemcpyDtoD                                         uintptr
+	symmemcpyDtoDAsync                                    uintptr
+	symmemcpyDtoH                                         uintptr
+	symmemcpyDtoHAsync                                    uintptr
+	symmemcpyHtoA                                         uintptr
+	symmemcpyHtoAAsync                                    uintptr
+	symmemcpyHtoD                                         uintptr
+	symmemcpyHtoDAsync                                    uintptr
+	symmemcpyPeer                                         uintptr
+	symmemcpyPeerAsync                                    uintptr
+	symmemcpyWithAttributesAsync                          uintptr
+	symmemsetD16                                          uintptr
+	symmemsetD16Async                                     uintptr
+	symmemsetD2D16                                        uintptr
+	symmemsetD2D16Async                                   uintptr
+	symmemsetD2D32                                        uintptr
+	symmemsetD2D32Async                                   uintptr
+	symmemsetD2D8                                         uintptr
+	symmemsetD2D8Async                                    uintptr
+	symmemsetD32                                          uintptr
+	symmemsetD32Async                                     uintptr
+	symmemsetD8                                           uintptr
+	symmemsetD8Async                                      uintptr
+	symmipmappedArrayCreate                               uintptr
+	symmipmappedArrayDestroy                              uintptr
+	symmipmappedArrayGetLevel                             uintptr
+	symmipmappedArrayGetMemoryRequirements                uintptr
+	symmipmappedArrayGetSparseProperties                  uintptr
+	symmoduleEnumerateFunctions                           uintptr
+	symmoduleGetFunction                                  uintptr
+	symmoduleGetFunctionCount                             uintptr
+	symmoduleGetGlobal                                    uintptr
+	symModuleGetLoadingMode                               uintptr
+	symmoduleGetSurfRef                                   uintptr
+	symmoduleGetTexRef                                    uintptr
+	symmoduleLoad                                         uintptr
+	symmoduleLoadData                                     uintptr
+	symmoduleLoadDataEx                                   uintptr
+	symmoduleLoadFatBinary                                uintptr
+	symmoduleUnload                                       uintptr
+	symmulticastAddDevice                                 uintptr
+	symmulticastBindAddr                                  uintptr
+	symmulticastBindAddrV2                                uintptr
+	symMulticastBindMem                                   uintptr
+	symmulticastBindMemV2                                 uintptr
+	symMulticastCreate                                    uintptr
+	symMulticastGetGranularity                            uintptr
+	symmulticastUnbind                                    uintptr
+	symoccupancyAvailableDynamicSMemPerBlock              uintptr
+	symoccupancyMaxActiveBlocksPerMultiprocessor          uintptr
+	symoccupancyMaxActiveBlocksPerMultiprocessorWithFlags uintptr
+	symoccupancyMaxActiveClusters                         uintptr
+	symoccupancyMaxPotentialBlockSize                     uintptr
+	symoccupancyMaxPotentialBlockSizeWithFlags            uintptr
+	symoccupancyMaxPotentialClusterSize                   uintptr
+	symparamSetSize                                       uintptr
+	symparamSetTexRef                                     uintptr
+	symparamSetf                                          uintptr
+	symparamSeti                                          uintptr
+	symparamSetv                                          uintptr
+	sympointerGetAttribute                                uintptr
+	sympointerGetAttributes                               uintptr
+	sympointerSetAttribute                                uintptr
+	symsignalExternalSemaphoresAsync                      uintptr
+	symstreamAddCallback                                  uintptr
+	symstreamAttachMemAsync                               uintptr
+	symstreamBatchMemOp                                   uintptr
+	symstreamBeginCapture                                 uintptr
+	symstreamBeginCaptureToCig                            uintptr
+	symstreamBeginCaptureToGraph                          uintptr
+	symstreamCopyAttributes                               uintptr
+	symstreamCreate                                       uintptr
+	symstreamCreateWithPriority                           uintptr
+	symstreamDestroy                                      uintptr
+	symstreamEndCapture                                   uintptr
+	symstreamEndCaptureToCig                              uintptr
+	symstreamGetAttribute                                 uintptr
+	symstreamGetCaptureInfo                               uintptr
+	symstreamGetCtx                                       uintptr
+	symstreamGetDevResource                               uintptr
+	symstreamGetDevice                                    uintptr
+	symstreamGetFlags                                     uintptr
+	symstreamGetGreenCtx                                  uintptr
+	symstreamGetId                                        uintptr
+	symstreamGetPriority                                  uintptr
+	symstreamIsCapturing                                  uintptr
+	symstreamQuery                                        uintptr
+	symstreamSetAttribute                                 uintptr
+	symstreamSynchronize                                  uintptr
+	symstreamUpdateCaptureDependencies                    uintptr
+	symstreamWaitEvent                                    uintptr
+	symstreamWaitValue32                                  uintptr
+	symstreamWaitValue64                                  uintptr
+	symstreamWriteValue32                                 uintptr
+	symstreamWriteValue64                                 uintptr
+	symSurfObjectCreate                                   uintptr
+	symSurfObjectDestroy                                  uintptr
+	symSurfObjectGetResourceDesc                          uintptr
+	symsurfRefGetArray                                    uintptr
+	symsurfRefSetArray                                    uintptr
+	symTensorMapEncodeIm2col                              uintptr
+	symTensorMapEncodeIm2colWide                          uintptr
+	symTensorMapEncodeTiled                               uintptr
+	symTensorMapReplaceAddress                            uintptr
+	symTexObjectCreate                                    uintptr
+	symTexObjectDestroy                                   uintptr
+	symTexObjectGetResourceDesc                           uintptr
+	symTexObjectGetResourceViewDesc                       uintptr
+	symTexObjectGetTextureDesc                            uintptr
+	symtexRefCreate                                       uintptr
+	symtexRefDestroy                                      uintptr
+	symtexRefGetAddress                                   uintptr
+	symtexRefGetAddressMode                               uintptr
+	symtexRefGetArray                                     uintptr
+	symtexRefGetBorderColor                               uintptr
+	symtexRefGetFilterMode                                uintptr
+	symtexRefGetFlags                                     uintptr
+	symtexRefGetFormat                                    uintptr
+	symtexRefGetMaxAnisotropy                             uintptr
+	symtexRefGetMipmapFilterMode                          uintptr
+	symtexRefGetMipmapLevelBias                           uintptr
+	symtexRefGetMipmapLevelClamp                          uintptr
+	symtexRefGetMipmappedArray                            uintptr
+	symtexRefSetAddress                                   uintptr
+	symtexRefSetAddress2D                                 uintptr
+	symtexRefSetAddressMode                               uintptr
+	symtexRefSetArray                                     uintptr
+	symtexRefSetBorderColor                               uintptr
+	symtexRefSetFilterMode                                uintptr
+	symtexRefSetFlags                                     uintptr
+	symtexRefSetFormat                                    uintptr
+	symtexRefSetMaxAnisotropy                             uintptr
+	symtexRefSetMipmapFilterMode                          uintptr
+	symtexRefSetMipmapLevelBias                           uintptr
+	symtexRefSetMipmapLevelClamp                          uintptr
+	symtexRefSetMipmappedArray                            uintptr
+	symThreadExchangeStreamCaptureMode                    uintptr
+	symuserObjectCreate                                   uintptr
+	symuserObjectRelease                                  uintptr
+	symuserObjectRetain                                   uintptr
+	symwaitExternalSemaphoresAsync                        uintptr
 )
 
-// array3DCreate Creates a 3D CUDA array.
+// ffiCall0 through ffiCall16 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	return ffi.CallFloat(fn, 12, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	return ffi.CallFloat(fn, 15, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	return ffi.CallFloat(fn, 16, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnarray3DCreate calls cuArray3DCreate_v2.
+func fnarray3DCreate(a0 *Array, a1 *Array3dDescriptor) Result {
+	r1, _ := ffiCall2(symarray3DCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnarray3DGetDescriptor calls cuArray3DGetDescriptor_v2.
+func fnarray3DGetDescriptor(a0 *Array3dDescriptor, a1 Array) Result {
+	r1, _ := ffiCall2(symarray3DGetDescriptor, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnarrayCreate calls cuArrayCreate_v2.
+func fnarrayCreate(a0 *Array, a1 *ArrayDescriptor) Result {
+	r1, _ := ffiCall2(symarrayCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnarrayDestroy calls cuArrayDestroy.
+func fnarrayDestroy(a0 Array) Result {
+	r1, _ := ffiCall1(symarrayDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnarrayGetDescriptor calls cuArrayGetDescriptor_v2.
+func fnarrayGetDescriptor(a0 *ArrayDescriptor, a1 Array) Result {
+	r1, _ := ffiCall2(symarrayGetDescriptor, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnarrayGetMemoryRequirements calls cuArrayGetMemoryRequirements.
+func fnarrayGetMemoryRequirements(a0 *ArrayMemoryRequirements, a1 Array, a2 Device) Result {
+	r1, _ := ffiCall3(symarrayGetMemoryRequirements, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnarrayGetPlane calls cuArrayGetPlane.
+func fnarrayGetPlane(a0 *Array, a1 Array, a2 uint32) Result {
+	r1, _ := ffiCall3(symarrayGetPlane, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnarrayGetSparseProperties calls cuArrayGetSparseProperties.
+func fnarrayGetSparseProperties(a0 *ArraySparseProperties, a1 Array) Result {
+	r1, _ := ffiCall2(symarrayGetSparseProperties, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCheckpointProcessCheckpoint calls cuCheckpointProcessCheckpoint.
+func fnCheckpointProcessCheckpoint(a0 int32, a1 *CheckpointCheckpointArgs) Result {
+	r1, _ := ffiCall2(symCheckpointProcessCheckpoint, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnCheckpointProcessGetRestoreThreadId calls cuCheckpointProcessGetRestoreThreadId.
+func fnCheckpointProcessGetRestoreThreadId(a0 int32, a1 *int32) Result {
+	r1, _ := ffiCall2(symCheckpointProcessGetRestoreThreadId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnCheckpointProcessGetState calls cuCheckpointProcessGetState.
+func fnCheckpointProcessGetState(a0 int32, a1 *ProcessState) Result {
+	r1, _ := ffiCall2(symCheckpointProcessGetState, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnCheckpointProcessLock calls cuCheckpointProcessLock.
+func fnCheckpointProcessLock(a0 int32, a1 *CheckpointLockArgs) Result {
+	r1, _ := ffiCall2(symCheckpointProcessLock, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnCheckpointProcessRestore calls cuCheckpointProcessRestore.
+func fnCheckpointProcessRestore(a0 int32, a1 *CheckpointRestoreArgs) Result {
+	r1, _ := ffiCall2(symCheckpointProcessRestore, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnCheckpointProcessUnlock calls cuCheckpointProcessUnlock.
+func fnCheckpointProcessUnlock(a0 int32, a1 *CheckpointUnlockArgs) Result {
+	r1, _ := ffiCall2(symCheckpointProcessUnlock, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fncoredumpDeregisterCompleteCallback calls cuCoredumpDeregisterCompleteCallback.
+func fncoredumpDeregisterCompleteCallback(a0 CoredumpCallbackHandle) Result {
+	r1, _ := ffiCall1(symcoredumpDeregisterCompleteCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fncoredumpDeregisterStartCallback calls cuCoredumpDeregisterStartCallback.
+func fncoredumpDeregisterStartCallback(a0 CoredumpCallbackHandle) Result {
+	r1, _ := ffiCall1(symcoredumpDeregisterStartCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnCoredumpGetAttribute calls cuCoredumpGetAttribute.
+func fnCoredumpGetAttribute(a0 CoredumpSettings, a1 unsafe.Pointer, a2 *uint) Result {
+	r1, _ := ffiCall3(symCoredumpGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnCoredumpGetAttributeGlobal calls cuCoredumpGetAttributeGlobal.
+func fnCoredumpGetAttributeGlobal(a0 CoredumpSettings, a1 uintptr, a2 *uint) Result {
+	r1, _ := ffiCall3(symCoredumpGetAttributeGlobal, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnCoredumpRegisterCompleteCallback calls cuCoredumpRegisterCompleteCallback.
+func fnCoredumpRegisterCompleteCallback(a0 uintptr, a1 uintptr, a2 *CoredumpCallbackHandle) Result {
+	r1, _ := ffiCall3(symCoredumpRegisterCompleteCallback, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnCoredumpRegisterStartCallback calls cuCoredumpRegisterStartCallback.
+func fnCoredumpRegisterStartCallback(a0 uintptr, a1 uintptr, a2 *CoredumpCallbackHandle) Result {
+	r1, _ := ffiCall3(symCoredumpRegisterStartCallback, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnCoredumpSetAttribute calls cuCoredumpSetAttribute.
+func fnCoredumpSetAttribute(a0 CoredumpSettings, a1 uintptr, a2 *uint) Result {
+	r1, _ := ffiCall3(symCoredumpSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnCoredumpSetAttributeGlobal calls cuCoredumpSetAttributeGlobal.
+func fnCoredumpSetAttributeGlobal(a0 CoredumpSettings, a1 uintptr, a2 *uint) Result {
+	r1, _ := ffiCall3(symCoredumpSetAttributeGlobal, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnctxAttach calls cuCtxAttach.
+func fnctxAttach(a0 *Context, a1 uint32) Result {
+	r1, _ := ffiCall2(symctxAttach, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnctxCreate calls cuCtxCreate_v4.
+func fnctxCreate(a0 *Context, a1 *CtxCreateParams, a2 uint32, a3 Device) Result {
+	r1, _ := ffiCall4(symctxCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnctxDestroy calls cuCtxDestroy_v2.
+func fnctxDestroy(a0 Context) Result {
+	r1, _ := ffiCall1(symctxDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnctxDetach calls cuCtxDetach.
+func fnctxDetach(a0 Context) Result {
+	r1, _ := ffiCall1(symctxDetach, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnctxDisablePeerAccess calls cuCtxDisablePeerAccess.
+func fnctxDisablePeerAccess(a0 Context) Result {
+	r1, _ := ffiCall1(symctxDisablePeerAccess, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnctxEnablePeerAccess calls cuCtxEnablePeerAccess.
+func fnctxEnablePeerAccess(a0 Context, a1 uint32) Result {
+	r1, _ := ffiCall2(symctxEnablePeerAccess, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnctxFromGreenCtx calls cuCtxFromGreenCtx.
+func fnctxFromGreenCtx(a0 *Context, a1 GreenCtx) Result {
+	r1, _ := ffiCall2(symctxFromGreenCtx, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnctxGetApiVersion calls cuCtxGetApiVersion.
+func fnctxGetApiVersion(a0 Context, a1 *uint32) Result {
+	r1, _ := ffiCall2(symctxGetApiVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnCtxGetCacheConfig calls cuCtxGetCacheConfig.
+func fnCtxGetCacheConfig(a0 *FuncCacheConfig) Result {
+	r1, _ := ffiCall1(symCtxGetCacheConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnctxGetCurrent calls cuCtxGetCurrent.
+func fnctxGetCurrent(a0 *Context) Result {
+	r1, _ := ffiCall1(symctxGetCurrent, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnctxGetDevResource calls cuCtxGetDevResource.
+func fnctxGetDevResource(a0 Context, a1 *DevResource, a2 DevResourceType) Result {
+	r1, _ := ffiCall3(symctxGetDevResource, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnCtxGetDevice calls cuCtxGetDevice.
+func fnCtxGetDevice(a0 *Device) Result {
+	r1, _ := ffiCall1(symCtxGetDevice, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnctxGetDeviceV2 calls cuCtxGetDevice_v2.
+func fnctxGetDeviceV2(a0 *Device, a1 Context) Result {
+	r1, _ := ffiCall2(symctxGetDeviceV2, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCtxGetExecAffinity calls cuCtxGetExecAffinity.
+func fnCtxGetExecAffinity(a0 *ExecAffinityParam, a1 ExecAffinityType) Result {
+	r1, _ := ffiCall2(symCtxGetExecAffinity, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCtxGetFlags calls cuCtxGetFlags.
+func fnCtxGetFlags(a0 *uint32) Result {
+	r1, _ := ffiCall1(symCtxGetFlags, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnctxGetId calls cuCtxGetId.
+func fnctxGetId(a0 Context, a1 *uint64) Result {
+	r1, _ := ffiCall2(symctxGetId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnCtxGetLimit calls cuCtxGetLimit.
+func fnCtxGetLimit(a0 *uint, a1 Limit) Result {
+	r1, _ := ffiCall2(symCtxGetLimit, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCtxGetSharedMemConfig calls cuCtxGetSharedMemConfig.
+func fnCtxGetSharedMemConfig(a0 *Sharedconfig) Result {
+	r1, _ := ffiCall1(symCtxGetSharedMemConfig, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnCtxGetStreamPriorityRange calls cuCtxGetStreamPriorityRange.
+func fnCtxGetStreamPriorityRange(a0 *int32, a1 *int32) Result {
+	r1, _ := ffiCall2(symCtxGetStreamPriorityRange, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnctxPopCurrent calls cuCtxPopCurrent_v2.
+func fnctxPopCurrent(a0 *Context) Result {
+	r1, _ := ffiCall1(symctxPopCurrent, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnctxPushCurrent calls cuCtxPushCurrent_v2.
+func fnctxPushCurrent(a0 Context) Result {
+	r1, _ := ffiCall1(symctxPushCurrent, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnctxRecordEvent calls cuCtxRecordEvent.
+func fnctxRecordEvent(a0 Context, a1 Event) Result {
+	r1, _ := ffiCall2(symctxRecordEvent, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCtxResetPersistingL2Cache calls cuCtxResetPersistingL2Cache.
+func fnCtxResetPersistingL2Cache() Result {
+	r1, _ := ffiCall0(symCtxResetPersistingL2Cache, 0)
+	return Result(r1)
+}
+
+// fnCtxSetCacheConfig calls cuCtxSetCacheConfig.
+func fnCtxSetCacheConfig(a0 FuncCacheConfig) Result {
+	r1, _ := ffiCall1(symCtxSetCacheConfig, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnctxSetCurrent calls cuCtxSetCurrent.
+func fnctxSetCurrent(a0 Context) Result {
+	r1, _ := ffiCall1(symctxSetCurrent, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnCtxSetFlags calls cuCtxSetFlags.
+func fnCtxSetFlags(a0 uint32) Result {
+	r1, _ := ffiCall1(symCtxSetFlags, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnCtxSetLimit calls cuCtxSetLimit.
+func fnCtxSetLimit(a0 Limit, a1 uint) Result {
+	r1, _ := ffiCall2(symCtxSetLimit, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnCtxSetSharedMemConfig calls cuCtxSetSharedMemConfig.
+func fnCtxSetSharedMemConfig(a0 Sharedconfig) Result {
+	r1, _ := ffiCall1(symCtxSetSharedMemConfig, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnCtxSynchronize calls cuCtxSynchronize.
+func fnCtxSynchronize() Result {
+	r1, _ := ffiCall0(symCtxSynchronize, 0)
+	return Result(r1)
+}
+
+// fnctxSynchronizeV2 calls cuCtxSynchronize_v2.
+func fnctxSynchronizeV2(a0 Context) Result {
+	r1, _ := ffiCall1(symctxSynchronizeV2, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnctxWaitEvent calls cuCtxWaitEvent.
+func fnctxWaitEvent(a0 Context, a1 Event) Result {
+	r1, _ := ffiCall2(symctxWaitEvent, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fndestroyExternalMemory calls cuDestroyExternalMemory.
+func fndestroyExternalMemory(a0 ExternalMemory) Result {
+	r1, _ := ffiCall1(symdestroyExternalMemory, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyExternalSemaphore calls cuDestroyExternalSemaphore.
+func fndestroyExternalSemaphore(a0 ExternalSemaphore) Result {
+	r1, _ := ffiCall1(symdestroyExternalSemaphore, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnDevResourceGenerateDesc calls cuDevResourceGenerateDesc.
+func fnDevResourceGenerateDesc(a0 *DevResourceDesc, a1 *DevResource, a2 uint32) Result {
+	r1, _ := ffiCall3(symDevResourceGenerateDesc, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnDevSmResourceSplit calls cuDevSmResourceSplit.
+func fnDevSmResourceSplit(a0 *DevResource, a1 uint32, a2 *DevResource, a3 *DevResource, a4 uint32, a5 *CuDevSmResourceGroupParams) Result {
+	r1, _ := ffiCall6(symDevSmResourceSplit, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnDevSmResourceSplitByCount calls cuDevSmResourceSplitByCount.
+func fnDevSmResourceSplitByCount(a0 *DevResource, a1 *uint32, a2 *DevResource, a3 *DevResource, a4 uint32, a5 uint32) Result {
+	r1, _ := ffiCall6(symDevSmResourceSplitByCount, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fndeviceCanAccessPeer calls cuDeviceCanAccessPeer.
+func fndeviceCanAccessPeer(a0 *int32, a1 Device, a2 Device) Result {
+	r1, _ := ffiCall3(symdeviceCanAccessPeer, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceComputeCapability calls cuDeviceComputeCapability.
+func fndeviceComputeCapability(a0 *int32, a1 *int32, a2 Device) Result {
+	r1, _ := ffiCall3(symdeviceComputeCapability, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGet calls cuDeviceGet.
+func fndeviceGet(a0 *Device, a1 int) Result {
+	r1, _ := ffiCall2(symdeviceGet, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceGetAttribute calls cuDeviceGetAttribute.
+func fndeviceGetAttribute(a0 *int32, a1 DeviceAttribute, a2 Device) Result {
+	r1, _ := ffiCall3(symdeviceGetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetByPCIBusId calls cuDeviceGetByPCIBusId.
+func fndeviceGetByPCIBusId(a0 *Device, a1 *byte) Result {
+	r1, _ := ffiCall2(symdeviceGetByPCIBusId, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnDeviceGetCount calls cuDeviceGetCount.
+func fnDeviceGetCount(a0 *int32) Result {
+	r1, _ := ffiCall1(symDeviceGetCount, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fndeviceGetDefaultMemPool calls cuDeviceGetDefaultMemPool.
+func fndeviceGetDefaultMemPool(a0 *MemoryPool, a1 Device) Result {
+	r1, _ := ffiCall2(symdeviceGetDefaultMemPool, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceGetDevResource calls cuDeviceGetDevResource.
+func fndeviceGetDevResource(a0 Device, a1 *DevResource, a2 DevResourceType) Result {
+	r1, _ := ffiCall3(symdeviceGetDevResource, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetExecAffinitySupport calls cuDeviceGetExecAffinitySupport.
+func fndeviceGetExecAffinitySupport(a0 *int32, a1 ExecAffinityType, a2 Device) Result {
+	r1, _ := ffiCall3(symdeviceGetExecAffinitySupport, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetGraphMemAttribute calls cuDeviceGetGraphMemAttribute.
+func fndeviceGetGraphMemAttribute(a0 Device, a1 GraphmemAttribute, a2 unsafe.Pointer) Result {
+	r1, _ := ffiCall3(symdeviceGetGraphMemAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetHostAtomicCapabilities calls cuDeviceGetHostAtomicCapabilities.
+func fndeviceGetHostAtomicCapabilities(a0 *uint32, a1 *AtomicOperation, a2 uint32, a3 Device) Result {
+	r1, _ := ffiCall4(symdeviceGetHostAtomicCapabilities, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fndeviceGetLuid calls cuDeviceGetLuid.
+func fndeviceGetLuid(a0 *byte, a1 *uint32, a2 Device) Result {
+	r1, _ := ffiCall3(symdeviceGetLuid, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetMemPool calls cuDeviceGetMemPool.
+func fndeviceGetMemPool(a0 *MemoryPool, a1 Device) Result {
+	r1, _ := ffiCall2(symdeviceGetMemPool, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceGetName calls cuDeviceGetName.
+func fndeviceGetName(a0 *byte, a1 int32, a2 Device) Result {
+	r1, _ := ffiCall3(symdeviceGetName, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetNvSciSyncAttributes calls cuDeviceGetNvSciSyncAttributes.
+func fndeviceGetNvSciSyncAttributes(a0 unsafe.Pointer, a1 Device, a2 int32) Result {
+	r1, _ := ffiCall3(symdeviceGetNvSciSyncAttributes, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetP2PAtomicCapabilities calls cuDeviceGetP2PAtomicCapabilities.
+func fndeviceGetP2PAtomicCapabilities(a0 *uint32, a1 *AtomicOperation, a2 uint32, a3 Device, a4 Device) Result {
+	r1, _ := ffiCall5(symdeviceGetP2PAtomicCapabilities, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fndeviceGetP2PAttribute calls cuDeviceGetP2PAttribute.
+func fndeviceGetP2PAttribute(a0 *int32, a1 DeviceP2pattribute, a2 Device, a3 Device) Result {
+	r1, _ := ffiCall4(symdeviceGetP2PAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fndeviceGetPCIBusId calls cuDeviceGetPCIBusId.
+func fndeviceGetPCIBusId(a0 *byte, a1 int32, a2 Device) Result {
+	r1, _ := ffiCall3(symdeviceGetPCIBusId, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetProperties calls cuDeviceGetProperties.
+func fndeviceGetProperties(a0 *Devprop, a1 Device) Result {
+	r1, _ := ffiCall2(symdeviceGetProperties, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceGetTexture1DLinearMaxWidth calls cuDeviceGetTexture1DLinearMaxWidth.
+func fndeviceGetTexture1DLinearMaxWidth(a0 *uint, a1 ArrayFormat, a2 uint32, a3 Device) Result {
+	r1, _ := ffiCall4(symdeviceGetTexture1DLinearMaxWidth, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fndeviceGetUuid calls cuDeviceGetUuid_v2.
+func fndeviceGetUuid(a0 *Uuid, a1 Device) Result {
+	r1, _ := ffiCall2(symdeviceGetUuid, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceGraphMemTrim calls cuDeviceGraphMemTrim.
+func fndeviceGraphMemTrim(a0 Device) Result {
+	r1, _ := ffiCall1(symdeviceGraphMemTrim, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndevicePrimaryCtxGetState calls cuDevicePrimaryCtxGetState.
+func fndevicePrimaryCtxGetState(a0 Device, a1 *uint32, a2 *int32) Result {
+	r1, _ := ffiCall3(symdevicePrimaryCtxGetState, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fndevicePrimaryCtxRelease calls cuDevicePrimaryCtxRelease_v2.
+func fndevicePrimaryCtxRelease(a0 Device) Result {
+	r1, _ := ffiCall1(symdevicePrimaryCtxRelease, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndevicePrimaryCtxReset calls cuDevicePrimaryCtxReset_v2.
+func fndevicePrimaryCtxReset(a0 Device) Result {
+	r1, _ := ffiCall1(symdevicePrimaryCtxReset, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndevicePrimaryCtxRetain calls cuDevicePrimaryCtxRetain.
+func fndevicePrimaryCtxRetain(a0 *Context, a1 Device) Result {
+	r1, _ := ffiCall2(symdevicePrimaryCtxRetain, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fndevicePrimaryCtxSetFlags calls cuDevicePrimaryCtxSetFlags_v2.
+func fndevicePrimaryCtxSetFlags(a0 Device, a1 uint32) Result {
+	r1, _ := ffiCall2(symdevicePrimaryCtxSetFlags, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceRegisterAsyncNotification calls cuDeviceRegisterAsyncNotification.
+func fndeviceRegisterAsyncNotification(a0 Device, a1 uintptr, a2 uintptr, a3 *AsyncCallbackHandle) Result {
+	r1, _ := ffiCall4(symdeviceRegisterAsyncNotification, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fndeviceSetGraphMemAttribute calls cuDeviceSetGraphMemAttribute.
+func fndeviceSetGraphMemAttribute(a0 Device, a1 GraphmemAttribute, a2 uintptr) Result {
+	r1, _ := ffiCall3(symdeviceSetGraphMemAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceSetMemPool calls cuDeviceSetMemPool.
+func fndeviceSetMemPool(a0 Device, a1 MemoryPool) Result {
+	r1, _ := ffiCall2(symdeviceSetMemPool, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceTotalMem calls cuDeviceTotalMem_v2.
+func fndeviceTotalMem(a0 *uint, a1 Device) Result {
+	r1, _ := ffiCall2(symdeviceTotalMem, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceUnregisterAsyncNotification calls cuDeviceUnregisterAsyncNotification.
+func fndeviceUnregisterAsyncNotification(a0 Device, a1 AsyncCallbackHandle) Result {
+	r1, _ := ffiCall2(symdeviceUnregisterAsyncNotification, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnDriverGetVersion calls cuDriverGetVersion.
+func fnDriverGetVersion(a0 *int32) Result {
+	r1, _ := ffiCall1(symDriverGetVersion, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fneventCreate calls cuEventCreate.
+func fneventCreate(a0 *Event, a1 uint32) Result {
+	r1, _ := ffiCall2(symeventCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fneventDestroy calls cuEventDestroy_v2.
+func fneventDestroy(a0 Event) Result {
+	r1, _ := ffiCall1(symeventDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fneventElapsedTime calls cuEventElapsedTime_v2.
+func fneventElapsedTime(a0 *float32, a1 Event, a2 Event) Result {
+	r1, _ := ffiCall3(symeventElapsedTime, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fneventQuery calls cuEventQuery.
+func fneventQuery(a0 Event) Result {
+	r1, _ := ffiCall1(symeventQuery, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fneventRecord calls cuEventRecord.
+func fneventRecord(a0 Event, a1 Stream) Result {
+	r1, _ := ffiCall2(symeventRecord, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fneventRecordWithFlags calls cuEventRecordWithFlags.
+func fneventRecordWithFlags(a0 Event, a1 Stream, a2 uint32) Result {
+	r1, _ := ffiCall3(symeventRecordWithFlags, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fneventSynchronize calls cuEventSynchronize.
+func fneventSynchronize(a0 Event) Result {
+	r1, _ := ffiCall1(symeventSynchronize, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnexternalMemoryGetMappedBuffer calls cuExternalMemoryGetMappedBuffer.
+func fnexternalMemoryGetMappedBuffer(a0 *DevicePtr, a1 ExternalMemory, a2 *ExternalMemoryBufferDesc) Result {
+	r1, _ := ffiCall3(symexternalMemoryGetMappedBuffer, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnexternalMemoryGetMappedMipmappedArray calls cuExternalMemoryGetMappedMipmappedArray.
+func fnexternalMemoryGetMappedMipmappedArray(a0 *MipmappedArray, a1 ExternalMemory, a2 *ExternalMemoryMipmappedArrayDesc) Result {
+	r1, _ := ffiCall3(symexternalMemoryGetMappedMipmappedArray, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnFlushGPUDirectRDMAWrites calls cuFlushGPUDirectRDMAWrites.
+func fnFlushGPUDirectRDMAWrites(a0 FlushGPUDirectRDMAWritesTarget, a1 FlushGPUDirectRDMAWritesScope) Result {
+	r1, _ := ffiCall2(symFlushGPUDirectRDMAWrites, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnfuncGetAttribute calls cuFuncGetAttribute.
+func fnfuncGetAttribute(a0 *int32, a1 FunctionAttribute, a2 Function) Result {
+	r1, _ := ffiCall3(symfuncGetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnfuncGetModule calls cuFuncGetModule.
+func fnfuncGetModule(a0 *Module, a1 Function) Result {
+	r1, _ := ffiCall2(symfuncGetModule, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnfuncGetName calls cuFuncGetName.
+func fnfuncGetName(a0 **byte, a1 Function) Result {
+	r1, _ := ffiCall2(symfuncGetName, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnfuncGetParamCount calls cuFuncGetParamCount.
+func fnfuncGetParamCount(a0 Function, a1 *uint) Result {
+	r1, _ := ffiCall2(symfuncGetParamCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnfuncGetParamInfo calls cuFuncGetParamInfo.
+func fnfuncGetParamInfo(a0 Function, a1 uint, a2 *uint, a3 *uint) Result {
+	r1, _ := ffiCall4(symfuncGetParamInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnfuncIsLoaded calls cuFuncIsLoaded.
+func fnfuncIsLoaded(a0 *FunctionLoadingState, a1 Function) Result {
+	r1, _ := ffiCall2(symfuncIsLoaded, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnfuncLoad calls cuFuncLoad.
+func fnfuncLoad(a0 Function) Result {
+	r1, _ := ffiCall1(symfuncLoad, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnfuncSetAttribute calls cuFuncSetAttribute.
+func fnfuncSetAttribute(a0 Function, a1 FunctionAttribute, a2 int32) Result {
+	r1, _ := ffiCall3(symfuncSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnfuncSetBlockShape calls cuFuncSetBlockShape.
+func fnfuncSetBlockShape(a0 Function, a1 int32, a2 int32, a3 int32) Result {
+	r1, _ := ffiCall4(symfuncSetBlockShape, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnfuncSetCacheConfig calls cuFuncSetCacheConfig.
+func fnfuncSetCacheConfig(a0 Function, a1 FuncCacheConfig) Result {
+	r1, _ := ffiCall2(symfuncSetCacheConfig, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnfuncSetSharedMemConfig calls cuFuncSetSharedMemConfig.
+func fnfuncSetSharedMemConfig(a0 Function, a1 Sharedconfig) Result {
+	r1, _ := ffiCall2(symfuncSetSharedMemConfig, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnfuncSetSharedSize calls cuFuncSetSharedSize.
+func fnfuncSetSharedSize(a0 Function, a1 uint32) Result {
+	r1, _ := ffiCall2(symfuncSetSharedSize, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnGetExportTable calls cuGetExportTable.
+func fnGetExportTable(a0 *uintptr, a1 *Uuid) Result {
+	r1, _ := ffiCall2(symGetExportTable, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetProcAddress calls cuGetProcAddress_v2.
+func fnGetProcAddress(a0 *byte, a1 *uintptr, a2 int32, a3 uint64, a4 *DriverProcAddressQueryResult) Result {
+	r1, _ := ffiCall5(symGetProcAddress, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphAddBatchMemOpNode calls cuGraphAddBatchMemOpNode.
+func fngraphAddBatchMemOpNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *BatchMemOpNodeParams) Result {
+	r1, _ := ffiCall5(symgraphAddBatchMemOpNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphAddChildGraphNode calls cuGraphAddChildGraphNode.
+func fngraphAddChildGraphNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 Graph) Result {
+	r1, _ := ffiCall5(symgraphAddChildGraphNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphAddDependencies calls cuGraphAddDependencies_v2.
+func fngraphAddDependencies(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 uint) Result {
+	r1, _ := ffiCall5(symgraphAddDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphAddEmptyNode calls cuGraphAddEmptyNode.
+func fngraphAddEmptyNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint) Result {
+	r1, _ := ffiCall4(symgraphAddEmptyNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fngraphAddEventRecordNode calls cuGraphAddEventRecordNode.
+func fngraphAddEventRecordNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 Event) Result {
+	r1, _ := ffiCall5(symgraphAddEventRecordNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphAddEventWaitNode calls cuGraphAddEventWaitNode.
+func fngraphAddEventWaitNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 Event) Result {
+	r1, _ := ffiCall5(symgraphAddEventWaitNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphAddExternalSemaphoresSignalNode calls cuGraphAddExternalSemaphoresSignalNode.
+func fngraphAddExternalSemaphoresSignalNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *ExtSemSignalNodeParams) Result {
+	r1, _ := ffiCall5(symgraphAddExternalSemaphoresSignalNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphAddExternalSemaphoresWaitNode calls cuGraphAddExternalSemaphoresWaitNode.
+func fngraphAddExternalSemaphoresWaitNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *ExtSemWaitNodeParams) Result {
+	r1, _ := ffiCall5(symgraphAddExternalSemaphoresWaitNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphAddHostNode calls cuGraphAddHostNode.
+func fngraphAddHostNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *HostNodeParams) Result {
+	r1, _ := ffiCall5(symgraphAddHostNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphAddKernelNode calls cuGraphAddKernelNode_v2.
+func fngraphAddKernelNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *KernelNodeParams) Result {
+	r1, _ := ffiCall5(symgraphAddKernelNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphAddMemAllocNode calls cuGraphAddMemAllocNode.
+func fngraphAddMemAllocNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *MemAllocNodeParams) Result {
+	r1, _ := ffiCall5(symgraphAddMemAllocNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphAddMemFreeNode calls cuGraphAddMemFreeNode.
+func fngraphAddMemFreeNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 DevicePtr) Result {
+	r1, _ := ffiCall5(symgraphAddMemFreeNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphAddMemcpyNode calls cuGraphAddMemcpyNode.
+func fngraphAddMemcpyNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *Memcpy3d, a5 Context) Result {
+	r1, _ := ffiCall6(symgraphAddMemcpyNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	return Result(r1)
+}
+
+// fngraphAddMemsetNode calls cuGraphAddMemsetNode.
+func fngraphAddMemsetNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *MemsetNodeParams, a5 Context) Result {
+	r1, _ := ffiCall6(symgraphAddMemsetNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5))
+	return Result(r1)
+}
+
+// fngraphAddNode calls cuGraphAddNode_v2.
+func fngraphAddNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 *GraphEdgeData, a4 uint, a5 *GraphNodeParams) Result {
+	r1, _ := ffiCall6(symgraphAddNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngraphBatchMemOpNodeGetParams calls cuGraphBatchMemOpNodeGetParams.
+func fngraphBatchMemOpNodeGetParams(a0 GraphNode, a1 *BatchMemOpNodeParams) Result {
+	r1, _ := ffiCall2(symgraphBatchMemOpNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphBatchMemOpNodeSetParams calls cuGraphBatchMemOpNodeSetParams.
+func fngraphBatchMemOpNodeSetParams(a0 GraphNode, a1 *BatchMemOpNodeParams) Result {
+	r1, _ := ffiCall2(symgraphBatchMemOpNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphChildGraphNodeGetGraph calls cuGraphChildGraphNodeGetGraph.
+func fngraphChildGraphNodeGetGraph(a0 GraphNode, a1 *Graph) Result {
+	r1, _ := ffiCall2(symgraphChildGraphNodeGetGraph, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphClone calls cuGraphClone.
+func fngraphClone(a0 *Graph, a1 Graph) Result {
+	r1, _ := ffiCall2(symgraphClone, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphConditionalHandleCreate calls cuGraphConditionalHandleCreate.
+func fngraphConditionalHandleCreate(a0 *uint64, a1 Graph, a2 Context, a3 uint32, a4 uint32) Result {
+	r1, _ := ffiCall5(symgraphConditionalHandleCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphCreate calls cuGraphCreate.
+func fngraphCreate(a0 *Graph, a1 uint32) Result {
+	r1, _ := ffiCall2(symgraphCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphDebugDotPrint calls cuGraphDebugDotPrint.
+func fngraphDebugDotPrint(a0 Graph, a1 *byte, a2 uint32) Result {
+	r1, _ := ffiCall3(symgraphDebugDotPrint, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphDestroy calls cuGraphDestroy.
+func fngraphDestroy(a0 Graph) Result {
+	r1, _ := ffiCall1(symgraphDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fngraphDestroyNode calls cuGraphDestroyNode.
+func fngraphDestroyNode(a0 GraphNode) Result {
+	r1, _ := ffiCall1(symgraphDestroyNode, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fngraphEventRecordNodeGetEvent calls cuGraphEventRecordNodeGetEvent.
+func fngraphEventRecordNodeGetEvent(a0 GraphNode, a1 *Event) Result {
+	r1, _ := ffiCall2(symgraphEventRecordNodeGetEvent, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphEventRecordNodeSetEvent calls cuGraphEventRecordNodeSetEvent.
+func fngraphEventRecordNodeSetEvent(a0 GraphNode, a1 Event) Result {
+	r1, _ := ffiCall2(symgraphEventRecordNodeSetEvent, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphEventWaitNodeGetEvent calls cuGraphEventWaitNodeGetEvent.
+func fngraphEventWaitNodeGetEvent(a0 GraphNode, a1 *Event) Result {
+	r1, _ := ffiCall2(symgraphEventWaitNodeGetEvent, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphEventWaitNodeSetEvent calls cuGraphEventWaitNodeSetEvent.
+func fngraphEventWaitNodeSetEvent(a0 GraphNode, a1 Event) Result {
+	r1, _ := ffiCall2(symgraphEventWaitNodeSetEvent, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphExecBatchMemOpNodeSetParams calls cuGraphExecBatchMemOpNodeSetParams.
+func fngraphExecBatchMemOpNodeSetParams(a0 GraphExec, a1 GraphNode, a2 *BatchMemOpNodeParams) Result {
+	r1, _ := ffiCall3(symgraphExecBatchMemOpNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphExecChildGraphNodeSetParams calls cuGraphExecChildGraphNodeSetParams.
+func fngraphExecChildGraphNodeSetParams(a0 GraphExec, a1 GraphNode, a2 Graph) Result {
+	r1, _ := ffiCall3(symgraphExecChildGraphNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphExecDestroy calls cuGraphExecDestroy.
+func fngraphExecDestroy(a0 GraphExec) Result {
+	r1, _ := ffiCall1(symgraphExecDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fngraphExecEventRecordNodeSetEvent calls cuGraphExecEventRecordNodeSetEvent.
+func fngraphExecEventRecordNodeSetEvent(a0 GraphExec, a1 GraphNode, a2 Event) Result {
+	r1, _ := ffiCall3(symgraphExecEventRecordNodeSetEvent, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphExecEventWaitNodeSetEvent calls cuGraphExecEventWaitNodeSetEvent.
+func fngraphExecEventWaitNodeSetEvent(a0 GraphExec, a1 GraphNode, a2 Event) Result {
+	r1, _ := ffiCall3(symgraphExecEventWaitNodeSetEvent, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphExecExternalSemaphoresSignalNodeSetParams calls cuGraphExecExternalSemaphoresSignalNodeSetParams.
+func fngraphExecExternalSemaphoresSignalNodeSetParams(a0 GraphExec, a1 GraphNode, a2 *ExtSemSignalNodeParams) Result {
+	r1, _ := ffiCall3(symgraphExecExternalSemaphoresSignalNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphExecExternalSemaphoresWaitNodeSetParams calls cuGraphExecExternalSemaphoresWaitNodeSetParams.
+func fngraphExecExternalSemaphoresWaitNodeSetParams(a0 GraphExec, a1 GraphNode, a2 *ExtSemWaitNodeParams) Result {
+	r1, _ := ffiCall3(symgraphExecExternalSemaphoresWaitNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphExecGetFlags calls cuGraphExecGetFlags.
+func fngraphExecGetFlags(a0 GraphExec, a1 *uint64) Result {
+	r1, _ := ffiCall2(symgraphExecGetFlags, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphExecGetId calls cuGraphExecGetId.
+func fngraphExecGetId(a0 GraphExec, a1 *uint32) Result {
+	r1, _ := ffiCall2(symgraphExecGetId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphExecHostNodeSetParams calls cuGraphExecHostNodeSetParams.
+func fngraphExecHostNodeSetParams(a0 GraphExec, a1 GraphNode, a2 *HostNodeParams) Result {
+	r1, _ := ffiCall3(symgraphExecHostNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphExecKernelNodeSetParams calls cuGraphExecKernelNodeSetParams_v2.
+func fngraphExecKernelNodeSetParams(a0 GraphExec, a1 GraphNode, a2 *KernelNodeParams) Result {
+	r1, _ := ffiCall3(symgraphExecKernelNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphExecMemcpyNodeSetParams calls cuGraphExecMemcpyNodeSetParams.
+func fngraphExecMemcpyNodeSetParams(a0 GraphExec, a1 GraphNode, a2 *Memcpy3d, a3 Context) Result {
+	r1, _ := ffiCall4(symgraphExecMemcpyNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fngraphExecMemsetNodeSetParams calls cuGraphExecMemsetNodeSetParams.
+func fngraphExecMemsetNodeSetParams(a0 GraphExec, a1 GraphNode, a2 *MemsetNodeParams, a3 Context) Result {
+	r1, _ := ffiCall4(symgraphExecMemsetNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fngraphExecNodeSetParams calls cuGraphExecNodeSetParams.
+func fngraphExecNodeSetParams(a0 GraphExec, a1 GraphNode, a2 *GraphNodeParams) Result {
+	r1, _ := ffiCall3(symgraphExecNodeSetParams, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphExecUpdate calls cuGraphExecUpdate_v2.
+func fngraphExecUpdate(a0 GraphExec, a1 Graph, a2 *GraphExecUpdateResultInfo) Result {
+	r1, _ := ffiCall3(symgraphExecUpdate, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphExternalSemaphoresSignalNodeGetParams calls cuGraphExternalSemaphoresSignalNodeGetParams.
+func fngraphExternalSemaphoresSignalNodeGetParams(a0 GraphNode, a1 *ExtSemSignalNodeParams) Result {
+	r1, _ := ffiCall2(symgraphExternalSemaphoresSignalNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphExternalSemaphoresSignalNodeSetParams calls cuGraphExternalSemaphoresSignalNodeSetParams.
+func fngraphExternalSemaphoresSignalNodeSetParams(a0 GraphNode, a1 *ExtSemSignalNodeParams) Result {
+	r1, _ := ffiCall2(symgraphExternalSemaphoresSignalNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphExternalSemaphoresWaitNodeGetParams calls cuGraphExternalSemaphoresWaitNodeGetParams.
+func fngraphExternalSemaphoresWaitNodeGetParams(a0 GraphNode, a1 *ExtSemWaitNodeParams) Result {
+	r1, _ := ffiCall2(symgraphExternalSemaphoresWaitNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphExternalSemaphoresWaitNodeSetParams calls cuGraphExternalSemaphoresWaitNodeSetParams.
+func fngraphExternalSemaphoresWaitNodeSetParams(a0 GraphNode, a1 *ExtSemWaitNodeParams) Result {
+	r1, _ := ffiCall2(symgraphExternalSemaphoresWaitNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphGetEdges calls cuGraphGetEdges_v2.
+func fngraphGetEdges(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 *uint) Result {
+	r1, _ := ffiCall5(symgraphGetEdges, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphGetId calls cuGraphGetId.
+func fngraphGetId(a0 Graph, a1 *uint32) Result {
+	r1, _ := ffiCall2(symgraphGetId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphGetNodes calls cuGraphGetNodes.
+func fngraphGetNodes(a0 Graph, a1 *GraphNode, a2 *uint) Result {
+	r1, _ := ffiCall3(symgraphGetNodes, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphGetRootNodes calls cuGraphGetRootNodes.
+func fngraphGetRootNodes(a0 Graph, a1 *GraphNode, a2 *uint) Result {
+	r1, _ := ffiCall3(symgraphGetRootNodes, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphHostNodeGetParams calls cuGraphHostNodeGetParams.
+func fngraphHostNodeGetParams(a0 GraphNode, a1 *HostNodeParams) Result {
+	r1, _ := ffiCall2(symgraphHostNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphHostNodeSetParams calls cuGraphHostNodeSetParams.
+func fngraphHostNodeSetParams(a0 GraphNode, a1 *HostNodeParams) Result {
+	r1, _ := ffiCall2(symgraphHostNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphInstantiate calls cuGraphInstantiateWithFlags.
+func fngraphInstantiate(a0 *GraphExec, a1 Graph, a2 uint64) Result {
+	r1, _ := ffiCall3(symgraphInstantiate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphInstantiateWithParams calls cuGraphInstantiateWithParams.
+func fngraphInstantiateWithParams(a0 *GraphExec, a1 Graph, a2 *GraphInstantiateParams) Result {
+	r1, _ := ffiCall3(symgraphInstantiateWithParams, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphKernelNodeCopyAttributes calls cuGraphKernelNodeCopyAttributes.
+func fngraphKernelNodeCopyAttributes(a0 GraphNode, a1 GraphNode) Result {
+	r1, _ := ffiCall2(symgraphKernelNodeCopyAttributes, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphKernelNodeGetAttribute calls cuGraphKernelNodeGetAttribute.
+func fngraphKernelNodeGetAttribute(a0 GraphNode, a1 int32, a2 *[8]uint64) Result {
+	r1, _ := ffiCall3(symgraphKernelNodeGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphKernelNodeGetParams calls cuGraphKernelNodeGetParams_v2.
+func fngraphKernelNodeGetParams(a0 GraphNode, a1 *KernelNodeParams) Result {
+	r1, _ := ffiCall2(symgraphKernelNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphKernelNodeSetAttribute calls cuGraphKernelNodeSetAttribute.
+func fngraphKernelNodeSetAttribute(a0 GraphNode, a1 int32, a2 *[8]uint64) Result {
+	r1, _ := ffiCall3(symgraphKernelNodeSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphKernelNodeSetParams calls cuGraphKernelNodeSetParams_v2.
+func fngraphKernelNodeSetParams(a0 GraphNode, a1 *KernelNodeParams) Result {
+	r1, _ := ffiCall2(symgraphKernelNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphLaunch calls cuGraphLaunch.
+func fngraphLaunch(a0 GraphExec, a1 Stream) Result {
+	r1, _ := ffiCall2(symgraphLaunch, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphMemAllocNodeGetParams calls cuGraphMemAllocNodeGetParams.
+func fngraphMemAllocNodeGetParams(a0 GraphNode, a1 *MemAllocNodeParams) Result {
+	r1, _ := ffiCall2(symgraphMemAllocNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphMemFreeNodeGetParams calls cuGraphMemFreeNodeGetParams.
+func fngraphMemFreeNodeGetParams(a0 GraphNode, a1 *DevicePtr) Result {
+	r1, _ := ffiCall2(symgraphMemFreeNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphMemcpyNodeGetParams calls cuGraphMemcpyNodeGetParams.
+func fngraphMemcpyNodeGetParams(a0 GraphNode, a1 *Memcpy3d) Result {
+	r1, _ := ffiCall2(symgraphMemcpyNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphMemcpyNodeSetParams calls cuGraphMemcpyNodeSetParams.
+func fngraphMemcpyNodeSetParams(a0 GraphNode, a1 *Memcpy3d) Result {
+	r1, _ := ffiCall2(symgraphMemcpyNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphMemsetNodeGetParams calls cuGraphMemsetNodeGetParams.
+func fngraphMemsetNodeGetParams(a0 GraphNode, a1 *MemsetNodeParams) Result {
+	r1, _ := ffiCall2(symgraphMemsetNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphMemsetNodeSetParams calls cuGraphMemsetNodeSetParams.
+func fngraphMemsetNodeSetParams(a0 GraphNode, a1 *MemsetNodeParams) Result {
+	r1, _ := ffiCall2(symgraphMemsetNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphNodeFindInClone calls cuGraphNodeFindInClone.
+func fngraphNodeFindInClone(a0 *GraphNode, a1 GraphNode, a2 Graph) Result {
+	r1, _ := ffiCall3(symgraphNodeFindInClone, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphNodeGetContainingGraph calls cuGraphNodeGetContainingGraph.
+func fngraphNodeGetContainingGraph(a0 GraphNode, a1 *Graph) Result {
+	r1, _ := ffiCall2(symgraphNodeGetContainingGraph, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphNodeGetDependencies calls cuGraphNodeGetDependencies_v2.
+func fngraphNodeGetDependencies(a0 GraphNode, a1 *GraphNode, a2 *GraphEdgeData, a3 *uint) Result {
+	r1, _ := ffiCall4(symgraphNodeGetDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fngraphNodeGetDependentNodes calls cuGraphNodeGetDependentNodes_v2.
+func fngraphNodeGetDependentNodes(a0 GraphNode, a1 *GraphNode, a2 *GraphEdgeData, a3 *uint) Result {
+	r1, _ := ffiCall4(symgraphNodeGetDependentNodes, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fngraphNodeGetEnabled calls cuGraphNodeGetEnabled.
+func fngraphNodeGetEnabled(a0 GraphExec, a1 GraphNode, a2 *uint32) Result {
+	r1, _ := ffiCall3(symgraphNodeGetEnabled, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fngraphNodeGetLocalId calls cuGraphNodeGetLocalId.
+func fngraphNodeGetLocalId(a0 GraphNode, a1 *uint32) Result {
+	r1, _ := ffiCall2(symgraphNodeGetLocalId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphNodeGetParams calls cuGraphNodeGetParams.
+func fngraphNodeGetParams(a0 GraphNode, a1 *GraphNodeParams) Result {
+	r1, _ := ffiCall2(symgraphNodeGetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphNodeGetToolsId calls cuGraphNodeGetToolsId.
+func fngraphNodeGetToolsId(a0 GraphNode, a1 *uint64) Result {
+	r1, _ := ffiCall2(symgraphNodeGetToolsId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphNodeGetType calls cuGraphNodeGetType.
+func fngraphNodeGetType(a0 GraphNode, a1 *GraphNodeType) Result {
+	r1, _ := ffiCall2(symgraphNodeGetType, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphNodeSetEnabled calls cuGraphNodeSetEnabled.
+func fngraphNodeSetEnabled(a0 GraphExec, a1 GraphNode, a2 uint32) Result {
+	r1, _ := ffiCall3(symgraphNodeSetEnabled, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphNodeSetParams calls cuGraphNodeSetParams.
+func fngraphNodeSetParams(a0 GraphNode, a1 *GraphNodeParams) Result {
+	r1, _ := ffiCall2(symgraphNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphReleaseUserObject calls cuGraphReleaseUserObject.
+func fngraphReleaseUserObject(a0 Graph, a1 UserObject, a2 uint32) Result {
+	r1, _ := ffiCall3(symgraphReleaseUserObject, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphRemoveDependencies calls cuGraphRemoveDependencies_v2.
+func fngraphRemoveDependencies(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 uint) Result {
+	r1, _ := ffiCall5(symgraphRemoveDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphRetainUserObject calls cuGraphRetainUserObject.
+func fngraphRetainUserObject(a0 Graph, a1 UserObject, a2 uint32, a3 uint32) Result {
+	r1, _ := ffiCall4(symgraphRetainUserObject, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fngraphUpload calls cuGraphUpload.
+func fngraphUpload(a0 GraphExec, a1 Stream) Result {
+	r1, _ := ffiCall2(symgraphUpload, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphicsMapResources calls cuGraphicsMapResources.
+func fngraphicsMapResources(a0 uint32, a1 *GraphicsResource, a2 Stream) Result {
+	r1, _ := ffiCall3(symgraphicsMapResources, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphicsResourceGetMappedMipmappedArray calls cuGraphicsResourceGetMappedMipmappedArray.
+func fngraphicsResourceGetMappedMipmappedArray(a0 *MipmappedArray, a1 GraphicsResource) Result {
+	r1, _ := ffiCall2(symgraphicsResourceGetMappedMipmappedArray, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphicsResourceGetMappedPointer calls cuGraphicsResourceGetMappedPointer_v2.
+func fngraphicsResourceGetMappedPointer(a0 *DevicePtr, a1 *uint, a2 GraphicsResource) Result {
+	r1, _ := ffiCall3(symgraphicsResourceGetMappedPointer, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphicsResourceSetMapFlags calls cuGraphicsResourceSetMapFlags_v2.
+func fngraphicsResourceSetMapFlags(a0 GraphicsResource, a1 uint32) Result {
+	r1, _ := ffiCall2(symgraphicsResourceSetMapFlags, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngraphicsSubResourceGetMappedArray calls cuGraphicsSubResourceGetMappedArray.
+func fngraphicsSubResourceGetMappedArray(a0 *Array, a1 GraphicsResource, a2 uint32, a3 uint32) Result {
+	r1, _ := ffiCall4(symgraphicsSubResourceGetMappedArray, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fngraphicsUnmapResources calls cuGraphicsUnmapResources.
+func fngraphicsUnmapResources(a0 uint32, a1 *GraphicsResource, a2 Stream) Result {
+	r1, _ := ffiCall3(symgraphicsUnmapResources, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngraphicsUnregisterResource calls cuGraphicsUnregisterResource.
+func fngraphicsUnregisterResource(a0 GraphicsResource) Result {
+	r1, _ := ffiCall1(symgraphicsUnregisterResource, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fngreenCtxCreate calls cuGreenCtxCreate.
+func fngreenCtxCreate(a0 *GreenCtx, a1 DevResourceDesc, a2 Device, a3 uint32) Result {
+	r1, _ := ffiCall4(symgreenCtxCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fngreenCtxDestroy calls cuGreenCtxDestroy.
+func fngreenCtxDestroy(a0 GreenCtx) Result {
+	r1, _ := ffiCall1(symgreenCtxDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fngreenCtxGetDevResource calls cuGreenCtxGetDevResource.
+func fngreenCtxGetDevResource(a0 GreenCtx, a1 *DevResource, a2 DevResourceType) Result {
+	r1, _ := ffiCall3(symgreenCtxGetDevResource, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fngreenCtxGetId calls cuGreenCtxGetId.
+func fngreenCtxGetId(a0 GreenCtx, a1 *uint64) Result {
+	r1, _ := ffiCall2(symgreenCtxGetId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngreenCtxRecordEvent calls cuGreenCtxRecordEvent.
+func fngreenCtxRecordEvent(a0 GreenCtx, a1 Event) Result {
+	r1, _ := ffiCall2(symgreenCtxRecordEvent, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngreenCtxStreamCreate calls cuGreenCtxStreamCreate.
+func fngreenCtxStreamCreate(a0 *Stream, a1 GreenCtx, a2 uint32, a3 int32) Result {
+	r1, _ := ffiCall4(symgreenCtxStreamCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fngreenCtxWaitEvent calls cuGreenCtxWaitEvent.
+func fngreenCtxWaitEvent(a0 GreenCtx, a1 Event) Result {
+	r1, _ := ffiCall2(symgreenCtxWaitEvent, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnImportExternalMemory calls cuImportExternalMemory.
+func fnImportExternalMemory(a0 *ExternalMemory, a1 *ExternalMemoryHandleDesc) Result {
+	r1, _ := ffiCall2(symImportExternalMemory, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnImportExternalSemaphore calls cuImportExternalSemaphore.
+func fnImportExternalSemaphore(a0 *ExternalSemaphore, a1 *ExternalSemaphoreHandleDesc) Result {
+	r1, _ := ffiCall2(symImportExternalSemaphore, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnInit calls cuInit.
+func fnInit(a0 uint32) Result {
+	r1, _ := ffiCall1(symInit, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnipcCloseMemHandle calls cuIpcCloseMemHandle.
+func fnipcCloseMemHandle(a0 DevicePtr) Result {
+	r1, _ := ffiCall1(symipcCloseMemHandle, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnipcGetEventHandle calls cuIpcGetEventHandle.
+func fnipcGetEventHandle(a0 *IpcEventHandle, a1 Event) Result {
+	r1, _ := ffiCall2(symipcGetEventHandle, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnipcGetMemHandle calls cuIpcGetMemHandle.
+func fnipcGetMemHandle(a0 *IpcMemHandle, a1 DevicePtr) Result {
+	r1, _ := ffiCall2(symipcGetMemHandle, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnkernelGetAttribute calls cuKernelGetAttribute.
+func fnkernelGetAttribute(a0 *int32, a1 FunctionAttribute, a2 Kernel, a3 Device) Result {
+	r1, _ := ffiCall4(symkernelGetAttribute, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnkernelGetFunction calls cuKernelGetFunction.
+func fnkernelGetFunction(a0 *Function, a1 Kernel) Result {
+	r1, _ := ffiCall2(symkernelGetFunction, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnkernelGetLibrary calls cuKernelGetLibrary.
+func fnkernelGetLibrary(a0 *Library, a1 Kernel) Result {
+	r1, _ := ffiCall2(symkernelGetLibrary, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnkernelGetName calls cuKernelGetName.
+func fnkernelGetName(a0 **byte, a1 Kernel) Result {
+	r1, _ := ffiCall2(symkernelGetName, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnkernelGetParamCount calls cuKernelGetParamCount.
+func fnkernelGetParamCount(a0 Kernel, a1 *uint) Result {
+	r1, _ := ffiCall2(symkernelGetParamCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnkernelGetParamInfo calls cuKernelGetParamInfo.
+func fnkernelGetParamInfo(a0 Kernel, a1 uint, a2 *uint, a3 *uint) Result {
+	r1, _ := ffiCall4(symkernelGetParamInfo, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnkernelSetAttribute calls cuKernelSetAttribute.
+func fnkernelSetAttribute(a0 FunctionAttribute, a1 int32, a2 Kernel, a3 Device) Result {
+	r1, _ := ffiCall4(symkernelSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnkernelSetCacheConfig calls cuKernelSetCacheConfig.
+func fnkernelSetCacheConfig(a0 Kernel, a1 FuncCacheConfig, a2 Device) Result {
+	r1, _ := ffiCall3(symkernelSetCacheConfig, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnlaunch calls cuLaunch.
+func fnlaunch(a0 Function) Result {
+	r1, _ := ffiCall1(symlaunch, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnlaunchCooperativeKernel calls cuLaunchCooperativeKernel.
+func fnlaunchCooperativeKernel(a0 Function, a1 uint32, a2 uint32, a3 uint32, a4 uint32, a5 uint32, a6 uint32, a7 uint32, a8 Stream, a9 *uintptr) Result {
+	r1, _ := ffiCall10(symlaunchCooperativeKernel, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)))
+	return Result(r1)
+}
+
+// fnLaunchCooperativeKernelMultiDevice calls cuLaunchCooperativeKernelMultiDevice.
+func fnLaunchCooperativeKernelMultiDevice(a0 *LaunchParams, a1 uint32, a2 uint32) Result {
+	r1, _ := ffiCall3(symLaunchCooperativeKernelMultiDevice, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnlaunchGrid calls cuLaunchGrid.
+func fnlaunchGrid(a0 Function, a1 int32, a2 int32) Result {
+	r1, _ := ffiCall3(symlaunchGrid, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnlaunchGridAsync calls cuLaunchGridAsync.
+func fnlaunchGridAsync(a0 Function, a1 int32, a2 int32, a3 Stream) Result {
+	r1, _ := ffiCall4(symlaunchGridAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnlaunchHostFunc calls cuLaunchHostFunc_v2.
+func fnlaunchHostFunc(a0 Stream, a1 uintptr, a2 uintptr, a3 uint32) Result {
+	r1, _ := ffiCall4(symlaunchHostFunc, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnlaunchKernel calls cuLaunchKernel.
+func fnlaunchKernel(a0 Function, a1 uint32, a2 uint32, a3 uint32, a4 uint32, a5 uint32, a6 uint32, a7 uint32, a8 Stream, a9 *uintptr, a10 unsafe.Pointer) Result {
+	r1, _ := ffiCall11(symlaunchKernel, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10))
+	return Result(r1)
+}
+
+// fnlaunchKernelEx calls cuLaunchKernelEx.
+func fnlaunchKernelEx(a0 *LaunchConfig, a1 Function, a2 *uintptr, a3 *uintptr) Result {
+	r1, _ := ffiCall4(symlaunchKernelEx, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnlibraryEnumerateKernels calls cuLibraryEnumerateKernels.
+func fnlibraryEnumerateKernels(a0 *Kernel, a1 uint32, a2 Library) Result {
+	r1, _ := ffiCall3(symlibraryEnumerateKernels, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnlibraryGetGlobal calls cuLibraryGetGlobal.
+func fnlibraryGetGlobal(a0 *DevicePtr, a1 *uint, a2 Library, a3 *byte) Result {
+	r1, _ := ffiCall4(symlibraryGetGlobal, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnlibraryGetKernel calls cuLibraryGetKernel.
+func fnlibraryGetKernel(a0 *Kernel, a1 Library, a2 *byte) Result {
+	r1, _ := ffiCall3(symlibraryGetKernel, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnlibraryGetKernelCount calls cuLibraryGetKernelCount.
+func fnlibraryGetKernelCount(a0 *uint32, a1 Library) Result {
+	r1, _ := ffiCall2(symlibraryGetKernelCount, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnlibraryGetManaged calls cuLibraryGetManaged.
+func fnlibraryGetManaged(a0 *DevicePtr, a1 *uint, a2 Library, a3 *byte) Result {
+	r1, _ := ffiCall4(symlibraryGetManaged, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnlibraryGetModule calls cuLibraryGetModule.
+func fnlibraryGetModule(a0 *Module, a1 Library) Result {
+	r1, _ := ffiCall2(symlibraryGetModule, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnlibraryGetUnifiedFunction calls cuLibraryGetUnifiedFunction.
+func fnlibraryGetUnifiedFunction(a0 *uintptr, a1 Library, a2 *byte) Result {
+	r1, _ := ffiCall3(symlibraryGetUnifiedFunction, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnlibraryLoadData calls cuLibraryLoadData.
+func fnlibraryLoadData(a0 *Library, a1 unsafe.Pointer, a2 *JITOption, a3 *uintptr, a4 uint32, a5 *LibraryOption, a6 *uintptr, a7 uint32) Result {
+	r1, _ := ffiCall8(symlibraryLoadData, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fnlibraryLoadFromFile calls cuLibraryLoadFromFile.
+func fnlibraryLoadFromFile(a0 *Library, a1 *byte, a2 *JITOption, a3 *uintptr, a4 uint32, a5 *LibraryOption, a6 *uintptr, a7 uint32) Result {
+	r1, _ := ffiCall8(symlibraryLoadFromFile, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fnlibraryUnload calls cuLibraryUnload.
+func fnlibraryUnload(a0 Library) Result {
+	r1, _ := ffiCall1(symlibraryUnload, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnlinkAddData calls cuLinkAddData_v2.
+func fnlinkAddData(a0 LinkState, a1 JitInputType, a2 unsafe.Pointer, a3 uint, a4 *byte, a5 uint32, a6 *JITOption, a7 *uintptr) Result {
+	r1, _ := ffiCall8(symlinkAddData, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnlinkAddFile calls cuLinkAddFile_v2.
+func fnlinkAddFile(a0 LinkState, a1 JitInputType, a2 *byte, a3 uint32, a4 *JITOption, a5 *uintptr) Result {
+	r1, _ := ffiCall6(symlinkAddFile, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnlinkComplete calls cuLinkComplete.
+func fnlinkComplete(a0 LinkState, a1 *uintptr, a2 *uint) Result {
+	r1, _ := ffiCall3(symlinkComplete, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnLinkCreate calls cuLinkCreate_v2.
+func fnLinkCreate(a0 uint32, a1 *JITOption, a2 *uintptr, a3 *LinkState) Result {
+	r1, _ := ffiCall4(symLinkCreate, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnlinkDestroy calls cuLinkDestroy.
+func fnlinkDestroy(a0 LinkState) Result {
+	r1, _ := ffiCall1(symlinkDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLogsCurrent calls cuLogsCurrent.
+func fnLogsCurrent(a0 *uint32, a1 uint32) Result {
+	r1, _ := ffiCall2(symLogsCurrent, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnLogsDumpToFile calls cuLogsDumpToFile.
+func fnLogsDumpToFile(a0 *uint32, a1 *byte, a2 uint32) Result {
+	r1, _ := ffiCall3(symLogsDumpToFile, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnLogsDumpToMemory calls cuLogsDumpToMemory.
+func fnLogsDumpToMemory(a0 *uint32, a1 *byte, a2 *uint, a3 uint32) Result {
+	r1, _ := ffiCall4(symLogsDumpToMemory, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnLogsRegisterCallback calls cuLogsRegisterCallback.
+func fnLogsRegisterCallback(a0 uintptr, a1 uintptr, a2 *LogsCallbackHandle) Result {
+	r1, _ := ffiCall3(symLogsRegisterCallback, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnlogsUnregisterCallback calls cuLogsUnregisterCallback.
+func fnlogsUnregisterCallback(a0 LogsCallbackHandle) Result {
+	r1, _ := ffiCall1(symlogsUnregisterCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmemAddressFree calls cuMemAddressFree.
+func fnmemAddressFree(a0 DevicePtr, a1 uint) Result {
+	r1, _ := ffiCall2(symmemAddressFree, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemAddressReserve calls cuMemAddressReserve.
+func fnmemAddressReserve(a0 *DevicePtr, a1 uint, a2 uint, a3 DevicePtr, a4 uint64) Result {
+	r1, _ := ffiCall5(symmemAddressReserve, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnMemAlloc calls cuMemAlloc_v2.
+func fnMemAlloc(a0 *DevicePtr, a1 uint) Result {
+	r1, _ := ffiCall2(symMemAlloc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemAllocAsync calls cuMemAllocAsync.
+func fnmemAllocAsync(a0 *DevicePtr, a1 uint, a2 Stream) Result {
+	r1, _ := ffiCall3(symmemAllocAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemAllocFromPoolAsync calls cuMemAllocFromPoolAsync.
+func fnmemAllocFromPoolAsync(a0 *DevicePtr, a1 uint, a2 MemoryPool, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemAllocFromPoolAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnMemAllocHost calls cuMemAllocHost_v2.
+func fnMemAllocHost(a0 *uintptr, a1 uint) Result {
+	r1, _ := ffiCall2(symMemAllocHost, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnMemAllocManaged calls cuMemAllocManaged.
+func fnMemAllocManaged(a0 *DevicePtr, a1 uint, a2 uint32) Result {
+	r1, _ := ffiCall3(symMemAllocManaged, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMemAllocPitch calls cuMemAllocPitch_v2.
+func fnMemAllocPitch(a0 *DevicePtr, a1 *uint, a2 uint, a3 uint, a4 uint32) Result {
+	r1, _ := ffiCall5(symMemAllocPitch, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemBatchDecompressAsync calls cuMemBatchDecompressAsync.
+func fnmemBatchDecompressAsync(a0 *MemDecompressParams, a1 uint, a2 uint32, a3 *uint, a4 Stream) Result {
+	r1, _ := ffiCall5(symmemBatchDecompressAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fnMemCreate calls cuMemCreate.
+func fnMemCreate(a0 *uint64, a1 uint, a2 *MemAllocationProp, a3 uint64) Result {
+	r1, _ := ffiCall4(symMemCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemDiscardAndPrefetchBatchAsync calls cuMemDiscardAndPrefetchBatchAsync.
+func fnmemDiscardAndPrefetchBatchAsync(a0 *DevicePtr, a1 *uint, a2 uint, a3 *MemLocation, a4 *uint, a5 uint, a6 uint64, a7 Stream) Result {
+	r1, _ := ffiCall8(symmemDiscardAndPrefetchBatchAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnmemDiscardBatchAsync calls cuMemDiscardBatchAsync.
+func fnmemDiscardBatchAsync(a0 *DevicePtr, a1 *uint, a2 uint, a3 uint64, a4 Stream) Result {
+	r1, _ := ffiCall5(symmemDiscardBatchAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnMemExportToShareableHandle calls cuMemExportToShareableHandle.
+func fnMemExportToShareableHandle(a0 uintptr, a1 uint64, a2 MemAllocationHandleType, a3 uint64) Result {
+	r1, _ := ffiCall4(symMemExportToShareableHandle, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemFree calls cuMemFree_v2.
+func fnmemFree(a0 DevicePtr) Result {
+	r1, _ := ffiCall1(symmemFree, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmemFreeAsync calls cuMemFreeAsync.
+func fnmemFreeAsync(a0 DevicePtr, a1 Stream) Result {
+	r1, _ := ffiCall2(symmemFreeAsync, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnMemFreeHost calls cuMemFreeHost.
+func fnMemFreeHost(a0 uintptr) Result {
+	r1, _ := ffiCall1(symMemFreeHost, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmemGetAccess calls cuMemGetAccess.
+func fnmemGetAccess(a0 *uint64, a1 *MemLocation, a2 DevicePtr) Result {
+	r1, _ := ffiCall3(symmemGetAccess, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemGetAddressRange calls cuMemGetAddressRange_v2.
+func fnmemGetAddressRange(a0 *DevicePtr, a1 *uint, a2 DevicePtr) Result {
+	r1, _ := ffiCall3(symmemGetAddressRange, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMemGetAllocationGranularity calls cuMemGetAllocationGranularity.
+func fnMemGetAllocationGranularity(a0 *uint, a1 *MemAllocationProp, a2 MemallocationgranularityFlags) Result {
+	r1, _ := ffiCall3(symMemGetAllocationGranularity, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMemGetAllocationPropertiesFromHandle calls cuMemGetAllocationPropertiesFromHandle.
+func fnMemGetAllocationPropertiesFromHandle(a0 *MemAllocationProp, a1 uint64) Result {
+	r1, _ := ffiCall2(symMemGetAllocationPropertiesFromHandle, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnMemGetDefaultMemPool calls cuMemGetDefaultMemPool.
+func fnMemGetDefaultMemPool(a0 *MemoryPool, a1 *MemLocation, a2 MemAllocationType) Result {
+	r1, _ := ffiCall3(symMemGetDefaultMemPool, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemGetHandleForAddressRange calls cuMemGetHandleForAddressRange.
+func fnmemGetHandleForAddressRange(a0 uintptr, a1 DevicePtr, a2 uint, a3 MemRangeHandleType, a4 uint64) Result {
+	r1, _ := ffiCall5(symmemGetHandleForAddressRange, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnMemGetInfo calls cuMemGetInfo_v2.
+func fnMemGetInfo(a0 *uint, a1 *uint) Result {
+	r1, _ := ffiCall2(symMemGetInfo, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnMemGetMemPool calls cuMemGetMemPool.
+func fnMemGetMemPool(a0 *MemoryPool, a1 *MemLocation, a2 MemAllocationType) Result {
+	r1, _ := ffiCall3(symMemGetMemPool, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMemHostAlloc calls cuMemHostAlloc.
+func fnMemHostAlloc(a0 *uintptr, a1 uint, a2 uint32) Result {
+	r1, _ := ffiCall3(symMemHostAlloc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMemHostGetDevicePointer calls cuMemHostGetDevicePointer_v2.
+func fnMemHostGetDevicePointer(a0 *DevicePtr, a1 uintptr, a2 uint32) Result {
+	r1, _ := ffiCall3(symMemHostGetDevicePointer, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMemHostGetFlags calls cuMemHostGetFlags.
+func fnMemHostGetFlags(a0 *uint32, a1 uintptr) Result {
+	r1, _ := ffiCall2(symMemHostGetFlags, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnMemHostRegister calls cuMemHostRegister_v2.
+func fnMemHostRegister(a0 uintptr, a1 uint, a2 uint32) Result {
+	r1, _ := ffiCall3(symMemHostRegister, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMemHostUnregister calls cuMemHostUnregister.
+func fnMemHostUnregister(a0 uintptr) Result {
+	r1, _ := ffiCall1(symMemHostUnregister, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnMemImportFromShareableHandle calls cuMemImportFromShareableHandle.
+func fnMemImportFromShareableHandle(a0 *uint64, a1 uintptr, a2 MemAllocationHandleType) Result {
+	r1, _ := ffiCall3(symMemImportFromShareableHandle, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemMap calls cuMemMap.
+func fnmemMap(a0 DevicePtr, a1 uint, a2 uint, a3 uint64, a4 uint64) Result {
+	r1, _ := ffiCall5(symmemMap, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemMapArrayAsync calls cuMemMapArrayAsync.
+func fnmemMapArrayAsync(a0 *ArrayMapInfo, a1 uint32, a2 Stream) Result {
+	r1, _ := ffiCall3(symmemMapArrayAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemPoolCreate calls cuMemPoolCreate.
+func fnmemPoolCreate(a0 *MemoryPool, a1 *MemPoolProps) Result {
+	r1, _ := ffiCall2(symmemPoolCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnmemPoolDestroy calls cuMemPoolDestroy.
+func fnmemPoolDestroy(a0 MemoryPool) Result {
+	r1, _ := ffiCall1(symmemPoolDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmemPoolExportPointer calls cuMemPoolExportPointer.
+func fnmemPoolExportPointer(a0 *MemPoolPtrExportData, a1 DevicePtr) Result {
+	r1, _ := ffiCall2(symmemPoolExportPointer, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemPoolExportToShareableHandle calls cuMemPoolExportToShareableHandle.
+func fnmemPoolExportToShareableHandle(a0 uintptr, a1 MemoryPool, a2 MemAllocationHandleType, a3 uint64) Result {
+	r1, _ := ffiCall4(symmemPoolExportToShareableHandle, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemPoolGetAccess calls cuMemPoolGetAccess.
+func fnmemPoolGetAccess(a0 *MemaccessFlags, a1 MemoryPool, a2 *MemLocation) Result {
+	r1, _ := ffiCall3(symmemPoolGetAccess, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnmemPoolGetAttribute calls cuMemPoolGetAttribute.
+func fnmemPoolGetAttribute(a0 MemoryPool, a1 MempoolAttribute, a2 uintptr) Result {
+	r1, _ := ffiCall3(symmemPoolGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemPoolImportFromShareableHandle calls cuMemPoolImportFromShareableHandle.
+func fnmemPoolImportFromShareableHandle(a0 *MemoryPool, a1 uintptr, a2 MemAllocationHandleType, a3 uint64) Result {
+	r1, _ := ffiCall4(symmemPoolImportFromShareableHandle, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemPoolImportPointer calls cuMemPoolImportPointer.
+func fnmemPoolImportPointer(a0 *DevicePtr, a1 MemoryPool, a2 *MemPoolPtrExportData) Result {
+	r1, _ := ffiCall3(symmemPoolImportPointer, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnmemPoolSetAccess calls cuMemPoolSetAccess.
+func fnmemPoolSetAccess(a0 MemoryPool, a1 *MemAccessDesc, a2 uint) Result {
+	r1, _ := ffiCall3(symmemPoolSetAccess, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemPoolSetAttribute calls cuMemPoolSetAttribute.
+func fnmemPoolSetAttribute(a0 MemoryPool, a1 MempoolAttribute, a2 uintptr) Result {
+	r1, _ := ffiCall3(symmemPoolSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemPoolTrimTo calls cuMemPoolTrimTo.
+func fnmemPoolTrimTo(a0 MemoryPool, a1 uint) Result {
+	r1, _ := ffiCall2(symmemPoolTrimTo, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemPrefetchBatchAsync calls cuMemPrefetchBatchAsync.
+func fnmemPrefetchBatchAsync(a0 *DevicePtr, a1 *uint, a2 uint, a3 *MemLocation, a4 *uint, a5 uint, a6 uint64, a7 Stream) Result {
+	r1, _ := ffiCall8(symmemPrefetchBatchAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnmemRangeGetAttribute calls cuMemRangeGetAttribute.
+func fnmemRangeGetAttribute(a0 unsafe.Pointer, a1 uint, a2 MemRangeAttribute, a3 DevicePtr, a4 uint) Result {
+	r1, _ := ffiCall5(symmemRangeGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemRangeGetAttributes calls cuMemRangeGetAttributes.
+func fnmemRangeGetAttributes(a0 *uintptr, a1 *uint, a2 *MemRangeAttribute, a3 uint, a4 DevicePtr, a5 uint) Result {
+	r1, _ := ffiCall6(symmemRangeGetAttributes, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnMemRelease calls cuMemRelease.
+func fnMemRelease(a0 uint64) Result {
+	r1, _ := ffiCall1(symMemRelease, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnMemRetainAllocationHandle calls cuMemRetainAllocationHandle.
+func fnMemRetainAllocationHandle(a0 *uint64, a1 uintptr) Result {
+	r1, _ := ffiCall2(symMemRetainAllocationHandle, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemSetAccess calls cuMemSetAccess.
+func fnmemSetAccess(a0 DevicePtr, a1 uint, a2 *MemAccessDesc, a3 uint) Result {
+	r1, _ := ffiCall4(symmemSetAccess, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemSetMemPool calls cuMemSetMemPool.
+func fnmemSetMemPool(a0 *MemLocation, a1 MemAllocationType, a2 MemoryPool) Result {
+	r1, _ := ffiCall3(symmemSetMemPool, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemUnmap calls cuMemUnmap.
+func fnmemUnmap(a0 DevicePtr, a1 uint) Result {
+	r1, _ := ffiCall2(symmemUnmap, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemcpy calls cuMemcpy.
+func fnmemcpy(a0 DevicePtr, a1 DevicePtr, a2 uint) Result {
+	r1, _ := ffiCall3(symmemcpy, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnMemcpy2D calls cuMemcpy2D_v2.
+func fnMemcpy2D(a0 *Memcpy2d) Result {
+	r1, _ := ffiCall1(symMemcpy2D, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnmemcpy2DAsync calls cuMemcpy2DAsync_v2.
+func fnmemcpy2DAsync(a0 *Memcpy2d, a1 Stream) Result {
+	r1, _ := ffiCall2(symmemcpy2DAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnMemcpy2DUnaligned calls cuMemcpy2DUnaligned_v2.
+func fnMemcpy2DUnaligned(a0 *Memcpy2d) Result {
+	r1, _ := ffiCall1(symMemcpy2DUnaligned, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnMemcpy3D calls cuMemcpy3D_v2.
+func fnMemcpy3D(a0 *Memcpy3d) Result {
+	r1, _ := ffiCall1(symMemcpy3D, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnmemcpy3DAsync calls cuMemcpy3DAsync_v2.
+func fnmemcpy3DAsync(a0 *Memcpy3d, a1 Stream) Result {
+	r1, _ := ffiCall2(symmemcpy3DAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemcpy3DBatchAsync calls cuMemcpy3DBatchAsync_v2.
+func fnmemcpy3DBatchAsync(a0 uint, a1 *Memcpy3dBatchOp, a2 uint64, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemcpy3DBatchAsync, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnMemcpy3DPeer calls cuMemcpy3DPeer.
+func fnMemcpy3DPeer(a0 *Memcpy3dPeer) Result {
+	r1, _ := ffiCall1(symMemcpy3DPeer, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnmemcpy3DPeerAsync calls cuMemcpy3DPeerAsync.
+func fnmemcpy3DPeerAsync(a0 *Memcpy3dPeer, a1 Stream) Result {
+	r1, _ := ffiCall2(symmemcpy3DPeerAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmemcpy3DWithAttributesAsync calls cuMemcpy3DWithAttributesAsync.
+func fnmemcpy3DWithAttributesAsync(a0 *Memcpy3dBatchOp, a1 uint64, a2 Stream) Result {
+	r1, _ := ffiCall3(symmemcpy3DWithAttributesAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemcpyAsync calls cuMemcpyAsync.
+func fnmemcpyAsync(a0 DevicePtr, a1 DevicePtr, a2 uint, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemcpyAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyAtoA calls cuMemcpyAtoA_v2.
+func fnmemcpyAtoA(a0 Array, a1 uint, a2 Array, a3 uint, a4 uint) Result {
+	r1, _ := ffiCall5(symmemcpyAtoA, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemcpyAtoD calls cuMemcpyAtoD_v2.
+func fnmemcpyAtoD(a0 DevicePtr, a1 Array, a2 uint, a3 uint) Result {
+	r1, _ := ffiCall4(symmemcpyAtoD, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyAtoH calls cuMemcpyAtoH_v2.
+func fnmemcpyAtoH(a0 unsafe.Pointer, a1 Array, a2 uint, a3 uint) Result {
+	r1, _ := ffiCall4(symmemcpyAtoH, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyAtoHAsync calls cuMemcpyAtoHAsync_v2.
+func fnmemcpyAtoHAsync(a0 unsafe.Pointer, a1 Array, a2 uint, a3 uint, a4 Stream) Result {
+	r1, _ := ffiCall5(symmemcpyAtoHAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemcpyBatchAsync calls cuMemcpyBatchAsync_v2.
+func fnmemcpyBatchAsync(a0 *DevicePtr, a1 *DevicePtr, a2 *uint, a3 uint, a4 *MemcpyAttributes, a5 *uint, a6 uint, a7 Stream) Result {
+	r1, _ := ffiCall8(symmemcpyBatchAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnmemcpyDtoA calls cuMemcpyDtoA_v2.
+func fnmemcpyDtoA(a0 Array, a1 uint, a2 DevicePtr, a3 uint) Result {
+	r1, _ := ffiCall4(symmemcpyDtoA, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyDtoD calls cuMemcpyDtoD_v2.
+func fnmemcpyDtoD(a0 DevicePtr, a1 DevicePtr, a2 uint) Result {
+	r1, _ := ffiCall3(symmemcpyDtoD, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemcpyDtoDAsync calls cuMemcpyDtoDAsync_v2.
+func fnmemcpyDtoDAsync(a0 DevicePtr, a1 DevicePtr, a2 uint, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemcpyDtoDAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyDtoH calls cuMemcpyDtoH_v2.
+func fnmemcpyDtoH(a0 unsafe.Pointer, a1 DevicePtr, a2 uint) Result {
+	r1, _ := ffiCall3(symmemcpyDtoH, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemcpyDtoHAsync calls cuMemcpyDtoHAsync_v2.
+func fnmemcpyDtoHAsync(a0 unsafe.Pointer, a1 DevicePtr, a2 uint, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemcpyDtoHAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyHtoA calls cuMemcpyHtoA_v2.
+func fnmemcpyHtoA(a0 Array, a1 uint, a2 unsafe.Pointer, a3 uint) Result {
+	r1, _ := ffiCall4(symmemcpyHtoA, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyHtoAAsync calls cuMemcpyHtoAAsync_v2.
+func fnmemcpyHtoAAsync(a0 Array, a1 uint, a2 unsafe.Pointer, a3 uint, a4 Stream) Result {
+	r1, _ := ffiCall5(symmemcpyHtoAAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemcpyHtoD calls cuMemcpyHtoD_v2.
+func fnmemcpyHtoD(a0 DevicePtr, a1 unsafe.Pointer, a2 uint) Result {
+	r1, _ := ffiCall3(symmemcpyHtoD, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemcpyHtoDAsync calls cuMemcpyHtoDAsync_v2.
+func fnmemcpyHtoDAsync(a0 DevicePtr, a1 unsafe.Pointer, a2 uint, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemcpyHtoDAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemcpyPeer calls cuMemcpyPeer.
+func fnmemcpyPeer(a0 DevicePtr, a1 Context, a2 DevicePtr, a3 Context, a4 uint) Result {
+	r1, _ := ffiCall5(symmemcpyPeer, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemcpyPeerAsync calls cuMemcpyPeerAsync.
+func fnmemcpyPeerAsync(a0 DevicePtr, a1 Context, a2 DevicePtr, a3 Context, a4 uint, a5 Stream) Result {
+	r1, _ := ffiCall6(symmemcpyPeerAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnmemcpyWithAttributesAsync calls cuMemcpyWithAttributesAsync.
+func fnmemcpyWithAttributesAsync(a0 DevicePtr, a1 DevicePtr, a2 uint, a3 *MemcpyAttributes, a4 Stream) Result {
+	r1, _ := ffiCall5(symmemcpyWithAttributesAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemsetD16 calls cuMemsetD16_v2.
+func fnmemsetD16(a0 DevicePtr, a1 uint16, a2 uint) Result {
+	r1, _ := ffiCall3(symmemsetD16, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemsetD16Async calls cuMemsetD16Async.
+func fnmemsetD16Async(a0 DevicePtr, a1 uint16, a2 uint, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemsetD16Async, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemsetD2D16 calls cuMemsetD2D16_v2.
+func fnmemsetD2D16(a0 DevicePtr, a1 uint, a2 uint16, a3 uint, a4 uint) Result {
+	r1, _ := ffiCall5(symmemsetD2D16, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemsetD2D16Async calls cuMemsetD2D16Async.
+func fnmemsetD2D16Async(a0 DevicePtr, a1 uint, a2 uint16, a3 uint, a4 uint, a5 Stream) Result {
+	r1, _ := ffiCall6(symmemsetD2D16Async, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnmemsetD2D32 calls cuMemsetD2D32_v2.
+func fnmemsetD2D32(a0 DevicePtr, a1 uint, a2 uint32, a3 uint, a4 uint) Result {
+	r1, _ := ffiCall5(symmemsetD2D32, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemsetD2D32Async calls cuMemsetD2D32Async.
+func fnmemsetD2D32Async(a0 DevicePtr, a1 uint, a2 uint32, a3 uint, a4 uint, a5 Stream) Result {
+	r1, _ := ffiCall6(symmemsetD2D32Async, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnmemsetD2D8 calls cuMemsetD2D8_v2.
+func fnmemsetD2D8(a0 DevicePtr, a1 uint, a2 uint8, a3 uint, a4 uint) Result {
+	r1, _ := ffiCall5(symmemsetD2D8, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmemsetD2D8Async calls cuMemsetD2D8Async.
+func fnmemsetD2D8Async(a0 DevicePtr, a1 uint, a2 uint8, a3 uint, a4 uint, a5 Stream) Result {
+	r1, _ := ffiCall6(symmemsetD2D8Async, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnmemsetD32 calls cuMemsetD32_v2.
+func fnmemsetD32(a0 DevicePtr, a1 uint32, a2 uint) Result {
+	r1, _ := ffiCall3(symmemsetD32, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemsetD32Async calls cuMemsetD32Async.
+func fnmemsetD32Async(a0 DevicePtr, a1 uint32, a2 uint, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemsetD32Async, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmemsetD8 calls cuMemsetD8_v2.
+func fnmemsetD8(a0 DevicePtr, a1 uint8, a2 uint) Result {
+	r1, _ := ffiCall3(symmemsetD8, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmemsetD8Async calls cuMemsetD8Async.
+func fnmemsetD8Async(a0 DevicePtr, a1 uint8, a2 uint, a3 Stream) Result {
+	r1, _ := ffiCall4(symmemsetD8Async, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnmipmappedArrayCreate calls cuMipmappedArrayCreate.
+func fnmipmappedArrayCreate(a0 *MipmappedArray, a1 *Array3dDescriptor, a2 uint32) Result {
+	r1, _ := ffiCall3(symmipmappedArrayCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmipmappedArrayDestroy calls cuMipmappedArrayDestroy.
+func fnmipmappedArrayDestroy(a0 MipmappedArray) Result {
+	r1, _ := ffiCall1(symmipmappedArrayDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmipmappedArrayGetLevel calls cuMipmappedArrayGetLevel.
+func fnmipmappedArrayGetLevel(a0 *Array, a1 MipmappedArray, a2 uint32) Result {
+	r1, _ := ffiCall3(symmipmappedArrayGetLevel, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmipmappedArrayGetMemoryRequirements calls cuMipmappedArrayGetMemoryRequirements.
+func fnmipmappedArrayGetMemoryRequirements(a0 *ArrayMemoryRequirements, a1 MipmappedArray, a2 Device) Result {
+	r1, _ := ffiCall3(symmipmappedArrayGetMemoryRequirements, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmipmappedArrayGetSparseProperties calls cuMipmappedArrayGetSparseProperties.
+func fnmipmappedArrayGetSparseProperties(a0 *ArraySparseProperties, a1 MipmappedArray) Result {
+	r1, _ := ffiCall2(symmipmappedArrayGetSparseProperties, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmoduleEnumerateFunctions calls cuModuleEnumerateFunctions.
+func fnmoduleEnumerateFunctions(a0 *Function, a1 uint32, a2 Module) Result {
+	r1, _ := ffiCall3(symmoduleEnumerateFunctions, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmoduleGetFunction calls cuModuleGetFunction.
+func fnmoduleGetFunction(a0 *Function, a1 Module, a2 *byte) Result {
+	r1, _ := ffiCall3(symmoduleGetFunction, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnmoduleGetFunctionCount calls cuModuleGetFunctionCount.
+func fnmoduleGetFunctionCount(a0 *uint32, a1 Module) Result {
+	r1, _ := ffiCall2(symmoduleGetFunctionCount, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmoduleGetGlobal calls cuModuleGetGlobal_v2.
+func fnmoduleGetGlobal(a0 *DevicePtr, a1 *uint, a2 Module, a3 *byte) Result {
+	r1, _ := ffiCall4(symmoduleGetGlobal, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnModuleGetLoadingMode calls cuModuleGetLoadingMode.
+func fnModuleGetLoadingMode(a0 *ModuleLoadingMode) Result {
+	r1, _ := ffiCall1(symModuleGetLoadingMode, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnmoduleGetSurfRef calls cuModuleGetSurfRef.
+func fnmoduleGetSurfRef(a0 *SurfRef, a1 Module, a2 *byte) Result {
+	r1, _ := ffiCall3(symmoduleGetSurfRef, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnmoduleGetTexRef calls cuModuleGetTexRef.
+func fnmoduleGetTexRef(a0 *TexRef, a1 Module, a2 *byte) Result {
+	r1, _ := ffiCall3(symmoduleGetTexRef, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnmoduleLoad calls cuModuleLoad.
+func fnmoduleLoad(a0 *Module, a1 *byte) Result {
+	r1, _ := ffiCall2(symmoduleLoad, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnmoduleLoadData calls cuModuleLoadData.
+func fnmoduleLoadData(a0 *Module, a1 unsafe.Pointer) Result {
+	r1, _ := ffiCall2(symmoduleLoadData, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmoduleLoadDataEx calls cuModuleLoadDataEx.
+func fnmoduleLoadDataEx(a0 *Module, a1 unsafe.Pointer, a2 uint32, a3 *JITOption, a4 *uintptr) Result {
+	r1, _ := ffiCall5(symmoduleLoadDataEx, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnmoduleLoadFatBinary calls cuModuleLoadFatBinary.
+func fnmoduleLoadFatBinary(a0 *Module, a1 unsafe.Pointer) Result {
+	r1, _ := ffiCall2(symmoduleLoadFatBinary, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmoduleUnload calls cuModuleUnload.
+func fnmoduleUnload(a0 Module) Result {
+	r1, _ := ffiCall1(symmoduleUnload, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnmulticastAddDevice calls cuMulticastAddDevice.
+func fnmulticastAddDevice(a0 uint64, a1 Device) Result {
+	r1, _ := ffiCall2(symmulticastAddDevice, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnmulticastBindAddr calls cuMulticastBindAddr.
+func fnmulticastBindAddr(a0 uint64, a1 uint, a2 DevicePtr, a3 uint, a4 uint64) Result {
+	r1, _ := ffiCall5(symmulticastBindAddr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnmulticastBindAddrV2 calls cuMulticastBindAddr_v2.
+func fnmulticastBindAddrV2(a0 uint64, a1 Device, a2 uint, a3 DevicePtr, a4 uint, a5 uint64) Result {
+	r1, _ := ffiCall6(symmulticastBindAddrV2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnMulticastBindMem calls cuMulticastBindMem.
+func fnMulticastBindMem(a0 uint64, a1 uint, a2 uint64, a3 uint, a4 uint, a5 uint64) Result {
+	r1, _ := ffiCall6(symMulticastBindMem, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnmulticastBindMemV2 calls cuMulticastBindMem_v2.
+func fnmulticastBindMemV2(a0 uint64, a1 Device, a2 uint, a3 uint64, a4 uint, a5 uint, a6 uint64) Result {
+	r1, _ := ffiCall7(symmulticastBindMemV2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnMulticastCreate calls cuMulticastCreate.
+func fnMulticastCreate(a0 *uint64, a1 *MulticastObjectProp) Result {
+	r1, _ := ffiCall2(symMulticastCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnMulticastGetGranularity calls cuMulticastGetGranularity.
+func fnMulticastGetGranularity(a0 *uint, a1 *MulticastObjectProp, a2 MulticastgranularityFlags) Result {
+	r1, _ := ffiCall3(symMulticastGetGranularity, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnmulticastUnbind calls cuMulticastUnbind.
+func fnmulticastUnbind(a0 uint64, a1 Device, a2 uint, a3 uint) Result {
+	r1, _ := ffiCall4(symmulticastUnbind, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnoccupancyAvailableDynamicSMemPerBlock calls cuOccupancyAvailableDynamicSMemPerBlock.
+func fnoccupancyAvailableDynamicSMemPerBlock(a0 *uint, a1 Function, a2 int32, a3 int32) Result {
+	r1, _ := ffiCall4(symoccupancyAvailableDynamicSMemPerBlock, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnoccupancyMaxActiveBlocksPerMultiprocessor calls cuOccupancyMaxActiveBlocksPerMultiprocessor.
+func fnoccupancyMaxActiveBlocksPerMultiprocessor(a0 *int32, a1 Function, a2 int32, a3 uint) Result {
+	r1, _ := ffiCall4(symoccupancyMaxActiveBlocksPerMultiprocessor, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags calls cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags.
+func fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags(a0 *int32, a1 Function, a2 int32, a3 uint, a4 uint32) Result {
+	r1, _ := ffiCall5(symoccupancyMaxActiveBlocksPerMultiprocessorWithFlags, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnoccupancyMaxActiveClusters calls cuOccupancyMaxActiveClusters.
+func fnoccupancyMaxActiveClusters(a0 *int32, a1 Function, a2 *LaunchConfig) Result {
+	r1, _ := ffiCall3(symoccupancyMaxActiveClusters, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnoccupancyMaxPotentialBlockSize calls cuOccupancyMaxPotentialBlockSize.
+func fnoccupancyMaxPotentialBlockSize(a0 *int32, a1 *int32, a2 Function, a3 uintptr, a4 uint, a5 int32) Result {
+	r1, _ := ffiCall6(symoccupancyMaxPotentialBlockSize, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnoccupancyMaxPotentialBlockSizeWithFlags calls cuOccupancyMaxPotentialBlockSizeWithFlags.
+func fnoccupancyMaxPotentialBlockSizeWithFlags(a0 *int32, a1 *int32, a2 Function, a3 uintptr, a4 uint, a5 int32, a6 uint32) Result {
+	r1, _ := ffiCall7(symoccupancyMaxPotentialBlockSizeWithFlags, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnoccupancyMaxPotentialClusterSize calls cuOccupancyMaxPotentialClusterSize.
+func fnoccupancyMaxPotentialClusterSize(a0 *int32, a1 Function, a2 *LaunchConfig) Result {
+	r1, _ := ffiCall3(symoccupancyMaxPotentialClusterSize, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnparamSetSize calls cuParamSetSize.
+func fnparamSetSize(a0 Function, a1 uint32) Result {
+	r1, _ := ffiCall2(symparamSetSize, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnparamSetTexRef calls cuParamSetTexRef.
+func fnparamSetTexRef(a0 Function, a1 int32, a2 TexRef) Result {
+	r1, _ := ffiCall3(symparamSetTexRef, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnparamSetf calls cuParamSetf.
+func fnparamSetf(a0 Function, a1 int32, a2 float32) Result {
+	r1, _ := ffiCall3(symparamSetf, 0b100, uintptr(a0), uintptr(a1), uintptr(math.Float32bits(a2)))
+	return Result(r1)
+}
+
+// fnparamSeti calls cuParamSeti.
+func fnparamSeti(a0 Function, a1 int32, a2 uint32) Result {
+	r1, _ := ffiCall3(symparamSeti, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnparamSetv calls cuParamSetv.
+func fnparamSetv(a0 Function, a1 int32, a2 unsafe.Pointer, a3 uint32) Result {
+	r1, _ := ffiCall4(symparamSetv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnpointerGetAttribute calls cuPointerGetAttribute.
+func fnpointerGetAttribute(a0 unsafe.Pointer, a1 PointerAttribute, a2 DevicePtr) Result {
+	r1, _ := ffiCall3(sympointerGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnpointerGetAttributes calls cuPointerGetAttributes.
+func fnpointerGetAttributes(a0 uint32, a1 *PointerAttribute, a2 *uintptr, a3 DevicePtr) Result {
+	r1, _ := ffiCall4(sympointerGetAttributes, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnpointerSetAttribute calls cuPointerSetAttribute.
+func fnpointerSetAttribute(a0 uintptr, a1 PointerAttribute, a2 DevicePtr) Result {
+	r1, _ := ffiCall3(sympointerSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsignalExternalSemaphoresAsync calls cuSignalExternalSemaphoresAsync.
+func fnsignalExternalSemaphoresAsync(a0 *ExternalSemaphore, a1 *ExternalSemaphoreSignalParams, a2 uint32, a3 Stream) Result {
+	r1, _ := ffiCall4(symsignalExternalSemaphoresAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstreamAddCallback calls cuStreamAddCallback.
+func fnstreamAddCallback(a0 Stream, a1 uintptr, a2 uintptr, a3 uint32) Result {
+	r1, _ := ffiCall4(symstreamAddCallback, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstreamAttachMemAsync calls cuStreamAttachMemAsync.
+func fnstreamAttachMemAsync(a0 Stream, a1 DevicePtr, a2 uint, a3 uint32) Result {
+	r1, _ := ffiCall4(symstreamAttachMemAsync, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstreamBatchMemOp calls cuStreamBatchMemOp_v2.
+func fnstreamBatchMemOp(a0 Stream, a1 uint32, a2 *[6]uint64, a3 uint32) Result {
+	r1, _ := ffiCall4(symstreamBatchMemOp, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstreamBeginCapture calls cuStreamBeginCapture_v2.
+func fnstreamBeginCapture(a0 Stream, a1 StreamCaptureMode) Result {
+	r1, _ := ffiCall2(symstreamBeginCapture, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnstreamBeginCaptureToCig calls cuStreamBeginCaptureToCig.
+func fnstreamBeginCaptureToCig(a0 Stream, a1 *StreamCigCaptureParams) Result {
+	r1, _ := ffiCall2(symstreamBeginCaptureToCig, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamBeginCaptureToGraph calls cuStreamBeginCaptureToGraph.
+func fnstreamBeginCaptureToGraph(a0 Stream, a1 Graph, a2 *GraphNode, a3 *GraphEdgeData, a4 uint, a5 StreamCaptureMode) Result {
+	r1, _ := ffiCall6(symstreamBeginCaptureToGraph, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnstreamCopyAttributes calls cuStreamCopyAttributes.
+func fnstreamCopyAttributes(a0 Stream, a1 Stream) Result {
+	r1, _ := ffiCall2(symstreamCopyAttributes, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnstreamCreate calls cuStreamCreate.
+func fnstreamCreate(a0 *Stream, a1 uint32) Result {
+	r1, _ := ffiCall2(symstreamCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnstreamCreateWithPriority calls cuStreamCreateWithPriority.
+func fnstreamCreateWithPriority(a0 *Stream, a1 uint32, a2 int32) Result {
+	r1, _ := ffiCall3(symstreamCreateWithPriority, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnstreamDestroy calls cuStreamDestroy_v2.
+func fnstreamDestroy(a0 Stream) Result {
+	r1, _ := ffiCall1(symstreamDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnstreamEndCapture calls cuStreamEndCapture.
+func fnstreamEndCapture(a0 Stream, a1 *Graph) Result {
+	r1, _ := ffiCall2(symstreamEndCapture, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamEndCaptureToCig calls cuStreamEndCaptureToCig.
+func fnstreamEndCaptureToCig(a0 Stream) Result {
+	r1, _ := ffiCall1(symstreamEndCaptureToCig, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnstreamGetAttribute calls cuStreamGetAttribute.
+func fnstreamGetAttribute(a0 Stream, a1 int32, a2 *[8]uint64) Result {
+	r1, _ := ffiCall3(symstreamGetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnstreamGetCaptureInfo calls cuStreamGetCaptureInfo_v3.
+func fnstreamGetCaptureInfo(a0 Stream, a1 *StreamCaptureStatus, a2 *uint64, a3 *Graph, a4 uintptr, a5 uintptr, a6 *uint) Result {
+	r1, _ := ffiCall7(symstreamGetCaptureInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnstreamGetCtx calls cuStreamGetCtx_v2.
+func fnstreamGetCtx(a0 Stream, a1 *Context, a2 *GreenCtx) Result {
+	r1, _ := ffiCall3(symstreamGetCtx, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnstreamGetDevResource calls cuStreamGetDevResource.
+func fnstreamGetDevResource(a0 Stream, a1 *DevResource, a2 DevResourceType) Result {
+	r1, _ := ffiCall3(symstreamGetDevResource, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fnstreamGetDevice calls cuStreamGetDevice.
+func fnstreamGetDevice(a0 Stream, a1 *Device) Result {
+	r1, _ := ffiCall2(symstreamGetDevice, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamGetFlags calls cuStreamGetFlags.
+func fnstreamGetFlags(a0 Stream, a1 *uint32) Result {
+	r1, _ := ffiCall2(symstreamGetFlags, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamGetGreenCtx calls cuStreamGetGreenCtx.
+func fnstreamGetGreenCtx(a0 Stream, a1 *GreenCtx) Result {
+	r1, _ := ffiCall2(symstreamGetGreenCtx, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamGetId calls cuStreamGetId.
+func fnstreamGetId(a0 Stream, a1 *uint64) Result {
+	r1, _ := ffiCall2(symstreamGetId, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamGetPriority calls cuStreamGetPriority.
+func fnstreamGetPriority(a0 Stream, a1 *int32) Result {
+	r1, _ := ffiCall2(symstreamGetPriority, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamIsCapturing calls cuStreamIsCapturing.
+func fnstreamIsCapturing(a0 Stream, a1 *StreamCaptureStatus) Result {
+	r1, _ := ffiCall2(symstreamIsCapturing, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamQuery calls cuStreamQuery.
+func fnstreamQuery(a0 Stream) Result {
+	r1, _ := ffiCall1(symstreamQuery, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnstreamSetAttribute calls cuStreamSetAttribute.
+func fnstreamSetAttribute(a0 Stream, a1 int32, a2 *[8]uint64) Result {
+	r1, _ := ffiCall3(symstreamSetAttribute, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnstreamSynchronize calls cuStreamSynchronize.
+func fnstreamSynchronize(a0 Stream) Result {
+	r1, _ := ffiCall1(symstreamSynchronize, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnstreamUpdateCaptureDependencies calls cuStreamUpdateCaptureDependencies_v2.
+func fnstreamUpdateCaptureDependencies(a0 Stream, a1 *GraphNode, a2 *GraphEdgeData, a3 uint, a4 uint32) Result {
+	r1, _ := ffiCall5(symstreamUpdateCaptureDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnstreamWaitEvent calls cuStreamWaitEvent.
+func fnstreamWaitEvent(a0 Stream, a1 Event, a2 uint32) Result {
+	r1, _ := ffiCall3(symstreamWaitEvent, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnstreamWaitValue32 calls cuStreamWaitValue32_v2.
+func fnstreamWaitValue32(a0 Stream, a1 DevicePtr, a2 uint32, a3 uint32) Result {
+	r1, _ := ffiCall4(symstreamWaitValue32, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstreamWaitValue64 calls cuStreamWaitValue64_v2.
+func fnstreamWaitValue64(a0 Stream, a1 DevicePtr, a2 uint64, a3 uint32) Result {
+	r1, _ := ffiCall4(symstreamWaitValue64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstreamWriteValue32 calls cuStreamWriteValue32_v2.
+func fnstreamWriteValue32(a0 Stream, a1 DevicePtr, a2 uint32, a3 uint32) Result {
+	r1, _ := ffiCall4(symstreamWriteValue32, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnstreamWriteValue64 calls cuStreamWriteValue64_v2.
+func fnstreamWriteValue64(a0 Stream, a1 DevicePtr, a2 uint64, a3 uint32) Result {
+	r1, _ := ffiCall4(symstreamWriteValue64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnSurfObjectCreate calls cuSurfObjectCreate.
+func fnSurfObjectCreate(a0 *uint64, a1 *ResourceDesc) Result {
+	r1, _ := ffiCall2(symSurfObjectCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnSurfObjectDestroy calls cuSurfObjectDestroy.
+func fnSurfObjectDestroy(a0 uint64) Result {
+	r1, _ := ffiCall1(symSurfObjectDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnSurfObjectGetResourceDesc calls cuSurfObjectGetResourceDesc.
+func fnSurfObjectGetResourceDesc(a0 *ResourceDesc, a1 uint64) Result {
+	r1, _ := ffiCall2(symSurfObjectGetResourceDesc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsurfRefGetArray calls cuSurfRefGetArray.
+func fnsurfRefGetArray(a0 *Array, a1 SurfRef) Result {
+	r1, _ := ffiCall2(symsurfRefGetArray, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsurfRefSetArray calls cuSurfRefSetArray.
+func fnsurfRefSetArray(a0 SurfRef, a1 Array, a2 uint32) Result {
+	r1, _ := ffiCall3(symsurfRefSetArray, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnTensorMapEncodeIm2col calls cuTensorMapEncodeIm2col.
+func fnTensorMapEncodeIm2col(a0 *TensorMap, a1 TensorMapDataType, a2 uint32, a3 uintptr, a4 *uint64, a5 *uint64, a6 *int32, a7 *int32, a8 uint32, a9 uint32, a10 *uint32, a11 TensorMapInterleave, a12 TensorMapSwizzle, a13 TensorMapL2promotion, a14 TensorMapFloatOOBfill) Result {
+	r1, _ := ffiCall15(symTensorMapEncodeIm2col, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnTensorMapEncodeIm2colWide calls cuTensorMapEncodeIm2colWide.
+func fnTensorMapEncodeIm2colWide(a0 *TensorMap, a1 TensorMapDataType, a2 uint32, a3 uintptr, a4 *uint64, a5 *uint64, a6 int32, a7 int32, a8 uint32, a9 uint32, a10 *uint32, a11 TensorMapInterleave, a12 TensorMapIm2ColWideMode, a13 TensorMapSwizzle, a14 TensorMapL2promotion, a15 TensorMapFloatOOBfill) Result {
+	r1, _ := ffiCall16(symTensorMapEncodeIm2colWide, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnTensorMapEncodeTiled calls cuTensorMapEncodeTiled.
+func fnTensorMapEncodeTiled(a0 *TensorMap, a1 TensorMapDataType, a2 uint32, a3 uintptr, a4 *uint64, a5 *uint64, a6 *uint32, a7 *uint32, a8 TensorMapInterleave, a9 TensorMapSwizzle, a10 TensorMapL2promotion, a11 TensorMapFloatOOBfill) Result {
+	r1, _ := ffiCall12(symTensorMapEncodeTiled, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnTensorMapReplaceAddress calls cuTensorMapReplaceAddress.
+func fnTensorMapReplaceAddress(a0 *TensorMap, a1 uintptr) Result {
+	r1, _ := ffiCall2(symTensorMapReplaceAddress, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnTexObjectCreate calls cuTexObjectCreate.
+func fnTexObjectCreate(a0 *uint64, a1 *ResourceDesc, a2 *TextureDesc, a3 *ResourceViewDesc) Result {
+	r1, _ := ffiCall4(symTexObjectCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnTexObjectDestroy calls cuTexObjectDestroy.
+func fnTexObjectDestroy(a0 uint64) Result {
+	r1, _ := ffiCall1(symTexObjectDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnTexObjectGetResourceDesc calls cuTexObjectGetResourceDesc.
+func fnTexObjectGetResourceDesc(a0 *ResourceDesc, a1 uint64) Result {
+	r1, _ := ffiCall2(symTexObjectGetResourceDesc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnTexObjectGetResourceViewDesc calls cuTexObjectGetResourceViewDesc.
+func fnTexObjectGetResourceViewDesc(a0 *ResourceViewDesc, a1 uint64) Result {
+	r1, _ := ffiCall2(symTexObjectGetResourceViewDesc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnTexObjectGetTextureDesc calls cuTexObjectGetTextureDesc.
+func fnTexObjectGetTextureDesc(a0 *TextureDesc, a1 uint64) Result {
+	r1, _ := ffiCall2(symTexObjectGetTextureDesc, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefCreate calls cuTexRefCreate.
+func fntexRefCreate(a0 *TexRef) Result {
+	r1, _ := ffiCall1(symtexRefCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fntexRefDestroy calls cuTexRefDestroy.
+func fntexRefDestroy(a0 TexRef) Result {
+	r1, _ := ffiCall1(symtexRefDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fntexRefGetAddress calls cuTexRefGetAddress_v2.
+func fntexRefGetAddress(a0 *DevicePtr, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetAddress, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefGetAddressMode calls cuTexRefGetAddressMode.
+func fntexRefGetAddressMode(a0 *AddressMode, a1 TexRef, a2 int32) Result {
+	r1, _ := ffiCall3(symtexRefGetAddressMode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fntexRefGetArray calls cuTexRefGetArray.
+func fntexRefGetArray(a0 *Array, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetArray, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefGetBorderColor calls cuTexRefGetBorderColor.
+func fntexRefGetBorderColor(a0 *float32, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetBorderColor, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefGetFilterMode calls cuTexRefGetFilterMode.
+func fntexRefGetFilterMode(a0 *FilterMode, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetFilterMode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefGetFlags calls cuTexRefGetFlags.
+func fntexRefGetFlags(a0 *uint32, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetFlags, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefGetFormat calls cuTexRefGetFormat.
+func fntexRefGetFormat(a0 *ArrayFormat, a1 *int32, a2 TexRef) Result {
+	r1, _ := ffiCall3(symtexRefGetFormat, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fntexRefGetMaxAnisotropy calls cuTexRefGetMaxAnisotropy.
+func fntexRefGetMaxAnisotropy(a0 *int32, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetMaxAnisotropy, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefGetMipmapFilterMode calls cuTexRefGetMipmapFilterMode.
+func fntexRefGetMipmapFilterMode(a0 *FilterMode, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetMipmapFilterMode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefGetMipmapLevelBias calls cuTexRefGetMipmapLevelBias.
+func fntexRefGetMipmapLevelBias(a0 *float32, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetMipmapLevelBias, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefGetMipmapLevelClamp calls cuTexRefGetMipmapLevelClamp.
+func fntexRefGetMipmapLevelClamp(a0 *float32, a1 *float32, a2 TexRef) Result {
+	r1, _ := ffiCall3(symtexRefGetMipmapLevelClamp, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
+// fntexRefGetMipmappedArray calls cuTexRefGetMipmappedArray.
+func fntexRefGetMipmappedArray(a0 *MipmappedArray, a1 TexRef) Result {
+	r1, _ := ffiCall2(symtexRefGetMipmappedArray, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefSetAddress calls cuTexRefSetAddress_v2.
+func fntexRefSetAddress(a0 *uint, a1 TexRef, a2 DevicePtr, a3 uint) Result {
+	r1, _ := ffiCall4(symtexRefSetAddress, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fntexRefSetAddress2D calls cuTexRefSetAddress2D_v3.
+func fntexRefSetAddress2D(a0 TexRef, a1 *ArrayDescriptor, a2 DevicePtr, a3 uint) Result {
+	r1, _ := ffiCall4(symtexRefSetAddress2D, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fntexRefSetAddressMode calls cuTexRefSetAddressMode.
+func fntexRefSetAddressMode(a0 TexRef, a1 int32, a2 AddressMode) Result {
+	r1, _ := ffiCall3(symtexRefSetAddressMode, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fntexRefSetArray calls cuTexRefSetArray.
+func fntexRefSetArray(a0 TexRef, a1 Array, a2 uint32) Result {
+	r1, _ := ffiCall3(symtexRefSetArray, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fntexRefSetBorderColor calls cuTexRefSetBorderColor.
+func fntexRefSetBorderColor(a0 TexRef, a1 *float32) Result {
+	r1, _ := ffiCall2(symtexRefSetBorderColor, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fntexRefSetFilterMode calls cuTexRefSetFilterMode.
+func fntexRefSetFilterMode(a0 TexRef, a1 FilterMode) Result {
+	r1, _ := ffiCall2(symtexRefSetFilterMode, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefSetFlags calls cuTexRefSetFlags.
+func fntexRefSetFlags(a0 TexRef, a1 uint32) Result {
+	r1, _ := ffiCall2(symtexRefSetFlags, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefSetFormat calls cuTexRefSetFormat.
+func fntexRefSetFormat(a0 TexRef, a1 ArrayFormat, a2 int32) Result {
+	r1, _ := ffiCall3(symtexRefSetFormat, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fntexRefSetMaxAnisotropy calls cuTexRefSetMaxAnisotropy.
+func fntexRefSetMaxAnisotropy(a0 TexRef, a1 uint32) Result {
+	r1, _ := ffiCall2(symtexRefSetMaxAnisotropy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefSetMipmapFilterMode calls cuTexRefSetMipmapFilterMode.
+func fntexRefSetMipmapFilterMode(a0 TexRef, a1 FilterMode) Result {
+	r1, _ := ffiCall2(symtexRefSetMipmapFilterMode, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fntexRefSetMipmapLevelBias calls cuTexRefSetMipmapLevelBias.
+func fntexRefSetMipmapLevelBias(a0 TexRef, a1 float32) Result {
+	r1, _ := ffiCall2(symtexRefSetMipmapLevelBias, 0b10, uintptr(a0), uintptr(math.Float32bits(a1)))
+	return Result(r1)
+}
+
+// fntexRefSetMipmapLevelClamp calls cuTexRefSetMipmapLevelClamp.
+func fntexRefSetMipmapLevelClamp(a0 TexRef, a1 float32, a2 float32) Result {
+	r1, _ := ffiCall3(symtexRefSetMipmapLevelClamp, 0b110, uintptr(a0), uintptr(math.Float32bits(a1)), uintptr(math.Float32bits(a2)))
+	return Result(r1)
+}
+
+// fntexRefSetMipmappedArray calls cuTexRefSetMipmappedArray.
+func fntexRefSetMipmappedArray(a0 TexRef, a1 MipmappedArray, a2 uint32) Result {
+	r1, _ := ffiCall3(symtexRefSetMipmappedArray, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnThreadExchangeStreamCaptureMode calls cuThreadExchangeStreamCaptureMode.
+func fnThreadExchangeStreamCaptureMode(a0 *StreamCaptureMode) Result {
+	r1, _ := ffiCall1(symThreadExchangeStreamCaptureMode, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fnuserObjectCreate calls cuUserObjectCreate.
+func fnuserObjectCreate(a0 *UserObject, a1 uintptr, a2 uintptr, a3 uint32, a4 uint32) Result {
+	r1, _ := ffiCall5(symuserObjectCreate, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnuserObjectRelease calls cuUserObjectRelease.
+func fnuserObjectRelease(a0 UserObject, a1 uint32) Result {
+	r1, _ := ffiCall2(symuserObjectRelease, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnuserObjectRetain calls cuUserObjectRetain.
+func fnuserObjectRetain(a0 UserObject, a1 uint32) Result {
+	r1, _ := ffiCall2(symuserObjectRetain, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnwaitExternalSemaphoresAsync calls cuWaitExternalSemaphoresAsync.
+func fnwaitExternalSemaphoresAsync(a0 *ExternalSemaphore, a1 *ExternalSemaphoreWaitParams, a2 uint32, a3 Stream) Result {
+	r1, _ := ffiCall4(symwaitExternalSemaphoresAsync, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// array3DCreate creates a 3D CUDA array.
 //
 // Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [Array3dDescriptor] is defined as:
 // where:
@@ -523,15 +3551,18 @@ func array3DCreate(pAllocateArray *Array3dDescriptor) (Array, error) {
 		var zero Array
 		return zero, err
 	}
-	var out Array
-	if err := toError(fnarray3DCreate(&out, pAllocateArray), "cuArray3DCreate_v2"); err != nil {
+	out := slotArray3DCreate.get()
+	defer slotArray3DCreate.put(out)
+	if err := toError(fnarray3DCreate(out, pAllocateArray), "cuArray3DCreate_v2"); err != nil {
 		var zero Array
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// array3DGetDescriptor Get a 3D CUDA array descriptor.
+var slotArray3DCreate outSlot[Array]
+
+// array3DGetDescriptor gets a 3D CUDA array descriptor.
 //
 // Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes.
 // This function may be called on 1D and 2D arrays, in which case the Height and/or Depth members of the descriptor struct will be set to 0.
@@ -548,15 +3579,18 @@ func array3DGetDescriptor(hArray Array) (Array3dDescriptor, error) {
 		var zero Array3dDescriptor
 		return zero, err
 	}
-	var out Array3dDescriptor
-	if err := toError(fnarray3DGetDescriptor(&out, hArray), "cuArray3DGetDescriptor_v2"); err != nil {
+	out := slotArray3DGetDescriptor.get()
+	defer slotArray3DGetDescriptor.put(out)
+	if err := toError(fnarray3DGetDescriptor(out, hArray), "cuArray3DGetDescriptor_v2"); err != nil {
 		var zero Array3dDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// arrayCreate Creates a 1D or 2D CUDA array.
+var slotArray3DGetDescriptor outSlot[Array3dDescriptor]
+
+// arrayCreate creates a 1D or 2D CUDA array.
 //
 // Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [ArrayDescriptor] is defined as:
 // where:
@@ -578,15 +3612,18 @@ func arrayCreate(pAllocateArray *ArrayDescriptor) (Array, error) {
 		var zero Array
 		return zero, err
 	}
-	var out Array
-	if err := toError(fnarrayCreate(&out, pAllocateArray), "cuArrayCreate_v2"); err != nil {
+	out := slotArrayCreate.get()
+	defer slotArrayCreate.put(out)
+	if err := toError(fnarrayCreate(out, pAllocateArray), "cuArrayCreate_v2"); err != nil {
 		var zero Array
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// arrayDestroy Destroys a CUDA array.
+var slotArrayCreate outSlot[Array]
+
+// arrayDestroy destroys a CUDA array.
 //
 // Destroys the CUDA array hArray.
 //
@@ -604,7 +3641,7 @@ func arrayDestroy(hArray Array) error {
 	return toError(fnarrayDestroy(hArray), "cuArrayDestroy")
 }
 
-// arrayGetDescriptor Get a 1D or 2D CUDA array descriptor.
+// arrayGetDescriptor gets a 1D or 2D CUDA array descriptor.
 //
 // Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes.
 //
@@ -620,15 +3657,18 @@ func arrayGetDescriptor(hArray Array) (ArrayDescriptor, error) {
 		var zero ArrayDescriptor
 		return zero, err
 	}
-	var out ArrayDescriptor
-	if err := toError(fnarrayGetDescriptor(&out, hArray), "cuArrayGetDescriptor_v2"); err != nil {
+	out := slotArrayGetDescriptor.get()
+	defer slotArrayGetDescriptor.put(out)
+	if err := toError(fnarrayGetDescriptor(out, hArray), "cuArrayGetDescriptor_v2"); err != nil {
 		var zero ArrayDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// arrayGetMemoryRequirements Returns the memory requirements of a CUDA array.
+var slotArrayGetDescriptor outSlot[ArrayDescriptor]
+
+// arrayGetMemoryRequirements returns the memory requirements of a CUDA array.
 //
 // Returns the memory requirements of a CUDA array in memoryRequirements If the CUDA array is not allocated with flag CUDA_ARRAY3D_DEFERRED_MAPPING [ErrInvalidValue] will be returned.
 // The returned value in [ArrayMemoryRequirements].size represents the total size of the CUDA array. The returned value in [ArrayMemoryRequirements].alignment represents the alignment necessary for mapping the CUDA array.
@@ -644,15 +3684,18 @@ func arrayGetMemoryRequirements(array Array, device Device) (ArrayMemoryRequirem
 		var zero ArrayMemoryRequirements
 		return zero, err
 	}
-	var out ArrayMemoryRequirements
-	if err := toError(fnarrayGetMemoryRequirements(&out, array, device), "cuArrayGetMemoryRequirements"); err != nil {
+	out := slotArrayGetMemoryRequirements.get()
+	defer slotArrayGetMemoryRequirements.put(out)
+	if err := toError(fnarrayGetMemoryRequirements(out, array, device), "cuArrayGetMemoryRequirements"); err != nil {
 		var zero ArrayMemoryRequirements
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// arrayGetPlane Gets a CUDA array plane from a CUDA array.
+var slotArrayGetMemoryRequirements outSlot[ArrayMemoryRequirements]
+
+// arrayGetPlane gets a CUDA array plane from a CUDA array.
 //
 // Returns in pPlaneArray a CUDA array that represents a single format plane of the CUDA array hArray.
 // If planeIdx is greater than the maximum number of planes in this array or if the array does not have a multi-planar format e.g: [AdFormatNV12], then [ErrInvalidValue] is returned.
@@ -671,15 +3714,18 @@ func arrayGetPlane(hArray Array, planeIdx uint32) (Array, error) {
 		var zero Array
 		return zero, err
 	}
-	var out Array
-	if err := toError(fnarrayGetPlane(&out, hArray, planeIdx), "cuArrayGetPlane"); err != nil {
+	out := slotArrayGetPlane.get()
+	defer slotArrayGetPlane.put(out)
+	if err := toError(fnarrayGetPlane(out, hArray, planeIdx), "cuArrayGetPlane"); err != nil {
 		var zero Array
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// arrayGetSparseProperties Returns the layout properties of a sparse CUDA array.
+var slotArrayGetPlane outSlot[Array]
+
+// arrayGetSparseProperties returns the layout properties of a sparse CUDA array.
 //
 // Returns the layout properties of a sparse CUDA array in sparseProperties If the CUDA array is not allocated with flag CUDA_ARRAY3D_SPARSE [ErrInvalidValue] will be returned.
 // If the returned value in [ArraySparseProperties].flags contains CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL, then [ArraySparseProperties].miptailSize represents the total size of the array. Otherwise, it will be zero. Also, the returned value in [ArraySparseProperties].miptailFirstLevel is always zero. Note that the array must have been allocated using [NewArray] or [NewArray3D]. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. Instead, [MipmappedArray.SparseProperties] must be used to obtain the sparse properties of the entire CUDA mipmapped array to which array belongs to.
@@ -694,15 +3740,18 @@ func arrayGetSparseProperties(array Array) (ArraySparseProperties, error) {
 		var zero ArraySparseProperties
 		return zero, err
 	}
-	var out ArraySparseProperties
-	if err := toError(fnarrayGetSparseProperties(&out, array), "cuArrayGetSparseProperties"); err != nil {
+	out := slotArrayGetSparseProperties.get()
+	defer slotArrayGetSparseProperties.put(out)
+	if err := toError(fnarrayGetSparseProperties(out, array), "cuArrayGetSparseProperties"); err != nil {
 		var zero ArraySparseProperties
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CheckpointProcessCheckpoint Checkpoint a CUDA process’s GPU memory contents.
+var slotArrayGetSparseProperties outSlot[ArraySparseProperties]
+
+// CheckpointProcessCheckpoint checkpoints a CUDA process’s GPU memory contents.
 //
 // Checkpoints a CUDA process specified by pid. The GPU memory contents will be brought into host memory or mapped onto the calling process’s GPUs for user-defined behavior. Underlying GPU references are released when checkpointing completes. The process must be in the [ProcessStateLocked] state to checkpoint.
 // When CUcheckpointCheckpointArgscustomStorageInfo_out is not NULL, all the GPU memory allocated by the process with pid will be mapped onto the calling process’s GPUs so the application can copy the memory to custom storage. Upon return of this call, the pointer referenced by CUcheckpointCheckpointArgscustomStorageInfo_out will point to a CUcheckpointCustomStorageInfo struct allocated and populated by the driver. For each GPU which contains data from the checkpointed process, there is a corresponding entry in the CUcheckpointCustomStoragePerDeviceData array.
@@ -721,7 +3770,7 @@ func CheckpointProcessCheckpoint(pid int32, args *CheckpointCheckpointArgs) erro
 	return toError(fnCheckpointProcessCheckpoint(pid, args), "cuCheckpointProcessCheckpoint")
 }
 
-// CheckpointProcessGetRestoreThreadId Returns the restore thread ID for a CUDA process.
+// CheckpointProcessGetRestoreThreadId returns the restore thread ID for a CUDA process.
 //
 // Returns in *tid the thread ID of the CUDA restore thread for the process specified by pid.
 //
@@ -733,15 +3782,18 @@ func CheckpointProcessGetRestoreThreadId(pid int32) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnCheckpointProcessGetRestoreThreadId(pid, &out), "cuCheckpointProcessGetRestoreThreadId"); err != nil {
+	out := slotCheckpointProcessGetRestoreThreadId.get()
+	defer slotCheckpointProcessGetRestoreThreadId.put(out)
+	if err := toError(fnCheckpointProcessGetRestoreThreadId(pid, out), "cuCheckpointProcessGetRestoreThreadId"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CheckpointProcessGetState Returns the process state of a CUDA process.
+var slotCheckpointProcessGetRestoreThreadId outSlot[int32]
+
+// CheckpointProcessGetState returns the process state of a CUDA process.
 //
 // Returns in *state the current state of the CUDA process specified by pid.
 //
@@ -753,15 +3805,18 @@ func CheckpointProcessGetState(pid int32) (ProcessState, error) {
 		var zero ProcessState
 		return zero, err
 	}
-	var out ProcessState
-	if err := toError(fnCheckpointProcessGetState(pid, &out), "cuCheckpointProcessGetState"); err != nil {
+	out := slotCheckpointProcessGetState.get()
+	defer slotCheckpointProcessGetState.put(out)
+	if err := toError(fnCheckpointProcessGetState(pid, out), "cuCheckpointProcessGetState"); err != nil {
 		var zero ProcessState
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CheckpointProcessLock Lock a running CUDA process.
+var slotCheckpointProcessGetState outSlot[ProcessState]
+
+// CheckpointProcessLock locks a running CUDA process.
 //
 // Lock the CUDA process specified by pid which will block further CUDA API calls. Process must be in the RUNNING state in order to lock.
 // Upon successful return the process will be in the LOCKED state.
@@ -778,7 +3833,7 @@ func CheckpointProcessLock(pid int32, args *CheckpointLockArgs) error {
 	return toError(fnCheckpointProcessLock(pid, args), "cuCheckpointProcessLock")
 }
 
-// CheckpointProcessRestore Restore a CUDA process’s GPU memory contents from its last checkpoint.
+// CheckpointProcessRestore restores a CUDA process’s GPU memory contents from its last checkpoint.
 //
 // Restores a CUDA process specified by pid from its last checkpoint. Process must be in the [ProcessStateCheckpointed] state to restore.
 // GPU UUID pairs can be specified in args to remap the process old GPUs onto new GPUs. The GPU to restore onto needs to have enough memory and be of the same chip type as the old GPU. If an array of GPU UUID pairs is specified, it must contain every checkpointed GPU.
@@ -805,7 +3860,7 @@ func CheckpointProcessRestore(pid int32, args *CheckpointRestoreArgs) error {
 	return toError(fnCheckpointProcessRestore(pid, args), "cuCheckpointProcessRestore")
 }
 
-// CheckpointProcessUnlock Unlock a CUDA process to allow CUDA API calls.
+// CheckpointProcessUnlock unlocks a CUDA process to allow CUDA API calls.
 //
 // Unlocks a process specified by pid allowing it to resume making CUDA API calls. Process must be in the LOCKED state.
 // Upon successful return the process will be in the RUNNING state.
@@ -821,7 +3876,7 @@ func CheckpointProcessUnlock(pid int32, args *CheckpointUnlockArgs) error {
 	return toError(fnCheckpointProcessUnlock(pid, args), "cuCheckpointProcessUnlock")
 }
 
-// coredumpDeregisterCompleteCallback Deregister a previously registered coredump complete callback.
+// coredumpDeregisterCompleteCallback deregisters a previously registered coredump complete callback.
 //
 // This function removes a callback that was registered with [CoredumpRegisterCompleteCallback]. The callback handle becomes invalid after this call.
 //
@@ -839,7 +3894,7 @@ func coredumpDeregisterCompleteCallback(callback CoredumpCallbackHandle) error {
 	return toError(fncoredumpDeregisterCompleteCallback(callback), "cuCoredumpDeregisterCompleteCallback")
 }
 
-// coredumpDeregisterStartCallback Deregister a previously registered coredump start callback.
+// coredumpDeregisterStartCallback deregisters a previously registered coredump start callback.
 //
 // This function removes a callback that was registered with [CoredumpRegisterStartCallback]. The callback handle becomes invalid after this call.
 //
@@ -857,7 +3912,7 @@ func coredumpDeregisterStartCallback(callback CoredumpCallbackHandle) error {
 	return toError(fncoredumpDeregisterStartCallback(callback), "cuCoredumpDeregisterStartCallback")
 }
 
-// CoredumpGetAttribute Allows caller to fetch a coredump attribute value for the current context.
+// CoredumpGetAttribute allows caller to fetch a coredump attribute value for the current context.
 //
 // Returns in *value the requested value specified by attrib. It is up to the caller to ensure that the data type and size of *value matches the request.
 // If the caller calls this function with *value equal to NULL, the size of the memory region (in bytes) expected for attrib will be placed in size.
@@ -877,7 +3932,7 @@ func CoredumpGetAttribute(attrib CoredumpSettings, value unsafe.Pointer, size *u
 	return toError(fnCoredumpGetAttribute(attrib, value, size), "cuCoredumpGetAttribute")
 }
 
-// CoredumpGetAttributeGlobal Allows caller to fetch a coredump attribute value for the entire application.
+// CoredumpGetAttributeGlobal allows caller to fetch a coredump attribute value for the entire application.
 //
 // Returns in *value the requested value specified by attrib. It is up to the caller to ensure that the data type and size of *value matches the request.
 // If the caller calls this function with *value equal to NULL, the size of the memory region (in bytes) expected for attrib will be placed in size.
@@ -897,7 +3952,7 @@ func CoredumpGetAttributeGlobal(attrib CoredumpSettings, value uintptr, size *ui
 	return toError(fnCoredumpGetAttributeGlobal(attrib, value, size), "cuCoredumpGetAttributeGlobal")
 }
 
-// CoredumpRegisterCompleteCallback Register a callback to be invoked when a GPU coredump completes.
+// CoredumpRegisterCompleteCallback registers a callback to be invoked when a GPU coredump completes.
 //
 // This function registers a callback that will be called when a GPU coredump has been fully collected and written to disk. Callbacks are executed in the order they were registered. The same callback function can be registered multiple times with different userData, and each registration will receive a unique handle.
 //
@@ -914,15 +3969,18 @@ func CoredumpRegisterCompleteCallback(callback uintptr, userData uintptr) (Cored
 		var zero CoredumpCallbackHandle
 		return zero, err
 	}
-	var out CoredumpCallbackHandle
-	if err := toError(fnCoredumpRegisterCompleteCallback(callback, userData, &out), "cuCoredumpRegisterCompleteCallback"); err != nil {
+	out := slotCoredumpRegisterCompleteCallback.get()
+	defer slotCoredumpRegisterCompleteCallback.put(out)
+	if err := toError(fnCoredumpRegisterCompleteCallback(callback, userData, out), "cuCoredumpRegisterCompleteCallback"); err != nil {
 		var zero CoredumpCallbackHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CoredumpRegisterStartCallback Register a callback to be invoked when a GPU coredump begins.
+var slotCoredumpRegisterCompleteCallback outSlot[CoredumpCallbackHandle]
+
+// CoredumpRegisterStartCallback registers a callback to be invoked when a GPU coredump begins.
 //
 // This function registers a callback that will be called when a GPU coredump is initiated, before any coredump data is collected. Callbacks are executed in the order they were registered. The same callback function can be registered multiple times with different userData, and each registration will receive a unique handle.
 //
@@ -939,15 +3997,18 @@ func CoredumpRegisterStartCallback(callback uintptr, userData uintptr) (Coredump
 		var zero CoredumpCallbackHandle
 		return zero, err
 	}
-	var out CoredumpCallbackHandle
-	if err := toError(fnCoredumpRegisterStartCallback(callback, userData, &out), "cuCoredumpRegisterStartCallback"); err != nil {
+	out := slotCoredumpRegisterStartCallback.get()
+	defer slotCoredumpRegisterStartCallback.put(out)
+	if err := toError(fnCoredumpRegisterStartCallback(callback, userData, out), "cuCoredumpRegisterStartCallback"); err != nil {
 		var zero CoredumpCallbackHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CoredumpSetAttribute Allows caller to set a coredump attribute value for the current context.
+var slotCoredumpRegisterStartCallback outSlot[CoredumpCallbackHandle]
+
+// CoredumpSetAttribute allows caller to set a coredump attribute value for the current context.
 //
 // This function should be considered an alternate interface to the CUDA-GDB environment variables defined in this document: https://docs.nvidia.com/cuda/cuda-gdb/index.html#gpu-coredump
 // An important design decision to note is that any coredump environment variable values set before CUDA initializes will take permanent precedence over any values set with this function. This decision was made to ensure no change in behavior for any users that may be currently using these variables to get coredumps.
@@ -973,7 +4034,7 @@ func CoredumpSetAttribute(attrib CoredumpSettings, value uintptr, size *uint) er
 	return toError(fnCoredumpSetAttribute(attrib, value, size), "cuCoredumpSetAttribute")
 }
 
-// CoredumpSetAttributeGlobal Allows caller to set a coredump attribute value globally.
+// CoredumpSetAttributeGlobal allows caller to set a coredump attribute value globally.
 //
 // This function should be considered an alternate interface to the CUDA-GDB environment variables defined in this document: https://docs.nvidia.com/cuda/cuda-gdb/index.html#gpu-coredump
 // An important design decision to note is that any coredump environment variable values set before CUDA initializes will take permanent precedence over any values set with this function. This decision was made to ensure no change in behavior for any users that may be currently using these variables to get coredumps.
@@ -997,9 +4058,8 @@ func CoredumpSetAttributeGlobal(attrib CoredumpSettings, value uintptr, size *ui
 	return toError(fnCoredumpSetAttributeGlobal(attrib, value, size), "cuCoredumpSetAttributeGlobal")
 }
 
-// ctxAttach Increment a context’s usage-count.
+// ctxAttach increments a context’s usage-count.
 //
-// Note that this function is deprecated and should not be used.
 // Increments the usage count of the context and passes back a context handle in *pctx that must be passed to [Context.Detach] when the application is done with the context. [CtxAttach] fails if there is no context current to the thread.
 // Currently, the flags parameter must be 0.
 //
@@ -1009,7 +4069,7 @@ func CoredumpSetAttributeGlobal(attrib CoredumpSettings, value uintptr, size *ui
 //
 //   - flags: Context attach flags (must be 0)
 //
-// Deprecated: Note that this function is deprecated and should not be used. Increments the usage count of the context and passes back a context handle in *pctx that must be passed to [Context.Detach] when the application is done with the context. [CtxAttach] fails if there is no context current to the thread. Currently, the flags parameter must be 0.
+// Deprecated: This function is deprecated and should not be used.
 //
 // Wraps cuCtxAttach.
 func ctxAttach(flags uint32) (Context, error) {
@@ -1017,15 +4077,18 @@ func ctxAttach(flags uint32) (Context, error) {
 		var zero Context
 		return zero, err
 	}
-	var out Context
-	if err := toError(fnctxAttach(&out, flags), "cuCtxAttach"); err != nil {
+	out := slotCtxAttach.get()
+	defer slotCtxAttach.put(out)
+	if err := toError(fnctxAttach(out, flags), "cuCtxAttach"); err != nil {
 		var zero Context
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ctxCreate Create a CUDA context.
+var slotCtxAttach outSlot[Context]
+
+// ctxCreate creates a CUDA context.
 //
 // Creates a new CUDA context and associates it with the calling thread. The flags parameter is described below. The context is created with a usage count of 1 and the caller of [NewContext] must call [Context.Destroy] when done using the context. If a context is already current to the thread, it is supplanted by the newly created context and may be restored by a subsequent call to [CtxPopCurrent].
 // A regular CUDA context can be created by setting ctxCreateParams to NULL.
@@ -1050,15 +4113,18 @@ func ctxCreate(ctxCreateParams *CtxCreateParams, flags CtxFlags, dev Device) (Co
 		var zero Context
 		return zero, err
 	}
-	var out Context
-	if err := toError(fnctxCreate(&out, ctxCreateParams, uint32(flags), dev), "cuCtxCreate_v4"); err != nil {
+	out := slotCtxCreate.get()
+	defer slotCtxCreate.put(out)
+	if err := toError(fnctxCreate(out, ctxCreateParams, uint32(flags), dev), "cuCtxCreate_v4"); err != nil {
 		var zero Context
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ctxDestroy Destroy a CUDA context.
+var slotCtxCreate outSlot[Context]
+
+// ctxDestroy destroys a CUDA context.
 //
 // Destroys the CUDA context specified by ctx. The context ctx will be destroyed regardless of how many threads it is current to. It is the responsibility of the calling function to ensure that no API call issues using ctx while [Context.Destroy] is executing.
 // Destroys and cleans up all resources associated with the context. It is the caller’s responsibility to ensure that the context or its resources are not accessed or passed in subsequent API calls and doing so will result in undefined behavior. These resources include CUDA types [Module], [Function], [Stream], [Event], [Array], [MipmappedArray], CUtexObject, CUsurfObject, [TexRef], [SurfRef], [GraphicsResource], [LinkState], [ExternalMemory] and [ExternalSemaphore]. These resources also include memory allocations by [MemAlloc], [MemAllocHost], [MemAllocManaged] and [MemAllocPitch].
@@ -1080,9 +4146,8 @@ func ctxDestroy(ctx Context) error {
 	return toError(fnctxDestroy(ctx), "cuCtxDestroy_v2")
 }
 
-// ctxDetach Decrement a context’s usage-count.
+// ctxDetach decrements a context’s usage-count.
 //
-// Note that this function is deprecated and should not be used.
 // Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext] or [CtxAttach], and must be current to the calling thread.
 //
 // Note that this function may also return error codes from previous, asynchronous launches.
@@ -1091,7 +4156,7 @@ func ctxDestroy(ctx Context) error {
 //
 //   - ctx: Context to destroy
 //
-// Deprecated: Note that this function is deprecated and should not be used. Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext] or [CtxAttach], and must be current to the calling thread.
+// Deprecated: This function is deprecated and should not be used.
 //
 // Wraps cuCtxDetach.
 func ctxDetach(ctx Context) error {
@@ -1101,7 +4166,7 @@ func ctxDetach(ctx Context) error {
 	return toError(fnctxDetach(ctx), "cuCtxDetach")
 }
 
-// ctxDisablePeerAccess Disables direct access to memory allocations in a peer context and unregisters any registered allocations.
+// ctxDisablePeerAccess disables direct access to memory allocations in a peer context and unregisters any registered allocations.
 //
 // Returns [ErrPeerAccessNotEnabled] if direct peer access has not yet been enabled from peerContext to the current context.
 // Returns [ErrInvalidContext] if there is no current context, or if peerContext is not a valid context.
@@ -1120,7 +4185,7 @@ func ctxDisablePeerAccess(peerContext Context) error {
 	return toError(fnctxDisablePeerAccess(peerContext), "cuCtxDisablePeerAccess")
 }
 
-// ctxEnablePeerAccess Enables direct access to memory allocations in a peer context.
+// ctxEnablePeerAccess enables direct access to memory allocations in a peer context.
 //
 // If both the current context and peerContext are on devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]) and same major compute capability, then on success all allocations from peerContext will immediately be accessible by the current context. See Unified Addressing for additional details.
 // Note that access granted by this call is unidirectional and that in order to access memory from the current context in peerContext, a separate symmetric call to [Context.EnablePeerAccess] is required.
@@ -1146,7 +4211,7 @@ func ctxEnablePeerAccess(peerContext Context, flags uint32) error {
 	return toError(fnctxEnablePeerAccess(peerContext, flags), "cuCtxEnablePeerAccess")
 }
 
-// ctxFromGreenCtx Returns a [Context] handle for a green context.
+// ctxFromGreenCtx returns a [Context] handle for a green context.
 //
 // This API returns in pContext a [Context] handle that represents the specified green context hCtx. The returned handle can be passed to CUDA APIs that accept a [Context] and will be treated as if it were a primary context, while still honoring the resources and configuration associated with hCtx as applicable.
 // Applications that wish to use a green context with CUDA APIs that require a [Context] must use this API to obtain a handle to a [Context] representing the green context. Otherwise, passing a green context to such APIs will fail with [ErrInvalidContext].
@@ -1163,15 +4228,18 @@ func ctxFromGreenCtx(hCtx GreenCtx) (Context, error) {
 		var zero Context
 		return zero, err
 	}
-	var out Context
-	if err := toError(fnctxFromGreenCtx(&out, hCtx), "cuCtxFromGreenCtx"); err != nil {
+	out := slotCtxFromGreenCtx.get()
+	defer slotCtxFromGreenCtx.put(out)
+	if err := toError(fnctxFromGreenCtx(out, hCtx), "cuCtxFromGreenCtx"); err != nil {
 		var zero Context
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ctxGetApiVersion Gets the context’s API version.
+var slotCtxFromGreenCtx outSlot[Context]
+
+// ctxGetApiVersion gets the context’s API version.
 //
 // Returns a version number in version corresponding to the capabilities of the context (e.g. 3010 or 3020), which library developers can use to direct callers to a specific API version. If ctx is NULL, returns the API version used to create the currently bound context.
 // Note that new API versions are only introduced when context capabilities are changed that break binary compatibility, so the API version and driver version may be different. For example, it is valid for the API version to be 3020 while the driver version is 4020.
@@ -1188,15 +4256,18 @@ func ctxGetApiVersion(ctx Context) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnctxGetApiVersion(ctx, &out), "cuCtxGetApiVersion"); err != nil {
+	out := slotCtxGetApiVersion.get()
+	defer slotCtxGetApiVersion.put(out)
+	if err := toError(fnctxGetApiVersion(ctx, out), "cuCtxGetApiVersion"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CtxGetCacheConfig Returns the preferred cache configuration for the current context.
+var slotCtxGetApiVersion outSlot[uint32]
+
+// CtxGetCacheConfig returns the preferred cache configuration for the current context.
 //
 // On devices where the L1 cache and shared memory use the same hardware resources, this function returns through pconfig the preferred cache configuration for the current context. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute functions.
 // This will return a pconfig of [FuncCachePreferNone] on devices where the size of the L1 cache and shared memory are fixed.
@@ -1212,15 +4283,18 @@ func CtxGetCacheConfig() (FuncCacheConfig, error) {
 		var zero FuncCacheConfig
 		return zero, err
 	}
-	var out FuncCacheConfig
-	if err := toError(fnCtxGetCacheConfig(&out), "cuCtxGetCacheConfig"); err != nil {
+	out := slotCtxGetCacheConfig.get()
+	defer slotCtxGetCacheConfig.put(out)
+	if err := toError(fnCtxGetCacheConfig(out), "cuCtxGetCacheConfig"); err != nil {
 		var zero FuncCacheConfig
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ctxGetCurrent Returns the CUDA context bound to the calling CPU thread.
+var slotCtxGetCacheConfig outSlot[FuncCacheConfig]
+
+// ctxGetCurrent returns the CUDA context bound to the calling CPU thread.
 //
 // Returns in *pctx the CUDA context bound to the calling CPU thread. If no context is bound to the calling CPU thread then *pctx is set to NULL and [Success] is returned.
 //
@@ -1234,15 +4308,18 @@ func ctxGetCurrent() (Context, error) {
 		var zero Context
 		return zero, err
 	}
-	var out Context
-	if err := toError(fnctxGetCurrent(&out), "cuCtxGetCurrent"); err != nil {
+	out := slotCtxGetCurrent.get()
+	defer slotCtxGetCurrent.put(out)
+	if err := toError(fnctxGetCurrent(out), "cuCtxGetCurrent"); err != nil {
 		var zero Context
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ctxGetDevResource Get context resources.
+var slotCtxGetCurrent outSlot[Context]
+
+// ctxGetDevResource gets context resources.
 //
 // Get the type resources available to the context represented by hCtx Note: The API is not supported on 32-bit platforms.
 //
@@ -1257,15 +4334,18 @@ func ctxGetDevResource(hCtx Context, type_ DevResourceType) (DevResource, error)
 		var zero DevResource
 		return zero, err
 	}
-	var out DevResource
-	if err := toError(fnctxGetDevResource(hCtx, &out, type_), "cuCtxGetDevResource"); err != nil {
+	out := slotCtxGetDevResource.get()
+	defer slotCtxGetDevResource.put(out)
+	if err := toError(fnctxGetDevResource(hCtx, out, type_), "cuCtxGetDevResource"); err != nil {
 		var zero DevResource
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CtxGetDevice Returns the device handle for the current context.
+var slotCtxGetDevResource outSlot[DevResource]
+
+// CtxGetDevice returns the device handle for the current context.
 //
 // Returns in *device the handle of the current context’s device.
 //
@@ -1279,15 +4359,18 @@ func CtxGetDevice() (Device, error) {
 		var zero Device
 		return zero, err
 	}
-	var out Device
-	if err := toError(fnCtxGetDevice(&out), "cuCtxGetDevice"); err != nil {
+	out := slotCtxGetDevice.get()
+	defer slotCtxGetDevice.put(out)
+	if err := toError(fnCtxGetDevice(out), "cuCtxGetDevice"); err != nil {
 		var zero Device
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ctxGetDeviceV2 Returns the device handle for the specified context.
+var slotCtxGetDevice outSlot[Device]
+
+// ctxGetDeviceV2 returns the device handle for the specified context.
 //
 // Returns in *device the handle of the specified context’s device. If the specified context is NULL, the API will return the current context’s device.
 //
@@ -1303,15 +4386,18 @@ func ctxGetDeviceV2(ctx Context) (Device, error) {
 		var zero Device
 		return zero, err
 	}
-	var out Device
-	if err := toError(fnctxGetDeviceV2(&out, ctx), "cuCtxGetDevice_v2"); err != nil {
+	out := slotCtxGetDeviceV2.get()
+	defer slotCtxGetDeviceV2.put(out)
+	if err := toError(fnctxGetDeviceV2(out, ctx), "cuCtxGetDevice_v2"); err != nil {
 		var zero Device
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CtxGetExecAffinity Returns the execution affinity setting for the current context.
+var slotCtxGetDeviceV2 outSlot[Device]
+
+// CtxGetExecAffinity returns the execution affinity setting for the current context.
 //
 // Returns in *pExecAffinity the current value of type. The supported [ExecAffinityType] values are:
 //
@@ -1327,15 +4413,18 @@ func CtxGetExecAffinity(type_ ExecAffinityType) (ExecAffinityParam, error) {
 		var zero ExecAffinityParam
 		return zero, err
 	}
-	var out ExecAffinityParam
-	if err := toError(fnCtxGetExecAffinity(&out, type_), "cuCtxGetExecAffinity"); err != nil {
+	out := slotCtxGetExecAffinity.get()
+	defer slotCtxGetExecAffinity.put(out)
+	if err := toError(fnCtxGetExecAffinity(out, type_), "cuCtxGetExecAffinity"); err != nil {
 		var zero ExecAffinityParam
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CtxGetFlags Returns the flags for the current context.
+var slotCtxGetExecAffinity outSlot[ExecAffinityParam]
+
+// CtxGetFlags returns the flags for the current context.
 //
 // Returns in *flags the flags of the current context. See [NewContext] for flag values.
 //
@@ -1349,15 +4438,18 @@ func CtxGetFlags() (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnCtxGetFlags(&out), "cuCtxGetFlags"); err != nil {
+	out := slotCtxGetFlags.get()
+	defer slotCtxGetFlags.put(out)
+	if err := toError(fnCtxGetFlags(out), "cuCtxGetFlags"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ctxGetId Returns the unique Id associated with the context supplied.
+var slotCtxGetFlags outSlot[uint32]
+
+// ctxGetId returns the unique Id associated with the context supplied.
 //
 // Returns in ctxId the unique Id which is associated with a given context. The Id is unique for the life of the program for this instance of CUDA. If context is supplied as NULL and there is one current, the Id of the current context is returned.
 //
@@ -1373,15 +4465,18 @@ func ctxGetId(ctx Context) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnctxGetId(ctx, &out), "cuCtxGetId"); err != nil {
+	out := slotCtxGetId.get()
+	defer slotCtxGetId.put(out)
+	if err := toError(fnctxGetId(ctx, out), "cuCtxGetId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CtxGetLimit Returns resource limits.
+var slotCtxGetId outSlot[uint64]
+
+// CtxGetLimit returns resource limits.
 //
 // Returns in *pvalue the current size of limit. The supported [Limit] values are:
 //
@@ -1397,15 +4492,18 @@ func CtxGetLimit(limit Limit) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnCtxGetLimit(&out, limit), "cuCtxGetLimit"); err != nil {
+	out := slotCtxGetLimit.get()
+	defer slotCtxGetLimit.put(out)
+	if err := toError(fnCtxGetLimit(out, limit), "cuCtxGetLimit"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CtxGetSharedMemConfig Returns the current shared memory configuration for the current context.
+var slotCtxGetLimit outSlot[uint]
+
+// CtxGetSharedMemConfig returns the current shared memory configuration for the current context.
 //
 // This function will return in pConfig the current size of shared memory banks in the current context. On devices with configurable shared memory banks, [CtxSetSharedMemConfig] can be used to change this setting, so that all subsequent kernel launches will by default use the new bank size. When [CtxGetSharedMemConfig] is called on devices without configurable shared memory, it will return the fixed bank size of the hardware.
 // The returned bank configurations can be either:
@@ -1414,7 +4512,7 @@ func CtxGetLimit(limit Limit) (uint, error) {
 //
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [CtxGetSharedMemConfig], [Function.SetCacheConfig], cudaDeviceGetSharedMemConfig
 //
-// Deprecated: This function will return in pConfig the current size of shared memory banks in the current context. On devices with configurable shared memory banks, [CtxSetSharedMemConfig] can be used to change this setting, so that all subsequent kernel launches will by default use the new bank size. When [CtxGetSharedMemConfig] is called on devices without configurable shared memory, it will return the fixed bank size of the hardware. The returned bank configurations can be either: - [SharedMemConfigFourByteBankSize]: shared memory bank width is four bytes. - [SharedMemConfigEightByteBankSize]: shared memory bank width will eight bytes.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuCtxGetSharedMemConfig.
 func CtxGetSharedMemConfig() (Sharedconfig, error) {
@@ -1422,15 +4520,18 @@ func CtxGetSharedMemConfig() (Sharedconfig, error) {
 		var zero Sharedconfig
 		return zero, err
 	}
-	var out Sharedconfig
-	if err := toError(fnCtxGetSharedMemConfig(&out), "cuCtxGetSharedMemConfig"); err != nil {
+	out := slotCtxGetSharedMemConfig.get()
+	defer slotCtxGetSharedMemConfig.put(out)
+	if err := toError(fnCtxGetSharedMemConfig(out), "cuCtxGetSharedMemConfig"); err != nil {
 		var zero Sharedconfig
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// CtxGetStreamPriorityRange Returns numerical values that correspond to the least and greatest stream priorities.
+var slotCtxGetSharedMemConfig outSlot[Sharedconfig]
+
+// CtxGetStreamPriorityRange returns numerical values that correspond to the least and greatest stream priorities.
 //
 // Returns in *leastPriority and *greatestPriority the numerical values that correspond to the least and greatest stream priorities respectively. Stream priorities follow a convention where lower numbers imply greater priorities. The range of meaningful stream priorities is given by [ *greatestPriority, *leastPriority]. If the user attempts to create a stream with a priority value that is outside the meaningful range as specified by this API, the priority is automatically clamped down or up to either *leastPriority or *greatestPriority respectively. See [StreamCreateWithPriority] for details on creating a priority stream. A NULL may be passed in for *leastPriority or *greatestPriority if the value is not desired.
 // This function will return ‘0’ in both *leastPriority and *greatestPriority if the current context’s device does not support stream priorities (see [Device.Attribute]).
@@ -1444,15 +4545,20 @@ func CtxGetStreamPriorityRange() (leastPriority int32, greatestPriority int32, e
 	if err := checkLibSym("cuCtxGetStreamPriorityRange"); err != nil {
 		return 0, 0, err
 	}
-	var out0 int32
-	var out1 int32
-	if err := toError(fnCtxGetStreamPriorityRange(&out0, &out1), "cuCtxGetStreamPriorityRange"); err != nil {
+	outs := slotCtxGetStreamPriorityRange.get()
+	defer slotCtxGetStreamPriorityRange.put(outs)
+	if err := toError(fnCtxGetStreamPriorityRange(&outs.out0, &outs.out1), "cuCtxGetStreamPriorityRange"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// ctxPopCurrent Pops the current CUDA context from the current CPU thread.
+var slotCtxGetStreamPriorityRange outSlot[struct {
+	out0 int32
+	out1 int32
+}]
+
+// ctxPopCurrent pops the current CUDA context from the current CPU thread.
 //
 // Pops the current CUDA context from the CPU thread and passes back the old context handle in *pctx. That context may then be made current to a different CPU thread by calling [Context.PushCurrent].
 // If a context was current to the CPU thread before [NewContext] or [Context.PushCurrent] was called, this function makes that context current to the CPU thread again.
@@ -1467,15 +4573,18 @@ func ctxPopCurrent() (Context, error) {
 		var zero Context
 		return zero, err
 	}
-	var out Context
-	if err := toError(fnctxPopCurrent(&out), "cuCtxPopCurrent_v2"); err != nil {
+	out := slotCtxPopCurrent.get()
+	defer slotCtxPopCurrent.put(out)
+	if err := toError(fnctxPopCurrent(out), "cuCtxPopCurrent_v2"); err != nil {
 		var zero Context
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ctxPushCurrent Pushes a context on the current CPU thread.
+var slotCtxPopCurrent outSlot[Context]
+
+// ctxPushCurrent pushes a context on the current CPU thread.
 //
 // Pushes the given context ctx onto the CPU thread’s stack of current contexts. The specified context becomes the CPU thread’s current context, so all CUDA functions that operate on the current context are affected.
 // The previous current context may be made current again by calling [Context.Destroy] or [CtxPopCurrent].
@@ -1494,7 +4603,7 @@ func ctxPushCurrent(ctx Context) error {
 	return toError(fnctxPushCurrent(ctx), "cuCtxPushCurrent_v2")
 }
 
-// ctxRecordEvent Records an event.
+// ctxRecordEvent records an event.
 //
 // Captures in hEvent all the activities of the context hCtx at the time of this call. hEvent and hCtx must be from the same CUDA context, otherwise [ErrInvalidHandle] will be returned. Calls such as [Event.Query] or [Context.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hCtx after this call do not modify hEvent. If the context passed to hCtx is the primary context, hEvent will capture all the activities of the primary context and its green contexts. If the context passed to hCtx is a context converted from green context via [CtxFromGreenCtx], hEvent will capture only the activities of the green context.
 //
@@ -1513,7 +4622,7 @@ func ctxRecordEvent(hCtx Context, hEvent Event) error {
 	return toError(fnctxRecordEvent(hCtx, hEvent), "cuCtxRecordEvent")
 }
 
-// CtxResetPersistingL2Cache Resets all persisting lines in cache to normal status.
+// CtxResetPersistingL2Cache resets all persisting lines in cache to normal status.
 //
 // [CtxResetPersistingL2Cache] Resets all persisting lines in cache to normal status. Takes effect on function return.
 //
@@ -1529,7 +4638,7 @@ func CtxResetPersistingL2Cache() error {
 	return toError(fnCtxResetPersistingL2Cache(), "cuCtxResetPersistingL2Cache")
 }
 
-// CtxSetCacheConfig Sets the preferred cache configuration for the current context.
+// CtxSetCacheConfig sets the preferred cache configuration for the current context.
 //
 // On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the current context. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute the function. Any function preference set via [Function.SetCacheConfig] or [Kernel.SetCacheConfig] will be preferred over this context-wide setting. Setting the context-wide cache configuration to [FuncCachePreferNone] will cause subsequent kernel launches to prefer to not change the cache configuration unless required to launch the kernel.
 // This setting does nothing on devices where the size of the L1 cache and shared memory are fixed.
@@ -1550,7 +4659,7 @@ func CtxSetCacheConfig(config FuncCacheConfig) error {
 	return toError(fnCtxSetCacheConfig(config), "cuCtxSetCacheConfig")
 }
 
-// ctxSetCurrent Binds the specified CUDA context to the calling CPU thread.
+// ctxSetCurrent binds the specified CUDA context to the calling CPU thread.
 //
 // If ctx is NULL then the CUDA context previously bound to the calling CPU thread is unbound and [Success] is returned.
 // If there exists a CUDA context stack on the calling CPU thread, this will replace the top of that stack with ctx. If ctx is NULL then this will be equivalent to popping the top of the calling CPU thread’s CUDA context stack (or a no-op if the calling CPU thread’s CUDA context stack is empty).
@@ -1569,7 +4678,7 @@ func ctxSetCurrent(ctx Context) error {
 	return toError(fnctxSetCurrent(ctx), "cuCtxSetCurrent")
 }
 
-// CtxSetFlags Sets the flags for the current context.
+// CtxSetFlags sets the flags for the current context.
 //
 // Sets the flags for the current context overwriting previously set ones. See [Device.PrimaryCtxSetFlags] for flag values.
 //
@@ -1587,7 +4696,7 @@ func CtxSetFlags(flags uint32) error {
 	return toError(fnCtxSetFlags(flags), "cuCtxSetFlags")
 }
 
-// CtxSetLimit Set resource limits.
+// CtxSetLimit sets resource limits.
 //
 // Setting limit to value is a request by the application to update the current limit maintained by the context. The driver is free to modify the requested value to meet h/w requirements (this could be clamping to minimum or maximum values, rounding up to nearest element size, etc). The application can use [CtxGetLimit] to find out exactly what the limit has been set to.
 // Setting each [Limit] has its own specific restrictions, so each is discussed here.
@@ -1607,7 +4716,7 @@ func CtxSetLimit(limit Limit, value uint) error {
 	return toError(fnCtxSetLimit(limit, value), "cuCtxSetLimit")
 }
 
-// CtxSetSharedMemConfig Sets the shared memory configuration for the current context.
+// CtxSetSharedMemConfig sets the shared memory configuration for the current context.
 //
 // On devices with configurable shared memory banks, this function will set the context’s shared memory bank size which is used for subsequent kernel launches.
 // Changed the shared memory configuration between launches may insert a device side synchronization point between those launches.
@@ -1621,7 +4730,7 @@ func CtxSetLimit(limit Limit, value uint) error {
 //
 //   - config: requested shared memory configuration
 //
-// Deprecated: On devices with configurable shared memory banks, this function will set the context's shared memory bank size which is used for subsequent kernel launches. Changed the shared memory configuration between launches may insert a device side synchronization point between those launches. Changing the shared memory bank size will not increase shared memory usage or affect occupancy of kernels, but may have major effects on performance. Larger bank sizes will allow for greater potential bandwidth to shared memory, but will change what kinds of accesses to shared memory will result in bank conflicts. This function will do nothing on devices with fixed shared memory bank size. The supported bank configurations are: - [SharedMemConfigDefaultBankSize]: set bank width to the default initial setting (currently, four bytes). - [SharedMemConfigFourByteBankSize]: set shared memory bank width to be natively four bytes. - [SharedMemConfigEightByteBankSize]: set shared memory bank width to be natively eight bytes.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuCtxSetSharedMemConfig.
 func CtxSetSharedMemConfig(config Sharedconfig) error {
@@ -1631,7 +4740,7 @@ func CtxSetSharedMemConfig(config Sharedconfig) error {
 	return toError(fnCtxSetSharedMemConfig(config), "cuCtxSetSharedMemConfig")
 }
 
-// CtxSynchronize Block for the current context’s tasks to complete.
+// CtxSynchronize blocks for the current context’s tasks to complete.
 //
 // Blocks until the current context has completed all preceding requested tasks. If the current context is the primary context, green contexts that have been created will also be synchronized. [CtxSynchronize] returns an error if one of the preceding tasks failed. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work.
 //
@@ -1647,7 +4756,7 @@ func CtxSynchronize() error {
 	return toError(fnCtxSynchronize(), "cuCtxSynchronize")
 }
 
-// ctxSynchronizeV2 Block for the specified context’s tasks to complete.
+// ctxSynchronizeV2 blocks for the specified context’s tasks to complete.
 //
 // Blocks until the specified context has completed all preceding requested tasks. If the specified context is the primary context, green contexts that have been created will also be synchronized. The API returns an error if one of the preceding tasks failed.
 // If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work.
@@ -1667,7 +4776,7 @@ func ctxSynchronizeV2(ctx Context) error {
 	return toError(fnctxSynchronizeV2(ctx), "cuCtxSynchronize_v2")
 }
 
-// ctxWaitEvent Make a context wait on an event.
+// ctxWaitEvent makes a context wait on an event.
 //
 // Makes all future work submitted to context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [Context.RecordEvent] for details on what is captured by an event. If the context passed to hCtx is the primary context, the primary context and its green contexts will wait for hEvent. If the context passed to hCtx is a context converted from green context via [CtxFromGreenCtx], the green context will wait for hEvent.
 //
@@ -1688,7 +4797,7 @@ func ctxWaitEvent(hCtx Context, hEvent Event) error {
 	return toError(fnctxWaitEvent(hCtx, hEvent), "cuCtxWaitEvent")
 }
 
-// destroyExternalMemory Destroys an external memory object.
+// destroyExternalMemory destroys an external memory object.
 //
 // Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively.
 //
@@ -1706,7 +4815,7 @@ func destroyExternalMemory(extMem ExternalMemory) error {
 	return toError(fndestroyExternalMemory(extMem), "cuDestroyExternalMemory")
 }
 
-// destroyExternalSemaphore Destroys an external semaphore.
+// destroyExternalSemaphore destroys an external semaphore.
 //
 // Destroys an external semaphore object and releases any references to the underlying resource. Any outstanding signals or waits must have completed before the semaphore is destroyed.
 //
@@ -1724,7 +4833,7 @@ func destroyExternalSemaphore(extSem ExternalSemaphore) error {
 	return toError(fndestroyExternalSemaphore(extSem), "cuDestroyExternalSemaphore")
 }
 
-// DevResourceGenerateDesc Generate a resource descriptor.
+// DevResourceGenerateDesc generates a resource descriptor.
 //
 // Generates a single resource descriptor with the set of resources specified in resources. The generated resource descriptor is necessary for the creation of green contexts via the [NewGreenCtx] API. Resources of the same type can be passed in, provided they meet the requirements as noted below.
 // A successful API call must have:
@@ -1743,15 +4852,18 @@ func DevResourceGenerateDesc(resources *DevResource, nbResources uint32) (DevRes
 		var zero DevResourceDesc
 		return zero, err
 	}
-	var out DevResourceDesc
-	if err := toError(fnDevResourceGenerateDesc(&out, resources, nbResources), "cuDevResourceGenerateDesc"); err != nil {
+	out := slotDevResourceGenerateDesc.get()
+	defer slotDevResourceGenerateDesc.put(out)
+	if err := toError(fnDevResourceGenerateDesc(out, resources, nbResources), "cuDevResourceGenerateDesc"); err != nil {
 		var zero DevResourceDesc
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// DevSmResourceSplit Splits a [DevResourceTypeSm] resource into structured groups.
+var slotDevResourceGenerateDesc outSlot[DevResourceDesc]
+
+// DevSmResourceSplit splits a [DevResourceTypeSm] resource into structured groups.
 //
 // This API will split a resource of [DevResourceTypeSm] into nbGroups structured device resource groups (the result array), as well as an optional remainder, according to a set of requirements specified in the groupParams array. The term “structured” is a trait that specifies the result has SMs that are co-scheduled together. This co-scheduling can be specified via the coscheduledSmCount field of the groupParams structure, while the smCount will specify how many SMs are required in total for that result. The remainder is always “unstructured”, it does not have any set guarantees with respect to co-scheduling and those properties will need to either be queried via the occupancy set of APIs or further split into structured groups by this API.
 // The API has a discovery mode for use cases where it is difficult to know ahead of time what the SM count should be. Discovery happens when the smCount field of a given groupParams array entry is set to 0 - the smCount will be filled in by the API with the derived SM count according to the provided groupParams fields and constraints. Discovery can be used with both a valid result array and with a NULL result pointer value. The latter is useful in situations where the smCount will end up being zero, which is an invalid value to create a result entry with, but allowed for discovery purposes when the result is NULL.
@@ -1779,7 +4891,7 @@ func DevSmResourceSplit(result *DevResource, nbGroups uint32, input *DevResource
 	return toError(fnDevSmResourceSplit(result, nbGroups, input, remainder, flags, groupParams), "cuDevSmResourceSplit")
 }
 
-// DevSmResourceSplitByCount Splits [DevResourceTypeSm] resources.
+// DevSmResourceSplitByCount splits [DevResourceTypeSm] resources.
 //
 // Splits [DevResourceTypeSm] resources into nbGroups, adhering to the minimum SM count specified in minCount and the usage flags in flags. If result is NULL, the API simulates a split and provides the amount of groups that would be created in nbGroups. Otherwise, nbGroups must point to the amount of elements in result and on return, the API will overwrite nbGroups with the amount actually created. The groups are written to the array in result. nbGroups can be less than the total amount if a smaller number of groups is needed.
 // This API is used to spatially partition the input resource. The input resource needs to come from one of [Device.DevResource], [Context.DevResource], or [GreenCtx.DevResource]. A limitation of the API is that the output results cannot be split again without first creating a descriptor and a green context with that descriptor.
@@ -1807,7 +4919,7 @@ func DevSmResourceSplitByCount(result *DevResource, nbGroups *uint32, input *Dev
 	return toError(fnDevSmResourceSplitByCount(result, nbGroups, input, remainder, uint32(flags), minCount), "cuDevSmResourceSplitByCount")
 }
 
-// deviceCanAccessPeer Queries if a device may directly access a peer device’s memory.
+// deviceCanAccessPeer queries if a device may directly access a peer device’s memory.
 //
 // Returns in *canAccessPeer a value of 1 if contexts on dev are capable of directly accessing memory from contexts on peerDev and 0 otherwise. If direct access of peerDev from dev is possible, then access may be enabled on two specific contexts by calling [Context.EnablePeerAccess].
 //
@@ -1824,13 +4936,16 @@ func deviceCanAccessPeer(dev Device, peerDev Device) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndeviceCanAccessPeer(&out, dev, peerDev), "cuDeviceCanAccessPeer"); err != nil {
+	out := slotDeviceCanAccessPeer.get()
+	defer slotDeviceCanAccessPeer.put(out)
+	if err := toError(fndeviceCanAccessPeer(out, dev, peerDev), "cuDeviceCanAccessPeer"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDeviceCanAccessPeer outSlot[int32]
 
 // deviceComputeCapability returns the major and minor revision numbers of the device's compute capability.
 //
@@ -1847,7 +4962,7 @@ func deviceComputeCapability(dev Device) (major int, minor int, err error) {
 	return int(out0), int(out1), nil
 }
 
-// deviceGet Returns a handle to a compute device.
+// deviceGet returns a handle to a compute device.
 //
 // Returns in *device a device handle given an ordinal in the range [0, [DeviceGetCount]-1].
 //
@@ -1862,14 +4977,17 @@ func deviceGet(ordinal int) (Device, error) {
 	if err := checkLibSym("cuDeviceGet"); err != nil {
 		return 0, err
 	}
-	var out Device
-	if err := toError(fndeviceGet(&out, ordinal), "cuDeviceGet"); err != nil {
+	out := slotDeviceGet.get()
+	defer slotDeviceGet.put(out)
+	if err := toError(fndeviceGet(out, ordinal), "cuDeviceGet"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetAttribute Returns information about the device.
+var slotDeviceGet outSlot[Device]
+
+// deviceGetAttribute returns information about the device.
 //
 // Returns in *pi the integer value of the attribute attrib on device dev.
 //
@@ -1886,15 +5004,18 @@ func deviceGetAttribute(attrib DeviceAttribute, dev Device) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndeviceGetAttribute(&out, attrib, dev), "cuDeviceGetAttribute"); err != nil {
+	out := slotDeviceGetAttribute.get()
+	defer slotDeviceGetAttribute.put(out)
+	if err := toError(fndeviceGetAttribute(out, attrib, dev), "cuDeviceGetAttribute"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetByPCIBusId Returns a handle to a compute device.
+var slotDeviceGetAttribute outSlot[int32]
+
+// deviceGetByPCIBusId returns a handle to a compute device.
 //
 // Returns in *device a device handle given a PCI bus ID string.
 // where domain, bus, device, and function are all hexadecimal values
@@ -1911,14 +5032,17 @@ func deviceGetByPCIBusId(pciBusId string) (Device, error) {
 		return 0, err
 	}
 	cstr_pciBusId := append([]byte(pciBusId), 0)
-	var out Device
-	if err := toError(fndeviceGetByPCIBusId(&out, &cstr_pciBusId[0]), "cuDeviceGetByPCIBusId"); err != nil {
+	out := slotDeviceGetByPCIBusId.get()
+	defer slotDeviceGetByPCIBusId.put(out)
+	if err := toError(fndeviceGetByPCIBusId(out, &cstr_pciBusId[0]), "cuDeviceGetByPCIBusId"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// DeviceGetCount Returns the number of compute-capable devices.
+var slotDeviceGetByPCIBusId outSlot[Device]
+
+// DeviceGetCount returns the number of compute-capable devices.
 //
 // Returns in *count the number of devices with compute capability greater than or equal to 2.0 that are available for execution. If there is no such device, [DeviceGetCount] returns 0.
 //
@@ -1931,14 +5055,17 @@ func DeviceGetCount() (int, error) {
 	if err := checkLibSym("cuDeviceGetCount"); err != nil {
 		return 0, err
 	}
-	var out int32
-	if err := toError(fnDeviceGetCount(&out), "cuDeviceGetCount"); err != nil {
+	out := slotDeviceGetCount.get()
+	defer slotDeviceGetCount.put(out)
+	if err := toError(fnDeviceGetCount(out), "cuDeviceGetCount"); err != nil {
 		return 0, err
 	}
-	return int(out), nil
+	return int(*out), nil
 }
 
-// deviceGetDefaultMemPool Returns the default mempool of a device.
+var slotDeviceGetCount outSlot[int32]
+
+// deviceGetDefaultMemPool returns the default mempool of a device.
 //
 // The default mempool of a device contains device memory from that device.
 //
@@ -1952,15 +5079,18 @@ func deviceGetDefaultMemPool(dev Device) (MemoryPool, error) {
 		var zero MemoryPool
 		return zero, err
 	}
-	var out MemoryPool
-	if err := toError(fndeviceGetDefaultMemPool(&out, dev), "cuDeviceGetDefaultMemPool"); err != nil {
+	out := slotDeviceGetDefaultMemPool.get()
+	defer slotDeviceGetDefaultMemPool.put(out)
+	if err := toError(fndeviceGetDefaultMemPool(out, dev), "cuDeviceGetDefaultMemPool"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetDevResource Get device resources.
+var slotDeviceGetDefaultMemPool outSlot[MemoryPool]
+
+// deviceGetDevResource gets device resources.
 //
 // Get the type resources available to the device. This may often be the starting point for further partitioning or configuring of resources.
 //
@@ -1977,15 +5107,18 @@ func deviceGetDevResource(device Device, type_ DevResourceType) (DevResource, er
 		var zero DevResource
 		return zero, err
 	}
-	var out DevResource
-	if err := toError(fndeviceGetDevResource(device, &out, type_), "cuDeviceGetDevResource"); err != nil {
+	out := slotDeviceGetDevResource.get()
+	defer slotDeviceGetDevResource.put(out)
+	if err := toError(fndeviceGetDevResource(device, out, type_), "cuDeviceGetDevResource"); err != nil {
 		var zero DevResource
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetExecAffinitySupport Returns information about the execution affinity support of the device.
+var slotDeviceGetDevResource outSlot[DevResource]
+
+// deviceGetExecAffinitySupport returns information about the execution affinity support of the device.
 //
 // Returns in *pi whether execution affinity type type is supported by device dev. The supported types are:
 //
@@ -2002,15 +5135,18 @@ func deviceGetExecAffinitySupport(type_ ExecAffinityType, dev Device) (int32, er
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndeviceGetExecAffinitySupport(&out, type_, dev), "cuDeviceGetExecAffinitySupport"); err != nil {
+	out := slotDeviceGetExecAffinitySupport.get()
+	defer slotDeviceGetExecAffinitySupport.put(out)
+	if err := toError(fndeviceGetExecAffinitySupport(out, type_, dev), "cuDeviceGetExecAffinitySupport"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetGraphMemAttribute Query asynchronous allocation attributes related to graphs.
+var slotDeviceGetExecAffinitySupport outSlot[int32]
+
+// deviceGetGraphMemAttribute queries asynchronous allocation attributes related to graphs.
 //
 // Valid attributes are:
 //
@@ -2028,7 +5164,7 @@ func deviceGetGraphMemAttribute(device Device, attr GraphmemAttribute, value uns
 	return toError(fndeviceGetGraphMemAttribute(device, attr, value), "cuDeviceGetGraphMemAttribute")
 }
 
-// deviceGetHostAtomicCapabilities Queries details about atomic operations supported between the device and host.
+// deviceGetHostAtomicCapabilities queries details about atomic operations supported between the device and host.
 //
 // Returns in *capabilities the details about requested atomic *operations over the the link between dev and the host. The allocated size of *operations and *capabilities must be count.
 // For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively.
@@ -2049,15 +5185,18 @@ func deviceGetHostAtomicCapabilities(operations *AtomicOperation, count uint32, 
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fndeviceGetHostAtomicCapabilities(&out, operations, count, dev), "cuDeviceGetHostAtomicCapabilities"); err != nil {
+	out := slotDeviceGetHostAtomicCapabilities.get()
+	defer slotDeviceGetHostAtomicCapabilities.put(out)
+	if err := toError(fndeviceGetHostAtomicCapabilities(out, operations, count, dev), "cuDeviceGetHostAtomicCapabilities"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetLuid Return an LUID and device node mask for the device.
+var slotDeviceGetHostAtomicCapabilities outSlot[uint32]
+
+// deviceGetLuid returns an LUID and device node mask for the device.
 //
 // Return identifying information ( luid and deviceNodeMask) to allow matching device with graphics APIs.
 //
@@ -2074,15 +5213,18 @@ func deviceGetLuid(luid *byte, dev Device) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fndeviceGetLuid(luid, &out, dev), "cuDeviceGetLuid"); err != nil {
+	out := slotDeviceGetLuid.get()
+	defer slotDeviceGetLuid.put(out)
+	if err := toError(fndeviceGetLuid(luid, out, dev), "cuDeviceGetLuid"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetMemPool Gets the current mempool for a device.
+var slotDeviceGetLuid outSlot[uint32]
+
+// deviceGetMemPool gets the current mempool for a device.
 //
 // Returns the last pool provided to [Device.SetMemPool] for this device or the device’s default memory pool if [Device.SetMemPool] has never been called. By default the current mempool is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool].
 //
@@ -2094,15 +5236,18 @@ func deviceGetMemPool(dev Device) (MemoryPool, error) {
 		var zero MemoryPool
 		return zero, err
 	}
-	var out MemoryPool
-	if err := toError(fndeviceGetMemPool(&out, dev), "cuDeviceGetMemPool"); err != nil {
+	out := slotDeviceGetMemPool.get()
+	defer slotDeviceGetMemPool.put(out)
+	if err := toError(fndeviceGetMemPool(out, dev), "cuDeviceGetMemPool"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetName Returns an identifier string for the device.
+var slotDeviceGetMemPool outSlot[MemoryPool]
+
+// deviceGetName returns an identifier string for the device.
 //
 // Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by name. len specifies the maximum length of the string that may be returned. name is shortened to the specified len, if len is less than the device name
 //
@@ -2130,7 +5275,7 @@ func deviceGetName(dev Device) (string, error) {
 	return string(buf[:n]), nil
 }
 
-// deviceGetNvSciSyncAttributes Return NvSciSync attributes that this device can support.
+// deviceGetNvSciSyncAttributes returns NvSciSync attributes that this device can support.
 //
 // Returns in nvSciSyncAttrList, the properties of NvSciSync that this CUDA device, dev can support. The returned nvSciSyncAttrList can be used to create an NvSciSync object that matches this device’s capabilities.
 // If NvSciSyncAttrKey_RequiredPerm field in nvSciSyncAttrList is already set this API will return [ErrInvalidValue].
@@ -2154,7 +5299,7 @@ func deviceGetNvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, dev Device, 
 	return toError(fndeviceGetNvSciSyncAttributes(nvSciSyncAttrList, dev, flags), "cuDeviceGetNvSciSyncAttributes")
 }
 
-// deviceGetP2PAtomicCapabilities Queries details about atomic operations supported between two devices.
+// deviceGetP2PAtomicCapabilities queries details about atomic operations supported between two devices.
 //
 // Returns in *capabilities the details about requested atomic *operations over the the link between srcDevice and dstDevice. The allocated size of *operations and *capabilities must be count.
 // For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively.
@@ -2176,15 +5321,18 @@ func deviceGetP2PAtomicCapabilities(operations *AtomicOperation, count uint32, s
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fndeviceGetP2PAtomicCapabilities(&out, operations, count, srcDevice, dstDevice), "cuDeviceGetP2PAtomicCapabilities"); err != nil {
+	out := slotDeviceGetP2PAtomicCapabilities.get()
+	defer slotDeviceGetP2PAtomicCapabilities.put(out)
+	if err := toError(fndeviceGetP2PAtomicCapabilities(out, operations, count, srcDevice, dstDevice), "cuDeviceGetP2PAtomicCapabilities"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetP2PAttribute Queries attributes of the link between two devices.
+var slotDeviceGetP2PAtomicCapabilities outSlot[uint32]
+
+// deviceGetP2PAttribute queries attributes of the link between two devices.
 //
 // Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are:
 // Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device.
@@ -2204,15 +5352,18 @@ func deviceGetP2PAttribute(attrib DeviceP2pattribute, srcDevice Device, dstDevic
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fndeviceGetP2PAttribute(&out, attrib, srcDevice, dstDevice), "cuDeviceGetP2PAttribute"); err != nil {
+	out := slotDeviceGetP2PAttribute.get()
+	defer slotDeviceGetP2PAttribute.put(out)
+	if err := toError(fndeviceGetP2PAttribute(out, attrib, srcDevice, dstDevice), "cuDeviceGetP2PAttribute"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetPCIBusId Returns a PCI Bus Id string for the device.
+var slotDeviceGetP2PAttribute outSlot[int32]
+
+// deviceGetPCIBusId returns a PCI Bus Id string for the device.
 //
 // Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by pciBusId. len specifies the maximum length of the string that may be returned.
 // where domain, bus, device, and function are all hexadecimal values. pciBusId should be large enough to store 13 characters including the NULL-terminator.
@@ -2241,9 +5392,8 @@ func deviceGetPCIBusId(dev Device) (string, error) {
 	return string(buf[:n]), nil
 }
 
-// deviceGetProperties Returns properties for a selected device.
+// deviceGetProperties returns properties for a selected device.
 //
-// This function was deprecated as of CUDA 5.0 and replaced by [Device.Attribute].
 // Returns in *prop the properties of device dev. The [Devprop] structure is defined as:
 // where:
 //
@@ -2253,7 +5403,7 @@ func deviceGetPCIBusId(dev Device) (string, error) {
 //
 //   - dev: Device to get properties for
 //
-// Deprecated: This function was deprecated as of CUDA 5.0 and replaced by [Device.Attribute]. Returns in *prop the properties of device dev. The [Devprop] structure is defined as: where: - maxThreadsPerBlock is the maximum number of threads per block; - maxThreadsDim [3] is the maximum sizes of each dimension of a block; - maxGridSize [3] is the maximum sizes of each dimension of a grid; - sharedMemPerBlock is the total amount of shared memory available per block in bytes; - totalConstantMemory is the total amount of constant memory available on the device in bytes; - SIMDWidth is the warp size; - memPitch is the maximum pitch allowed by the memory copy functions that involve memory regions allocated through [MemAllocPitch]; - regsPerBlock is the total number of registers available per block; - clockRate is the clock frequency in kilohertz; - textureAlign is the alignment requirement; texture base addresses that are aligned to textureAlign bytes do not need an offset applied to texture fetches.
+// Deprecated: This function was deprecated as of CUDA 5.0 and replaced by [Device.Attribute].
 //
 // Wraps cuDeviceGetProperties.
 func deviceGetProperties(dev Device) (Devprop, error) {
@@ -2261,15 +5411,18 @@ func deviceGetProperties(dev Device) (Devprop, error) {
 		var zero Devprop
 		return zero, err
 	}
-	var out Devprop
-	if err := toError(fndeviceGetProperties(&out, dev), "cuDeviceGetProperties"); err != nil {
+	out := slotDeviceGetProperties.get()
+	defer slotDeviceGetProperties.put(out)
+	if err := toError(fndeviceGetProperties(out, dev), "cuDeviceGetProperties"); err != nil {
 		var zero Devprop
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetTexture1DLinearMaxWidth Returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size.
+var slotDeviceGetProperties outSlot[Devprop]
+
+// deviceGetTexture1DLinearMaxWidth returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size.
 //
 // Returns in maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture for given format and numChannels.
 //
@@ -2287,15 +5440,18 @@ func deviceGetTexture1DLinearMaxWidth(format ArrayFormat, numChannels uint32, de
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndeviceGetTexture1DLinearMaxWidth(&out, format, numChannels, dev), "cuDeviceGetTexture1DLinearMaxWidth"); err != nil {
+	out := slotDeviceGetTexture1DLinearMaxWidth.get()
+	defer slotDeviceGetTexture1DLinearMaxWidth.put(out)
+	if err := toError(fndeviceGetTexture1DLinearMaxWidth(out, format, numChannels, dev), "cuDeviceGetTexture1DLinearMaxWidth"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGetUuid Return an UUID for the device.
+var slotDeviceGetTexture1DLinearMaxWidth outSlot[uint]
+
+// deviceGetUuid returns an UUID for the device.
 //
 // Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance.
 //
@@ -2311,15 +5467,18 @@ func deviceGetUuid(dev Device) (Uuid, error) {
 		var zero Uuid
 		return zero, err
 	}
-	var out Uuid
-	if err := toError(fndeviceGetUuid(&out, dev), "cuDeviceGetUuid_v2"); err != nil {
+	out := slotDeviceGetUuid.get()
+	defer slotDeviceGetUuid.put(out)
+	if err := toError(fndeviceGetUuid(out, dev), "cuDeviceGetUuid_v2"); err != nil {
 		var zero Uuid
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceGraphMemTrim Free unused memory that was cached on the specified device for use with graphs back to the OS.
+var slotDeviceGetUuid outSlot[Uuid]
+
+// deviceGraphMemTrim frees unused memory that was cached on the specified device for use with graphs back to the OS.
 //
 // Blocks which are not in use by a graph that is either currently executing or scheduled to execute are freed back to the operating system.
 //
@@ -2335,7 +5494,7 @@ func deviceGraphMemTrim(device Device) error {
 	return toError(fndeviceGraphMemTrim(device), "cuDeviceGraphMemTrim")
 }
 
-// devicePrimaryCtxGetState Get the state of the primary context.
+// devicePrimaryCtxGetState gets the state of the primary context.
 //
 // Returns in *flags the flags for the primary context of dev, and in *active whether it is active. See [Device.PrimaryCtxSetFlags] for flag values.
 //
@@ -2350,15 +5509,20 @@ func devicePrimaryCtxGetState(dev Device) (flags uint32, active int32, err error
 	if err := checkLibSym("cuDevicePrimaryCtxGetState"); err != nil {
 		return 0, 0, err
 	}
-	var out1 uint32
-	var out2 int32
-	if err := toError(fndevicePrimaryCtxGetState(dev, &out1, &out2), "cuDevicePrimaryCtxGetState"); err != nil {
+	outs := slotDevicePrimaryCtxGetState.get()
+	defer slotDevicePrimaryCtxGetState.put(outs)
+	if err := toError(fndevicePrimaryCtxGetState(dev, &outs.out1, &outs.out2), "cuDevicePrimaryCtxGetState"); err != nil {
 		return 0, 0, err
 	}
-	return out1, out2, nil
+	return outs.out1, outs.out2, nil
 }
 
-// devicePrimaryCtxRelease Release the primary context on the GPU.
+var slotDevicePrimaryCtxGetState outSlot[struct {
+	out1 uint32
+	out2 int32
+}]
+
+// devicePrimaryCtxRelease releases the primary context on the GPU.
 //
 // Releases the primary context interop on the device. A retained context should always be released once the user is done using it. The context is automatically reset once the last reference to it is released. This behavior is different when the primary context was retained by the CUDA runtime from CUDA 4.0 and earlier. In this case, the primary context remains always active.
 // Releasing a primary context that has not been previously retained will fail with [ErrInvalidContext].
@@ -2378,7 +5542,7 @@ func devicePrimaryCtxRelease(dev Device) error {
 	return toError(fndevicePrimaryCtxRelease(dev), "cuDevicePrimaryCtxRelease_v2")
 }
 
-// devicePrimaryCtxReset Destroy all allocations and reset all state on the primary context.
+// devicePrimaryCtxReset destroys all allocations and resets all state on the primary context.
 //
 // Explicitly destroys and cleans up all resources associated with the current device in the current process.
 // Note that it is responsibility of the calling function to ensure that no other module in the process is using the device any more. For that reason it is recommended to use [Device.PrimaryCtxRelease] in most cases. However it is safe for other modules to call [Device.PrimaryCtxRelease] even after resetting the device. Resetting the primary context does not release it, an application that has retained the primary context should explicitly release its usage.
@@ -2397,7 +5561,7 @@ func devicePrimaryCtxReset(dev Device) error {
 	return toError(fndevicePrimaryCtxReset(dev), "cuDevicePrimaryCtxReset_v2")
 }
 
-// devicePrimaryCtxRetain Retain the primary context on the GPU.
+// devicePrimaryCtxRetain retains the primary context on the GPU.
 //
 // Retains the primary context on the device. Once the user successfully retains the primary context, the primary context will be active and available to the user until the user releases it with [Device.PrimaryCtxRelease] or resets it with [Device.PrimaryCtxReset]. Unlike [NewContext] the newly retained context is not pushed onto the stack.
 // Retaining the primary context for the first time will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.Attribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for devices. Documentation for nvidia-smi can be obtained by passing a -h option to it.
@@ -2415,15 +5579,18 @@ func devicePrimaryCtxRetain(dev Device) (Context, error) {
 		var zero Context
 		return zero, err
 	}
-	var out Context
-	if err := toError(fndevicePrimaryCtxRetain(&out, dev), "cuDevicePrimaryCtxRetain"); err != nil {
+	out := slotDevicePrimaryCtxRetain.get()
+	defer slotDevicePrimaryCtxRetain.put(out)
+	if err := toError(fndevicePrimaryCtxRetain(out, dev), "cuDevicePrimaryCtxRetain"); err != nil {
 		var zero Context
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// devicePrimaryCtxSetFlags Set flags for the primary context.
+var slotDevicePrimaryCtxRetain outSlot[Context]
+
+// devicePrimaryCtxSetFlags sets flags for the primary context.
 //
 // Sets the flags for the primary context on the device overwriting perviously set ones.
 // The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context.
@@ -2443,7 +5610,7 @@ func devicePrimaryCtxSetFlags(dev Device, flags CtxFlags) error {
 	return toError(fndevicePrimaryCtxSetFlags(dev, uint32(flags)), "cuDevicePrimaryCtxSetFlags_v2")
 }
 
-// deviceRegisterAsyncNotification Registers a callback function to receive async notifications.
+// deviceRegisterAsyncNotification registers a callback function to receive async notifications.
 //
 // Registers callbackFunc to receive async notifications.
 // The userData
@@ -2469,15 +5636,18 @@ func deviceRegisterAsyncNotification(device Device, callbackFunc uintptr, userDa
 		var zero AsyncCallbackHandle
 		return zero, err
 	}
-	var out AsyncCallbackHandle
-	if err := toError(fndeviceRegisterAsyncNotification(device, callbackFunc, userData, &out), "cuDeviceRegisterAsyncNotification"); err != nil {
+	out := slotDeviceRegisterAsyncNotification.get()
+	defer slotDeviceRegisterAsyncNotification.put(out)
+	if err := toError(fndeviceRegisterAsyncNotification(device, callbackFunc, userData, out), "cuDeviceRegisterAsyncNotification"); err != nil {
 		var zero AsyncCallbackHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceSetGraphMemAttribute Set asynchronous allocation attributes related to graphs.
+var slotDeviceRegisterAsyncNotification outSlot[AsyncCallbackHandle]
+
+// deviceSetGraphMemAttribute sets asynchronous allocation attributes related to graphs.
 //
 // Valid attributes are:
 //
@@ -2495,7 +5665,7 @@ func deviceSetGraphMemAttribute(device Device, attr GraphmemAttribute, value uin
 	return toError(fndeviceSetGraphMemAttribute(device, attr, value), "cuDeviceSetGraphMemAttribute")
 }
 
-// deviceSetMemPool Sets the current memory pool of a device.
+// deviceSetMemPool sets the current memory pool of a device.
 //
 // The memory pool must be local to the specified device. [Stream.MemAllocAsync] allocates from the current mempool of the provided stream’s device. By default, a device’s current memory pool is its default memory pool.
 //
@@ -2511,7 +5681,7 @@ func deviceSetMemPool(dev Device, pool MemoryPool) error {
 	return toError(fndeviceSetMemPool(dev, pool), "cuDeviceSetMemPool")
 }
 
-// deviceTotalMem Returns the total amount of memory on the device.
+// deviceTotalMem returns the total amount of memory on the device.
 //
 // Returns in *bytes the total amount of memory available on the device dev in bytes.
 //
@@ -2527,15 +5697,18 @@ func deviceTotalMem(dev Device) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fndeviceTotalMem(&out, dev), "cuDeviceTotalMem_v2"); err != nil {
+	out := slotDeviceTotalMem.get()
+	defer slotDeviceTotalMem.put(out)
+	if err := toError(fndeviceTotalMem(out, dev), "cuDeviceTotalMem_v2"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// deviceUnregisterAsyncNotification Unregisters an async notification callback.
+var slotDeviceTotalMem outSlot[uint]
+
+// deviceUnregisterAsyncNotification unregisters an async notification callback.
 //
 // Unregisters callback so that the corresponding callback function will stop receiving async notifications.
 //
@@ -2554,7 +5727,7 @@ func deviceUnregisterAsyncNotification(device Device, callback AsyncCallbackHand
 	return toError(fndeviceUnregisterAsyncNotification(device, callback), "cuDeviceUnregisterAsyncNotification")
 }
 
-// DriverGetVersion Returns the latest CUDA version supported by driver.
+// DriverGetVersion returns the latest CUDA version supported by driver.
 //
 // Returns in *driverVersion the version of CUDA supported by the driver. The version is returned as (1000 * major + 10 * minor). For example, CUDA 9.2 would be represented by 9020.
 // This function automatically returns [ErrInvalidValue] if driverVersion is NULL.
@@ -2568,14 +5741,17 @@ func DriverGetVersion() (int, error) {
 	if err := checkLibSym("cuDriverGetVersion"); err != nil {
 		return 0, err
 	}
-	var out int32
-	if err := toError(fnDriverGetVersion(&out), "cuDriverGetVersion"); err != nil {
+	out := slotDriverGetVersion.get()
+	defer slotDriverGetVersion.put(out)
+	if err := toError(fnDriverGetVersion(out), "cuDriverGetVersion"); err != nil {
 		return 0, err
 	}
-	return int(out), nil
+	return int(*out), nil
 }
 
-// eventCreate Creates an event.
+var slotDriverGetVersion outSlot[int32]
+
+// eventCreate creates an event.
 //
 // Creates an event *phEvent for the current context with the flags specified via Flags. Valid flags include:
 //
@@ -2591,15 +5767,18 @@ func eventCreate(flags EventFlags) (Event, error) {
 		var zero Event
 		return zero, err
 	}
-	var out Event
-	if err := toError(fneventCreate(&out, uint32(flags)), "cuEventCreate"); err != nil {
+	out := slotEventCreate.get()
+	defer slotEventCreate.put(out)
+	if err := toError(fneventCreate(out, uint32(flags)), "cuEventCreate"); err != nil {
 		var zero Event
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// eventDestroy Destroys an event.
+var slotEventCreate outSlot[Event]
+
+// eventDestroy destroys an event.
 //
 // Destroys the event specified by hEvent.
 // An event may be destroyed before it is complete (i.e., while [Event.Query] would return [ErrNotReady]). In this case, the call does not block on completion of the event, and any associated resources will automatically be released asynchronously at completion.
@@ -2618,7 +5797,7 @@ func eventDestroy(hEvent Event) error {
 	return toError(fneventDestroy(hEvent), "cuEventDestroy_v2")
 }
 
-// eventElapsedTime Computes the elapsed time between two events.
+// eventElapsedTime computes the elapsed time between two events.
 //
 // Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds). Note this API is not guaranteed to return the latest errors for pending work. As such this API is intended to serve as an elapsed time calculation only and any polling for completion on the events to be compared should be done with [Event.Query] instead.
 // If either event was last recorded in a non-NULL stream, the resulting time may be greater than expected (even if both used the same stream handle). This happens because the [Event.Record] operation takes place asynchronously and there is no guarantee that the measured latency is actually just between the two events. Any number of other different stream operations could execute in between the two measured events, thus altering the timing in a significant way.
@@ -2637,15 +5816,18 @@ func eventElapsedTime(hStart Event, hEnd Event) (float32, error) {
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fneventElapsedTime(&out, hStart, hEnd), "cuEventElapsedTime_v2"); err != nil {
+	out := slotEventElapsedTime.get()
+	defer slotEventElapsedTime.put(out)
+	if err := toError(fneventElapsedTime(out, hStart, hEnd), "cuEventElapsedTime_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// eventQuery Queries an event’s status.
+var slotEventElapsedTime outSlot[float32]
+
+// eventQuery queries an event’s status.
 //
 // Queries the status of all work currently captured by hEvent. See [Event.Record] for details on what is captured by an event.
 // Returns [Success] if all captured work has been completed, or [ErrNotReady] if any captured work is incomplete.
@@ -2665,7 +5847,7 @@ func eventQuery(hEvent Event) error {
 	return toError(fneventQuery(hEvent), "cuEventQuery")
 }
 
-// eventRecord Records an event.
+// eventRecord records an event.
 //
 // Captures in hEvent the contents of hStream at the time of this call. hEvent and hStream must be from the same context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [Stream.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hStream after this call do not modify hEvent. See note on default stream behavior for what is captured in the default case.
 // [Event.Record] can be called multiple times on the same event and will overwrite the previously captured state. Other APIs such as [Stream.WaitEvent] use the most recently captured state at the time of the API call, and are not affected by later calls to [Event.Record]. Before the first call to [Event.Record], an event represents an empty set of work, so for example [Event.Query] would return [Success].
@@ -2687,7 +5869,7 @@ func eventRecord(hEvent Event, hStream Stream) error {
 	return toError(fneventRecord(hEvent, hStream), "cuEventRecord")
 }
 
-// eventRecordWithFlags Records an event.
+// eventRecordWithFlags records an event.
 //
 // Captures in hEvent the contents of hStream at the time of this call. hEvent and hStream must be from the same context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [Stream.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hStream after this call do not modify hEvent. See note on default stream behavior for what is captured in the default case.
 // [Event.RecordWithFlags] can be called multiple times on the same event and will overwrite the previously captured state. Other APIs such as [Stream.WaitEvent] use the most recently captured state at the time of the API call, and are not affected by later calls to [Event.RecordWithFlags]. Before the first call to [Event.RecordWithFlags], an event represents an empty set of work, so for example [Event.Query] would return [Success].
@@ -2711,7 +5893,7 @@ func eventRecordWithFlags(hEvent Event, hStream Stream, flags EventRecordFlags) 
 	return toError(fneventRecordWithFlags(hEvent, hStream, uint32(flags)), "cuEventRecordWithFlags")
 }
 
-// eventSynchronize Waits for an event to complete.
+// eventSynchronize waits for an event to complete.
 //
 // Waits until the completion of all work currently captured in hEvent. See [Event.Record] for details on what is captured by an event.
 // Waiting for an event that was created with the [EventBlockingSync] flag will cause the calling CPU thread to block until the event has been completed by the device. If the [EventBlockingSync] flag has not been set, then the CPU thread will busy-wait until the event has been completed by the device.
@@ -2730,7 +5912,7 @@ func eventSynchronize(hEvent Event) error {
 	return toError(fneventSynchronize(hEvent), "cuEventSynchronize")
 }
 
-// externalMemoryGetMappedBuffer Maps a buffer onto an imported memory object.
+// externalMemoryGetMappedBuffer maps a buffer onto an imported memory object.
 //
 // Maps a buffer onto an imported memory object and returns a device pointer in devPtr.
 // The properties of the buffer being mapped must be described in bufferDesc. The [ExternalMemoryBufferDesc] structure is defined as follows:
@@ -2751,15 +5933,18 @@ func externalMemoryGetMappedBuffer(extMem ExternalMemory, bufferDesc *ExternalMe
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fnexternalMemoryGetMappedBuffer(&out, extMem, bufferDesc), "cuExternalMemoryGetMappedBuffer"); err != nil {
+	out := slotExternalMemoryGetMappedBuffer.get()
+	defer slotExternalMemoryGetMappedBuffer.put(out)
+	if err := toError(fnexternalMemoryGetMappedBuffer(out, extMem, bufferDesc), "cuExternalMemoryGetMappedBuffer"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// externalMemoryGetMappedMipmappedArray Maps a CUDA mipmapped array onto an external memory object.
+var slotExternalMemoryGetMappedBuffer outSlot[DevicePtr]
+
+// externalMemoryGetMappedMipmappedArray maps a CUDA mipmapped array onto an external memory object.
 //
 // Maps a CUDA mipmapped array onto an external object and returns a handle to it in mipmap.
 // The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc. The structure [ExternalMemoryMipmappedArrayDesc] is defined as follows:
@@ -2781,15 +5966,18 @@ func externalMemoryGetMappedMipmappedArray(extMem ExternalMemory, mipmapDesc *Ex
 		var zero MipmappedArray
 		return zero, err
 	}
-	var out MipmappedArray
-	if err := toError(fnexternalMemoryGetMappedMipmappedArray(&out, extMem, mipmapDesc), "cuExternalMemoryGetMappedMipmappedArray"); err != nil {
+	out := slotExternalMemoryGetMappedMipmappedArray.get()
+	defer slotExternalMemoryGetMappedMipmappedArray.put(out)
+	if err := toError(fnexternalMemoryGetMappedMipmappedArray(out, extMem, mipmapDesc), "cuExternalMemoryGetMappedMipmappedArray"); err != nil {
 		var zero MipmappedArray
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// FlushGPUDirectRDMAWrites Blocks until remote writes are visible to the specified scope.
+var slotExternalMemoryGetMappedMipmappedArray outSlot[MipmappedArray]
+
+// FlushGPUDirectRDMAWrites blocks until remote writes are visible to the specified scope.
 //
 // Blocks until GPUDirect RDMA writes to the target context via mappings created through APIs like nvidia_p2p_get_pages (see https://docs.nvidia.com/cuda/gpudirect-rdma for more information), are visible to the specified scope.
 // If the scope equals or lies within the scope indicated by [DevAttrGpuDirectRdmaWritesOrdering], the call will be a no-op and can be safely omitted for performance. This can be determined by comparing the numerical values between the two enums, with smaller scopes having smaller values.
@@ -2809,7 +5997,7 @@ func FlushGPUDirectRDMAWrites(target FlushGPUDirectRDMAWritesTarget, scope Flush
 	return toError(fnFlushGPUDirectRDMAWrites(target, scope), "cuFlushGPUDirectRDMAWrites")
 }
 
-// funcGetAttribute Returns information about a function.
+// funcGetAttribute returns information about a function.
 //
 // Returns in *pi the integer value of the attribute attrib on the kernel given by hfunc. The supported attributes are:
 // With a few execeptions, function attributes may also be queried on unloaded function handles returned from [Module.EnumerateFunctions]. [ErrFunctionNotLoaded] is returned if the attribute requires a fully loaded function but the function is not loaded. The loading state of a function may be queried using cuFuncIsloaded. [Function.Load] may be called to explicitly load a function before querying the following attributes that require the function to be loaded:
@@ -2827,15 +6015,18 @@ func funcGetAttribute(attrib FunctionAttribute, hfunc Function) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnfuncGetAttribute(&out, attrib, hfunc), "cuFuncGetAttribute"); err != nil {
+	out := slotFuncGetAttribute.get()
+	defer slotFuncGetAttribute.put(out)
+	if err := toError(fnfuncGetAttribute(out, attrib, hfunc), "cuFuncGetAttribute"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// funcGetModule Returns a module handle.
+var slotFuncGetAttribute outSlot[int32]
+
+// funcGetModule returns a module handle.
 //
 // Returns in *hmod the handle of the module that function hfunc is located in. The lifetime of the module corresponds to the lifetime of the context it was loaded in or until the module is explicitly unloaded.
 // The CUDA runtime manages its own modules loaded into the primary context. If the handle returned by this API refers to a module loaded by the CUDA runtime, calling [Module.Unload] on that module will result in undefined behavior.
@@ -2850,15 +6041,18 @@ func funcGetModule(hfunc Function) (Module, error) {
 		var zero Module
 		return zero, err
 	}
-	var out Module
-	if err := toError(fnfuncGetModule(&out, hfunc), "cuFuncGetModule"); err != nil {
+	out := slotFuncGetModule.get()
+	defer slotFuncGetModule.put(out)
+	if err := toError(fnfuncGetModule(out, hfunc), "cuFuncGetModule"); err != nil {
 		var zero Module
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// funcGetName Returns the function name for a [Function] handle.
+var slotFuncGetModule outSlot[Module]
+
+// funcGetName returns the function name for a [Function] handle.
 //
 // Returns in **name the function name associated with the function handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the function handle is valid. If the module is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned.
 //
@@ -2880,7 +6074,7 @@ func funcGetName(hfunc Function) (string, error) {
 	return goString(p), nil
 }
 
-// funcGetParamCount Returns the number of parameters used by the function.
+// funcGetParamCount returns the number of parameters used by the function.
 //
 // Queries the number of kernel parameters used by func and returns it in paramCount.
 //
@@ -2896,15 +6090,18 @@ func funcGetParamCount(func_ Function) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnfuncGetParamCount(func_, &out), "cuFuncGetParamCount"); err != nil {
+	out := slotFuncGetParamCount.get()
+	defer slotFuncGetParamCount.put(out)
+	if err := toError(fnfuncGetParamCount(func_, out), "cuFuncGetParamCount"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// funcGetParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout.
+var slotFuncGetParamCount outSlot[uint]
+
+// funcGetParamInfo returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
 // Queries the kernel parameter at paramIndex into func's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that func takes. paramSize can be set to NULL if only the parameter offset is desired.
 //
@@ -2920,15 +6117,20 @@ func funcGetParamInfo(func_ Function, paramIndex uint) (paramOffset uint, paramS
 	if err := checkLibSym("cuFuncGetParamInfo"); err != nil {
 		return 0, 0, err
 	}
-	var out2 uint
-	var out3 uint
-	if err := toError(fnfuncGetParamInfo(func_, paramIndex, &out2, &out3), "cuFuncGetParamInfo"); err != nil {
+	outs := slotFuncGetParamInfo.get()
+	defer slotFuncGetParamInfo.put(outs)
+	if err := toError(fnfuncGetParamInfo(func_, paramIndex, &outs.out2, &outs.out3), "cuFuncGetParamInfo"); err != nil {
 		return 0, 0, err
 	}
-	return out2, out3, nil
+	return outs.out2, outs.out3, nil
 }
 
-// funcIsLoaded Returns if the function is loaded.
+var slotFuncGetParamInfo outSlot[struct {
+	out2 uint
+	out3 uint
+}]
+
+// funcIsLoaded returns if the function is loaded.
 //
 // Returns in state the loading state of function.
 //
@@ -2942,15 +6144,18 @@ func funcIsLoaded(function Function) (FunctionLoadingState, error) {
 		var zero FunctionLoadingState
 		return zero, err
 	}
-	var out FunctionLoadingState
-	if err := toError(fnfuncIsLoaded(&out, function), "cuFuncIsLoaded"); err != nil {
+	out := slotFuncIsLoaded.get()
+	defer slotFuncIsLoaded.put(out)
+	if err := toError(fnfuncIsLoaded(out, function), "cuFuncIsLoaded"); err != nil {
 		var zero FunctionLoadingState
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// funcLoad Loads a function.
+var slotFuncIsLoaded outSlot[FunctionLoadingState]
+
+// funcLoad loads a function.
 //
 // Finalizes function loading for function. Calling this API with a fully loaded function has no effect.
 //
@@ -2966,7 +6171,7 @@ func funcLoad(function Function) error {
 	return toError(fnfuncLoad(function), "cuFuncLoad")
 }
 
-// funcSetAttribute Sets information about a function.
+// funcSetAttribute sets information about a function.
 //
 // This call sets the value of a specified attribute attrib on the kernel given by hfunc to an integer value specified by val This function returns [Success] if the new value of the attribute could be successfully set. If the set fails, this call will return an error. Not all attributes can have values set. Attempting to set a value on a read-only attribute will result in an error ([ErrInvalidValue])
 // Supported attributes for the [Function.SetAttribute] call are:
@@ -2987,7 +6192,7 @@ func funcSetAttribute(hfunc Function, attrib FunctionAttribute, value int32) err
 	return toError(fnfuncSetAttribute(hfunc, attrib, value), "cuFuncSetAttribute")
 }
 
-// funcSetBlockShape Sets the block-dimensions for the function.
+// funcSetBlockShape sets the block-dimensions for the function.
 //
 // Specifies the x, y, and z dimensions of the thread blocks that are created when the kernel given by hfunc is launched.
 //
@@ -3000,7 +6205,7 @@ func funcSetAttribute(hfunc Function, attrib FunctionAttribute, value int32) err
 //   - y: Y dimension
 //   - z: Z dimension
 //
-// Deprecated: Specifies the x, y, and z dimensions of the thread blocks that are created when the kernel given by hfunc is launched.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuFuncSetBlockShape.
 func funcSetBlockShape(hfunc Function, x int32, y int32, z int32) error {
@@ -3010,7 +6215,7 @@ func funcSetBlockShape(hfunc Function, x int32, y int32, z int32) error {
 	return toError(fnfuncSetBlockShape(hfunc, x, y, z), "cuFuncSetBlockShape")
 }
 
-// funcSetCacheConfig Sets the preferred cache configuration for a device function.
+// funcSetCacheConfig sets the preferred cache configuration for a device function.
 //
 // On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the device function hfunc. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute hfunc. Any context-wide preference set via [CtxSetCacheConfig] will be overridden by this per-function setting unless the per-function setting is [FuncCachePreferNone]. In that case, the current context-wide setting will be used.
 // This setting does nothing on devices where the size of the L1 cache and shared memory are fixed.
@@ -3032,7 +6237,7 @@ func funcSetCacheConfig(hfunc Function, config FuncCacheConfig) error {
 	return toError(fnfuncSetCacheConfig(hfunc, config), "cuFuncSetCacheConfig")
 }
 
-// funcSetSharedMemConfig Sets the shared memory configuration for a device function.
+// funcSetSharedMemConfig sets the shared memory configuration for a device function.
 //
 // On devices with configurable shared memory banks, this function will force all subsequent launches of the specified device function to have the given shared memory bank size configuration. On any given launch of the function, the shared memory configuration of the device will be temporarily changed if needed to suit the function’s preferred configuration. Changes in shared memory configuration between subsequent launches of functions, may introduce a device side synchronization point.
 // Any per-function setting of shared memory bank size set via [Function.SetSharedMemConfig] will override the context wide setting set with [CtxSetSharedMemConfig].
@@ -3047,7 +6252,7 @@ func funcSetCacheConfig(hfunc Function, config FuncCacheConfig) error {
 //   - hfunc: kernel to be given a shared memory config
 //   - config: requested shared memory configuration
 //
-// Deprecated: On devices with configurable shared memory banks, this function will force all subsequent launches of the specified device function to have the given shared memory bank size configuration. On any given launch of the function, the shared memory configuration of the device will be temporarily changed if needed to suit the function's preferred configuration. Changes in shared memory configuration between subsequent launches of functions, may introduce a device side synchronization point. Any per-function setting of shared memory bank size set via [Function.SetSharedMemConfig] will override the context wide setting set with [CtxSetSharedMemConfig]. Changing the shared memory bank size will not increase shared memory usage or affect occupancy of kernels, but may have major effects on performance. Larger bank sizes will allow for greater potential bandwidth to shared memory, but will change what kinds of accesses to shared memory will result in bank conflicts. This function will do nothing on devices with fixed shared memory bank size. The supported bank configurations are: - [SharedMemConfigDefaultBankSize]: use the context's shared memory configuration when launching this function. - [SharedMemConfigFourByteBankSize]: set shared memory bank width to be natively four bytes when launching this function. - [SharedMemConfigEightByteBankSize]: set shared memory bank width to be natively eight bytes when launching this function.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuFuncSetSharedMemConfig.
 func funcSetSharedMemConfig(hfunc Function, config Sharedconfig) error {
@@ -3057,7 +6262,7 @@ func funcSetSharedMemConfig(hfunc Function, config Sharedconfig) error {
 	return toError(fnfuncSetSharedMemConfig(hfunc, config), "cuFuncSetSharedMemConfig")
 }
 
-// funcSetSharedSize Sets the dynamic shared-memory size for the function.
+// funcSetSharedSize sets the dynamic shared-memory size for the function.
 //
 // Sets through bytes the amount of dynamic shared memory that will be available to each thread block when the kernel given by hfunc is launched.
 //
@@ -3068,7 +6273,7 @@ func funcSetSharedMemConfig(hfunc Function, config Sharedconfig) error {
 //   - hfunc: Kernel to specify dynamic shared-memory size for
 //   - bytes: Dynamic shared-memory size per thread in bytes
 //
-// Deprecated: Sets through bytes the amount of dynamic shared memory that will be available to each thread block when the kernel given by hfunc is launched.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuFuncSetSharedSize.
 func funcSetSharedSize(hfunc Function, bytes uint32) error {
@@ -3086,7 +6291,7 @@ func GetExportTable(ppExportTable *uintptr, pExportTableId *Uuid) error {
 	return toError(fnGetExportTable(ppExportTable, pExportTableId), "cuGetExportTable")
 }
 
-// GetProcAddress Returns the requested driver API function pointer.
+// GetProcAddress returns the requested driver API function pointer.
 //
 // Returns in **pfn the address of the CUDA driver function for the requested CUDA version and flags.
 // The CUDA version is specified as (1000 * major + 10 * minor), so CUDA 11.2 should be specified as 11020. For a requested driver symbol, if the specified CUDA version is greater than or equal to the CUDA version in which the driver symbol was introduced, this API will return the function pointer to the corresponding versioned function. If the specified CUDA version is greater than the driver version, the API will return [ErrInvalidValue].
@@ -3109,15 +6314,20 @@ func GetProcAddress(symbol string, cudaVersion int32, flags DriverprocaddressFla
 		return 0, 0, err
 	}
 	cstr_symbol := append([]byte(symbol), 0)
-	var out1 uintptr
-	var out4 DriverProcAddressQueryResult
-	if err := toError(fnGetProcAddress(&cstr_symbol[0], &out1, cudaVersion, uint64(flags), &out4), "cuGetProcAddress_v2"); err != nil {
+	outs := slotGetProcAddress.get()
+	defer slotGetProcAddress.put(outs)
+	if err := toError(fnGetProcAddress(&cstr_symbol[0], &outs.out1, cudaVersion, uint64(flags), &outs.out4), "cuGetProcAddress_v2"); err != nil {
 		return 0, 0, err
 	}
-	return out1, out4, nil
+	return outs.out1, outs.out4, nil
 }
 
-// graphAddBatchMemOpNode Creates a batch memory operation node and adds it to a graph.
+var slotGetProcAddress outSlot[struct {
+	out1 uintptr
+	out4 DriverProcAddressQueryResult
+}]
+
+// graphAddBatchMemOpNode creates a batch memory operation node and adds it to a graph.
 //
 // Creates a new batch memory operation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When the node is added, the paramArray inside nodeParams is copied and therefore it can be freed after the call returns.
@@ -3141,15 +6351,18 @@ func graphAddBatchMemOpNode(hGraph Graph, dependencies *GraphNode, numDependenci
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddBatchMemOpNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddBatchMemOpNode"); err != nil {
+	out := slotGraphAddBatchMemOpNode.get()
+	defer slotGraphAddBatchMemOpNode.put(out)
+	if err := toError(fngraphAddBatchMemOpNode(out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddBatchMemOpNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddChildGraphNode Creates a child graph node and adds it to a graph.
+var slotGraphAddBatchMemOpNode outSlot[GraphNode]
+
+// graphAddChildGraphNode creates a child graph node and adds it to a graph.
 //
 // Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error.
@@ -3172,15 +6385,18 @@ func graphAddChildGraphNode(hGraph Graph, dependencies *GraphNode, numDependenci
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddChildGraphNode(&out, hGraph, dependencies, numDependencies, childGraph), "cuGraphAddChildGraphNode"); err != nil {
+	out := slotGraphAddChildGraphNode.get()
+	defer slotGraphAddChildGraphNode.put(out)
+	if err := toError(fngraphAddChildGraphNode(out, hGraph, dependencies, numDependencies, childGraph), "cuGraphAddChildGraphNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddDependencies Adds dependency edges to a graph.
+var slotGraphAddChildGraphNode outSlot[GraphNode]
+
+// graphAddDependencies adds dependency edges to a graph.
 //
 // The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
 // If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error.
@@ -3205,7 +6421,7 @@ func graphAddDependencies(hGraph Graph, from *GraphNode, to *GraphNode, edgeData
 	return toError(fngraphAddDependencies(hGraph, from, to, edgeData, numDependencies), "cuGraphAddDependencies_v2")
 }
 
-// graphAddEmptyNode Creates an empty node and adds it to a graph.
+// graphAddEmptyNode creates an empty node and adds it to a graph.
 //
 // Creates a new node which performs no operation, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // An empty node performs no operation during execution, but can be used for transitive ordering. For example, a phased execution graph with 2 groups of n nodes with a barrier between them can be represented using an empty node and 2*n dependency edges, rather than no empty node and n^2 dependency edges.
@@ -3226,15 +6442,18 @@ func graphAddEmptyNode(hGraph Graph, dependencies *GraphNode, numDependencies ui
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddEmptyNode(&out, hGraph, dependencies, numDependencies), "cuGraphAddEmptyNode"); err != nil {
+	out := slotGraphAddEmptyNode.get()
+	defer slotGraphAddEmptyNode.put(out)
+	if err := toError(fngraphAddEmptyNode(out, hGraph, dependencies, numDependencies), "cuGraphAddEmptyNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddEventRecordNode Creates an event record node and adds it to a graph.
+var slotGraphAddEmptyNode outSlot[GraphNode]
+
+// graphAddEventRecordNode creates an event record node and adds it to a graph.
 //
 // Creates a new event record node and adds it to hGraph with numDependencies dependencies specified via dependencies and event specified in event. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Each launch of the graph will record event to capture execution of the node’s dependencies.
@@ -3256,15 +6475,18 @@ func graphAddEventRecordNode(hGraph Graph, dependencies *GraphNode, numDependenc
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddEventRecordNode(&out, hGraph, dependencies, numDependencies, event), "cuGraphAddEventRecordNode"); err != nil {
+	out := slotGraphAddEventRecordNode.get()
+	defer slotGraphAddEventRecordNode.put(out)
+	if err := toError(fngraphAddEventRecordNode(out, hGraph, dependencies, numDependencies, event), "cuGraphAddEventRecordNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddEventWaitNode Creates an event wait node and adds it to a graph.
+var slotGraphAddEventRecordNode outSlot[GraphNode]
+
+// graphAddEventWaitNode creates an event wait node and adds it to a graph.
 //
 // Creates a new event wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and event specified in event. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The graph node will wait for all work captured in event. See [Event.Record] for details on what is captured by an event. event may be from a different context or device than the launch stream.
@@ -3286,15 +6508,18 @@ func graphAddEventWaitNode(hGraph Graph, dependencies *GraphNode, numDependencie
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddEventWaitNode(&out, hGraph, dependencies, numDependencies, event), "cuGraphAddEventWaitNode"); err != nil {
+	out := slotGraphAddEventWaitNode.get()
+	defer slotGraphAddEventWaitNode.put(out)
+	if err := toError(fngraphAddEventWaitNode(out, hGraph, dependencies, numDependencies, event), "cuGraphAddEventWaitNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddExternalSemaphoresSignalNode Creates an external semaphore signal node and adds it to a graph.
+var slotGraphAddEventWaitNode outSlot[GraphNode]
+
+// graphAddExternalSemaphoresSignalNode creates an external semaphore signal node and adds it to a graph.
 //
 // Creates a new external semaphore signal node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Performs a signal operation on a set of externally allocated semaphore objects when the node is launched. The operation(s) will occur after all of the node’s dependencies have completed.
@@ -3316,15 +6541,18 @@ func graphAddExternalSemaphoresSignalNode(hGraph Graph, dependencies *GraphNode,
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddExternalSemaphoresSignalNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddExternalSemaphoresSignalNode"); err != nil {
+	out := slotGraphAddExternalSemaphoresSignalNode.get()
+	defer slotGraphAddExternalSemaphoresSignalNode.put(out)
+	if err := toError(fngraphAddExternalSemaphoresSignalNode(out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddExternalSemaphoresSignalNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddExternalSemaphoresWaitNode Creates an external semaphore wait node and adds it to a graph.
+var slotGraphAddExternalSemaphoresSignalNode outSlot[GraphNode]
+
+// graphAddExternalSemaphoresWaitNode creates an external semaphore wait node and adds it to a graph.
 //
 // Creates a new external semaphore wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Performs a wait operation on a set of externally allocated semaphore objects when the node is launched. The node’s dependencies will not be launched until the wait operation has completed.
@@ -3346,15 +6574,18 @@ func graphAddExternalSemaphoresWaitNode(hGraph Graph, dependencies *GraphNode, n
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddExternalSemaphoresWaitNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddExternalSemaphoresWaitNode"); err != nil {
+	out := slotGraphAddExternalSemaphoresWaitNode.get()
+	defer slotGraphAddExternalSemaphoresWaitNode.put(out)
+	if err := toError(fngraphAddExternalSemaphoresWaitNode(out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddExternalSemaphoresWaitNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddHostNode Creates a host execution node and adds it to a graph.
+var slotGraphAddExternalSemaphoresWaitNode outSlot[GraphNode]
+
+// graphAddHostNode creates a host execution node and adds it to a graph.
 //
 // Creates a new CPU execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When the graph is launched, the node will invoke the specified CPU function. Host nodes are not supported under MPS with pre-Volta GPUs.
@@ -3376,15 +6607,18 @@ func graphAddHostNode(hGraph Graph, dependencies *GraphNode, numDependencies uin
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddHostNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddHostNode"); err != nil {
+	out := slotGraphAddHostNode.get()
+	defer slotGraphAddHostNode.put(out)
+	if err := toError(fngraphAddHostNode(out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddHostNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddKernelNode Creates a kernel execution node and adds it to a graph.
+var slotGraphAddHostNode outSlot[GraphNode]
+
+// graphAddKernelNode creates a kernel execution node and adds it to a graph.
 //
 // Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The [KernelNodeParams] structure is defined as:
@@ -3413,15 +6647,18 @@ func graphAddKernelNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddKernelNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddKernelNode_v2"); err != nil {
+	out := slotGraphAddKernelNode.get()
+	defer slotGraphAddKernelNode.put(out)
+	if err := toError(fngraphAddKernelNode(out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddKernelNode_v2"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddMemAllocNode Creates an allocation node and adds it to a graph.
+var slotGraphAddKernelNode outSlot[GraphNode]
+
+// graphAddMemAllocNode creates an allocation node and adds it to a graph.
 //
 // Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation’s address remains fixed across instantiations and launches.
@@ -3448,15 +6685,18 @@ func graphAddMemAllocNode(hGraph Graph, dependencies *GraphNode, numDependencies
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddMemAllocNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddMemAllocNode"); err != nil {
+	out := slotGraphAddMemAllocNode.get()
+	defer slotGraphAddMemAllocNode.put(out)
+	if err := toError(fngraphAddMemAllocNode(out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddMemAllocNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddMemFreeNode Creates a memory free node and adds it to a graph.
+var slotGraphAddMemAllocNode outSlot[GraphNode]
+
+// graphAddMemFreeNode creates a memory free node and adds it to a graph.
 //
 // Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free:
@@ -3479,15 +6719,18 @@ func graphAddMemFreeNode(hGraph Graph, dependencies *GraphNode, numDependencies 
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddMemFreeNode(&out, hGraph, dependencies, numDependencies, dptr), "cuGraphAddMemFreeNode"); err != nil {
+	out := slotGraphAddMemFreeNode.get()
+	defer slotGraphAddMemFreeNode.put(out)
+	if err := toError(fngraphAddMemFreeNode(out, hGraph, dependencies, numDependencies, dptr), "cuGraphAddMemFreeNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddMemcpyNode Creates a memcpy node and adds it to a graph.
+var slotGraphAddMemFreeNode outSlot[GraphNode]
+
+// graphAddMemcpyNode creates a memcpy node and adds it to a graph.
 //
 // Creates a new memcpy node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When the graph is launched, the node will perform the memcpy described by copyParams. See [Memcpy3D] for a description of the structure and its restrictions.
@@ -3511,15 +6754,18 @@ func graphAddMemcpyNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddMemcpyNode(&out, hGraph, dependencies, numDependencies, copyParams, ctx), "cuGraphAddMemcpyNode"); err != nil {
+	out := slotGraphAddMemcpyNode.get()
+	defer slotGraphAddMemcpyNode.put(out)
+	if err := toError(fngraphAddMemcpyNode(out, hGraph, dependencies, numDependencies, copyParams, ctx), "cuGraphAddMemcpyNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddMemsetNode Creates a memset node and adds it to a graph.
+var slotGraphAddMemcpyNode outSlot[GraphNode]
+
+// graphAddMemsetNode creates a memset node and adds it to a graph.
 //
 // Creates a new memset node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The element size must be 1, 2, or 4 bytes. When the graph is launched, the node will perform the memset described by memsetParams.
@@ -3542,15 +6788,18 @@ func graphAddMemsetNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddMemsetNode(&out, hGraph, dependencies, numDependencies, memsetParams, ctx), "cuGraphAddMemsetNode"); err != nil {
+	out := slotGraphAddMemsetNode.get()
+	defer slotGraphAddMemsetNode.put(out)
+	if err := toError(fngraphAddMemsetNode(out, hGraph, dependencies, numDependencies, memsetParams, ctx), "cuGraphAddMemsetNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphAddNode Adds a node of arbitrary type to a graph.
+var slotGraphAddMemsetNode outSlot[GraphNode]
+
+// graphAddNode adds a node of arbitrary type to a graph.
 //
 // Creates a new node in hGraph described by nodeParams with numDependencies dependencies specified via dependencies. numDependencies may be 0. dependencies may be null if numDependencies is 0. dependencies may not have any duplicate entries.
 // nodeParams is a tagged union. The node type should be specified in the type field, and type-specific parameters in the corresponding union member. All unused bytes - that is, reserved0 and all bytes past the utilized union member - must be set to zero. It is recommended to use brace initialization or memset to ensure all bytes are initialized.
@@ -3575,15 +6824,18 @@ func graphAddNode(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEd
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphAddNode(&out, hGraph, dependencies, dependencyData, numDependencies, nodeParams), "cuGraphAddNode_v2"); err != nil {
+	out := slotGraphAddNode.get()
+	defer slotGraphAddNode.put(out)
+	if err := toError(fngraphAddNode(out, hGraph, dependencies, dependencyData, numDependencies, nodeParams), "cuGraphAddNode_v2"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphBatchMemOpNodeGetParams Returns a batch mem op node’s parameters.
+var slotGraphAddNode outSlot[GraphNode]
+
+// graphBatchMemOpNodeGetParams returns a batch mem op node’s parameters.
 //
 // Returns the parameters of batch mem op node hNode in nodeParamsOut. The paramArray returned in nodeParamsOut is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [BatchMemOpNode.SetParams] to update the parameters of this node.
 //
@@ -3601,15 +6853,18 @@ func graphBatchMemOpNodeGetParams(hNode GraphNode) (BatchMemOpNodeParams, error)
 		var zero BatchMemOpNodeParams
 		return zero, err
 	}
-	var out BatchMemOpNodeParams
-	if err := toError(fngraphBatchMemOpNodeGetParams(hNode, &out), "cuGraphBatchMemOpNodeGetParams"); err != nil {
+	out := slotGraphBatchMemOpNodeGetParams.get()
+	defer slotGraphBatchMemOpNodeGetParams.put(out)
+	if err := toError(fngraphBatchMemOpNodeGetParams(hNode, out), "cuGraphBatchMemOpNodeGetParams"); err != nil {
 		var zero BatchMemOpNodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphBatchMemOpNodeSetParams Sets a batch mem op node’s parameters.
+var slotGraphBatchMemOpNodeGetParams outSlot[BatchMemOpNodeParams]
+
+// graphBatchMemOpNodeSetParams sets a batch mem op node’s parameters.
 //
 // Sets the parameters of batch mem op node hNode to nodeParams.
 // The paramArray inside nodeParams is copied and therefore it can be freed after the call returns.
@@ -3631,7 +6886,7 @@ func graphBatchMemOpNodeSetParams(hNode GraphNode, nodeParams *BatchMemOpNodePar
 	return toError(fngraphBatchMemOpNodeSetParams(hNode, nodeParams), "cuGraphBatchMemOpNodeSetParams")
 }
 
-// graphChildGraphNodeGetGraph Gets a handle to the embedded graph of a child graph node.
+// graphChildGraphNodeGetGraph gets a handle to the embedded graph of a child graph node.
 //
 // Gets a handle to the embedded graph in a child graph node. This call does not clone the graph. Changes to the graph will be reflected in the node, and the node retains ownership of the graph.
 // Allocation and free nodes cannot be added to the returned graph. Attempting to do so will return an error.
@@ -3650,15 +6905,18 @@ func graphChildGraphNodeGetGraph(hNode GraphNode) (Graph, error) {
 		var zero Graph
 		return zero, err
 	}
-	var out Graph
-	if err := toError(fngraphChildGraphNodeGetGraph(hNode, &out), "cuGraphChildGraphNodeGetGraph"); err != nil {
+	out := slotGraphChildGraphNodeGetGraph.get()
+	defer slotGraphChildGraphNodeGetGraph.put(out)
+	if err := toError(fngraphChildGraphNodeGetGraph(hNode, out), "cuGraphChildGraphNodeGetGraph"); err != nil {
 		var zero Graph
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphClone Clones a graph.
+var slotGraphChildGraphNodeGetGraph outSlot[Graph]
+
+// graphClone clones a graph.
 //
 // This function creates a copy of originalGraph and returns it in phGraphClone. All parameters are copied into the cloned graph. The original graph may be modified after this call without affecting the clone.
 // Child graph nodes in the original graph are recursively copied into the clone.
@@ -3679,15 +6937,18 @@ func graphClone(originalGraph Graph) (Graph, error) {
 		var zero Graph
 		return zero, err
 	}
-	var out Graph
-	if err := toError(fngraphClone(&out, originalGraph), "cuGraphClone"); err != nil {
+	out := slotGraphClone.get()
+	defer slotGraphClone.put(out)
+	if err := toError(fngraphClone(out, originalGraph), "cuGraphClone"); err != nil {
 		var zero Graph
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphConditionalHandleCreate Create a conditional handle.
+var slotGraphClone outSlot[Graph]
+
+// graphConditionalHandleCreate creates a conditional handle.
 //
 // Creates a conditional handle associated with hGraph.
 // The conditional handle must be associated with a conditional node in this graph or one of its children.
@@ -3711,15 +6972,18 @@ func graphConditionalHandleCreate(hGraph Graph, ctx Context, defaultLaunchValue 
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fngraphConditionalHandleCreate(&out, hGraph, ctx, defaultLaunchValue, flags), "cuGraphConditionalHandleCreate"); err != nil {
+	out := slotGraphConditionalHandleCreate.get()
+	defer slotGraphConditionalHandleCreate.put(out)
+	if err := toError(fngraphConditionalHandleCreate(out, hGraph, ctx, defaultLaunchValue, flags), "cuGraphConditionalHandleCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphCreate Creates a graph.
+var slotGraphConditionalHandleCreate outSlot[uint64]
+
+// graphCreate creates a graph.
 //
 // Creates an empty graph, which is returned via phGraph.
 //
@@ -3737,15 +7001,18 @@ func graphCreate(flags uint32) (Graph, error) {
 		var zero Graph
 		return zero, err
 	}
-	var out Graph
-	if err := toError(fngraphCreate(&out, flags), "cuGraphCreate"); err != nil {
+	out := slotGraphCreate.get()
+	defer slotGraphCreate.put(out)
+	if err := toError(fngraphCreate(out, flags), "cuGraphCreate"); err != nil {
 		var zero Graph
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphDebugDotPrint Write a DOT file describing graph structure.
+var slotGraphCreate outSlot[Graph]
+
+// graphDebugDotPrint writes a DOT file describing graph structure.
 //
 // Using the provided hGraph, write to path a DOT formatted description of the graph. By default this includes the graph topology, node types, node id, kernel names and memcpy direction. flags can be specified to write more detailed information about each node type such as parameter values, kernel attributes, node and function handles.
 //
@@ -3762,7 +7029,7 @@ func graphDebugDotPrint(hGraph Graph, path string, flags GraphdebugdotFlags) err
 	return toError(fngraphDebugDotPrint(hGraph, &cstr_path[0], uint32(flags)), "cuGraphDebugDotPrint")
 }
 
-// graphDestroy Destroys a graph.
+// graphDestroy destroys a graph.
 //
 // Destroys the graph specified by hGraph, as well as all of its nodes.
 //
@@ -3782,7 +7049,7 @@ func graphDestroy(hGraph Graph) error {
 	return toError(fngraphDestroy(hGraph), "cuGraphDestroy")
 }
 
-// graphDestroyNode Remove a node from the graph.
+// graphDestroyNode removes a node from the graph.
 //
 // Removes hNode from its graph. This operation also severs any dependencies of other nodes on hNode and vice versa.
 // Nodes which belong to a graph which contains allocation or free nodes cannot be destroyed. Any attempt to do so will return an error.
@@ -3803,7 +7070,7 @@ func graphDestroyNode(hNode GraphNode) error {
 	return toError(fngraphDestroyNode(hNode), "cuGraphDestroyNode")
 }
 
-// graphEventRecordNodeGetEvent Returns the event associated with an event record node.
+// graphEventRecordNodeGetEvent returns the event associated with an event record node.
 //
 // Returns the event of event record node hNode in eventOut.
 //
@@ -3821,15 +7088,18 @@ func graphEventRecordNodeGetEvent(hNode GraphNode) (Event, error) {
 		var zero Event
 		return zero, err
 	}
-	var out Event
-	if err := toError(fngraphEventRecordNodeGetEvent(hNode, &out), "cuGraphEventRecordNodeGetEvent"); err != nil {
+	out := slotGraphEventRecordNodeGetEvent.get()
+	defer slotGraphEventRecordNodeGetEvent.put(out)
+	if err := toError(fngraphEventRecordNodeGetEvent(hNode, out), "cuGraphEventRecordNodeGetEvent"); err != nil {
 		var zero Event
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphEventRecordNodeSetEvent Sets an event record node’s event.
+var slotGraphEventRecordNodeGetEvent outSlot[Event]
+
+// graphEventRecordNodeSetEvent sets an event record node’s event.
 //
 // Sets the event of event record node hNode to event.
 //
@@ -3852,7 +7122,7 @@ func graphEventRecordNodeSetEvent(hNode GraphNode, event Event) error {
 	return toError(fngraphEventRecordNodeSetEvent(hNode, event), "cuGraphEventRecordNodeSetEvent")
 }
 
-// graphEventWaitNodeGetEvent Returns the event associated with an event wait node.
+// graphEventWaitNodeGetEvent returns the event associated with an event wait node.
 //
 // Returns the event of event wait node hNode in eventOut.
 //
@@ -3870,15 +7140,18 @@ func graphEventWaitNodeGetEvent(hNode GraphNode) (Event, error) {
 		var zero Event
 		return zero, err
 	}
-	var out Event
-	if err := toError(fngraphEventWaitNodeGetEvent(hNode, &out), "cuGraphEventWaitNodeGetEvent"); err != nil {
+	out := slotGraphEventWaitNodeGetEvent.get()
+	defer slotGraphEventWaitNodeGetEvent.put(out)
+	if err := toError(fngraphEventWaitNodeGetEvent(hNode, out), "cuGraphEventWaitNodeGetEvent"); err != nil {
 		var zero Event
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphEventWaitNodeSetEvent Sets an event wait node’s event.
+var slotGraphEventWaitNodeGetEvent outSlot[Event]
+
+// graphEventWaitNodeSetEvent sets an event wait node’s event.
 //
 // Sets the event of event wait node hNode to event.
 //
@@ -3899,7 +7172,7 @@ func graphEventWaitNodeSetEvent(hNode GraphNode, event Event) error {
 	return toError(fngraphEventWaitNodeSetEvent(hNode, event), "cuGraphEventWaitNodeSetEvent")
 }
 
-// graphExecBatchMemOpNodeSetParams Sets the parameters for a batch mem op node in the given graphExec.
+// graphExecBatchMemOpNodeSetParams sets the parameters for a batch mem op node in the given graphExec.
 //
 // Sets the parameters of a batch mem op node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The following fields on operations may be modified on an executable graph:
@@ -3927,7 +7200,7 @@ func graphExecBatchMemOpNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nod
 	return toError(fngraphExecBatchMemOpNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecBatchMemOpNodeSetParams")
 }
 
-// graphExecChildGraphNodeSetParams Updates node parameters in the child graph node in the given graphExec.
+// graphExecChildGraphNodeSetParams updates node parameters in the child graph node in the given graphExec.
 //
 // Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -3951,7 +7224,7 @@ func graphExecChildGraphNodeSetParams(hGraphExec GraphExec, hNode GraphNode, chi
 	return toError(fngraphExecChildGraphNodeSetParams(hGraphExec, hNode, childGraph), "cuGraphExecChildGraphNodeSetParams")
 }
 
-// graphExecDestroy Destroys an executable graph.
+// graphExecDestroy destroys an executable graph.
 //
 // Destroys the executable graph specified by hGraphExec, as well as all of its executable nodes. If the executable graph is in-flight, it will not be terminated, but rather freed asynchronously on completion.
 //
@@ -3971,7 +7244,7 @@ func graphExecDestroy(hGraphExec GraphExec) error {
 	return toError(fngraphExecDestroy(hGraphExec), "cuGraphExecDestroy")
 }
 
-// graphExecEventRecordNodeSetEvent Sets the event for an event record node in the given graphExec.
+// graphExecEventRecordNodeSetEvent sets the event for an event record node in the given graphExec.
 //
 // Sets the event of an event record node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -3994,7 +7267,7 @@ func graphExecEventRecordNodeSetEvent(hGraphExec GraphExec, hNode GraphNode, eve
 	return toError(fngraphExecEventRecordNodeSetEvent(hGraphExec, hNode, event), "cuGraphExecEventRecordNodeSetEvent")
 }
 
-// graphExecEventWaitNodeSetEvent Sets the event for an event wait node in the given graphExec.
+// graphExecEventWaitNodeSetEvent sets the event for an event wait node in the given graphExec.
 //
 // Sets the event of an event wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -4017,7 +7290,7 @@ func graphExecEventWaitNodeSetEvent(hGraphExec GraphExec, hNode GraphNode, event
 	return toError(fngraphExecEventWaitNodeSetEvent(hGraphExec, hNode, event), "cuGraphExecEventWaitNodeSetEvent")
 }
 
-// graphExecExternalSemaphoresSignalNodeSetParams Sets the parameters for an external semaphore signal node in the given graphExec.
+// graphExecExternalSemaphoresSignalNodeSetParams sets the parameters for an external semaphore signal node in the given graphExec.
 //
 // Sets the parameters of an external semaphore signal node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // hNode must not have been removed from the original graph.
@@ -4042,7 +7315,7 @@ func graphExecExternalSemaphoresSignalNodeSetParams(hGraphExec GraphExec, hNode 
 	return toError(fngraphExecExternalSemaphoresSignalNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecExternalSemaphoresSignalNodeSetParams")
 }
 
-// graphExecExternalSemaphoresWaitNodeSetParams Sets the parameters for an external semaphore wait node in the given graphExec.
+// graphExecExternalSemaphoresWaitNodeSetParams sets the parameters for an external semaphore wait node in the given graphExec.
 //
 // Sets the parameters of an external semaphore wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // hNode must not have been removed from the original graph.
@@ -4067,7 +7340,7 @@ func graphExecExternalSemaphoresWaitNodeSetParams(hGraphExec GraphExec, hNode Gr
 	return toError(fngraphExecExternalSemaphoresWaitNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecExternalSemaphoresWaitNodeSetParams")
 }
 
-// graphExecGetFlags Query the instantiation flags of an executable graph.
+// graphExecGetFlags queries the instantiation flags of an executable graph.
 //
 // Returns the flags that were passed to instantiation for the given executable graph. [GraphInstantiateFlagUpload] will not be returned by this API as it does not affect the resulting executable graph.
 //
@@ -4085,15 +7358,18 @@ func graphExecGetFlags(hGraphExec GraphExec) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fngraphExecGetFlags(hGraphExec, &out), "cuGraphExecGetFlags"); err != nil {
+	out := slotGraphExecGetFlags.get()
+	defer slotGraphExecGetFlags.put(out)
+	if err := toError(fngraphExecGetFlags(hGraphExec, out), "cuGraphExecGetFlags"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphExecGetId Returns the id of a given graph exec.
+var slotGraphExecGetFlags outSlot[uint64]
+
+// graphExecGetId returns the id of a given graph exec.
 //
 // Returns the id of hGraphExec in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint].
 //
@@ -4107,15 +7383,18 @@ func graphExecGetId(hGraphExec GraphExec) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fngraphExecGetId(hGraphExec, &out), "cuGraphExecGetId"); err != nil {
+	out := slotGraphExecGetId.get()
+	defer slotGraphExecGetId.put(out)
+	if err := toError(fngraphExecGetId(hGraphExec, out), "cuGraphExecGetId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphExecHostNodeSetParams Sets the parameters for a host node in the given graphExec.
+var slotGraphExecGetId outSlot[uint32]
+
+// graphExecHostNodeSetParams sets the parameters for a host node in the given graphExec.
 //
 // Updates the work represented by hNode in hGraphExec as though hNode had contained nodeParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -4138,7 +7417,7 @@ func graphExecHostNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodeParam
 	return toError(fngraphExecHostNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecHostNodeSetParams")
 }
 
-// graphExecKernelNodeSetParams Sets the parameters for a kernel node in the given graphExec.
+// graphExecKernelNodeSetParams sets the parameters for a kernel node in the given graphExec.
 //
 // Sets the parameters of a kernel node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // hNode must not have been removed from the original graph. All nodeParams fields may change, but the following restrictions apply to func updates:
@@ -4163,7 +7442,7 @@ func graphExecKernelNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodePar
 	return toError(fngraphExecKernelNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecKernelNodeSetParams_v2")
 }
 
-// graphExecMemcpyNodeSetParams Sets the parameters for a memcpy node in the given graphExec.
+// graphExecMemcpyNodeSetParams sets the parameters for a memcpy node in the given graphExec.
 //
 // Updates the work represented by hNode in hGraphExec as though hNode had contained copyParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // The source and destination memory in copyParams must be allocated from the same contexts as the original source and destination memory. Both the instantiation-time memory operands and the memory operands in copyParams must be 1-dimensional. Zero-length operations are not supported.
@@ -4189,7 +7468,7 @@ func graphExecMemcpyNodeSetParams(hGraphExec GraphExec, hNode GraphNode, copyPar
 	return toError(fngraphExecMemcpyNodeSetParams(hGraphExec, hNode, copyParams, ctx), "cuGraphExecMemcpyNodeSetParams")
 }
 
-// graphExecMemsetNodeSetParams Sets the parameters for a memset node in the given graphExec.
+// graphExecMemsetNodeSetParams sets the parameters for a memset node in the given graphExec.
 //
 // Updates the work represented by hNode in hGraphExec as though hNode had contained memsetParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // Zero sized operations are not supported.
@@ -4217,7 +7496,7 @@ func graphExecMemsetNodeSetParams(hGraphExec GraphExec, hNode GraphNode, memsetP
 	return toError(fngraphExecMemsetNodeSetParams(hGraphExec, hNode, memsetParams, ctx), "cuGraphExecMemsetNodeSetParams")
 }
 
-// graphExecNodeSetParams Update a graph node’s parameters in an instantiated graph.
+// graphExecNodeSetParams updates a graph node’s parameters in an instantiated graph.
 //
 // Sets the parameters of a node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph from which the executable graph was instantiated. hNode must not have been removed from the original graph.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
@@ -4241,7 +7520,7 @@ func graphExecNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodeParams *G
 	return toError(fngraphExecNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecNodeSetParams")
 }
 
-// graphExecUpdate Check whether an executable graph can be updated with a graph and perform the update if possible.
+// graphExecUpdate checks whether an executable graph can be updated with a graph and performs the update if possible.
 //
 // Updates the node parameters in the instantiated graph specified by hGraphExec with the node parameters in a topologically identical graph specified by hGraph.
 // Limitations:
@@ -4270,7 +7549,7 @@ func graphExecUpdate(hGraphExec GraphExec, hGraph Graph, resultInfo *GraphExecUp
 	return toError(fngraphExecUpdate(hGraphExec, hGraph, resultInfo), "cuGraphExecUpdate_v2")
 }
 
-// graphExternalSemaphoresSignalNodeGetParams Returns an external semaphore signal node’s parameters.
+// graphExternalSemaphoresSignalNodeGetParams returns an external semaphore signal node’s parameters.
 //
 // Returns the parameters of an external semaphore signal node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node.
 //
@@ -4288,15 +7567,18 @@ func graphExternalSemaphoresSignalNodeGetParams(hNode GraphNode) (ExtSemSignalNo
 		var zero ExtSemSignalNodeParams
 		return zero, err
 	}
-	var out ExtSemSignalNodeParams
-	if err := toError(fngraphExternalSemaphoresSignalNodeGetParams(hNode, &out), "cuGraphExternalSemaphoresSignalNodeGetParams"); err != nil {
+	out := slotGraphExternalSemaphoresSignalNodeGetParams.get()
+	defer slotGraphExternalSemaphoresSignalNodeGetParams.put(out)
+	if err := toError(fngraphExternalSemaphoresSignalNodeGetParams(hNode, out), "cuGraphExternalSemaphoresSignalNodeGetParams"); err != nil {
 		var zero ExtSemSignalNodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphExternalSemaphoresSignalNodeSetParams Sets an external semaphore signal node’s parameters.
+var slotGraphExternalSemaphoresSignalNodeGetParams outSlot[ExtSemSignalNodeParams]
+
+// graphExternalSemaphoresSignalNodeSetParams sets an external semaphore signal node’s parameters.
 //
 // Sets the parameters of an external semaphore signal node hNode to nodeParams.
 //
@@ -4317,7 +7599,7 @@ func graphExternalSemaphoresSignalNodeSetParams(hNode GraphNode, nodeParams *Ext
 	return toError(fngraphExternalSemaphoresSignalNodeSetParams(hNode, nodeParams), "cuGraphExternalSemaphoresSignalNodeSetParams")
 }
 
-// graphExternalSemaphoresWaitNodeGetParams Returns an external semaphore wait node’s parameters.
+// graphExternalSemaphoresWaitNodeGetParams returns an external semaphore wait node’s parameters.
 //
 // Returns the parameters of an external semaphore wait node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node.
 //
@@ -4335,15 +7617,18 @@ func graphExternalSemaphoresWaitNodeGetParams(hNode GraphNode) (ExtSemWaitNodePa
 		var zero ExtSemWaitNodeParams
 		return zero, err
 	}
-	var out ExtSemWaitNodeParams
-	if err := toError(fngraphExternalSemaphoresWaitNodeGetParams(hNode, &out), "cuGraphExternalSemaphoresWaitNodeGetParams"); err != nil {
+	out := slotGraphExternalSemaphoresWaitNodeGetParams.get()
+	defer slotGraphExternalSemaphoresWaitNodeGetParams.put(out)
+	if err := toError(fngraphExternalSemaphoresWaitNodeGetParams(hNode, out), "cuGraphExternalSemaphoresWaitNodeGetParams"); err != nil {
 		var zero ExtSemWaitNodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphExternalSemaphoresWaitNodeSetParams Sets an external semaphore wait node’s parameters.
+var slotGraphExternalSemaphoresWaitNodeGetParams outSlot[ExtSemWaitNodeParams]
+
+// graphExternalSemaphoresWaitNodeSetParams sets an external semaphore wait node’s parameters.
 //
 // Sets the parameters of an external semaphore wait node hNode to nodeParams.
 //
@@ -4364,7 +7649,7 @@ func graphExternalSemaphoresWaitNodeSetParams(hNode GraphNode, nodeParams *ExtSe
 	return toError(fngraphExternalSemaphoresWaitNodeSetParams(hNode, nodeParams), "cuGraphExternalSemaphoresWaitNodeSetParams")
 }
 
-// graphGetEdges Returns a graph’s dependency edges.
+// graphGetEdges returns a graph’s dependency edges.
 //
 // Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well.
 //
@@ -4388,7 +7673,7 @@ func graphGetEdges(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *Graph
 	return toError(fngraphGetEdges(hGraph, from, to, edgeData, numEdges), "cuGraphGetEdges_v2")
 }
 
-// graphGetId Returns the id of a given graph.
+// graphGetId returns the id of a given graph.
 //
 // Returns the id of hGraph in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint].
 //
@@ -4402,15 +7687,18 @@ func graphGetId(hGraph Graph) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fngraphGetId(hGraph, &out), "cuGraphGetId"); err != nil {
+	out := slotGraphGetId.get()
+	defer slotGraphGetId.put(out)
+	if err := toError(fngraphGetId(hGraph, out), "cuGraphGetId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphGetNodes Returns a graph’s nodes.
+var slotGraphGetId outSlot[uint32]
+
+// graphGetNodes returns a graph’s nodes.
 //
 // Returns a list of hGraph's nodes. nodes may be NULL, in which case this function will return the number of nodes in numNodes. Otherwise, numNodes entries will be filled in. If numNodes is higher than the actual number of nodes, the remaining entries in nodes will be set to NULL, and the number of nodes actually obtained will be returned in numNodes.
 //
@@ -4421,23 +7709,18 @@ func graphGetId(hGraph Graph) (uint32, error) {
 // See also: [NewGraph], [Graph.RootNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to query
+//   - nodes: Pointer to return the nodes
 //   - numNodes: See description
 //
 // Wraps cuGraphGetNodes.
-func graphGetNodes(hGraph Graph, numNodes *uint) (GraphNode, error) {
+func graphGetNodes(hGraph Graph, nodes *GraphNode, numNodes *uint) error {
 	if err := checkLibSym("cuGraphGetNodes"); err != nil {
-		var zero GraphNode
-		return zero, err
+		return err
 	}
-	var out GraphNode
-	if err := toError(fngraphGetNodes(hGraph, &out, numNodes), "cuGraphGetNodes"); err != nil {
-		var zero GraphNode
-		return zero, err
-	}
-	return out, nil
+	return toError(fngraphGetNodes(hGraph, nodes, numNodes), "cuGraphGetNodes")
 }
 
-// graphGetRootNodes Returns a graph’s root nodes.
+// graphGetRootNodes returns a graph’s root nodes.
 //
 // Returns a list of hGraph's root nodes. rootNodes may be NULL, in which case this function will return the number of root nodes in numRootNodes. Otherwise, numRootNodes entries will be filled in. If numRootNodes is higher than the actual number of root nodes, the remaining entries in rootNodes will be set to NULL, and the number of nodes actually obtained will be returned in numRootNodes.
 //
@@ -4448,23 +7731,18 @@ func graphGetNodes(hGraph Graph, numNodes *uint) (GraphNode, error) {
 // See also: [NewGraph], [Graph.GetNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to query
+//   - rootNodes: Pointer to return the root nodes
 //   - numRootNodes: See description
 //
 // Wraps cuGraphGetRootNodes.
-func graphGetRootNodes(hGraph Graph, numRootNodes *uint) (GraphNode, error) {
+func graphGetRootNodes(hGraph Graph, rootNodes *GraphNode, numRootNodes *uint) error {
 	if err := checkLibSym("cuGraphGetRootNodes"); err != nil {
-		var zero GraphNode
-		return zero, err
+		return err
 	}
-	var out GraphNode
-	if err := toError(fngraphGetRootNodes(hGraph, &out, numRootNodes), "cuGraphGetRootNodes"); err != nil {
-		var zero GraphNode
-		return zero, err
-	}
-	return out, nil
+	return toError(fngraphGetRootNodes(hGraph, rootNodes, numRootNodes), "cuGraphGetRootNodes")
 }
 
-// graphHostNodeGetParams Returns a host node’s parameters.
+// graphHostNodeGetParams returns a host node’s parameters.
 //
 // Returns the parameters of host node hNode in nodeParams.
 //
@@ -4482,15 +7760,18 @@ func graphHostNodeGetParams(hNode GraphNode) (HostNodeParams, error) {
 		var zero HostNodeParams
 		return zero, err
 	}
-	var out HostNodeParams
-	if err := toError(fngraphHostNodeGetParams(hNode, &out), "cuGraphHostNodeGetParams"); err != nil {
+	out := slotGraphHostNodeGetParams.get()
+	defer slotGraphHostNodeGetParams.put(out)
+	if err := toError(fngraphHostNodeGetParams(hNode, out), "cuGraphHostNodeGetParams"); err != nil {
 		var zero HostNodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphHostNodeSetParams Sets a host node’s parameters.
+var slotGraphHostNodeGetParams outSlot[HostNodeParams]
+
+// graphHostNodeSetParams sets a host node’s parameters.
 //
 // Sets the parameters of host node hNode to nodeParams.
 //
@@ -4511,7 +7792,7 @@ func graphHostNodeSetParams(hNode GraphNode, nodeParams *HostNodeParams) error {
 	return toError(fngraphHostNodeSetParams(hNode, nodeParams), "cuGraphHostNodeSetParams")
 }
 
-// graphInstantiate Creates an executable graph from a graph.
+// graphInstantiate creates an executable graph from a graph.
 //
 // Instantiates hGraph as an executable graph. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
 // The flags parameter controls the behavior of instantiation and subsequent graph launches. Valid flags are:
@@ -4534,15 +7815,18 @@ func graphInstantiate(hGraph Graph, flags GraphinstantiateFlags) (GraphExec, err
 		var zero GraphExec
 		return zero, err
 	}
-	var out GraphExec
-	if err := toError(fngraphInstantiate(&out, hGraph, uint64(flags)), "cuGraphInstantiateWithFlags"); err != nil {
+	out := slotGraphInstantiate.get()
+	defer slotGraphInstantiate.put(out)
+	if err := toError(fngraphInstantiate(out, hGraph, uint64(flags)), "cuGraphInstantiateWithFlags"); err != nil {
 		var zero GraphExec
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphInstantiateWithParams Creates an executable graph from a graph.
+var slotGraphInstantiate outSlot[GraphExec]
+
+// graphInstantiateWithParams creates an executable graph from a graph.
 //
 // Instantiates hGraph as an executable graph according to the instantiateParams structure. The graph is validated for any structural constraints or intra-node constraints which were not previously validated. If instantiation is successful, a handle to the instantiated graph is returned in phGraphExec.
 // instantiateParams controls the behavior of instantiation and subsequent graph launches, as well as returning more detailed information in the event of an error. [GraphInstantiateParams] is defined as:
@@ -4568,15 +7852,18 @@ func graphInstantiateWithParams(hGraph Graph, instantiateParams *GraphInstantiat
 		var zero GraphExec
 		return zero, err
 	}
-	var out GraphExec
-	if err := toError(fngraphInstantiateWithParams(&out, hGraph, instantiateParams), "cuGraphInstantiateWithParams"); err != nil {
+	out := slotGraphInstantiateWithParams.get()
+	defer slotGraphInstantiateWithParams.put(out)
+	if err := toError(fngraphInstantiateWithParams(out, hGraph, instantiateParams), "cuGraphInstantiateWithParams"); err != nil {
 		var zero GraphExec
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphKernelNodeCopyAttributes Copies attributes from source node to destination node.
+var slotGraphInstantiateWithParams outSlot[GraphExec]
+
+// graphKernelNodeCopyAttributes copies attributes from source node to destination node.
 //
 // Copies attributes from source node src to destination node dst. Both node must have the same context.
 //
@@ -4595,7 +7882,7 @@ func graphKernelNodeCopyAttributes(dst GraphNode, src GraphNode) error {
 	return toError(fngraphKernelNodeCopyAttributes(dst, src), "cuGraphKernelNodeCopyAttributes")
 }
 
-// graphKernelNodeGetAttribute Queries node attribute.
+// graphKernelNodeGetAttribute queries node attribute.
 //
 // Queries attribute attr from node hNode and stores it in corresponding member of valueOut.
 //
@@ -4609,15 +7896,18 @@ func graphKernelNodeGetAttribute(hNode GraphNode, attr int32) ([8]uint64, error)
 		var zero [8]uint64
 		return zero, err
 	}
-	var out [8]uint64
-	if err := toError(fngraphKernelNodeGetAttribute(hNode, attr, &out), "cuGraphKernelNodeGetAttribute"); err != nil {
+	out := slotGraphKernelNodeGetAttribute.get()
+	defer slotGraphKernelNodeGetAttribute.put(out)
+	if err := toError(fngraphKernelNodeGetAttribute(hNode, attr, out), "cuGraphKernelNodeGetAttribute"); err != nil {
 		var zero [8]uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphKernelNodeGetParams Returns a kernel node’s parameters.
+var slotGraphKernelNodeGetAttribute outSlot[[8]uint64]
+
+// graphKernelNodeGetParams returns a kernel node’s parameters.
 //
 // Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [KernelNode.SetParams] to update the parameters of this node.
 // The params will contain either kernelParams or extra, according to which of these was most recently set on the node.
@@ -4636,15 +7926,18 @@ func graphKernelNodeGetParams(hNode GraphNode) (KernelNodeParams, error) {
 		var zero KernelNodeParams
 		return zero, err
 	}
-	var out KernelNodeParams
-	if err := toError(fngraphKernelNodeGetParams(hNode, &out), "cuGraphKernelNodeGetParams_v2"); err != nil {
+	out := slotGraphKernelNodeGetParams.get()
+	defer slotGraphKernelNodeGetParams.put(out)
+	if err := toError(fngraphKernelNodeGetParams(hNode, out), "cuGraphKernelNodeGetParams_v2"); err != nil {
 		var zero KernelNodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphKernelNodeSetAttribute Sets node attribute.
+var slotGraphKernelNodeGetParams outSlot[KernelNodeParams]
+
+// graphKernelNodeSetAttribute sets node attribute.
 //
 // Sets attribute attr on node hNode from corresponding attribute of value.
 //
@@ -4660,7 +7953,7 @@ func graphKernelNodeSetAttribute(hNode GraphNode, attr int32, value *[8]uint64) 
 	return toError(fngraphKernelNodeSetAttribute(hNode, attr, value), "cuGraphKernelNodeSetAttribute")
 }
 
-// graphKernelNodeSetParams Sets a kernel node’s parameters.
+// graphKernelNodeSetParams sets a kernel node’s parameters.
 //
 // Sets the parameters of kernel node hNode to nodeParams.
 //
@@ -4681,7 +7974,7 @@ func graphKernelNodeSetParams(hNode GraphNode, nodeParams *KernelNodeParams) err
 	return toError(fngraphKernelNodeSetParams(hNode, nodeParams), "cuGraphKernelNodeSetParams_v2")
 }
 
-// graphLaunch Launches an executable graph in a stream.
+// graphLaunch launches an executable graph in a stream.
 //
 // Executes hGraphExec in hStream. Only one instance of hGraphExec may be executing at a time. Each launch is ordered behind both any previous work in hStream and any previous launches of hGraphExec. To execute a graph concurrently, it must be instantiated multiple times into multiple executable graphs.
 // If any allocations created by hGraphExec remain unfreed (from a previous launch) and hGraphExec was not instantiated with [GraphInstantiateFlagAutoFreeOnLaunch], the launch will fail with [ErrInvalidValue].
@@ -4703,7 +7996,7 @@ func graphLaunch(hGraphExec GraphExec, hStream Stream) error {
 	return toError(fngraphLaunch(hGraphExec, hStream), "cuGraphLaunch")
 }
 
-// graphMemAllocNodeGetParams Returns a memory alloc node’s parameters.
+// graphMemAllocNodeGetParams returns a memory alloc node’s parameters.
 //
 // Returns the parameters of a memory alloc node hNode in paramsOut. The poolProps and accessDescs returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified.
 //
@@ -4721,15 +8014,18 @@ func graphMemAllocNodeGetParams(hNode GraphNode) (MemAllocNodeParams, error) {
 		var zero MemAllocNodeParams
 		return zero, err
 	}
-	var out MemAllocNodeParams
-	if err := toError(fngraphMemAllocNodeGetParams(hNode, &out), "cuGraphMemAllocNodeGetParams"); err != nil {
+	out := slotGraphMemAllocNodeGetParams.get()
+	defer slotGraphMemAllocNodeGetParams.put(out)
+	if err := toError(fngraphMemAllocNodeGetParams(hNode, out), "cuGraphMemAllocNodeGetParams"); err != nil {
 		var zero MemAllocNodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphMemFreeNodeGetParams Returns a memory free node’s parameters.
+var slotGraphMemAllocNodeGetParams outSlot[MemAllocNodeParams]
+
+// graphMemFreeNodeGetParams returns a memory free node’s parameters.
 //
 // Returns the address of a memory free node hNode in dptrOut.
 //
@@ -4747,15 +8043,18 @@ func graphMemFreeNodeGetParams(hNode GraphNode) (DevicePtr, error) {
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fngraphMemFreeNodeGetParams(hNode, &out), "cuGraphMemFreeNodeGetParams"); err != nil {
+	out := slotGraphMemFreeNodeGetParams.get()
+	defer slotGraphMemFreeNodeGetParams.put(out)
+	if err := toError(fngraphMemFreeNodeGetParams(hNode, out), "cuGraphMemFreeNodeGetParams"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphMemcpyNodeGetParams Returns a memcpy node’s parameters.
+var slotGraphMemFreeNodeGetParams outSlot[DevicePtr]
+
+// graphMemcpyNodeGetParams returns a memcpy node’s parameters.
 //
 // Returns the parameters of memcpy node hNode in nodeParams.
 //
@@ -4773,15 +8072,18 @@ func graphMemcpyNodeGetParams(hNode GraphNode) (Memcpy3d, error) {
 		var zero Memcpy3d
 		return zero, err
 	}
-	var out Memcpy3d
-	if err := toError(fngraphMemcpyNodeGetParams(hNode, &out), "cuGraphMemcpyNodeGetParams"); err != nil {
+	out := slotGraphMemcpyNodeGetParams.get()
+	defer slotGraphMemcpyNodeGetParams.put(out)
+	if err := toError(fngraphMemcpyNodeGetParams(hNode, out), "cuGraphMemcpyNodeGetParams"); err != nil {
 		var zero Memcpy3d
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphMemcpyNodeSetParams Sets a memcpy node’s parameters.
+var slotGraphMemcpyNodeGetParams outSlot[Memcpy3d]
+
+// graphMemcpyNodeSetParams sets a memcpy node’s parameters.
 //
 // Sets the parameters of memcpy node hNode to nodeParams.
 //
@@ -4802,7 +8104,7 @@ func graphMemcpyNodeSetParams(hNode GraphNode, nodeParams *Memcpy3d) error {
 	return toError(fngraphMemcpyNodeSetParams(hNode, nodeParams), "cuGraphMemcpyNodeSetParams")
 }
 
-// graphMemsetNodeGetParams Returns a memset node’s parameters.
+// graphMemsetNodeGetParams returns a memset node’s parameters.
 //
 // Returns the parameters of memset node hNode in nodeParams.
 //
@@ -4820,15 +8122,18 @@ func graphMemsetNodeGetParams(hNode GraphNode) (MemsetNodeParams, error) {
 		var zero MemsetNodeParams
 		return zero, err
 	}
-	var out MemsetNodeParams
-	if err := toError(fngraphMemsetNodeGetParams(hNode, &out), "cuGraphMemsetNodeGetParams"); err != nil {
+	out := slotGraphMemsetNodeGetParams.get()
+	defer slotGraphMemsetNodeGetParams.put(out)
+	if err := toError(fngraphMemsetNodeGetParams(hNode, out), "cuGraphMemsetNodeGetParams"); err != nil {
 		var zero MemsetNodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphMemsetNodeSetParams Sets a memset node’s parameters.
+var slotGraphMemsetNodeGetParams outSlot[MemsetNodeParams]
+
+// graphMemsetNodeSetParams sets a memset node’s parameters.
 //
 // Sets the parameters of memset node hNode to nodeParams.
 //
@@ -4849,7 +8154,7 @@ func graphMemsetNodeSetParams(hNode GraphNode, nodeParams *MemsetNodeParams) err
 	return toError(fngraphMemsetNodeSetParams(hNode, nodeParams), "cuGraphMemsetNodeSetParams")
 }
 
-// graphNodeFindInClone Finds a cloned version of a node.
+// graphNodeFindInClone finds a cloned version of a node.
 //
 // This function returns the node in hClonedGraph corresponding to hOriginalNode in the original graph.
 // hClonedGraph must have been cloned from hOriginalGraph via [Graph.Clone]. hOriginalNode must have been in hOriginalGraph at the time of the call to [Graph.Clone], and the corresponding cloned node in hClonedGraph must not have been removed. The cloned node is then returned via phClonedNode.
@@ -4869,15 +8174,18 @@ func graphNodeFindInClone(hOriginalNode GraphNode, hClonedGraph Graph) (GraphNod
 		var zero GraphNode
 		return zero, err
 	}
-	var out GraphNode
-	if err := toError(fngraphNodeFindInClone(&out, hOriginalNode, hClonedGraph), "cuGraphNodeFindInClone"); err != nil {
+	out := slotGraphNodeFindInClone.get()
+	defer slotGraphNodeFindInClone.put(out)
+	if err := toError(fngraphNodeFindInClone(out, hOriginalNode, hClonedGraph), "cuGraphNodeFindInClone"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphNodeGetContainingGraph Returns the graph that contains a given graph node.
+var slotGraphNodeFindInClone outSlot[GraphNode]
+
+// graphNodeGetContainingGraph returns the graph that contains a given graph node.
 //
 // Returns the graph that contains hNode in *phGraph. If hNode is in a child graph, the child graph it is in is returned.
 //
@@ -4891,15 +8199,18 @@ func graphNodeGetContainingGraph(hNode GraphNode) (Graph, error) {
 		var zero Graph
 		return zero, err
 	}
-	var out Graph
-	if err := toError(fngraphNodeGetContainingGraph(hNode, &out), "cuGraphNodeGetContainingGraph"); err != nil {
+	out := slotGraphNodeGetContainingGraph.get()
+	defer slotGraphNodeGetContainingGraph.put(out)
+	if err := toError(fngraphNodeGetContainingGraph(hNode, out), "cuGraphNodeGetContainingGraph"); err != nil {
 		var zero Graph
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphNodeGetDependencies Returns a node’s dependencies.
+var slotGraphNodeGetContainingGraph outSlot[Graph]
+
+// graphNodeGetDependencies returns a node’s dependencies.
 //
 // Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies.
 // Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well.
@@ -4911,24 +8222,19 @@ func graphNodeGetContainingGraph(hNode GraphNode) (Graph, error) {
 // See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
 //   - hNode: Node to query
+//   - dependencies: Pointer to return the dependencies
 //   - edgeData: Optional array to return edge data for each dependency
 //   - numDependencies: See description
 //
 // Wraps cuGraphNodeGetDependencies, bound as cuGraphNodeGetDependencies_v2.
-func graphNodeGetDependencies(hNode GraphNode, edgeData *GraphEdgeData, numDependencies *uint) (GraphNode, error) {
+func graphNodeGetDependencies(hNode GraphNode, dependencies *GraphNode, edgeData *GraphEdgeData, numDependencies *uint) error {
 	if err := checkLibSym("cuGraphNodeGetDependencies_v2"); err != nil {
-		var zero GraphNode
-		return zero, err
+		return err
 	}
-	var out GraphNode
-	if err := toError(fngraphNodeGetDependencies(hNode, &out, edgeData, numDependencies), "cuGraphNodeGetDependencies_v2"); err != nil {
-		var zero GraphNode
-		return zero, err
-	}
-	return out, nil
+	return toError(fngraphNodeGetDependencies(hNode, dependencies, edgeData, numDependencies), "cuGraphNodeGetDependencies_v2")
 }
 
-// graphNodeGetDependentNodes Returns a node’s dependent nodes.
+// graphNodeGetDependentNodes returns a node’s dependent nodes.
 //
 // Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes.
 // Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well.
@@ -4940,24 +8246,19 @@ func graphNodeGetDependencies(hNode GraphNode, edgeData *GraphEdgeData, numDepen
 // See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
 //   - hNode: Node to query
+//   - dependentNodes: Pointer to return the dependent nodes
 //   - edgeData: Optional pointer to return edge data for dependent nodes
 //   - numDependentNodes: See description
 //
 // Wraps cuGraphNodeGetDependentNodes, bound as cuGraphNodeGetDependentNodes_v2.
-func graphNodeGetDependentNodes(hNode GraphNode, edgeData *GraphEdgeData, numDependentNodes *uint) (GraphNode, error) {
+func graphNodeGetDependentNodes(hNode GraphNode, dependentNodes *GraphNode, edgeData *GraphEdgeData, numDependentNodes *uint) error {
 	if err := checkLibSym("cuGraphNodeGetDependentNodes_v2"); err != nil {
-		var zero GraphNode
-		return zero, err
+		return err
 	}
-	var out GraphNode
-	if err := toError(fngraphNodeGetDependentNodes(hNode, &out, edgeData, numDependentNodes), "cuGraphNodeGetDependentNodes_v2"); err != nil {
-		var zero GraphNode
-		return zero, err
-	}
-	return out, nil
+	return toError(fngraphNodeGetDependentNodes(hNode, dependentNodes, edgeData, numDependentNodes), "cuGraphNodeGetDependentNodes_v2")
 }
 
-// graphNodeGetEnabled Query whether a node in the given graphExec is enabled.
+// graphNodeGetEnabled queries whether a node in the given graphExec is enabled.
 //
 // Sets isEnabled to 1 if hNode is enabled, or 0 if hNode is disabled.
 // The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
@@ -4982,15 +8283,18 @@ func graphNodeGetEnabled(hGraphExec GraphExec, hNode GraphNode) (uint32, error) 
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fngraphNodeGetEnabled(hGraphExec, hNode, &out), "cuGraphNodeGetEnabled"); err != nil {
+	out := slotGraphNodeGetEnabled.get()
+	defer slotGraphNodeGetEnabled.put(out)
+	if err := toError(fngraphNodeGetEnabled(hGraphExec, hNode, out), "cuGraphNodeGetEnabled"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphNodeGetLocalId Returns the local node id of a given graph node.
+var slotGraphNodeGetEnabled outSlot[uint32]
+
+// graphNodeGetLocalId returns the local node id of a given graph node.
 //
 // Returns the node id of hNode in *nodeId. The nodeId matches that referenced by [Graph.DebugDotPrint]. The local nodeId and graphId together can uniquely identify the node.
 //
@@ -5004,15 +8308,18 @@ func graphNodeGetLocalId(hNode GraphNode) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fngraphNodeGetLocalId(hNode, &out), "cuGraphNodeGetLocalId"); err != nil {
+	out := slotGraphNodeGetLocalId.get()
+	defer slotGraphNodeGetLocalId.put(out)
+	if err := toError(fngraphNodeGetLocalId(hNode, out), "cuGraphNodeGetLocalId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphNodeGetParams Return a graph node’s parameters.
+var slotGraphNodeGetLocalId outSlot[uint32]
+
+// graphNodeGetParams returns a graph node’s parameters.
 //
 // Returns the parameters of graph node hNode in *nodeParams.
 // Any pointers returned in *nodeParams point to driver-owned memory associated with the node. This memory remains valid until the node is destroyed. Any memory pointed to from *nodeParams must not be modified.
@@ -5032,15 +8339,18 @@ func graphNodeGetParams(hNode GraphNode) (GraphNodeParams, error) {
 		var zero GraphNodeParams
 		return zero, err
 	}
-	var out GraphNodeParams
-	if err := toError(fngraphNodeGetParams(hNode, &out), "cuGraphNodeGetParams"); err != nil {
+	out := slotGraphNodeGetParams.get()
+	defer slotGraphNodeGetParams.put(out)
+	if err := toError(fngraphNodeGetParams(hNode, out), "cuGraphNodeGetParams"); err != nil {
 		var zero GraphNodeParams
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphNodeGetToolsId Returns an id used by tools to identify a given node.
+var slotGraphNodeGetParams outSlot[GraphNodeParams]
+
+// graphNodeGetToolsId returns an id used by tools to identify a given node.
 //
 // See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [Graph.Id] [GraphExec.Id]
 //
@@ -5052,15 +8362,18 @@ func graphNodeGetToolsId(hNode GraphNode) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fngraphNodeGetToolsId(hNode, &out), "cuGraphNodeGetToolsId"); err != nil {
+	out := slotGraphNodeGetToolsId.get()
+	defer slotGraphNodeGetToolsId.put(out)
+	if err := toError(fngraphNodeGetToolsId(hNode, out), "cuGraphNodeGetToolsId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphNodeGetType Returns a node’s type.
+var slotGraphNodeGetToolsId outSlot[uint64]
+
+// graphNodeGetType returns a node’s type.
 //
 // Returns the node type of hNode in type.
 //
@@ -5078,15 +8391,18 @@ func graphNodeGetType(hNode GraphNode) (GraphNodeType, error) {
 		var zero GraphNodeType
 		return zero, err
 	}
-	var out GraphNodeType
-	if err := toError(fngraphNodeGetType(hNode, &out), "cuGraphNodeGetType"); err != nil {
+	out := slotGraphNodeGetType.get()
+	defer slotGraphNodeGetType.put(out)
+	if err := toError(fngraphNodeGetType(hNode, out), "cuGraphNodeGetType"); err != nil {
 		var zero GraphNodeType
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphNodeSetEnabled Enables or disables the specified node in the given graphExec.
+var slotGraphNodeGetType outSlot[GraphNodeType]
+
+// graphNodeSetEnabled enables or disables the specified node in the given graphExec.
 //
 // Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node.
 // The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
@@ -5114,7 +8430,7 @@ func graphNodeSetEnabled(hGraphExec GraphExec, hNode GraphNode, isEnabled uint32
 	return toError(fngraphNodeSetEnabled(hGraphExec, hNode, isEnabled), "cuGraphNodeSetEnabled")
 }
 
-// graphNodeSetParams Update a graph node’s parameters.
+// graphNodeSetParams updates a graph node’s parameters.
 //
 // Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
 // Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
@@ -5136,7 +8452,7 @@ func graphNodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) error {
 	return toError(fngraphNodeSetParams(hNode, nodeParams), "cuGraphNodeSetParams")
 }
 
-// graphReleaseUserObject Release a user object reference from a graph.
+// graphReleaseUserObject releases a user object reference from a graph.
 //
 // Releases user object references owned by a graph.
 // See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
@@ -5155,7 +8471,7 @@ func graphReleaseUserObject(graph Graph, object UserObject, count uint32) error 
 	return toError(fngraphReleaseUserObject(graph, object, count), "cuGraphReleaseUserObject")
 }
 
-// graphRemoveDependencies Removes dependency edges from a graph.
+// graphRemoveDependencies removes dependency edges from a graph.
 //
 // The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
 // If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge.
@@ -5181,7 +8497,7 @@ func graphRemoveDependencies(hGraph Graph, from *GraphNode, to *GraphNode, edgeD
 	return toError(fngraphRemoveDependencies(hGraph, from, to, edgeData, numDependencies), "cuGraphRemoveDependencies_v2")
 }
 
-// graphRetainUserObject Retain a reference to a user object from a graph.
+// graphRetainUserObject retains a reference to a user object from a graph.
 //
 // Creates or moves user object references that will be owned by a CUDA graph.
 // See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
@@ -5201,7 +8517,7 @@ func graphRetainUserObject(graph Graph, object UserObject, count uint32, flags U
 	return toError(fngraphRetainUserObject(graph, object, count, uint32(flags)), "cuGraphRetainUserObject")
 }
 
-// graphUpload Uploads an executable graph in a stream.
+// graphUpload uploads an executable graph in a stream.
 //
 // Uploads hGraphExec to the device in hStream without executing it. Uploads of the same hGraphExec will be serialized. Each upload is ordered behind both any previous work in hStream and any previous launches of hGraphExec. Uses memory cached by stream to back the allocations owned by hGraphExec.
 //
@@ -5222,7 +8538,7 @@ func graphUpload(hGraphExec GraphExec, hStream Stream) error {
 	return toError(fngraphUpload(hGraphExec, hStream), "cuGraphUpload")
 }
 
-// graphicsMapResources Map graphics resources for access by CUDA.
+// graphicsMapResources maps graphics resources for access by CUDA.
 //
 // Maps the count graphics resources in resources for access by CUDA.
 // The resources in resources may be accessed by CUDA until they are unmapped. The graphics API from which resources were registered should not access any resources while they are mapped by CUDA. If an application does so, the results are undefined.
@@ -5247,7 +8563,7 @@ func graphicsMapResources(count uint32, resources *GraphicsResource, hStream Str
 	return toError(fngraphicsMapResources(count, resources, hStream), "cuGraphicsMapResources")
 }
 
-// graphicsResourceGetMappedMipmappedArray Get a mipmapped array through which to access a mapped graphics resource.
+// graphicsResourceGetMappedMipmappedArray gets a mipmapped array through which to access a mapped graphics resource.
 //
 // Returns in *pMipmappedArray a mipmapped array through which the mapped graphics resource resource. The value set in *pMipmappedArray may change every time that resource is mapped.
 // If resource is not a texture then it cannot be accessed via a mipmapped array and [ErrNotMappedAsArray] is returned. If resource is not mapped then [ErrNotMapped] is returned.
@@ -5264,15 +8580,18 @@ func graphicsResourceGetMappedMipmappedArray(resource GraphicsResource) (Mipmapp
 		var zero MipmappedArray
 		return zero, err
 	}
-	var out MipmappedArray
-	if err := toError(fngraphicsResourceGetMappedMipmappedArray(&out, resource), "cuGraphicsResourceGetMappedMipmappedArray"); err != nil {
+	out := slotGraphicsResourceGetMappedMipmappedArray.get()
+	defer slotGraphicsResourceGetMappedMipmappedArray.put(out)
+	if err := toError(fngraphicsResourceGetMappedMipmappedArray(out, resource), "cuGraphicsResourceGetMappedMipmappedArray"); err != nil {
 		var zero MipmappedArray
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphicsResourceGetMappedPointer Get a device pointer through which to access a mapped graphics resource.
+var slotGraphicsResourceGetMappedMipmappedArray outSlot[MipmappedArray]
+
+// graphicsResourceGetMappedPointer gets a device pointer through which to access a mapped graphics resource.
 //
 // Returns in *pDevPtr a pointer through which the mapped graphics resource resource may be accessed. Returns in pSize the size of the memory in bytes which may be accessed from that pointer. The value set in pPointer may change every time that resource is mapped.
 // If resource is not a buffer then it cannot be accessed via a pointer and [ErrNotMappedAsPointer] is returned. If resource is not mapped then [ErrNotMapped] is returned.
@@ -5289,15 +8608,20 @@ func graphicsResourceGetMappedPointer(resource GraphicsResource) (pDevPtr Device
 	if err := checkLibSym("cuGraphicsResourceGetMappedPointer_v2"); err != nil {
 		return 0, 0, err
 	}
-	var out0 DevicePtr
-	var out1 uint
-	if err := toError(fngraphicsResourceGetMappedPointer(&out0, &out1, resource), "cuGraphicsResourceGetMappedPointer_v2"); err != nil {
+	outs := slotGraphicsResourceGetMappedPointer.get()
+	defer slotGraphicsResourceGetMappedPointer.put(outs)
+	if err := toError(fngraphicsResourceGetMappedPointer(&outs.out0, &outs.out1, resource), "cuGraphicsResourceGetMappedPointer_v2"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// graphicsResourceSetMapFlags Set usage flags for mapping a graphics resource.
+var slotGraphicsResourceGetMappedPointer outSlot[struct {
+	out0 DevicePtr
+	out1 uint
+}]
+
+// graphicsResourceSetMapFlags sets usage flags for mapping a graphics resource.
 //
 // Set flags for mapping the graphics resource resource.
 // Changes to flags will take effect the next time resource is mapped. The flags argument may be any of the following:
@@ -5318,7 +8642,7 @@ func graphicsResourceSetMapFlags(resource GraphicsResource, flags GraphicsMapRes
 	return toError(fngraphicsResourceSetMapFlags(resource, uint32(flags)), "cuGraphicsResourceSetMapFlags_v2")
 }
 
-// graphicsSubResourceGetMappedArray Get an array through which to access a subresource of a mapped graphics resource.
+// graphicsSubResourceGetMappedArray gets an array through which to access a subresource of a mapped graphics resource.
 //
 // Returns in *pArray an array through which the subresource of the mapped graphics resource resource which corresponds to array index arrayIndex and mipmap level mipLevel may be accessed. The value set in *pArray may change every time that resource is mapped.
 // If resource is not a texture then it cannot be accessed via an array and [ErrNotMappedAsArray] is returned. If arrayIndex is not a valid array index for resource then [ErrInvalidValue] is returned. If mipLevel is not a valid mipmap level for resource then [ErrInvalidValue] is returned. If resource is not mapped then [ErrNotMapped] is returned.
@@ -5337,15 +8661,18 @@ func graphicsSubResourceGetMappedArray(resource GraphicsResource, arrayIndex uin
 		var zero Array
 		return zero, err
 	}
-	var out Array
-	if err := toError(fngraphicsSubResourceGetMappedArray(&out, resource, arrayIndex, mipLevel), "cuGraphicsSubResourceGetMappedArray"); err != nil {
+	out := slotGraphicsSubResourceGetMappedArray.get()
+	defer slotGraphicsSubResourceGetMappedArray.put(out)
+	if err := toError(fngraphicsSubResourceGetMappedArray(out, resource, arrayIndex, mipLevel), "cuGraphicsSubResourceGetMappedArray"); err != nil {
 		var zero Array
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// graphicsUnmapResources Unmap graphics resources.
+var slotGraphicsSubResourceGetMappedArray outSlot[Array]
+
+// graphicsUnmapResources unmaps graphics resources.
 //
 // Unmaps the count graphics resources in resources.
 // Once unmapped, the resources in resources may not be accessed by CUDA until they are mapped again.
@@ -5370,7 +8697,7 @@ func graphicsUnmapResources(count uint32, resources *GraphicsResource, hStream S
 	return toError(fngraphicsUnmapResources(count, resources, hStream), "cuGraphicsUnmapResources")
 }
 
-// graphicsUnregisterResource Unregisters a graphics resource for access by CUDA.
+// graphicsUnregisterResource unregisters a graphics resource for access by CUDA.
 //
 // Unregisters the graphics resource resource so it is not accessible by CUDA unless registered again.
 // If resource is invalid then [ErrInvalidHandle] is returned.
@@ -5389,7 +8716,7 @@ func graphicsUnregisterResource(resource GraphicsResource) error {
 	return toError(fngraphicsUnregisterResource(resource), "cuGraphicsUnregisterResource")
 }
 
-// greenCtxCreate Creates a green context with a specified set of resources.
+// greenCtxCreate creates a green context with a specified set of resources.
 //
 // This API creates a green context with the resources specified in the descriptor desc and returns it in the handle represented by phCtx. This API will retain the primary context on device dev, which will is released when the green context is destroyed. It is advised to have the primary context active before calling this API to avoid the heavy cost of triggering primary context initialization and deinitialization multiple times.
 // The API does not set the green context current. In order to set it current, you need to explicitly set it current by first converting the green context to a [Context] using [CtxFromGreenCtx] and subsequently calling [Context.SetCurrent] / [Context.PushCurrent]. It should be noted that a green context can be current to only one thread at a time. There is no internal synchronization to make API calls accessing the same green context from multiple threads work.
@@ -5409,15 +8736,18 @@ func greenCtxCreate(desc DevResourceDesc, dev Device, flags GreenctxcreateFlags)
 		var zero GreenCtx
 		return zero, err
 	}
-	var out GreenCtx
-	if err := toError(fngreenCtxCreate(&out, desc, dev, uint32(flags)), "cuGreenCtxCreate"); err != nil {
+	out := slotGreenCtxCreate.get()
+	defer slotGreenCtxCreate.put(out)
+	if err := toError(fngreenCtxCreate(out, desc, dev, uint32(flags)), "cuGreenCtxCreate"); err != nil {
 		var zero GreenCtx
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// greenCtxDestroy Destroys a green context.
+var slotGreenCtxCreate outSlot[GreenCtx]
+
+// greenCtxDestroy destroys a green context.
 //
 // Destroys the green context, releasing the primary context of the device that this green context was created for. Any resources provisioned for this green context (that were initially available via the resource descriptor) are released as well. The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority]. Users are expected to destroy these streams explicitly using [Stream.Destroy] to avoid resource leaks. Once the green context is destroyed, any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs:
 // Additionally, the API will invalidate all active captures on these streams.
@@ -5434,7 +8764,7 @@ func greenCtxDestroy(hCtx GreenCtx) error {
 	return toError(fngreenCtxDestroy(hCtx), "cuGreenCtxDestroy")
 }
 
-// greenCtxGetDevResource Get green context resources.
+// greenCtxGetDevResource gets green context resources.
 //
 // # Get the type resources available to the green context represented by hCtx
 //
@@ -5449,15 +8779,18 @@ func greenCtxGetDevResource(hCtx GreenCtx, type_ DevResourceType) (DevResource, 
 		var zero DevResource
 		return zero, err
 	}
-	var out DevResource
-	if err := toError(fngreenCtxGetDevResource(hCtx, &out, type_), "cuGreenCtxGetDevResource"); err != nil {
+	out := slotGreenCtxGetDevResource.get()
+	defer slotGreenCtxGetDevResource.put(out)
+	if err := toError(fngreenCtxGetDevResource(hCtx, out, type_), "cuGreenCtxGetDevResource"); err != nil {
 		var zero DevResource
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// greenCtxGetId Returns the unique Id associated with the green context supplied.
+var slotGreenCtxGetDevResource outSlot[DevResource]
+
+// greenCtxGetId returns the unique Id associated with the green context supplied.
 //
 // Returns in greenCtxId the unique Id which is associated with a given green context. The Id is unique for the life of the program for this instance of CUDA. If green context is supplied as NULL and the current context is set to a green context, the Id of the current green context is returned.
 //
@@ -5473,15 +8806,18 @@ func greenCtxGetId(greenCtx GreenCtx) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fngreenCtxGetId(greenCtx, &out), "cuGreenCtxGetId"); err != nil {
+	out := slotGreenCtxGetId.get()
+	defer slotGreenCtxGetId.put(out)
+	if err := toError(fngreenCtxGetId(greenCtx, out), "cuGreenCtxGetId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// greenCtxRecordEvent Records an event.
+var slotGreenCtxGetId outSlot[uint64]
+
+// greenCtxRecordEvent records an event.
 //
 // Captures in hEvent all the activities of the green context of hCtx at the time of this call. hEvent and hCtx must be from the same primary context otherwise [ErrInvalidHandle] is returned. Calls such as [Event.Query] or [GreenCtx.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hCtx after this call do not modify hEvent.
 //
@@ -5500,7 +8836,7 @@ func greenCtxRecordEvent(hCtx GreenCtx, hEvent Event) error {
 	return toError(fngreenCtxRecordEvent(hCtx, hEvent), "cuGreenCtxRecordEvent")
 }
 
-// greenCtxStreamCreate Create a stream for use in the green context.
+// greenCtxStreamCreate creates a stream for use in the green context.
 //
 // Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Destroy]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx.
 // The supported values for flags are:
@@ -5522,15 +8858,18 @@ func greenCtxStreamCreate(greenCtx GreenCtx, flags StreamFlags, priority int32) 
 		var zero Stream
 		return zero, err
 	}
-	var out Stream
-	if err := toError(fngreenCtxStreamCreate(&out, greenCtx, uint32(flags), priority), "cuGreenCtxStreamCreate"); err != nil {
+	out := slotGreenCtxStreamCreate.get()
+	defer slotGreenCtxStreamCreate.put(out)
+	if err := toError(fngreenCtxStreamCreate(out, greenCtx, uint32(flags), priority), "cuGreenCtxStreamCreate"); err != nil {
 		var zero Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// greenCtxWaitEvent Make a green context wait on an event.
+var slotGreenCtxStreamCreate outSlot[Stream]
+
+// greenCtxWaitEvent makes a green context wait on an event.
 //
 // Makes all future work submitted to green context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [GreenCtx.RecordEvent] or [Event.Record], for details on what is captured by an event.
 //
@@ -5551,7 +8890,7 @@ func greenCtxWaitEvent(hCtx GreenCtx, hEvent Event) error {
 	return toError(fngreenCtxWaitEvent(hCtx, hEvent), "cuGreenCtxWaitEvent")
 }
 
-// ImportExternalMemory Imports an external memory object.
+// ImportExternalMemory imports an external memory object.
 //
 // Imports an externally allocated memory object and returns a handle to that in extMemOut.
 // The properties of the handle being imported must be described in memHandleDesc. The [ExternalMemoryHandleDesc] structure is defined as follows:
@@ -5583,15 +8922,18 @@ func ImportExternalMemory(memHandleDesc *ExternalMemoryHandleDesc) (ExternalMemo
 		var zero ExternalMemory
 		return zero, err
 	}
-	var out ExternalMemory
-	if err := toError(fnImportExternalMemory(&out, memHandleDesc), "cuImportExternalMemory"); err != nil {
+	out := slotImportExternalMemory.get()
+	defer slotImportExternalMemory.put(out)
+	if err := toError(fnImportExternalMemory(out, memHandleDesc), "cuImportExternalMemory"); err != nil {
 		var zero ExternalMemory
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ImportExternalSemaphore Imports an external semaphore.
+var slotImportExternalMemory outSlot[ExternalMemory]
+
+// ImportExternalSemaphore imports an external semaphore.
 //
 // Imports an externally allocated synchronization object and returns a handle to that in extSemOut.
 // The properties of the handle being imported must be described in semHandleDesc. The [ExternalSemaphoreHandleDesc] is defined as follows:
@@ -5619,15 +8961,18 @@ func ImportExternalSemaphore(semHandleDesc *ExternalSemaphoreHandleDesc) (Extern
 		var zero ExternalSemaphore
 		return zero, err
 	}
-	var out ExternalSemaphore
-	if err := toError(fnImportExternalSemaphore(&out, semHandleDesc), "cuImportExternalSemaphore"); err != nil {
+	out := slotImportExternalSemaphore.get()
+	defer slotImportExternalSemaphore.put(out)
+	if err := toError(fnImportExternalSemaphore(out, semHandleDesc), "cuImportExternalSemaphore"); err != nil {
 		var zero ExternalSemaphore
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// Init Initialize the CUDA driver API Initializes the driver API and must be called before any other function from the driver API in the current process.
+var slotImportExternalSemaphore outSlot[ExternalSemaphore]
+
+// Init initializes the CUDA driver API Initializes the driver API and must be called before any other function from the driver API in the current process.
 //
 // Currently, the Flags parameter must be 0. If [Init] has not been called, any function from the driver API will return [ErrNotInitialized].
 //
@@ -5645,7 +8990,7 @@ func Init(flags uint32) error {
 	return toError(fnInit(flags), "cuInit")
 }
 
-// ipcCloseMemHandle Attempts to close memory mapped with [IpcOpenMemHandle].
+// ipcCloseMemHandle attempts to close memory mapped with [IpcOpenMemHandle].
 //
 // Decrements the reference count of the memory returned by [IpcOpenMemHandle] by 1. When the reference count reaches 0, this API unmaps the memory. The original allocation in the exporting process as well as imported mappings in other processes will be unaffected.
 // Any resources used to enable peer access will be freed if this is the last mapping using them.
@@ -5663,7 +9008,7 @@ func ipcCloseMemHandle(dptr DevicePtr) error {
 	return toError(fnipcCloseMemHandle(dptr), "cuIpcCloseMemHandle")
 }
 
-// ipcGetEventHandle Gets an interprocess handle for a previously allocated event.
+// ipcGetEventHandle gets an interprocess handle for a previously allocated event.
 //
 // Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes.
 // After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior.
@@ -5679,15 +9024,18 @@ func ipcGetEventHandle(event Event) (IpcEventHandle, error) {
 		var zero IpcEventHandle
 		return zero, err
 	}
-	var out IpcEventHandle
-	if err := toError(fnipcGetEventHandle(&out, event), "cuIpcGetEventHandle"); err != nil {
+	out := slotIpcGetEventHandle.get()
+	defer slotIpcGetEventHandle.put(out)
+	if err := toError(fnipcGetEventHandle(out, event), "cuIpcGetEventHandle"); err != nil {
 		var zero IpcEventHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// ipcGetMemHandle Gets an interprocess memory handle for an existing device memory allocation.
+var slotIpcGetEventHandle outSlot[IpcEventHandle]
+
+// ipcGetMemHandle gets an interprocess memory handle for an existing device memory allocation.
 //
 // Takes a pointer to the base of an existing device memory allocation created with [MemAlloc] and exports it for use in another process. This is a lightweight operation and may be called multiple times on an allocation without adverse effects.
 // If a region of memory is freed with [DevicePtr.Free] and a subsequent call to [MemAlloc] returns memory with the same device address, [DevicePtr.IpcGetMemHandle] will return a unique handle for the new memory.
@@ -5703,15 +9051,18 @@ func ipcGetMemHandle(dptr DevicePtr) (IpcMemHandle, error) {
 		var zero IpcMemHandle
 		return zero, err
 	}
-	var out IpcMemHandle
-	if err := toError(fnipcGetMemHandle(&out, dptr), "cuIpcGetMemHandle"); err != nil {
+	out := slotIpcGetMemHandle.get()
+	defer slotIpcGetMemHandle.put(out)
+	if err := toError(fnipcGetMemHandle(out, dptr), "cuIpcGetMemHandle"); err != nil {
 		var zero IpcMemHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// IpcOpenEventHandle Opens an interprocess event handle for use in the current process.
+var slotIpcGetMemHandle outSlot[IpcMemHandle]
+
+// IpcOpenEventHandle opens an interprocess event handle for use in the current process.
 //
 // Opens an interprocess event handle exported from another process with [Event.IpcGetEventHandle]. This function returns a [Event] that behaves like a locally created event with the [EventDisableTiming] flag specified. This event must be freed with [Event.Destroy].
 // Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior.
@@ -5735,7 +9086,7 @@ func IpcOpenEventHandle(handle IpcEventHandle) (Event, error) {
 	return out, nil
 }
 
-// IpcOpenMemHandle Opens an interprocess memory handle exported from another process and returns a device pointer usable in the local process.
+// IpcOpenMemHandle opens an interprocess memory handle exported from another process and returns a device pointer usable in the local process.
 //
 // Maps memory exported from another process with [DevicePtr.IpcGetMemHandle] into the current device address space. For contexts on different devices [IpcOpenMemHandle] can attempt to enable peer access between the devices as if the user called [Context.EnablePeerAccess]. This behavior is controlled by the [IpcMemLazyEnablePeerAccess] flag. [Device.CanAccessPeer] can determine if a mapping is possible.
 // Contexts that may open CUipcMemHandles are restricted in the following way. CUipcMemHandles from each [Device] in a given process may only be opened by one [Context] per [Device] per other process.
@@ -5765,7 +9116,7 @@ func IpcOpenMemHandle(handle IpcMemHandle, flags IpcmemFlags) (DevicePtr, error)
 	return out, nil
 }
 
-// kernelGetAttribute Returns information about a kernel.
+// kernelGetAttribute returns information about a kernel.
 //
 // Returns in *pi the integer value of the attribute attrib for the kernel kernel for the requested device dev. The supported attributes are:
 //
@@ -5783,15 +9134,18 @@ func kernelGetAttribute(attrib FunctionAttribute, kernel Kernel, dev Device) (in
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnkernelGetAttribute(&out, attrib, kernel, dev), "cuKernelGetAttribute"); err != nil {
+	out := slotKernelGetAttribute.get()
+	defer slotKernelGetAttribute.put(out)
+	if err := toError(fnkernelGetAttribute(out, attrib, kernel, dev), "cuKernelGetAttribute"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// kernelGetFunction Returns a function handle.
+var slotKernelGetAttribute outSlot[int32]
+
+// kernelGetFunction returns a function handle.
 //
 // Returns in pFunc the handle of the function for the requested kernel kernel and the current context. If function handle is not found, the call returns [ErrNotFound].
 //
@@ -5805,15 +9159,18 @@ func kernelGetFunction(kernel Kernel) (Function, error) {
 		var zero Function
 		return zero, err
 	}
-	var out Function
-	if err := toError(fnkernelGetFunction(&out, kernel), "cuKernelGetFunction"); err != nil {
+	out := slotKernelGetFunction.get()
+	defer slotKernelGetFunction.put(out)
+	if err := toError(fnkernelGetFunction(out, kernel), "cuKernelGetFunction"); err != nil {
 		var zero Function
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// kernelGetLibrary Returns a library handle.
+var slotKernelGetFunction outSlot[Function]
+
+// kernelGetLibrary returns a library handle.
 //
 // # Returns in pLib the handle of the library for the requested kernel kernel
 //
@@ -5827,15 +9184,18 @@ func kernelGetLibrary(kernel Kernel) (Library, error) {
 		var zero Library
 		return zero, err
 	}
-	var out Library
-	if err := toError(fnkernelGetLibrary(&out, kernel), "cuKernelGetLibrary"); err != nil {
+	out := slotKernelGetLibrary.get()
+	defer slotKernelGetLibrary.put(out)
+	if err := toError(fnkernelGetLibrary(out, kernel), "cuKernelGetLibrary"); err != nil {
 		var zero Library
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// kernelGetName Returns the function name for a [Kernel] handle.
+var slotKernelGetLibrary outSlot[Library]
+
+// kernelGetName returns the function name for a [Kernel] handle.
 //
 // Returns in **name the function name associated with the kernel handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the kernel handle is valid. If the library is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned.
 //
@@ -5857,7 +9217,7 @@ func kernelGetName(hfunc Kernel) (string, error) {
 	return goString(p), nil
 }
 
-// kernelGetParamCount Returns the number of parameters used by the kernel.
+// kernelGetParamCount returns the number of parameters used by the kernel.
 //
 // Queries the number of kernel parameters used by kernel and returns it in paramCount.
 //
@@ -5873,15 +9233,18 @@ func kernelGetParamCount(kernel Kernel) (uint, error) {
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnkernelGetParamCount(kernel, &out), "cuKernelGetParamCount"); err != nil {
+	out := slotKernelGetParamCount.get()
+	defer slotKernelGetParamCount.put(out)
+	if err := toError(fnkernelGetParamCount(kernel, out), "cuKernelGetParamCount"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// kernelGetParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout.
+var slotKernelGetParamCount outSlot[uint]
+
+// kernelGetParamInfo returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
 // Queries the kernel parameter at paramIndex into kernel's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that kernel takes. paramSize can be set to NULL if only the parameter offset is desired.
 //
@@ -5897,15 +9260,20 @@ func kernelGetParamInfo(kernel Kernel, paramIndex uint) (paramOffset uint, param
 	if err := checkLibSym("cuKernelGetParamInfo"); err != nil {
 		return 0, 0, err
 	}
-	var out2 uint
-	var out3 uint
-	if err := toError(fnkernelGetParamInfo(kernel, paramIndex, &out2, &out3), "cuKernelGetParamInfo"); err != nil {
+	outs := slotKernelGetParamInfo.get()
+	defer slotKernelGetParamInfo.put(outs)
+	if err := toError(fnkernelGetParamInfo(kernel, paramIndex, &outs.out2, &outs.out3), "cuKernelGetParamInfo"); err != nil {
 		return 0, 0, err
 	}
-	return out2, out3, nil
+	return outs.out2, outs.out3, nil
 }
 
-// kernelSetAttribute Sets information about a kernel.
+var slotKernelGetParamInfo outSlot[struct {
+	out2 uint
+	out3 uint
+}]
+
+// kernelSetAttribute sets information about a kernel.
 //
 // This call sets the value of a specified attribute attrib on the kernel kernel for the requested device dev to an integer value specified by val. This function returns [Success] if the new value of the attribute could be successfully set. If the set fails, this call will return an error. Not all attributes can have values set. Attempting to set a value on a read-only attribute will result in an error ([ErrInvalidValue])
 // Note that attributes set using [Function.SetAttribute] will override the attribute set by this API irrespective of whether the call to [Function.SetAttribute] is made before or after this API call. However, [Kernel.Attribute] will always return the attribute value set by this API.
@@ -5928,7 +9296,7 @@ func kernelSetAttribute(attrib FunctionAttribute, val int32, kernel Kernel, dev 
 	return toError(fnkernelSetAttribute(attrib, val, kernel, dev), "cuKernelSetAttribute")
 }
 
-// kernelSetCacheConfig Sets the preferred cache configuration for a device kernel.
+// kernelSetCacheConfig sets the preferred cache configuration for a device kernel.
 //
 // On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the device kernel kernel on the requested device dev. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute kernel. Any context-wide preference set via [CtxSetCacheConfig] will be overridden by this per-kernel setting.
 // Note that attributes set using [Function.SetCacheConfig] will override the attribute set by this API irrespective of whether the call to [Function.SetCacheConfig] is made before or after this API call.
@@ -5952,7 +9320,7 @@ func kernelSetCacheConfig(kernel Kernel, config FuncCacheConfig, dev Device) err
 	return toError(fnkernelSetCacheConfig(kernel, config, dev), "cuKernelSetCacheConfig")
 }
 
-// launch Launches a CUDA function.
+// launch launches a CUDA function.
 //
 // Invokes the kernel f on a 1 x 1 x 1 grid of blocks. The block contains the number of threads specified by a previous call to [Function.SetBlockShape].
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
@@ -5964,7 +9332,7 @@ func kernelSetCacheConfig(kernel Kernel, config FuncCacheConfig, dev Device) err
 //
 //   - f: Kernel to launch
 //
-// Deprecated: Invokes the kernel f on a 1 x 1 x 1 grid of blocks. The block contains the number of threads specified by a previous call to [Function.SetBlockShape]. The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function. Launching a function via [Function.LaunchKernel] invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuLaunch.
 func launch(f Function) error {
@@ -5974,7 +9342,7 @@ func launch(f Function) error {
 	return toError(fnlaunch(f), "cuLaunch")
 }
 
-// launchCooperativeKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel] where thread blocks can cooperate and synchronize as they execute.
+// launchCooperativeKernel launches a CUDA function [Function] or a CUDA kernel [Kernel] where thread blocks can cooperate and synchronize as they execute.
 //
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
@@ -6012,9 +9380,8 @@ func launchCooperativeKernel(f Function, gridDimX uint32, gridDimY uint32, gridD
 	return toError(fnlaunchCooperativeKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, (*uintptr)(sliceData(kernelParams))), "cuLaunchCooperativeKernel")
 }
 
-// LaunchCooperativeKernelMultiDevice Launches CUDA functions on multiple devices where thread blocks can cooperate and synchronize as they execute.
+// LaunchCooperativeKernelMultiDevice launches CUDA functions on multiple devices where thread blocks can cooperate and synchronize as they execute.
 //
-// This function is deprecated as of CUDA 11.3.
 // Invokes kernels as specified in the launchParamsList array where each element of the array specifies all the parameters required to perform a single kernel launch. These kernels can cooperate and synchronize as they execute. The size of the array is specified by numDevices.
 // No two kernels can be launched on the same device. All the devices targeted by this multi-device launch must be identical. All devices must have a non-zero value for the device attribute [DevAttrCooperativeMultiDeviceLaunch].
 // All kernels launched must be identical with respect to the compiled code. Note that any device, constant or managed variables present in the module that owns the kernel launched on each device, are independently instantiated on every device. It is the application’s responsibility to ensure these variables are initialized and used appropriately.
@@ -6040,7 +9407,7 @@ func launchCooperativeKernel(f Function, gridDimX uint32, gridDimY uint32, gridD
 //   - numDevices: Size of the launchParamsList array
 //   - flags: Flags to control launch behavior
 //
-// Deprecated: This function is deprecated as of CUDA 11.3. Invokes kernels as specified in the launchParamsList array where each element of the array specifies all the parameters required to perform a single kernel launch. These kernels can cooperate and synchronize as they execute. The size of the array is specified by numDevices. No two kernels can be launched on the same device. All the devices targeted by this multi-device launch must be identical. All devices must have a non-zero value for the device attribute [DevAttrCooperativeMultiDeviceLaunch]. All kernels launched must be identical with respect to the compiled code. Note that any __device__, __constant__ or __managed__ variables present in the module that owns the kernel launched on each device, are independently instantiated on every device. It is the application's responsibility to ensure these variables are initialized and used appropriately. The size of the grids as specified in blocks, the size of the blocks themselves and the amount of shared memory used by each thread block must also match across all launched kernels. The streams used to launch these kernels must have been created via either [NewStream] or [StreamCreateWithPriority]. The NULL stream or CU_STREAM_LEGACY or CU_STREAM_PER_THREAD cannot be used. The total number of blocks launched per kernel cannot exceed the maximum number of blocks per multiprocessor as returned by [Function.MaxActiveBlocksPerMultiprocessor] (or [Function.MaxActiveBlocksPerMultiprocessorWithFlags]) times the number of multiprocessors as specified by the device attribute [DevAttrMultiprocessorCount]. Since the total number of blocks launched per device has to match across all devices, the maximum number of blocks that can be launched per device will be limited by the device with the least number of multiprocessors. The kernels cannot make use of CUDA dynamic parallelism. The [LaunchParams] structure is defined as: where: - ::[LaunchParams].function specifies the kernel to be launched. All functions must be identical with respect to the compiled code. Note that you can also specify context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then casting to [Function]. In this case, the context to launch the kernel on be taken from the specified stream ::[LaunchParams].hStream. - ::[LaunchParams].gridDimX is the width of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].gridDimY is the height of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].gridDimZ is the depth of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].blockDimX is the X dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].blockDimX is the Y dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].blockDimZ is the Z dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].sharedMemBytes is the dynamic shared-memory size per thread block in bytes. This must match across all kernels launched. - ::[LaunchParams].hStream is the handle to the stream to perform the launch in. This cannot be the NULL stream or CU_STREAM_LEGACY or CU_STREAM_PER_THREAD. The CUDA context associated with this stream must match that associated with ::[LaunchParams].function. - ::[LaunchParams].kernelParams is an array of pointers to kernel parameters. If ::[LaunchParams].function has N parameters, then ::[LaunchParams].kernelParams needs to be an array of N pointers. Each of ::[LaunchParams].kernelParams [0] through ::[LaunchParams].kernelParams [N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel's image. By default, the kernel won't begin execution on any GPU until all prior work in all the specified streams has completed. This behavior can be overridden by specifying the flag CUDA_COOPERATIVE_LAUNCH_MULTI_DEVICE_NO_PRE_LAUNCH_SYNC. When this flag is specified, each kernel will only wait for prior work in the stream corresponding to that GPU to complete before it begins execution. Similarly, by default, any subsequent work pushed in any of the specified streams will not begin execution until the kernels on all GPUs have completed. This behavior can be overridden by specifying the flag CUDA_COOPERATIVE_LAUNCH_MULTI_DEVICE_NO_POST_LAUNCH_SYNC. When this flag is specified, any subsequent work pushed in any of the specified streams will only wait for the kernel launched on the GPU corresponding to that stream to complete before it begins execution. Calling [LaunchCooperativeKernelMultiDevice] sets persistent function state that is the same as function state set through [Function.LaunchKernel] API when called individually for each element in launchParamsList. When kernels are launched via [LaunchCooperativeKernelMultiDevice], the previous block shape, shared size and parameter info associated with each ::[LaunchParams].function in launchParamsList is overwritten. Note that to use [LaunchCooperativeKernelMultiDevice], the kernels must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [LaunchCooperativeKernelMultiDevice] will return [ErrInvalidImage].
+// Deprecated: This function is deprecated as of CUDA 11.3.
 //
 // Wraps cuLaunchCooperativeKernelMultiDevice.
 func LaunchCooperativeKernelMultiDevice(launchParamsList *LaunchParams, numDevices uint32, flags uint32) error {
@@ -6050,7 +9417,7 @@ func LaunchCooperativeKernelMultiDevice(launchParamsList *LaunchParams, numDevic
 	return toError(fnLaunchCooperativeKernelMultiDevice(launchParamsList, numDevices, flags), "cuLaunchCooperativeKernelMultiDevice")
 }
 
-// launchGrid Launches a CUDA function.
+// launchGrid launches a CUDA function.
 //
 // Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape].
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
@@ -6064,7 +9431,7 @@ func LaunchCooperativeKernelMultiDevice(launchParamsList *LaunchParams, numDevic
 //   - gridWidth: Width of grid in blocks
 //   - gridHeight: Height of grid in blocks
 //
-// Deprecated: Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape]. The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function. Launching a function via [Function.LaunchKernel] invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuLaunchGrid.
 func launchGrid(f Function, gridWidth int32, gridHeight int32) error {
@@ -6074,7 +9441,7 @@ func launchGrid(f Function, gridWidth int32, gridHeight int32) error {
 	return toError(fnlaunchGrid(f, gridWidth, gridHeight), "cuLaunchGrid")
 }
 
-// launchGridAsync Launches a CUDA function.
+// launchGridAsync launches a CUDA function.
 //
 // Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape].
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
@@ -6093,7 +9460,7 @@ func launchGrid(f Function, gridWidth int32, gridHeight int32) error {
 //   - gridHeight: Height of grid in blocks
 //   - hStream: Stream identifier
 //
-// Deprecated: Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape]. The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function. Launching a function via [Function.LaunchKernel] invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuLaunchGridAsync.
 func launchGridAsync(f Function, gridWidth int32, gridHeight int32, hStream Stream) error {
@@ -6103,7 +9470,7 @@ func launchGridAsync(f Function, gridWidth int32, gridHeight int32, hStream Stre
 	return toError(fnlaunchGridAsync(f, gridWidth, gridHeight, hStream), "cuLaunchGridAsync")
 }
 
-// launchHostFunc Enqueues a host function call in a stream.
+// launchHostFunc enqueues a host function call in a stream.
 //
 // Enqueues a host function to run in a stream. The function will be called after currently enqueued work and will block work added after it.
 // The host function must not make any CUDA API calls. Attempting to use a CUDA API may result in [ErrNotPermitted], but this is not required. The host function must not perform any synchronization that may depend on outstanding CUDA work not mandated to run earlier. Host functions without a mandated order (such as in independent streams) execute in undefined order and may be serialized.
@@ -6129,7 +9496,7 @@ func launchHostFunc(hStream Stream, fn uintptr, userData uintptr, syncMode uint3
 	return toError(fnlaunchHostFunc(hStream, fn, userData, syncMode), "cuLaunchHostFunc_v2")
 }
 
-// launchKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel].
+// launchKernel launches a CUDA function [Function] or a CUDA kernel [Kernel].
 //
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads.
 // sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block.
@@ -6166,7 +9533,7 @@ func launchKernel(f Function, gridDimX uint32, gridDimY uint32, gridDimZ uint32,
 	return toError(fnlaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, (*uintptr)(sliceData(kernelParams)), nil), "cuLaunchKernel")
 }
 
-// launchKernelEx Launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
+// launchKernelEx launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
 //
 // Invokes the function [Function] or the kernel [Kernel] f with the specified launch-time configuration config.
 // The [LaunchConfig] structure is defined as:
@@ -6215,7 +9582,7 @@ func launchKernelEx(config *LaunchConfig, f Function, kernelParams []unsafe.Poin
 	return toError(fnlaunchKernelEx(config, f, (*uintptr)(sliceData(kernelParams)), extra), "cuLaunchKernelEx")
 }
 
-// libraryEnumerateKernels Retrieve the kernel handles within a library.
+// libraryEnumerateKernels retrieves the kernel handles within a library.
 //
 // Returns in kernels a maximum number of numKernels kernel handles within lib. The returned kernel handle becomes invalid when the library is unloaded.
 //
@@ -6233,7 +9600,7 @@ func libraryEnumerateKernels(kernels *Kernel, numKernels uint32, lib Library) er
 	return toError(fnlibraryEnumerateKernels(kernels, numKernels, lib), "cuLibraryEnumerateKernels")
 }
 
-// libraryGetGlobal Returns a global device pointer.
+// libraryGetGlobal returns a global device pointer.
 //
 // Returns in *dptr and *bytes the base pointer and size of the global with name name for the requested library library and the current context. If no global for the requested name name exists, the call returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored.
 //
@@ -6248,15 +9615,20 @@ func libraryGetGlobal(library Library, name string) (dptr DevicePtr, bytes uint,
 		return 0, 0, err
 	}
 	cstr_name := append([]byte(name), 0)
-	var out0 DevicePtr
-	var out1 uint
-	if err := toError(fnlibraryGetGlobal(&out0, &out1, library, &cstr_name[0]), "cuLibraryGetGlobal"); err != nil {
+	outs := slotLibraryGetGlobal.get()
+	defer slotLibraryGetGlobal.put(outs)
+	if err := toError(fnlibraryGetGlobal(&outs.out0, &outs.out1, library, &cstr_name[0]), "cuLibraryGetGlobal"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// libraryGetKernel Returns a kernel handle.
+var slotLibraryGetGlobal outSlot[struct {
+	out0 DevicePtr
+	out1 uint
+}]
+
+// libraryGetKernel returns a kernel handle.
 //
 // Returns in pKernel the handle of the kernel with name name located in library library. If kernel handle is not found, the call returns [ErrNotFound].
 //
@@ -6271,14 +9643,17 @@ func libraryGetKernel(library Library, name string) (Kernel, error) {
 		return 0, err
 	}
 	cstr_name := append([]byte(name), 0)
-	var out Kernel
-	if err := toError(fnlibraryGetKernel(&out, library, &cstr_name[0]), "cuLibraryGetKernel"); err != nil {
+	out := slotLibraryGetKernel.get()
+	defer slotLibraryGetKernel.put(out)
+	if err := toError(fnlibraryGetKernel(out, library, &cstr_name[0]), "cuLibraryGetKernel"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// libraryGetKernelCount Returns the number of kernels within a library.
+var slotLibraryGetKernel outSlot[Kernel]
+
+// libraryGetKernelCount returns the number of kernels within a library.
 //
 // Returns in count the number of kernels in lib.
 //
@@ -6290,15 +9665,18 @@ func libraryGetKernelCount(lib Library) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnlibraryGetKernelCount(&out, lib), "cuLibraryGetKernelCount"); err != nil {
+	out := slotLibraryGetKernelCount.get()
+	defer slotLibraryGetKernelCount.put(out)
+	if err := toError(fnlibraryGetKernelCount(out, lib), "cuLibraryGetKernelCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// libraryGetManaged Returns a pointer to managed memory.
+var slotLibraryGetKernelCount outSlot[uint32]
+
+// libraryGetManaged returns a pointer to managed memory.
 //
 // Returns in *dptr and *bytes the base pointer and size of the managed memory with name name for the requested library library. If no managed memory with the requested name name exists, the call returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. Note that managed memory for library library is shared across devices and is registered when the library is loaded into atleast one context.
 //
@@ -6313,15 +9691,20 @@ func libraryGetManaged(library Library, name string) (dptr DevicePtr, bytes uint
 		return 0, 0, err
 	}
 	cstr_name := append([]byte(name), 0)
-	var out0 DevicePtr
-	var out1 uint
-	if err := toError(fnlibraryGetManaged(&out0, &out1, library, &cstr_name[0]), "cuLibraryGetManaged"); err != nil {
+	outs := slotLibraryGetManaged.get()
+	defer slotLibraryGetManaged.put(outs)
+	if err := toError(fnlibraryGetManaged(&outs.out0, &outs.out1, library, &cstr_name[0]), "cuLibraryGetManaged"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// libraryGetModule Returns a module handle.
+var slotLibraryGetManaged outSlot[struct {
+	out0 DevicePtr
+	out1 uint
+}]
+
+// libraryGetModule returns a module handle.
 //
 // Returns in pMod the module handle associated with the current context located in library library. If module handle is not found, the call returns [ErrNotFound].
 //
@@ -6335,15 +9718,18 @@ func libraryGetModule(library Library) (Module, error) {
 		var zero Module
 		return zero, err
 	}
-	var out Module
-	if err := toError(fnlibraryGetModule(&out, library), "cuLibraryGetModule"); err != nil {
+	out := slotLibraryGetModule.get()
+	defer slotLibraryGetModule.put(out)
+	if err := toError(fnlibraryGetModule(out, library), "cuLibraryGetModule"); err != nil {
 		var zero Module
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// libraryGetUnifiedFunction Returns a pointer to a unified function.
+var slotLibraryGetModule outSlot[Module]
+
+// libraryGetUnifiedFunction returns a pointer to a unified function.
 //
 // Returns in *fptr the function pointer to a unified function denoted by symbol. If no unified function with name symbol exists, the call returns [ErrNotFound]. If there is no device with attribute [DevAttrUnifiedFunctionPointers] present in the system, the call may return [ErrNotFound].
 //
@@ -6358,18 +9744,21 @@ func libraryGetUnifiedFunction(library Library, symbol string) (uintptr, error) 
 		return 0, err
 	}
 	cstr_symbol := append([]byte(symbol), 0)
-	var out uintptr
-	if err := toError(fnlibraryGetUnifiedFunction(&out, library, &cstr_symbol[0]), "cuLibraryGetUnifiedFunction"); err != nil {
+	out := slotLibraryGetUnifiedFunction.get()
+	defer slotLibraryGetUnifiedFunction.put(out)
+	if err := toError(fnlibraryGetUnifiedFunction(out, library, &cstr_symbol[0]), "cuLibraryGetUnifiedFunction"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// libraryLoadData Load a library with specified code and options.
+var slotLibraryGetUnifiedFunction outSlot[uintptr]
+
+// libraryLoadData loads a library with specified code and options.
 //
-// Takes a pointer code and loads the corresponding library library based on the application defined library loading mode:
+// Takes code and loads the corresponding library library based on the application defined library loading mode:
 // These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section.
-// The code may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. A fatbin should also contain relocatable code when doing separate compilation.
+// The code may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data. A fatbin should also contain relocatable code when doing separate compilation.
 // Options are passed as an array via jitOptions and any corresponding parameters are passed in jitOptionsValues. The number of total JIT options is supplied via numJitOptions. Any outputs will be returned via jitOptionsValues.
 // Library load options are passed as an array via libraryOptions and any corresponding parameters are passed in libraryOptionValues. The number of total library load options is supplied via numLibraryOptions.
 //
@@ -6385,8 +9774,10 @@ func libraryGetUnifiedFunction(library Library, symbol string) (uintptr, error) 
 //   - libraryOptionValues: Option values for loading
 //   - numLibraryOptions: Number of options for loading
 //
-// If code does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise code is passed without copying.
+// The wrapper passes code to C without copying if a NUL byte ends it or
+// follows it in its capacity, as one does in text a generated getter returns,
+// or if it starts with the ELF or fatbin magic number. Otherwise code is text,
+// and the wrapper copies it once to append a NUL.
 //
 // Wraps cuLibraryLoadData.
 func libraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {
@@ -6394,15 +9785,18 @@ func libraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintp
 		var zero Library
 		return zero, err
 	}
-	var out Library
-	if err := toError(fnlibraryLoadData(&out, unsafe.Pointer(nulTerminated(code)), jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions), "cuLibraryLoadData"); err != nil {
+	out := slotLibraryLoadData.get()
+	defer slotLibraryLoadData.put(out)
+	if err := toError(fnlibraryLoadData(out, unsafe.Pointer(textImage(code)), jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions), "cuLibraryLoadData"); err != nil {
 		var zero Library
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// libraryLoadFromFile Load a library with specified file and options.
+var slotLibraryLoadData outSlot[Library]
+
+// libraryLoadFromFile loads a library with specified file and options.
 //
 // Takes a pointer code and loads the corresponding library library based on the application defined library loading mode:
 // These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section.
@@ -6428,14 +9822,17 @@ func libraryLoadFromFile(fileName string, jitOptions *JITOption, jitOptionsValue
 		return 0, err
 	}
 	cstr_fileName := append([]byte(fileName), 0)
-	var out Library
-	if err := toError(fnlibraryLoadFromFile(&out, &cstr_fileName[0], jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions), "cuLibraryLoadFromFile"); err != nil {
+	out := slotLibraryLoadFromFile.get()
+	defer slotLibraryLoadFromFile.put(out)
+	if err := toError(fnlibraryLoadFromFile(out, &cstr_fileName[0], jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions), "cuLibraryLoadFromFile"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// libraryUnload Unloads a library.
+var slotLibraryLoadFromFile outSlot[Library]
+
+// libraryUnload unloads a library.
 //
 // # Unloads the library specified with library
 //
@@ -6451,7 +9848,7 @@ func libraryUnload(library Library) error {
 	return toError(fnlibraryUnload(library), "cuLibraryUnload")
 }
 
-// linkAddData Add an input to a pending linker invocation.
+// linkAddData adds an input to a pending linker invocation.
 //
 // Ownership of data is retained by the caller. No reference is retained to any inputs after this call returns.
 // This method accepts only compiler options, which are used if the data must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget].
@@ -6462,25 +9859,27 @@ func libraryUnload(library Library) error {
 //
 //   - state: A pending linker action
 //   - type_: The type of the input data
-//   - data: The input data. PTX must be NULL-terminated
+//   - data: The input data
 //   - size: The length of the input data
 //   - name: An optional name for this input in log messages
 //   - numOptions: Size of options
 //   - options: Options to be applied only for this input (overrides options from [LinkCreate])
 //   - optionValues: Array of option values, each cast to void *
 //
-// If data does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise data is passed without copying.
+// The wrapper passes data to C without copying if a NUL byte ends it or
+// follows it in its capacity, as one does in text a generated getter returns,
+// or if it starts with the ELF or fatbin magic number. Otherwise data is text,
+// and the wrapper copies it once to append a NUL.
 //
 // Wraps cuLinkAddData, bound as cuLinkAddData_v2.
 func linkAddData(state LinkState, type_ JitInputType, data []byte, name *byte, numOptions uint32, options *JITOption, optionValues *uintptr) error {
 	if err := checkLibSym("cuLinkAddData_v2"); err != nil {
 		return err
 	}
-	return toError(fnlinkAddData(state, type_, unsafe.Pointer(nulTerminated(data)), uint(len(data)), name, numOptions, options, optionValues), "cuLinkAddData_v2")
+	return toError(fnlinkAddData(state, type_, unsafe.Pointer(textImage(data)), uint(len(data)), name, numOptions, options, optionValues), "cuLinkAddData_v2")
 }
 
-// linkAddFile Add a file input to a pending linker invocation.
+// linkAddFile adds a file input to a pending linker invocation.
 //
 // No reference is retained to any inputs after this call returns.
 // This method accepts only compiler options, which are used if the input must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget].
@@ -6505,7 +9904,7 @@ func linkAddFile(state LinkState, type_ JitInputType, path *byte, numOptions uin
 	return toError(fnlinkAddFile(state, type_, path, numOptions, options, optionValues), "cuLinkAddFile_v2")
 }
 
-// linkComplete Complete a pending linker invocation.
+// linkComplete completes a pending linker invocation.
 //
 // Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state.
 //
@@ -6518,15 +9917,20 @@ func linkComplete(state LinkState) (cubinOut uintptr, sizeOut uint, err error) {
 	if err := checkLibSym("cuLinkComplete"); err != nil {
 		return 0, 0, err
 	}
-	var out1 uintptr
-	var out2 uint
-	if err := toError(fnlinkComplete(state, &out1, &out2), "cuLinkComplete"); err != nil {
+	outs := slotLinkComplete.get()
+	defer slotLinkComplete.put(outs)
+	if err := toError(fnlinkComplete(state, &outs.out1, &outs.out2), "cuLinkComplete"); err != nil {
 		return 0, 0, err
 	}
-	return out1, out2, nil
+	return outs.out1, outs.out2, nil
 }
 
-// LinkCreate Creates a pending JIT linker invocation.
+var slotLinkComplete outSlot[struct {
+	out1 uintptr
+	out2 uint
+}]
+
+// LinkCreate creates a pending JIT linker invocation.
 //
 // If the call is successful, the caller owns the returned [LinkState], which should eventually be destroyed with [LinkState.Destroy]. The device code machine size (32 or 64 bit) will match the calling application.
 // Both linker and compiler options may be specified. Compiler options will be applied to inputs to this linker action which must be compiled from PTX. The options [JITWallTime], [JITInfoLogBufferSizeBytes], and [JITErrorLogBufferSizeBytes] will accumulate data until the [LinkState] is destroyed.
@@ -6549,15 +9953,18 @@ func LinkCreate(numOptions uint32, options *JITOption, optionValues *uintptr) (L
 		var zero LinkState
 		return zero, err
 	}
-	var out LinkState
-	if err := toError(fnLinkCreate(numOptions, options, optionValues, &out), "cuLinkCreate_v2"); err != nil {
+	out := slotLinkCreate.get()
+	defer slotLinkCreate.put(out)
+	if err := toError(fnLinkCreate(numOptions, options, optionValues, out), "cuLinkCreate_v2"); err != nil {
 		var zero LinkState
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// linkDestroy Destroys state for a JIT linker invocation.
+var slotLinkCreate outSlot[LinkState]
+
+// linkDestroy destroys state for a JIT linker invocation.
 //
 // See also: [LinkCreate]
 //
@@ -6571,7 +9978,7 @@ func linkDestroy(state LinkState) error {
 	return toError(fnlinkDestroy(state), "cuLinkDestroy")
 }
 
-// LogsCurrent Sets log iterator to point to the end of log buffer, where the next message would be written.
+// LogsCurrent sets log iterator to point to the end of log buffer, where the next message would be written.
 //
 //   - flags: Reserved for future use, must be 0
 //
@@ -6581,15 +9988,18 @@ func LogsCurrent(flags uint32) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnLogsCurrent(&out, flags), "cuLogsCurrent"); err != nil {
+	out := slotLogsCurrent.get()
+	defer slotLogsCurrent.put(out)
+	if err := toError(fnLogsCurrent(out, flags), "cuLogsCurrent"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// LogsDumpToFile Dump accumulated driver logs into a file.
+var slotLogsCurrent outSlot[uint32]
+
+// LogsDumpToFile dumps accumulated driver logs into a file.
 //
 // Logs generated by the driver are stored in an internal buffer and can be copied out using this API. This API dumps all driver logs starting from iterator into pathToFile provided.
 //
@@ -6610,7 +10020,7 @@ func LogsDumpToFile(iterator *uint32, pathToFile string, flags uint32) error {
 	return toError(fnLogsDumpToFile(iterator, &cstr_pathToFile[0], flags), "cuLogsDumpToFile")
 }
 
-// LogsDumpToMemory Dump accumulated driver logs into a buffer.
+// LogsDumpToMemory dumps accumulated driver logs into a buffer.
 //
 // Logs generated by the driver are stored in an internal buffer and can be copied out using this API. This API dumps driver logs from iterator into buffer up to the size specified in *size. The driver will always null terminate the buffer but there will not be a null character between log entries, only a newline n. The driver will then return the actual number of bytes written in *size, excluding the null terminator. If there are no messages to dump, *size will be set to 0 and the function will return [Success]. If the provided buffer is not large enough to hold any messages, *size will be set to 0 and the function will return [ErrInvalidValue].
 //
@@ -6633,7 +10043,7 @@ func LogsDumpToMemory(iterator *uint32, buffer *byte, size *uint, flags uint32) 
 	return toError(fnLogsDumpToMemory(iterator, buffer, size, flags), "cuLogsDumpToMemory")
 }
 
-// LogsRegisterCallback Register a callback function to receive error log messages.
+// LogsRegisterCallback registers a callback function to receive error log messages.
 //
 //   - callbackFunc: The function to register as a callback (see [LogsCallback])
 //   - userData: A generic pointer to user data. This is passed into the callback function
@@ -6644,15 +10054,18 @@ func LogsRegisterCallback(callbackFunc uintptr, userData uintptr) (LogsCallbackH
 		var zero LogsCallbackHandle
 		return zero, err
 	}
-	var out LogsCallbackHandle
-	if err := toError(fnLogsRegisterCallback(callbackFunc, userData, &out), "cuLogsRegisterCallback"); err != nil {
+	out := slotLogsRegisterCallback.get()
+	defer slotLogsRegisterCallback.put(out)
+	if err := toError(fnLogsRegisterCallback(callbackFunc, userData, out), "cuLogsRegisterCallback"); err != nil {
 		var zero LogsCallbackHandle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// logsUnregisterCallback Unregister a log message callback.
+var slotLogsRegisterCallback outSlot[LogsCallbackHandle]
+
+// logsUnregisterCallback unregisters a log message callback.
 //
 //   - callback: The callback instance to unregister from receiving log messages
 //
@@ -6664,7 +10077,7 @@ func logsUnregisterCallback(callback LogsCallbackHandle) error {
 	return toError(fnlogsUnregisterCallback(callback), "cuLogsUnregisterCallback")
 }
 
-// memAddressFree Free an address range reservation.
+// memAddressFree frees an address range reservation.
 //
 // Frees a virtual address range reserved by [DevicePtr.MemAddressReserve]. The size must match what was given to memAddressReserve and the ptr given must match what was returned from memAddressReserve.
 //
@@ -6681,7 +10094,7 @@ func memAddressFree(ptr DevicePtr, size uint) error {
 	return toError(fnmemAddressFree(ptr, size), "cuMemAddressFree")
 }
 
-// memAddressReserve Allocate an address range reservation.
+// memAddressReserve allocates an address range reservation.
 //
 // Reserves a virtual address range based on the given parameters, giving the starting address of the range in ptr. This API requires a system that supports UVA. The size and address parameters must be a multiple of the host page size and the alignment must be a power of two or zero for default alignment. If addr is 0, then the driver chooses the address at which to place the start of the reservation whereas when it is non-zero then the driver treats it as a hint about where to place the reservation.
 //
@@ -6698,15 +10111,18 @@ func memAddressReserve(size uint, alignment uint, addr DevicePtr, flags uint64) 
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fnmemAddressReserve(&out, size, alignment, addr, flags), "cuMemAddressReserve"); err != nil {
+	out := slotMemAddressReserve.get()
+	defer slotMemAddressReserve.put(out)
+	if err := toError(fnmemAddressReserve(out, size, alignment, addr, flags), "cuMemAddressReserve"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memAdvise Advise about the usage of a given memory range.
+var slotMemAddressReserve outSlot[DevicePtr]
+
+// memAdvise advises about the usage of a given memory range.
 //
 // Advise the Unified Memory subsystem about the usage pattern for the memory range starting at devPtr with a size of count bytes. The start address and end address of the memory range will be rounded down and rounded up respectively to be aligned to CPU page size before the advice is applied. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables. The memory range could also refer to system-allocated pageable memory provided it represents a valid, host-accessible region of memory and all additional constraints imposed by advice as outlined below are also satisfied. Specifying an invalid system-allocated pageable memory range results in an error being returned.
 // The advice parameter can take the following values:
@@ -6732,7 +10148,7 @@ func memAdvise(devPtr DevicePtr, count uint, advice MemAdvise, location MemLocat
 	return toError(fnmemAdvise(devPtr, count, advice, location), "cuMemAdvise_v2")
 }
 
-// MemAlloc Allocates device memory.
+// MemAlloc allocates device memory.
 //
 // Allocates bytesize bytes of linear memory on the device and returns in *dptr a pointer to the allocated memory. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAlloc] returns [ErrInvalidValue].
 //
@@ -6763,15 +10179,18 @@ func MemAllocBytes(bytesize uint) (DevicePtr, error) {
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fnMemAlloc(&out, bytesize), "cuMemAlloc_v2"); err != nil {
+	out := slotMemAlloc.get()
+	defer slotMemAlloc.put(out)
+	if err := toError(fnMemAlloc(out, bytesize), "cuMemAlloc_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memAllocAsync Allocates memory with stream ordered semantics.
+var slotMemAlloc outSlot[DevicePtr]
+
+// memAllocAsync allocates memory with stream ordered semantics.
 //
 // Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the memory pool current to the stream’s device.
 //
@@ -6792,15 +10211,18 @@ func memAllocAsync(bytesize uint, hStream Stream) (DevicePtr, error) {
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fnmemAllocAsync(&out, bytesize, hStream), "cuMemAllocAsync"); err != nil {
+	out := slotMemAllocAsync.get()
+	defer slotMemAllocAsync.put(out)
+	if err := toError(fnmemAllocAsync(out, bytesize, hStream), "cuMemAllocAsync"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memAllocFromPoolAsync Allocates memory from a specified pool with stream ordered semantics.
+var slotMemAllocAsync outSlot[DevicePtr]
+
+// memAllocFromPoolAsync allocates memory from a specified pool with stream ordered semantics.
 //
 // Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the specified memory pool.
 //
@@ -6822,15 +10244,18 @@ func memAllocFromPoolAsync(bytesize uint, pool MemoryPool, hStream Stream) (Devi
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fnmemAllocFromPoolAsync(&out, bytesize, pool, hStream), "cuMemAllocFromPoolAsync"); err != nil {
+	out := slotMemAllocFromPoolAsync.get()
+	defer slotMemAllocFromPoolAsync.put(out)
+	if err := toError(fnmemAllocFromPoolAsync(out, bytesize, pool, hStream), "cuMemAllocFromPoolAsync"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MemAllocHost Allocates page-locked host memory.
+var slotMemAllocFromPoolAsync outSlot[DevicePtr]
+
+// MemAllocHost allocates page-locked host memory.
 //
 // Allocates bytesize bytes of host memory that is page-locked and accessible to the device. The driver tracks the virtual memory ranges allocated with this function and automatically accelerates calls to functions such as [DevicePtr.Memcpy]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory obtained with functions such as malloc().
 // On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemAllocHost] may not page-lock the allocated memory.
@@ -6852,7 +10277,7 @@ func MemAllocHost(pp *uintptr, bytesize uint) error {
 	return toError(fnMemAllocHost(pp, bytesize), "cuMemAllocHost_v2")
 }
 
-// MemAllocManaged Allocates memory that will be automatically managed by the Unified Memory system.
+// MemAllocManaged allocates memory that will be automatically managed by the Unified Memory system.
 //
 // Allocates bytesize bytes of managed memory on the device and returns in *dptr a pointer to the allocated memory. If the device doesn’t support allocating managed memory, [ErrNotSupported] is returned. Support for managed memory can be queried using the device attribute [DevAttrManagedMemory]. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAllocManaged] returns [ErrInvalidValue]. The pointer is valid on the CPU and on all GPUs in the system that support managed memory. All accesses to this pointer must obey the Unified Memory programming model.
 // flags specifies the default stream association for this allocation. flags must be one of [MemAttachGlobal] or [MemAttachHost]. If [MemAttachGlobal] is specified, then this memory is accessible from any stream on any device. If [MemAttachHost] is specified, then the allocation should not be accessed from devices that have a zero value for the device attribute [DevAttrConcurrentManagedAccess]; an explicit call to [Stream.AttachMemAsync] will be required to enable access on such devices.
@@ -6892,15 +10317,18 @@ func MemAllocManagedBytes(bytesize uint, flags MemattachFlags) (DevicePtr, error
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fnMemAllocManaged(&out, bytesize, uint32(flags)), "cuMemAllocManaged"); err != nil {
+	out := slotMemAllocManaged.get()
+	defer slotMemAllocManaged.put(out)
+	if err := toError(fnMemAllocManaged(out, bytesize, uint32(flags)), "cuMemAllocManaged"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MemAllocPitch Allocates pitched device memory.
+var slotMemAllocManaged outSlot[DevicePtr]
+
+// MemAllocPitch allocates pitched device memory.
 //
 // Allocates at least WidthInBytes * Height bytes of linear memory on the device and returns in *dptr a pointer to the allocated memory. The function may pad the allocation to ensure that corresponding pointers in any given row will continue to meet the alignment requirements for coalescing as the address is updated from row to row. ElementSizeBytes specifies the size of the largest reads and writes that will be performed on the memory range. ElementSizeBytes may be 4, 8 or 16 (since coalesced memory transactions are not possible on other data sizes). If ElementSizeBytes is smaller than the actual read/write size of a kernel, the kernel will run correctly, but possibly at reduced speed. The pitch returned in *pPitch by [MemAllocPitch] is the width in bytes of the allocation. The intended usage of pitch is as a separate parameter of the allocation, used to compute addresses within the 2D array. Given the row and column of an array element of type T, the address is computed as:
 // The pitch returned by [MemAllocPitch] is guaranteed to work with [Memcpy2D] under all circumstances. For allocations of 2D arrays, it is recommended that programmers consider performing pitch allocations using [MemAllocPitch]. Due to alignment restrictions in the hardware, this is especially true if the application will be performing 2D memory copies between different regions of device memory (whether linear memory or CUDA arrays).
@@ -6919,15 +10347,20 @@ func MemAllocPitch(widthInBytes uint, height uint, elementSizeBytes uint32) (dpt
 	if err := checkLibSym("cuMemAllocPitch_v2"); err != nil {
 		return 0, 0, err
 	}
-	var out0 DevicePtr
-	var out1 uint
-	if err := toError(fnMemAllocPitch(&out0, &out1, widthInBytes, height, elementSizeBytes), "cuMemAllocPitch_v2"); err != nil {
+	outs := slotMemAllocPitch.get()
+	defer slotMemAllocPitch.put(outs)
+	if err := toError(fnMemAllocPitch(&outs.out0, &outs.out1, widthInBytes, height, elementSizeBytes), "cuMemAllocPitch_v2"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// memBatchDecompressAsync Submit a batch of count independent decompression operations.
+var slotMemAllocPitch outSlot[struct {
+	out0 DevicePtr
+	out1 uint
+}]
+
+// memBatchDecompressAsync submits a batch of count independent decompression operations.
 //
 // Each of the count decompression operations is described by a single entry in the paramsArray array. Once the batch has been submitted, the function will return, and decompression will happen asynchronously w.r.t. the CPU. To the work completion tracking mechanisms in the CUDA driver, the batch will be considered a single unit of work and processed according to stream semantics, i.e., it is not possible to query the completion of individual decompression operations within a batch.
 // The memory pointed to by each of [MemDecompressParams].src, [MemDecompressParams].dst, and [MemDecompressParams].dstActBytes, must be capable of usage with the hardware decompress feature. That is, for each of said pointers, the pointer attribute [PointerAttributeIsHwDecompressCapable] should give a non-zero value. To ensure this, the memory backing the pointers should have been allocated using one of the following CUDA memory allocators:
@@ -6951,21 +10384,24 @@ func memBatchDecompressAsync(paramsArray *MemDecompressParams, count uint, flags
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnmemBatchDecompressAsync(paramsArray, count, flags, &out, stream), "cuMemBatchDecompressAsync"); err != nil {
+	out := slotMemBatchDecompressAsync.get()
+	defer slotMemBatchDecompressAsync.put(out)
+	if err := toError(fnmemBatchDecompressAsync(paramsArray, count, flags, out, stream), "cuMemBatchDecompressAsync"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MemCreate Create a CUDA memory handle representing a memory allocation of a given size described by the given properties.
+var slotMemBatchDecompressAsync outSlot[uint]
+
+// MemCreate creates a CUDA memory handle representing a memory allocation of a given size described by the given properties.
 //
 // This creates a memory allocation on the target device specified through the prop structure. The created allocation will not have any device or host mappings. The generic memory handle for the allocation can be mapped to the address space of calling process via [DevicePtr.MemMap]. This handle cannot be transmitted directly to other processes (see [MemExportToShareableHandle]). On Windows, the caller must also pass an LPSECURITYATTRIBUTE in prop to be associated with this handle which limits or allows access to this handle for a recipient process (see [MemAllocationProp].win32HandleMetaData for more). The size of this allocation must be a multiple of the the value given via [MemGetAllocationGranularity] with the [MemAllocGranularityMinimum] flag. To create a CPU allocation that doesn’t target any specific NUMA nodes, applications must set [MemAllocationProp].CUmemLocationtype to [MemLocationTypeHost]. [MemAllocationProp].CUmemLocationid is ignored for HOST allocations. HOST allocations are not IPC capable and [MemAllocationProp].requestedHandleTypes must be 0, any other value will result in [ErrInvalidValue]. To create a CPU allocation targeting a specific host NUMA node, applications must set [MemAllocationProp].CUmemLocationtype to [MemLocationTypeHostNuma] and [MemAllocationProp].CUmemLocationid must specify the NUMA ID of the CPU. On systems where NUMA is not available [MemAllocationProp].CUmemLocationid must be set to 0. Specifying [MemLocationTypeHostNumaCurrent] as the [MemLocation].type will result in [ErrInvalidValue]. Specifying CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN as the [MemLocation].type will localize the allocation to the specified locality domain. [MemAllocationProp].CUmemLocationlocalized.deviceId must specify the device ID. [MemAllocationProp].CUmemLocationlocalized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT.
 // Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) nvidia-caps-imex-channels character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application.
 // When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory.
 // The IMEX channel security model works on a per user basis. Which means all processes under a user can share memory if the user has access to a valid IMEX channel. When multi-user isolation is desired, a separate IMEX channel is required for each user.
-// These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c 0
+// These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c <major number> 0
 // If [MemAllocationProp].allocFlagsusage contains CU_MEM_CREATE_USAGE_TILE_POOL flag then the memory allocation is intended only to be used as backing tile pool for sparse CUDA arrays and sparse CUDA mipmapped arrays. (see [Stream.MemMapArrayAsync]).
 //
 // Note: On devices with a single locality domain, CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 is equivalent to a full-device allocation created with [MemLocationTypeDevice]. The resulting allocation will be of type [MemLocationTypeDevice].
@@ -6984,15 +10420,18 @@ func MemCreate(size uint, prop *MemAllocationProp, flags uint64) (uint64, error)
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnMemCreate(&out, size, prop, flags), "cuMemCreate"); err != nil {
+	out := slotMemCreate.get()
+	defer slotMemCreate.put(out)
+	if err := toError(fnMemCreate(out, size, prop, flags), "cuMemCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memDiscardAndPrefetchBatchAsync Performs a batch of memory discards and prefetches asynchronously.
+var slotMemCreate outSlot[uint64]
+
+// memDiscardAndPrefetchBatchAsync performs a batch of memory discards and prefetches asynchronously.
 //
 // Performs a batch of memory discards followed by prefetches. The batch as a whole executes in stream order but operations within a batch are not guaranteed to execute in any specific order. All devices in the system must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess] otherwise the API will return an error.
 // Calling [Stream.MemDiscardAndPrefetchBatchAsync] is semantically equivalent to calling [Stream.MemDiscardBatchAsync] followed by [Stream.MemPrefetchBatchAsync], but is more optimal. For more details on what discarding and prefetching imply, please refer to [Stream.MemDiscardBatchAsync] and [Stream.MemPrefetchBatchAsync] respectively. Note that any reads, writes or prefetches to any part of the memory range that occur simultaneously with this combined discard+prefetch operation result in undefined behavior.
@@ -7015,7 +10454,7 @@ func memDiscardAndPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, 
 	return toError(fnmemDiscardAndPrefetchBatchAsync(dptrs, sizes, count, prefetchLocs, prefetchLocIdxs, numPrefetchLocs, flags, hStream), "cuMemDiscardAndPrefetchBatchAsync")
 }
 
-// memDiscardBatchAsync Performs a batch of memory discards asynchronously.
+// memDiscardBatchAsync performs a batch of memory discards asynchronously.
 //
 // Performs a batch of memory discards. The batch as a whole executes in stream order but operations within a batch are not guaranteed to execute in any specific order. All devices in the system must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess] otherwise the API will return an error.
 // Discarding a memory range informs the driver that the contents of that range are no longer useful. Discarding memory ranges allows the driver to optimize certain data migrations and can also help reduce memory pressure. This operation can be undone on any part of the range by either writing to it or prefetching it via [DevicePtr.MemPrefetchAsync] or [Stream.MemPrefetchBatchAsync]. Reading from a discarded range, without a subsequent write or prefetch to that part of the range, will return an indeterminate value. Note that any reads, writes or prefetches to any part of the memory range that occur simultaneously with the discard operation result in undefined behavior.
@@ -7035,7 +10474,7 @@ func memDiscardBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, flags uint6
 	return toError(fnmemDiscardBatchAsync(dptrs, sizes, count, flags, hStream), "cuMemDiscardBatchAsync")
 }
 
-// MemExportToShareableHandle Exports an allocation to a requested shareable handle type.
+// MemExportToShareableHandle exports an allocation to a requested shareable handle type.
 //
 // Given a CUDA memory handle, create a shareable memory allocation handle that can be used to share the memory with other processes. The recipient process can convert the shareable handle back into a CUDA memory handle using [MemImportFromShareableHandle] and map it with [DevicePtr.MemMap]. The implementation of what this handle is and how it can be transferred is defined by the requested handle type in handleType
 // Once all shareable handles are closed and the allocation is released, the allocated memory referenced will be released back to the OS and uses of the CUDA handle afterward will lead to undefined behavior.
@@ -7056,7 +10495,7 @@ func MemExportToShareableHandle(shareableHandle uintptr, handle uint64, handleTy
 	return toError(fnMemExportToShareableHandle(shareableHandle, handle, handleType, flags), "cuMemExportToShareableHandle")
 }
 
-// memFree Frees device memory.
+// memFree frees device memory.
 //
 // Frees the memory space pointed to by dptr, which must have been returned by a previous call to one of the following memory allocation APIs - [MemAlloc], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync]
 // Note - This API will not perform any implict synchronization when the pointer was allocated with [Stream.MemAllocAsync] or [MemoryPool.MemAllocFromPoolAsync]. Callers must ensure that all accesses to these pointer have completed before invoking [DevicePtr.Free]. For best performance and memory reuse, users should use [DevicePtr.FreeAsync] to free memory allocated via the stream ordered memory allocator. For all other pointers, this API may perform implicit synchronization.
@@ -7075,7 +10514,7 @@ func memFree(dptr DevicePtr) error {
 	return toError(fnmemFree(dptr), "cuMemFree_v2")
 }
 
-// memFreeAsync Frees memory with stream ordered semantics.
+// memFreeAsync frees memory with stream ordered semantics.
 //
 // Inserts a free operation into hStream. The allocation must not be accessed after stream execution reaches the free. After this API returns, accessing the memory from any subsequent work launched on the GPU or querying its pointer attributes results in undefined behavior.
 //
@@ -7092,7 +10531,7 @@ func memFreeAsync(dptr DevicePtr, hStream Stream) error {
 	return toError(fnmemFreeAsync(dptr, hStream), "cuMemFreeAsync")
 }
 
-// MemFreeHost Frees page-locked host memory.
+// MemFreeHost frees page-locked host memory.
 //
 // Frees the memory space pointed to by p, which must have been returned by a previous call to [MemAllocHost].
 //
@@ -7110,7 +10549,7 @@ func MemFreeHost(p uintptr) error {
 	return toError(fnMemFreeHost(p), "cuMemFreeHost")
 }
 
-// memGetAccess Get the access flags set for the given location and ptr.
+// memGetAccess gets the access flags set for the given location and ptr.
 //
 // See also: [DevicePtr.MemSetAccess]
 //
@@ -7123,15 +10562,18 @@ func memGetAccess(location *MemLocation, ptr DevicePtr) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnmemGetAccess(&out, location, ptr), "cuMemGetAccess"); err != nil {
+	out := slotMemGetAccess.get()
+	defer slotMemGetAccess.put(out)
+	if err := toError(fnmemGetAccess(out, location, ptr), "cuMemGetAccess"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memGetAddressRange Get information on memory allocations.
+var slotMemGetAccess outSlot[uint64]
+
+// memGetAddressRange gets information on memory allocations.
 //
 // Returns the base address in *pbase and size in *psize of the allocation that contains the input pointer dptr. Both parameters pbase and psize are optional. If one of them is NULL, it is ignored.
 //
@@ -7146,15 +10588,20 @@ func memGetAddressRange(dptr DevicePtr) (pbase DevicePtr, psize uint, err error)
 	if err := checkLibSym("cuMemGetAddressRange_v2"); err != nil {
 		return 0, 0, err
 	}
-	var out0 DevicePtr
-	var out1 uint
-	if err := toError(fnmemGetAddressRange(&out0, &out1, dptr), "cuMemGetAddressRange_v2"); err != nil {
+	outs := slotMemGetAddressRange.get()
+	defer slotMemGetAddressRange.put(outs)
+	if err := toError(fnmemGetAddressRange(&outs.out0, &outs.out1, dptr), "cuMemGetAddressRange_v2"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// MemGetAllocationGranularity Calculates either the minimal or recommended granularity.
+var slotMemGetAddressRange outSlot[struct {
+	out0 DevicePtr
+	out1 uint
+}]
+
+// MemGetAllocationGranularity calculates either the minimal or recommended granularity.
 //
 // Calculates either the minimal or recommended granularity for a given allocation specification and returns it in granularity. This granularity can be used as a multiple for alignment, size, or address mapping.
 //
@@ -7169,15 +10616,18 @@ func MemGetAllocationGranularity(prop *MemAllocationProp, option Memallocationgr
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnMemGetAllocationGranularity(&out, prop, option), "cuMemGetAllocationGranularity"); err != nil {
+	out := slotMemGetAllocationGranularity.get()
+	defer slotMemGetAllocationGranularity.put(out)
+	if err := toError(fnMemGetAllocationGranularity(out, prop, option), "cuMemGetAllocationGranularity"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MemGetAllocationPropertiesFromHandle Retrieve the contents of the property structure defining properties for this handle.
+var slotMemGetAllocationGranularity outSlot[uint]
+
+// MemGetAllocationPropertiesFromHandle retrieves the contents of the property structure defining properties for this handle.
 //
 // See also: [MemCreate], [MemImportFromShareableHandle]
 //
@@ -7189,15 +10639,18 @@ func MemGetAllocationPropertiesFromHandle(handle uint64) (MemAllocationProp, err
 		var zero MemAllocationProp
 		return zero, err
 	}
-	var out MemAllocationProp
-	if err := toError(fnMemGetAllocationPropertiesFromHandle(&out, handle), "cuMemGetAllocationPropertiesFromHandle"); err != nil {
+	out := slotMemGetAllocationPropertiesFromHandle.get()
+	defer slotMemGetAllocationPropertiesFromHandle.put(out)
+	if err := toError(fnMemGetAllocationPropertiesFromHandle(out, handle), "cuMemGetAllocationPropertiesFromHandle"); err != nil {
 		var zero MemAllocationProp
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MemGetDefaultMemPool Returns the default memory pool for a given location and allocation type.
+var slotMemGetAllocationPropertiesFromHandle outSlot[MemAllocationProp]
+
+// MemGetDefaultMemPool returns the default memory pool for a given location and allocation type.
 //
 // The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost], [MemLocationTypeHostNuma], or CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN.
 //
@@ -7211,15 +10664,18 @@ func MemGetDefaultMemPool(location *MemLocation, type_ MemAllocationType) (Memor
 		var zero MemoryPool
 		return zero, err
 	}
-	var out MemoryPool
-	if err := toError(fnMemGetDefaultMemPool(&out, location, type_), "cuMemGetDefaultMemPool"); err != nil {
+	out := slotMemGetDefaultMemPool.get()
+	defer slotMemGetDefaultMemPool.put(out)
+	if err := toError(fnMemGetDefaultMemPool(out, location, type_), "cuMemGetDefaultMemPool"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memGetHandleForAddressRange Retrieve handle for an address range.
+var slotMemGetDefaultMemPool outSlot[MemoryPool]
+
+// memGetHandleForAddressRange retrieves handle for an address range.
 //
 // Get a handle of the specified type to an address range. When requesting [MemRangeHandleType].[MemRangeHandleTypeDmaBufFd], address range obtained by a prior call to either [MemAlloc] or [DevicePtr.MemAddressReserve] is supported if the [DevAttrDmaBufSupported] device attribute returns true. If the address range was obtained via [DevicePtr.MemAddressReserve], it must also be fully mapped via [DevicePtr.MemMap]. Address range obtained by a prior call to either [MemAllocHost] or [MemHostAlloc] is supported if the [DevAttrHostAllocDmaBufSupported] device attribute returns true.
 // As of CUDA 13.0, querying support for address range obtained by calling [MemAllocHost] or [MemHostAlloc] using the [DevAttrDmaBufSupported] device attribute is deprecated.
@@ -7243,7 +10699,7 @@ func memGetHandleForAddressRange(handle uintptr, dptr DevicePtr, size uint, hand
 	return toError(fnmemGetHandleForAddressRange(handle, dptr, size, handleType, uint64(flags)), "cuMemGetHandleForAddressRange")
 }
 
-// MemGetInfo Gets free and total memory.
+// MemGetInfo gets free and total memory.
 //
 // Returns in *total the total amount of memory available to the the current context. Returns in *free the amount of memory on the device that is free according to the OS. CUDA is not guaranteed to be able to allocate all of the memory that the OS reports as free. In a multi-tenet situation, free estimate returned is prone to race condition where a new allocation/free done by a different process or a different thread in the same process between the time when free memory was estimated and reported, will result in deviation in free value reported and actual free memory.
 // The integrated GPU on Tegra shares memory with CPU and other component of the SoC. The free and total values returned by the API excludes the SWAP memory space maintained by the OS on some platforms. The OS may move some of the memory pages into swap area as the GPU or CPU allocate or access memory. See Tegra app note on how to calculate total and free memory on Tegra.
@@ -7257,15 +10713,20 @@ func MemGetInfo() (free uint, total uint, err error) {
 	if err := checkLibSym("cuMemGetInfo_v2"); err != nil {
 		return 0, 0, err
 	}
-	var out0 uint
-	var out1 uint
-	if err := toError(fnMemGetInfo(&out0, &out1), "cuMemGetInfo_v2"); err != nil {
+	outs := slotMemGetInfo.get()
+	defer slotMemGetInfo.put(outs)
+	if err := toError(fnMemGetInfo(&outs.out0, &outs.out1), "cuMemGetInfo_v2"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// MemGetMemPool Gets the current memory pool for a memory location and of a particular allocation type.
+var slotMemGetInfo outSlot[struct {
+	out0 uint
+	out1 uint
+}]
+
+// MemGetMemPool gets the current memory pool for a memory location and of a particular allocation type.
 //
 // The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], [MemLocationTypeHostNuma], or CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. In all other cases, the call returns [ErrInvalidValue]
 // Returns the last pool provided to [MemoryPool.MemSetMemPool] or [Device.SetMemPool] for this location and allocation type or the location’s default memory pool if [MemoryPool.MemSetMemPool] or [Device.SetMemPool] for that allocType and location has never been called. By default the current mempool of a location is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool].
@@ -7278,15 +10739,18 @@ func MemGetMemPool(location *MemLocation, type_ MemAllocationType) (MemoryPool, 
 		var zero MemoryPool
 		return zero, err
 	}
-	var out MemoryPool
-	if err := toError(fnMemGetMemPool(&out, location, type_), "cuMemGetMemPool"); err != nil {
+	out := slotMemGetMemPool.get()
+	defer slotMemGetMemPool.put(out)
+	if err := toError(fnMemGetMemPool(out, location, type_), "cuMemGetMemPool"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MemHostAlloc Allocates page-locked host memory.
+var slotMemGetMemPool outSlot[MemoryPool]
+
+// MemHostAlloc allocates page-locked host memory.
 //
 // Allocates bytesize bytes of host memory that is page-locked and accessible to the device. The driver tracks the virtual memory ranges allocated with this function and automatically accelerates calls to functions such as [DevicePtr.CopyFromHost]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory obtained with functions such as malloc().
 // On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemHostAlloc] may not page-lock the allocated memory.
@@ -7313,7 +10777,7 @@ func MemHostAlloc(pp *uintptr, bytesize uint, flags uint32) error {
 	return toError(fnMemHostAlloc(pp, bytesize, flags), "cuMemHostAlloc")
 }
 
-// MemHostGetDevicePointer Passes back device pointer of mapped pinned memory.
+// MemHostGetDevicePointer passes back device pointer of mapped pinned memory.
 //
 // Passes back the device pointer pdptr corresponding to the mapped, pinned host buffer p allocated by [MemHostAlloc].
 // [MemHostGetDevicePointer] will fail if the CU_MEMHOSTALLOC_DEVICEMAP flag was not specified at the time the memory was allocated, or if the function is called on a GPU that does not support mapped pinned memory.
@@ -7333,15 +10797,18 @@ func MemHostGetDevicePointer(p uintptr, flags uint32) (DevicePtr, error) {
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fnMemHostGetDevicePointer(&out, p, flags), "cuMemHostGetDevicePointer_v2"); err != nil {
+	out := slotMemHostGetDevicePointer.get()
+	defer slotMemHostGetDevicePointer.put(out)
+	if err := toError(fnMemHostGetDevicePointer(out, p, flags), "cuMemHostGetDevicePointer_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MemHostGetFlags Passes back flags that were used for a pinned allocation.
+var slotMemHostGetDevicePointer outSlot[DevicePtr]
+
+// MemHostGetFlags passes back flags that were used for a pinned allocation.
 //
 // Passes back the flags pFlags that were specified when allocating the pinned host buffer p allocated by [MemHostAlloc].
 // [MemHostGetFlags] will fail if the pointer does not reside in an allocation performed by [MemAllocHost] or [MemHostAlloc].
@@ -7358,15 +10825,18 @@ func MemHostGetFlags(p uintptr) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnMemHostGetFlags(&out, p), "cuMemHostGetFlags"); err != nil {
+	out := slotMemHostGetFlags.get()
+	defer slotMemHostGetFlags.put(out)
+	if err := toError(fnMemHostGetFlags(out, p), "cuMemHostGetFlags"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MemHostRegister Registers an existing host memory range for use by CUDA.
+var slotMemHostGetFlags outSlot[uint32]
+
+// MemHostRegister registers an existing host memory range for use by CUDA.
 //
 // Page-locks the memory range specified by p and bytesize and maps it for the device(s) as specified by Flags. This memory range also is added to the same tracking mechanism as [MemHostAlloc] to automatically accelerate calls to functions such as [DevicePtr.CopyFromHost]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory that has not been registered. Page-locking excessive amounts of memory may degrade system performance, since it reduces the amount of memory available to the system for paging. As a result, this function is best used sparingly to register staging areas for data exchange between host and device.
 // On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemHostRegister] will not page-lock the memory range specified by ptr but only populate unpopulated pages.
@@ -7392,7 +10862,7 @@ func MemHostRegister(p uintptr, bytesize uint, flags uint32) error {
 	return toError(fnMemHostRegister(p, bytesize, flags), "cuMemHostRegister_v2")
 }
 
-// MemHostUnregister Unregisters a memory range that was registered with [MemHostRegister].
+// MemHostUnregister unregisters a memory range that was registered with [MemHostRegister].
 //
 // Unmaps the memory range whose base address is specified by p, and makes it pageable again.
 // The base address must be the same one specified to [MemHostRegister].
@@ -7411,7 +10881,7 @@ func MemHostUnregister(p uintptr) error {
 	return toError(fnMemHostUnregister(p), "cuMemHostUnregister")
 }
 
-// MemImportFromShareableHandle Imports an allocation from a requested shareable handle type.
+// MemImportFromShareableHandle imports an allocation from a requested shareable handle type.
 //
 // If the current process cannot support the memory described by this shareable handle, this API will error as [ErrNotSupported].
 // If shHandleType is [MemHandleTypeFabric] and the importer process has not been granted access to the same IMEX channel as the exporter process, this API will error as [ErrNotPermitted].
@@ -7429,15 +10899,18 @@ func MemImportFromShareableHandle(osHandle uintptr, shHandleType MemAllocationHa
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnMemImportFromShareableHandle(&out, osHandle, shHandleType), "cuMemImportFromShareableHandle"); err != nil {
+	out := slotMemImportFromShareableHandle.get()
+	defer slotMemImportFromShareableHandle.put(out)
+	if err := toError(fnMemImportFromShareableHandle(out, osHandle, shHandleType), "cuMemImportFromShareableHandle"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memMap Maps an allocation handle to a reserved virtual address range.
+var slotMemImportFromShareableHandle outSlot[uint64]
+
+// memMap maps an allocation handle to a reserved virtual address range.
 //
 // Maps bytes of memory represented by handle starting from byte offset to size to address range [ addr, addr + size]. This range must be an address reservation previously reserved with [DevicePtr.MemAddressReserve], and offset + size must be less than the size of the memory allocation. Both ptr, size, and offset must be a multiple of the value given via [MemGetAllocationGranularity] with the [MemAllocGranularityMinimum] flag. If handle represents a multicast object, ptr, size and offset must be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_MINIMUM_GRANULARITY. For best performance however, it is recommended that ptr, size and offset be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_RECOMMENDED_GRANULARITY.
 // When handle represents a multicast object, this call may fail if the devices added via [Device.MulticastAdd] do not belong to the same clique.
@@ -7464,7 +10937,7 @@ func memMap(ptr DevicePtr, size uint, offset uint, handle uint64, flags uint64) 
 	return toError(fnmemMap(ptr, size, offset, handle, flags), "cuMemMap")
 }
 
-// memMapArrayAsync Maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
+// memMapArrayAsync maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
 //
 // Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count. The structure [ArrayMapInfo] is defined as follow:
 // where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resourcearray must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resourcemipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING.
@@ -7493,7 +10966,7 @@ func memMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32, hStream Stream) e
 	return toError(fnmemMapArrayAsync(mapInfoList, count, hStream), "cuMemMapArrayAsync")
 }
 
-// memPoolCreate Creates a memory pool.
+// memPoolCreate creates a memory pool.
 //
 // Creates a CUDA memory pool and returns the handle in pool. The poolProps determines the properties of the pool such as the backing device and IPC capabilities.
 // To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHost]. [MemPoolProps].CUmemLocationid is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHostNuma] and [MemPoolProps].CUmemLocationid must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].CUmemLocationtype will result in [ErrInvalidValue]. To create a memory pool targeting a specific device locality domain, applications must set [MemPoolProps].CUmemLocationtype to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN, [MemPoolProps].CUmemLocationlocalized.deviceId must specify the device ID, and [MemPoolProps].CUmemLocationlocalized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT.
@@ -7501,7 +10974,7 @@ func memMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32, hStream Stream) e
 // Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) nvidia-caps-imex-channels character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application.
 // When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory.
 // The IMEX channel security model works on a per user basis. Which means all processes under a user can share memory if the user has access to a valid IMEX channel. When multi-user isolation is desired, a separate IMEX channel is required for each user.
-// These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c 0
+// These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c <major number> 0
 // To create a managed memory pool, applications must set [MemPoolProps].[MemAllocationType] to [MemAllocationTypeManaged]. [MemPoolProps].[MemAllocationHandleType] must also be set to [MemHandleTypeNone] since IPC is not supported. For managed memory pools, [MemPoolProps].[MemLocation] will be treated as the preferred location for all allocations created from the pool. An application can also set [MemLocationTypeNone] to indicate no preferred location. [MemPoolProps].maxSize must be set to zero for managed memory pools. [MemPoolProps].usage should be zero as decompress for managed memory is not supported. For managed memory pools, all devices on the system must have non-zero concurrentManagedAccess. If not, this call returns [ErrNotSupported]
 //
 // Note: On devices with a single locality domain, a memory pool created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 is equivalent to a full-device memory pool created with [MemLocationTypeDevice]. The pool will report [MemLocationTypeDevice] for [MempoolAttrLocationType] and -1 for CU_MEMPOOL_ATTR_LOCALITY_DOMAIN_ID.
@@ -7516,15 +10989,18 @@ func memPoolCreate(poolProps *MemPoolProps) (MemoryPool, error) {
 		var zero MemoryPool
 		return zero, err
 	}
-	var out MemoryPool
-	if err := toError(fnmemPoolCreate(&out, poolProps), "cuMemPoolCreate"); err != nil {
+	out := slotMemPoolCreate.get()
+	defer slotMemPoolCreate.put(out)
+	if err := toError(fnmemPoolCreate(out, poolProps), "cuMemPoolCreate"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memPoolDestroy Destroys the specified memory pool.
+var slotMemPoolCreate outSlot[MemoryPool]
+
+// memPoolDestroy destroys the specified memory pool.
 //
 // If any pointers obtained from this pool haven’t been freed or the pool has free operations that haven’t completed when [MemoryPool.Destroy] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations.
 // Destroying the current mempool of a device sets the default mempool of that device as the current mempool for that device.
@@ -7541,7 +11017,7 @@ func memPoolDestroy(pool MemoryPool) error {
 	return toError(fnmemPoolDestroy(pool), "cuMemPoolDestroy")
 }
 
-// memPoolExportPointer Export data to share a memory pool allocation between processes.
+// memPoolExportPointer exports data to share a memory pool allocation between processes.
 //
 // Constructs shareDataOut for sharing a specific allocation from an already shared memory pool. The recipient process can import the allocation with the [MemoryPool.ImportPointer] api. The data is not a handle and may be shared through any IPC mechanism.
 //
@@ -7555,15 +11031,18 @@ func memPoolExportPointer(ptr DevicePtr) (MemPoolPtrExportData, error) {
 		var zero MemPoolPtrExportData
 		return zero, err
 	}
-	var out MemPoolPtrExportData
-	if err := toError(fnmemPoolExportPointer(&out, ptr), "cuMemPoolExportPointer"); err != nil {
+	out := slotMemPoolExportPointer.get()
+	defer slotMemPoolExportPointer.put(out)
+	if err := toError(fnmemPoolExportPointer(out, ptr), "cuMemPoolExportPointer"); err != nil {
 		var zero MemPoolPtrExportData
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memPoolExportToShareableHandle Exports a memory pool to the requested handle type.
+var slotMemPoolExportPointer outSlot[MemPoolPtrExportData]
+
+// memPoolExportToShareableHandle exports a memory pool to the requested handle type.
 //
 // Given an IPC capable mempool, create an OS handle to share the pool with another process. A recipient process can convert the shareable handle into a mempool with [MemPoolImportFromShareableHandle]. Individual pointers can then be shared with the [DevicePtr.MemPoolExportPointer] and [MemoryPool.ImportPointer] APIs. The implementation of what the shareable handle is and how it can be transferred is defined by the requested handle type.
 //
@@ -7584,7 +11063,7 @@ func memPoolExportToShareableHandle(handleOut uintptr, pool MemoryPool, handleTy
 	return toError(fnmemPoolExportToShareableHandle(handleOut, pool, handleType, flags), "cuMemPoolExportToShareableHandle")
 }
 
-// memPoolGetAccess Returns the accessibility of a pool from a device.
+// memPoolGetAccess returns the accessibility of a pool from a device.
 //
 // Returns the accessibility of the pool’s memory from the specified location.
 //
@@ -7599,15 +11078,18 @@ func memPoolGetAccess(memPool MemoryPool, location *MemLocation) (MemaccessFlags
 		var zero MemaccessFlags
 		return zero, err
 	}
-	var out MemaccessFlags
-	if err := toError(fnmemPoolGetAccess(&out, memPool, location), "cuMemPoolGetAccess"); err != nil {
+	out := slotMemPoolGetAccess.get()
+	defer slotMemPoolGetAccess.put(out)
+	if err := toError(fnmemPoolGetAccess(out, memPool, location), "cuMemPoolGetAccess"); err != nil {
 		var zero MemaccessFlags
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memPoolGetAttribute Gets attributes of a memory pool.
+var slotMemPoolGetAccess outSlot[MemaccessFlags]
+
+// memPoolGetAttribute gets attributes of a memory pool.
 //
 // Supported attributes are:
 // The following properties can be also be queried on imported and default pools:
@@ -7647,15 +11129,18 @@ func memPoolImportFromShareableHandle(handle uintptr, handleType MemAllocationHa
 		var zero MemoryPool
 		return zero, err
 	}
-	var out MemoryPool
-	if err := toError(fnmemPoolImportFromShareableHandle(&out, handle, handleType, flags), "cuMemPoolImportFromShareableHandle"); err != nil {
+	out := slotMemPoolImportFromShareableHandle.get()
+	defer slotMemPoolImportFromShareableHandle.put(out)
+	if err := toError(fnmemPoolImportFromShareableHandle(out, handle, handleType, flags), "cuMemPoolImportFromShareableHandle"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memPoolImportPointer Import a memory pool allocation from another process.
+var slotMemPoolImportFromShareableHandle outSlot[MemoryPool]
+
+// memPoolImportPointer imports a memory pool allocation from another process.
 //
 // Returns in ptrOut a pointer to the imported memory. The imported memory must not be accessed before the allocation operation completes in the exporting process. The imported memory must be freed from all importing processes before being freed in the exporting process. The pointer may be freed with [DevicePtr.Free] or [DevicePtr.FreeAsync]. If [DevicePtr.FreeAsync] is used, the free must be completed on the importing process before the free operation on the exporting process.
 //
@@ -7672,15 +11157,18 @@ func memPoolImportPointer(pool MemoryPool, shareData *MemPoolPtrExportData) (Dev
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fnmemPoolImportPointer(&out, pool, shareData), "cuMemPoolImportPointer"); err != nil {
+	out := slotMemPoolImportPointer.get()
+	defer slotMemPoolImportPointer.put(out)
+	if err := toError(fnmemPoolImportPointer(out, pool, shareData), "cuMemPoolImportPointer"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memPoolSetAccess Controls visibility of pools between devices.
+var slotMemPoolImportPointer outSlot[DevicePtr]
+
+// memPoolSetAccess controls visibility of pools between devices.
 //
 // See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
@@ -7696,7 +11184,7 @@ func memPoolSetAccess(pool MemoryPool, map_ *MemAccessDesc, count uint) error {
 	return toError(fnmemPoolSetAccess(pool, map_, count), "cuMemPoolSetAccess")
 }
 
-// memPoolSetAttribute Sets attributes of a memory pool.
+// memPoolSetAttribute sets attributes of a memory pool.
 //
 // Supported attributes are:
 //
@@ -7714,7 +11202,7 @@ func memPoolSetAttribute(pool MemoryPool, attr MempoolAttribute, value uintptr) 
 	return toError(fnmemPoolSetAttribute(pool, attr, value), "cuMemPoolSetAttribute")
 }
 
-// memPoolTrimTo Tries to release memory back to the OS.
+// memPoolTrimTo tries to release memory back to the OS.
 //
 // Releases memory back to the OS until the pool contains fewer than minBytesToKeep reserved bytes, or there is no more memory that the allocator can safely release. The allocator cannot release OS allocations that back outstanding asynchronous allocations. The OS allocations may happen at different granularity from the user allocations.
 //
@@ -7735,7 +11223,7 @@ func memPoolTrimTo(pool MemoryPool, minBytesToKeep uint) error {
 	return toError(fnmemPoolTrimTo(pool, minBytesToKeep), "cuMemPoolTrimTo")
 }
 
-// memPrefetchAsync Prefetches memory to the specified destination location.
+// memPrefetchAsync prefetches memory to the specified destination location.
 //
 // devPtr is the base device pointer of the memory to be prefetched and location specifies the destination location. count specifies the number of bytes to copy. hStream is the stream in which the operation is enqueued. The memory range must refer to managed memory allocated via [MemAllocManaged], via cuMemAllocFromPool from a managed memory pool or declared via managed variables.
 // Specifying [MemLocationTypeDevice] for [MemLocation].type will prefetch memory to GPU specified by device ordinal [MemLocation].id which must have non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Additionally, hStream must be associated with a device that has a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Specifying [MemLocationTypeHost] as [MemLocation].type will prefetch data to host memory. Applications can request prefetching memory to a specific host NUMA node by specifying [MemLocationTypeHostNuma] for [MemLocation].type and a valid host NUMA node id in [MemLocation].id Users can also request prefetching memory to the host NUMA node closest to the current thread’s CPU by specifying [MemLocationTypeHostNumaCurrent] for [MemLocation].type. Note when [MemLocation].type is etiher [MemLocationTypeHost] OR [MemLocationTypeHostNumaCurrent], [MemLocation].id will be ignored. Prefetching to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN locations is not supported.
@@ -7770,7 +11258,7 @@ func memPrefetchAsync(devPtr DevicePtr, count uint, location MemLocation, flags 
 	return toError(fnmemPrefetchAsync(devPtr, count, location, flags, hStream), "cuMemPrefetchAsync_v2")
 }
 
-// memPrefetchBatchAsync Performs a batch of memory prefetches asynchronously.
+// memPrefetchBatchAsync performs a batch of memory prefetches asynchronously.
 //
 // Performs a batch of memory prefetches. The batch as a whole executes in stream order but operations within a batch are not guaranteed to execute in any specific order. All devices in the system must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess] otherwise the API will return an error.
 // The semantics of the individual prefetch operations are as described in [DevicePtr.MemPrefetchAsync].
@@ -7793,7 +11281,7 @@ func memPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, prefetchLo
 	return toError(fnmemPrefetchBatchAsync(dptrs, sizes, count, prefetchLocs, prefetchLocIdxs, numPrefetchLocs, flags, hStream), "cuMemPrefetchBatchAsync")
 }
 
-// memRangeGetAttribute Query an attribute of a given memory range.
+// memRangeGetAttribute queries an attribute of a given memory range.
 //
 // Query an attribute about the memory range starting at devPtr with a size of count bytes. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables.
 // The attribute parameter can take the following values:
@@ -7820,7 +11308,7 @@ func memRangeGetAttribute(data unsafe.Pointer, dataSize uint, attribute MemRange
 	return toError(fnmemRangeGetAttribute(data, dataSize, attribute, devPtr, count), "cuMemRangeGetAttribute")
 }
 
-// memRangeGetAttributes Query attributes of a given memory range.
+// memRangeGetAttributes queries attributes of a given memory range.
 //
 // Query attributes of the memory range starting at devPtr with a size of count bytes. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables. The attributes array will be interpreted to have numAttributes entries. The dataSizes array will also be interpreted to have numAttributes entries. The results of the query will be stored in data.
 // The list of supported attributes are given below. Please refer to [DevicePtr.MemRangeGetAttribute] for attribute descriptions and restrictions.
@@ -7844,7 +11332,7 @@ func memRangeGetAttributes(data *uintptr, dataSizes *uint, attributes *MemRangeA
 	return toError(fnmemRangeGetAttributes(data, dataSizes, attributes, numAttributes, devPtr, count), "cuMemRangeGetAttributes")
 }
 
-// MemRelease Release a memory handle representing a memory allocation which was previously allocated through [MemCreate].
+// MemRelease releases a memory handle representing a memory allocation which was previously allocated through [MemCreate].
 //
 // Frees the memory that was allocated on a device through [MemCreate].
 // The memory allocation will be freed when all outstanding mappings to the memory are unmapped and when all outstanding references to the handle (including it’s shareable counterparts) are also released. The generic memory handle can be freed when there are still outstanding mappings made with this handle. Each time a recipient process imports a shareable handle, it needs to pair it with [MemRelease] for the handle to be freed. If handle is not a valid handle the behavior is undefined.
@@ -7879,15 +11367,18 @@ func MemRetainAllocationHandle(addr uintptr) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnMemRetainAllocationHandle(&out, addr), "cuMemRetainAllocationHandle"); err != nil {
+	out := slotMemRetainAllocationHandle.get()
+	defer slotMemRetainAllocationHandle.put(out)
+	if err := toError(fnMemRetainAllocationHandle(out, addr), "cuMemRetainAllocationHandle"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// memSetAccess Set the access flags for each location specified in desc for the given virtual address range.
+var slotMemRetainAllocationHandle outSlot[uint64]
+
+// memSetAccess sets the access flags for each location specified in desc for the given virtual address range.
 //
 // Given the virtual address range via ptr and size, and the locations in the array given by desc and count, set the access flags for the target locations. The range must be a fully mapped address range containing all allocations created by [DevicePtr.MemMap] / [MemCreate]. Users cannot specify [MemLocationTypeHostNuma] accessibility for allocations created on with other location types. Note: When [MemAccessDesc].CUmemLocationtype is [MemLocationTypeHostNuma], [MemAccessDesc].CUmemLocationid is ignored. When setting the access flags for a virtual address range mapping a multicast object, ptr and size must be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_MINIMUM_GRANULARITY. For best performance however, it is recommended that ptr and size be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_RECOMMENDED_GRANULARITY.
 //
@@ -7910,7 +11401,7 @@ func memSetAccess(ptr DevicePtr, size uint, desc *MemAccessDesc, count uint) err
 	return toError(fnmemSetAccess(ptr, size, desc, count), "cuMemSetAccess")
 }
 
-// memSetMemPool Sets the current memory pool for a memory location and allocation type.
+// memSetMemPool sets the current memory pool for a memory location and allocation type.
 //
 // The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. In all other cases, the call returns [ErrInvalidValue].
 // When a memory pool is set as the current memory pool, the location parameter should be the same as the location of the pool. The location and allocation type specified must match those of the pool otherwise [ErrInvalidValue] is returned. By default, a memory location’s current memory pool is its default memory pool that can be obtained via [MemGetDefaultMemPool]. If the location type is [MemLocationTypeDevice] and the allocation type is [MemAllocationTypePinned], then this API is the equivalent of calling [Device.SetMemPool] with the location id as the device. For further details on the implications, please refer to the documentation for [Device.SetMemPool].
@@ -7927,7 +11418,7 @@ func memSetMemPool(location *MemLocation, type_ MemAllocationType, pool MemoryPo
 	return toError(fnmemSetMemPool(location, type_, pool), "cuMemSetMemPool")
 }
 
-// memUnmap Unmap the backing memory of a given address range.
+// memUnmap unmaps the backing memory of a given address range.
 //
 // The range must be the entire contiguous address range that was mapped to. In other words, [DevicePtr.MemUnmap] cannot unmap a sub-range of an address range mapped by [MemCreate] / [DevicePtr.MemMap]. Any backing memory allocations will be freed if there are no existing mappings and there are no unreleased memory handles.
 // When [DevicePtr.MemUnmap] returns successfully the address range is converted to an address reservation and can be used for a future calls to [DevicePtr.MemMap]. Any new mapping to this virtual address will need to have access granted through [DevicePtr.MemSetAccess], as all mappings start with no accessibility setup.
@@ -7949,7 +11440,7 @@ func memUnmap(ptr DevicePtr, size uint) error {
 	return toError(fnmemUnmap(ptr, size), "cuMemUnmap")
 }
 
-// memcpy Copies memory.
+// memcpy copies memory.
 //
 // Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing.
 //
@@ -7973,7 +11464,7 @@ func memcpy(dst DevicePtr, src DevicePtr, byteCount uint) error {
 	return toError(fnmemcpy(dst, src, byteCount), "cuMemcpy")
 }
 
-// Memcpy2D Copies memory for 2D arrays.
+// Memcpy2D copies memory for 2D arrays.
 //
 // Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
 // where:
@@ -8010,7 +11501,7 @@ func Memcpy2D(pCopy *Memcpy2d) error {
 	return toError(fnMemcpy2D(pCopy), "cuMemcpy2D_v2")
 }
 
-// memcpy2DAsync Copies memory for 2D arrays.
+// memcpy2DAsync copies memory for 2D arrays.
 //
 // Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
 // where:
@@ -8050,7 +11541,7 @@ func memcpy2DAsync(pCopy *Memcpy2d, hStream Stream) error {
 	return toError(fnmemcpy2DAsync(pCopy, hStream), "cuMemcpy2DAsync_v2")
 }
 
-// Memcpy2DUnaligned Copies memory for 2D arrays.
+// Memcpy2DUnaligned copies memory for 2D arrays.
 //
 // Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as:
 // where:
@@ -8087,7 +11578,7 @@ func Memcpy2DUnaligned(pCopy *Memcpy2d) error {
 	return toError(fnMemcpy2DUnaligned(pCopy), "cuMemcpy2DUnaligned_v2")
 }
 
-// Memcpy3D Copies memory for 3D arrays.
+// Memcpy3D copies memory for 3D arrays.
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as:
 // where:
@@ -8124,7 +11615,7 @@ func Memcpy3D(pCopy *Memcpy3d) error {
 	return toError(fnMemcpy3D(pCopy), "cuMemcpy3D_v2")
 }
 
-// memcpy3DAsync Copies memory for 3D arrays.
+// memcpy3DAsync copies memory for 3D arrays.
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as:
 // where:
@@ -8164,7 +11655,7 @@ func memcpy3DAsync(pCopy *Memcpy3d, hStream Stream) error {
 	return toError(fnmemcpy3DAsync(pCopy, hStream), "cuMemcpy3DAsync_v2")
 }
 
-// memcpy3DBatchAsync Performs a batch of 3D memory copies asynchronously.
+// memcpy3DBatchAsync performs a batch of 3D memory copies asynchronously.
 //
 // Performs a batch of memory copies. The batch as a whole executes in stream order but copies within a batch are not guaranteed to execute in any specific order. Note that this means specifying any dependent copies within a batch will result in undefined behavior.
 // Performs memory copies as specified in the opList array. The length of this array is specified in numOps. Each entry in this array describes a copy operation. This includes among other things, the source and destination operands for the copy as specified in [Memcpy3dBatchOp].src and [Memcpy3dBatchOp].dst respectively. The source and destination operands of a copy can either be a pointer or a CUDA array. The width, height and depth of a copy is specified in [Memcpy3dBatchOp].extent. The width, height and depth of a copy are specified in elements and must not be zero. For pointer-to-pointer copies, the element size is considered to be 1. For pointer to CUDA array or vice versa copies, the element size is determined by the CUDA array. For CUDA array to CUDA array copies, the element size of the two CUDA arrays must match.
@@ -8192,7 +11683,7 @@ func memcpy3DBatchAsync(numOps uint, opList *Memcpy3dBatchOp, flags uint64, hStr
 	return toError(fnmemcpy3DBatchAsync(numOps, opList, flags, hStream), "cuMemcpy3DBatchAsync_v2")
 }
 
-// Memcpy3DPeer Copies memory between contexts.
+// Memcpy3DPeer copies memory between contexts.
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. See the definition of the [Memcpy3dPeer] structure for documentation of its parameters.
 //
@@ -8212,7 +11703,7 @@ func Memcpy3DPeer(pCopy *Memcpy3dPeer) error {
 	return toError(fnMemcpy3DPeer(pCopy), "cuMemcpy3DPeer")
 }
 
-// memcpy3DPeerAsync Copies memory between contexts asynchronously.
+// memcpy3DPeerAsync copies memory between contexts asynchronously.
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. See the definition of the [Memcpy3dPeer] structure for documentation of its parameters.
 //
@@ -8235,7 +11726,7 @@ func memcpy3DPeerAsync(pCopy *Memcpy3dPeer, hStream Stream) error {
 	return toError(fnmemcpy3DPeerAsync(pCopy, hStream), "cuMemcpy3DPeerAsync")
 }
 
-// memcpy3DWithAttributesAsync Performs 3D memory copy with attributes asynchronously.
+// memcpy3DWithAttributesAsync performs 3D memory copy with attributes asynchronously.
 //
 // Performs the copy operation specified in op. flags specifies the flags for the copy and hStream specifies the stream to enqueue the operation in.
 // For more information regarding the operation, please refer to [Memcpy3dBatchOp] and it’s usage desciption in [Stream.Memcpy3DBatchAsync]
@@ -8260,7 +11751,7 @@ func memcpy3DWithAttributesAsync(op *Memcpy3dBatchOp, flags uint64, hStream Stre
 	return toError(fnmemcpy3DWithAttributesAsync(op, flags, hStream), "cuMemcpy3DWithAttributesAsync")
 }
 
-// memcpyAsync Copies memory asynchronously.
+// memcpyAsync copies memory asynchronously.
 //
 // Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing.
 //
@@ -8287,7 +11778,7 @@ func memcpyAsync(dst DevicePtr, src DevicePtr, byteCount uint, hStream Stream) e
 	return toError(fnmemcpyAsync(dst, src, byteCount, hStream), "cuMemcpyAsync")
 }
 
-// memcpyAtoA Copies memory from Array to Array.
+// memcpyAtoA copies memory from Array to Array.
 //
 // Copies from one 1D CUDA array to another. dstArray and srcArray specify the handles of the destination and source CUDA arrays for the copy, respectively. dstOffset and srcOffset specify the destination and source offsets in bytes into the CUDA arrays. ByteCount is the number of bytes to be copied. The size of the elements in the CUDA arrays need not be the same format, but the elements must be the same size; and count must be evenly divisible by that size.
 //
@@ -8311,7 +11802,7 @@ func memcpyAtoA(dstArray Array, dstOffset uint, srcArray Array, srcOffset uint, 
 	return toError(fnmemcpyAtoA(dstArray, dstOffset, srcArray, srcOffset, byteCount), "cuMemcpyAtoA_v2")
 }
 
-// memcpyAtoD Copies memory from Array to Device.
+// memcpyAtoD copies memory from Array to Device.
 //
 // Copies from one 1D CUDA array to device memory. dstDevice specifies the base pointer of the destination and must be naturally aligned with the CUDA array elements. srcArray and srcOffset specify the CUDA array handle and the offset in bytes into the array where the copy is to begin. ByteCount specifies the number of bytes to copy and must be evenly divisible by the array element size.
 //
@@ -8334,7 +11825,7 @@ func memcpyAtoD(dstDevice DevicePtr, srcArray Array, srcOffset uint, byteCount u
 	return toError(fnmemcpyAtoD(dstDevice, srcArray, srcOffset, byteCount), "cuMemcpyAtoD_v2")
 }
 
-// memcpyAtoH Copies memory from Array to Host.
+// memcpyAtoH copies memory from Array to Host.
 //
 // Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy.
 //
@@ -8359,7 +11850,7 @@ func memcpyAtoH(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, byteCoun
 	return toError(fnmemcpyAtoH(dstHost, srcArray, srcOffset, byteCount), "cuMemcpyAtoH_v2")
 }
 
-// memcpyAtoHAsync Copies memory from Array to Host.
+// memcpyAtoHAsync copies memory from Array to Host.
 //
 // Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy.
 //
@@ -8387,7 +11878,7 @@ func memcpyAtoHAsync(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, byt
 	return toError(fnmemcpyAtoHAsync(dstHost, srcArray, srcOffset, byteCount, hStream), "cuMemcpyAtoHAsync_v2")
 }
 
-// memcpyBatchAsync Performs a batch of memory copies asynchronously.
+// memcpyBatchAsync performs a batch of memory copies asynchronously.
 //
 // Performs a batch of memory copies. The batch as a whole executes in stream order but copies within a batch are not guaranteed to execute in any specific order. This API only supports pointer-to-pointer copies. For copies involving CUDA arrays, please see [Stream.Memcpy3DBatchAsync].
 // Performs memory copies from source buffers specified in srcs to destination buffers specified in dsts. The size of each copy is specified in sizes. All three arrays must be of the same length as specified by count. Since there are no ordering guarantees for copies within a batch, specifying any dependent copies within a batch will result in undefined behavior.
@@ -8419,7 +11910,7 @@ func memcpyBatchAsync(dsts *DevicePtr, srcs *DevicePtr, sizes *uint, count uint,
 	return toError(fnmemcpyBatchAsync(dsts, srcs, sizes, count, attrs, attrsIdxs, numAttrs, hStream), "cuMemcpyBatchAsync_v2")
 }
 
-// memcpyDtoA Copies memory from Device to Array.
+// memcpyDtoA copies memory from Device to Array.
 //
 // Copies from device memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting index of the destination data. srcDevice specifies the base pointer of the source. ByteCount specifies the number of bytes to copy.
 //
@@ -8442,7 +11933,7 @@ func memcpyDtoA(dstArray Array, dstOffset uint, srcDevice DevicePtr, byteCount u
 	return toError(fnmemcpyDtoA(dstArray, dstOffset, srcDevice, byteCount), "cuMemcpyDtoA_v2")
 }
 
-// memcpyDtoD Copies memory from Device to Device.
+// memcpyDtoD copies memory from Device to Device.
 //
 // Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
@@ -8464,7 +11955,7 @@ func memcpyDtoD(dstDevice DevicePtr, srcDevice DevicePtr, byteCount uint) error 
 	return toError(fnmemcpyDtoD(dstDevice, srcDevice, byteCount), "cuMemcpyDtoD_v2")
 }
 
-// memcpyDtoDAsync Copies memory from Device to Device.
+// memcpyDtoDAsync copies memory from Device to Device.
 //
 // Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
@@ -8489,7 +11980,7 @@ func memcpyDtoDAsync(dstDevice DevicePtr, srcDevice DevicePtr, byteCount uint, h
 	return toError(fnmemcpyDtoDAsync(dstDevice, srcDevice, byteCount, hStream), "cuMemcpyDtoDAsync_v2")
 }
 
-// memcpyDtoH Copies memory from Device to Host.
+// memcpyDtoH copies memory from Device to Host.
 //
 // Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
@@ -8513,7 +12004,7 @@ func memcpyDtoH(dstHost unsafe.Pointer, srcDevice DevicePtr, byteCount uint) err
 	return toError(fnmemcpyDtoH(dstHost, srcDevice, byteCount), "cuMemcpyDtoH_v2")
 }
 
-// memcpyDtoHAsync Copies memory from Device to Host.
+// memcpyDtoHAsync copies memory from Device to Host.
 //
 // Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
@@ -8540,7 +12031,7 @@ func memcpyDtoHAsync(dstHost unsafe.Pointer, srcDevice DevicePtr, byteCount uint
 	return toError(fnmemcpyDtoHAsync(dstHost, srcDevice, byteCount, hStream), "cuMemcpyDtoHAsync_v2")
 }
 
-// memcpyHtoA Copies memory from Host to Array.
+// memcpyHtoA copies memory from Host to Array.
 //
 // Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. pSrc specifies the base address of the source. ByteCount specifies the number of bytes to copy.
 //
@@ -8565,7 +12056,7 @@ func memcpyHtoA(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, byteCoun
 	return toError(fnmemcpyHtoA(dstArray, dstOffset, srcHost, byteCount), "cuMemcpyHtoA_v2")
 }
 
-// memcpyHtoAAsync Copies memory from Host to Array.
+// memcpyHtoAAsync copies memory from Host to Array.
 //
 // Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. srcHost specifies the base address of the source. ByteCount specifies the number of bytes to copy.
 //
@@ -8593,7 +12084,7 @@ func memcpyHtoAAsync(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, byt
 	return toError(fnmemcpyHtoAAsync(dstArray, dstOffset, srcHost, byteCount, hStream), "cuMemcpyHtoAAsync_v2")
 }
 
-// memcpyHtoD Copies memory from Host to Device.
+// memcpyHtoD copies memory from Host to Device.
 //
 // Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
@@ -8617,7 +12108,7 @@ func memcpyHtoD(dstDevice DevicePtr, srcHost unsafe.Pointer, byteCount uint) err
 	return toError(fnmemcpyHtoD(dstDevice, srcHost, byteCount), "cuMemcpyHtoD_v2")
 }
 
-// memcpyHtoDAsync Copies memory from Host to Device.
+// memcpyHtoDAsync copies memory from Host to Device.
 //
 // Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
@@ -8644,7 +12135,7 @@ func memcpyHtoDAsync(dstDevice DevicePtr, srcHost unsafe.Pointer, byteCount uint
 	return toError(fnmemcpyHtoDAsync(dstDevice, srcHost, byteCount, hStream), "cuMemcpyHtoDAsync_v2")
 }
 
-// memcpyPeer Copies device memory between two contexts.
+// memcpyPeer copies device memory between two contexts.
 //
 // Copies from device memory in one context to device memory in another context. dstDevice is the base device pointer of the destination memory and dstContext is the destination context. srcDevice is the base device pointer of the source memory and srcContext is the source pointer. ByteCount specifies the number of bytes to copy.
 //
@@ -8668,7 +12159,7 @@ func memcpyPeer(dstDevice DevicePtr, dstContext Context, srcDevice DevicePtr, sr
 	return toError(fnmemcpyPeer(dstDevice, dstContext, srcDevice, srcContext, byteCount), "cuMemcpyPeer")
 }
 
-// memcpyPeerAsync Copies device memory between two contexts asynchronously.
+// memcpyPeerAsync copies device memory between two contexts asynchronously.
 //
 // Copies from device memory in one context to device memory in another context. dstDevice is the base device pointer of the destination memory and dstContext is the destination context. srcDevice is the base device pointer of the source memory and srcContext is the source pointer. ByteCount specifies the number of bytes to copy.
 //
@@ -8695,7 +12186,7 @@ func memcpyPeerAsync(dstDevice DevicePtr, dstContext Context, srcDevice DevicePt
 	return toError(fnmemcpyPeerAsync(dstDevice, dstContext, srcDevice, srcContext, byteCount, hStream), "cuMemcpyPeerAsync")
 }
 
-// memcpyWithAttributesAsync Performs asynchronous memory copy operation with the specified attributes.
+// memcpyWithAttributesAsync performs asynchronous memory copy operation with the specified attributes.
 //
 // Performs asynchronous memory copy operation where dst and src are the destination and source pointers respectively. size specifies the number of bytes to copy. attr specifies the attributes for the copy and hStream specifies the stream to enqueue the operation in.
 // For more information regarding the attributes, please refer to [MemcpyAttributes] and it’s usage desciption in [Stream.MemcpyBatchAsync]
@@ -8722,7 +12213,7 @@ func memcpyWithAttributesAsync(dst DevicePtr, src DevicePtr, size uint, attr *Me
 	return toError(fnmemcpyWithAttributesAsync(dst, src, size, attr, hStream), "cuMemcpyWithAttributesAsync")
 }
 
-// memsetD16 Initializes device memory.
+// memsetD16 initializes device memory.
 //
 // Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned.
 //
@@ -8744,7 +12235,7 @@ func memsetD16(dstDevice DevicePtr, us uint16, n uint) error {
 	return toError(fnmemsetD16(dstDevice, us, n), "cuMemsetD16_v2")
 }
 
-// memsetD16Async Sets device memory.
+// memsetD16Async sets device memory.
 //
 // Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned.
 //
@@ -8769,7 +12260,7 @@ func memsetD16Async(dstDevice DevicePtr, us uint16, n uint, hStream Stream) erro
 	return toError(fnmemsetD16Async(dstDevice, us, n, hStream), "cuMemsetD16Async")
 }
 
-// memsetD2D16 Initializes device memory.
+// memsetD2D16 initializes device memory.
 //
 // Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
@@ -8793,7 +12284,7 @@ func memsetD2D16(dstDevice DevicePtr, dstPitch uint, us uint16, width uint, heig
 	return toError(fnmemsetD2D16(dstDevice, dstPitch, us, width, height), "cuMemsetD2D16_v2")
 }
 
-// memsetD2D16Async Sets device memory.
+// memsetD2D16Async sets device memory.
 //
 // Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
@@ -8820,7 +12311,7 @@ func memsetD2D16Async(dstDevice DevicePtr, dstPitch uint, us uint16, width uint,
 	return toError(fnmemsetD2D16Async(dstDevice, dstPitch, us, width, height, hStream), "cuMemsetD2D16Async")
 }
 
-// memsetD2D32 Initializes device memory.
+// memsetD2D32 initializes device memory.
 //
 // Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
@@ -8844,7 +12335,7 @@ func memsetD2D32(dstDevice DevicePtr, dstPitch uint, ui uint32, width uint, heig
 	return toError(fnmemsetD2D32(dstDevice, dstPitch, ui, width, height), "cuMemsetD2D32_v2")
 }
 
-// memsetD2D32Async Sets device memory.
+// memsetD2D32Async sets device memory.
 //
 // Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
@@ -8871,7 +12362,7 @@ func memsetD2D32Async(dstDevice DevicePtr, dstPitch uint, ui uint32, width uint,
 	return toError(fnmemsetD2D32Async(dstDevice, dstPitch, ui, width, height, hStream), "cuMemsetD2D32Async")
 }
 
-// memsetD2D8 Initializes device memory.
+// memsetD2D8 initializes device memory.
 //
 // Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
@@ -8895,7 +12386,7 @@ func memsetD2D8(dstDevice DevicePtr, dstPitch uint, uc uint8, width uint, height
 	return toError(fnmemsetD2D8(dstDevice, dstPitch, uc, width, height), "cuMemsetD2D8_v2")
 }
 
-// memsetD2D8Async Sets device memory.
+// memsetD2D8Async sets device memory.
 //
 // Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
@@ -8922,7 +12413,7 @@ func memsetD2D8Async(dstDevice DevicePtr, dstPitch uint, uc uint8, width uint, h
 	return toError(fnmemsetD2D8Async(dstDevice, dstPitch, uc, width, height, hStream), "cuMemsetD2D8Async")
 }
 
-// memsetD32 Initializes device memory.
+// memsetD32 initializes device memory.
 //
 // Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned.
 //
@@ -8944,7 +12435,7 @@ func memsetD32(dstDevice DevicePtr, ui uint32, n uint) error {
 	return toError(fnmemsetD32(dstDevice, ui, n), "cuMemsetD32_v2")
 }
 
-// memsetD32Async Sets device memory.
+// memsetD32Async sets device memory.
 //
 // Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned.
 //
@@ -8969,7 +12460,7 @@ func memsetD32Async(dstDevice DevicePtr, ui uint32, n uint, hStream Stream) erro
 	return toError(fnmemsetD32Async(dstDevice, ui, n, hStream), "cuMemsetD32Async")
 }
 
-// memsetD8 Initializes device memory.
+// memsetD8 initializes device memory.
 //
 // Sets the memory range of N 8-bit values to the specified value uc.
 //
@@ -8991,7 +12482,7 @@ func memsetD8(dstDevice DevicePtr, uc uint8, n uint) error {
 	return toError(fnmemsetD8(dstDevice, uc, n), "cuMemsetD8_v2")
 }
 
-// memsetD8Async Sets device memory.
+// memsetD8Async sets device memory.
 //
 // Sets the memory range of N 8-bit values to the specified value uc.
 //
@@ -9016,7 +12507,7 @@ func memsetD8Async(dstDevice DevicePtr, uc uint8, n uint, hStream Stream) error 
 	return toError(fnmemsetD8Async(dstDevice, uc, n, hStream), "cuMemsetD8Async")
 }
 
-// mipmappedArrayCreate Creates a CUDA mipmapped array.
+// mipmappedArrayCreate creates a CUDA mipmapped array.
 //
 // Creates a CUDA mipmapped array according to the [Array3dDescriptor] structure pMipmappedArrayDesc and returns a handle to the new CUDA mipmapped array in *pHandle. numMipmapLevels specifies the number of mipmap levels to be allocated. This value is clamped to the range [1, 1 + floor(log2(max(width, height, depth)))].
 // The [Array3dDescriptor] is defined as:
@@ -9036,15 +12527,18 @@ func mipmappedArrayCreate(pMipmappedArrayDesc *Array3dDescriptor, numMipmapLevel
 		var zero MipmappedArray
 		return zero, err
 	}
-	var out MipmappedArray
-	if err := toError(fnmipmappedArrayCreate(&out, pMipmappedArrayDesc, numMipmapLevels), "cuMipmappedArrayCreate"); err != nil {
+	out := slotMipmappedArrayCreate.get()
+	defer slotMipmappedArrayCreate.put(out)
+	if err := toError(fnmipmappedArrayCreate(out, pMipmappedArrayDesc, numMipmapLevels), "cuMipmappedArrayCreate"); err != nil {
 		var zero MipmappedArray
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// mipmappedArrayDestroy Destroys a CUDA mipmapped array.
+var slotMipmappedArrayCreate outSlot[MipmappedArray]
+
+// mipmappedArrayDestroy destroys a CUDA mipmapped array.
 //
 // Destroys the CUDA mipmapped array hMipmappedArray.
 //
@@ -9062,7 +12556,7 @@ func mipmappedArrayDestroy(hMipmappedArray MipmappedArray) error {
 	return toError(fnmipmappedArrayDestroy(hMipmappedArray), "cuMipmappedArrayDestroy")
 }
 
-// mipmappedArrayGetLevel Gets a mipmap level of a CUDA mipmapped array.
+// mipmappedArrayGetLevel gets a mipmap level of a CUDA mipmapped array.
 //
 // Returns in *pLevelArray a CUDA array that represents a single mipmap level of the CUDA mipmapped array hMipmappedArray.
 // If level is greater than the maximum number of levels in this mipmapped array, [ErrInvalidValue] is returned.
@@ -9080,15 +12574,18 @@ func mipmappedArrayGetLevel(hMipmappedArray MipmappedArray, level uint32) (Array
 		var zero Array
 		return zero, err
 	}
-	var out Array
-	if err := toError(fnmipmappedArrayGetLevel(&out, hMipmappedArray, level), "cuMipmappedArrayGetLevel"); err != nil {
+	out := slotMipmappedArrayGetLevel.get()
+	defer slotMipmappedArrayGetLevel.put(out)
+	if err := toError(fnmipmappedArrayGetLevel(out, hMipmappedArray, level), "cuMipmappedArrayGetLevel"); err != nil {
 		var zero Array
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// mipmappedArrayGetMemoryRequirements Returns the memory requirements of a CUDA mipmapped array.
+var slotMipmappedArrayGetLevel outSlot[Array]
+
+// mipmappedArrayGetMemoryRequirements returns the memory requirements of a CUDA mipmapped array.
 //
 // Returns the memory requirements of a CUDA mipmapped array in memoryRequirements If the CUDA mipmapped array is not allocated with flag CUDA_ARRAY3D_DEFERRED_MAPPING [ErrInvalidValue] will be returned.
 // The returned value in [ArrayMemoryRequirements].size represents the total size of the CUDA mipmapped array. The returned value in [ArrayMemoryRequirements].alignment
@@ -9106,15 +12603,18 @@ func mipmappedArrayGetMemoryRequirements(mipmap MipmappedArray, device Device) (
 		var zero ArrayMemoryRequirements
 		return zero, err
 	}
-	var out ArrayMemoryRequirements
-	if err := toError(fnmipmappedArrayGetMemoryRequirements(&out, mipmap, device), "cuMipmappedArrayGetMemoryRequirements"); err != nil {
+	out := slotMipmappedArrayGetMemoryRequirements.get()
+	defer slotMipmappedArrayGetMemoryRequirements.put(out)
+	if err := toError(fnmipmappedArrayGetMemoryRequirements(out, mipmap, device), "cuMipmappedArrayGetMemoryRequirements"); err != nil {
 		var zero ArrayMemoryRequirements
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// mipmappedArrayGetSparseProperties Returns the layout properties of a sparse CUDA mipmapped array.
+var slotMipmappedArrayGetMemoryRequirements outSlot[ArrayMemoryRequirements]
+
+// mipmappedArrayGetSparseProperties returns the layout properties of a sparse CUDA mipmapped array.
 //
 // Returns the sparse array layout properties in sparseProperties If the CUDA mipmapped array is not allocated with flag CUDA_ARRAY3D_SPARSE [ErrInvalidValue] will be returned.
 // For non-layered CUDA mipmapped arrays, [ArraySparseProperties].miptailSize returns the size of the mip tail region. The mip tail region includes all mip levels whose width, height or depth is less than that of the tile. For layered CUDA mipmapped arrays, if [ArraySparseProperties].flags contains CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL, then [ArraySparseProperties].miptailSize specifies the size of the mip tail of all layers combined. Otherwise, [ArraySparseProperties].miptailSize specifies mip tail size per layer. The returned value of [ArraySparseProperties].miptailFirstLevel is valid only if [ArraySparseProperties].miptailSize is non-zero.
@@ -9129,15 +12629,18 @@ func mipmappedArrayGetSparseProperties(mipmap MipmappedArray) (ArraySparseProper
 		var zero ArraySparseProperties
 		return zero, err
 	}
-	var out ArraySparseProperties
-	if err := toError(fnmipmappedArrayGetSparseProperties(&out, mipmap), "cuMipmappedArrayGetSparseProperties"); err != nil {
+	out := slotMipmappedArrayGetSparseProperties.get()
+	defer slotMipmappedArrayGetSparseProperties.put(out)
+	if err := toError(fnmipmappedArrayGetSparseProperties(out, mipmap), "cuMipmappedArrayGetSparseProperties"); err != nil {
 		var zero ArraySparseProperties
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleEnumerateFunctions Returns the function handles within a module.
+var slotMipmappedArrayGetSparseProperties outSlot[ArraySparseProperties]
+
+// moduleEnumerateFunctions returns the function handles within a module.
 //
 // Returns in functions a maximum number of numFunctions function handles within mod. When function loading mode is set to LAZY the function retrieved may be partially loaded. The loading state of a function can be queried using cuFunctionIsLoaded. CUDA APIs may load the function automatically when called with partially loaded function handle which may incur additional latency. Alternatively, cuFunctionLoad can be used to explicitly load a function. The returned function handles become invalid when the module is unloaded.
 //
@@ -9155,7 +12658,7 @@ func moduleEnumerateFunctions(functions *Function, numFunctions uint32, mod Modu
 	return toError(fnmoduleEnumerateFunctions(functions, numFunctions, mod), "cuModuleEnumerateFunctions")
 }
 
-// moduleGetFunction Returns a function handle.
+// moduleGetFunction returns a function handle.
 //
 // Returns in *hfunc the handle of the function of name name located in module hmod. If no function of that name exists, [Module.Function] returns [ErrNotFound].
 //
@@ -9172,14 +12675,17 @@ func moduleGetFunction(hmod Module, name string) (Function, error) {
 		return 0, err
 	}
 	cstr_name := append([]byte(name), 0)
-	var out Function
-	if err := toError(fnmoduleGetFunction(&out, hmod, &cstr_name[0]), "cuModuleGetFunction"); err != nil {
+	out := slotModuleGetFunction.get()
+	defer slotModuleGetFunction.put(out)
+	if err := toError(fnmoduleGetFunction(out, hmod, &cstr_name[0]), "cuModuleGetFunction"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleGetFunctionCount Returns the number of functions within a module.
+var slotModuleGetFunction outSlot[Function]
+
+// moduleGetFunctionCount returns the number of functions within a module.
 //
 // Returns in count the number of functions in mod.
 //
@@ -9191,15 +12697,18 @@ func moduleGetFunctionCount(mod Module) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnmoduleGetFunctionCount(&out, mod), "cuModuleGetFunctionCount"); err != nil {
+	out := slotModuleGetFunctionCount.get()
+	defer slotModuleGetFunctionCount.put(out)
+	if err := toError(fnmoduleGetFunctionCount(out, mod), "cuModuleGetFunctionCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleGetGlobal Returns a global pointer from a module.
+var slotModuleGetFunctionCount outSlot[uint32]
+
+// moduleGetGlobal returns a global pointer from a module.
 //
 // Returns in *dptr and *bytes the base pointer and size of the global of name name located in module hmod. If no variable of that name exists, [Module.Global] returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored.
 //
@@ -9216,15 +12725,20 @@ func moduleGetGlobal(hmod Module, name string) (dptr DevicePtr, bytes uint, err 
 		return 0, 0, err
 	}
 	cstr_name := append([]byte(name), 0)
-	var out0 DevicePtr
-	var out1 uint
-	if err := toError(fnmoduleGetGlobal(&out0, &out1, hmod, &cstr_name[0]), "cuModuleGetGlobal_v2"); err != nil {
+	outs := slotModuleGetGlobal.get()
+	defer slotModuleGetGlobal.put(outs)
+	if err := toError(fnmoduleGetGlobal(&outs.out0, &outs.out1, hmod, &cstr_name[0]), "cuModuleGetGlobal_v2"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// ModuleGetLoadingMode Query lazy loading mode.
+var slotModuleGetGlobal outSlot[struct {
+	out0 DevicePtr
+	out1 uint
+}]
+
+// ModuleGetLoadingMode queries lazy loading mode.
 //
 // Returns lazy loading mode Module loading mode is controlled by CUDA_MODULE_LOADING env variable
 //
@@ -9238,15 +12752,18 @@ func ModuleGetLoadingMode() (ModuleLoadingMode, error) {
 		var zero ModuleLoadingMode
 		return zero, err
 	}
-	var out ModuleLoadingMode
-	if err := toError(fnModuleGetLoadingMode(&out), "cuModuleGetLoadingMode"); err != nil {
+	out := slotModuleGetLoadingMode.get()
+	defer slotModuleGetLoadingMode.put(out)
+	if err := toError(fnModuleGetLoadingMode(out), "cuModuleGetLoadingMode"); err != nil {
 		var zero ModuleLoadingMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleGetSurfRef Returns a handle to a surface reference.
+var slotModuleGetLoadingMode outSlot[ModuleLoadingMode]
+
+// moduleGetSurfRef returns a handle to a surface reference.
 //
 // Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.SurfRef] returns [ErrNotFound].
 //
@@ -9257,7 +12774,7 @@ func ModuleGetLoadingMode() (ModuleLoadingMode, error) {
 //   - hmod: Module to retrieve surface reference from
 //   - name: Name of surface reference to retrieve
 //
-// Deprecated: Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.SurfRef] returns [ErrNotFound].
+// Deprecated: This function is deprecated.
 //
 // Wraps cuModuleGetSurfRef.
 func moduleGetSurfRef(hmod Module, name *byte) (SurfRef, error) {
@@ -9265,15 +12782,18 @@ func moduleGetSurfRef(hmod Module, name *byte) (SurfRef, error) {
 		var zero SurfRef
 		return zero, err
 	}
-	var out SurfRef
-	if err := toError(fnmoduleGetSurfRef(&out, hmod, name), "cuModuleGetSurfRef"); err != nil {
+	out := slotModuleGetSurfRef.get()
+	defer slotModuleGetSurfRef.put(out)
+	if err := toError(fnmoduleGetSurfRef(out, hmod, name), "cuModuleGetSurfRef"); err != nil {
 		var zero SurfRef
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleGetTexRef Returns a handle to a texture reference.
+var slotModuleGetSurfRef outSlot[SurfRef]
+
+// moduleGetTexRef returns a handle to a texture reference.
 //
 // Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.TexRef] returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded.
 //
@@ -9284,7 +12804,7 @@ func moduleGetSurfRef(hmod Module, name *byte) (SurfRef, error) {
 //   - hmod: Module to retrieve texture reference from
 //   - name: Name of texture reference to retrieve
 //
-// Deprecated: Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.TexRef] returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuModuleGetTexRef.
 func moduleGetTexRef(hmod Module, name *byte) (TexRef, error) {
@@ -9292,15 +12812,18 @@ func moduleGetTexRef(hmod Module, name *byte) (TexRef, error) {
 		var zero TexRef
 		return zero, err
 	}
-	var out TexRef
-	if err := toError(fnmoduleGetTexRef(&out, hmod, name), "cuModuleGetTexRef"); err != nil {
+	out := slotModuleGetTexRef.get()
+	defer slotModuleGetTexRef.put(out)
+	if err := toError(fnmoduleGetTexRef(out, hmod, name), "cuModuleGetTexRef"); err != nil {
 		var zero TexRef
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleLoad Loads a compute module.
+var slotModuleGetTexRef outSlot[TexRef]
+
+// moduleLoad loads a compute module.
 //
 // Takes a filename fname and loads the corresponding module module into the current context. The CUDA driver API does not attempt to lazily allocate the resources needed by a module; if the memory for functions and data (constant and global) needed by the module cannot be allocated, [ModuleLoad] fails. The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc from toolchain 4.0 or later, or a Tile IR file.
 //
@@ -9316,16 +12839,19 @@ func moduleLoad(fname string) (Module, error) {
 		return 0, err
 	}
 	cstr_fname := append([]byte(fname), 0)
-	var out Module
-	if err := toError(fnmoduleLoad(&out, &cstr_fname[0]), "cuModuleLoad"); err != nil {
+	out := slotModuleLoad.get()
+	defer slotModuleLoad.put(out)
+	if err := toError(fnmoduleLoad(out, &cstr_fname[0]), "cuModuleLoad"); err != nil {
 		return 0, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleLoadData Load a module’s data.
+var slotModuleLoad outSlot[Module]
+
+// moduleLoadData loads a module’s data.
 //
-// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data.
+// Takes image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data.
 //
 // Note that this function may also return error codes from previous, asynchronous launches.
 //
@@ -9333,8 +12859,10 @@ func moduleLoad(fname string) (Module, error) {
 //
 //   - image: Module data to load
 //
-// If image does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise image is passed without copying.
+// The wrapper passes image to C without copying if a NUL byte ends it or
+// follows it in its capacity, as one does in text a generated getter returns,
+// or if it starts with the ELF or fatbin magic number. Otherwise image is text,
+// and the wrapper copies it once to append a NUL.
 //
 // Wraps cuModuleLoadData.
 func moduleLoadData(image []byte) (Module, error) {
@@ -9342,17 +12870,20 @@ func moduleLoadData(image []byte) (Module, error) {
 		var zero Module
 		return zero, err
 	}
-	var out Module
-	if err := toError(fnmoduleLoadData(&out, unsafe.Pointer(nulTerminated(image))), "cuModuleLoadData"); err != nil {
+	out := slotModuleLoadData.get()
+	defer slotModuleLoadData.put(out)
+	if err := toError(fnmoduleLoadData(out, unsafe.Pointer(textImage(image))), "cuModuleLoadData"); err != nil {
 		var zero Module
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleLoadDataEx Load a module’s data with options.
+var slotModuleLoadData outSlot[Module]
+
+// moduleLoadDataEx loads a module’s data with options.
 //
-// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data.
+// Takes image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data.
 //
 // Note that this function may also return error codes from previous, asynchronous launches.
 //
@@ -9363,8 +12894,10 @@ func moduleLoadData(image []byte) (Module, error) {
 //   - options: Options for JIT
 //   - optionValues: Option values for JIT
 //
-// If image does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise image is passed without copying.
+// The wrapper passes image to C without copying if a NUL byte ends it or
+// follows it in its capacity, as one does in text a generated getter returns,
+// or if it starts with the ELF or fatbin magic number. Otherwise image is text,
+// and the wrapper copies it once to append a NUL.
 //
 // Wraps cuModuleLoadDataEx.
 func moduleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optionValues *uintptr) (Module, error) {
@@ -9372,17 +12905,20 @@ func moduleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optio
 		var zero Module
 		return zero, err
 	}
-	var out Module
-	if err := toError(fnmoduleLoadDataEx(&out, unsafe.Pointer(nulTerminated(image)), numOptions, options, optionValues), "cuModuleLoadDataEx"); err != nil {
+	out := slotModuleLoadDataEx.get()
+	defer slotModuleLoadDataEx.put(out)
+	if err := toError(fnmoduleLoadDataEx(out, unsafe.Pointer(textImage(image)), numOptions, options, optionValues), "cuModuleLoadDataEx"); err != nil {
 		var zero Module
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleLoadFatBinary Load a module’s data.
+var slotModuleLoadDataEx outSlot[Module]
+
+// moduleLoadFatBinary loads a module’s data.
 //
-// Takes a pointer fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures.
+// Takes fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures.
 // Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document.
 //
 // Note that this function may also return error codes from previous, asynchronous launches.
@@ -9391,24 +12927,24 @@ func moduleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optio
 //
 //   - fatCubin: Fat binary to load
 //
-// If fatCubin does not end in a NUL byte, the wrapper copies it once to append
-// the terminator PTX text needs; otherwise fatCubin is passed without copying.
-//
 // Wraps cuModuleLoadFatBinary.
 func moduleLoadFatBinary(fatCubin []byte) (Module, error) {
 	if err := checkLibSym("cuModuleLoadFatBinary"); err != nil {
 		var zero Module
 		return zero, err
 	}
-	var out Module
-	if err := toError(fnmoduleLoadFatBinary(&out, unsafe.Pointer(nulTerminated(fatCubin))), "cuModuleLoadFatBinary"); err != nil {
+	out := slotModuleLoadFatBinary.get()
+	defer slotModuleLoadFatBinary.put(out)
+	if err := toError(fnmoduleLoadFatBinary(out, unsafe.Pointer(binaryImage(fatCubin))), "cuModuleLoadFatBinary"); err != nil {
 		var zero Module
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// moduleUnload Unloads a module.
+var slotModuleLoadFatBinary outSlot[Module]
+
+// moduleUnload unloads a module.
 //
 // Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.Module] will return [ErrNotPermitted].
 //
@@ -9428,7 +12964,7 @@ func moduleUnload(hmod Module) error {
 	return toError(fnmoduleUnload(hmod), "cuModuleUnload")
 }
 
-// multicastAddDevice Associate a device to a multicast object.
+// multicastAddDevice associates a device to a multicast object.
 //
 // Associates a device to a multicast object. The added device will be a part of the multicast team of size specified by [MulticastObjectProp].numDevices during [MulticastCreate]. The association of the device to the multicast object is permanent during the life time of the multicast object. All devices must be added to the multicast team before any memory can be bound to any device in the team. Any calls to [MulticastBindMem], [Device.MulticastBindMemV2], [DevicePtr.MulticastBindAddr], or [Device.MulticastBindAddrV2] will block until all devices have been added. Similarly all devices must be added to the multicast team before a virtual address range can be mapped to the multicast object. A call to [DevicePtr.MemMap] will block until all devices have been added.
 // This call may fail with [ErrInvalidDevice] if the device specified by dev does not belong to the same clique as the other devices previously added to this multicast object.
@@ -9446,7 +12982,7 @@ func multicastAddDevice(mcHandle uint64, dev Device) error {
 	return toError(fnmulticastAddDevice(mcHandle, dev), "cuMulticastAddDevice")
 }
 
-// multicastBindAddr Bind a memory allocation represented by a virtual address to a multicast object.
+// multicastBindAddr binds a memory allocation represented by a virtual address to a multicast object.
 //
 // Binds a memory allocation specified by its mapped address memptr to a multicast object represented by mcHandle. The memory must have been allocated via [MemCreate] or cudaMallocAsync. The intended size of the bind, the offset in the multicast range mcOffset and memptr must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memptr should be aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the total size of the multicast object.
@@ -9472,7 +13008,7 @@ func multicastBindAddr(mcHandle uint64, mcOffset uint, memptr DevicePtr, size ui
 	return toError(fnmulticastBindAddr(mcHandle, mcOffset, memptr, size, flags), "cuMulticastBindAddr")
 }
 
-// multicastBindAddrV2 Bind a memory allocation represented by a virtual address to a multicast object.
+// multicastBindAddrV2 binds a memory allocation represented by a virtual address to a multicast object.
 //
 // Binds a memory allocation specified by its mapped address memptr to a multicast object represented by mcHandle. The binding will be applicable for the device dev. The memory must have been allocated via [MemCreate] or cudaMallocAsync. The intended size of the bind, the offset in the multicast range mcOffset and memptr must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memptr should be aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the total size of the multicast object.
@@ -9499,7 +13035,7 @@ func multicastBindAddrV2(mcHandle uint64, dev Device, mcOffset uint, memptr Devi
 	return toError(fnmulticastBindAddrV2(mcHandle, dev, mcOffset, memptr, size, flags), "cuMulticastBindAddr_v2")
 }
 
-// MulticastBindMem Bind a memory allocation represented by a handle to a multicast object.
+// MulticastBindMem binds a memory allocation represented by a handle to a multicast object.
 //
 // Binds a memory allocation specified by memHandle and created via [MemCreate] to a multicast object represented by mcHandle and created via [MulticastCreate]. The intended size of the bind, the offset in the multicast range mcOffset as well as the offset in the memory memOffset must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memOffset should be aligned to the granularity of the memory allocation(see [MemGetAllocationGranularity]) or to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the size of the multicast object.
@@ -9526,7 +13062,7 @@ func MulticastBindMem(mcHandle uint64, mcOffset uint, memHandle uint64, memOffse
 	return toError(fnMulticastBindMem(mcHandle, mcOffset, memHandle, memOffset, size, flags), "cuMulticastBindMem")
 }
 
-// multicastBindMemV2 Bind a memory allocation represented by a handle to a multicast object.
+// multicastBindMemV2 binds a memory allocation represented by a handle to a multicast object.
 //
 // Binds a memory allocation specified by memHandle and created via [MemCreate] to a multicast object represented by mcHandle and created via [MulticastCreate]. The binding will be applicable for the device dev. The intended size of the bind, the offset in the multicast range mcOffset as well as the offset in the memory memOffset must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memOffset should be aligned to the granularity of the memory allocation(see [MemGetAllocationGranularity]) or to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the size of the multicast object.
@@ -9554,7 +13090,7 @@ func multicastBindMemV2(mcHandle uint64, dev Device, mcOffset uint, memHandle ui
 	return toError(fnmulticastBindMemV2(mcHandle, dev, mcOffset, memHandle, memOffset, size, flags), "cuMulticastBindMem_v2")
 }
 
-// MulticastCreate Create a generic allocation handle representing a multicast object described by the given properties.
+// MulticastCreate creates a generic allocation handle representing a multicast object described by the given properties.
 //
 // This creates a multicast object as described by prop. The number of participating devices is specified by [MulticastObjectProp].numDevices. Devices can be added to the multicast object via [Device.MulticastAdd]. All participating devices must be added to the multicast object before memory can be bound to it. Memory is bound to the multicast object via [MulticastBindMem], [Device.MulticastBindMemV2], [DevicePtr.MulticastBindAddr], or [Device.MulticastBindAddrV2]. and can be unbound via [Device.MulticastUnbind]. The total amount of memory that can be bound per device is specified by : [MulticastObjectProp].size. This size must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, the size should be aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // After all participating devices have been added, multicast objects can also be mapped to a device’s virtual address space using the virtual memory management APIs (see [DevicePtr.MemMap] and [DevicePtr.MemSetAccess]). Multicast objects can also be shared with other processes by requesting a shareable handle via [MemExportToShareableHandle]. Note that the desired types of shareable handles must be specified in the bitmask [MulticastObjectProp].handleTypes. Multicast objects can be released using the virtual memory management API [MemRelease].
@@ -9569,15 +13105,18 @@ func MulticastCreate(prop *MulticastObjectProp) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnMulticastCreate(&out, prop), "cuMulticastCreate"); err != nil {
+	out := slotMulticastCreate.get()
+	defer slotMulticastCreate.put(out)
+	if err := toError(fnMulticastCreate(out, prop), "cuMulticastCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// MulticastGetGranularity Calculates either the minimal or recommended granularity for multicast object.
+var slotMulticastCreate outSlot[uint64]
+
+// MulticastGetGranularity calculates either the minimal or recommended granularity for multicast object.
 //
 // Calculates either the minimal or recommended granularity for a given set of multicast object properties and returns it in granularity. This granularity can be used as a multiple for size, bind offsets and address mappings of the multicast object.
 //
@@ -9592,15 +13131,18 @@ func MulticastGetGranularity(prop *MulticastObjectProp, option Multicastgranular
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnMulticastGetGranularity(&out, prop, option), "cuMulticastGetGranularity"); err != nil {
+	out := slotMulticastGetGranularity.get()
+	defer slotMulticastGetGranularity.put(out)
+	if err := toError(fnMulticastGetGranularity(out, prop, option), "cuMulticastGetGranularity"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// multicastUnbind Unbind any memory allocations bound to a multicast object at a given offset and upto a given size.
+var slotMulticastGetGranularity outSlot[uint]
+
+// multicastUnbind unbinds any memory allocations bound to a multicast object at a given offset and upto a given size.
 //
 // Unbinds any memory allocations hosted on dev and bound to a multicast object at mcOffset and upto a given size. The intended size of the unbind and the offset in the multicast range ( mcOffset ) must be a multiple of the value returned by [MulticastGetGranularity] flag [MulticastGranularityMinimum]. The size + mcOffset cannot be larger than the total size of the multicast object.
 //
@@ -9621,7 +13163,7 @@ func multicastUnbind(mcHandle uint64, dev Device, mcOffset uint, size uint) erro
 	return toError(fnmulticastUnbind(mcHandle, dev, mcOffset, size), "cuMulticastUnbind")
 }
 
-// occupancyAvailableDynamicSMemPerBlock Returns dynamic shared memory available per block when launching numBlocks blocks on SM.
+// occupancyAvailableDynamicSMemPerBlock returns dynamic shared memory available per block when launching numBlocks blocks on SM.
 //
 // Returns in *dynamicSmemSize the maximum size of dynamic shared memory to allow numBlocks blocks per SM.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
@@ -9638,15 +13180,18 @@ func occupancyAvailableDynamicSMemPerBlock(func_ Function, numBlocks int32, bloc
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnoccupancyAvailableDynamicSMemPerBlock(&out, func_, numBlocks, blockSize), "cuOccupancyAvailableDynamicSMemPerBlock"); err != nil {
+	out := slotOccupancyAvailableDynamicSMemPerBlock.get()
+	defer slotOccupancyAvailableDynamicSMemPerBlock.put(out)
+	if err := toError(fnoccupancyAvailableDynamicSMemPerBlock(out, func_, numBlocks, blockSize), "cuOccupancyAvailableDynamicSMemPerBlock"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// occupancyMaxActiveBlocksPerMultiprocessor Returns occupancy of a function.
+var slotOccupancyAvailableDynamicSMemPerBlock outSlot[uint]
+
+// occupancyMaxActiveBlocksPerMultiprocessor returns occupancy of a function.
 //
 // Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
@@ -9665,15 +13210,18 @@ func occupancyMaxActiveBlocksPerMultiprocessor(func_ Function, blockSize int32, 
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessor(&out, func_, blockSize, dynamicSMemSize), "cuOccupancyMaxActiveBlocksPerMultiprocessor"); err != nil {
+	out := slotOccupancyMaxActiveBlocksPerMultiprocessor.get()
+	defer slotOccupancyMaxActiveBlocksPerMultiprocessor.put(out)
+	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessor(out, func_, blockSize, dynamicSMemSize), "cuOccupancyMaxActiveBlocksPerMultiprocessor"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// occupancyMaxActiveBlocksPerMultiprocessorWithFlags Returns occupancy of a function.
+var slotOccupancyMaxActiveBlocksPerMultiprocessor outSlot[int32]
+
+// occupancyMaxActiveBlocksPerMultiprocessorWithFlags returns occupancy of a function.
 //
 // Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor.
 // The Flags parameter controls how special cases are handled. The valid flags are:
@@ -9694,13 +13242,16 @@ func occupancyMaxActiveBlocksPerMultiprocessorWithFlags(func_ Function, blockSiz
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags(&out, func_, blockSize, dynamicSMemSize, uint32(flags)), "cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags"); err != nil {
+	out := slotOccupancyMaxActiveBlocksPerMultiprocessorWithFlags.get()
+	defer slotOccupancyMaxActiveBlocksPerMultiprocessorWithFlags.put(out)
+	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags(out, func_, blockSize, dynamicSMemSize, uint32(flags)), "cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotOccupancyMaxActiveBlocksPerMultiprocessorWithFlags outSlot[int32]
 
 // occupancyMaxActiveClusters Given the kernel function ( func) and launch configuration ( config), return the maximum number of clusters that could co-exist on the target device in *numClusters.
 //
@@ -9721,15 +13272,18 @@ func occupancyMaxActiveClusters(func_ Function, config *LaunchConfig) (int32, er
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnoccupancyMaxActiveClusters(&out, func_, config), "cuOccupancyMaxActiveClusters"); err != nil {
+	out := slotOccupancyMaxActiveClusters.get()
+	defer slotOccupancyMaxActiveClusters.put(out)
+	if err := toError(fnoccupancyMaxActiveClusters(out, func_, config), "cuOccupancyMaxActiveClusters"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// occupancyMaxPotentialBlockSize Suggest a launch configuration with reasonable occupancy.
+var slotOccupancyMaxActiveClusters outSlot[int32]
+
+// occupancyMaxPotentialBlockSize suggests a launch configuration with reasonable occupancy.
 //
 // Returns in *blockSize a reasonable block size that can achieve the maximum occupancy (or, the maximum number of active warps with the fewest blocks per multiprocessor), and in *minGridSize the minimum grid size to achieve the maximum occupancy.
 // If blockSizeLimit is 0, the configurator will use the maximum block size permitted by the device / function instead.
@@ -9752,15 +13306,20 @@ func occupancyMaxPotentialBlockSize(func_ Function, blockSizeToDynamicSMemSize u
 	if err := checkLibSym("cuOccupancyMaxPotentialBlockSize"); err != nil {
 		return 0, 0, err
 	}
-	var out0 int32
-	var out1 int32
-	if err := toError(fnoccupancyMaxPotentialBlockSize(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit), "cuOccupancyMaxPotentialBlockSize"); err != nil {
+	outs := slotOccupancyMaxPotentialBlockSize.get()
+	defer slotOccupancyMaxPotentialBlockSize.put(outs)
+	if err := toError(fnoccupancyMaxPotentialBlockSize(&outs.out0, &outs.out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit), "cuOccupancyMaxPotentialBlockSize"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// occupancyMaxPotentialBlockSizeWithFlags Suggest a launch configuration with reasonable occupancy.
+var slotOccupancyMaxPotentialBlockSize outSlot[struct {
+	out0 int32
+	out1 int32
+}]
+
+// occupancyMaxPotentialBlockSizeWithFlags suggests a launch configuration with reasonable occupancy.
 //
 // An extended version of [Function.MaxPotentialBlockSize]. In addition to arguments passed to [Function.MaxPotentialBlockSize], [Function.MaxPotentialBlockSizeWithFlags] also takes a Flags parameter.
 // The Flags parameter controls how special cases are handled. The valid flags are:
@@ -9781,13 +13340,18 @@ func occupancyMaxPotentialBlockSizeWithFlags(func_ Function, blockSizeToDynamicS
 	if err := checkLibSym("cuOccupancyMaxPotentialBlockSizeWithFlags"); err != nil {
 		return 0, 0, err
 	}
-	var out0 int32
-	var out1 int32
-	if err := toError(fnoccupancyMaxPotentialBlockSizeWithFlags(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, uint32(flags)), "cuOccupancyMaxPotentialBlockSizeWithFlags"); err != nil {
+	outs := slotOccupancyMaxPotentialBlockSizeWithFlags.get()
+	defer slotOccupancyMaxPotentialBlockSizeWithFlags.put(outs)
+	if err := toError(fnoccupancyMaxPotentialBlockSizeWithFlags(&outs.out0, &outs.out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, uint32(flags)), "cuOccupancyMaxPotentialBlockSizeWithFlags"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
+
+var slotOccupancyMaxPotentialBlockSizeWithFlags outSlot[struct {
+	out0 int32
+	out1 int32
+}]
 
 // occupancyMaxPotentialClusterSize Given the kernel function ( func) and launch configuration ( config), return the maximum cluster size in *clusterSize.
 //
@@ -9809,15 +13373,18 @@ func occupancyMaxPotentialClusterSize(func_ Function, config *LaunchConfig) (int
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnoccupancyMaxPotentialClusterSize(&out, func_, config), "cuOccupancyMaxPotentialClusterSize"); err != nil {
+	out := slotOccupancyMaxPotentialClusterSize.get()
+	defer slotOccupancyMaxPotentialClusterSize.put(out)
+	if err := toError(fnoccupancyMaxPotentialClusterSize(out, func_, config), "cuOccupancyMaxPotentialClusterSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// paramSetSize Sets the parameter size for the function.
+var slotOccupancyMaxPotentialClusterSize outSlot[int32]
+
+// paramSetSize sets the parameter size for the function.
 //
 // Sets through numbytes the total size in bytes needed by the function parameters of the kernel corresponding to hfunc.
 //
@@ -9828,7 +13395,7 @@ func occupancyMaxPotentialClusterSize(func_ Function, config *LaunchConfig) (int
 //   - hfunc: Kernel to set parameter size for
 //   - numbytes: Size of parameter list in bytes
 //
-// Deprecated: Sets through numbytes the total size in bytes needed by the function parameters of the kernel corresponding to hfunc.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSetSize.
 func paramSetSize(hfunc Function, numbytes uint32) error {
@@ -9838,7 +13405,7 @@ func paramSetSize(hfunc Function, numbytes uint32) error {
 	return toError(fnparamSetSize(hfunc, numbytes), "cuParamSetSize")
 }
 
-// paramSetTexRef Adds a texture-reference to the function’s argument list.
+// paramSetTexRef adds a texture-reference to the function’s argument list.
 //
 // Makes the CUDA array or linear memory bound to the texture reference hTexRef available to a device program as a texture. In this version of CUDA, the texture-reference must be obtained via [Module.TexRef] and the texunit parameter must be set to CU_PARAM_TR_DEFAULT.
 //
@@ -9848,7 +13415,7 @@ func paramSetSize(hfunc Function, numbytes uint32) error {
 //   - texunit: Texture unit (must be CU_PARAM_TR_DEFAULT)
 //   - hTexRef: Texture-reference to add to argument list
 //
-// Deprecated: Makes the CUDA array or linear memory bound to the texture reference hTexRef available to a device program as a texture. In this version of CUDA, the texture-reference must be obtained via [Module.TexRef] and the texunit parameter must be set to CU_PARAM_TR_DEFAULT.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSetTexRef.
 func paramSetTexRef(hfunc Function, texunit int32, hTexRef TexRef) error {
@@ -9858,7 +13425,7 @@ func paramSetTexRef(hfunc Function, texunit int32, hTexRef TexRef) error {
 	return toError(fnparamSetTexRef(hfunc, texunit, hTexRef), "cuParamSetTexRef")
 }
 
-// paramSetf Adds a floating-point parameter to the function’s argument list.
+// paramSetf adds a floating-point parameter to the function’s argument list.
 //
 // Sets a floating-point parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
 //
@@ -9870,7 +13437,7 @@ func paramSetTexRef(hfunc Function, texunit int32, hTexRef TexRef) error {
 //   - offset: Offset to add parameter to argument list
 //   - value: Value of parameter
 //
-// Deprecated: Sets a floating-point parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSetf.
 func paramSetf(hfunc Function, offset int32, value float32) error {
@@ -9880,7 +13447,7 @@ func paramSetf(hfunc Function, offset int32, value float32) error {
 	return toError(fnparamSetf(hfunc, offset, value), "cuParamSetf")
 }
 
-// paramSeti Adds an integer parameter to the function’s argument list.
+// paramSeti adds an integer parameter to the function’s argument list.
 //
 // Sets an integer parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
 //
@@ -9892,7 +13459,7 @@ func paramSetf(hfunc Function, offset int32, value float32) error {
 //   - offset: Offset to add parameter to argument list
 //   - value: Value of parameter
 //
-// Deprecated: Sets an integer parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSeti.
 func paramSeti(hfunc Function, offset int32, value uint32) error {
@@ -9902,7 +13469,7 @@ func paramSeti(hfunc Function, offset int32, value uint32) error {
 	return toError(fnparamSeti(hfunc, offset, value), "cuParamSeti")
 }
 
-// paramSetv Adds arbitrary data to the function’s argument list.
+// paramSetv adds arbitrary data to the function’s argument list.
 //
 // Copies an arbitrary amount of data (specified in numbytes) from ptr into the parameter space of the kernel corresponding to hfunc. offset is a byte offset.
 //
@@ -9915,7 +13482,7 @@ func paramSeti(hfunc Function, offset int32, value uint32) error {
 //   - ptr: Pointer to arbitrary data
 //   - numbytes: Size of data to copy in bytes
 //
-// Deprecated: Copies an arbitrary amount of data (specified in numbytes) from ptr into the parameter space of the kernel corresponding to hfunc. offset is a byte offset.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuParamSetv.
 func paramSetv(hfunc Function, offset int32, ptr unsafe.Pointer, numbytes uint32) error {
@@ -9925,7 +13492,7 @@ func paramSetv(hfunc Function, offset int32, ptr unsafe.Pointer, numbytes uint32
 	return toError(fnparamSetv(hfunc, offset, ptr, numbytes), "cuParamSetv")
 }
 
-// pointerGetAttribute Returns information about a pointer.
+// pointerGetAttribute returns information about a pointer.
 //
 // The supported attributes are:
 // Returns in *data the [Context] in which ptr was allocated or registered. The type of data must be [Context] *.
@@ -9976,7 +13543,7 @@ func pointerGetAttribute(data unsafe.Pointer, attribute PointerAttribute, ptr De
 	return toError(fnpointerGetAttribute(data, attribute, ptr), "cuPointerGetAttribute")
 }
 
-// pointerGetAttributes Returns information about a pointer.
+// pointerGetAttributes returns information about a pointer.
 //
 // The supported attributes are (refer to [DevicePtr.PointerGetAttribute] for attribute descriptions and restrictions):
 // Unlike [DevicePtr.PointerGetAttribute], this function will not return an error when the ptr encountered is not a valid CUDA pointer. Instead, the attributes are assigned default NULL values and [Success] is returned.
@@ -9999,7 +13566,7 @@ func pointerGetAttributes(numAttributes uint32, attributes *PointerAttribute, da
 	return toError(fnpointerGetAttributes(numAttributes, attributes, data, ptr), "cuPointerGetAttributes")
 }
 
-// pointerSetAttribute Set attributes on a previously allocated memory region.
+// pointerSetAttribute sets attributes on a previously allocated memory region.
 //
 // The supported attributes are:
 // A boolean attribute that can either be set (1) or unset (0). When set, the region of memory that ptr points to is guaranteed to always synchronize memory operations that are synchronous. If there are some previously initiated synchronous memory operations that are pending when this attribute is set, the function does not return until those memory operations are complete. See further documentation in the section titled “API synchronization behavior” to learn more about cases when synchronous memory operations can exhibit asynchronous behavior. value will be considered as a pointer to an unsigned integer to which this attribute is to be set.
@@ -10020,7 +13587,7 @@ func pointerSetAttribute(value uintptr, attribute PointerAttribute, ptr DevicePt
 	return toError(fnpointerSetAttribute(value, attribute, ptr), "cuPointerSetAttribute")
 }
 
-// signalExternalSemaphoresAsync Signals a set of external semaphore objects.
+// signalExternalSemaphoresAsync signals a set of external semaphore objects.
 //
 // Enqueues a signal operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete.
 // The exact semantics of signaling a semaphore depends on the type of the object.
@@ -10046,7 +13613,7 @@ func signalExternalSemaphoresAsync(extSemArray *ExternalSemaphore, paramsArray *
 	return toError(fnsignalExternalSemaphoresAsync(extSemArray, paramsArray, numExtSems, stream), "cuSignalExternalSemaphoresAsync")
 }
 
-// streamAddCallback Add a callback to a compute stream.
+// streamAddCallback adds a callback to a compute stream.
 //
 // Adds a callback to be called on the host after all currently enqueued items in the stream have completed. For each [Stream.AddCallback] call, the callback will be executed exactly once. The callback will block later work in the stream until it is finished.
 // The callback may be passed [Success] or an error code. In the event of a device error, all subsequently executed callbacks will receive an appropriate [Result].
@@ -10074,7 +13641,7 @@ func streamAddCallback(hStream Stream, callback uintptr, userData uintptr, flags
 	return toError(fnstreamAddCallback(hStream, callback, userData, flags), "cuStreamAddCallback")
 }
 
-// streamAttachMemAsync Attach memory to a stream asynchronously.
+// streamAttachMemAsync attaches memory to a stream asynchronously.
 //
 // Enqueues an operation in hStream to specify stream association of length bytes of memory starting from dptr. This function is a stream-ordered operation, meaning that it is dependent on, and will only take effect when, previous work in stream has completed. Any previous association is automatically replaced.
 // dptr must point to one of the following types of memories:
@@ -10130,7 +13697,7 @@ func streamBatchMemOp(stream Stream, count uint32, paramArray *[6]uint64, flags 
 	return toError(fnstreamBatchMemOp(stream, count, paramArray, flags), "cuStreamBatchMemOp_v2")
 }
 
-// streamBeginCapture Begins graph capture on a stream.
+// streamBeginCapture begins graph capture on a stream.
 //
 // Begin graph capture on hStream. When a stream is in capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graph, which will be returned via [Stream.EndCapture]. Capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in capture mode. The capture mode may be queried via [Stream.IsCapturing]. A unique id representing the capture sequence may be queried via [Stream.CaptureInfo].
 // If mode is not [StreamCaptureModeRelaxed], [Stream.EndCapture] must be called on this stream from the same thread.
@@ -10152,7 +13719,7 @@ func streamBeginCapture(hStream Stream, mode StreamCaptureMode) error {
 	return toError(fnstreamBeginCapture(hStream, mode), "cuStreamBeginCapture_v2")
 }
 
-// streamBeginCaptureToCig Begins capture to CIG on a stream.
+// streamBeginCaptureToCig begins capture to CIG on a stream.
 //
 // Support for CIG streams with D3D12 can be determined using [Device.Attribute] with CU_DEVICE_ATTRIBUTE_D3D12_CIG_STREAMS_SUPPORTED.
 // Begin CIG (CUDA in Graphics) capture on hStream for the graphics API as provided in streamCigCaptureParams. When a stream is in CIG capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graphics API command list/command buffer. All kernel launches and memory copy/memory set operations on the CIG stream will be recorded. When the command list is executed by the graphics API, all the stream’s operations will execute in order along with other graphics API commands in the command list.
@@ -10179,7 +13746,7 @@ func streamBeginCaptureToCig(hStream Stream, streamCigCaptureParams *StreamCigCa
 	return toError(fnstreamBeginCaptureToCig(hStream, streamCigCaptureParams), "cuStreamBeginCaptureToCig")
 }
 
-// streamBeginCaptureToGraph Begins graph capture on a stream to an existing graph.
+// streamBeginCaptureToGraph begins graph capture on a stream to an existing graph.
 //
 // Begin graph capture on hStream, placing new nodes into an existing graph. When a stream is in capture mode, all operations pushed into the stream will not be executed, but will instead be captured into hGraph. The graph will not be instantiable until the user calls [Stream.EndCapture].
 // Capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in capture mode. The capture mode may be queried via [Stream.IsCapturing]. A unique id representing the capture sequence may be queried via [Stream.CaptureInfo].
@@ -10206,7 +13773,7 @@ func streamBeginCaptureToGraph(hStream Stream, hGraph Graph, dependencies *Graph
 	return toError(fnstreamBeginCaptureToGraph(hStream, hGraph, dependencies, dependencyData, numDependencies, mode), "cuStreamBeginCaptureToGraph")
 }
 
-// streamCopyAttributes Copies attributes from source stream to destination stream.
+// streamCopyAttributes copies attributes from source stream to destination stream.
 //
 // Copies attributes from source stream src to destination stream dst. Both streams must have the same context.
 //
@@ -10225,7 +13792,7 @@ func streamCopyAttributes(dst Stream, src Stream) error {
 	return toError(fnstreamCopyAttributes(dst, src), "cuStreamCopyAttributes")
 }
 
-// streamCreate Create a stream.
+// streamCreate creates a stream.
 //
 // Creates a stream and returns a handle in phStream. The Flags argument determines behaviors of the stream.
 // Valid values for Flags are:
@@ -10242,15 +13809,18 @@ func streamCreate(flags StreamFlags) (Stream, error) {
 		var zero Stream
 		return zero, err
 	}
-	var out Stream
-	if err := toError(fnstreamCreate(&out, uint32(flags)), "cuStreamCreate"); err != nil {
+	out := slotStreamCreate.get()
+	defer slotStreamCreate.put(out)
+	if err := toError(fnstreamCreate(out, uint32(flags)), "cuStreamCreate"); err != nil {
 		var zero Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamCreateWithPriority Create a stream with the given priority.
+var slotStreamCreate outSlot[Stream]
+
+// streamCreateWithPriority creates a stream with the given priority.
 //
 // Creates a stream with the specified priority and returns a handle in phStream. This affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order.
 // priority follows a convention where lower numbers represent higher priorities. ‘0’ represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range.
@@ -10272,15 +13842,18 @@ func streamCreateWithPriority(flags uint32, priority int32) (Stream, error) {
 		var zero Stream
 		return zero, err
 	}
-	var out Stream
-	if err := toError(fnstreamCreateWithPriority(&out, flags, priority), "cuStreamCreateWithPriority"); err != nil {
+	out := slotStreamCreateWithPriority.get()
+	defer slotStreamCreateWithPriority.put(out)
+	if err := toError(fnstreamCreateWithPriority(out, flags, priority), "cuStreamCreateWithPriority"); err != nil {
 		var zero Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamDestroy Destroys a stream.
+var slotStreamCreateWithPriority outSlot[Stream]
+
+// streamDestroy destroys a stream.
 //
 // Destroys the stream specified by hStream.
 // In case the device is still doing work in the stream hStream when [Stream.Destroy] is called, the function will return immediately and the resources associated with hStream will be released automatically once the device has completed all work in hStream.
@@ -10299,7 +13872,7 @@ func streamDestroy(hStream Stream) error {
 	return toError(fnstreamDestroy(hStream), "cuStreamDestroy_v2")
 }
 
-// streamEndCapture Ends capture on a stream, returning the captured graph.
+// streamEndCapture ends capture on a stream, returning the captured graph.
 //
 // End capture on hStream, returning the captured graph via phGraph. Capture must have been initiated on hStream via a call to [Stream.BeginCapture]. If capture was invalidated, due to a violation of the rules of stream capture, then a NULL graph will be returned.
 // If the mode argument to [Stream.BeginCapture] was not [StreamCaptureModeRelaxed], this call must be from the same thread as [Stream.BeginCapture].
@@ -10316,15 +13889,18 @@ func streamEndCapture(hStream Stream) (Graph, error) {
 		var zero Graph
 		return zero, err
 	}
-	var out Graph
-	if err := toError(fnstreamEndCapture(hStream, &out), "cuStreamEndCapture"); err != nil {
+	out := slotStreamEndCapture.get()
+	defer slotStreamEndCapture.put(out)
+	if err := toError(fnstreamEndCapture(hStream, out), "cuStreamEndCapture"); err != nil {
 		var zero Graph
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamEndCaptureToCig Ends CIG capture on a stream.
+var slotStreamEndCapture outSlot[Graph]
+
+// streamEndCaptureToCig ends CIG capture on a stream.
 //
 // End CIG capture on hStream. Capture must have been initiated on hStream via a call to [Stream.BeginCaptureToCig]. Once this function is called, hStream will exit CIG capture mode and return to its original state, thus removing all CIG stream restrictions. Also, the command list/command buffer that was associated with hStream in the previous call to [Stream.BeginCaptureToCig] is now allowed to be submitted for execution on the graphics API. However, the stream may not be destroyed until execution of the command list is fully done on the GPU. This requirements extends also to all streams dependant on the CIG stream (e.g. via event waits).
 //
@@ -10342,7 +13918,7 @@ func streamEndCaptureToCig(hStream Stream) error {
 	return toError(fnstreamEndCaptureToCig(hStream), "cuStreamEndCaptureToCig")
 }
 
-// streamGetAttribute Queries stream attribute.
+// streamGetAttribute queries stream attribute.
 //
 // Queries attribute attr from hStream and stores it in corresponding member of valueOut.
 //
@@ -10356,15 +13932,18 @@ func streamGetAttribute(hStream Stream, attr int32) ([8]uint64, error) {
 		var zero [8]uint64
 		return zero, err
 	}
-	var out [8]uint64
-	if err := toError(fnstreamGetAttribute(hStream, attr, &out), "cuStreamGetAttribute"); err != nil {
+	out := slotStreamGetAttribute.get()
+	defer slotStreamGetAttribute.put(out)
+	if err := toError(fnstreamGetAttribute(hStream, attr, out), "cuStreamGetAttribute"); err != nil {
 		var zero [8]uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamGetCaptureInfo Query a stream’s capture state.
+var slotStreamGetAttribute outSlot[[8]uint64]
+
+// streamGetCaptureInfo queries a stream’s capture state.
 //
 // Query stream state related to stream capture.
 // If called on CU_STREAM_LEGACY (the “null stream”) while a stream not created with [StreamNonBlocking] is capturing, returns [ErrStreamCaptureImplicit].
@@ -10393,7 +13972,7 @@ func streamGetCaptureInfo(hStream Stream, captureStatusOut *StreamCaptureStatus,
 	return toError(fnstreamGetCaptureInfo(hStream, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut), "cuStreamGetCaptureInfo_v3")
 }
 
-// streamGetCtx Query the contexts associated with a stream.
+// streamGetCtx queries the contexts associated with a stream.
 //
 // Returns the contexts that the stream is associated with.
 // If the stream is associated with a green context, the API returns the green context in pGreenCtx and the primary context of the associated device in pCtx.
@@ -10411,15 +13990,20 @@ func streamGetCtx(hStream Stream) (pCtx Context, pGreenCtx GreenCtx, err error) 
 	if err := checkLibSym("cuStreamGetCtx_v2"); err != nil {
 		return 0, 0, err
 	}
-	var out1 Context
-	var out2 GreenCtx
-	if err := toError(fnstreamGetCtx(hStream, &out1, &out2), "cuStreamGetCtx_v2"); err != nil {
+	outs := slotStreamGetCtx.get()
+	defer slotStreamGetCtx.put(outs)
+	if err := toError(fnstreamGetCtx(hStream, &outs.out1, &outs.out2), "cuStreamGetCtx_v2"); err != nil {
 		return 0, 0, err
 	}
-	return out1, out2, nil
+	return outs.out1, outs.out2, nil
 }
 
-// streamGetDevResource Get stream resources.
+var slotStreamGetCtx outSlot[struct {
+	out1 Context
+	out2 GreenCtx
+}]
+
+// streamGetDevResource gets stream resources.
 //
 // Get the type resources available to the hStream and store them in resource.
 //
@@ -10438,15 +14022,18 @@ func streamGetDevResource(hStream Stream, type_ DevResourceType) (DevResource, e
 		var zero DevResource
 		return zero, err
 	}
-	var out DevResource
-	if err := toError(fnstreamGetDevResource(hStream, &out, type_), "cuStreamGetDevResource"); err != nil {
+	out := slotStreamGetDevResource.get()
+	defer slotStreamGetDevResource.put(out)
+	if err := toError(fnstreamGetDevResource(hStream, out, type_), "cuStreamGetDevResource"); err != nil {
 		var zero DevResource
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamGetDevice Returns the device handle of the stream.
+var slotStreamGetDevResource outSlot[DevResource]
+
+// streamGetDevice returns the device handle of the stream.
 //
 // Returns in *device the device handle of the stream
 //
@@ -10462,15 +14049,18 @@ func streamGetDevice(hStream Stream) (Device, error) {
 		var zero Device
 		return zero, err
 	}
-	var out Device
-	if err := toError(fnstreamGetDevice(hStream, &out), "cuStreamGetDevice"); err != nil {
+	out := slotStreamGetDevice.get()
+	defer slotStreamGetDevice.put(out)
+	if err := toError(fnstreamGetDevice(hStream, out), "cuStreamGetDevice"); err != nil {
 		var zero Device
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamGetFlags Query the flags of a given stream.
+var slotStreamGetDevice outSlot[Device]
+
+// streamGetFlags queries the flags of a given stream.
 //
 // Query the flags of a stream created using [NewStream], [StreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the flags in flags.
 //
@@ -10486,15 +14076,18 @@ func streamGetFlags(hStream Stream) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fnstreamGetFlags(hStream, &out), "cuStreamGetFlags"); err != nil {
+	out := slotStreamGetFlags.get()
+	defer slotStreamGetFlags.put(out)
+	if err := toError(fnstreamGetFlags(hStream, out), "cuStreamGetFlags"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamGetGreenCtx Query the green context associated with a stream.
+var slotStreamGetFlags outSlot[uint32]
+
+// streamGetGreenCtx queries the green context associated with a stream.
 //
 // Returns the CUDA green context that the stream is associated with, or NULL if the stream is not associated with any green context.
 // The stream handle hStream can refer to any of the following:
@@ -10512,15 +14105,18 @@ func streamGetGreenCtx(hStream Stream) (GreenCtx, error) {
 		var zero GreenCtx
 		return zero, err
 	}
-	var out GreenCtx
-	if err := toError(fnstreamGetGreenCtx(hStream, &out), "cuStreamGetGreenCtx"); err != nil {
+	out := slotStreamGetGreenCtx.get()
+	defer slotStreamGetGreenCtx.put(out)
+	if err := toError(fnstreamGetGreenCtx(hStream, out), "cuStreamGetGreenCtx"); err != nil {
 		var zero GreenCtx
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamGetId Returns the unique Id associated with the stream handle supplied.
+var slotStreamGetGreenCtx outSlot[GreenCtx]
+
+// streamGetId returns the unique Id associated with the stream handle supplied.
 //
 // Returns in streamId the unique Id which is associated with the given stream handle. The Id is unique for the life of the program.
 // The stream handle hStream can refer to any of the following:
@@ -10537,15 +14133,18 @@ func streamGetId(hStream Stream) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnstreamGetId(hStream, &out), "cuStreamGetId"); err != nil {
+	out := slotStreamGetId.get()
+	defer slotStreamGetId.put(out)
+	if err := toError(fnstreamGetId(hStream, out), "cuStreamGetId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamGetPriority Query the priority of a given stream.
+var slotStreamGetId outSlot[uint64]
+
+// streamGetPriority queries the priority of a given stream.
 //
 // Query the priority of a stream created using [NewStream], [StreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the priority in priority. Note that if the stream was created with a priority outside the numerical range returned by [CtxGetStreamPriorityRange], this function returns the clamped priority. See [StreamCreateWithPriority] for details about priority clamping.
 //
@@ -10561,15 +14160,18 @@ func streamGetPriority(hStream Stream) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnstreamGetPriority(hStream, &out), "cuStreamGetPriority"); err != nil {
+	out := slotStreamGetPriority.get()
+	defer slotStreamGetPriority.put(out)
+	if err := toError(fnstreamGetPriority(hStream, out), "cuStreamGetPriority"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamIsCapturing Returns a stream’s capture status.
+var slotStreamGetPriority outSlot[int32]
+
+// streamIsCapturing returns a stream’s capture status.
 //
 // Return the capture status of hStream via captureStatus. After a successful call, *captureStatus will contain one of the following:
 // Note that, if this is called on CU_STREAM_LEGACY (the “null stream”) while a blocking stream in the same context is capturing, it will return [ErrStreamCaptureImplicit] and *captureStatus is unspecified after the call. The blocking stream capture is not invalidated.
@@ -10587,15 +14189,18 @@ func streamIsCapturing(hStream Stream) (StreamCaptureStatus, error) {
 		var zero StreamCaptureStatus
 		return zero, err
 	}
-	var out StreamCaptureStatus
-	if err := toError(fnstreamIsCapturing(hStream, &out), "cuStreamIsCapturing"); err != nil {
+	out := slotStreamIsCapturing.get()
+	defer slotStreamIsCapturing.put(out)
+	if err := toError(fnstreamIsCapturing(hStream, out), "cuStreamIsCapturing"); err != nil {
 		var zero StreamCaptureStatus
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// streamQuery Determine status of a compute stream.
+var slotStreamIsCapturing outSlot[StreamCaptureStatus]
+
+// streamQuery determines status of a compute stream.
 //
 // Returns [Success] if all operations in the stream specified by hStream have completed, or [ErrNotReady] if not.
 // For the purposes of Unified Memory, a return value of [Success] is equivalent to having called [Stream.Synchronize].
@@ -10616,7 +14221,7 @@ func streamQuery(hStream Stream) error {
 	return toError(fnstreamQuery(hStream), "cuStreamQuery")
 }
 
-// streamSetAttribute Sets stream attribute.
+// streamSetAttribute sets stream attribute.
 //
 // Sets attribute attr on hStream from corresponding attribute of value. The updated attribute will be applied to subsequent work submitted to the stream. It will not affect previously submitted work.
 //
@@ -10632,7 +14237,7 @@ func streamSetAttribute(hStream Stream, attr int32, value *[8]uint64) error {
 	return toError(fnstreamSetAttribute(hStream, attr, value), "cuStreamSetAttribute")
 }
 
-// streamSynchronize Wait until a stream’s tasks are completed.
+// streamSynchronize waits until a stream’s tasks are completed.
 //
 // Waits until the device has completed all operations in the stream specified by hStream. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the stream is finished with all of its tasks.
 //
@@ -10652,7 +14257,7 @@ func streamSynchronize(hStream Stream) error {
 	return toError(fnstreamSynchronize(hStream), "cuStreamSynchronize")
 }
 
-// streamUpdateCaptureDependencies Update the set of dependencies in a capturing stream.
+// streamUpdateCaptureDependencies updates the set of dependencies in a capturing stream.
 //
 // Modifies the dependency set of a capturing stream. The dependency set is the set of nodes that the next captured node in the stream will depend on along with the edge data for those dependencies.
 // Valid flags are [StreamAddCaptureDependencies] and [StreamSetCaptureDependencies]. These control whether the set passed to the API is added to the existing set or replaces it. A flags value of 0 defaults to [StreamAddCaptureDependencies].
@@ -10675,7 +14280,7 @@ func streamUpdateCaptureDependencies(hStream Stream, dependencies *GraphNode, de
 	return toError(fnstreamUpdateCaptureDependencies(hStream, dependencies, dependencyData, numDependencies, uint32(flags)), "cuStreamUpdateCaptureDependencies_v2")
 }
 
-// streamWaitEvent Make a compute stream wait on an event.
+// streamWaitEvent makes a compute stream wait on an event.
 //
 // Makes all future work submitted to hStream wait for all work captured in hEvent. See [Event.Record] for details on what is captured by an event. The synchronization will be performed efficiently on the device when applicable. hEvent may be from a different context or device than hStream.
 // flags include:
@@ -10698,7 +14303,7 @@ func streamWaitEvent(hStream Stream, hEvent Event, flags EventWaitFlags) error {
 	return toError(fnstreamWaitEvent(hStream, hEvent, uint32(flags)), "cuStreamWaitEvent")
 }
 
-// streamWaitValue32 Wait on a memory location.
+// streamWaitValue32 waits on a memory location.
 //
 // Enqueues a synchronization of the stream on the given memory location. Work ordered after the operation will block until the given condition on the memory is satisfied. By default, the condition is to wait for (int32_t)(*addr - value) >= 0, a cyclic greater-or-equal. Other condition types can be specified via flags.
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer]. This function cannot be used with managed memory ( [MemAllocManaged]).
@@ -10723,7 +14328,7 @@ func streamWaitValue32(stream Stream, addr DevicePtr, value uint32, flags Stream
 	return toError(fnstreamWaitValue32(stream, addr, value, uint32(flags)), "cuStreamWaitValue32_v2")
 }
 
-// streamWaitValue64 Wait on a memory location.
+// streamWaitValue64 waits on a memory location.
 //
 // Enqueues a synchronization of the stream on the given memory location. Work ordered after the operation will block until the given condition on the memory is satisfied. By default, the condition is to wait for (int64_t)(*addr - value) >= 0, a cyclic greater-or-equal. Other condition types can be specified via flags.
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer].
@@ -10748,7 +14353,7 @@ func streamWaitValue64(stream Stream, addr DevicePtr, value uint64, flags Stream
 	return toError(fnstreamWaitValue64(stream, addr, value, uint32(flags)), "cuStreamWaitValue64_v2")
 }
 
-// streamWriteValue32 Write a value to memory.
+// streamWriteValue32 writes a value to memory.
 //
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer]. This function cannot be used with managed memory ( [MemAllocManaged]).
 //
@@ -10769,7 +14374,7 @@ func streamWriteValue32(stream Stream, addr DevicePtr, value uint32, flags Strea
 	return toError(fnstreamWriteValue32(stream, addr, value, uint32(flags)), "cuStreamWriteValue32_v2")
 }
 
-// streamWriteValue64 Write a value to memory.
+// streamWriteValue64 writes a value to memory.
 //
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer].
 // Support for this can be queried with [Device.Attribute] and [DevAttrCanUse64BitStreamMemOps].
@@ -10791,7 +14396,7 @@ func streamWriteValue64(stream Stream, addr DevicePtr, value uint64, flags Strea
 	return toError(fnstreamWriteValue64(stream, addr, value, uint32(flags)), "cuStreamWriteValue64_v2")
 }
 
-// SurfObjectCreate Creates a surface object.
+// SurfObjectCreate creates a surface object.
 //
 // Creates a surface object and returns it in pSurfObject. pResDesc describes the data to perform surface load/stores on. [ResourceDesc].resType must be [ResourceTypeArray] and [ResourceDesc].resarray.hArray must be set to a valid CUDA array handle. [ResourceDesc].flags must be set to zero.
 // Surface objects are only supported on devices of compute capability 3.0 or higher. Additionally, a surface object is an opaque value, and, as such, should only be accessed through CUDA API calls.
@@ -10806,15 +14411,18 @@ func SurfObjectCreate(pResDesc *ResourceDesc) (uint64, error) {
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnSurfObjectCreate(&out, pResDesc), "cuSurfObjectCreate"); err != nil {
+	out := slotSurfObjectCreate.get()
+	defer slotSurfObjectCreate.put(out)
+	if err := toError(fnSurfObjectCreate(out, pResDesc), "cuSurfObjectCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// SurfObjectDestroy Destroys a surface object.
+var slotSurfObjectCreate outSlot[uint64]
+
+// SurfObjectDestroy destroys a surface object.
 //
 // Destroys the surface object specified by surfObject.
 //
@@ -10830,7 +14438,7 @@ func SurfObjectDestroy(surfObject uint64) error {
 	return toError(fnSurfObjectDestroy(surfObject), "cuSurfObjectDestroy")
 }
 
-// SurfObjectGetResourceDesc Returns a surface object’s resource descriptor.
+// SurfObjectGetResourceDesc returns a surface object’s resource descriptor.
 //
 // Returns the resource descriptor for the surface object specified by surfObject.
 //
@@ -10844,15 +14452,18 @@ func SurfObjectGetResourceDesc(surfObject uint64) (ResourceDesc, error) {
 		var zero ResourceDesc
 		return zero, err
 	}
-	var out ResourceDesc
-	if err := toError(fnSurfObjectGetResourceDesc(&out, surfObject), "cuSurfObjectGetResourceDesc"); err != nil {
+	out := slotSurfObjectGetResourceDesc.get()
+	defer slotSurfObjectGetResourceDesc.put(out)
+	if err := toError(fnSurfObjectGetResourceDesc(out, surfObject), "cuSurfObjectGetResourceDesc"); err != nil {
 		var zero ResourceDesc
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// surfRefGetArray Passes back the CUDA array bound to a surface reference.
+var slotSurfObjectGetResourceDesc outSlot[ResourceDesc]
+
+// surfRefGetArray passes back the CUDA array bound to a surface reference.
 //
 // Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array.
 //
@@ -10860,7 +14471,7 @@ func SurfObjectGetResourceDesc(surfObject uint64) (ResourceDesc, error) {
 //
 //   - hSurfRef: Surface reference handle
 //
-// Deprecated: Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuSurfRefGetArray.
 func surfRefGetArray(hSurfRef SurfRef) (Array, error) {
@@ -10868,15 +14479,18 @@ func surfRefGetArray(hSurfRef SurfRef) (Array, error) {
 		var zero Array
 		return zero, err
 	}
-	var out Array
-	if err := toError(fnsurfRefGetArray(&out, hSurfRef), "cuSurfRefGetArray"); err != nil {
+	out := slotSurfRefGetArray.get()
+	defer slotSurfRefGetArray.put(out)
+	if err := toError(fnsurfRefGetArray(out, hSurfRef), "cuSurfRefGetArray"); err != nil {
 		var zero Array
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// surfRefSetArray Sets the CUDA array for a surface reference.
+var slotSurfRefGetArray outSlot[Array]
+
+// surfRefSetArray sets the CUDA array for a surface reference.
 //
 // Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound.
 //
@@ -10886,7 +14500,7 @@ func surfRefGetArray(hSurfRef SurfRef) (Array, error) {
 //   - hArray: CUDA array handle
 //   - flags: set to 0
 //
-// Deprecated: Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuSurfRefSetArray.
 func surfRefSetArray(hSurfRef SurfRef, hArray Array, flags uint32) error {
@@ -10896,7 +14510,7 @@ func surfRefSetArray(hSurfRef SurfRef, hArray Array, flags uint32) error {
 	return toError(fnsurfRefSetArray(hSurfRef, hArray, flags), "cuSurfRefSetArray")
 }
 
-// TensorMapEncodeIm2col Create a tensor map descriptor object representing im2col memory region.
+// TensorMapEncodeIm2col creates a tensor map descriptor object representing im2col memory region.
 //
 // Creates a descriptor for Tensor Memory Access (TMA) object specified by the parameters describing a im2col memory layout and returns it in tensorMap.
 // Tensor map objects are only supported on devices of compute capability 9.0 or higher. Additionally, a tensor map object is an opaque value, and, as such, should only be accessed through CUDA APIs and PTX.
@@ -10932,7 +14546,7 @@ func TensorMapEncodeIm2col(tensorMap *TensorMap, tensorDataType TensorMapDataTyp
 	return toError(fnTensorMapEncodeIm2col(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, pixelBoxLowerCorner, pixelBoxUpperCorner, channelsPerPixel, pixelsPerColumn, elementStrides, interleave, swizzle, l2Promotion, oobFill), "cuTensorMapEncodeIm2col")
 }
 
-// TensorMapEncodeIm2colWide Create a tensor map descriptor object representing im2col memory region, but where the elements are exclusively loaded along the W dimension.
+// TensorMapEncodeIm2colWide creates a tensor map descriptor object representing im2col memory region, but where the elements are exclusively loaded along the W dimension.
 //
 // Creates a descriptor for Tensor Memory Access (TMA) object specified by the parameters describing a im2col memory layout and where the row is always loaded along the W dimensuin and returns it in tensorMap. This assumes the tensor layout in memory is either NDHWC, NHWC, or NWC.
 // This API is only supported on devices of compute capability 10.0 or higher. Additionally, a tensor map object is an opaque value, and, as such, should only be accessed through CUDA APIs and PTX.
@@ -10975,7 +14589,7 @@ func TensorMapEncodeIm2colWide(tensorMap *TensorMap, tensorDataType TensorMapDat
 	return toError(fnTensorMapEncodeIm2colWide(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, pixelBoxLowerCornerWidth, pixelBoxUpperCornerWidth, channelsPerPixel, pixelsPerColumn, elementStrides, interleave, mode, swizzle, l2Promotion, oobFill), "cuTensorMapEncodeIm2colWide")
 }
 
-// TensorMapEncodeTiled Create a tensor map descriptor object representing tiled memory region.
+// TensorMapEncodeTiled creates a tensor map descriptor object representing tiled memory region.
 //
 // Creates a descriptor for Tensor Memory Access (TMA) object specified by the parameters describing a tiled region and returns it in tensorMap.
 // Tensor map objects are only supported on devices of compute capability 9.0 or higher. Additionally, a tensor map object is an opaque value, and, as such, should only be accessed through CUDA APIs and PTX.
@@ -11012,7 +14626,7 @@ func TensorMapEncodeTiled(tensorMap *TensorMap, tensorDataType TensorMapDataType
 	return toError(fnTensorMapEncodeTiled(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, boxDim, elementStrides, interleave, swizzle, l2Promotion, oobFill), "cuTensorMapEncodeTiled")
 }
 
-// TensorMapReplaceAddress Modify an existing tensor map descriptor with an updated global address.
+// TensorMapReplaceAddress modifies an existing tensor map descriptor with an updated global address.
 //
 // Modifies the descriptor for Tensor Memory Access (TMA) object passed in tensorMap with an updated globalAddress.
 // Tensor map objects are only supported on devices of compute capability 9.0 or higher. Additionally, a tensor map object is an opaque value, and, as such, should only be accessed through CUDA API calls.
@@ -11030,7 +14644,7 @@ func TensorMapReplaceAddress(tensorMap *TensorMap, globalAddress uintptr) error 
 	return toError(fnTensorMapReplaceAddress(tensorMap, globalAddress), "cuTensorMapReplaceAddress")
 }
 
-// TexObjectCreate Creates a texture object.
+// TexObjectCreate creates a texture object.
 //
 // Creates a texture object and returns it in pTexObject. pResDesc describes the data to texture from. pTexDesc describes how the data should be sampled. pResViewDesc is an optional argument that specifies an alternate format for the data described by pResDesc, and also describes the subresource region to restrict access to when texturing. pResViewDesc can only be specified if the type of resource is a CUDA array or a CUDA mipmapped array not in a block compressed format.
 // Texture objects are only supported on devices of compute capability 3.0 or higher. Additionally, a texture object is an opaque value, and, as such, should only be accessed through CUDA API calls.
@@ -11059,15 +14673,18 @@ func TexObjectCreate(pResDesc *ResourceDesc, pTexDesc *TextureDesc, pResViewDesc
 		var zero uint64
 		return zero, err
 	}
-	var out uint64
-	if err := toError(fnTexObjectCreate(&out, pResDesc, pTexDesc, pResViewDesc), "cuTexObjectCreate"); err != nil {
+	out := slotTexObjectCreate.get()
+	defer slotTexObjectCreate.put(out)
+	if err := toError(fnTexObjectCreate(out, pResDesc, pTexDesc, pResViewDesc), "cuTexObjectCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// TexObjectDestroy Destroys a texture object.
+var slotTexObjectCreate outSlot[uint64]
+
+// TexObjectDestroy destroys a texture object.
 //
 // Destroys the texture object specified by texObject.
 //
@@ -11083,7 +14700,7 @@ func TexObjectDestroy(texObject uint64) error {
 	return toError(fnTexObjectDestroy(texObject), "cuTexObjectDestroy")
 }
 
-// TexObjectGetResourceDesc Returns a texture object’s resource descriptor.
+// TexObjectGetResourceDesc returns a texture object’s resource descriptor.
 //
 // Returns the resource descriptor for the texture object specified by texObject.
 //
@@ -11097,15 +14714,18 @@ func TexObjectGetResourceDesc(texObject uint64) (ResourceDesc, error) {
 		var zero ResourceDesc
 		return zero, err
 	}
-	var out ResourceDesc
-	if err := toError(fnTexObjectGetResourceDesc(&out, texObject), "cuTexObjectGetResourceDesc"); err != nil {
+	out := slotTexObjectGetResourceDesc.get()
+	defer slotTexObjectGetResourceDesc.put(out)
+	if err := toError(fnTexObjectGetResourceDesc(out, texObject), "cuTexObjectGetResourceDesc"); err != nil {
 		var zero ResourceDesc
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// TexObjectGetResourceViewDesc Returns a texture object’s resource view descriptor.
+var slotTexObjectGetResourceDesc outSlot[ResourceDesc]
+
+// TexObjectGetResourceViewDesc returns a texture object’s resource view descriptor.
 //
 // Returns the resource view descriptor for the texture object specified by texObject. If no resource view was set for texObject, the [ErrInvalidValue] is returned.
 //
@@ -11119,15 +14739,18 @@ func TexObjectGetResourceViewDesc(texObject uint64) (ResourceViewDesc, error) {
 		var zero ResourceViewDesc
 		return zero, err
 	}
-	var out ResourceViewDesc
-	if err := toError(fnTexObjectGetResourceViewDesc(&out, texObject), "cuTexObjectGetResourceViewDesc"); err != nil {
+	out := slotTexObjectGetResourceViewDesc.get()
+	defer slotTexObjectGetResourceViewDesc.put(out)
+	if err := toError(fnTexObjectGetResourceViewDesc(out, texObject), "cuTexObjectGetResourceViewDesc"); err != nil {
 		var zero ResourceViewDesc
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// TexObjectGetTextureDesc Returns a texture object’s texture descriptor.
+var slotTexObjectGetResourceViewDesc outSlot[ResourceViewDesc]
+
+// TexObjectGetTextureDesc returns a texture object’s texture descriptor.
 //
 // Returns the texture descriptor for the texture object specified by texObject.
 //
@@ -11141,21 +14764,24 @@ func TexObjectGetTextureDesc(texObject uint64) (TextureDesc, error) {
 		var zero TextureDesc
 		return zero, err
 	}
-	var out TextureDesc
-	if err := toError(fnTexObjectGetTextureDesc(&out, texObject), "cuTexObjectGetTextureDesc"); err != nil {
+	out := slotTexObjectGetTextureDesc.get()
+	defer slotTexObjectGetTextureDesc.put(out)
+	if err := toError(fnTexObjectGetTextureDesc(out, texObject), "cuTexObjectGetTextureDesc"); err != nil {
 		var zero TextureDesc
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefCreate Creates a texture reference.
+var slotTexObjectGetTextureDesc outSlot[TextureDesc]
+
+// texRefCreate creates a texture reference.
 //
 // Creates a texture reference and returns its handle in *pTexRef. Once created, the application must call [TexRef.SetArray] or [TexRef.SetAddress] to associate the reference with allocated memory. Other texture reference functions are used to specify the format and interpretation (addressing, filtering, etc.) to be used when the memory is read through this texture reference.
 //
 // See also: [TexRef.Destroy]
 //
-// Deprecated: Creates a texture reference and returns its handle in *pTexRef. Once created, the application must call [TexRef.SetArray] or [TexRef.SetAddress] to associate the reference with allocated memory. Other texture reference functions are used to specify the format and interpretation (addressing, filtering, etc.) to be used when the memory is read through this texture reference.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefCreate.
 func texRefCreate() (TexRef, error) {
@@ -11163,15 +14789,18 @@ func texRefCreate() (TexRef, error) {
 		var zero TexRef
 		return zero, err
 	}
-	var out TexRef
-	if err := toError(fntexRefCreate(&out), "cuTexRefCreate"); err != nil {
+	out := slotTexRefCreate.get()
+	defer slotTexRefCreate.put(out)
+	if err := toError(fntexRefCreate(out), "cuTexRefCreate"); err != nil {
 		var zero TexRef
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefDestroy Destroys a texture reference.
+var slotTexRefCreate outSlot[TexRef]
+
+// texRefDestroy destroys a texture reference.
 //
 // Destroys the texture reference specified by hTexRef.
 //
@@ -11179,7 +14808,7 @@ func texRefCreate() (TexRef, error) {
 //
 //   - hTexRef: Texture reference to destroy
 //
-// Deprecated: Destroys the texture reference specified by hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefDestroy.
 func texRefDestroy(hTexRef TexRef) error {
@@ -11189,7 +14818,7 @@ func texRefDestroy(hTexRef TexRef) error {
 	return toError(fntexRefDestroy(hTexRef), "cuTexRefDestroy")
 }
 
-// texRefGetAddress Gets the address associated with a texture reference.
+// texRefGetAddress gets the address associated with a texture reference.
 //
 // Returns in *pdptr the base address bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any device memory range.
 //
@@ -11197,7 +14826,7 @@ func texRefDestroy(hTexRef TexRef) error {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns in *pdptr the base address bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any device memory range.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetAddress, bound as cuTexRefGetAddress_v2.
 func texRefGetAddress(hTexRef TexRef) (DevicePtr, error) {
@@ -11205,15 +14834,18 @@ func texRefGetAddress(hTexRef TexRef) (DevicePtr, error) {
 		var zero DevicePtr
 		return zero, err
 	}
-	var out DevicePtr
-	if err := toError(fntexRefGetAddress(&out, hTexRef), "cuTexRefGetAddress_v2"); err != nil {
+	out := slotTexRefGetAddress.get()
+	defer slotTexRefGetAddress.put(out)
+	if err := toError(fntexRefGetAddress(out, hTexRef), "cuTexRefGetAddress_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetAddressMode Gets the addressing mode used by a texture reference.
+var slotTexRefGetAddress outSlot[DevicePtr]
+
+// texRefGetAddressMode gets the addressing mode used by a texture reference.
 //
 // Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1.
 //
@@ -11222,7 +14854,7 @@ func texRefGetAddress(hTexRef TexRef) (DevicePtr, error) {
 //   - hTexRef: Texture reference
 //   - dim: Dimension
 //
-// Deprecated: Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetAddressMode.
 func texRefGetAddressMode(hTexRef TexRef, dim int32) (AddressMode, error) {
@@ -11230,15 +14862,18 @@ func texRefGetAddressMode(hTexRef TexRef, dim int32) (AddressMode, error) {
 		var zero AddressMode
 		return zero, err
 	}
-	var out AddressMode
-	if err := toError(fntexRefGetAddressMode(&out, hTexRef, dim), "cuTexRefGetAddressMode"); err != nil {
+	out := slotTexRefGetAddressMode.get()
+	defer slotTexRefGetAddressMode.put(out)
+	if err := toError(fntexRefGetAddressMode(out, hTexRef, dim), "cuTexRefGetAddressMode"); err != nil {
 		var zero AddressMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetArray Gets the array bound to a texture reference.
+var slotTexRefGetAddressMode outSlot[AddressMode]
+
+// texRefGetArray gets the array bound to a texture reference.
 //
 // Returns in *phArray the CUDA array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA array.
 //
@@ -11246,7 +14881,7 @@ func texRefGetAddressMode(hTexRef TexRef, dim int32) (AddressMode, error) {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns in *phArray the CUDA array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetArray.
 func texRefGetArray(hTexRef TexRef) (Array, error) {
@@ -11254,15 +14889,18 @@ func texRefGetArray(hTexRef TexRef) (Array, error) {
 		var zero Array
 		return zero, err
 	}
-	var out Array
-	if err := toError(fntexRefGetArray(&out, hTexRef), "cuTexRefGetArray"); err != nil {
+	out := slotTexRefGetArray.get()
+	defer slotTexRefGetArray.put(out)
+	if err := toError(fntexRefGetArray(out, hTexRef), "cuTexRefGetArray"); err != nil {
 		var zero Array
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetBorderColor Gets the border color used by a texture reference.
+var slotTexRefGetArray outSlot[Array]
+
+// texRefGetBorderColor gets the border color used by a texture reference.
 //
 // Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor [0] holds ‘R’ component pBorderColor [1] holds ‘G’ component pBorderColor [2] holds ‘B’ component pBorderColor [3] holds ‘A’ component
 //
@@ -11270,7 +14908,7 @@ func texRefGetArray(hTexRef TexRef) (Array, error) {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetBorderColor.
 func texRefGetBorderColor(hTexRef TexRef) (float32, error) {
@@ -11278,15 +14916,18 @@ func texRefGetBorderColor(hTexRef TexRef) (float32, error) {
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fntexRefGetBorderColor(&out, hTexRef), "cuTexRefGetBorderColor"); err != nil {
+	out := slotTexRefGetBorderColor.get()
+	defer slotTexRefGetBorderColor.put(out)
+	if err := toError(fntexRefGetBorderColor(out, hTexRef), "cuTexRefGetBorderColor"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetFilterMode Gets the filter-mode used by a texture reference.
+var slotTexRefGetBorderColor outSlot[float32]
+
+// texRefGetFilterMode gets the filter-mode used by a texture reference.
 //
 // Returns in *pfm the filtering mode of the texture reference hTexRef.
 //
@@ -11294,7 +14935,7 @@ func texRefGetBorderColor(hTexRef TexRef) (float32, error) {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns in *pfm the filtering mode of the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetFilterMode.
 func texRefGetFilterMode(hTexRef TexRef) (FilterMode, error) {
@@ -11302,15 +14943,18 @@ func texRefGetFilterMode(hTexRef TexRef) (FilterMode, error) {
 		var zero FilterMode
 		return zero, err
 	}
-	var out FilterMode
-	if err := toError(fntexRefGetFilterMode(&out, hTexRef), "cuTexRefGetFilterMode"); err != nil {
+	out := slotTexRefGetFilterMode.get()
+	defer slotTexRefGetFilterMode.put(out)
+	if err := toError(fntexRefGetFilterMode(out, hTexRef), "cuTexRefGetFilterMode"); err != nil {
 		var zero FilterMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetFlags Gets the flags used by a texture reference.
+var slotTexRefGetFilterMode outSlot[FilterMode]
+
+// texRefGetFlags gets the flags used by a texture reference.
 //
 // Returns in *pFlags the flags of the texture reference hTexRef.
 //
@@ -11318,7 +14962,7 @@ func texRefGetFilterMode(hTexRef TexRef) (FilterMode, error) {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns in *pFlags the flags of the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetFlags.
 func texRefGetFlags(hTexRef TexRef) (uint32, error) {
@@ -11326,15 +14970,18 @@ func texRefGetFlags(hTexRef TexRef) (uint32, error) {
 		var zero uint32
 		return zero, err
 	}
-	var out uint32
-	if err := toError(fntexRefGetFlags(&out, hTexRef), "cuTexRefGetFlags"); err != nil {
+	out := slotTexRefGetFlags.get()
+	defer slotTexRefGetFlags.put(out)
+	if err := toError(fntexRefGetFlags(out, hTexRef), "cuTexRefGetFlags"); err != nil {
 		var zero uint32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetFormat Gets the format used by a texture reference.
+var slotTexRefGetFlags outSlot[uint32]
+
+// texRefGetFormat gets the format used by a texture reference.
 //
 // Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored.
 //
@@ -11342,22 +14989,27 @@ func texRefGetFlags(hTexRef TexRef) (uint32, error) {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetFormat.
 func texRefGetFormat(hTexRef TexRef) (pFormat ArrayFormat, pNumChannels int32, err error) {
 	if err := checkLibSym("cuTexRefGetFormat"); err != nil {
 		return 0, 0, err
 	}
-	var out0 ArrayFormat
-	var out1 int32
-	if err := toError(fntexRefGetFormat(&out0, &out1, hTexRef), "cuTexRefGetFormat"); err != nil {
+	outs := slotTexRefGetFormat.get()
+	defer slotTexRefGetFormat.put(outs)
+	if err := toError(fntexRefGetFormat(&outs.out0, &outs.out1, hTexRef), "cuTexRefGetFormat"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// texRefGetMaxAnisotropy Gets the maximum anisotropy for a texture reference.
+var slotTexRefGetFormat outSlot[struct {
+	out0 ArrayFormat
+	out1 int32
+}]
+
+// texRefGetMaxAnisotropy gets the maximum anisotropy for a texture reference.
 //
 // Returns the maximum anisotropy in pmaxAniso that’s used when reading memory through the texture reference hTexRef.
 //
@@ -11365,7 +15017,7 @@ func texRefGetFormat(hTexRef TexRef) (pFormat ArrayFormat, pNumChannels int32, e
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMaxAnisotropy.
 func texRefGetMaxAnisotropy(hTexRef TexRef) (int32, error) {
@@ -11373,15 +15025,18 @@ func texRefGetMaxAnisotropy(hTexRef TexRef) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fntexRefGetMaxAnisotropy(&out, hTexRef), "cuTexRefGetMaxAnisotropy"); err != nil {
+	out := slotTexRefGetMaxAnisotropy.get()
+	defer slotTexRefGetMaxAnisotropy.put(out)
+	if err := toError(fntexRefGetMaxAnisotropy(out, hTexRef), "cuTexRefGetMaxAnisotropy"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetMipmapFilterMode Gets the mipmap filtering mode for a texture reference.
+var slotTexRefGetMaxAnisotropy outSlot[int32]
+
+// texRefGetMipmapFilterMode gets the mipmap filtering mode for a texture reference.
 //
 // Returns the mipmap filtering mode in pfm that’s used when reading memory through the texture reference hTexRef.
 //
@@ -11389,7 +15044,7 @@ func texRefGetMaxAnisotropy(hTexRef TexRef) (int32, error) {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmapFilterMode.
 func texRefGetMipmapFilterMode(hTexRef TexRef) (FilterMode, error) {
@@ -11397,15 +15052,18 @@ func texRefGetMipmapFilterMode(hTexRef TexRef) (FilterMode, error) {
 		var zero FilterMode
 		return zero, err
 	}
-	var out FilterMode
-	if err := toError(fntexRefGetMipmapFilterMode(&out, hTexRef), "cuTexRefGetMipmapFilterMode"); err != nil {
+	out := slotTexRefGetMipmapFilterMode.get()
+	defer slotTexRefGetMipmapFilterMode.put(out)
+	if err := toError(fntexRefGetMipmapFilterMode(out, hTexRef), "cuTexRefGetMipmapFilterMode"); err != nil {
 		var zero FilterMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetMipmapLevelBias Gets the mipmap level bias for a texture reference.
+var slotTexRefGetMipmapFilterMode outSlot[FilterMode]
+
+// texRefGetMipmapLevelBias gets the mipmap level bias for a texture reference.
 //
 // Returns the mipmap level bias in pBias that’s added to the specified mipmap level when reading memory through the texture reference hTexRef.
 //
@@ -11413,7 +15071,7 @@ func texRefGetMipmapFilterMode(hTexRef TexRef) (FilterMode, error) {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmapLevelBias.
 func texRefGetMipmapLevelBias(hTexRef TexRef) (float32, error) {
@@ -11421,15 +15079,18 @@ func texRefGetMipmapLevelBias(hTexRef TexRef) (float32, error) {
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fntexRefGetMipmapLevelBias(&out, hTexRef), "cuTexRefGetMipmapLevelBias"); err != nil {
+	out := slotTexRefGetMipmapLevelBias.get()
+	defer slotTexRefGetMipmapLevelBias.put(out)
+	if err := toError(fntexRefGetMipmapLevelBias(out, hTexRef), "cuTexRefGetMipmapLevelBias"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefGetMipmapLevelClamp Gets the min/max mipmap level clamps for a texture reference.
+var slotTexRefGetMipmapLevelBias outSlot[float32]
+
+// texRefGetMipmapLevelClamp gets the min/max mipmap level clamps for a texture reference.
 //
 // Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that’s used when reading memory through the texture reference hTexRef.
 //
@@ -11437,22 +15098,27 @@ func texRefGetMipmapLevelBias(hTexRef TexRef) (float32, error) {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmapLevelClamp.
 func texRefGetMipmapLevelClamp(hTexRef TexRef) (pminMipmapLevelClamp float32, pmaxMipmapLevelClamp float32, err error) {
 	if err := checkLibSym("cuTexRefGetMipmapLevelClamp"); err != nil {
 		return 0, 0, err
 	}
-	var out0 float32
-	var out1 float32
-	if err := toError(fntexRefGetMipmapLevelClamp(&out0, &out1, hTexRef), "cuTexRefGetMipmapLevelClamp"); err != nil {
+	outs := slotTexRefGetMipmapLevelClamp.get()
+	defer slotTexRefGetMipmapLevelClamp.put(outs)
+	if err := toError(fntexRefGetMipmapLevelClamp(&outs.out0, &outs.out1, hTexRef), "cuTexRefGetMipmapLevelClamp"); err != nil {
 		return 0, 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// texRefGetMipmappedArray Gets the mipmapped array bound to a texture reference.
+var slotTexRefGetMipmapLevelClamp outSlot[struct {
+	out0 float32
+	out1 float32
+}]
+
+// texRefGetMipmappedArray gets the mipmapped array bound to a texture reference.
 //
 // Returns in *phMipmappedArray the CUDA mipmapped array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA mipmapped array.
 //
@@ -11460,7 +15126,7 @@ func texRefGetMipmapLevelClamp(hTexRef TexRef) (pminMipmapLevelClamp float32, pm
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Returns in *phMipmappedArray the CUDA mipmapped array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA mipmapped array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmappedArray.
 func texRefGetMipmappedArray(hTexRef TexRef) (MipmappedArray, error) {
@@ -11468,15 +15134,18 @@ func texRefGetMipmappedArray(hTexRef TexRef) (MipmappedArray, error) {
 		var zero MipmappedArray
 		return zero, err
 	}
-	var out MipmappedArray
-	if err := toError(fntexRefGetMipmappedArray(&out, hTexRef), "cuTexRefGetMipmappedArray"); err != nil {
+	out := slotTexRefGetMipmappedArray.get()
+	defer slotTexRefGetMipmappedArray.put(out)
+	if err := toError(fntexRefGetMipmappedArray(out, hTexRef), "cuTexRefGetMipmappedArray"); err != nil {
 		var zero MipmappedArray
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefSetAddress Binds an address as a texture reference.
+var slotTexRefGetMipmappedArray outSlot[MipmappedArray]
+
+// texRefSetAddress binds an address as a texture reference.
 //
 // Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound.
 // Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress] passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function.
@@ -11489,7 +15158,7 @@ func texRefGetMipmappedArray(hTexRef TexRef) (MipmappedArray, error) {
 //   - dptr: Device pointer to bind
 //   - bytes: Size of memory to bind in bytes
 //
-// Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress] passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc], the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as (bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using [TexRef.SetFormat].
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetAddress, bound as cuTexRefSetAddress_v2.
 func texRefSetAddress(hTexRef TexRef, dptr DevicePtr, bytes uint) (uint, error) {
@@ -11497,15 +15166,18 @@ func texRefSetAddress(hTexRef TexRef, dptr DevicePtr, bytes uint) (uint, error) 
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fntexRefSetAddress(&out, hTexRef, dptr, bytes), "cuTexRefSetAddress_v2"); err != nil {
+	out := slotTexRefSetAddress.get()
+	defer slotTexRefSetAddress.put(out)
+	if err := toError(fntexRefSetAddress(out, hTexRef, dptr, bytes), "cuTexRefSetAddress_v2"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefSetAddress2D Binds an address as a 2D texture reference.
+var slotTexRefSetAddress outSlot[uint]
+
+// texRefSetAddress2D binds an address as a 2D texture reference.
 //
 // Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound.
 // Using a tex2D() function inside a kernel requires a call to either [TexRef.SetArray] to bind the corresponding texture reference to an array, or [TexRef.SetAddress2D] to bind the texture reference to linear memory.
@@ -11521,7 +15193,7 @@ func texRefSetAddress(hTexRef TexRef, dptr DevicePtr, bytes uint) (uint, error) 
 //   - dptr: Device pointer to bind
 //   - pitch: Line pitch in bytes
 //
-// Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Using a tex2D() function inside a kernel requires a call to either [TexRef.SetArray] to bind the corresponding texture reference to an array, or [TexRef.SetAddress2D] to bind the texture reference to linear memory. Function calls to [TexRef.SetFormat] cannot follow calls to [TexRef.SetAddress2D] for the same texture reference. It is required that dptr be aligned to the appropriate hardware-specific texture alignment. You can query this value using the device attribute [DevAttrTextureAlignment]. If an unaligned dptr is supplied, [ErrInvalidValue] is returned. Pitch has to be aligned to the hardware-specific texture pitch alignment. This value can be queried using the device attribute [DevAttrTexturePitchAlignment]. If an unaligned Pitch is supplied, [ErrInvalidValue] is returned. Width and Height, which are specified in elements (or texels), cannot exceed [DevAttrMaximumTexture2dLinearWidth] and [DevAttrMaximumTexture2dLinearHeight] respectively. Pitch, which is specified in bytes, cannot exceed [DevAttrMaximumTexture2dLinearPitch].
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetAddress2D, bound as cuTexRefSetAddress2D_v3.
 func texRefSetAddress2D(hTexRef TexRef, desc *ArrayDescriptor, dptr DevicePtr, pitch uint) error {
@@ -11531,7 +15203,7 @@ func texRefSetAddress2D(hTexRef TexRef, desc *ArrayDescriptor, dptr DevicePtr, p
 	return toError(fntexRefSetAddress2D(hTexRef, desc, dptr, pitch), "cuTexRefSetAddress2D_v3")
 }
 
-// texRefSetAddressMode Sets the addressing mode for a texture reference.
+// texRefSetAddressMode sets the addressing mode for a texture reference.
 //
 // Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as:
 // Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp].
@@ -11542,7 +15214,7 @@ func texRefSetAddress2D(hTexRef TexRef, desc *ArrayDescriptor, dptr DevicePtr, p
 //   - dim: Dimension
 //   - am: Addressing mode to set
 //
-// Deprecated: Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as: Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp].
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetAddressMode.
 func texRefSetAddressMode(hTexRef TexRef, dim int32, am AddressMode) error {
@@ -11552,7 +15224,7 @@ func texRefSetAddressMode(hTexRef TexRef, dim int32, am AddressMode) error {
 	return toError(fntexRefSetAddressMode(hTexRef, dim, am), "cuTexRefSetAddressMode")
 }
 
-// texRefSetArray Binds an array as a texture reference.
+// texRefSetArray binds an array as a texture reference.
 //
 // Binds the CUDA array hArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
 //
@@ -11562,7 +15234,7 @@ func texRefSetAddressMode(hTexRef TexRef, dim int32, am AddressMode) error {
 //   - hArray: Array to bind
 //   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
 //
-// Deprecated: Binds the CUDA array hArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetArray.
 func texRefSetArray(hTexRef TexRef, hArray Array, flags uint32) error {
@@ -11572,7 +15244,7 @@ func texRefSetArray(hTexRef TexRef, hArray Array, flags uint32) error {
 	return toError(fntexRefSetArray(hTexRef, hArray, flags), "cuTexRefSetArray")
 }
 
-// texRefSetBorderColor Sets the border color for a texture reference.
+// texRefSetBorderColor sets the border color for a texture reference.
 //
 // Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds ‘R’ component pBorderColor [1] holds ‘G’ component pBorderColor [2] holds ‘B’ component pBorderColor [3] holds ‘A’ component
 // Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to “reinterpret_cast” their values to float.
@@ -11581,7 +15253,7 @@ func texRefSetArray(hTexRef TexRef, hArray Array, flags uint32) error {
 //
 //   - hTexRef: Texture reference
 //
-// Deprecated: Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to "reinterpret_cast" their values to float.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetBorderColor.
 func texRefSetBorderColor(hTexRef TexRef) (float32, error) {
@@ -11589,15 +15261,18 @@ func texRefSetBorderColor(hTexRef TexRef) (float32, error) {
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fntexRefSetBorderColor(hTexRef, &out), "cuTexRefSetBorderColor"); err != nil {
+	out := slotTexRefSetBorderColor.get()
+	defer slotTexRefSetBorderColor.put(out)
+	if err := toError(fntexRefSetBorderColor(hTexRef, out), "cuTexRefSetBorderColor"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// texRefSetFilterMode Sets the filtering mode for a texture reference.
+var slotTexRefSetBorderColor outSlot[float32]
+
+// texRefSetFilterMode sets the filtering mode for a texture reference.
 //
 // Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
 // Note that this call has no effect if hTexRef is bound to linear memory.
@@ -11607,7 +15282,7 @@ func texRefSetBorderColor(hTexRef TexRef) (float32, error) {
 //   - hTexRef: Texture reference
 //   - fm: Filtering mode to set
 //
-// Deprecated: Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as: Note that this call has no effect if hTexRef is bound to linear memory.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetFilterMode.
 func texRefSetFilterMode(hTexRef TexRef, fm FilterMode) error {
@@ -11617,7 +15292,7 @@ func texRefSetFilterMode(hTexRef TexRef, fm FilterMode) error {
 	return toError(fntexRefSetFilterMode(hTexRef, fm), "cuTexRefSetFilterMode")
 }
 
-// texRefSetFlags Sets the flags for a texture reference.
+// texRefSetFlags sets the flags for a texture reference.
 //
 // Specifies optional flags via Flags to specify the behavior of data returned through the texture reference hTexRef. The valid flags are:
 //
@@ -11626,7 +15301,7 @@ func texRefSetFilterMode(hTexRef TexRef, fm FilterMode) error {
 //   - hTexRef: Texture reference
 //   - flags: Optional flags to set
 //
-// Deprecated: Specifies optional flags via Flags to specify the behavior of data returned through the texture reference hTexRef. The valid flags are: - CU_TRSF_READ_AS_INTEGER, which suppresses the default behavior of having the texture promote integer data to floating point data in the range [0, 1]. Note that texture with 32-bit integer format would not be promoted, regardless of whether or not this flag is specified; - CU_TRSF_NORMALIZED_COORDINATES, which suppresses the default behavior of having the texture coordinates range from [0, Dim) where Dim is the width or height of the CUDA array. Instead, the texture coordinates [0, 1.0) reference the entire breadth of the array dimension; - CU_TRSF_DISABLE_TRILINEAR_OPTIMIZATION, which disables any trilinear filtering optimizations. Trilinear optimizations improve texture filtering performance by allowing bilinear filtering on textures in scenarios where it can closely approximate the expected results.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetFlags.
 func texRefSetFlags(hTexRef TexRef, flags uint32) error {
@@ -11636,7 +15311,7 @@ func texRefSetFlags(hTexRef TexRef, flags uint32) error {
 	return toError(fntexRefSetFlags(hTexRef, flags), "cuTexRefSetFlags")
 }
 
-// texRefSetFormat Sets the format for a texture reference.
+// texRefSetFormat sets the format for a texture reference.
 //
 // Specifies the format of the data to be read by the texture reference hTexRef. fmt and NumPackedComponents are exactly analogous to the Format and NumChannels members of the [ArrayDescriptor] structure: They specify the format of each component and the number of components per array element.
 //
@@ -11646,7 +15321,7 @@ func texRefSetFlags(hTexRef TexRef, flags uint32) error {
 //   - fmt: Format to set
 //   - numPackedComponents: Number of components per array element
 //
-// Deprecated: Specifies the format of the data to be read by the texture reference hTexRef. fmt and NumPackedComponents are exactly analogous to the Format and NumChannels members of the [ArrayDescriptor] structure: They specify the format of each component and the number of components per array element.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetFormat.
 func texRefSetFormat(hTexRef TexRef, fmt ArrayFormat, numPackedComponents int32) error {
@@ -11656,7 +15331,7 @@ func texRefSetFormat(hTexRef TexRef, fmt ArrayFormat, numPackedComponents int32)
 	return toError(fntexRefSetFormat(hTexRef, fmt, numPackedComponents), "cuTexRefSetFormat")
 }
 
-// texRefSetMaxAnisotropy Sets the maximum anisotropy for a texture reference.
+// texRefSetMaxAnisotropy sets the maximum anisotropy for a texture reference.
 //
 // Specifies the maximum anisotropy maxAniso to be used when reading memory through the texture reference hTexRef.
 // Note that this call has no effect if hTexRef is bound to linear memory.
@@ -11666,7 +15341,7 @@ func texRefSetFormat(hTexRef TexRef, fmt ArrayFormat, numPackedComponents int32)
 //   - hTexRef: Texture reference
 //   - maxAniso: Maximum anisotropy
 //
-// Deprecated: Specifies the maximum anisotropy maxAniso to be used when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is bound to linear memory.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMaxAnisotropy.
 func texRefSetMaxAnisotropy(hTexRef TexRef, maxAniso uint32) error {
@@ -11676,7 +15351,7 @@ func texRefSetMaxAnisotropy(hTexRef TexRef, maxAniso uint32) error {
 	return toError(fntexRefSetMaxAnisotropy(hTexRef, maxAniso), "cuTexRefSetMaxAnisotropy")
 }
 
-// texRefSetMipmapFilterMode Sets the mipmap filtering mode for a texture reference.
+// texRefSetMipmapFilterMode sets the mipmap filtering mode for a texture reference.
 //
 // Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
@@ -11686,7 +15361,7 @@ func texRefSetMaxAnisotropy(hTexRef TexRef, maxAniso uint32) error {
 //   - hTexRef: Texture reference
 //   - fm: Filtering mode to set
 //
-// Deprecated: Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as: Note that this call has no effect if hTexRef is not bound to a mipmapped array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmapFilterMode.
 func texRefSetMipmapFilterMode(hTexRef TexRef, fm FilterMode) error {
@@ -11696,7 +15371,7 @@ func texRefSetMipmapFilterMode(hTexRef TexRef, fm FilterMode) error {
 	return toError(fntexRefSetMipmapFilterMode(hTexRef, fm), "cuTexRefSetMipmapFilterMode")
 }
 
-// texRefSetMipmapLevelBias Sets the mipmap level bias for a texture reference.
+// texRefSetMipmapLevelBias sets the mipmap level bias for a texture reference.
 //
 // Specifies the mipmap level bias bias to be added to the specified mipmap level when reading memory through the texture reference hTexRef.
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
@@ -11706,7 +15381,7 @@ func texRefSetMipmapFilterMode(hTexRef TexRef, fm FilterMode) error {
 //   - hTexRef: Texture reference
 //   - bias: Mipmap level bias
 //
-// Deprecated: Specifies the mipmap level bias bias to be added to the specified mipmap level when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is not bound to a mipmapped array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmapLevelBias.
 func texRefSetMipmapLevelBias(hTexRef TexRef, bias float32) error {
@@ -11716,7 +15391,7 @@ func texRefSetMipmapLevelBias(hTexRef TexRef, bias float32) error {
 	return toError(fntexRefSetMipmapLevelBias(hTexRef, bias), "cuTexRefSetMipmapLevelBias")
 }
 
-// texRefSetMipmapLevelClamp Sets the mipmap min/max mipmap level clamps for a texture reference.
+// texRefSetMipmapLevelClamp sets the mipmap min/max mipmap level clamps for a texture reference.
 //
 // Specifies the min/max mipmap level clamps, minMipmapLevelClamp and maxMipmapLevelClamp respectively, to be used when reading memory through the texture reference hTexRef.
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
@@ -11727,7 +15402,7 @@ func texRefSetMipmapLevelBias(hTexRef TexRef, bias float32) error {
 //   - minMipmapLevelClamp: Mipmap min level clamp
 //   - maxMipmapLevelClamp: Mipmap max level clamp
 //
-// Deprecated: Specifies the min/max mipmap level clamps, minMipmapLevelClamp and maxMipmapLevelClamp respectively, to be used when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is not bound to a mipmapped array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmapLevelClamp.
 func texRefSetMipmapLevelClamp(hTexRef TexRef, minMipmapLevelClamp float32, maxMipmapLevelClamp float32) error {
@@ -11737,7 +15412,7 @@ func texRefSetMipmapLevelClamp(hTexRef TexRef, minMipmapLevelClamp float32, maxM
 	return toError(fntexRefSetMipmapLevelClamp(hTexRef, minMipmapLevelClamp, maxMipmapLevelClamp), "cuTexRefSetMipmapLevelClamp")
 }
 
-// texRefSetMipmappedArray Binds a mipmapped array to a texture reference.
+// texRefSetMipmappedArray binds a mipmapped array to a texture reference.
 //
 // Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
 //
@@ -11747,7 +15422,7 @@ func texRefSetMipmapLevelClamp(hTexRef TexRef, minMipmapLevelClamp float32, maxM
 //   - hMipmappedArray: Mipmapped array to bind
 //   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
 //
-// Deprecated: Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmappedArray.
 func texRefSetMipmappedArray(hTexRef TexRef, hMipmappedArray MipmappedArray, flags uint32) error {
@@ -11757,7 +15432,7 @@ func texRefSetMipmappedArray(hTexRef TexRef, hMipmappedArray MipmappedArray, fla
 	return toError(fntexRefSetMipmappedArray(hTexRef, hMipmappedArray, flags), "cuTexRefSetMipmappedArray")
 }
 
-// ThreadExchangeStreamCaptureMode Swaps the stream capture interaction mode for a thread.
+// ThreadExchangeStreamCaptureMode swaps the stream capture interaction mode for a thread.
 //
 // Sets the calling thread’s stream capture interaction mode to the value contained in *mode, and overwrites *mode with the previous mode for the thread. To facilitate deterministic behavior across function or module boundaries, callers are encouraged to use this API in a push-pop fashion:
 // During stream capture (see [Stream.BeginCapture]), some actions, such as a call to cudaMalloc, may be unsafe. In the case of cudaMalloc, the operation is not enqueued asynchronously to a stream, and is not observed by stream capture. Therefore, if the sequence of operations captured via [Stream.BeginCapture] depended on the allocation being replayed whenever the graph is launched, the captured graph would be invalid.
@@ -11778,7 +15453,7 @@ func ThreadExchangeStreamCaptureMode(mode *StreamCaptureMode) error {
 	return toError(fnThreadExchangeStreamCaptureMode(mode), "cuThreadExchangeStreamCaptureMode")
 }
 
-// userObjectCreate Create a user object.
+// userObjectCreate creates a user object.
 //
 // Create a user object with the specified destructor callback and initial reference count. The initial references are owned by the caller.
 // Destructor callbacks cannot make CUDA API calls and should avoid blocking behavior, as they are executed by a shared internal thread. Another thread may be signaled to perform such actions, if it does not block forward progress of tasks scheduled through CUDA.
@@ -11797,15 +15472,18 @@ func userObjectCreate(ptr uintptr, destroy uintptr, initialRefcount uint32, flag
 		var zero UserObject
 		return zero, err
 	}
-	var out UserObject
-	if err := toError(fnuserObjectCreate(&out, ptr, destroy, initialRefcount, uint32(flags)), "cuUserObjectCreate"); err != nil {
+	out := slotUserObjectCreate.get()
+	defer slotUserObjectCreate.put(out)
+	if err := toError(fnuserObjectCreate(out, ptr, destroy, initialRefcount, uint32(flags)), "cuUserObjectCreate"); err != nil {
 		var zero UserObject
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// userObjectRelease Release a reference to a user object.
+var slotUserObjectCreate outSlot[UserObject]
+
+// userObjectRelease releases a reference to a user object.
 //
 // Releases user object references owned by the caller. The object’s destructor is invoked if the reference count reaches zero.
 // It is undefined behavior to release references not owned by the caller, or to use a user object handle after all references are released.
@@ -11824,7 +15502,7 @@ func userObjectRelease(object UserObject, count uint32) error {
 	return toError(fnuserObjectRelease(object, count), "cuUserObjectRelease")
 }
 
-// userObjectRetain Retain a reference to a user object.
+// userObjectRetain retains a reference to a user object.
 //
 // Retains new references to a user object. The new references are owned by the caller.
 // See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects.
@@ -11842,7 +15520,7 @@ func userObjectRetain(object UserObject, count uint32) error {
 	return toError(fnuserObjectRetain(object, count), "cuUserObjectRetain")
 }
 
-// waitExternalSemaphoresAsync Waits on a set of external semaphore objects.
+// waitExternalSemaphoresAsync waits on a set of external semaphore objects.
 //
 // Enqueues a wait operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete.
 // The exact semantics of waiting on a semaphore depends on the type of the object.

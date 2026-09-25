@@ -61,11 +61,12 @@ func configGet(config Config, param ConfigParam, value unsafe.Pointer, size uint
 	if err := checkLibSym("cudssConfigGet"); err != nil {
 		return 0, err
 	}
-	var written uint
-	if err := toError(fnConfigGet(config, param, value, uint(size), &written), "cudssConfigGet"); err != nil {
+	written := slotWritten.get()
+	defer slotWritten.put(written)
+	if err := toError(fnConfigGet(config, param, value, uint(size), written), "cudssConfigGet"); err != nil {
 		return 0, err
 	}
-	return uintptr(written), nil
+	return uintptr(*written), nil
 }
 
 // dataSet writes size bytes from value into the data parameter param.
@@ -82,12 +83,19 @@ func dataGet(handle Handle, data Data, param DataParam, value unsafe.Pointer, si
 	if err := checkLibSym("cudssDataGet"); err != nil {
 		return 0, err
 	}
-	var written uint
-	if err := toError(fnDataGet(handle, data, param, value, uint(size), &written), "cudssDataGet"); err != nil {
+	written := slotWritten.get()
+	defer slotWritten.put(written)
+	if err := toError(fnDataGet(handle, data, param, value, uint(size), written), "cudssDataGet"); err != nil {
 		return 0, err
 	}
-	return uintptr(written), nil
+	return uintptr(*written), nil
 }
+
+// slotWritten pools the cell the library reports a byte count in. The
+// accessors below pool their values the same way: storage whose address
+// reaches the library moves to the heap, so a local would cost an
+// allocation per call.
+var slotWritten outSlot[uint]
 
 // ParamElement is the set of element types a cuDSS array parameter can have.
 //
@@ -196,11 +204,12 @@ func DataArrayAt(handle Handle, data Data, param DataParam, addr uintptr, size u
 	if err := bindAddrFuncs(); err != nil {
 		return 0, err
 	}
-	var written uint
-	if err := toError(fnDataGetAddr(handle, data, param, addr, uint(size), &written), "cudssDataGet"); err != nil {
+	written := slotWritten.get()
+	defer slotWritten.put(written)
+	if err := toError(fnDataGetAddr(handle, data, param, addr, uint(size), written), "cudssDataGet"); err != nil {
 		return 0, err
 	}
-	return uintptr(written), nil
+	return uintptr(*written), nil
 }
 
 // SetDataArrayAt writes an array-valued data parameter from size bytes at
@@ -220,551 +229,701 @@ func SetDataArrayAt(handle Handle, data Data, param DataParam, addr uintptr, siz
 //
 // It writes ReorderingAlg (cudssReorderingAlg_t) to CUDSS_CONFIG_REORDERING_ALG.
 func (c Config) SetReorderingAlg(v ReorderingAlg) error {
-	return configSet(c, ConfigReorderingAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigReorderingAlg.get()
+	defer slotParamConfigReorderingAlg.put(p)
+	*p = v
+	return configSet(c, ConfigReorderingAlg, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // ReorderingAlg reports the reordering algorithm used to reduce fill-in.
 //
 // It reads ReorderingAlg (cudssReorderingAlg_t) from CUDSS_CONFIG_REORDERING_ALG.
 func (c Config) ReorderingAlg() (ReorderingAlg, error) {
-	var v ReorderingAlg
-	n, err := configGet(c, ConfigReorderingAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigReorderingAlg.get()
+	defer slotParamConfigReorderingAlg.put(p)
+	n, err := configGet(c, ConfigReorderingAlg, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_REORDERING_ALG", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_REORDERING_ALG", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigReorderingAlg outSlot[ReorderingAlg]
 
 // SetFactorizationAlg sets the factorization algorithm.
 //
 // It writes FactorizationAlg (cudssFactorizationAlg_t) to CUDSS_CONFIG_FACTORIZATION_ALG.
 func (c Config) SetFactorizationAlg(v FactorizationAlg) error {
-	return configSet(c, ConfigFactorizationAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigFactorizationAlg.get()
+	defer slotParamConfigFactorizationAlg.put(p)
+	*p = v
+	return configSet(c, ConfigFactorizationAlg, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // FactorizationAlg reports the factorization algorithm.
 //
 // It reads FactorizationAlg (cudssFactorizationAlg_t) from CUDSS_CONFIG_FACTORIZATION_ALG.
 func (c Config) FactorizationAlg() (FactorizationAlg, error) {
-	var v FactorizationAlg
-	n, err := configGet(c, ConfigFactorizationAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigFactorizationAlg.get()
+	defer slotParamConfigFactorizationAlg.put(p)
+	n, err := configGet(c, ConfigFactorizationAlg, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_FACTORIZATION_ALG", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_FACTORIZATION_ALG", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigFactorizationAlg outSlot[FactorizationAlg]
 
 // SetSolveAlg sets the solve algorithm.
 //
 // It writes SolveAlg (cudssSolveAlg_t) to CUDSS_CONFIG_SOLVE_ALG.
 func (c Config) SetSolveAlg(v SolveAlg) error {
-	return configSet(c, ConfigSolveAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigSolveAlg.get()
+	defer slotParamConfigSolveAlg.put(p)
+	*p = v
+	return configSet(c, ConfigSolveAlg, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // SolveAlg reports the solve algorithm.
 //
 // It reads SolveAlg (cudssSolveAlg_t) from CUDSS_CONFIG_SOLVE_ALG.
 func (c Config) SolveAlg() (SolveAlg, error) {
-	var v SolveAlg
-	n, err := configGet(c, ConfigSolveAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigSolveAlg.get()
+	defer slotParamConfigSolveAlg.put(p)
+	n, err := configGet(c, ConfigSolveAlg, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_SOLVE_ALG", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_SOLVE_ALG", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigSolveAlg outSlot[SolveAlg]
 
 // SetPivotEpsilonAlg sets how the pivot epsilon replacement value is computed.
 //
 // It writes PivotEpsilonAlg (cudssPivotEpsilonAlg_t) to CUDSS_CONFIG_PIVOT_EPSILON_ALG.
 func (c Config) SetPivotEpsilonAlg(v PivotEpsilonAlg) error {
-	return configSet(c, ConfigPivotEpsilonAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigPivotEpsilonAlg.get()
+	defer slotParamConfigPivotEpsilonAlg.put(p)
+	*p = v
+	return configSet(c, ConfigPivotEpsilonAlg, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // PivotEpsilonAlg reports how the pivot epsilon replacement value is computed.
 //
 // It reads PivotEpsilonAlg (cudssPivotEpsilonAlg_t) from CUDSS_CONFIG_PIVOT_EPSILON_ALG.
 func (c Config) PivotEpsilonAlg() (PivotEpsilonAlg, error) {
-	var v PivotEpsilonAlg
-	n, err := configGet(c, ConfigPivotEpsilonAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigPivotEpsilonAlg.get()
+	defer slotParamConfigPivotEpsilonAlg.put(p)
+	n, err := configGet(c, ConfigPivotEpsilonAlg, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_PIVOT_EPSILON_ALG", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_PIVOT_EPSILON_ALG", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigPivotEpsilonAlg outSlot[PivotEpsilonAlg]
 
 // SetMatchingAlg sets the matching algorithm; matching is disabled by default.
 //
 // It writes MatchingAlg (cudssMatchingAlg_t) to CUDSS_CONFIG_MATCHING_ALG.
 func (c Config) SetMatchingAlg(v MatchingAlg) error {
-	return configSet(c, ConfigMatchingAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigMatchingAlg.get()
+	defer slotParamConfigMatchingAlg.put(p)
+	*p = v
+	return configSet(c, ConfigMatchingAlg, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // MatchingAlg reports the matching algorithm; matching is disabled by default.
 //
 // It reads MatchingAlg (cudssMatchingAlg_t) from CUDSS_CONFIG_MATCHING_ALG.
 func (c Config) MatchingAlg() (MatchingAlg, error) {
-	var v MatchingAlg
-	n, err := configGet(c, ConfigMatchingAlg, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigMatchingAlg.get()
+	defer slotParamConfigMatchingAlg.put(p)
+	n, err := configGet(c, ConfigMatchingAlg, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_MATCHING_ALG", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_MATCHING_ALG", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigMatchingAlg outSlot[MatchingAlg]
 
 // SetSolveMode sets the solve mode for transpose and conjugate-transpose solves.
 //
 // It writes int32 (int) to CUDSS_CONFIG_SOLVE_MODE.
 func (c Config) SetSolveMode(v int32) error {
-	return configSet(c, ConfigSolveMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigSolveMode.get()
+	defer slotParamConfigSolveMode.put(p)
+	*p = v
+	return configSet(c, ConfigSolveMode, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // SolveMode reports the solve mode for transpose and conjugate-transpose solves.
 //
 // It reads int32 (int) from CUDSS_CONFIG_SOLVE_MODE.
 func (c Config) SolveMode() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigSolveMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigSolveMode.get()
+	defer slotParamConfigSolveMode.put(p)
+	n, err := configGet(c, ConfigSolveMode, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_SOLVE_MODE", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_SOLVE_MODE", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigSolveMode outSlot[int32]
 
 // SetIRSteps sets the maximum number of iterative refinement steps.
 //
 // It writes int32 (int) to CUDSS_CONFIG_IR_N_STEPS.
 func (c Config) SetIRSteps(v int32) error {
-	return configSet(c, ConfigIrNSteps, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigIRSteps.get()
+	defer slotParamConfigIRSteps.put(p)
+	*p = v
+	return configSet(c, ConfigIrNSteps, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // IRSteps reports the maximum number of iterative refinement steps.
 //
 // It reads int32 (int) from CUDSS_CONFIG_IR_N_STEPS.
 func (c Config) IRSteps() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigIrNSteps, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigIRSteps.get()
+	defer slotParamConfigIRSteps.put(p)
+	n, err := configGet(c, ConfigIrNSteps, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_IR_N_STEPS", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_IR_N_STEPS", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigIRSteps outSlot[int32]
 
 // SetIRTolerance sets the iterative refinement convergence tolerance.
 //
 // It writes float64 (double) to CUDSS_CONFIG_IR_TOL.
 func (c Config) SetIRTolerance(v float64) error {
-	return configSet(c, ConfigIrTol, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigIRTolerance.get()
+	defer slotParamConfigIRTolerance.put(p)
+	*p = v
+	return configSet(c, ConfigIrTol, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // IRTolerance reports the iterative refinement convergence tolerance.
 //
 // It reads float64 (double) from CUDSS_CONFIG_IR_TOL.
 func (c Config) IRTolerance() (float64, error) {
-	var v float64
-	n, err := configGet(c, ConfigIrTol, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigIRTolerance.get()
+	defer slotParamConfigIRTolerance.put(p)
+	n, err := configGet(c, ConfigIrTol, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_IR_TOL", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_IR_TOL", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigIRTolerance outSlot[float64]
 
 // SetPivotType sets the pivoting strategy.
 //
 // It writes PivotType (cudssPivotType_t) to CUDSS_CONFIG_PIVOT_TYPE.
 func (c Config) SetPivotType(v PivotType) error {
-	return configSet(c, ConfigPivotType, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigPivotType.get()
+	defer slotParamConfigPivotType.put(p)
+	*p = v
+	return configSet(c, ConfigPivotType, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // PivotType reports the pivoting strategy.
 //
 // It reads PivotType (cudssPivotType_t) from CUDSS_CONFIG_PIVOT_TYPE.
 func (c Config) PivotType() (PivotType, error) {
-	var v PivotType
-	n, err := configGet(c, ConfigPivotType, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigPivotType.get()
+	defer slotParamConfigPivotType.put(p)
+	n, err := configGet(c, ConfigPivotType, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_PIVOT_TYPE", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_PIVOT_TYPE", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigPivotType outSlot[PivotType]
 
 // SetPivotThreshold sets the pivoting threshold.
 //
 // It writes float64 (double) to CUDSS_CONFIG_PIVOT_THRESHOLD.
 func (c Config) SetPivotThreshold(v float64) error {
-	return configSet(c, ConfigPivotThreshold, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigPivotThreshold.get()
+	defer slotParamConfigPivotThreshold.put(p)
+	*p = v
+	return configSet(c, ConfigPivotThreshold, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // PivotThreshold reports the pivoting threshold.
 //
 // It reads float64 (double) from CUDSS_CONFIG_PIVOT_THRESHOLD.
 func (c Config) PivotThreshold() (float64, error) {
-	var v float64
-	n, err := configGet(c, ConfigPivotThreshold, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigPivotThreshold.get()
+	defer slotParamConfigPivotThreshold.put(p)
+	n, err := configGet(c, ConfigPivotThreshold, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_PIVOT_THRESHOLD", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_PIVOT_THRESHOLD", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigPivotThreshold outSlot[float64]
 
 // SetPivotEpsilon sets the value a pivot smaller than the threshold is replaced by.
 //
 // It writes float64 (double) to CUDSS_CONFIG_PIVOT_EPSILON.
 func (c Config) SetPivotEpsilon(v float64) error {
-	return configSet(c, ConfigPivotEpsilon, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigPivotEpsilon.get()
+	defer slotParamConfigPivotEpsilon.put(p)
+	*p = v
+	return configSet(c, ConfigPivotEpsilon, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // PivotEpsilon reports the value a pivot smaller than the threshold is replaced by.
 //
 // It reads float64 (double) from CUDSS_CONFIG_PIVOT_EPSILON.
 func (c Config) PivotEpsilon() (float64, error) {
-	var v float64
-	n, err := configGet(c, ConfigPivotEpsilon, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigPivotEpsilon.get()
+	defer slotParamConfigPivotEpsilon.put(p)
+	n, err := configGet(c, ConfigPivotEpsilon, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_PIVOT_EPSILON", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_PIVOT_EPSILON", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigPivotEpsilon outSlot[float64]
 
 // SetMaxLUNonzeros sets an upper bound on the number of nonzeros in L and U.
 //
 // It writes int64 (int64_t) to CUDSS_CONFIG_MAX_LU_NNZ.
 func (c Config) SetMaxLUNonzeros(v int64) error {
-	return configSet(c, ConfigMaxLuNnz, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigMaxLUNonzeros.get()
+	defer slotParamConfigMaxLUNonzeros.put(p)
+	*p = v
+	return configSet(c, ConfigMaxLuNnz, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // MaxLUNonzeros reports an upper bound on the number of nonzeros in L and U.
 //
 // It reads int64 (int64_t) from CUDSS_CONFIG_MAX_LU_NNZ.
 func (c Config) MaxLUNonzeros() (int64, error) {
-	var v int64
-	n, err := configGet(c, ConfigMaxLuNnz, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigMaxLUNonzeros.get()
+	defer slotParamConfigMaxLUNonzeros.put(p)
+	n, err := configGet(c, ConfigMaxLuNnz, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_MAX_LU_NNZ", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_MAX_LU_NNZ", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigMaxLUNonzeros outSlot[int64]
 
 // SetHybridMemoryMode sets whether factors may be held in host memory; 0 disables, the default.
 //
 // It writes int32 (int) to CUDSS_CONFIG_HYBRID_MEMORY_MODE.
 func (c Config) SetHybridMemoryMode(v int32) error {
-	return configSet(c, ConfigHybridMemoryMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigHybridMemoryMode.get()
+	defer slotParamConfigHybridMemoryMode.put(p)
+	*p = v
+	return configSet(c, ConfigHybridMemoryMode, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // HybridMemoryMode reports whether factors may be held in host memory; 0 disables, the default.
 //
 // It reads int32 (int) from CUDSS_CONFIG_HYBRID_MEMORY_MODE.
 func (c Config) HybridMemoryMode() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigHybridMemoryMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigHybridMemoryMode.get()
+	defer slotParamConfigHybridMemoryMode.put(p)
+	n, err := configGet(c, ConfigHybridMemoryMode, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_HYBRID_MEMORY_MODE", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_HYBRID_MEMORY_MODE", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigHybridMemoryMode outSlot[int32]
 
 // SetHybridDeviceMemoryLimit sets the device memory limit in bytes for the hybrid memory mode.
 //
 // It writes int64 (int64_t) to CUDSS_CONFIG_HYBRID_DEVICE_MEMORY_LIMIT.
 func (c Config) SetHybridDeviceMemoryLimit(v int64) error {
-	return configSet(c, ConfigHybridDeviceMemoryLimit, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigHybridDeviceMemoryLimit.get()
+	defer slotParamConfigHybridDeviceMemoryLimit.put(p)
+	*p = v
+	return configSet(c, ConfigHybridDeviceMemoryLimit, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // HybridDeviceMemoryLimit reports the device memory limit in bytes for the hybrid memory mode.
 //
 // It reads int64 (int64_t) from CUDSS_CONFIG_HYBRID_DEVICE_MEMORY_LIMIT.
 func (c Config) HybridDeviceMemoryLimit() (int64, error) {
-	var v int64
-	n, err := configGet(c, ConfigHybridDeviceMemoryLimit, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigHybridDeviceMemoryLimit.get()
+	defer slotParamConfigHybridDeviceMemoryLimit.put(p)
+	n, err := configGet(c, ConfigHybridDeviceMemoryLimit, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_HYBRID_DEVICE_MEMORY_LIMIT", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_HYBRID_DEVICE_MEMORY_LIMIT", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigHybridDeviceMemoryLimit outSlot[int64]
 
 // SetUseCUDARegisterMemory sets whether host allocations are registered with CUDA; enabled by default.
 //
 // It writes int32 (int) to CUDSS_CONFIG_USE_CUDA_REGISTER_MEMORY.
 func (c Config) SetUseCUDARegisterMemory(v int32) error {
-	return configSet(c, ConfigUseCudaRegisterMemory, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigUseCUDARegisterMemory.get()
+	defer slotParamConfigUseCUDARegisterMemory.put(p)
+	*p = v
+	return configSet(c, ConfigUseCudaRegisterMemory, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // UseCUDARegisterMemory reports whether host allocations are registered with CUDA; enabled by default.
 //
 // It reads int32 (int) from CUDSS_CONFIG_USE_CUDA_REGISTER_MEMORY.
 func (c Config) UseCUDARegisterMemory() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigUseCudaRegisterMemory, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigUseCUDARegisterMemory.get()
+	defer slotParamConfigUseCUDARegisterMemory.put(p)
+	n, err := configGet(c, ConfigUseCudaRegisterMemory, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_USE_CUDA_REGISTER_MEMORY", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_USE_CUDA_REGISTER_MEMORY", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigUseCUDARegisterMemory outSlot[int32]
 
 // SetHostThreads sets the number of host threads the threading layer may use.
 //
 // It writes int32 (int) to CUDSS_CONFIG_HOST_NTHREADS.
 func (c Config) SetHostThreads(v int32) error {
-	return configSet(c, ConfigHostNthreads, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigHostThreads.get()
+	defer slotParamConfigHostThreads.put(p)
+	*p = v
+	return configSet(c, ConfigHostNthreads, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // HostThreads reports the number of host threads the threading layer may use.
 //
 // It reads int32 (int) from CUDSS_CONFIG_HOST_NTHREADS.
 func (c Config) HostThreads() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigHostNthreads, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigHostThreads.get()
+	defer slotParamConfigHostThreads.put(p)
+	n, err := configGet(c, ConfigHostNthreads, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_HOST_NTHREADS", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_HOST_NTHREADS", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigHostThreads outSlot[int32]
 
 // SetHybridExecuteMode sets whether part of the factorization runs on the host; 0 disables, the default.
 //
 // It writes int32 (int) to CUDSS_CONFIG_HYBRID_EXECUTE_MODE.
 func (c Config) SetHybridExecuteMode(v int32) error {
-	return configSet(c, ConfigHybridExecuteMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigHybridExecuteMode.get()
+	defer slotParamConfigHybridExecuteMode.put(p)
+	*p = v
+	return configSet(c, ConfigHybridExecuteMode, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // HybridExecuteMode reports whether part of the factorization runs on the host; 0 disables, the default.
 //
 // It reads int32 (int) from CUDSS_CONFIG_HYBRID_EXECUTE_MODE.
 func (c Config) HybridExecuteMode() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigHybridExecuteMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigHybridExecuteMode.get()
+	defer slotParamConfigHybridExecuteMode.put(p)
+	n, err := configGet(c, ConfigHybridExecuteMode, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_HYBRID_EXECUTE_MODE", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_HYBRID_EXECUTE_MODE", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigHybridExecuteMode outSlot[int32]
 
 // SetNestedDissectionLevels sets the number of levels for nested dissection reordering.
 //
 // It writes int32 (int) to CUDSS_CONFIG_ND_NLEVELS.
 func (c Config) SetNestedDissectionLevels(v int32) error {
-	return configSet(c, ConfigNdNlevels, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigNestedDissectionLevels.get()
+	defer slotParamConfigNestedDissectionLevels.put(p)
+	*p = v
+	return configSet(c, ConfigNdNlevels, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // NestedDissectionLevels reports the number of levels for nested dissection reordering.
 //
 // It reads int32 (int) from CUDSS_CONFIG_ND_NLEVELS.
 func (c Config) NestedDissectionLevels() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigNdNlevels, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigNestedDissectionLevels.get()
+	defer slotParamConfigNestedDissectionLevels.put(p)
+	n, err := configGet(c, ConfigNdNlevels, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_ND_NLEVELS", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_ND_NLEVELS", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigNestedDissectionLevels outSlot[int32]
 
 // SetNestedDissectionUnbalanceFactor sets the nested dissection unbalance factor, in percent.
 //
 // It writes int32 (int) to CUDSS_CONFIG_ND_UBFACTOR.
 func (c Config) SetNestedDissectionUnbalanceFactor(v int32) error {
-	return configSet(c, ConfigNdUbfactor, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigNestedDissectionUnbalanceFactor.get()
+	defer slotParamConfigNestedDissectionUnbalanceFactor.put(p)
+	*p = v
+	return configSet(c, ConfigNdUbfactor, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // NestedDissectionUnbalanceFactor reports the nested dissection unbalance factor, in percent.
 //
 // It reads int32 (int) from CUDSS_CONFIG_ND_UBFACTOR.
 func (c Config) NestedDissectionUnbalanceFactor() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigNdUbfactor, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigNestedDissectionUnbalanceFactor.get()
+	defer slotParamConfigNestedDissectionUnbalanceFactor.put(p)
+	n, err := configGet(c, ConfigNdUbfactor, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_ND_UBFACTOR", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_ND_UBFACTOR", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigNestedDissectionUnbalanceFactor outSlot[int32]
 
 // SetUniformBatchSize sets the number of systems in a uniform batch; must be set before the analysis phase.
 //
 // It writes int32 (int) to CUDSS_CONFIG_UBATCH_SIZE.
 func (c Config) SetUniformBatchSize(v int32) error {
-	return configSet(c, ConfigUbatchSize, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigUniformBatchSize.get()
+	defer slotParamConfigUniformBatchSize.put(p)
+	*p = v
+	return configSet(c, ConfigUbatchSize, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // UniformBatchSize reports the number of systems in a uniform batch; must be set before the analysis phase.
 //
 // It reads int32 (int) from CUDSS_CONFIG_UBATCH_SIZE.
 func (c Config) UniformBatchSize() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigUbatchSize, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigUniformBatchSize.get()
+	defer slotParamConfigUniformBatchSize.put(p)
+	n, err := configGet(c, ConfigUbatchSize, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_UBATCH_SIZE", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_UBATCH_SIZE", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigUniformBatchSize outSlot[int32]
 
 // SetUniformBatchIndex sets the single uniform-batch entry to process, instead of all of them.
 //
 // It writes int32 (int) to CUDSS_CONFIG_UBATCH_INDEX.
 func (c Config) SetUniformBatchIndex(v int32) error {
-	return configSet(c, ConfigUbatchIndex, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigUniformBatchIndex.get()
+	defer slotParamConfigUniformBatchIndex.put(p)
+	*p = v
+	return configSet(c, ConfigUbatchIndex, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // UniformBatchIndex reports the single uniform-batch entry to process, instead of all of them.
 //
 // It reads int32 (int) from CUDSS_CONFIG_UBATCH_INDEX.
 func (c Config) UniformBatchIndex() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigUbatchIndex, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigUniformBatchIndex.get()
+	defer slotParamConfigUniformBatchIndex.put(p)
+	n, err := configGet(c, ConfigUbatchIndex, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_UBATCH_INDEX", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_UBATCH_INDEX", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigUniformBatchIndex outSlot[int32]
 
 // SetUseSuperpanels sets whether superpanels are used; enabled by default.
 //
 // It writes int32 (int) to CUDSS_CONFIG_USE_SUPERPANELS.
 func (c Config) SetUseSuperpanels(v int32) error {
-	return configSet(c, ConfigUseSuperpanels, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigUseSuperpanels.get()
+	defer slotParamConfigUseSuperpanels.put(p)
+	*p = v
+	return configSet(c, ConfigUseSuperpanels, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // UseSuperpanels reports whether superpanels are used; enabled by default.
 //
 // It reads int32 (int) from CUDSS_CONFIG_USE_SUPERPANELS.
 func (c Config) UseSuperpanels() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigUseSuperpanels, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigUseSuperpanels.get()
+	defer slotParamConfigUseSuperpanels.put(p)
+	n, err := configGet(c, ConfigUseSuperpanels, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_USE_SUPERPANELS", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_USE_SUPERPANELS", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigUseSuperpanels outSlot[int32]
 
 // SetDeviceCount sets the number of devices for multi-GPU execution.
 //
 // It writes int32 (int) to CUDSS_CONFIG_DEVICE_COUNT.
 func (c Config) SetDeviceCount(v int32) error {
-	return configSet(c, ConfigDeviceCount, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigDeviceCount.get()
+	defer slotParamConfigDeviceCount.put(p)
+	*p = v
+	return configSet(c, ConfigDeviceCount, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // DeviceCount reports the number of devices for multi-GPU execution.
 //
 // It reads int32 (int) from CUDSS_CONFIG_DEVICE_COUNT.
 func (c Config) DeviceCount() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigDeviceCount, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigDeviceCount.get()
+	defer slotParamConfigDeviceCount.put(p)
+	n, err := configGet(c, ConfigDeviceCount, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_DEVICE_COUNT", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_DEVICE_COUNT", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigDeviceCount outSlot[int32]
 
 // SetSchurMode sets whether the Schur complement is computed; 0 disables, the default.
 //
 // It writes int32 (int) to CUDSS_CONFIG_SCHUR_MODE.
 func (c Config) SetSchurMode(v int32) error {
-	return configSet(c, ConfigSchurMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigSchurMode.get()
+	defer slotParamConfigSchurMode.put(p)
+	*p = v
+	return configSet(c, ConfigSchurMode, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // SchurMode reports whether the Schur complement is computed; 0 disables, the default.
 //
 // It reads int32 (int) from CUDSS_CONFIG_SCHUR_MODE.
 func (c Config) SchurMode() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigSchurMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigSchurMode.get()
+	defer slotParamConfigSchurMode.put(p)
+	n, err := configGet(c, ConfigSchurMode, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_SCHUR_MODE", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_SCHUR_MODE", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigSchurMode outSlot[int32]
 
 // SetDeterministicMode sets whether the factorization is bitwise reproducible; 0 disables, the default.
 //
 // It writes int32 (int) to CUDSS_CONFIG_DETERMINISTIC_MODE.
 func (c Config) SetDeterministicMode(v int32) error {
-	return configSet(c, ConfigDeterministicMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigDeterministicMode.get()
+	defer slotParamConfigDeterministicMode.put(p)
+	*p = v
+	return configSet(c, ConfigDeterministicMode, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
 
 // DeterministicMode reports whether the factorization is bitwise reproducible; 0 disables, the default.
 //
 // It reads int32 (int) from CUDSS_CONFIG_DETERMINISTIC_MODE.
 func (c Config) DeterministicMode() (int32, error) {
-	var v int32
-	n, err := configGet(c, ConfigDeterministicMode, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamConfigDeterministicMode.get()
+	defer slotParamConfigDeterministicMode.put(p)
+	n, err := configGet(c, ConfigDeterministicMode, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_CONFIG_DETERMINISTIC_MODE", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_CONFIG_DETERMINISTIC_MODE", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamConfigDeterministicMode outSlot[int32]
 
 // SetDeviceIndices sets the device indices for multi-GPU execution, one per configured device.
 //
@@ -801,120 +960,146 @@ func (c Config) DeviceIndices(dst []int32) (int, error) {
 // It reads int32 (int) from CUDSS_DATA_INFO. handle must be the handle the Data object was
 // created from.
 func (d Data) Info(handle Handle) (int32, error) {
-	var v int32
-	n, err := dataGet(handle, d, DataInfo, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamDataInfo.get()
+	defer slotParamDataInfo.put(p)
+	n, err := dataGet(handle, d, DataInfo, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_DATA_INFO", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_DATA_INFO", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamDataInfo outSlot[int32]
 
 // LUNonzeros reports the number of nonzeros in the computed L and U factors.
 //
 // It reads int64 (int64_t) from CUDSS_DATA_LU_NNZ. handle must be the handle the Data object was
 // created from.
 func (d Data) LUNonzeros(handle Handle) (int64, error) {
-	var v int64
-	n, err := dataGet(handle, d, DataLuNnz, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamDataLUNonzeros.get()
+	defer slotParamDataLUNonzeros.put(p)
+	n, err := dataGet(handle, d, DataLuNnz, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_DATA_LU_NNZ", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_DATA_LU_NNZ", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamDataLUNonzeros outSlot[int64]
 
 // HybridDeviceMemoryMin reports the smallest device memory limit, in bytes, the hybrid memory mode accepts.
 //
 // It reads int64 (int64_t) from CUDSS_DATA_HYBRID_DEVICE_MEMORY_MIN. handle must be the handle the Data object was
 // created from.
 func (d Data) HybridDeviceMemoryMin(handle Handle) (int64, error) {
-	var v int64
-	n, err := dataGet(handle, d, DataHybridDeviceMemoryMin, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamDataHybridDeviceMemoryMin.get()
+	defer slotParamDataHybridDeviceMemoryMin.put(p)
+	n, err := dataGet(handle, d, DataHybridDeviceMemoryMin, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_DATA_HYBRID_DEVICE_MEMORY_MIN", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_DATA_HYBRID_DEVICE_MEMORY_MIN", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamDataHybridDeviceMemoryMin outSlot[int64]
 
 // Flops reports the floating-point operation count the factorization reports.
 //
 // It reads int64 (int64_t) from CUDSS_DATA_FLOPS. handle must be the handle the Data object was
 // created from.
 func (d Data) Flops(handle Handle) (int64, error) {
-	var v int64
-	n, err := dataGet(handle, d, DataFlops, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamDataFlops.get()
+	defer slotParamDataFlops.put(p)
+	n, err := dataGet(handle, d, DataFlops, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_DATA_FLOPS", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_DATA_FLOPS", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamDataFlops outSlot[int64]
 
 // IRSteps reports the number of iterative refinement steps actually performed.
 //
 // It reads int32 (int) from CUDSS_DATA_IR_N_STEPS. handle must be the handle the Data object was
 // created from.
 func (d Data) IRSteps(handle Handle) (int32, error) {
-	var v int32
-	n, err := dataGet(handle, d, DataIrNSteps, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamDataIRSteps.get()
+	defer slotParamDataIRSteps.put(p)
+	n, err := dataGet(handle, d, DataIrNSteps, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_DATA_IR_N_STEPS", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_DATA_IR_N_STEPS", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamDataIRSteps outSlot[int32]
 
 // SetSchurMatrix sets the caller-created matrix the Schur complement is written into.
 //
 // It writes Matrix (cudssMatrix_t) to CUDSS_DATA_SCHUR_MATRIX. handle must be the handle the Data object was
 // created from.
 func (d Data) SetSchurMatrix(handle Handle, v Matrix) error {
-	return dataSet(handle, d, DataSchurMatrix, unsafe.Pointer(&v), unsafe.Sizeof(v))
+	p := slotParamDataSchurMatrix.get()
+	defer slotParamDataSchurMatrix.put(p)
+	*p = v
+	return dataSet(handle, d, DataSchurMatrix, unsafe.Pointer(p), unsafe.Sizeof(v))
 }
+
+var slotParamDataSchurMatrix outSlot[Matrix]
 
 // MemoryEstimates reports host and device memory estimates in bytes for the memory mode of the last analysis.
 //
 // It reads 16 elements of int64 (int64_t) from CUDSS_DATA_MEMORY_ESTIMATES. handle must be the handle the Data
 // object was created from.
 func (d Data) MemoryEstimates(handle Handle) ([16]int64, error) {
-	var v [16]int64
-	n, err := dataGet(handle, d, DataMemoryEstimates, unsafe.Pointer(&v[0]), unsafe.Sizeof(v))
+	p := slotParamDataMemoryEstimates.get()
+	defer slotParamDataMemoryEstimates.put(p)
+	n, err := dataGet(handle, d, DataMemoryEstimates, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_DATA_MEMORY_ESTIMATES", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_DATA_MEMORY_ESTIMATES", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamDataMemoryEstimates outSlot[[16]int64]
 
 // SchurShape reports the shape of the Schur complement, for sizing the matrix to receive it.
 //
 // It reads 3 elements of int64 (int64_t) from CUDSS_DATA_SCHUR_SHAPE. handle must be the handle the Data
 // object was created from.
 func (d Data) SchurShape(handle Handle) ([3]int64, error) {
-	var v [3]int64
-	n, err := dataGet(handle, d, DataSchurShape, unsafe.Pointer(&v[0]), unsafe.Sizeof(v))
+	p := slotParamDataSchurShape.get()
+	defer slotParamDataSchurShape.put(p)
+	n, err := dataGet(handle, d, DataSchurShape, unsafe.Pointer(p), unsafe.Sizeof(*p))
 	if err != nil {
-		return v, err
+		return *p, err
 	}
-	if n != unsafe.Sizeof(v) {
-		return v, &ParamSizeError{Param: "CUDSS_DATA_SCHUR_SHAPE", Want: unsafe.Sizeof(v), Got: n}
+	if n != unsafe.Sizeof(*p) {
+		return *p, &ParamSizeError{Param: "CUDSS_DATA_SCHUR_SHAPE", Want: unsafe.Sizeof(*p), Got: n}
 	}
-	return v, nil
+	return *p, nil
 }
+
+var slotParamDataSchurShape outSlot[[3]int64]
 
 // Pivots reads the number of pivots encountered during factorization into dst and reports how many elements were written.
 //
@@ -1098,8 +1283,13 @@ func (d Data) SetUniformBatchMask(handle Handle, src []int64) error {
 // library. Pass an address from a C or CUDA allocation, or 0 to disable the
 // check. handle must be the handle the Data object was created from.
 func (d Data) SetUserHostInterrupt(handle Handle, addr uintptr) error {
-	return dataSet(handle, d, DataUserHostInterrupt, unsafe.Pointer(&addr), unsafe.Sizeof(addr))
+	p := slotParamDataUserHostInterrupt.get()
+	defer slotParamDataUserHostInterrupt.put(p)
+	*p = addr
+	return dataSet(handle, d, DataUserHostInterrupt, unsafe.Pointer(p), unsafe.Sizeof(addr))
 }
+
+var slotParamDataUserHostInterrupt outSlot[uintptr]
 
 // ParamType returns the C type the cuDSS reference documents for a
 // configuration parameter, or the empty string for a parameter this package

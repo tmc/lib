@@ -2,9 +2,16 @@
 
 package nvml
 
-// Destroy Destroy compute instance.
+// Destroy destroys compute instance.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
+//
+// Returns:
+//   - [ErrInvalidArgument]: If computeInstance is invalid
+//   - [ErrInUse]: If the compute instance is in use. This error would be returned if processes (e.g. CUDA application) are active on the compute instance.
+//   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
+//   - [ErrUninitialized]: If library has not been successfully initialized
+//   - [Success]: Upon success
 //
 // Wraps [nvmlComputeInstanceDestroy].
 //
@@ -13,11 +20,17 @@ func (c ComputeInstance) Destroy() error {
 	return computeInstanceDestroy(c)
 }
 
-// Info Get compute instance information.
+// Info gets compute instance information.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
 //
 //   - info: Return compute instance information
+//
+// Returns:
+//   - [ErrInvalidArgument]: If computeInstance or info are invalid
+//   - [ErrNoPermission]: If user doesn’t have permission to perform the operation
+//   - [ErrUninitialized]: If library has not been successfully initialized
+//   - [Success]: Upon success
 //
 // Wraps [nvmlComputeInstanceGetInfo], bound as nvmlComputeInstanceGetInfo_v2.
 //

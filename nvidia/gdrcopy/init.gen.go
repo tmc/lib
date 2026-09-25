@@ -310,6 +310,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := purego.Dlsym(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -395,40 +410,40 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnClose, "gdr_close")
+	symClose = registerSym("gdr_close")
 	register(&fnCopyFromMapping, "gdr_copy_from_mapping")
 	register(&fnCopyToMapping, "gdr_copy_to_mapping")
-	register(&fnDriverGetVersion, "gdr_driver_get_version")
-	register(&fnGetAttribute, "gdr_get_attribute")
+	symDriverGetVersion = registerSym("gdr_driver_get_version")
+	symGetAttribute = registerSym("gdr_get_attribute")
 	register(&fnGetCallbackFlag, "gdr_get_callback_flag")
 	register(&fnGetInfoV2, "gdr_get_info_v2")
-	register(&fnGetMappingTypeString, "gdr_get_mapping_type_string")
+	symGetMappingTypeString = registerSym("gdr_get_mapping_type_string")
 	register(&fnMap, "gdr_map")
 	register(&fnMapV2, "gdr_map_v2")
-	register(&fnOpen, "gdr_open")
-	register(&fnPinBuffer, "gdr_pin_buffer")
-	register(&fnPinBufferV2, "gdr_pin_buffer_v2")
-	register(&fnRuntimeGetVersion, "gdr_runtime_get_version")
+	symOpen = registerSym("gdr_open")
+	symPinBuffer = registerSym("gdr_pin_buffer")
+	symPinBufferV2 = registerSym("gdr_pin_buffer_v2")
+	symRuntimeGetVersion = registerSym("gdr_runtime_get_version")
 	register(&fnUnmap, "gdr_unmap")
 	register(&fnUnpinBuffer, "gdr_unpin_buffer")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnClose = nil
+	symClose = 0
 	fnCopyFromMapping = nil
 	fnCopyToMapping = nil
-	fnDriverGetVersion = nil
-	fnGetAttribute = nil
+	symDriverGetVersion = 0
+	symGetAttribute = 0
 	fnGetCallbackFlag = nil
 	fnGetInfoV2 = nil
-	fnGetMappingTypeString = nil
+	symGetMappingTypeString = 0
 	fnMap = nil
 	fnMapV2 = nil
-	fnOpen = nil
-	fnPinBuffer = nil
-	fnPinBufferV2 = nil
-	fnRuntimeGetVersion = nil
+	symOpen = 0
+	symPinBuffer = 0
+	symPinBufferV2 = 0
+	symRuntimeGetVersion = 0
 	fnUnmap = nil
 	fnUnpinBuffer = nil
 }

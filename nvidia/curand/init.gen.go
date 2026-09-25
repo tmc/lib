@@ -384,6 +384,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -469,63 +484,83 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnCreateGenerator, "curandCreateGenerator")
-	register(&fnCreateGeneratorHost, "curandCreateGeneratorHost")
-	register(&fnCreatePoissonDistribution, "curandCreatePoissonDistribution")
-	register(&fndestroyDistribution, "curandDestroyDistribution")
-	register(&fndestroyGenerator, "curandDestroyGenerator")
-	register(&fngenerate, "curandGenerate")
-	register(&fngenerateBinomial, "curandGenerateBinomial")
-	register(&fngenerateLogNormal, "curandGenerateLogNormal")
-	register(&fngenerateLogNormalDouble, "curandGenerateLogNormalDouble")
-	register(&fngenerateLongLong, "curandGenerateLongLong")
-	register(&fngenerateNormal, "curandGenerateNormal")
-	register(&fngenerateNormalDouble, "curandGenerateNormalDouble")
-	register(&fngeneratePoisson, "curandGeneratePoisson")
-	register(&fngenerateSeeds, "curandGenerateSeeds")
-	register(&fngenerateUniform, "curandGenerateUniform")
-	register(&fngenerateUniformDouble, "curandGenerateUniformDouble")
-	register(&fnGetDirectionVectors32, "curandGetDirectionVectors32")
-	register(&fnGetDirectionVectors64, "curandGetDirectionVectors64")
-	register(&fnGetProperty, "curandGetProperty")
-	register(&fnGetScrambleConstants32, "curandGetScrambleConstants32")
-	register(&fnGetScrambleConstants64, "curandGetScrambleConstants64")
+	symCreateGenerator = registerSym("curandCreateGenerator")
+	symCreateGeneratorHost = registerSym("curandCreateGeneratorHost")
+	symCreatePoissonDistribution = registerSym("curandCreatePoissonDistribution")
+	symdestroyDistribution = registerSym("curandDestroyDistribution")
+	symdestroyGenerator = registerSym("curandDestroyGenerator")
+	symgenerate = registerSym("curandGenerate")
+	symgenerateBinomial = registerSym("curandGenerateBinomial")
+	symgenerateBinomialHost = registerSym("curandGenerateBinomial")
+	symgenerateHost = registerSym("curandGenerate")
+	symgenerateLogNormal = registerSym("curandGenerateLogNormal")
+	symgenerateLogNormalDouble = registerSym("curandGenerateLogNormalDouble")
+	symgenerateLogNormalDoubleHost = registerSym("curandGenerateLogNormalDouble")
+	symgenerateLogNormalHost = registerSym("curandGenerateLogNormal")
+	symgenerateLongLong = registerSym("curandGenerateLongLong")
+	symgenerateLongLongHost = registerSym("curandGenerateLongLong")
+	symgenerateNormal = registerSym("curandGenerateNormal")
+	symgenerateNormalDouble = registerSym("curandGenerateNormalDouble")
+	symgenerateNormalDoubleHost = registerSym("curandGenerateNormalDouble")
+	symgenerateNormalHost = registerSym("curandGenerateNormal")
+	symgeneratePoisson = registerSym("curandGeneratePoisson")
+	symgeneratePoissonHost = registerSym("curandGeneratePoisson")
+	symgenerateSeeds = registerSym("curandGenerateSeeds")
+	symgenerateUniform = registerSym("curandGenerateUniform")
+	symgenerateUniformDouble = registerSym("curandGenerateUniformDouble")
+	symgenerateUniformDoubleHost = registerSym("curandGenerateUniformDouble")
+	symgenerateUniformHost = registerSym("curandGenerateUniform")
+	symGetDirectionVectors32 = registerSym("curandGetDirectionVectors32")
+	symGetDirectionVectors64 = registerSym("curandGetDirectionVectors64")
+	symGetProperty = registerSym("curandGetProperty")
+	symGetScrambleConstants32 = registerSym("curandGetScrambleConstants32")
+	symGetScrambleConstants64 = registerSym("curandGetScrambleConstants64")
 	register(&fnGetVersion, "curandGetVersion")
-	register(&fnsetGeneratorOffset, "curandSetGeneratorOffset")
-	register(&fnsetGeneratorOrdering, "curandSetGeneratorOrdering")
-	register(&fnsetPseudoRandomGeneratorSeed, "curandSetPseudoRandomGeneratorSeed")
-	register(&fnsetQuasiRandomGeneratorDimensions, "curandSetQuasiRandomGeneratorDimensions")
+	symsetGeneratorOffset = registerSym("curandSetGeneratorOffset")
+	symsetGeneratorOrdering = registerSym("curandSetGeneratorOrdering")
+	symsetPseudoRandomGeneratorSeed = registerSym("curandSetPseudoRandomGeneratorSeed")
+	symsetQuasiRandomGeneratorDimensions = registerSym("curandSetQuasiRandomGeneratorDimensions")
 	register(&fnsetStream, "curandSetStream")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnCreateGenerator = nil
-	fnCreateGeneratorHost = nil
-	fnCreatePoissonDistribution = nil
-	fndestroyDistribution = nil
-	fndestroyGenerator = nil
-	fngenerate = nil
-	fngenerateBinomial = nil
-	fngenerateLogNormal = nil
-	fngenerateLogNormalDouble = nil
-	fngenerateLongLong = nil
-	fngenerateNormal = nil
-	fngenerateNormalDouble = nil
-	fngeneratePoisson = nil
-	fngenerateSeeds = nil
-	fngenerateUniform = nil
-	fngenerateUniformDouble = nil
-	fnGetDirectionVectors32 = nil
-	fnGetDirectionVectors64 = nil
-	fnGetProperty = nil
-	fnGetScrambleConstants32 = nil
-	fnGetScrambleConstants64 = nil
+	symCreateGenerator = 0
+	symCreateGeneratorHost = 0
+	symCreatePoissonDistribution = 0
+	symdestroyDistribution = 0
+	symdestroyGenerator = 0
+	symgenerate = 0
+	symgenerateBinomial = 0
+	symgenerateBinomialHost = 0
+	symgenerateHost = 0
+	symgenerateLogNormal = 0
+	symgenerateLogNormalDouble = 0
+	symgenerateLogNormalDoubleHost = 0
+	symgenerateLogNormalHost = 0
+	symgenerateLongLong = 0
+	symgenerateLongLongHost = 0
+	symgenerateNormal = 0
+	symgenerateNormalDouble = 0
+	symgenerateNormalDoubleHost = 0
+	symgenerateNormalHost = 0
+	symgeneratePoisson = 0
+	symgeneratePoissonHost = 0
+	symgenerateSeeds = 0
+	symgenerateUniform = 0
+	symgenerateUniformDouble = 0
+	symgenerateUniformDoubleHost = 0
+	symgenerateUniformHost = 0
+	symGetDirectionVectors32 = 0
+	symGetDirectionVectors64 = 0
+	symGetProperty = 0
+	symGetScrambleConstants32 = 0
+	symGetScrambleConstants64 = 0
 	fnGetVersion = nil
-	fnsetGeneratorOffset = nil
-	fnsetGeneratorOrdering = nil
-	fnsetPseudoRandomGeneratorSeed = nil
-	fnsetQuasiRandomGeneratorDimensions = nil
+	symsetGeneratorOffset = 0
+	symsetGeneratorOrdering = 0
+	symsetPseudoRandomGeneratorSeed = 0
+	symsetQuasiRandomGeneratorDimensions = 0
 	fnsetStream = nil
 }
 

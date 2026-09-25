@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 type counterAPI struct {
@@ -32,7 +33,7 @@ type counterStore struct {
 	pin         runtime.Pinner
 }
 
-func newCounterStore(context cupti.Context, metrics []string, maxRanges uint, maxNodes uint32, maxBytes int, api counterAPI) (store *counterStore, err error) {
+func newCounterStore(context driver.Context, metrics []string, maxRanges uint, maxNodes uint32, maxBytes int, api counterAPI) (store *counterStore, err error) {
 	if context == 0 || maxRanges == 0 || uint64(maxNodes) < uint64(maxRanges) || maxBytes <= 0 {
 		return nil, errors.New("cuptirange: invalid counter limits or context")
 	}

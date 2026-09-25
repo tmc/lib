@@ -195,14 +195,14 @@ func (p *Plan) captureReplay(dev *cuda.Device, limits Limits, options CaptureOpt
 	}
 	defer func() { err = result.finishCollection(err) }()
 	err = ctx.Run(func() error {
-		store, err := newCounterStore(cupti.Context(ctx.Raw()), metrics, limits.MaxRanges, limits.MaxRangeTreeNodes, limits.MaxCounterBytes,
+		store, err := newCounterStore(driver.Context(ctx.Raw()), metrics, limits.MaxRanges, limits.MaxRangeTreeNodes, limits.MaxCounterBytes,
 			counterAPI{cupti.RangeProfilerEnable, cupti.RangeProfilerDisable, cupti.RangeProfilerGetCounterDataSize, cupti.RangeProfilerCounterDataImageInitialize})
 		result.store = store
 		if err != nil {
 			return err
 		}
 		if options.Mode == Kernels {
-			names, err := newKernelNames(cupti.Context(ctx.Raw()), limits.MaxRanges)
+			names, err := newKernelNames(driver.Context(ctx.Raw()), limits.MaxRanges)
 			result.kernelNames = names
 			if err != nil {
 				return err

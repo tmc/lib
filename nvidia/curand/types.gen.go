@@ -17,6 +17,3 @@ const (
 	MinorVersion LibraryPropertyType = 1
 	PatchLevel   LibraryPropertyType = 2
 )
-
-// Stream is an opaque CUDA stream handle.
-type Stream uintptr

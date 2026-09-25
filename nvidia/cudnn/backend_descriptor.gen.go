@@ -32,6 +32,7 @@ func (b BackendDescriptor) Execute(handle Handle, variantPack BackendDescriptor)
 
 // Finalize finalizes the memory pointed to by the descriptor.
 //
+// The type of finalization is done depending on the descriptorType argument with which the descriptor was created using [NewBackendDescriptor] or initialized using [BackendDescriptor.Initialize].
 // [BackendDescriptor.Finalize] also checks all the attributes set between the create/initialization and finalize phase. If successful, [BackendDescriptor.Finalize] returns [Success] and the finalized state of the descriptor is set to true. In this state, setting attributes using [BackendDescriptor.SetAttribute] is not allowed. Getting attributes using [BackendDescriptor.Attribute] is only allowed when the finalized state of the descriptor is true.
 //
 // Returns:
@@ -47,7 +48,7 @@ func (b BackendDescriptor) Finalize() error {
 
 // Attribute retrieves the values of an attribute of a descriptor.
 //
-// attributeName is the name of the attribute whose value is requested. attributeType is the type of attribute. requestsedElementCount is the number of elements to be potentially retrieved. The number of elements for the requested attribute is stored in elementCount. The retrieved values are stored in arrayOfElements. When the attribute is expected to have a single value, arrayOfElements can be pointer to the output value. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
+// attributeName is the name of the attribute whose value is requested. attributeType is the type of attribute. requestsedElementCount is the number of elements to be potentially retrieved. The retrieved values are stored in arrayOfElements. When the attribute is expected to have a single value, arrayOfElements can be pointer to the output value. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
 //
 //   - attributeName: Input. The name of the attribute being get from the on the descriptor
 //   - attributeType: Input. The type of attribute

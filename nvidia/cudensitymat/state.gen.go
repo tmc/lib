@@ -2,7 +2,11 @@
 
 package cudensitymat
 
-// AttachComponentStorage Attaches a user-owned GPU-accessible storage buffer for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
+// AttachComponentStorage attaches a user-owned GPU-accessible storage buffer for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
 //
 // The provided user-owned GPU-accessible storage buffers
 // will be used for storing components (tensors) constituting
@@ -28,7 +32,7 @@ func (s State) AttachComponentStorage(handle Handle, numStateComponents int32, c
 	return stateAttachComponentStorage(handle, s, numStateComponents, componentBuffer, componentBufferSize)
 }
 
-// ComponentInfo Queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
+// ComponentInfo queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
 //
 // This API function queries the global component id
 // (across all parallel processes), the number of tensor modes
@@ -50,7 +54,7 @@ func (s State) ComponentInfo(handle Handle, stateComponentLocalId int32, stateCo
 	return stateGetComponentInfo(handle, s, stateComponentLocalId, stateComponentGlobalId, stateComponentNumModes, stateComponentModeExtents, stateComponentModeOffsets)
 }
 
-// ComponentNumModes Queries the number of modes in a local component tensor (on the current process in multi-process runs).
+// ComponentNumModes queries the number of modes in a local component tensor (on the current process in multi-process runs).
 //
 //   - handle: in Library handle
 //   - stateComponentLocalId: in Component local id (on the current parallel process)
@@ -60,7 +64,7 @@ func (s State) ComponentNumModes(handle Handle, stateComponentLocalId int32) (in
 	return stateGetComponentNumModes(handle, s, stateComponentLocalId)
 }
 
-// ComponentStorageSize Queries the storage size (in bytes) for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
+// ComponentStorageSize queries the storage size (in bytes) for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
 //
 //   - handle: in Library handle
 //   - numStateComponents: in Number of components (tensors) in the quantum state representation (on the current process)
@@ -71,7 +75,7 @@ func (s State) ComponentStorageSize(handle Handle, numStateComponents int32, com
 	return stateGetComponentStorageSize(handle, s, numStateComponents, componentBufferSize)
 }
 
-// ComputeAccumulation Computes accumulation of a quantum state(s) into another quantum state(s) of compatible shape.
+// ComputeAccumulation computes accumulation of a quantum state(s) into another quantum state(s) of compatible shape.
 //
 //   - handle: in Library handle
 //   - stateOut: inout Accumulating quantum state (or a batch of quantum states)
@@ -79,11 +83,11 @@ func (s State) ComponentStorageSize(handle Handle, numStateComponents int32, com
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeAccumulation.
-func (s State) ComputeAccumulation(handle Handle, stateOut State, scalingFactors uintptr, stream Stream) error {
+func (s State) ComputeAccumulation(handle Handle, stateOut State, scalingFactors uintptr, stream driver.Stream) error {
 	return stateComputeAccumulation(handle, s, stateOut, scalingFactors, stream)
 }
 
-// ComputeInnerProduct Computes the inner product(s) between the left quantum state(s) and the right quantum state(s): < state(s)Left | state(s)Right >
+// ComputeInnerProduct computes the inner product(s) between the left quantum state(s) and the right quantum state(s): < state(s)Left | state(s)Right >
 //
 // For pure quantum states, this function computes the regular
 // Hilbert-space inner product. For mixed quantum states, it computes
@@ -101,11 +105,11 @@ func (s State) ComputeAccumulation(handle Handle, stateOut State, scalingFactors
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeInnerProduct.
-func (s State) ComputeInnerProduct(handle Handle, stateRight State, innerProduct uintptr, stream Stream) error {
+func (s State) ComputeInnerProduct(handle Handle, stateRight State, innerProduct uintptr, stream driver.Stream) error {
 	return stateComputeInnerProduct(handle, s, stateRight, innerProduct, stream)
 }
 
-// ComputeNorm Computes the squared Frobenius norm(s) of the quantum state(s).
+// ComputeNorm computes the squared Frobenius norm(s) of the quantum state(s).
 //
 // The result is generally a vector of dimension
 // equal to the quantum state batch size.
@@ -123,22 +127,22 @@ func (s State) ComputeInnerProduct(handle Handle, stateRight State, innerProduct
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeNorm.
-func (s State) ComputeNorm(handle Handle, norm uintptr, stream Stream) error {
+func (s State) ComputeNorm(handle Handle, norm uintptr, stream driver.Stream) error {
 	return stateComputeNorm(handle, s, norm, stream)
 }
 
-// ComputeScaling Multiplies the quantum state(s) by a scalar factor(s).
+// ComputeScaling multiplies the quantum state(s) by a scalar factor(s).
 //
 //   - handle: in Library handle
 //   - scalingFactors: in Array of scaling factor(s) of dimension equal to the batch size in the GPU-accessible RAM (same data type as used by the quantum state)
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeScaling.
-func (s State) ComputeScaling(handle Handle, scalingFactors uintptr, stream Stream) error {
+func (s State) ComputeScaling(handle Handle, scalingFactors uintptr, stream driver.Stream) error {
 	return stateComputeScaling(handle, s, scalingFactors, stream)
 }
 
-// ComputeTrace Computes the trace(s) of the quantum state(s).
+// ComputeTrace computes the trace(s) of the quantum state(s).
 //
 // Trace of a pure quantum state is defined to be its squared norm.
 // Trace of a mixed quantum state is equal to the trace of its density matrix.
@@ -150,18 +154,18 @@ func (s State) ComputeScaling(handle Handle, scalingFactors uintptr, stream Stre
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeTrace.
-func (s State) ComputeTrace(handle Handle, trace uintptr, stream Stream) error {
+func (s State) ComputeTrace(handle Handle, trace uintptr, stream driver.Stream) error {
 	return stateComputeTrace(handle, s, trace, stream)
 }
 
-// Destroy Destroys the quantum state.
+// Destroy destroys the quantum state.
 //
 // Wraps cudensitymatDestroyState.
 func (s State) Destroy() error {
 	return destroyState(s)
 }
 
-// InitializeZero Initializes the quantum state to zero (null state).
+// InitializeZero initializes the quantum state to zero (null state).
 //
 // Note: This API function is typically used for initializing
 // the output quantum state to true zero before accumulating
@@ -171,11 +175,11 @@ func (s State) Destroy() error {
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateInitializeZero.
-func (s State) InitializeZero(handle Handle, stream Stream) error {
+func (s State) InitializeZero(handle Handle, stream driver.Stream) error {
 	return stateInitializeZero(handle, s, stream)
 }
 
-// NumComponents Queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
+// NumComponents queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
 //
 // Quantum state representation may include one or more
 // components (tensors) distributed over one or more parallel

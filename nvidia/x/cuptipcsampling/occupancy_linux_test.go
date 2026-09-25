@@ -13,7 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -429,7 +429,7 @@ func (h *occupancyHarness) run() error {
 		return fmt.Errorf("retain primary context: %w", err)
 	}
 	defer cuCtx.Release()
-	ctxHandle := cupti.Context(cuCtx.Raw())
+	ctxHandle := driver.Context(cuCtx.Raw())
 
 	// The inventory cannot be read while sampling is disabled, and the session
 	// config is built from it, so this enable is scoped to the query alone.
@@ -657,7 +657,7 @@ func sweepBudget(reasons int) (cuptipcsampling.Config, error) {
 	}, nil
 }
 
-func readInventory(ctx cupti.Context) (inv cuptipcsampling.ReasonInventory, err error) {
+func readInventory(ctx driver.Context) (inv cuptipcsampling.ReasonInventory, err error) {
 	disable, err := cuptipcsampling.Enable(ctx)
 	if disable != nil {
 		defer func() { err = errors.Join(err, disable()) }()

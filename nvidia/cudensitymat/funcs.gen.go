@@ -3,54 +3,331 @@
 package cudensitymat
 
 import (
+	"sync"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 // Generated function pointer variables.
 var (
-	fnCreate                              func(*Handle) Result
+	symCreate                             uintptr
 	fncreateElementaryOperator            func(Handle, int32, *int64, ElementaryOperatorSparsity, int32, *int32, DataType, uintptr, WrappedTensorCallback, WrappedTensorGradientCallback, *ElementaryOperator) Result
-	fncreateExpectation                   func(Handle, Operator, *Expectation) Result
-	fncreateOperator                      func(Handle, int32, *int64, *Operator) Result
-	fncreateOperatorTerm                  func(Handle, int32, *int64, *OperatorTerm) Result
-	fncreateState                         func(Handle, StatePurity, int32, *int64, int64, DataType, *State) Result
-	fncreateWorkspace                     func(Handle, *WorkspaceDescriptor) Result
-	fndestroy                             func(Handle) Result
-	fndestroyElementaryOperator           func(ElementaryOperator) Result
-	fndestroyExpectation                  func(Expectation) Result
-	fndestroyOperator                     func(Operator) Result
-	fndestroyOperatorTerm                 func(OperatorTerm) Result
-	fndestroyState                        func(State) Result
-	fndestroyWorkspace                    func(WorkspaceDescriptor) Result
-	fnelementaryOperatorAttachBuffer      func(Handle, ElementaryOperator, uintptr, uint) Result
-	fnexpectationCompute                  func(Handle, Expectation, float64, int64, int32, *float64, State, uintptr, WorkspaceDescriptor, Stream) Result
-	fnexpectationPrepare                  func(Handle, Expectation, State, ComputeType, uint, WorkspaceDescriptor, Stream) Result
-	fngetNumRanks                         func(Handle, *int32) Result
-	fngetProcRank                         func(Handle, *int32) Result
-	fnGetVersion                          func() uint
+	symcreateExpectation                  uintptr
+	symcreateOperator                     uintptr
+	symcreateOperatorTerm                 uintptr
+	symcreateState                        uintptr
+	symcreateWorkspace                    uintptr
+	symdestroy                            uintptr
+	symdestroyElementaryOperator          uintptr
+	symdestroyExpectation                 uintptr
+	symdestroyOperator                    uintptr
+	symdestroyOperatorTerm                uintptr
+	symdestroyState                       uintptr
+	symdestroyWorkspace                   uintptr
+	symelementaryOperatorAttachBuffer     uintptr
+	fnexpectationCompute                  func(Handle, Expectation, float64, int64, int32, *float64, State, uintptr, WorkspaceDescriptor, driver.Stream) Result
+	fnexpectationPrepare                  func(Handle, Expectation, State, ComputeType, uint, WorkspaceDescriptor, driver.Stream) Result
+	symgetNumRanks                        uintptr
+	symgetProcRank                        uintptr
+	symGetVersion                         uintptr
 	fnoperatorAppendTerm                  func(Handle, Operator, OperatorTerm, int32, Complex128, WrappedScalarCallback, WrappedScalarGradientCallback) Result
-	fnoperatorComputeAction               func(Handle, Operator, float64, int64, int32, *float64, State, State, WorkspaceDescriptor, Stream) Result
-	fnoperatorPrepareAction               func(Handle, Operator, State, State, ComputeType, uint, WorkspaceDescriptor, Stream) Result
+	fnoperatorComputeAction               func(Handle, Operator, float64, int64, int32, *float64, State, State, WorkspaceDescriptor, driver.Stream) Result
+	fnoperatorPrepareAction               func(Handle, Operator, State, State, ComputeType, uint, WorkspaceDescriptor, driver.Stream) Result
 	fnoperatorTermAppendElementaryProduct func(Handle, OperatorTerm, int32, *ElementaryOperator, *int32, *int32, Complex128, WrappedScalarCallback, WrappedScalarGradientCallback) Result
-	fnresetDistributedConfiguration       func(Handle, DistributedProvider, unsafe.Pointer, uint) Result
-	fnresetRandomSeed                     func(Handle, int32) Result
-	fnstateAttachComponentStorage         func(Handle, State, int32, *uintptr, *uint) Result
-	fnstateComputeAccumulation            func(Handle, State, State, uintptr, Stream) Result
-	fnstateComputeInnerProduct            func(Handle, State, State, uintptr, Stream) Result
-	fnstateComputeNorm                    func(Handle, State, uintptr, Stream) Result
-	fnstateComputeScaling                 func(Handle, State, uintptr, Stream) Result
-	fnstateComputeTrace                   func(Handle, State, uintptr, Stream) Result
-	fnstateGetComponentInfo               func(Handle, State, int32, *int32, *int32, *int64, *int64) Result
-	fnstateGetComponentNumModes           func(Handle, State, int32, *int32, *int32, *int32) Result
-	fnstateGetComponentStorageSize        func(Handle, State, int32, *uint) Result
-	fnstateGetNumComponents               func(Handle, State, *int32) Result
-	fnstateInitializeZero                 func(Handle, State, Stream) Result
-	fnworkspaceGetMemory                  func(Handle, WorkspaceDescriptor, Memspace, WorkspaceKind, *uintptr, *uint) Result
-	fnworkspaceGetMemorySize              func(Handle, WorkspaceDescriptor, Memspace, WorkspaceKind, *uint) Result
-	fnworkspaceSetMemory                  func(Handle, WorkspaceDescriptor, Memspace, WorkspaceKind, uintptr, uint) Result
+	symresetDistributedConfiguration      uintptr
+	symresetRandomSeed                    uintptr
+	symstateAttachComponentStorage        uintptr
+	fnstateComputeAccumulation            func(Handle, State, State, uintptr, driver.Stream) Result
+	fnstateComputeInnerProduct            func(Handle, State, State, uintptr, driver.Stream) Result
+	fnstateComputeNorm                    func(Handle, State, uintptr, driver.Stream) Result
+	fnstateComputeScaling                 func(Handle, State, uintptr, driver.Stream) Result
+	fnstateComputeTrace                   func(Handle, State, uintptr, driver.Stream) Result
+	symstateGetComponentInfo              uintptr
+	symstateGetComponentNumModes          uintptr
+	symstateGetComponentStorageSize       uintptr
+	symstateGetNumComponents              uintptr
+	fnstateInitializeZero                 func(Handle, State, driver.Stream) Result
+	symworkspaceGetMemory                 uintptr
+	symworkspaceGetMemorySize             uintptr
+	symworkspaceSetMemory                 uintptr
 )
 
-// Create Creates and initializes the library context.
+// ffiCall0 through ffiCall7 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnCreate calls cudensitymatCreate.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fncreateExpectation calls cudensitymatCreateExpectation.
+func fncreateExpectation(a0 Handle, a1 Operator, a2 *Expectation) Result {
+	r1, _ := ffiCall3(symcreateExpectation, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fncreateOperator calls cudensitymatCreateOperator.
+func fncreateOperator(a0 Handle, a1 int32, a2 *int64, a3 *Operator) Result {
+	r1, _ := ffiCall4(symcreateOperator, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fncreateOperatorTerm calls cudensitymatCreateOperatorTerm.
+func fncreateOperatorTerm(a0 Handle, a1 int32, a2 *int64, a3 *OperatorTerm) Result {
+	r1, _ := ffiCall4(symcreateOperatorTerm, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fncreateState calls cudensitymatCreateState.
+func fncreateState(a0 Handle, a1 StatePurity, a2 int32, a3 *int64, a4 int64, a5 DataType, a6 *State) Result {
+	r1, _ := ffiCall7(symcreateState, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fncreateWorkspace calls cudensitymatCreateWorkspace.
+func fncreateWorkspace(a0 Handle, a1 *WorkspaceDescriptor) Result {
+	r1, _ := ffiCall2(symcreateWorkspace, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fndestroy calls cudensitymatDestroy.
+func fndestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyElementaryOperator calls cudensitymatDestroyElementaryOperator.
+func fndestroyElementaryOperator(a0 ElementaryOperator) Result {
+	r1, _ := ffiCall1(symdestroyElementaryOperator, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyExpectation calls cudensitymatDestroyExpectation.
+func fndestroyExpectation(a0 Expectation) Result {
+	r1, _ := ffiCall1(symdestroyExpectation, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyOperator calls cudensitymatDestroyOperator.
+func fndestroyOperator(a0 Operator) Result {
+	r1, _ := ffiCall1(symdestroyOperator, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyOperatorTerm calls cudensitymatDestroyOperatorTerm.
+func fndestroyOperatorTerm(a0 OperatorTerm) Result {
+	r1, _ := ffiCall1(symdestroyOperatorTerm, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyState calls cudensitymatDestroyState.
+func fndestroyState(a0 State) Result {
+	r1, _ := ffiCall1(symdestroyState, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndestroyWorkspace calls cudensitymatDestroyWorkspace.
+func fndestroyWorkspace(a0 WorkspaceDescriptor) Result {
+	r1, _ := ffiCall1(symdestroyWorkspace, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnelementaryOperatorAttachBuffer calls cudensitymatElementaryOperatorAttachBuffer.
+func fnelementaryOperatorAttachBuffer(a0 Handle, a1 ElementaryOperator, a2 uintptr, a3 uint) Result {
+	r1, _ := ffiCall4(symelementaryOperatorAttachBuffer, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fngetNumRanks calls cudensitymatGetNumRanks.
+func fngetNumRanks(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetNumRanks, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetProcRank calls cudensitymatGetProcRank.
+func fngetProcRank(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetProcRank, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetVersion calls cudensitymatGetVersion.
+func fnGetVersion() uint {
+	r1, _ := ffiCall0(symGetVersion, 0)
+	return uint(r1)
+}
+
+// fnresetDistributedConfiguration calls cudensitymatResetDistributedConfiguration.
+func fnresetDistributedConfiguration(a0 Handle, a1 DistributedProvider, a2 unsafe.Pointer, a3 uint) Result {
+	r1, _ := ffiCall4(symresetDistributedConfiguration, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnresetRandomSeed calls cudensitymatResetRandomSeed.
+func fnresetRandomSeed(a0 Handle, a1 int32) Result {
+	r1, _ := ffiCall2(symresetRandomSeed, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnstateAttachComponentStorage calls cudensitymatStateAttachComponentStorage.
+func fnstateAttachComponentStorage(a0 Handle, a1 State, a2 int32, a3 *uintptr, a4 *uint) Result {
+	r1, _ := ffiCall5(symstateAttachComponentStorage, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnstateGetComponentInfo calls cudensitymatStateGetComponentInfo.
+func fnstateGetComponentInfo(a0 Handle, a1 State, a2 int32, a3 *int32, a4 *int32, a5 *int64, a6 *int64) Result {
+	r1, _ := ffiCall7(symstateGetComponentInfo, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnstateGetComponentNumModes calls cudensitymatStateGetComponentNumModes.
+func fnstateGetComponentNumModes(a0 Handle, a1 State, a2 int32, a3 *int32, a4 *int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symstateGetComponentNumModes, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnstateGetComponentStorageSize calls cudensitymatStateGetComponentStorageSize.
+func fnstateGetComponentStorageSize(a0 Handle, a1 State, a2 int32, a3 *uint) Result {
+	r1, _ := ffiCall4(symstateGetComponentStorageSize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnstateGetNumComponents calls cudensitymatStateGetNumComponents.
+func fnstateGetNumComponents(a0 Handle, a1 State, a2 *int32) Result {
+	r1, _ := ffiCall3(symstateGetNumComponents, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnworkspaceGetMemory calls cudensitymatWorkspaceGetMemory.
+func fnworkspaceGetMemory(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 *uintptr, a5 *uint) Result {
+	r1, _ := ffiCall6(symworkspaceGetMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnworkspaceGetMemorySize calls cudensitymatWorkspaceGetMemorySize.
+func fnworkspaceGetMemorySize(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 *uint) Result {
+	r1, _ := ffiCall5(symworkspaceGetMemorySize, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnworkspaceSetMemory calls cudensitymatWorkspaceSetMemory.
+func fnworkspaceSetMemory(a0 Handle, a1 WorkspaceDescriptor, a2 Memspace, a3 WorkspaceKind, a4 uintptr, a5 uint) Result {
+	r1, _ := ffiCall6(symworkspaceSetMemory, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// Create creates and initializes the library context.
 //
 // Wraps cudensitymatCreate.
 func Create() (Handle, error) {
@@ -58,15 +335,18 @@ func Create() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "cudensitymatCreate"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "cudensitymatCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// createElementaryOperator Creates an elementary tensor operator acting on a given number of quantum state modes (aka space modes).
+var slotCreate outSlot[Handle]
+
+// createElementaryOperator creates an elementary tensor operator acting on a given number of quantum state modes (aka space modes).
 //
 // An elementary tensor operator is a single tensor operator
 // acting on a specific set of space modes (quantum degrees of freedom).
@@ -125,7 +405,7 @@ func createElementaryOperator(handle Handle, numSpaceModes int32, spaceModeExten
 	return out, nil
 }
 
-// createExpectation Creates the operator expectation value computation object.
+// createExpectation creates the operator expectation value computation object.
 //
 // Note: The unnormalized expectation value will be produced
 // during the computation. If the quantum state is not normalized,
@@ -143,15 +423,18 @@ func createExpectation(handle Handle, superoperator Operator) (Expectation, erro
 		var zero Expectation
 		return zero, err
 	}
-	var out Expectation
-	if err := toError(fncreateExpectation(handle, superoperator, &out), "cudensitymatCreateExpectation"); err != nil {
+	out := slotCreateExpectation.get()
+	defer slotCreateExpectation.put(out)
+	if err := toError(fncreateExpectation(handle, superoperator, out), "cudensitymatCreateExpectation"); err != nil {
 		var zero Expectation
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// createOperator Creates an empty operator which is going to be a collection of operator terms with some coefficients.
+var slotCreateExpectation outSlot[Expectation]
+
+// createOperator creates an empty operator which is going to be a collection of operator terms with some coefficients.
 //
 // If the operator is expected to act on a pure quantum state,
 // it is just a regular operator that will act on the pure state vector
@@ -175,15 +458,20 @@ func createOperator(handle Handle, numSpaceModes int32, spaceModeExtents *int64)
 		var zero Operator
 		return zero, err
 	}
-	var out Operator
-	if err := toError(fncreateOperator(handle, numSpaceModes, spaceModeExtents, &out), "cudensitymatCreateOperator"); err != nil {
+	out := slotCreateOperator.get()
+	defer slotCreateOperator.put(out)
+	if err := toError(fncreateOperator(handle, numSpaceModes, spaceModeExtents, out), "cudensitymatCreateOperator"); err != nil {
 		var zero Operator
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// createOperatorTerm Creates an empty operator term which is going to be a sum of products of either elementary tensor operators or full matrix operators.
+var slotCreateOperator outSlot[Operator]
+
+// createOperatorTerm creates an empty operator term which is going to be a sum of products of either elementary tensor operators or full matrix operators.
+//
+// Each individual elementary tensor operator within a product acts on a subset of space modes, either from the left or from the right (for each mode). Each full matrix operator within a product acts on all space modes, either from the left or from the right (for all modes).
 //
 // Note: The created operator term will only be able to act on the quantum
 // states which reside in the same space where the operator term is set to act.
@@ -198,15 +486,18 @@ func createOperatorTerm(handle Handle, numSpaceModes int32, spaceModeExtents *in
 		var zero OperatorTerm
 		return zero, err
 	}
-	var out OperatorTerm
-	if err := toError(fncreateOperatorTerm(handle, numSpaceModes, spaceModeExtents, &out), "cudensitymatCreateOperatorTerm"); err != nil {
+	out := slotCreateOperatorTerm.get()
+	defer slotCreateOperatorTerm.put(out)
+	if err := toError(fncreateOperatorTerm(handle, numSpaceModes, spaceModeExtents, out), "cudensitymatCreateOperatorTerm"); err != nil {
 		var zero OperatorTerm
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// createState Defines an empty dense quantum state of a given purity and shape, or a batch of such dense quantum states.
+var slotCreateOperatorTerm outSlot[OperatorTerm]
+
+// createState defines an empty dense quantum state of a given purity and shape, or a batch of such dense quantum states.
 //
 // The number of space modes defining the state space is always the
 // number of quantum degrees of freedom used to define the corresponding
@@ -237,15 +528,18 @@ func createState(handle Handle, purity StatePurity, numSpaceModes int32, spaceMo
 		var zero State
 		return zero, err
 	}
-	var out State
-	if err := toError(fncreateState(handle, purity, numSpaceModes, spaceModeExtents, batchSize, dataType, &out), "cudensitymatCreateState"); err != nil {
+	out := slotCreateState.get()
+	defer slotCreateState.put(out)
+	if err := toError(fncreateState(handle, purity, numSpaceModes, spaceModeExtents, batchSize, dataType, out), "cudensitymatCreateState"); err != nil {
 		var zero State
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// createWorkspace Creates a workspace descriptor.
+var slotCreateState outSlot[State]
+
+// createWorkspace creates a workspace descriptor.
 //
 //   - handle: in Library handle
 //
@@ -255,15 +549,18 @@ func createWorkspace(handle Handle) (WorkspaceDescriptor, error) {
 		var zero WorkspaceDescriptor
 		return zero, err
 	}
-	var out WorkspaceDescriptor
-	if err := toError(fncreateWorkspace(handle, &out), "cudensitymatCreateWorkspace"); err != nil {
+	out := slotCreateWorkspace.get()
+	defer slotCreateWorkspace.put(out)
+	if err := toError(fncreateWorkspace(handle, out), "cudensitymatCreateWorkspace"); err != nil {
 		var zero WorkspaceDescriptor
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// destroy Destroys the library context.
+var slotCreateWorkspace outSlot[WorkspaceDescriptor]
+
+// destroy destroys the library context.
 //
 //   - handle: in Library handle
 //
@@ -275,7 +572,7 @@ func destroy(handle Handle) error {
 	return toError(fndestroy(handle), "cudensitymatDestroy")
 }
 
-// destroyElementaryOperator Destroys an elementary tensor operator (simple or batched).
+// destroyElementaryOperator destroys an elementary tensor operator (simple or batched).
 //
 //   - elemOperator: in Elementary tensor operator
 //
@@ -287,7 +584,7 @@ func destroyElementaryOperator(elemOperator ElementaryOperator) error {
 	return toError(fndestroyElementaryOperator(elemOperator), "cudensitymatDestroyElementaryOperator")
 }
 
-// destroyExpectation Destroys an expectation value computation object.
+// destroyExpectation destroys an expectation value computation object.
 //
 //   - expectation: in Expectation value computation object
 //
@@ -299,7 +596,7 @@ func destroyExpectation(expectation Expectation) error {
 	return toError(fndestroyExpectation(expectation), "cudensitymatDestroyExpectation")
 }
 
-// destroyOperator Destroys an operator.
+// destroyOperator destroys an operator.
 //
 //   - superoperator: in Operator
 //
@@ -311,7 +608,7 @@ func destroyOperator(superoperator Operator) error {
 	return toError(fndestroyOperator(superoperator), "cudensitymatDestroyOperator")
 }
 
-// destroyOperatorTerm Destroys an operator term.
+// destroyOperatorTerm destroys an operator term.
 //
 //   - operatorTerm: in Operator term
 //
@@ -323,7 +620,7 @@ func destroyOperatorTerm(operatorTerm OperatorTerm) error {
 	return toError(fndestroyOperatorTerm(operatorTerm), "cudensitymatDestroyOperatorTerm")
 }
 
-// destroyState Destroys the quantum state.
+// destroyState destroys the quantum state.
 //
 //   - state: in Quantum state (or a batch of quantum states)
 //
@@ -335,7 +632,7 @@ func destroyState(state State) error {
 	return toError(fndestroyState(state), "cudensitymatDestroyState")
 }
 
-// destroyWorkspace Destroys a workspace descriptor.
+// destroyWorkspace destroys a workspace descriptor.
 //
 //   - workspaceDescr: inout Workspace descriptor
 //
@@ -347,7 +644,7 @@ func destroyWorkspace(workspaceDescr WorkspaceDescriptor) error {
 	return toError(fndestroyWorkspace(workspaceDescr), "cudensitymatDestroyWorkspace")
 }
 
-// elementaryOperatorAttachBuffer Attaches a buffer to the elementary tensor operator (either batched or non-batched).
+// elementaryOperatorAttachBuffer attaches a buffer to the elementary tensor operator (either batched or non-batched).
 //
 //   - handle: in Library handle
 //   - elemOperator: in Elementary tensor operator (either batched or non-batched)
@@ -362,7 +659,7 @@ func elementaryOperatorAttachBuffer(handle Handle, elemOperator ElementaryOperat
 	return toError(fnelementaryOperatorAttachBuffer(handle, elemOperator, buffer, bufferSize), "cudensitymatElementaryOperatorAttachBuffer")
 }
 
-// expectationCompute Computes the operator expectation value(s) with respect to the given quantum state(s).
+// expectationCompute computes the operator expectation value(s) with respect to the given quantum state(s).
 //
 // The result is generally a vector of dimension equal to the state batch size.
 //
@@ -378,14 +675,14 @@ func elementaryOperatorAttachBuffer(handle Handle, elemOperator ElementaryOperat
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatExpectationCompute.
-func expectationCompute(handle Handle, expectation Expectation, time float64, batchSize int64, numParams int32, params *float64, state State, expectationValue uintptr, workspace WorkspaceDescriptor, stream Stream) error {
+func expectationCompute(handle Handle, expectation Expectation, time float64, batchSize int64, numParams int32, params *float64, state State, expectationValue uintptr, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatExpectationCompute"); err != nil {
 		return err
 	}
 	return toError(fnexpectationCompute(handle, expectation, time, batchSize, numParams, params, state, expectationValue, workspace, stream), "cudensitymatExpectationCompute")
 }
 
-// expectationPrepare Prepares the expectation value object for computation.
+// expectationPrepare prepares the expectation value object for computation.
 //
 // In general, before the expectation value can be computed,
 // it needs to be prepared for computation first, which is the purpose
@@ -404,14 +701,14 @@ func expectationCompute(handle Handle, expectation Expectation, time float64, ba
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatExpectationPrepare.
-func expectationPrepare(handle Handle, expectation Expectation, state State, computeType ComputeType, workspaceSizeLimit uint, workspace WorkspaceDescriptor, stream Stream) error {
+func expectationPrepare(handle Handle, expectation Expectation, state State, computeType ComputeType, workspaceSizeLimit uint, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatExpectationPrepare"); err != nil {
 		return err
 	}
 	return toError(fnexpectationPrepare(handle, expectation, state, computeType, workspaceSizeLimit, workspace, stream), "cudensitymatExpectationPrepare")
 }
 
-// getNumRanks Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
+// getNumRanks returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
 //
 //   - handle: in Library handle
 //
@@ -421,15 +718,18 @@ func getNumRanks(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetNumRanks(handle, &out), "cudensitymatGetNumRanks"); err != nil {
+	out := slotGetNumRanks.get()
+	defer slotGetNumRanks.put(out)
+	if err := toError(fngetNumRanks(handle, out), "cudensitymatGetNumRanks"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// getProcRank Returns the rank of the current process in the distributed execution configuration associated with the given library context.
+var slotGetNumRanks outSlot[int32]
+
+// getProcRank returns the rank of the current process in the distributed execution configuration associated with the given library context.
 //
 //   - handle: in Library handle
 //
@@ -439,15 +739,18 @@ func getProcRank(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetProcRank(handle, &out), "cudensitymatGetProcRank"); err != nil {
+	out := slotGetProcRank.get()
+	defer slotGetProcRank.put(out)
+	if err := toError(fngetProcRank(handle, out), "cudensitymatGetProcRank"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// GetVersion Returns the semantic version number of the cuDensityMat library.
+var slotGetProcRank outSlot[int32]
+
+// GetVersion returns the semantic version number of the cuDensityMat library.
 //
 // Wraps cudensitymatGetVersion.
 // It returns the zero value when the library or symbol is unavailable.
@@ -459,7 +762,7 @@ func GetVersion() uint {
 	return fnGetVersion()
 }
 
-// operatorAppendTerm Appends an operator term to the operator.
+// operatorAppendTerm appends an operator term to the operator.
 //
 //   - handle: in Library handle
 //   - superoperator: inout Operator
@@ -477,7 +780,7 @@ func operatorAppendTerm(handle Handle, superoperator Operator, operatorTerm Oper
 	return toError(fnoperatorAppendTerm(handle, superoperator, operatorTerm, duality, coefficient, coefficientCallback, coefficientGradientCallback), "cudensitymatOperatorAppendTerm")
 }
 
-// operatorComputeAction Computes the action of the operator on a given input quantum state, accumulating the result in the output quantum state (accumulative action).
+// operatorComputeAction computes the action of the operator on a given input quantum state, accumulating the result in the output quantum state (accumulative action).
 //
 // Note: The provided input and output quantum states must be of the same
 // kind, shape, and structure as the quantum states provided during
@@ -497,14 +800,14 @@ func operatorAppendTerm(handle Handle, superoperator Operator, operatorTerm Oper
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatOperatorComputeAction.
-func operatorComputeAction(handle Handle, superoperator Operator, time float64, batchSize int64, numParams int32, params *float64, stateIn State, stateOut State, workspace WorkspaceDescriptor, stream Stream) error {
+func operatorComputeAction(handle Handle, superoperator Operator, time float64, batchSize int64, numParams int32, params *float64, stateIn State, stateOut State, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatOperatorComputeAction"); err != nil {
 		return err
 	}
 	return toError(fnoperatorComputeAction(handle, superoperator, time, batchSize, numParams, params, stateIn, stateOut, workspace, stream), "cudensitymatOperatorComputeAction")
 }
 
-// operatorPrepareAction Prepares the operator for an action on a quantum state.
+// operatorPrepareAction prepares the operator for an action on a quantum state.
 //
 // In general, before the operator action on a specific
 // quantum state(s) can be computed, it needs to be prepared
@@ -524,14 +827,14 @@ func operatorComputeAction(handle Handle, superoperator Operator, time float64, 
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatOperatorPrepareAction.
-func operatorPrepareAction(handle Handle, superoperator Operator, stateIn State, stateOut State, computeType ComputeType, workspaceSizeLimit uint, workspace WorkspaceDescriptor, stream Stream) error {
+func operatorPrepareAction(handle Handle, superoperator Operator, stateIn State, stateOut State, computeType ComputeType, workspaceSizeLimit uint, workspace WorkspaceDescriptor, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatOperatorPrepareAction"); err != nil {
 		return err
 	}
 	return toError(fnoperatorPrepareAction(handle, superoperator, stateIn, stateOut, computeType, workspaceSizeLimit, workspace, stream), "cudensitymatOperatorPrepareAction")
 }
 
-// operatorTermAppendElementaryProduct Appends a product of elementary tensor operators acting on quantum state modes to the operator term.
+// operatorTermAppendElementaryProduct appends a product of elementary tensor operators acting on quantum state modes to the operator term.
 //
 // The elementary tensor operators constituting the provided
 // tensor operator product are applied to the quantum state in-order,
@@ -556,7 +859,7 @@ func operatorTermAppendElementaryProduct(handle Handle, operatorTerm OperatorTer
 	return toError(fnoperatorTermAppendElementaryProduct(handle, operatorTerm, numElemOperators, elemOperators, stateModesActedOn, modeActionDuality, coefficient, coefficientCallback, coefficientGradientCallback), "cudensitymatOperatorTermAppendElementaryProduct")
 }
 
-// resetDistributedConfiguration Resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
+// resetDistributedConfiguration resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
 //
 // Accepts and stores a copy of the provided inter-process communicator
 // which will be used for distributing numerical operations across all involved
@@ -575,7 +878,7 @@ func resetDistributedConfiguration(handle Handle, provider DistributedProvider, 
 	return toError(fnresetDistributedConfiguration(handle, provider, commPtr, commSize), "cudensitymatResetDistributedConfiguration")
 }
 
-// resetRandomSeed Resets the context-level random seed used by the random number generator inside the library context.
+// resetRandomSeed resets the context-level random seed used by the random number generator inside the library context.
 //
 //   - handle: inout Library handle
 //   - randomSeed: in Random seed value
@@ -588,7 +891,7 @@ func resetRandomSeed(handle Handle, randomSeed int32) error {
 	return toError(fnresetRandomSeed(handle, randomSeed), "cudensitymatResetRandomSeed")
 }
 
-// stateAttachComponentStorage Attaches a user-owned GPU-accessible storage buffer for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
+// stateAttachComponentStorage attaches a user-owned GPU-accessible storage buffer for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
 //
 // The provided user-owned GPU-accessible storage buffers
 // will be used for storing components (tensors) constituting
@@ -618,7 +921,7 @@ func stateAttachComponentStorage(handle Handle, state State, numStateComponents 
 	return toError(fnstateAttachComponentStorage(handle, state, numStateComponents, componentBuffer, componentBufferSize), "cudensitymatStateAttachComponentStorage")
 }
 
-// stateComputeAccumulation Computes accumulation of a quantum state(s) into another quantum state(s) of compatible shape.
+// stateComputeAccumulation computes accumulation of a quantum state(s) into another quantum state(s) of compatible shape.
 //
 //   - handle: in Library handle
 //   - stateIn: in Accumulated quantum state (or a batch of quantum states)
@@ -627,14 +930,14 @@ func stateAttachComponentStorage(handle Handle, state State, numStateComponents 
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeAccumulation.
-func stateComputeAccumulation(handle Handle, stateIn State, stateOut State, scalingFactors uintptr, stream Stream) error {
+func stateComputeAccumulation(handle Handle, stateIn State, stateOut State, scalingFactors uintptr, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatStateComputeAccumulation"); err != nil {
 		return err
 	}
 	return toError(fnstateComputeAccumulation(handle, stateIn, stateOut, scalingFactors, stream), "cudensitymatStateComputeAccumulation")
 }
 
-// stateComputeInnerProduct Computes the inner product(s) between the left quantum state(s) and the right quantum state(s): < state(s)Left | state(s)Right >
+// stateComputeInnerProduct computes the inner product(s) between the left quantum state(s) and the right quantum state(s): < state(s)Left | state(s)Right >
 //
 // For pure quantum states, this function computes the regular
 // Hilbert-space inner product. For mixed quantum states, it computes
@@ -653,14 +956,14 @@ func stateComputeAccumulation(handle Handle, stateIn State, stateOut State, scal
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeInnerProduct.
-func stateComputeInnerProduct(handle Handle, stateLeft State, stateRight State, innerProduct uintptr, stream Stream) error {
+func stateComputeInnerProduct(handle Handle, stateLeft State, stateRight State, innerProduct uintptr, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatStateComputeInnerProduct"); err != nil {
 		return err
 	}
 	return toError(fnstateComputeInnerProduct(handle, stateLeft, stateRight, innerProduct, stream), "cudensitymatStateComputeInnerProduct")
 }
 
-// stateComputeNorm Computes the squared Frobenius norm(s) of the quantum state(s).
+// stateComputeNorm computes the squared Frobenius norm(s) of the quantum state(s).
 //
 // The result is generally a vector of dimension
 // equal to the quantum state batch size.
@@ -679,14 +982,14 @@ func stateComputeInnerProduct(handle Handle, stateLeft State, stateRight State, 
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeNorm.
-func stateComputeNorm(handle Handle, state State, norm uintptr, stream Stream) error {
+func stateComputeNorm(handle Handle, state State, norm uintptr, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatStateComputeNorm"); err != nil {
 		return err
 	}
 	return toError(fnstateComputeNorm(handle, state, norm, stream), "cudensitymatStateComputeNorm")
 }
 
-// stateComputeScaling Multiplies the quantum state(s) by a scalar factor(s).
+// stateComputeScaling multiplies the quantum state(s) by a scalar factor(s).
 //
 //   - handle: in Library handle
 //   - state: inout Quantum state (or a batch of quantum states)
@@ -694,14 +997,14 @@ func stateComputeNorm(handle Handle, state State, norm uintptr, stream Stream) e
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeScaling.
-func stateComputeScaling(handle Handle, state State, scalingFactors uintptr, stream Stream) error {
+func stateComputeScaling(handle Handle, state State, scalingFactors uintptr, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatStateComputeScaling"); err != nil {
 		return err
 	}
 	return toError(fnstateComputeScaling(handle, state, scalingFactors, stream), "cudensitymatStateComputeScaling")
 }
 
-// stateComputeTrace Computes the trace(s) of the quantum state(s).
+// stateComputeTrace computes the trace(s) of the quantum state(s).
 //
 // Trace of a pure quantum state is defined to be its squared norm.
 // Trace of a mixed quantum state is equal to the trace of its density matrix.
@@ -714,14 +1017,14 @@ func stateComputeScaling(handle Handle, state State, scalingFactors uintptr, str
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateComputeTrace.
-func stateComputeTrace(handle Handle, state State, trace uintptr, stream Stream) error {
+func stateComputeTrace(handle Handle, state State, trace uintptr, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatStateComputeTrace"); err != nil {
 		return err
 	}
 	return toError(fnstateComputeTrace(handle, state, trace, stream), "cudensitymatStateComputeTrace")
 }
 
-// stateGetComponentInfo Queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
+// stateGetComponentInfo queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
 //
 // This API function queries the global component id
 // (across all parallel processes), the number of tensor modes
@@ -747,7 +1050,7 @@ func stateGetComponentInfo(handle Handle, state State, stateComponentLocalId int
 	return toError(fnstateGetComponentInfo(handle, state, stateComponentLocalId, stateComponentGlobalId, stateComponentNumModes, stateComponentModeExtents, stateComponentModeOffsets), "cudensitymatStateGetComponentInfo")
 }
 
-// stateGetComponentNumModes Queries the number of modes in a local component tensor (on the current process in multi-process runs).
+// stateGetComponentNumModes queries the number of modes in a local component tensor (on the current process in multi-process runs).
 //
 //   - handle: in Library handle
 //   - state: in Quantum state (or a batch of quantum states)
@@ -758,16 +1061,21 @@ func stateGetComponentNumModes(handle Handle, state State, stateComponentLocalId
 	if err := checkLibSym("cudensitymatStateGetComponentNumModes"); err != nil {
 		return 0, 0, 0, err
 	}
-	var out0 int32
-	var out1 int32
-	var out2 int32
-	if err := toError(fnstateGetComponentNumModes(handle, state, stateComponentLocalId, &out0, &out1, &out2), "cudensitymatStateGetComponentNumModes"); err != nil {
+	outs := slotStateGetComponentNumModes.get()
+	defer slotStateGetComponentNumModes.put(outs)
+	if err := toError(fnstateGetComponentNumModes(handle, state, stateComponentLocalId, &outs.out0, &outs.out1, &outs.out2), "cudensitymatStateGetComponentNumModes"); err != nil {
 		return 0, 0, 0, err
 	}
-	return out0, out1, out2, nil
+	return outs.out0, outs.out1, outs.out2, nil
 }
 
-// stateGetComponentStorageSize Queries the storage size (in bytes) for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
+var slotStateGetComponentNumModes outSlot[struct {
+	out0 int32
+	out1 int32
+	out2 int32
+}]
+
+// stateGetComponentStorageSize queries the storage size (in bytes) for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
 //
 //   - handle: in Library handle
 //   - state: in Quantum state (or a batch of quantum states)
@@ -782,7 +1090,7 @@ func stateGetComponentStorageSize(handle Handle, state State, numStateComponents
 	return toError(fnstateGetComponentStorageSize(handle, state, numStateComponents, componentBufferSize), "cudensitymatStateGetComponentStorageSize")
 }
 
-// stateGetNumComponents Queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
+// stateGetNumComponents queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
 //
 // Quantum state representation may include one or more
 // components (tensors) distributed over one or more parallel
@@ -817,15 +1125,18 @@ func stateGetNumComponents(handle Handle, state State) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnstateGetNumComponents(handle, state, &out), "cudensitymatStateGetNumComponents"); err != nil {
+	out := slotStateGetNumComponents.get()
+	defer slotStateGetNumComponents.put(out)
+	if err := toError(fnstateGetNumComponents(handle, state, out), "cudensitymatStateGetNumComponents"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// stateInitializeZero Initializes the quantum state to zero (null state).
+var slotStateGetNumComponents outSlot[int32]
+
+// stateInitializeZero initializes the quantum state to zero (null state).
 //
 // Note: This API function is typically used for initializing
 // the output quantum state to true zero before accumulating
@@ -836,14 +1147,14 @@ func stateGetNumComponents(handle Handle, state State) (int32, error) {
 //   - stream: in CUDA stream
 //
 // Wraps cudensitymatStateInitializeZero.
-func stateInitializeZero(handle Handle, state State, stream Stream) error {
+func stateInitializeZero(handle Handle, state State, stream driver.Stream) error {
 	if err := checkLibSym("cudensitymatStateInitializeZero"); err != nil {
 		return err
 	}
 	return toError(fnstateInitializeZero(handle, state, stream), "cudensitymatStateInitializeZero")
 }
 
-// workspaceGetMemory Retrieves a workspace buffer.
+// workspaceGetMemory retrieves a workspace buffer.
 //
 //   - handle: in Library handle
 //   - workspaceDescr: in Workspace descriptor
@@ -855,15 +1166,20 @@ func workspaceGetMemory(handle Handle, workspaceDescr WorkspaceDescriptor, memSp
 	if err := checkLibSym("cudensitymatWorkspaceGetMemory"); err != nil {
 		return *new(uintptr), 0, err
 	}
-	var out0 uintptr
-	var out1 uint
-	if err := toError(fnworkspaceGetMemory(handle, workspaceDescr, memSpace, workspaceKind, &out0, &out1), "cudensitymatWorkspaceGetMemory"); err != nil {
+	outs := slotWorkspaceGetMemory.get()
+	defer slotWorkspaceGetMemory.put(outs)
+	if err := toError(fnworkspaceGetMemory(handle, workspaceDescr, memSpace, workspaceKind, &outs.out0, &outs.out1), "cudensitymatWorkspaceGetMemory"); err != nil {
 		return *new(uintptr), 0, err
 	}
-	return out0, out1, nil
+	return outs.out0, outs.out1, nil
 }
 
-// workspaceGetMemorySize Queries the required workspace buffer size.
+var slotWorkspaceGetMemory outSlot[struct {
+	out0 uintptr
+	out1 uint
+}]
+
+// workspaceGetMemorySize queries the required workspace buffer size.
 //
 //   - handle: in Library handle
 //   - workspaceDescr: in Workspace descriptor
@@ -876,15 +1192,18 @@ func workspaceGetMemorySize(handle Handle, workspaceDescr WorkspaceDescriptor, m
 		var zero uint
 		return zero, err
 	}
-	var out uint
-	if err := toError(fnworkspaceGetMemorySize(handle, workspaceDescr, memSpace, workspaceKind, &out), "cudensitymatWorkspaceGetMemorySize"); err != nil {
+	out := slotWorkspaceGetMemorySize.get()
+	defer slotWorkspaceGetMemorySize.put(out)
+	if err := toError(fnworkspaceGetMemorySize(handle, workspaceDescr, memSpace, workspaceKind, out), "cudensitymatWorkspaceGetMemorySize"); err != nil {
 		var zero uint
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// workspaceSetMemory Attaches memory to a workspace buffer.
+var slotWorkspaceGetMemorySize outSlot[uint]
+
+// workspaceSetMemory attaches memory to a workspace buffer.
 //
 //   - handle: in Library handle
 //   - workspaceDescr: inout Workspace descriptor

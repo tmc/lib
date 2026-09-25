@@ -2,22 +2,50 @@
 
 package cusparse
 
-// DestroySpVec wraps cusparseDestroySpVec.
+// DestroySpVec releases the host memory allocated for the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+// Wraps cusparseDestroySpVec.
 func (c ConstSpVecDescr) DestroySpVec() error {
 	return destroySpVec(c)
 }
 
-// SpVecGet wraps cusparseConstSpVecGet.
+// SpVecGet returns the fields of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - size: Size of the sparse vector
+//   - nnz: Number of non-zero entries of the sparse vector
+//   - indices: Indices of the sparse vector. Array with nnz elements
+//   - values: Values of the sparse vector. Array with nnz elements
+//   - idxType: Enumerator specifying the data type of indices
+//   - idxBase: Enumerator specifying the the index base of indices
+//   - valueType: Enumerator specifying the datatype of values
+//
+// Wraps cusparseConstSpVecGet.
 func (c ConstSpVecDescr) SpVecGet(size *int64, nnz *int64, indices *uintptr, values *uintptr, idxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return constSpVecGet(c, size, nnz, indices, values, idxType, idxBase, valueType)
 }
 
-// SpVecGetIndexBase wraps cusparseSpVecGetIndexBase.
+// SpVecGetIndexBase returns the idxBase field of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - idxBase: Enumerator specifying the the index base of indices
+//
+// Wraps cusparseSpVecGetIndexBase.
 func (c ConstSpVecDescr) SpVecGetIndexBase() (IndexBase, error) {
 	return spVecGetIndexBase(c)
 }
 
-// SpVecGetValues wraps cusparseConstSpVecGetValues.
+// SpVecGetValues returns the values field of the sparse vector descriptor spVecDescr.
+//
+// See [Result] for the description of the return status.
+//
+//   - values: Values of the sparse vector. Array with nnz elements
+//
+// Wraps cusparseConstSpVecGetValues.
 func (c ConstSpVecDescr) SpVecGetValues(values *uintptr) error {
 	return constSpVecGetValues(c, values)
 }

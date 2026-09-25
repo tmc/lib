@@ -2,6 +2,8 @@
 
 package cupti
 
+import "github.com/tmc/lib/nvidia/driver"
+
 // BuffersCallbackCompleteFunc is the Go form of CUpti_BuffersCallbackCompleteFunc.
 //
 // It corresponds to the C signature
@@ -11,7 +13,7 @@ package cupti
 // Pass one to the API by converting it with purego.NewCallback, which is
 // why every pointer argument is a uintptr rather than a Go pointer: the
 // memory belongs to the C library and must not be traced by the collector.
-type BuffersCallbackCompleteFunc func(context Context, streamId uint32, buffer uintptr, size uint, validSize uint)
+type BuffersCallbackCompleteFunc func(context driver.Context, streamId uint32, buffer uintptr, size uint, validSize uint)
 
 // BuffersCallbackCompleteFuncV2 is the Go form of CUpti_BuffersCallbackCompleteFunc_v2.
 //

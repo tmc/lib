@@ -3,6 +3,8 @@
 package cudensitymat
 
 // WrappedScalarCallback represents scalar callback wrapper data structure.
+//
+// A wrapped struct containing the scalar callback and the scalar callback wrapper. The callback wrapper is only used when the library is used from Python and stores a Python callback function. It should be set to `NULL` when the library is used from C and stores a C callback function.
 type WrappedScalarCallback struct {
 	Callback uintptr
 	Device   CallbackDevice
@@ -10,6 +12,8 @@ type WrappedScalarCallback struct {
 }
 
 // WrappedTensorCallback represents tensor callback wrapper data structure.
+//
+// A wrapped struct containing the tensor callback and the tensor callback wrapper. The callback wrapper is only used when the library is used from Python and stores a Python callback function. It should be set to `NULL` when the library is used from C and stores a C callback function.
 type WrappedTensorCallback struct {
 	Callback uintptr
 	Device   CallbackDevice
@@ -17,6 +21,8 @@ type WrappedTensorCallback struct {
 }
 
 // WrappedScalarGradientCallback represents scalar gradient callback wrapper data structure.
+//
+// A wrapped struct containing the scalar gradient callback and the scalar gradient callback wrapper. The callback `wrapper` is only used when the library is used from Python and stores a Python callback function. It should be set to `NULL` when the library is used from C and stores a C callback function.
 type WrappedScalarGradientCallback struct {
 	Callback  uintptr
 	Device    CallbackDevice
@@ -25,6 +31,8 @@ type WrappedScalarGradientCallback struct {
 }
 
 // WrappedTensorGradientCallback represents tensor gradient callback wrapper data structure.
+//
+// A wrapped struct containing the tensor gradient callback and the tensor gradient callback wrapper. The callback `wrapper` is only used when the library is used from Python and stores a Python callback function. It should be set to `NULL` when the library is used from C and stores a C callback function.
 type WrappedTensorGradientCallback struct {
 	Callback  uintptr
 	Device    CallbackDevice

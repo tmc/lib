@@ -4,7 +4,7 @@ package driver
 
 import "unsafe"
 
-// CanAccessPeer Queries if a device may directly access a peer device’s memory.
+// CanAccessPeer queries if a device may directly access a peer device’s memory.
 //
 // Returns in *canAccessPeer a value of 1 if contexts on dev are capable of directly accessing memory from contexts on peerDev and 0 otherwise. If direct access of peerDev from dev is possible, then access may be enabled on two specific contexts by calling [Context.EnablePeerAccess].
 //
@@ -26,7 +26,7 @@ func (d Device) ComputeCapability() (major int, minor int, err error) {
 	return deviceComputeCapability(d)
 }
 
-// Attribute Returns information about the device.
+// Attribute returns information about the device.
 //
 // Returns in *pi the integer value of the attribute attrib on device dev.
 //
@@ -41,7 +41,7 @@ func (d Device) Attribute(attrib DeviceAttribute) (int32, error) {
 	return deviceGetAttribute(attrib, d)
 }
 
-// DefaultMemPool Returns the default mempool of a device.
+// DefaultMemPool returns the default mempool of a device.
 //
 // The default mempool of a device contains device memory from that device.
 //
@@ -54,7 +54,7 @@ func (d Device) DefaultMemPool() (MemoryPool, error) {
 	return deviceGetDefaultMemPool(d)
 }
 
-// DevResource Get device resources.
+// DevResource gets device resources.
 //
 // Get the type resources available to the device. This may often be the starting point for further partitioning or configuring of resources.
 //
@@ -67,7 +67,7 @@ func (d Device) DevResource(type_ DevResourceType) (DevResource, error) {
 	return deviceGetDevResource(d, type_)
 }
 
-// ExecAffinitySupport Returns information about the execution affinity support of the device.
+// ExecAffinitySupport returns information about the execution affinity support of the device.
 //
 // Returns in *pi whether execution affinity type type is supported by device dev. The supported types are:
 //
@@ -80,7 +80,7 @@ func (d Device) ExecAffinitySupport(type_ ExecAffinityType) (int32, error) {
 	return deviceGetExecAffinitySupport(type_, d)
 }
 
-// GraphMemAttribute Query asynchronous allocation attributes related to graphs.
+// GraphMemAttribute queries asynchronous allocation attributes related to graphs.
 //
 // Valid attributes are:
 //
@@ -94,7 +94,7 @@ func (d Device) GraphMemAttribute(attr GraphmemAttribute, value unsafe.Pointer) 
 	return deviceGetGraphMemAttribute(d, attr, value)
 }
 
-// HostAtomicCapabilities Queries details about atomic operations supported between the device and host.
+// HostAtomicCapabilities queries details about atomic operations supported between the device and host.
 //
 // Returns in *capabilities the details about requested atomic *operations over the the link between dev and the host. The allocated size of *operations and *capabilities must be count.
 // For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively.
@@ -113,7 +113,7 @@ func (d Device) HostAtomicCapabilities(operations *AtomicOperation, count uint32
 	return deviceGetHostAtomicCapabilities(operations, count, d)
 }
 
-// Luid Return an LUID and device node mask for the device.
+// Luid returns an LUID and device node mask for the device.
 //
 // Return identifying information ( luid and deviceNodeMask) to allow matching device with graphics APIs.
 //
@@ -128,7 +128,7 @@ func (d Device) Luid(luid *byte) (uint32, error) {
 	return deviceGetLuid(luid, d)
 }
 
-// MemPool Gets the current mempool for a device.
+// MemPool gets the current mempool for a device.
 //
 // Returns the last pool provided to [Device.SetMemPool] for this device or the device’s default memory pool if [Device.SetMemPool] has never been called. By default the current mempool is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool].
 //
@@ -139,7 +139,7 @@ func (d Device) MemPool() (MemoryPool, error) {
 	return deviceGetMemPool(d)
 }
 
-// Name Returns an identifier string for the device.
+// Name returns an identifier string for the device.
 //
 // Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by name. len specifies the maximum length of the string that may be returned. name is shortened to the specified len, if len is less than the device name
 //
@@ -152,7 +152,7 @@ func (d Device) Name() (string, error) {
 	return deviceGetName(d)
 }
 
-// NvSciSyncAttributes Return NvSciSync attributes that this device can support.
+// NvSciSyncAttributes returns NvSciSync attributes that this device can support.
 //
 // Returns in nvSciSyncAttrList, the properties of NvSciSync that this CUDA device, dev can support. The returned nvSciSyncAttrList can be used to create an NvSciSync object that matches this device’s capabilities.
 // If NvSciSyncAttrKey_RequiredPerm field in nvSciSyncAttrList is already set this API will return [ErrInvalidValue].
@@ -172,7 +172,7 @@ func (d Device) NvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, flags int3
 	return deviceGetNvSciSyncAttributes(nvSciSyncAttrList, d, flags)
 }
 
-// P2PAtomicCapabilities Queries details about atomic operations supported between two devices.
+// P2PAtomicCapabilities queries details about atomic operations supported between two devices.
 //
 // Returns in *capabilities the details about requested atomic *operations over the the link between srcDevice and dstDevice. The allocated size of *operations and *capabilities must be count.
 // For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively.
@@ -192,7 +192,7 @@ func (d Device) P2PAtomicCapabilities(operations *AtomicOperation, count uint32,
 	return deviceGetP2PAtomicCapabilities(operations, count, d, dstDevice)
 }
 
-// P2PAttribute Queries attributes of the link between two devices.
+// P2PAttribute queries attributes of the link between two devices.
 //
 // Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are:
 // Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device.
@@ -210,7 +210,7 @@ func (d Device) P2PAttribute(attrib DeviceP2pattribute, dstDevice Device) (int32
 	return deviceGetP2PAttribute(attrib, d, dstDevice)
 }
 
-// PCIBusId Returns a PCI Bus Id string for the device.
+// PCIBusId returns a PCI Bus Id string for the device.
 //
 // Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by pciBusId. len specifies the maximum length of the string that may be returned.
 // where domain, bus, device, and function are all hexadecimal values. pciBusId should be large enough to store 13 characters including the NULL-terminator.
@@ -224,9 +224,8 @@ func (d Device) PCIBusId() (string, error) {
 	return deviceGetPCIBusId(d)
 }
 
-// Properties Returns properties for a selected device.
+// Properties returns properties for a selected device.
 //
-// This function was deprecated as of CUDA 5.0 and replaced by [Device.Attribute].
 // Returns in *prop the properties of device dev. The [Devprop] structure is defined as:
 // where:
 //
@@ -234,14 +233,14 @@ func (d Device) PCIBusId() (string, error) {
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
 //
-// Deprecated: This function was deprecated as of CUDA 5.0 and replaced by [Device.Attribute]. Returns in *prop the properties of device dev. The [Devprop] structure is defined as: where: - maxThreadsPerBlock is the maximum number of threads per block; - maxThreadsDim [3] is the maximum sizes of each dimension of a block; - maxGridSize [3] is the maximum sizes of each dimension of a grid; - sharedMemPerBlock is the total amount of shared memory available per block in bytes; - totalConstantMemory is the total amount of constant memory available on the device in bytes; - SIMDWidth is the warp size; - memPitch is the maximum pitch allowed by the memory copy functions that involve memory regions allocated through [MemAllocPitch]; - regsPerBlock is the total number of registers available per block; - clockRate is the clock frequency in kilohertz; - textureAlign is the alignment requirement; texture base addresses that are aligned to textureAlign bytes do not need an offset applied to texture fetches.
+// Deprecated: This function was deprecated as of CUDA 5.0 and replaced by [Device.Attribute].
 //
 // Wraps cuDeviceGetProperties.
 func (d Device) Properties() (Devprop, error) {
 	return deviceGetProperties(d)
 }
 
-// Texture1DLinearMaxWidth Returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size.
+// Texture1DLinearMaxWidth returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size.
 //
 // Returns in maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture for given format and numChannels.
 //
@@ -257,7 +256,7 @@ func (d Device) Texture1DLinearMaxWidth(format ArrayFormat, numChannels uint32) 
 	return deviceGetTexture1DLinearMaxWidth(format, numChannels, d)
 }
 
-// Uuid Return an UUID for the device.
+// Uuid returns an UUID for the device.
 //
 // Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance.
 //
@@ -270,7 +269,7 @@ func (d Device) Uuid() (Uuid, error) {
 	return deviceGetUuid(d)
 }
 
-// GraphMemTrim Free unused memory that was cached on the specified device for use with graphs back to the OS.
+// GraphMemTrim frees unused memory that was cached on the specified device for use with graphs back to the OS.
 //
 // Blocks which are not in use by a graph that is either currently executing or scheduled to execute are freed back to the operating system.
 //
@@ -281,7 +280,7 @@ func (d Device) GraphMemTrim() error {
 	return deviceGraphMemTrim(d)
 }
 
-// PrimaryCtxGetState Get the state of the primary context.
+// PrimaryCtxGetState gets the state of the primary context.
 //
 // Returns in *flags the flags for the primary context of dev, and in *active whether it is active. See [Device.PrimaryCtxSetFlags] for flag values.
 //
@@ -294,7 +293,7 @@ func (d Device) PrimaryCtxGetState() (flags uint32, active int32, err error) {
 	return devicePrimaryCtxGetState(d)
 }
 
-// PrimaryCtxRelease Release the primary context on the GPU.
+// PrimaryCtxRelease releases the primary context on the GPU.
 //
 // Releases the primary context interop on the device. A retained context should always be released once the user is done using it. The context is automatically reset once the last reference to it is released. This behavior is different when the primary context was retained by the CUDA runtime from CUDA 4.0 and earlier. In this case, the primary context remains always active.
 // Releasing a primary context that has not been previously retained will fail with [ErrInvalidContext].
@@ -309,7 +308,7 @@ func (d Device) PrimaryCtxRelease() error {
 	return devicePrimaryCtxRelease(d)
 }
 
-// PrimaryCtxReset Destroy all allocations and reset all state on the primary context.
+// PrimaryCtxReset destroys all allocations and resets all state on the primary context.
 //
 // Explicitly destroys and cleans up all resources associated with the current device in the current process.
 // Note that it is responsibility of the calling function to ensure that no other module in the process is using the device any more. For that reason it is recommended to use [Device.PrimaryCtxRelease] in most cases. However it is safe for other modules to call [Device.PrimaryCtxRelease] even after resetting the device. Resetting the primary context does not release it, an application that has retained the primary context should explicitly release its usage.
@@ -323,7 +322,7 @@ func (d Device) PrimaryCtxReset() error {
 	return devicePrimaryCtxReset(d)
 }
 
-// PrimaryCtxRetain Retain the primary context on the GPU.
+// PrimaryCtxRetain retains the primary context on the GPU.
 //
 // Retains the primary context on the device. Once the user successfully retains the primary context, the primary context will be active and available to the user until the user releases it with [Device.PrimaryCtxRelease] or resets it with [Device.PrimaryCtxReset]. Unlike [NewContext] the newly retained context is not pushed onto the stack.
 // Retaining the primary context for the first time will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.Attribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for devices. Documentation for nvidia-smi can be obtained by passing a -h option to it.
@@ -338,7 +337,7 @@ func (d Device) PrimaryCtxRetain() (Context, error) {
 	return devicePrimaryCtxRetain(d)
 }
 
-// PrimaryCtxSetFlags Set flags for the primary context.
+// PrimaryCtxSetFlags sets flags for the primary context.
 //
 // Sets the flags for the primary context on the device overwriting perviously set ones.
 // The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context.
@@ -354,7 +353,7 @@ func (d Device) PrimaryCtxSetFlags(flags CtxFlags) error {
 	return devicePrimaryCtxSetFlags(d, flags)
 }
 
-// RegisterAsyncNotification Registers a callback function to receive async notifications.
+// RegisterAsyncNotification registers a callback function to receive async notifications.
 //
 // Registers callbackFunc to receive async notifications.
 // The userData
@@ -378,7 +377,7 @@ func (d Device) RegisterAsyncNotification(callbackFunc uintptr, userData uintptr
 	return deviceRegisterAsyncNotification(d, callbackFunc, userData)
 }
 
-// SetGraphMemAttribute Set asynchronous allocation attributes related to graphs.
+// SetGraphMemAttribute sets asynchronous allocation attributes related to graphs.
 //
 // Valid attributes are:
 //
@@ -392,7 +391,7 @@ func (d Device) SetGraphMemAttribute(attr GraphmemAttribute, value uintptr) erro
 	return deviceSetGraphMemAttribute(d, attr, value)
 }
 
-// SetMemPool Sets the current memory pool of a device.
+// SetMemPool sets the current memory pool of a device.
 //
 // The memory pool must be local to the specified device. [Stream.MemAllocAsync] allocates from the current mempool of the provided stream’s device. By default, a device’s current memory pool is its default memory pool.
 //
@@ -405,7 +404,7 @@ func (d Device) SetMemPool(pool MemoryPool) error {
 	return deviceSetMemPool(d, pool)
 }
 
-// TotalMem Returns the total amount of memory on the device.
+// TotalMem returns the total amount of memory on the device.
 //
 // Returns in *bytes the total amount of memory available on the device dev in bytes.
 //
@@ -418,7 +417,7 @@ func (d Device) TotalMem() (uint, error) {
 	return deviceTotalMem(d)
 }
 
-// UnregisterAsyncNotification Unregisters an async notification callback.
+// UnregisterAsyncNotification unregisters an async notification callback.
 //
 // Unregisters callback so that the corresponding callback function will stop receiving async notifications.
 //
@@ -433,7 +432,7 @@ func (d Device) UnregisterAsyncNotification(callback AsyncCallbackHandle) error 
 	return deviceUnregisterAsyncNotification(d, callback)
 }
 
-// MulticastAdd Associate a device to a multicast object.
+// MulticastAdd associates a device to a multicast object.
 //
 // Associates a device to a multicast object. The added device will be a part of the multicast team of size specified by [MulticastObjectProp].numDevices during [MulticastCreate]. The association of the device to the multicast object is permanent during the life time of the multicast object. All devices must be added to the multicast team before any memory can be bound to any device in the team. Any calls to [MulticastBindMem], [Device.MulticastBindMemV2], [DevicePtr.MulticastBindAddr], or [Device.MulticastBindAddrV2] will block until all devices have been added. Similarly all devices must be added to the multicast team before a virtual address range can be mapped to the multicast object. A call to [DevicePtr.MemMap] will block until all devices have been added.
 // This call may fail with [ErrInvalidDevice] if the device specified by dev does not belong to the same clique as the other devices previously added to this multicast object.
@@ -447,7 +446,7 @@ func (d Device) MulticastAdd(mcHandle uint64) error {
 	return multicastAddDevice(mcHandle, d)
 }
 
-// MulticastBindAddrV2 Bind a memory allocation represented by a virtual address to a multicast object.
+// MulticastBindAddrV2 binds a memory allocation represented by a virtual address to a multicast object.
 //
 // Binds a memory allocation specified by its mapped address memptr to a multicast object represented by mcHandle. The binding will be applicable for the device dev. The memory must have been allocated via [MemCreate] or cudaMallocAsync. The intended size of the bind, the offset in the multicast range mcOffset and memptr must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memptr should be aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the total size of the multicast object.
@@ -470,7 +469,7 @@ func (d Device) MulticastBindAddrV2(mcHandle uint64, mcOffset uint, memptr Devic
 	return multicastBindAddrV2(mcHandle, d, mcOffset, memptr, size, flags)
 }
 
-// MulticastBindMemV2 Bind a memory allocation represented by a handle to a multicast object.
+// MulticastBindMemV2 binds a memory allocation represented by a handle to a multicast object.
 //
 // Binds a memory allocation specified by memHandle and created via [MemCreate] to a multicast object represented by mcHandle and created via [MulticastCreate]. The binding will be applicable for the device dev. The intended size of the bind, the offset in the multicast range mcOffset as well as the offset in the memory memOffset must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memOffset should be aligned to the granularity of the memory allocation(see [MemGetAllocationGranularity]) or to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the size of the multicast object.
@@ -494,7 +493,7 @@ func (d Device) MulticastBindMemV2(mcHandle uint64, mcOffset uint, memHandle uin
 	return multicastBindMemV2(mcHandle, d, mcOffset, memHandle, memOffset, size, flags)
 }
 
-// MulticastUnbind Unbind any memory allocations bound to a multicast object at a given offset and upto a given size.
+// MulticastUnbind unbinds any memory allocations bound to a multicast object at a given offset and upto a given size.
 //
 // Unbinds any memory allocations hosted on dev and bound to a multicast object at mcOffset and upto a given size. The intended size of the unbind and the offset in the multicast range ( mcOffset ) must be a multiple of the value returned by [MulticastGetGranularity] flag [MulticastGranularityMinimum]. The size + mcOffset cannot be larger than the total size of the multicast object.
 //
@@ -511,7 +510,7 @@ func (d Device) MulticastUnbind(mcHandle uint64, mcOffset uint, size uint) error
 	return multicastUnbind(mcHandle, d, mcOffset, size)
 }
 
-// DeviceGet Returns a handle to a compute device.
+// DeviceGet returns a handle to a compute device.
 //
 // Returns in *device a device handle given an ordinal in the range [0, [DeviceGetCount]-1].
 //
@@ -526,7 +525,7 @@ func DeviceGet(ordinal int) (Device, error) {
 	return deviceGet(ordinal)
 }
 
-// DeviceGetByPCIBusId Returns a handle to a compute device.
+// DeviceGetByPCIBusId returns a handle to a compute device.
 //
 // Returns in *device a device handle given a PCI bus ID string.
 // where domain, bus, device, and function are all hexadecimal values

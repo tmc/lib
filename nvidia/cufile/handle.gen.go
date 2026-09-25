@@ -5,6 +5,10 @@
 
 package cufile
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // HandleRegister wraps cuFileHandleRegister.
 func HandleRegister(descr *Descr) (Handle, error) {
 	return handleRegister(descr)
@@ -21,7 +25,7 @@ func (h Handle) Read(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffs
 }
 
 // ReadAsync wraps cuFileReadAsync.
-func (h Handle) ReadAsync(bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesReadP *int64, stream Stream) error {
+func (h Handle) ReadAsync(bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesReadP *int64, stream driver.Stream) error {
 	return readAsync(h, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesReadP, stream)
 }
 
@@ -31,6 +35,6 @@ func (h Handle) Write(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOff
 }
 
 // WriteAsync wraps cuFileWriteAsync.
-func (h Handle) WriteAsync(bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesWrittenP *int64, stream Stream) error {
+func (h Handle) WriteAsync(bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, bufPtrOffsetP *int64, bytesWrittenP *int64, stream driver.Stream) error {
 	return writeAsync(h, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesWrittenP, stream)
 }

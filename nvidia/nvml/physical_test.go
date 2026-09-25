@@ -396,8 +396,7 @@ func TestTelemetryAgainstSmi(t *testing.T) {
 // driver, so a swap between major and minor cannot pass.
 func TestComputeCapability(t *testing.T) {
 	dev := device0(t)
-	var minor int32
-	major, err := dev.CudaComputeCapability(&minor)
+	major, minor, err := dev.CudaComputeCapability()
 	if err != nil {
 		t.Fatalf("GetCudaComputeCapability: %v", err)
 	}

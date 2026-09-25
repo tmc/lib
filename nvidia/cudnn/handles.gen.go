@@ -3,63 +3,115 @@
 package cudnn
 
 // Handle is a pointer to an opaque structure holding the cuDNN library context.
+//
+// The cuDNN library context must be created using [Create] and the returned handle must be passed to all subsequent library function calls. The context should be destroyed at the end using [Handle.Destroy]. The context is associated with only one GPU device, the current device at the time of the call to [Create]. However, multiple contexts can be created on the same GPU device.
 type Handle uintptr
 
 // TensorDescriptor is a pointer to an opaque structure holding the description of a generic n-D dataset.
+//
+// [CreateTensorDescriptor] is used to create one instance, and one of the routines [TensorDescriptor.Set], [TensorDescriptor.Set4D], or [TensorDescriptor.Set4DEx] must be used to initialize this instance.
 type TensorDescriptor uintptr
 
-// PoolingDescriptor is deprecated and is currently only used by deprecated APIs.
+// PoolingDescriptor is a pointer to an opaque structure holding the description of a pooling operation.
+//
+// [CreatePoolingDescriptor] is used to create one instance, and [PoolingDescriptor.Set] or [PoolingDescriptor.Set2D] must be used to initialize this instance.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type PoolingDescriptor uintptr
 
-// FilterDescriptor is deprecated and is currently only used by deprecated APIs.
+// FilterDescriptor is a pointer to an opaque structure holding the description of a filter dataset.
+//
+// [CreateFilterDescriptor] is used to create one instance, and [FilterDescriptor.Set4D] or [FilterDescriptor.Set] must be used to initialize this instance.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type FilterDescriptor uintptr
 
 // LRNDescriptor is a pointer to an opaque structure holding the parameters of a local response normalization.
+//
+// [CreateLRNDescriptor] is used to create one instance, and the routine [LRNDescriptor.Set] must be used to initialize this instance.
 type LRNDescriptor uintptr
 
-// ActivationDescriptor is deprecated and is currently only used by deprecated APIs.
+// ActivationDescriptor is a pointer to an opaque structure holding the description of an activation operation.
+//
+// [CreateActivationDescriptor] is used to create one instance, and [ActivationDescriptor.Set] must be used to initialize this instance.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type ActivationDescriptor uintptr
 
 // SpatialTransformerDescriptor is a pointer to an opaque structure holding the description of a spatial transformation operation. [CreateSpatialTransformerDescriptor] is used to create one instance, [SpatialTransformerDescriptor.Set] is used to initialize this instance, and [SpatialTransformerDescriptor.Destroy] is used to destroy this instance.
 type SpatialTransformerDescriptor uintptr
 
-// OpTensorDescriptor is deprecated and is currently only used by deprecated APIs.
+// OpTensorDescriptor is a pointer to an opaque structure holding the description of a Tensor Core operation, used as a parameter to [Handle.OpTensor]. [CreateOpTensorDescriptor] is used to create one instance, and [OpTensorDescriptor.Set] must be used to initialize this instance.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type OpTensorDescriptor uintptr
 
-// ReduceTensorDescriptor is deprecated and is currently only used by deprecated APIs.
+// ReduceTensorDescriptor is a pointer to an opaque structure holding the description of a tensor reduction operation, used as a parameter to [Handle.ReduceTensor]. [CreateReduceTensorDescriptor] is used to create one instance, and [ReduceTensorDescriptor.Set] must be used to initialize this instance.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type ReduceTensorDescriptor uintptr
 
 // CTCLossDescriptor is a pointer to an opaque structure holding the description of a CTC loss operation.
+//
+// [CreateCTCLossDescriptor] is used to create one instance, [CTCLossDescriptor.Set] is used to initialize this instance, and [CTCLossDescriptor.Destroy] is used to destroy this instance.
 type CTCLossDescriptor uintptr
 
-// TensorTransformDescriptor is deprecated and is currently only used by deprecated APIs.
+// TensorTransformDescriptor is an opaque structure containing the description of the tensor transform.
+//
+// Use the [CreateTensorTransformDescriptor] function to create an instance of this descriptor, and [TensorTransformDescriptor.Destroy] function to destroy a previously created instance. These are the enumeration types in the cudnn_ops library.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type TensorTransformDescriptor uintptr
 
 // DropoutDescriptor is a pointer to an opaque structure holding the description of a dropout operation.
+//
+// [CreateDropoutDescriptor] is used to create one instance, [DropoutDescriptor.Set] is used to initialize this instance, [DropoutDescriptor.Destroy] is used to destroy this instance, [DropoutDescriptor.Get] is used to query fields of a previously initialized instance, [DropoutDescriptor.Restore] is used to restore an instance to a previously saved off state.
 type DropoutDescriptor uintptr
 
 // RNNDescriptor is a pointer to an opaque structure holding the description of an RNN operation.
+//
+// [CreateRNNDescriptor] is used to create one instance.
 type RNNDescriptor uintptr
 
 // RNNDataDescriptor is a pointer to an opaque structure holding the description of an RNN data set.
+//
+// The function [CreateRNNDataDescriptor] is used to create one instance, and [RNNDataDescriptor.Set] must be used to initialize this instance.
 type RNNDataDescriptor uintptr
 
-// SeqDataDescriptor is deprecated and is currently only used by deprecated APIs.
+// SeqDataDescriptor is a pointer to an opaque structure holding parameters of the sequence data container or buffer.
+//
+// The sequence data container is used to store fixed size vectors defined by the VECT dimension. Vectors are arranged in additional three dimensions: TIME, BATCH, and BEAM. The TIME dimension is used to bundle vectors into sequences of vectors. The actual sequences can be shorter than the TIME dimension, therefore, additional information is needed about each sequence length and how unused (padding) vectors should be saved. It is assumed that the sequence data container is fully packed. The TIME, BATCH, and BEAM dimensions can be in any order when vectors are traversed in the ascending order of addresses. Six data layouts (permutation of TIME, BATCH, and BEAM) are possible. The [SeqDataDescriptor] object holds the following parameters: Use the [CreateSeqDataDescriptor] function to create one instance of the sequence data descriptor object and [SeqDataDescriptor.Destroy] to delete a previously created descriptor. Use the [SeqDataDescriptor.Set] function to configure the descriptor. This descriptor is used by multihead attention API functions. These are the enumeration types in the cudnn_adv library.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type SeqDataDescriptor uintptr
 
-// AttnDescriptor is deprecated and is currently only used by deprecated APIs.
+// AttnDescriptor is a pointer to an opaque structure holding parameters of the multihead attention layer, such as: Use the [CreateAttnDescriptor] function to create an instance of the attention descriptor object and [AttnDescriptor.Destroy] to delete the previously created descriptor. Use the [AttnDescriptor.Set] function to configure the descriptor.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type AttnDescriptor uintptr
 
-// ConvolutionDescriptor is deprecated and is currently only used by deprecated APIs.
+// ConvolutionDescriptor is a pointer to an opaque structure holding the description of a convolution operation.
+//
+// [CreateConvolutionDescriptor] is used to create one instance, and [ConvolutionDescriptor.Set] or [ConvolutionDescriptor.Set2D] must be used to initialize this instance.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type ConvolutionDescriptor uintptr
 
-// FusedOpsConstParamPack is deprecated and is currently only used by deprecated APIs.
+// FusedOpsConstParamPack is a pointer to an opaque structure holding the description of the cudnnFusedOps constant parameters. Use the function [CreateFusedOpsConstParamPack] to create one instance of this structure, and the function [FusedOpsConstParamPack.Destroy] to destroy a previously-created descriptor.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type FusedOpsConstParamPack uintptr
 
-// FusedOpsVariantParamPack is deprecated and is currently only used by deprecated APIs.
+// FusedOpsVariantParamPack is a pointer to an opaque structure holding the description of the cudnnFusedOps variant parameters. Use the function [CreateFusedOpsVariantParamPack] to create one instance of this structure, and the function [FusedOpsVariantParamPack.Destroy] to destroy a previously-created descriptor. These are the enumeration types in the cudnn_cnn library.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type FusedOpsVariantParamPack uintptr
 
-// FusedOpsPlan is deprecated and is currently only used by deprecated APIs.
+// FusedOpsPlan is a pointer to an opaque structure holding the description of the cudnnFusedOpsPlan.
+//
+// This descriptor contains the plan information, including the problem type and size, which kernels should be run, and the internal workspace partition. Use the function [CreateFusedOpsPlan] to create one instance of this structure, and the function [FusedOpsPlan.Destroy] to destroy a previously-created descriptor.
+//
+// Deprecated: This opaque handle is deprecated and is currently only used by deprecated APIs. Consider using replacements for the deprecated APIs that use this opaque handle.
 type FusedOpsPlan uintptr
 
 // BackendDescriptor is an opaque handle for cudnnBackendDescriptor_t.

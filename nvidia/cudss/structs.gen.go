@@ -28,6 +28,8 @@ type CudssFp64mp2 struct {
 }
 
 // DistributedInterface represents interface to communication layer.
+//
+// All send and receive bufferes supposed to be device-accessible so MPI must be CUDA aware.
 type DistributedInterface struct {
 	CudssCommRankDevice         uintptr
 	CudssCommSizeDevice         uintptr

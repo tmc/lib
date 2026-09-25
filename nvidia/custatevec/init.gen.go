@@ -323,6 +323,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -410,72 +425,72 @@ func checkLibSym(symbol string) error {
 func registerFuncs() {
 	register(&fnGetErrorName, "custatevecGetErrorName")
 	register(&fnGetErrorString, "custatevecGetErrorString")
-	register(&fnabs2SumArray, "custatevecAbs2SumArray")
-	register(&fnapplyMatrix, "custatevecApplyMatrix")
-	register(&fnapplyMatrixGetWorkspaceSize, "custatevecApplyMatrixGetWorkspaceSize")
-	register(&fncommunicatorCreate, "custatevecCommunicatorCreate")
-	register(&fncommunicatorDestroy, "custatevecCommunicatorDestroy")
-	register(&fncomputeExpectation, "custatevecComputeExpectation")
-	register(&fncomputeExpectationGetWorkspaceSize, "custatevecComputeExpectationGetWorkspaceSize")
-	register(&fnCreate, "custatevecCreate")
-	register(&fndestroy, "custatevecDestroy")
-	register(&fndistIndexBitSwapSchedulerCreate, "custatevecDistIndexBitSwapSchedulerCreate")
-	register(&fndistIndexBitSwapSchedulerDestroy, "custatevecDistIndexBitSwapSchedulerDestroy")
-	register(&fndistIndexBitSwapSchedulerGetParameters, "custatevecDistIndexBitSwapSchedulerGetParameters")
-	register(&fndistIndexBitSwapSchedulerSetIndexBitSwaps, "custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps")
-	register(&fngetDefaultWorkspaceSize, "custatevecGetDefaultWorkspaceSize")
-	register(&fnGetProperty, "custatevecGetProperty")
-	register(&fngetStream, "custatevecGetStream")
-	register(&fnGetVersion, "custatevecGetVersion")
-	register(&fninitializeStateVector, "custatevecInitializeStateVector")
-	register(&fnmeasureOnZBasis, "custatevecMeasureOnZBasis")
+	symabs2SumArray = registerSym("custatevecAbs2SumArray")
+	symapplyMatrix = registerSym("custatevecApplyMatrix")
+	symapplyMatrixGetWorkspaceSize = registerSym("custatevecApplyMatrixGetWorkspaceSize")
+	symcommunicatorCreate = registerSym("custatevecCommunicatorCreate")
+	symcommunicatorDestroy = registerSym("custatevecCommunicatorDestroy")
+	symcomputeExpectation = registerSym("custatevecComputeExpectation")
+	symcomputeExpectationGetWorkspaceSize = registerSym("custatevecComputeExpectationGetWorkspaceSize")
+	symCreate = registerSym("custatevecCreate")
+	symdestroy = registerSym("custatevecDestroy")
+	symdistIndexBitSwapSchedulerCreate = registerSym("custatevecDistIndexBitSwapSchedulerCreate")
+	symdistIndexBitSwapSchedulerDestroy = registerSym("custatevecDistIndexBitSwapSchedulerDestroy")
+	symdistIndexBitSwapSchedulerGetParameters = registerSym("custatevecDistIndexBitSwapSchedulerGetParameters")
+	symdistIndexBitSwapSchedulerSetIndexBitSwaps = registerSym("custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps")
+	symgetDefaultWorkspaceSize = registerSym("custatevecGetDefaultWorkspaceSize")
+	symGetProperty = registerSym("custatevecGetProperty")
+	symgetStream = registerSym("custatevecGetStream")
+	symGetVersion = registerSym("custatevecGetVersion")
+	syminitializeStateVector = registerSym("custatevecInitializeStateVector")
+	symmeasureOnZBasis = registerSym("custatevecMeasureOnZBasis")
 	register(&fnsVSwapWorkerCreate, "custatevecSVSwapWorkerCreate")
 	register(&fnsVSwapWorkerCreateWithSemaphore, "custatevecSVSwapWorkerCreateWithSemaphore")
-	register(&fnsVSwapWorkerDestroy, "custatevecSVSwapWorkerDestroy")
-	register(&fnsVSwapWorkerExecute, "custatevecSVSwapWorkerExecute")
-	register(&fnsVSwapWorkerSetExtraWorkspace, "custatevecSVSwapWorkerSetExtraWorkspace")
-	register(&fnsVSwapWorkerSetParameters, "custatevecSVSwapWorkerSetParameters")
-	register(&fnsVSwapWorkerSetSubSVsP2P, "custatevecSVSwapWorkerSetSubSVsP2P")
-	register(&fnsVSwapWorkerSetSubSVsP2PWithSemaphores, "custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores")
-	register(&fnsVSwapWorkerSetTransferWorkspace, "custatevecSVSwapWorkerSetTransferWorkspace")
+	symsVSwapWorkerDestroy = registerSym("custatevecSVSwapWorkerDestroy")
+	symsVSwapWorkerExecute = registerSym("custatevecSVSwapWorkerExecute")
+	symsVSwapWorkerSetExtraWorkspace = registerSym("custatevecSVSwapWorkerSetExtraWorkspace")
+	symsVSwapWorkerSetParameters = registerSym("custatevecSVSwapWorkerSetParameters")
+	symsVSwapWorkerSetSubSVsP2P = registerSym("custatevecSVSwapWorkerSetSubSVsP2P")
+	symsVSwapWorkerSetSubSVsP2PWithSemaphores = registerSym("custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores")
+	symsVSwapWorkerSetTransferWorkspace = registerSym("custatevecSVSwapWorkerSetTransferWorkspace")
 	register(&fnsetStream, "custatevecSetStream")
-	register(&fnsetWorkspace, "custatevecSetWorkspace")
+	symsetWorkspace = registerSym("custatevecSetWorkspace")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetErrorName = nil
 	fnGetErrorString = nil
-	fnabs2SumArray = nil
-	fnapplyMatrix = nil
-	fnapplyMatrixGetWorkspaceSize = nil
-	fncommunicatorCreate = nil
-	fncommunicatorDestroy = nil
-	fncomputeExpectation = nil
-	fncomputeExpectationGetWorkspaceSize = nil
-	fnCreate = nil
-	fndestroy = nil
-	fndistIndexBitSwapSchedulerCreate = nil
-	fndistIndexBitSwapSchedulerDestroy = nil
-	fndistIndexBitSwapSchedulerGetParameters = nil
-	fndistIndexBitSwapSchedulerSetIndexBitSwaps = nil
-	fngetDefaultWorkspaceSize = nil
-	fnGetProperty = nil
-	fngetStream = nil
-	fnGetVersion = nil
-	fninitializeStateVector = nil
-	fnmeasureOnZBasis = nil
+	symabs2SumArray = 0
+	symapplyMatrix = 0
+	symapplyMatrixGetWorkspaceSize = 0
+	symcommunicatorCreate = 0
+	symcommunicatorDestroy = 0
+	symcomputeExpectation = 0
+	symcomputeExpectationGetWorkspaceSize = 0
+	symCreate = 0
+	symdestroy = 0
+	symdistIndexBitSwapSchedulerCreate = 0
+	symdistIndexBitSwapSchedulerDestroy = 0
+	symdistIndexBitSwapSchedulerGetParameters = 0
+	symdistIndexBitSwapSchedulerSetIndexBitSwaps = 0
+	symgetDefaultWorkspaceSize = 0
+	symGetProperty = 0
+	symgetStream = 0
+	symGetVersion = 0
+	syminitializeStateVector = 0
+	symmeasureOnZBasis = 0
 	fnsVSwapWorkerCreate = nil
 	fnsVSwapWorkerCreateWithSemaphore = nil
-	fnsVSwapWorkerDestroy = nil
-	fnsVSwapWorkerExecute = nil
-	fnsVSwapWorkerSetExtraWorkspace = nil
-	fnsVSwapWorkerSetParameters = nil
-	fnsVSwapWorkerSetSubSVsP2P = nil
-	fnsVSwapWorkerSetSubSVsP2PWithSemaphores = nil
-	fnsVSwapWorkerSetTransferWorkspace = nil
+	symsVSwapWorkerDestroy = 0
+	symsVSwapWorkerExecute = 0
+	symsVSwapWorkerSetExtraWorkspace = 0
+	symsVSwapWorkerSetParameters = 0
+	symsVSwapWorkerSetSubSVsP2P = 0
+	symsVSwapWorkerSetSubSVsP2PWithSemaphores = 0
+	symsVSwapWorkerSetTransferWorkspace = 0
 	fnsetStream = nil
-	fnsetWorkspace = nil
+	symsetWorkspace = 0
 }
 
 // HasGetErrorName reports whether custatevecGetErrorName resolved in the loaded library.

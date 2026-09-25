@@ -15,6 +15,8 @@ type NodePair struct {
 }
 
 // ContractionPath holds information about the contraction path.
+//
+// The provided path is interchangeable with the path returned by numpy.einsum_path.
 type ContractionPath struct {
 	NumContractions int32
 	Data            uintptr

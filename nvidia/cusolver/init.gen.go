@@ -384,6 +384,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -469,792 +484,792 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fncCgels, "cusolverDnCCgels")
-	register(&fncCgelsBufferSize, "cusolverDnCCgels_bufferSize")
-	register(&fncCgesv, "cusolverDnCCgesv")
-	register(&fncCgesvBufferSize, "cusolverDnCCgesv_bufferSize")
-	register(&fncEgels, "cusolverDnCEgels")
-	register(&fncEgelsBufferSize, "cusolverDnCEgels_bufferSize")
-	register(&fncEgesv, "cusolverDnCEgesv")
-	register(&fncEgesvBufferSize, "cusolverDnCEgesv_bufferSize")
-	register(&fncKgels, "cusolverDnCKgels")
-	register(&fncKgelsBufferSize, "cusolverDnCKgels_bufferSize")
-	register(&fncKgesv, "cusolverDnCKgesv")
-	register(&fncKgesvBufferSize, "cusolverDnCKgesv_bufferSize")
-	register(&fncYgels, "cusolverDnCYgels")
-	register(&fncYgelsBufferSize, "cusolverDnCYgels_bufferSize")
-	register(&fncYgesv, "cusolverDnCYgesv")
-	register(&fncYgesvBufferSize, "cusolverDnCYgesv_bufferSize")
-	register(&fncgebrd, "cusolverDnCgebrd")
-	register(&fncgebrdBufferSize, "cusolverDnCgebrd_bufferSize")
-	register(&fncgeqrf, "cusolverDnCgeqrf")
-	register(&fncgeqrfBufferSize, "cusolverDnCgeqrf_bufferSize")
-	register(&fncgesvd, "cusolverDnCgesvd")
-	register(&fncgesvdBufferSize, "cusolverDnCgesvd_bufferSize")
-	register(&fncgesvdaStridedBatched, "cusolverDnCgesvdaStridedBatched")
-	register(&fncgesvdaStridedBatchedBufferSize, "cusolverDnCgesvdaStridedBatched_bufferSize")
-	register(&fncgesvdj, "cusolverDnCgesvdj")
-	register(&fncgesvdjBatched, "cusolverDnCgesvdjBatched")
-	register(&fncgesvdjBatchedBufferSize, "cusolverDnCgesvdjBatched_bufferSize")
-	register(&fncgesvdjBufferSize, "cusolverDnCgesvdj_bufferSize")
-	register(&fncgetrf, "cusolverDnCgetrf")
-	register(&fncgetrfBufferSize, "cusolverDnCgetrf_bufferSize")
-	register(&fncgetrs, "cusolverDnCgetrs")
-	register(&fncheevd, "cusolverDnCheevd")
-	register(&fncheevdBufferSize, "cusolverDnCheevd_bufferSize")
-	register(&fncheevdx, "cusolverDnCheevdx")
-	register(&fncheevdxBufferSize, "cusolverDnCheevdx_bufferSize")
-	register(&fncheevj, "cusolverDnCheevj")
-	register(&fncheevjBatched, "cusolverDnCheevjBatched")
-	register(&fncheevjBatchedBufferSize, "cusolverDnCheevjBatched_bufferSize")
-	register(&fncheevjBufferSize, "cusolverDnCheevj_bufferSize")
-	register(&fnchegvd, "cusolverDnChegvd")
-	register(&fnchegvdBufferSize, "cusolverDnChegvd_bufferSize")
-	register(&fnchegvdx, "cusolverDnChegvdx")
-	register(&fnchegvdxBufferSize, "cusolverDnChegvdx_bufferSize")
-	register(&fnchegvj, "cusolverDnChegvj")
-	register(&fnchegvjBufferSize, "cusolverDnChegvj_bufferSize")
-	register(&fnchetrd, "cusolverDnChetrd")
-	register(&fnchetrdBufferSize, "cusolverDnChetrd_bufferSize")
-	register(&fnclaswp, "cusolverDnClaswp")
-	register(&fnclauum, "cusolverDnClauum")
-	register(&fnclauumBufferSize, "cusolverDnClauum_bufferSize")
-	register(&fncpotrf, "cusolverDnCpotrf")
-	register(&fncpotrfBatched, "cusolverDnCpotrfBatched")
-	register(&fncpotrfBufferSize, "cusolverDnCpotrf_bufferSize")
-	register(&fncpotri, "cusolverDnCpotri")
-	register(&fncpotriBufferSize, "cusolverDnCpotri_bufferSize")
-	register(&fncpotrs, "cusolverDnCpotrs")
-	register(&fncpotrsBatched, "cusolverDnCpotrsBatched")
-	register(&fnCreate, "cusolverDnCreate")
-	register(&fnCreateGesvdjInfo, "cusolverDnCreateGesvdjInfo")
-	register(&fnCreateParams, "cusolverDnCreateParams")
-	register(&fnCreateSyevjInfo, "cusolverDnCreateSyevjInfo")
-	register(&fncsytrf, "cusolverDnCsytrf")
-	register(&fncsytrfBufferSize, "cusolverDnCsytrf_bufferSize")
-	register(&fncsytri, "cusolverDnCsytri")
-	register(&fncsytriBufferSize, "cusolverDnCsytri_bufferSize")
-	register(&fncungbr, "cusolverDnCungbr")
-	register(&fncungbrBufferSize, "cusolverDnCungbr_bufferSize")
-	register(&fncungqr, "cusolverDnCungqr")
-	register(&fncungqrBufferSize, "cusolverDnCungqr_bufferSize")
-	register(&fncungtr, "cusolverDnCungtr")
-	register(&fncungtrBufferSize, "cusolverDnCungtr_bufferSize")
-	register(&fncunmqr, "cusolverDnCunmqr")
-	register(&fncunmqrBufferSize, "cusolverDnCunmqr_bufferSize")
-	register(&fncunmtr, "cusolverDnCunmtr")
-	register(&fncunmtrBufferSize, "cusolverDnCunmtr_bufferSize")
-	register(&fndBgels, "cusolverDnDBgels")
-	register(&fndBgelsBufferSize, "cusolverDnDBgels_bufferSize")
-	register(&fndBgesv, "cusolverDnDBgesv")
-	register(&fndBgesvBufferSize, "cusolverDnDBgesv_bufferSize")
-	register(&fndDgels, "cusolverDnDDgels")
-	register(&fndDgelsBufferSize, "cusolverDnDDgels_bufferSize")
-	register(&fndDgesv, "cusolverDnDDgesv")
-	register(&fndDgesvBufferSize, "cusolverDnDDgesv_bufferSize")
-	register(&fndHgels, "cusolverDnDHgels")
-	register(&fndHgelsBufferSize, "cusolverDnDHgels_bufferSize")
-	register(&fndHgesv, "cusolverDnDHgesv")
-	register(&fndHgesvBufferSize, "cusolverDnDHgesv_bufferSize")
-	register(&fndSgels, "cusolverDnDSgels")
-	register(&fndSgelsBufferSize, "cusolverDnDSgels_bufferSize")
-	register(&fndSgesv, "cusolverDnDSgesv")
-	register(&fndSgesvBufferSize, "cusolverDnDSgesv_bufferSize")
-	register(&fndXgels, "cusolverDnDXgels")
-	register(&fndXgelsBufferSize, "cusolverDnDXgels_bufferSize")
-	register(&fndXgesv, "cusolverDnDXgesv")
-	register(&fndXgesvBufferSize, "cusolverDnDXgesv_bufferSize")
-	register(&fndestroy, "cusolverDnDestroy")
-	register(&fndestroyGesvdjInfo, "cusolverDnDestroyGesvdjInfo")
-	register(&fndestroyParams, "cusolverDnDestroyParams")
-	register(&fndestroySyevjInfo, "cusolverDnDestroySyevjInfo")
-	register(&fndgebrd, "cusolverDnDgebrd")
-	register(&fndgebrdBufferSize, "cusolverDnDgebrd_bufferSize")
-	register(&fndgeqrf, "cusolverDnDgeqrf")
-	register(&fndgeqrfBufferSize, "cusolverDnDgeqrf_bufferSize")
-	register(&fndgesvd, "cusolverDnDgesvd")
-	register(&fndgesvdBufferSize, "cusolverDnDgesvd_bufferSize")
-	register(&fndgesvdaStridedBatched, "cusolverDnDgesvdaStridedBatched")
-	register(&fndgesvdaStridedBatchedBufferSize, "cusolverDnDgesvdaStridedBatched_bufferSize")
-	register(&fndgesvdj, "cusolverDnDgesvdj")
-	register(&fndgesvdjBatched, "cusolverDnDgesvdjBatched")
-	register(&fndgesvdjBatchedBufferSize, "cusolverDnDgesvdjBatched_bufferSize")
-	register(&fndgesvdjBufferSize, "cusolverDnDgesvdj_bufferSize")
-	register(&fndgetrf, "cusolverDnDgetrf")
-	register(&fndgetrfBufferSize, "cusolverDnDgetrf_bufferSize")
-	register(&fndgetrs, "cusolverDnDgetrs")
-	register(&fndlaswp, "cusolverDnDlaswp")
-	register(&fndlauum, "cusolverDnDlauum")
-	register(&fndlauumBufferSize, "cusolverDnDlauum_bufferSize")
-	register(&fndorgbr, "cusolverDnDorgbr")
-	register(&fndorgbrBufferSize, "cusolverDnDorgbr_bufferSize")
-	register(&fndorgqr, "cusolverDnDorgqr")
-	register(&fndorgqrBufferSize, "cusolverDnDorgqr_bufferSize")
-	register(&fndorgtr, "cusolverDnDorgtr")
-	register(&fndorgtrBufferSize, "cusolverDnDorgtr_bufferSize")
-	register(&fndormqr, "cusolverDnDormqr")
-	register(&fndormqrBufferSize, "cusolverDnDormqr_bufferSize")
-	register(&fndormtr, "cusolverDnDormtr")
-	register(&fndormtrBufferSize, "cusolverDnDormtr_bufferSize")
-	register(&fndpotrf, "cusolverDnDpotrf")
-	register(&fndpotrfBatched, "cusolverDnDpotrfBatched")
-	register(&fndpotrfBufferSize, "cusolverDnDpotrf_bufferSize")
-	register(&fndpotri, "cusolverDnDpotri")
-	register(&fndpotriBufferSize, "cusolverDnDpotri_bufferSize")
-	register(&fndpotrs, "cusolverDnDpotrs")
-	register(&fndpotrsBatched, "cusolverDnDpotrsBatched")
-	register(&fndsyevd, "cusolverDnDsyevd")
-	register(&fndsyevdBufferSize, "cusolverDnDsyevd_bufferSize")
-	register(&fndsyevdx, "cusolverDnDsyevdx")
-	register(&fndsyevdxBufferSize, "cusolverDnDsyevdx_bufferSize")
-	register(&fndsyevj, "cusolverDnDsyevj")
-	register(&fndsyevjBatched, "cusolverDnDsyevjBatched")
-	register(&fndsyevjBatchedBufferSize, "cusolverDnDsyevjBatched_bufferSize")
-	register(&fndsyevjBufferSize, "cusolverDnDsyevj_bufferSize")
-	register(&fndsygvd, "cusolverDnDsygvd")
-	register(&fndsygvdBufferSize, "cusolverDnDsygvd_bufferSize")
-	register(&fndsygvdx, "cusolverDnDsygvdx")
-	register(&fndsygvdxBufferSize, "cusolverDnDsygvdx_bufferSize")
-	register(&fndsygvj, "cusolverDnDsygvj")
-	register(&fndsygvjBufferSize, "cusolverDnDsygvj_bufferSize")
-	register(&fndsytrd, "cusolverDnDsytrd")
-	register(&fndsytrdBufferSize, "cusolverDnDsytrd_bufferSize")
-	register(&fndsytrf, "cusolverDnDsytrf")
-	register(&fndsytrfBufferSize, "cusolverDnDsytrf_bufferSize")
-	register(&fndsytri, "cusolverDnDsytri")
-	register(&fndsytriBufferSize, "cusolverDnDsytri_bufferSize")
-	register(&fngetDeterministicMode, "cusolverDnGetDeterministicMode")
-	register(&fngetEmulationSpecialValuesSupport, "cusolverDnGetEmulationSpecialValuesSupport")
-	register(&fngetEmulationStrategy, "cusolverDnGetEmulationStrategy")
-	register(&fngetFixedPointEmulationMantissaBitOffset, "cusolverDnGetFixedPointEmulationMantissaBitOffset")
-	register(&fngetFixedPointEmulationMantissaControl, "cusolverDnGetFixedPointEmulationMantissaControl")
-	register(&fngetFixedPointEmulationMaxMantissaBitCount, "cusolverDnGetFixedPointEmulationMaxMantissaBitCount")
-	register(&fngetMathMode, "cusolverDnGetMathMode")
-	register(&fnGetProperty, "cusolverGetProperty")
-	register(&fngetStream, "cusolverDnGetStream")
+	symcCgels = registerSym("cusolverDnCCgels")
+	symcCgelsBufferSize = registerSym("cusolverDnCCgels_bufferSize")
+	symcCgesv = registerSym("cusolverDnCCgesv")
+	symcCgesvBufferSize = registerSym("cusolverDnCCgesv_bufferSize")
+	symcEgels = registerSym("cusolverDnCEgels")
+	symcEgelsBufferSize = registerSym("cusolverDnCEgels_bufferSize")
+	symcEgesv = registerSym("cusolverDnCEgesv")
+	symcEgesvBufferSize = registerSym("cusolverDnCEgesv_bufferSize")
+	symcKgels = registerSym("cusolverDnCKgels")
+	symcKgelsBufferSize = registerSym("cusolverDnCKgels_bufferSize")
+	symcKgesv = registerSym("cusolverDnCKgesv")
+	symcKgesvBufferSize = registerSym("cusolverDnCKgesv_bufferSize")
+	symcYgels = registerSym("cusolverDnCYgels")
+	symcYgelsBufferSize = registerSym("cusolverDnCYgels_bufferSize")
+	symcYgesv = registerSym("cusolverDnCYgesv")
+	symcYgesvBufferSize = registerSym("cusolverDnCYgesv_bufferSize")
+	symcgebrd = registerSym("cusolverDnCgebrd")
+	symcgebrdBufferSize = registerSym("cusolverDnCgebrd_bufferSize")
+	symcgeqrf = registerSym("cusolverDnCgeqrf")
+	symcgeqrfBufferSize = registerSym("cusolverDnCgeqrf_bufferSize")
+	symcgesvd = registerSym("cusolverDnCgesvd")
+	symcgesvdBufferSize = registerSym("cusolverDnCgesvd_bufferSize")
+	symcgesvdaStridedBatched = registerSym("cusolverDnCgesvdaStridedBatched")
+	symcgesvdaStridedBatchedBufferSize = registerSym("cusolverDnCgesvdaStridedBatched_bufferSize")
+	symcgesvdj = registerSym("cusolverDnCgesvdj")
+	symcgesvdjBatched = registerSym("cusolverDnCgesvdjBatched")
+	symcgesvdjBatchedBufferSize = registerSym("cusolverDnCgesvdjBatched_bufferSize")
+	symcgesvdjBufferSize = registerSym("cusolverDnCgesvdj_bufferSize")
+	symcgetrf = registerSym("cusolverDnCgetrf")
+	symcgetrfBufferSize = registerSym("cusolverDnCgetrf_bufferSize")
+	symcgetrs = registerSym("cusolverDnCgetrs")
+	symcheevd = registerSym("cusolverDnCheevd")
+	symcheevdBufferSize = registerSym("cusolverDnCheevd_bufferSize")
+	symcheevdx = registerSym("cusolverDnCheevdx")
+	symcheevdxBufferSize = registerSym("cusolverDnCheevdx_bufferSize")
+	symcheevj = registerSym("cusolverDnCheevj")
+	symcheevjBatched = registerSym("cusolverDnCheevjBatched")
+	symcheevjBatchedBufferSize = registerSym("cusolverDnCheevjBatched_bufferSize")
+	symcheevjBufferSize = registerSym("cusolverDnCheevj_bufferSize")
+	symchegvd = registerSym("cusolverDnChegvd")
+	symchegvdBufferSize = registerSym("cusolverDnChegvd_bufferSize")
+	symchegvdx = registerSym("cusolverDnChegvdx")
+	symchegvdxBufferSize = registerSym("cusolverDnChegvdx_bufferSize")
+	symchegvj = registerSym("cusolverDnChegvj")
+	symchegvjBufferSize = registerSym("cusolverDnChegvj_bufferSize")
+	symchetrd = registerSym("cusolverDnChetrd")
+	symchetrdBufferSize = registerSym("cusolverDnChetrd_bufferSize")
+	symclaswp = registerSym("cusolverDnClaswp")
+	symclauum = registerSym("cusolverDnClauum")
+	symclauumBufferSize = registerSym("cusolverDnClauum_bufferSize")
+	symcpotrf = registerSym("cusolverDnCpotrf")
+	symcpotrfBatched = registerSym("cusolverDnCpotrfBatched")
+	symcpotrfBufferSize = registerSym("cusolverDnCpotrf_bufferSize")
+	symcpotri = registerSym("cusolverDnCpotri")
+	symcpotriBufferSize = registerSym("cusolverDnCpotri_bufferSize")
+	symcpotrs = registerSym("cusolverDnCpotrs")
+	symcpotrsBatched = registerSym("cusolverDnCpotrsBatched")
+	symCreate = registerSym("cusolverDnCreate")
+	symCreateGesvdjInfo = registerSym("cusolverDnCreateGesvdjInfo")
+	symCreateParams = registerSym("cusolverDnCreateParams")
+	symCreateSyevjInfo = registerSym("cusolverDnCreateSyevjInfo")
+	symcsytrf = registerSym("cusolverDnCsytrf")
+	symcsytrfBufferSize = registerSym("cusolverDnCsytrf_bufferSize")
+	symcsytri = registerSym("cusolverDnCsytri")
+	symcsytriBufferSize = registerSym("cusolverDnCsytri_bufferSize")
+	symcungbr = registerSym("cusolverDnCungbr")
+	symcungbrBufferSize = registerSym("cusolverDnCungbr_bufferSize")
+	symcungqr = registerSym("cusolverDnCungqr")
+	symcungqrBufferSize = registerSym("cusolverDnCungqr_bufferSize")
+	symcungtr = registerSym("cusolverDnCungtr")
+	symcungtrBufferSize = registerSym("cusolverDnCungtr_bufferSize")
+	symcunmqr = registerSym("cusolverDnCunmqr")
+	symcunmqrBufferSize = registerSym("cusolverDnCunmqr_bufferSize")
+	symcunmtr = registerSym("cusolverDnCunmtr")
+	symcunmtrBufferSize = registerSym("cusolverDnCunmtr_bufferSize")
+	symdBgels = registerSym("cusolverDnDBgels")
+	symdBgelsBufferSize = registerSym("cusolverDnDBgels_bufferSize")
+	symdBgesv = registerSym("cusolverDnDBgesv")
+	symdBgesvBufferSize = registerSym("cusolverDnDBgesv_bufferSize")
+	symdDgels = registerSym("cusolverDnDDgels")
+	symdDgelsBufferSize = registerSym("cusolverDnDDgels_bufferSize")
+	symdDgesv = registerSym("cusolverDnDDgesv")
+	symdDgesvBufferSize = registerSym("cusolverDnDDgesv_bufferSize")
+	symdHgels = registerSym("cusolverDnDHgels")
+	symdHgelsBufferSize = registerSym("cusolverDnDHgels_bufferSize")
+	symdHgesv = registerSym("cusolverDnDHgesv")
+	symdHgesvBufferSize = registerSym("cusolverDnDHgesv_bufferSize")
+	symdSgels = registerSym("cusolverDnDSgels")
+	symdSgelsBufferSize = registerSym("cusolverDnDSgels_bufferSize")
+	symdSgesv = registerSym("cusolverDnDSgesv")
+	symdSgesvBufferSize = registerSym("cusolverDnDSgesv_bufferSize")
+	symdXgels = registerSym("cusolverDnDXgels")
+	symdXgelsBufferSize = registerSym("cusolverDnDXgels_bufferSize")
+	symdXgesv = registerSym("cusolverDnDXgesv")
+	symdXgesvBufferSize = registerSym("cusolverDnDXgesv_bufferSize")
+	symdestroy = registerSym("cusolverDnDestroy")
+	symdestroyGesvdjInfo = registerSym("cusolverDnDestroyGesvdjInfo")
+	symdestroyParams = registerSym("cusolverDnDestroyParams")
+	symdestroySyevjInfo = registerSym("cusolverDnDestroySyevjInfo")
+	symdgebrd = registerSym("cusolverDnDgebrd")
+	symdgebrdBufferSize = registerSym("cusolverDnDgebrd_bufferSize")
+	symdgeqrf = registerSym("cusolverDnDgeqrf")
+	symdgeqrfBufferSize = registerSym("cusolverDnDgeqrf_bufferSize")
+	symdgesvd = registerSym("cusolverDnDgesvd")
+	symdgesvdBufferSize = registerSym("cusolverDnDgesvd_bufferSize")
+	symdgesvdaStridedBatched = registerSym("cusolverDnDgesvdaStridedBatched")
+	symdgesvdaStridedBatchedBufferSize = registerSym("cusolverDnDgesvdaStridedBatched_bufferSize")
+	symdgesvdj = registerSym("cusolverDnDgesvdj")
+	symdgesvdjBatched = registerSym("cusolverDnDgesvdjBatched")
+	symdgesvdjBatchedBufferSize = registerSym("cusolverDnDgesvdjBatched_bufferSize")
+	symdgesvdjBufferSize = registerSym("cusolverDnDgesvdj_bufferSize")
+	symdgetrf = registerSym("cusolverDnDgetrf")
+	symdgetrfBufferSize = registerSym("cusolverDnDgetrf_bufferSize")
+	symdgetrs = registerSym("cusolverDnDgetrs")
+	symdlaswp = registerSym("cusolverDnDlaswp")
+	symdlauum = registerSym("cusolverDnDlauum")
+	symdlauumBufferSize = registerSym("cusolverDnDlauum_bufferSize")
+	symdorgbr = registerSym("cusolverDnDorgbr")
+	symdorgbrBufferSize = registerSym("cusolverDnDorgbr_bufferSize")
+	symdorgqr = registerSym("cusolverDnDorgqr")
+	symdorgqrBufferSize = registerSym("cusolverDnDorgqr_bufferSize")
+	symdorgtr = registerSym("cusolverDnDorgtr")
+	symdorgtrBufferSize = registerSym("cusolverDnDorgtr_bufferSize")
+	symdormqr = registerSym("cusolverDnDormqr")
+	symdormqrBufferSize = registerSym("cusolverDnDormqr_bufferSize")
+	symdormtr = registerSym("cusolverDnDormtr")
+	symdormtrBufferSize = registerSym("cusolverDnDormtr_bufferSize")
+	symdpotrf = registerSym("cusolverDnDpotrf")
+	symdpotrfBatched = registerSym("cusolverDnDpotrfBatched")
+	symdpotrfBufferSize = registerSym("cusolverDnDpotrf_bufferSize")
+	symdpotri = registerSym("cusolverDnDpotri")
+	symdpotriBufferSize = registerSym("cusolverDnDpotri_bufferSize")
+	symdpotrs = registerSym("cusolverDnDpotrs")
+	symdpotrsBatched = registerSym("cusolverDnDpotrsBatched")
+	symdsyevd = registerSym("cusolverDnDsyevd")
+	symdsyevdBufferSize = registerSym("cusolverDnDsyevd_bufferSize")
+	symdsyevdx = registerSym("cusolverDnDsyevdx")
+	symdsyevdxBufferSize = registerSym("cusolverDnDsyevdx_bufferSize")
+	symdsyevj = registerSym("cusolverDnDsyevj")
+	symdsyevjBatched = registerSym("cusolverDnDsyevjBatched")
+	symdsyevjBatchedBufferSize = registerSym("cusolverDnDsyevjBatched_bufferSize")
+	symdsyevjBufferSize = registerSym("cusolverDnDsyevj_bufferSize")
+	symdsygvd = registerSym("cusolverDnDsygvd")
+	symdsygvdBufferSize = registerSym("cusolverDnDsygvd_bufferSize")
+	symdsygvdx = registerSym("cusolverDnDsygvdx")
+	symdsygvdxBufferSize = registerSym("cusolverDnDsygvdx_bufferSize")
+	symdsygvj = registerSym("cusolverDnDsygvj")
+	symdsygvjBufferSize = registerSym("cusolverDnDsygvj_bufferSize")
+	symdsytrd = registerSym("cusolverDnDsytrd")
+	symdsytrdBufferSize = registerSym("cusolverDnDsytrd_bufferSize")
+	symdsytrf = registerSym("cusolverDnDsytrf")
+	symdsytrfBufferSize = registerSym("cusolverDnDsytrf_bufferSize")
+	symdsytri = registerSym("cusolverDnDsytri")
+	symdsytriBufferSize = registerSym("cusolverDnDsytri_bufferSize")
+	symgetDeterministicMode = registerSym("cusolverDnGetDeterministicMode")
+	symgetEmulationSpecialValuesSupport = registerSym("cusolverDnGetEmulationSpecialValuesSupport")
+	symgetEmulationStrategy = registerSym("cusolverDnGetEmulationStrategy")
+	symgetFixedPointEmulationMantissaBitOffset = registerSym("cusolverDnGetFixedPointEmulationMantissaBitOffset")
+	symgetFixedPointEmulationMantissaControl = registerSym("cusolverDnGetFixedPointEmulationMantissaControl")
+	symgetFixedPointEmulationMaxMantissaBitCount = registerSym("cusolverDnGetFixedPointEmulationMaxMantissaBitCount")
+	symgetMathMode = registerSym("cusolverDnGetMathMode")
+	symGetProperty = registerSym("cusolverGetProperty")
+	symgetStream = registerSym("cusolverDnGetStream")
 	register(&fnGetVersion, "cusolverGetVersion")
-	register(&fniRSInfosCreate, "cusolverDnIRSInfosCreate")
-	register(&fniRSInfosDestroy, "cusolverDnIRSInfosDestroy")
-	register(&fniRSInfosGetMaxIters, "cusolverDnIRSInfosGetMaxIters")
-	register(&fniRSInfosGetNiters, "cusolverDnIRSInfosGetNiters")
-	register(&fniRSInfosGetOuterNiters, "cusolverDnIRSInfosGetOuterNiters")
-	register(&fniRSInfosGetResidualHistory, "cusolverDnIRSInfosGetResidualHistory")
-	register(&fniRSInfosRequestResidual, "cusolverDnIRSInfosRequestResidual")
-	register(&fniRSParamsCreate, "cusolverDnIRSParamsCreate")
-	register(&fniRSParamsDestroy, "cusolverDnIRSParamsDestroy")
-	register(&fniRSParamsDisableFallback, "cusolverDnIRSParamsDisableFallback")
-	register(&fniRSParamsEnableFallback, "cusolverDnIRSParamsEnableFallback")
-	register(&fniRSParamsGetMaxIters, "cusolverDnIRSParamsGetMaxIters")
-	register(&fniRSParamsSetMaxIters, "cusolverDnIRSParamsSetMaxIters")
-	register(&fniRSParamsSetMaxItersInner, "cusolverDnIRSParamsSetMaxItersInner")
-	register(&fniRSParamsSetRefinementSolver, "cusolverDnIRSParamsSetRefinementSolver")
-	register(&fniRSParamsSetSolverLowestPrecision, "cusolverDnIRSParamsSetSolverLowestPrecision")
-	register(&fniRSParamsSetSolverMainPrecision, "cusolverDnIRSParamsSetSolverMainPrecision")
-	register(&fniRSParamsSetSolverPrecisions, "cusolverDnIRSParamsSetSolverPrecisions")
-	register(&fniRSParamsSetTol, "cusolverDnIRSParamsSetTol")
-	register(&fniRSParamsSetTolInner, "cusolverDnIRSParamsSetTolInner")
-	register(&fniRSXgels, "cusolverDnIRSXgels")
-	register(&fniRSXgelsBufferSize, "cusolverDnIRSXgels_bufferSize")
-	register(&fniRSXgesv, "cusolverDnIRSXgesv")
-	register(&fniRSXgesvBufferSize, "cusolverDnIRSXgesv_bufferSize")
-	register(&fnLoggerForceDisable, "cusolverDnLoggerForceDisable")
-	register(&fnLoggerOpenFile, "cusolverDnLoggerOpenFile")
-	register(&fnLoggerSetCallback, "cusolverDnLoggerSetCallback")
-	register(&fnLoggerSetFile, "cusolverDnLoggerSetFile")
-	register(&fnLoggerSetLevel, "cusolverDnLoggerSetLevel")
-	register(&fnLoggerSetMask, "cusolverDnLoggerSetMask")
-	register(&fnsBgels, "cusolverDnSBgels")
-	register(&fnsBgelsBufferSize, "cusolverDnSBgels_bufferSize")
-	register(&fnsBgesv, "cusolverDnSBgesv")
-	register(&fnsBgesvBufferSize, "cusolverDnSBgesv_bufferSize")
-	register(&fnsHgels, "cusolverDnSHgels")
-	register(&fnsHgelsBufferSize, "cusolverDnSHgels_bufferSize")
-	register(&fnsHgesv, "cusolverDnSHgesv")
-	register(&fnsHgesvBufferSize, "cusolverDnSHgesv_bufferSize")
-	register(&fnsSgels, "cusolverDnSSgels")
-	register(&fnsSgelsBufferSize, "cusolverDnSSgels_bufferSize")
-	register(&fnsSgesv, "cusolverDnSSgesv")
-	register(&fnsSgesvBufferSize, "cusolverDnSSgesv_bufferSize")
-	register(&fnsXgels, "cusolverDnSXgels")
-	register(&fnsXgelsBufferSize, "cusolverDnSXgels_bufferSize")
-	register(&fnsXgesv, "cusolverDnSXgesv")
-	register(&fnsXgesvBufferSize, "cusolverDnSXgesv_bufferSize")
-	register(&fnsetAdvOptions, "cusolverDnSetAdvOptions")
-	register(&fnsetDeterministicMode, "cusolverDnSetDeterministicMode")
-	register(&fnsetEmulationSpecialValuesSupport, "cusolverDnSetEmulationSpecialValuesSupport")
-	register(&fnsetEmulationStrategy, "cusolverDnSetEmulationStrategy")
-	register(&fnsetFixedPointEmulationMantissaBitOffset, "cusolverDnSetFixedPointEmulationMantissaBitOffset")
-	register(&fnsetFixedPointEmulationMantissaControl, "cusolverDnSetFixedPointEmulationMantissaControl")
-	register(&fnsetFixedPointEmulationMaxMantissaBitCount, "cusolverDnSetFixedPointEmulationMaxMantissaBitCount")
-	register(&fnsetMathMode, "cusolverDnSetMathMode")
+	symiRSInfosCreate = registerSym("cusolverDnIRSInfosCreate")
+	symiRSInfosDestroy = registerSym("cusolverDnIRSInfosDestroy")
+	symiRSInfosGetMaxIters = registerSym("cusolverDnIRSInfosGetMaxIters")
+	symiRSInfosGetNiters = registerSym("cusolverDnIRSInfosGetNiters")
+	symiRSInfosGetOuterNiters = registerSym("cusolverDnIRSInfosGetOuterNiters")
+	symiRSInfosGetResidualHistory = registerSym("cusolverDnIRSInfosGetResidualHistory")
+	symiRSInfosRequestResidual = registerSym("cusolverDnIRSInfosRequestResidual")
+	symiRSParamsCreate = registerSym("cusolverDnIRSParamsCreate")
+	symiRSParamsDestroy = registerSym("cusolverDnIRSParamsDestroy")
+	symiRSParamsDisableFallback = registerSym("cusolverDnIRSParamsDisableFallback")
+	symiRSParamsEnableFallback = registerSym("cusolverDnIRSParamsEnableFallback")
+	symiRSParamsGetMaxIters = registerSym("cusolverDnIRSParamsGetMaxIters")
+	symiRSParamsSetMaxIters = registerSym("cusolverDnIRSParamsSetMaxIters")
+	symiRSParamsSetMaxItersInner = registerSym("cusolverDnIRSParamsSetMaxItersInner")
+	symiRSParamsSetRefinementSolver = registerSym("cusolverDnIRSParamsSetRefinementSolver")
+	symiRSParamsSetSolverLowestPrecision = registerSym("cusolverDnIRSParamsSetSolverLowestPrecision")
+	symiRSParamsSetSolverMainPrecision = registerSym("cusolverDnIRSParamsSetSolverMainPrecision")
+	symiRSParamsSetSolverPrecisions = registerSym("cusolverDnIRSParamsSetSolverPrecisions")
+	symiRSParamsSetTol = registerSym("cusolverDnIRSParamsSetTol")
+	symiRSParamsSetTolInner = registerSym("cusolverDnIRSParamsSetTolInner")
+	symiRSXgels = registerSym("cusolverDnIRSXgels")
+	symiRSXgelsBufferSize = registerSym("cusolverDnIRSXgels_bufferSize")
+	symiRSXgesv = registerSym("cusolverDnIRSXgesv")
+	symiRSXgesvBufferSize = registerSym("cusolverDnIRSXgesv_bufferSize")
+	symLoggerForceDisable = registerSym("cusolverDnLoggerForceDisable")
+	symLoggerOpenFile = registerSym("cusolverDnLoggerOpenFile")
+	symLoggerSetCallback = registerSym("cusolverDnLoggerSetCallback")
+	symLoggerSetFile = registerSym("cusolverDnLoggerSetFile")
+	symLoggerSetLevel = registerSym("cusolverDnLoggerSetLevel")
+	symLoggerSetMask = registerSym("cusolverDnLoggerSetMask")
+	symsBgels = registerSym("cusolverDnSBgels")
+	symsBgelsBufferSize = registerSym("cusolverDnSBgels_bufferSize")
+	symsBgesv = registerSym("cusolverDnSBgesv")
+	symsBgesvBufferSize = registerSym("cusolverDnSBgesv_bufferSize")
+	symsHgels = registerSym("cusolverDnSHgels")
+	symsHgelsBufferSize = registerSym("cusolverDnSHgels_bufferSize")
+	symsHgesv = registerSym("cusolverDnSHgesv")
+	symsHgesvBufferSize = registerSym("cusolverDnSHgesv_bufferSize")
+	symsSgels = registerSym("cusolverDnSSgels")
+	symsSgelsBufferSize = registerSym("cusolverDnSSgels_bufferSize")
+	symsSgesv = registerSym("cusolverDnSSgesv")
+	symsSgesvBufferSize = registerSym("cusolverDnSSgesv_bufferSize")
+	symsXgels = registerSym("cusolverDnSXgels")
+	symsXgelsBufferSize = registerSym("cusolverDnSXgels_bufferSize")
+	symsXgesv = registerSym("cusolverDnSXgesv")
+	symsXgesvBufferSize = registerSym("cusolverDnSXgesv_bufferSize")
+	symsetAdvOptions = registerSym("cusolverDnSetAdvOptions")
+	symsetDeterministicMode = registerSym("cusolverDnSetDeterministicMode")
+	symsetEmulationSpecialValuesSupport = registerSym("cusolverDnSetEmulationSpecialValuesSupport")
+	symsetEmulationStrategy = registerSym("cusolverDnSetEmulationStrategy")
+	symsetFixedPointEmulationMantissaBitOffset = registerSym("cusolverDnSetFixedPointEmulationMantissaBitOffset")
+	symsetFixedPointEmulationMantissaControl = registerSym("cusolverDnSetFixedPointEmulationMantissaControl")
+	symsetFixedPointEmulationMaxMantissaBitCount = registerSym("cusolverDnSetFixedPointEmulationMaxMantissaBitCount")
+	symsetMathMode = registerSym("cusolverDnSetMathMode")
 	register(&fnsetStream, "cusolverDnSetStream")
-	register(&fnsgebrd, "cusolverDnSgebrd")
-	register(&fnsgebrdBufferSize, "cusolverDnSgebrd_bufferSize")
-	register(&fnsgeqrf, "cusolverDnSgeqrf")
-	register(&fnsgeqrfBufferSize, "cusolverDnSgeqrf_bufferSize")
-	register(&fnsgesvd, "cusolverDnSgesvd")
-	register(&fnsgesvdBufferSize, "cusolverDnSgesvd_bufferSize")
-	register(&fnsgesvdaStridedBatched, "cusolverDnSgesvdaStridedBatched")
-	register(&fnsgesvdaStridedBatchedBufferSize, "cusolverDnSgesvdaStridedBatched_bufferSize")
-	register(&fnsgesvdj, "cusolverDnSgesvdj")
-	register(&fnsgesvdjBatched, "cusolverDnSgesvdjBatched")
-	register(&fnsgesvdjBatchedBufferSize, "cusolverDnSgesvdjBatched_bufferSize")
-	register(&fnsgesvdjBufferSize, "cusolverDnSgesvdj_bufferSize")
-	register(&fnsgetrf, "cusolverDnSgetrf")
-	register(&fnsgetrfBufferSize, "cusolverDnSgetrf_bufferSize")
-	register(&fnsgetrs, "cusolverDnSgetrs")
-	register(&fnslaswp, "cusolverDnSlaswp")
-	register(&fnslauum, "cusolverDnSlauum")
-	register(&fnslauumBufferSize, "cusolverDnSlauum_bufferSize")
-	register(&fnsorgbr, "cusolverDnSorgbr")
-	register(&fnsorgbrBufferSize, "cusolverDnSorgbr_bufferSize")
-	register(&fnsorgqr, "cusolverDnSorgqr")
-	register(&fnsorgqrBufferSize, "cusolverDnSorgqr_bufferSize")
-	register(&fnsorgtr, "cusolverDnSorgtr")
-	register(&fnsorgtrBufferSize, "cusolverDnSorgtr_bufferSize")
-	register(&fnsormqr, "cusolverDnSormqr")
-	register(&fnsormqrBufferSize, "cusolverDnSormqr_bufferSize")
-	register(&fnsormtr, "cusolverDnSormtr")
-	register(&fnsormtrBufferSize, "cusolverDnSormtr_bufferSize")
-	register(&fnspotrf, "cusolverDnSpotrf")
-	register(&fnspotrfBatched, "cusolverDnSpotrfBatched")
-	register(&fnspotrfBufferSize, "cusolverDnSpotrf_bufferSize")
-	register(&fnspotri, "cusolverDnSpotri")
-	register(&fnspotriBufferSize, "cusolverDnSpotri_bufferSize")
-	register(&fnspotrs, "cusolverDnSpotrs")
-	register(&fnspotrsBatched, "cusolverDnSpotrsBatched")
-	register(&fnssyevd, "cusolverDnSsyevd")
-	register(&fnssyevdBufferSize, "cusolverDnSsyevd_bufferSize")
-	register(&fnssyevdx, "cusolverDnSsyevdx")
-	register(&fnssyevdxBufferSize, "cusolverDnSsyevdx_bufferSize")
-	register(&fnssyevj, "cusolverDnSsyevj")
-	register(&fnssyevjBatched, "cusolverDnSsyevjBatched")
-	register(&fnssyevjBatchedBufferSize, "cusolverDnSsyevjBatched_bufferSize")
-	register(&fnssyevjBufferSize, "cusolverDnSsyevj_bufferSize")
-	register(&fnssygvd, "cusolverDnSsygvd")
-	register(&fnssygvdBufferSize, "cusolverDnSsygvd_bufferSize")
-	register(&fnssygvdx, "cusolverDnSsygvdx")
-	register(&fnssygvdxBufferSize, "cusolverDnSsygvdx_bufferSize")
-	register(&fnssygvj, "cusolverDnSsygvj")
-	register(&fnssygvjBufferSize, "cusolverDnSsygvj_bufferSize")
-	register(&fnssytrd, "cusolverDnSsytrd")
-	register(&fnssytrdBufferSize, "cusolverDnSsytrd_bufferSize")
-	register(&fnssytrf, "cusolverDnSsytrf")
-	register(&fnssytrfBufferSize, "cusolverDnSsytrf_bufferSize")
-	register(&fnssytri, "cusolverDnSsytri")
-	register(&fnssytriBufferSize, "cusolverDnSsytri_bufferSize")
-	register(&fnxgeev, "cusolverDnXgeev")
-	register(&fnxgeevBufferSize, "cusolverDnXgeev_bufferSize")
-	register(&fnxgeqrf, "cusolverDnXgeqrf")
-	register(&fnxgeqrfBufferSize, "cusolverDnXgeqrf_bufferSize")
-	register(&fnxgesvd, "cusolverDnXgesvd")
-	register(&fnxgesvdBufferSize, "cusolverDnXgesvd_bufferSize")
-	register(&fnxgesvdjGetResidual, "cusolverDnXgesvdjGetResidual")
-	register(&fnxgesvdjGetSweeps, "cusolverDnXgesvdjGetSweeps")
-	register(&fnxgesvdjSetMaxSweeps, "cusolverDnXgesvdjSetMaxSweeps")
-	register(&fnxgesvdjSetSortEig, "cusolverDnXgesvdjSetSortEig")
-	register(&fnxgesvdjSetTolerance, "cusolverDnXgesvdjSetTolerance")
-	register(&fnxgesvdp, "cusolverDnXgesvdp")
-	register(&fnxgesvdpBufferSize, "cusolverDnXgesvdp_bufferSize")
-	register(&fnxgesvdr, "cusolverDnXgesvdr")
-	register(&fnxgesvdrBufferSize, "cusolverDnXgesvdr_bufferSize")
-	register(&fnxgetrf, "cusolverDnXgetrf")
-	register(&fnxgetrfBufferSize, "cusolverDnXgetrf_bufferSize")
-	register(&fnxgetrs, "cusolverDnXgetrs")
-	register(&fnxlarft, "cusolverDnXlarft")
-	register(&fnxlarftBufferSize, "cusolverDnXlarft_bufferSize")
-	register(&fnxpotrf, "cusolverDnXpotrf")
-	register(&fnxpotrfBufferSize, "cusolverDnXpotrf_bufferSize")
-	register(&fnxpotrs, "cusolverDnXpotrs")
-	register(&fnxsyevBatched, "cusolverDnXsyevBatched")
-	register(&fnxsyevBatchedBufferSize, "cusolverDnXsyevBatched_bufferSize")
-	register(&fnxsyevd, "cusolverDnXsyevd")
-	register(&fnxsyevdBufferSize, "cusolverDnXsyevd_bufferSize")
-	register(&fnxsyevdx, "cusolverDnXsyevdx")
-	register(&fnxsyevdxBufferSize, "cusolverDnXsyevdx_bufferSize")
-	register(&fnxsyevjGetResidual, "cusolverDnXsyevjGetResidual")
-	register(&fnxsyevjGetSweeps, "cusolverDnXsyevjGetSweeps")
-	register(&fnxsyevjSetMaxSweeps, "cusolverDnXsyevjSetMaxSweeps")
-	register(&fnxsyevjSetSortEig, "cusolverDnXsyevjSetSortEig")
-	register(&fnxsyevjSetTolerance, "cusolverDnXsyevjSetTolerance")
-	register(&fnxsygvd, "cusolverDnXsygvd")
-	register(&fnxsygvdBufferSize, "cusolverDnXsygvd_bufferSize")
-	register(&fnxsygvdx, "cusolverDnXsygvdx")
-	register(&fnxsygvdxBufferSize, "cusolverDnXsygvdx_bufferSize")
-	register(&fnxsytrs, "cusolverDnXsytrs")
-	register(&fnxsytrsBufferSize, "cusolverDnXsytrs_bufferSize")
-	register(&fnxtrtri, "cusolverDnXtrtri")
-	register(&fnxtrtriBufferSize, "cusolverDnXtrtri_bufferSize")
-	register(&fnzCgels, "cusolverDnZCgels")
-	register(&fnzCgelsBufferSize, "cusolverDnZCgels_bufferSize")
-	register(&fnzCgesv, "cusolverDnZCgesv")
-	register(&fnzCgesvBufferSize, "cusolverDnZCgesv_bufferSize")
-	register(&fnzEgels, "cusolverDnZEgels")
-	register(&fnzEgelsBufferSize, "cusolverDnZEgels_bufferSize")
-	register(&fnzEgesv, "cusolverDnZEgesv")
-	register(&fnzEgesvBufferSize, "cusolverDnZEgesv_bufferSize")
-	register(&fnzKgels, "cusolverDnZKgels")
-	register(&fnzKgelsBufferSize, "cusolverDnZKgels_bufferSize")
-	register(&fnzKgesv, "cusolverDnZKgesv")
-	register(&fnzKgesvBufferSize, "cusolverDnZKgesv_bufferSize")
-	register(&fnzYgels, "cusolverDnZYgels")
-	register(&fnzYgelsBufferSize, "cusolverDnZYgels_bufferSize")
-	register(&fnzYgesv, "cusolverDnZYgesv")
-	register(&fnzYgesvBufferSize, "cusolverDnZYgesv_bufferSize")
-	register(&fnzZgels, "cusolverDnZZgels")
-	register(&fnzZgelsBufferSize, "cusolverDnZZgels_bufferSize")
-	register(&fnzZgesv, "cusolverDnZZgesv")
-	register(&fnzZgesvBufferSize, "cusolverDnZZgesv_bufferSize")
-	register(&fnzgebrd, "cusolverDnZgebrd")
-	register(&fnzgebrdBufferSize, "cusolverDnZgebrd_bufferSize")
-	register(&fnzgeqrf, "cusolverDnZgeqrf")
-	register(&fnzgeqrfBufferSize, "cusolverDnZgeqrf_bufferSize")
-	register(&fnzgesvd, "cusolverDnZgesvd")
-	register(&fnzgesvdBufferSize, "cusolverDnZgesvd_bufferSize")
-	register(&fnzgesvdaStridedBatched, "cusolverDnZgesvdaStridedBatched")
-	register(&fnzgesvdaStridedBatchedBufferSize, "cusolverDnZgesvdaStridedBatched_bufferSize")
-	register(&fnzgesvdj, "cusolverDnZgesvdj")
-	register(&fnzgesvdjBatched, "cusolverDnZgesvdjBatched")
-	register(&fnzgesvdjBatchedBufferSize, "cusolverDnZgesvdjBatched_bufferSize")
-	register(&fnzgesvdjBufferSize, "cusolverDnZgesvdj_bufferSize")
-	register(&fnzgetrf, "cusolverDnZgetrf")
-	register(&fnzgetrfBufferSize, "cusolverDnZgetrf_bufferSize")
-	register(&fnzgetrs, "cusolverDnZgetrs")
-	register(&fnzheevd, "cusolverDnZheevd")
-	register(&fnzheevdBufferSize, "cusolverDnZheevd_bufferSize")
-	register(&fnzheevdx, "cusolverDnZheevdx")
-	register(&fnzheevdxBufferSize, "cusolverDnZheevdx_bufferSize")
-	register(&fnzheevj, "cusolverDnZheevj")
-	register(&fnzheevjBatched, "cusolverDnZheevjBatched")
-	register(&fnzheevjBatchedBufferSize, "cusolverDnZheevjBatched_bufferSize")
-	register(&fnzheevjBufferSize, "cusolverDnZheevj_bufferSize")
-	register(&fnzhegvd, "cusolverDnZhegvd")
-	register(&fnzhegvdBufferSize, "cusolverDnZhegvd_bufferSize")
-	register(&fnzhegvdx, "cusolverDnZhegvdx")
-	register(&fnzhegvdxBufferSize, "cusolverDnZhegvdx_bufferSize")
-	register(&fnzhegvj, "cusolverDnZhegvj")
-	register(&fnzhegvjBufferSize, "cusolverDnZhegvj_bufferSize")
-	register(&fnzhetrd, "cusolverDnZhetrd")
-	register(&fnzhetrdBufferSize, "cusolverDnZhetrd_bufferSize")
-	register(&fnzlaswp, "cusolverDnZlaswp")
-	register(&fnzlauum, "cusolverDnZlauum")
-	register(&fnzlauumBufferSize, "cusolverDnZlauum_bufferSize")
-	register(&fnzpotrf, "cusolverDnZpotrf")
-	register(&fnzpotrfBatched, "cusolverDnZpotrfBatched")
-	register(&fnzpotrfBufferSize, "cusolverDnZpotrf_bufferSize")
-	register(&fnzpotri, "cusolverDnZpotri")
-	register(&fnzpotriBufferSize, "cusolverDnZpotri_bufferSize")
-	register(&fnzpotrs, "cusolverDnZpotrs")
-	register(&fnzpotrsBatched, "cusolverDnZpotrsBatched")
-	register(&fnzsytrf, "cusolverDnZsytrf")
-	register(&fnzsytrfBufferSize, "cusolverDnZsytrf_bufferSize")
-	register(&fnzsytri, "cusolverDnZsytri")
-	register(&fnzsytriBufferSize, "cusolverDnZsytri_bufferSize")
-	register(&fnzungbr, "cusolverDnZungbr")
-	register(&fnzungbrBufferSize, "cusolverDnZungbr_bufferSize")
-	register(&fnzungqr, "cusolverDnZungqr")
-	register(&fnzungqrBufferSize, "cusolverDnZungqr_bufferSize")
-	register(&fnzungtr, "cusolverDnZungtr")
-	register(&fnzungtrBufferSize, "cusolverDnZungtr_bufferSize")
-	register(&fnzunmqr, "cusolverDnZunmqr")
-	register(&fnzunmqrBufferSize, "cusolverDnZunmqr_bufferSize")
-	register(&fnzunmtr, "cusolverDnZunmtr")
-	register(&fnzunmtrBufferSize, "cusolverDnZunmtr_bufferSize")
+	symsgebrd = registerSym("cusolverDnSgebrd")
+	symsgebrdBufferSize = registerSym("cusolverDnSgebrd_bufferSize")
+	symsgeqrf = registerSym("cusolverDnSgeqrf")
+	symsgeqrfBufferSize = registerSym("cusolverDnSgeqrf_bufferSize")
+	symsgesvd = registerSym("cusolverDnSgesvd")
+	symsgesvdBufferSize = registerSym("cusolverDnSgesvd_bufferSize")
+	symsgesvdaStridedBatched = registerSym("cusolverDnSgesvdaStridedBatched")
+	symsgesvdaStridedBatchedBufferSize = registerSym("cusolverDnSgesvdaStridedBatched_bufferSize")
+	symsgesvdj = registerSym("cusolverDnSgesvdj")
+	symsgesvdjBatched = registerSym("cusolverDnSgesvdjBatched")
+	symsgesvdjBatchedBufferSize = registerSym("cusolverDnSgesvdjBatched_bufferSize")
+	symsgesvdjBufferSize = registerSym("cusolverDnSgesvdj_bufferSize")
+	symsgetrf = registerSym("cusolverDnSgetrf")
+	symsgetrfBufferSize = registerSym("cusolverDnSgetrf_bufferSize")
+	symsgetrs = registerSym("cusolverDnSgetrs")
+	symslaswp = registerSym("cusolverDnSlaswp")
+	symslauum = registerSym("cusolverDnSlauum")
+	symslauumBufferSize = registerSym("cusolverDnSlauum_bufferSize")
+	symsorgbr = registerSym("cusolverDnSorgbr")
+	symsorgbrBufferSize = registerSym("cusolverDnSorgbr_bufferSize")
+	symsorgqr = registerSym("cusolverDnSorgqr")
+	symsorgqrBufferSize = registerSym("cusolverDnSorgqr_bufferSize")
+	symsorgtr = registerSym("cusolverDnSorgtr")
+	symsorgtrBufferSize = registerSym("cusolverDnSorgtr_bufferSize")
+	symsormqr = registerSym("cusolverDnSormqr")
+	symsormqrBufferSize = registerSym("cusolverDnSormqr_bufferSize")
+	symsormtr = registerSym("cusolverDnSormtr")
+	symsormtrBufferSize = registerSym("cusolverDnSormtr_bufferSize")
+	symspotrf = registerSym("cusolverDnSpotrf")
+	symspotrfBatched = registerSym("cusolverDnSpotrfBatched")
+	symspotrfBufferSize = registerSym("cusolverDnSpotrf_bufferSize")
+	symspotri = registerSym("cusolverDnSpotri")
+	symspotriBufferSize = registerSym("cusolverDnSpotri_bufferSize")
+	symspotrs = registerSym("cusolverDnSpotrs")
+	symspotrsBatched = registerSym("cusolverDnSpotrsBatched")
+	symssyevd = registerSym("cusolverDnSsyevd")
+	symssyevdBufferSize = registerSym("cusolverDnSsyevd_bufferSize")
+	symssyevdx = registerSym("cusolverDnSsyevdx")
+	symssyevdxBufferSize = registerSym("cusolverDnSsyevdx_bufferSize")
+	symssyevj = registerSym("cusolverDnSsyevj")
+	symssyevjBatched = registerSym("cusolverDnSsyevjBatched")
+	symssyevjBatchedBufferSize = registerSym("cusolverDnSsyevjBatched_bufferSize")
+	symssyevjBufferSize = registerSym("cusolverDnSsyevj_bufferSize")
+	symssygvd = registerSym("cusolverDnSsygvd")
+	symssygvdBufferSize = registerSym("cusolverDnSsygvd_bufferSize")
+	symssygvdx = registerSym("cusolverDnSsygvdx")
+	symssygvdxBufferSize = registerSym("cusolverDnSsygvdx_bufferSize")
+	symssygvj = registerSym("cusolverDnSsygvj")
+	symssygvjBufferSize = registerSym("cusolverDnSsygvj_bufferSize")
+	symssytrd = registerSym("cusolverDnSsytrd")
+	symssytrdBufferSize = registerSym("cusolverDnSsytrd_bufferSize")
+	symssytrf = registerSym("cusolverDnSsytrf")
+	symssytrfBufferSize = registerSym("cusolverDnSsytrf_bufferSize")
+	symssytri = registerSym("cusolverDnSsytri")
+	symssytriBufferSize = registerSym("cusolverDnSsytri_bufferSize")
+	symxgeev = registerSym("cusolverDnXgeev")
+	symxgeevBufferSize = registerSym("cusolverDnXgeev_bufferSize")
+	symxgeqrf = registerSym("cusolverDnXgeqrf")
+	symxgeqrfBufferSize = registerSym("cusolverDnXgeqrf_bufferSize")
+	symxgesvd = registerSym("cusolverDnXgesvd")
+	symxgesvdBufferSize = registerSym("cusolverDnXgesvd_bufferSize")
+	symxgesvdjGetResidual = registerSym("cusolverDnXgesvdjGetResidual")
+	symxgesvdjGetSweeps = registerSym("cusolverDnXgesvdjGetSweeps")
+	symxgesvdjSetMaxSweeps = registerSym("cusolverDnXgesvdjSetMaxSweeps")
+	symxgesvdjSetSortEig = registerSym("cusolverDnXgesvdjSetSortEig")
+	symxgesvdjSetTolerance = registerSym("cusolverDnXgesvdjSetTolerance")
+	symxgesvdp = registerSym("cusolverDnXgesvdp")
+	symxgesvdpBufferSize = registerSym("cusolverDnXgesvdp_bufferSize")
+	symxgesvdr = registerSym("cusolverDnXgesvdr")
+	symxgesvdrBufferSize = registerSym("cusolverDnXgesvdr_bufferSize")
+	symxgetrf = registerSym("cusolverDnXgetrf")
+	symxgetrfBufferSize = registerSym("cusolverDnXgetrf_bufferSize")
+	symxgetrs = registerSym("cusolverDnXgetrs")
+	symxlarft = registerSym("cusolverDnXlarft")
+	symxlarftBufferSize = registerSym("cusolverDnXlarft_bufferSize")
+	symxpotrf = registerSym("cusolverDnXpotrf")
+	symxpotrfBufferSize = registerSym("cusolverDnXpotrf_bufferSize")
+	symxpotrs = registerSym("cusolverDnXpotrs")
+	symxsyevBatched = registerSym("cusolverDnXsyevBatched")
+	symxsyevBatchedBufferSize = registerSym("cusolverDnXsyevBatched_bufferSize")
+	symxsyevd = registerSym("cusolverDnXsyevd")
+	symxsyevdBufferSize = registerSym("cusolverDnXsyevd_bufferSize")
+	symxsyevdx = registerSym("cusolverDnXsyevdx")
+	symxsyevdxBufferSize = registerSym("cusolverDnXsyevdx_bufferSize")
+	symxsyevjGetResidual = registerSym("cusolverDnXsyevjGetResidual")
+	symxsyevjGetSweeps = registerSym("cusolverDnXsyevjGetSweeps")
+	symxsyevjSetMaxSweeps = registerSym("cusolverDnXsyevjSetMaxSweeps")
+	symxsyevjSetSortEig = registerSym("cusolverDnXsyevjSetSortEig")
+	symxsyevjSetTolerance = registerSym("cusolverDnXsyevjSetTolerance")
+	symxsygvd = registerSym("cusolverDnXsygvd")
+	symxsygvdBufferSize = registerSym("cusolverDnXsygvd_bufferSize")
+	symxsygvdx = registerSym("cusolverDnXsygvdx")
+	symxsygvdxBufferSize = registerSym("cusolverDnXsygvdx_bufferSize")
+	symxsytrs = registerSym("cusolverDnXsytrs")
+	symxsytrsBufferSize = registerSym("cusolverDnXsytrs_bufferSize")
+	symxtrtri = registerSym("cusolverDnXtrtri")
+	symxtrtriBufferSize = registerSym("cusolverDnXtrtri_bufferSize")
+	symzCgels = registerSym("cusolverDnZCgels")
+	symzCgelsBufferSize = registerSym("cusolverDnZCgels_bufferSize")
+	symzCgesv = registerSym("cusolverDnZCgesv")
+	symzCgesvBufferSize = registerSym("cusolverDnZCgesv_bufferSize")
+	symzEgels = registerSym("cusolverDnZEgels")
+	symzEgelsBufferSize = registerSym("cusolverDnZEgels_bufferSize")
+	symzEgesv = registerSym("cusolverDnZEgesv")
+	symzEgesvBufferSize = registerSym("cusolverDnZEgesv_bufferSize")
+	symzKgels = registerSym("cusolverDnZKgels")
+	symzKgelsBufferSize = registerSym("cusolverDnZKgels_bufferSize")
+	symzKgesv = registerSym("cusolverDnZKgesv")
+	symzKgesvBufferSize = registerSym("cusolverDnZKgesv_bufferSize")
+	symzYgels = registerSym("cusolverDnZYgels")
+	symzYgelsBufferSize = registerSym("cusolverDnZYgels_bufferSize")
+	symzYgesv = registerSym("cusolverDnZYgesv")
+	symzYgesvBufferSize = registerSym("cusolverDnZYgesv_bufferSize")
+	symzZgels = registerSym("cusolverDnZZgels")
+	symzZgelsBufferSize = registerSym("cusolverDnZZgels_bufferSize")
+	symzZgesv = registerSym("cusolverDnZZgesv")
+	symzZgesvBufferSize = registerSym("cusolverDnZZgesv_bufferSize")
+	symzgebrd = registerSym("cusolverDnZgebrd")
+	symzgebrdBufferSize = registerSym("cusolverDnZgebrd_bufferSize")
+	symzgeqrf = registerSym("cusolverDnZgeqrf")
+	symzgeqrfBufferSize = registerSym("cusolverDnZgeqrf_bufferSize")
+	symzgesvd = registerSym("cusolverDnZgesvd")
+	symzgesvdBufferSize = registerSym("cusolverDnZgesvd_bufferSize")
+	symzgesvdaStridedBatched = registerSym("cusolverDnZgesvdaStridedBatched")
+	symzgesvdaStridedBatchedBufferSize = registerSym("cusolverDnZgesvdaStridedBatched_bufferSize")
+	symzgesvdj = registerSym("cusolverDnZgesvdj")
+	symzgesvdjBatched = registerSym("cusolverDnZgesvdjBatched")
+	symzgesvdjBatchedBufferSize = registerSym("cusolverDnZgesvdjBatched_bufferSize")
+	symzgesvdjBufferSize = registerSym("cusolverDnZgesvdj_bufferSize")
+	symzgetrf = registerSym("cusolverDnZgetrf")
+	symzgetrfBufferSize = registerSym("cusolverDnZgetrf_bufferSize")
+	symzgetrs = registerSym("cusolverDnZgetrs")
+	symzheevd = registerSym("cusolverDnZheevd")
+	symzheevdBufferSize = registerSym("cusolverDnZheevd_bufferSize")
+	symzheevdx = registerSym("cusolverDnZheevdx")
+	symzheevdxBufferSize = registerSym("cusolverDnZheevdx_bufferSize")
+	symzheevj = registerSym("cusolverDnZheevj")
+	symzheevjBatched = registerSym("cusolverDnZheevjBatched")
+	symzheevjBatchedBufferSize = registerSym("cusolverDnZheevjBatched_bufferSize")
+	symzheevjBufferSize = registerSym("cusolverDnZheevj_bufferSize")
+	symzhegvd = registerSym("cusolverDnZhegvd")
+	symzhegvdBufferSize = registerSym("cusolverDnZhegvd_bufferSize")
+	symzhegvdx = registerSym("cusolverDnZhegvdx")
+	symzhegvdxBufferSize = registerSym("cusolverDnZhegvdx_bufferSize")
+	symzhegvj = registerSym("cusolverDnZhegvj")
+	symzhegvjBufferSize = registerSym("cusolverDnZhegvj_bufferSize")
+	symzhetrd = registerSym("cusolverDnZhetrd")
+	symzhetrdBufferSize = registerSym("cusolverDnZhetrd_bufferSize")
+	symzlaswp = registerSym("cusolverDnZlaswp")
+	symzlauum = registerSym("cusolverDnZlauum")
+	symzlauumBufferSize = registerSym("cusolverDnZlauum_bufferSize")
+	symzpotrf = registerSym("cusolverDnZpotrf")
+	symzpotrfBatched = registerSym("cusolverDnZpotrfBatched")
+	symzpotrfBufferSize = registerSym("cusolverDnZpotrf_bufferSize")
+	symzpotri = registerSym("cusolverDnZpotri")
+	symzpotriBufferSize = registerSym("cusolverDnZpotri_bufferSize")
+	symzpotrs = registerSym("cusolverDnZpotrs")
+	symzpotrsBatched = registerSym("cusolverDnZpotrsBatched")
+	symzsytrf = registerSym("cusolverDnZsytrf")
+	symzsytrfBufferSize = registerSym("cusolverDnZsytrf_bufferSize")
+	symzsytri = registerSym("cusolverDnZsytri")
+	symzsytriBufferSize = registerSym("cusolverDnZsytri_bufferSize")
+	symzungbr = registerSym("cusolverDnZungbr")
+	symzungbrBufferSize = registerSym("cusolverDnZungbr_bufferSize")
+	symzungqr = registerSym("cusolverDnZungqr")
+	symzungqrBufferSize = registerSym("cusolverDnZungqr_bufferSize")
+	symzungtr = registerSym("cusolverDnZungtr")
+	symzungtrBufferSize = registerSym("cusolverDnZungtr_bufferSize")
+	symzunmqr = registerSym("cusolverDnZunmqr")
+	symzunmqrBufferSize = registerSym("cusolverDnZunmqr_bufferSize")
+	symzunmtr = registerSym("cusolverDnZunmtr")
+	symzunmtrBufferSize = registerSym("cusolverDnZunmtr_bufferSize")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fncCgels = nil
-	fncCgelsBufferSize = nil
-	fncCgesv = nil
-	fncCgesvBufferSize = nil
-	fncEgels = nil
-	fncEgelsBufferSize = nil
-	fncEgesv = nil
-	fncEgesvBufferSize = nil
-	fncKgels = nil
-	fncKgelsBufferSize = nil
-	fncKgesv = nil
-	fncKgesvBufferSize = nil
-	fncYgels = nil
-	fncYgelsBufferSize = nil
-	fncYgesv = nil
-	fncYgesvBufferSize = nil
-	fncgebrd = nil
-	fncgebrdBufferSize = nil
-	fncgeqrf = nil
-	fncgeqrfBufferSize = nil
-	fncgesvd = nil
-	fncgesvdBufferSize = nil
-	fncgesvdaStridedBatched = nil
-	fncgesvdaStridedBatchedBufferSize = nil
-	fncgesvdj = nil
-	fncgesvdjBatched = nil
-	fncgesvdjBatchedBufferSize = nil
-	fncgesvdjBufferSize = nil
-	fncgetrf = nil
-	fncgetrfBufferSize = nil
-	fncgetrs = nil
-	fncheevd = nil
-	fncheevdBufferSize = nil
-	fncheevdx = nil
-	fncheevdxBufferSize = nil
-	fncheevj = nil
-	fncheevjBatched = nil
-	fncheevjBatchedBufferSize = nil
-	fncheevjBufferSize = nil
-	fnchegvd = nil
-	fnchegvdBufferSize = nil
-	fnchegvdx = nil
-	fnchegvdxBufferSize = nil
-	fnchegvj = nil
-	fnchegvjBufferSize = nil
-	fnchetrd = nil
-	fnchetrdBufferSize = nil
-	fnclaswp = nil
-	fnclauum = nil
-	fnclauumBufferSize = nil
-	fncpotrf = nil
-	fncpotrfBatched = nil
-	fncpotrfBufferSize = nil
-	fncpotri = nil
-	fncpotriBufferSize = nil
-	fncpotrs = nil
-	fncpotrsBatched = nil
-	fnCreate = nil
-	fnCreateGesvdjInfo = nil
-	fnCreateParams = nil
-	fnCreateSyevjInfo = nil
-	fncsytrf = nil
-	fncsytrfBufferSize = nil
-	fncsytri = nil
-	fncsytriBufferSize = nil
-	fncungbr = nil
-	fncungbrBufferSize = nil
-	fncungqr = nil
-	fncungqrBufferSize = nil
-	fncungtr = nil
-	fncungtrBufferSize = nil
-	fncunmqr = nil
-	fncunmqrBufferSize = nil
-	fncunmtr = nil
-	fncunmtrBufferSize = nil
-	fndBgels = nil
-	fndBgelsBufferSize = nil
-	fndBgesv = nil
-	fndBgesvBufferSize = nil
-	fndDgels = nil
-	fndDgelsBufferSize = nil
-	fndDgesv = nil
-	fndDgesvBufferSize = nil
-	fndHgels = nil
-	fndHgelsBufferSize = nil
-	fndHgesv = nil
-	fndHgesvBufferSize = nil
-	fndSgels = nil
-	fndSgelsBufferSize = nil
-	fndSgesv = nil
-	fndSgesvBufferSize = nil
-	fndXgels = nil
-	fndXgelsBufferSize = nil
-	fndXgesv = nil
-	fndXgesvBufferSize = nil
-	fndestroy = nil
-	fndestroyGesvdjInfo = nil
-	fndestroyParams = nil
-	fndestroySyevjInfo = nil
-	fndgebrd = nil
-	fndgebrdBufferSize = nil
-	fndgeqrf = nil
-	fndgeqrfBufferSize = nil
-	fndgesvd = nil
-	fndgesvdBufferSize = nil
-	fndgesvdaStridedBatched = nil
-	fndgesvdaStridedBatchedBufferSize = nil
-	fndgesvdj = nil
-	fndgesvdjBatched = nil
-	fndgesvdjBatchedBufferSize = nil
-	fndgesvdjBufferSize = nil
-	fndgetrf = nil
-	fndgetrfBufferSize = nil
-	fndgetrs = nil
-	fndlaswp = nil
-	fndlauum = nil
-	fndlauumBufferSize = nil
-	fndorgbr = nil
-	fndorgbrBufferSize = nil
-	fndorgqr = nil
-	fndorgqrBufferSize = nil
-	fndorgtr = nil
-	fndorgtrBufferSize = nil
-	fndormqr = nil
-	fndormqrBufferSize = nil
-	fndormtr = nil
-	fndormtrBufferSize = nil
-	fndpotrf = nil
-	fndpotrfBatched = nil
-	fndpotrfBufferSize = nil
-	fndpotri = nil
-	fndpotriBufferSize = nil
-	fndpotrs = nil
-	fndpotrsBatched = nil
-	fndsyevd = nil
-	fndsyevdBufferSize = nil
-	fndsyevdx = nil
-	fndsyevdxBufferSize = nil
-	fndsyevj = nil
-	fndsyevjBatched = nil
-	fndsyevjBatchedBufferSize = nil
-	fndsyevjBufferSize = nil
-	fndsygvd = nil
-	fndsygvdBufferSize = nil
-	fndsygvdx = nil
-	fndsygvdxBufferSize = nil
-	fndsygvj = nil
-	fndsygvjBufferSize = nil
-	fndsytrd = nil
-	fndsytrdBufferSize = nil
-	fndsytrf = nil
-	fndsytrfBufferSize = nil
-	fndsytri = nil
-	fndsytriBufferSize = nil
-	fngetDeterministicMode = nil
-	fngetEmulationSpecialValuesSupport = nil
-	fngetEmulationStrategy = nil
-	fngetFixedPointEmulationMantissaBitOffset = nil
-	fngetFixedPointEmulationMantissaControl = nil
-	fngetFixedPointEmulationMaxMantissaBitCount = nil
-	fngetMathMode = nil
-	fnGetProperty = nil
-	fngetStream = nil
+	symcCgels = 0
+	symcCgelsBufferSize = 0
+	symcCgesv = 0
+	symcCgesvBufferSize = 0
+	symcEgels = 0
+	symcEgelsBufferSize = 0
+	symcEgesv = 0
+	symcEgesvBufferSize = 0
+	symcKgels = 0
+	symcKgelsBufferSize = 0
+	symcKgesv = 0
+	symcKgesvBufferSize = 0
+	symcYgels = 0
+	symcYgelsBufferSize = 0
+	symcYgesv = 0
+	symcYgesvBufferSize = 0
+	symcgebrd = 0
+	symcgebrdBufferSize = 0
+	symcgeqrf = 0
+	symcgeqrfBufferSize = 0
+	symcgesvd = 0
+	symcgesvdBufferSize = 0
+	symcgesvdaStridedBatched = 0
+	symcgesvdaStridedBatchedBufferSize = 0
+	symcgesvdj = 0
+	symcgesvdjBatched = 0
+	symcgesvdjBatchedBufferSize = 0
+	symcgesvdjBufferSize = 0
+	symcgetrf = 0
+	symcgetrfBufferSize = 0
+	symcgetrs = 0
+	symcheevd = 0
+	symcheevdBufferSize = 0
+	symcheevdx = 0
+	symcheevdxBufferSize = 0
+	symcheevj = 0
+	symcheevjBatched = 0
+	symcheevjBatchedBufferSize = 0
+	symcheevjBufferSize = 0
+	symchegvd = 0
+	symchegvdBufferSize = 0
+	symchegvdx = 0
+	symchegvdxBufferSize = 0
+	symchegvj = 0
+	symchegvjBufferSize = 0
+	symchetrd = 0
+	symchetrdBufferSize = 0
+	symclaswp = 0
+	symclauum = 0
+	symclauumBufferSize = 0
+	symcpotrf = 0
+	symcpotrfBatched = 0
+	symcpotrfBufferSize = 0
+	symcpotri = 0
+	symcpotriBufferSize = 0
+	symcpotrs = 0
+	symcpotrsBatched = 0
+	symCreate = 0
+	symCreateGesvdjInfo = 0
+	symCreateParams = 0
+	symCreateSyevjInfo = 0
+	symcsytrf = 0
+	symcsytrfBufferSize = 0
+	symcsytri = 0
+	symcsytriBufferSize = 0
+	symcungbr = 0
+	symcungbrBufferSize = 0
+	symcungqr = 0
+	symcungqrBufferSize = 0
+	symcungtr = 0
+	symcungtrBufferSize = 0
+	symcunmqr = 0
+	symcunmqrBufferSize = 0
+	symcunmtr = 0
+	symcunmtrBufferSize = 0
+	symdBgels = 0
+	symdBgelsBufferSize = 0
+	symdBgesv = 0
+	symdBgesvBufferSize = 0
+	symdDgels = 0
+	symdDgelsBufferSize = 0
+	symdDgesv = 0
+	symdDgesvBufferSize = 0
+	symdHgels = 0
+	symdHgelsBufferSize = 0
+	symdHgesv = 0
+	symdHgesvBufferSize = 0
+	symdSgels = 0
+	symdSgelsBufferSize = 0
+	symdSgesv = 0
+	symdSgesvBufferSize = 0
+	symdXgels = 0
+	symdXgelsBufferSize = 0
+	symdXgesv = 0
+	symdXgesvBufferSize = 0
+	symdestroy = 0
+	symdestroyGesvdjInfo = 0
+	symdestroyParams = 0
+	symdestroySyevjInfo = 0
+	symdgebrd = 0
+	symdgebrdBufferSize = 0
+	symdgeqrf = 0
+	symdgeqrfBufferSize = 0
+	symdgesvd = 0
+	symdgesvdBufferSize = 0
+	symdgesvdaStridedBatched = 0
+	symdgesvdaStridedBatchedBufferSize = 0
+	symdgesvdj = 0
+	symdgesvdjBatched = 0
+	symdgesvdjBatchedBufferSize = 0
+	symdgesvdjBufferSize = 0
+	symdgetrf = 0
+	symdgetrfBufferSize = 0
+	symdgetrs = 0
+	symdlaswp = 0
+	symdlauum = 0
+	symdlauumBufferSize = 0
+	symdorgbr = 0
+	symdorgbrBufferSize = 0
+	symdorgqr = 0
+	symdorgqrBufferSize = 0
+	symdorgtr = 0
+	symdorgtrBufferSize = 0
+	symdormqr = 0
+	symdormqrBufferSize = 0
+	symdormtr = 0
+	symdormtrBufferSize = 0
+	symdpotrf = 0
+	symdpotrfBatched = 0
+	symdpotrfBufferSize = 0
+	symdpotri = 0
+	symdpotriBufferSize = 0
+	symdpotrs = 0
+	symdpotrsBatched = 0
+	symdsyevd = 0
+	symdsyevdBufferSize = 0
+	symdsyevdx = 0
+	symdsyevdxBufferSize = 0
+	symdsyevj = 0
+	symdsyevjBatched = 0
+	symdsyevjBatchedBufferSize = 0
+	symdsyevjBufferSize = 0
+	symdsygvd = 0
+	symdsygvdBufferSize = 0
+	symdsygvdx = 0
+	symdsygvdxBufferSize = 0
+	symdsygvj = 0
+	symdsygvjBufferSize = 0
+	symdsytrd = 0
+	symdsytrdBufferSize = 0
+	symdsytrf = 0
+	symdsytrfBufferSize = 0
+	symdsytri = 0
+	symdsytriBufferSize = 0
+	symgetDeterministicMode = 0
+	symgetEmulationSpecialValuesSupport = 0
+	symgetEmulationStrategy = 0
+	symgetFixedPointEmulationMantissaBitOffset = 0
+	symgetFixedPointEmulationMantissaControl = 0
+	symgetFixedPointEmulationMaxMantissaBitCount = 0
+	symgetMathMode = 0
+	symGetProperty = 0
+	symgetStream = 0
 	fnGetVersion = nil
-	fniRSInfosCreate = nil
-	fniRSInfosDestroy = nil
-	fniRSInfosGetMaxIters = nil
-	fniRSInfosGetNiters = nil
-	fniRSInfosGetOuterNiters = nil
-	fniRSInfosGetResidualHistory = nil
-	fniRSInfosRequestResidual = nil
-	fniRSParamsCreate = nil
-	fniRSParamsDestroy = nil
-	fniRSParamsDisableFallback = nil
-	fniRSParamsEnableFallback = nil
-	fniRSParamsGetMaxIters = nil
-	fniRSParamsSetMaxIters = nil
-	fniRSParamsSetMaxItersInner = nil
-	fniRSParamsSetRefinementSolver = nil
-	fniRSParamsSetSolverLowestPrecision = nil
-	fniRSParamsSetSolverMainPrecision = nil
-	fniRSParamsSetSolverPrecisions = nil
-	fniRSParamsSetTol = nil
-	fniRSParamsSetTolInner = nil
-	fniRSXgels = nil
-	fniRSXgelsBufferSize = nil
-	fniRSXgesv = nil
-	fniRSXgesvBufferSize = nil
-	fnLoggerForceDisable = nil
-	fnLoggerOpenFile = nil
-	fnLoggerSetCallback = nil
-	fnLoggerSetFile = nil
-	fnLoggerSetLevel = nil
-	fnLoggerSetMask = nil
-	fnsBgels = nil
-	fnsBgelsBufferSize = nil
-	fnsBgesv = nil
-	fnsBgesvBufferSize = nil
-	fnsHgels = nil
-	fnsHgelsBufferSize = nil
-	fnsHgesv = nil
-	fnsHgesvBufferSize = nil
-	fnsSgels = nil
-	fnsSgelsBufferSize = nil
-	fnsSgesv = nil
-	fnsSgesvBufferSize = nil
-	fnsXgels = nil
-	fnsXgelsBufferSize = nil
-	fnsXgesv = nil
-	fnsXgesvBufferSize = nil
-	fnsetAdvOptions = nil
-	fnsetDeterministicMode = nil
-	fnsetEmulationSpecialValuesSupport = nil
-	fnsetEmulationStrategy = nil
-	fnsetFixedPointEmulationMantissaBitOffset = nil
-	fnsetFixedPointEmulationMantissaControl = nil
-	fnsetFixedPointEmulationMaxMantissaBitCount = nil
-	fnsetMathMode = nil
+	symiRSInfosCreate = 0
+	symiRSInfosDestroy = 0
+	symiRSInfosGetMaxIters = 0
+	symiRSInfosGetNiters = 0
+	symiRSInfosGetOuterNiters = 0
+	symiRSInfosGetResidualHistory = 0
+	symiRSInfosRequestResidual = 0
+	symiRSParamsCreate = 0
+	symiRSParamsDestroy = 0
+	symiRSParamsDisableFallback = 0
+	symiRSParamsEnableFallback = 0
+	symiRSParamsGetMaxIters = 0
+	symiRSParamsSetMaxIters = 0
+	symiRSParamsSetMaxItersInner = 0
+	symiRSParamsSetRefinementSolver = 0
+	symiRSParamsSetSolverLowestPrecision = 0
+	symiRSParamsSetSolverMainPrecision = 0
+	symiRSParamsSetSolverPrecisions = 0
+	symiRSParamsSetTol = 0
+	symiRSParamsSetTolInner = 0
+	symiRSXgels = 0
+	symiRSXgelsBufferSize = 0
+	symiRSXgesv = 0
+	symiRSXgesvBufferSize = 0
+	symLoggerForceDisable = 0
+	symLoggerOpenFile = 0
+	symLoggerSetCallback = 0
+	symLoggerSetFile = 0
+	symLoggerSetLevel = 0
+	symLoggerSetMask = 0
+	symsBgels = 0
+	symsBgelsBufferSize = 0
+	symsBgesv = 0
+	symsBgesvBufferSize = 0
+	symsHgels = 0
+	symsHgelsBufferSize = 0
+	symsHgesv = 0
+	symsHgesvBufferSize = 0
+	symsSgels = 0
+	symsSgelsBufferSize = 0
+	symsSgesv = 0
+	symsSgesvBufferSize = 0
+	symsXgels = 0
+	symsXgelsBufferSize = 0
+	symsXgesv = 0
+	symsXgesvBufferSize = 0
+	symsetAdvOptions = 0
+	symsetDeterministicMode = 0
+	symsetEmulationSpecialValuesSupport = 0
+	symsetEmulationStrategy = 0
+	symsetFixedPointEmulationMantissaBitOffset = 0
+	symsetFixedPointEmulationMantissaControl = 0
+	symsetFixedPointEmulationMaxMantissaBitCount = 0
+	symsetMathMode = 0
 	fnsetStream = nil
-	fnsgebrd = nil
-	fnsgebrdBufferSize = nil
-	fnsgeqrf = nil
-	fnsgeqrfBufferSize = nil
-	fnsgesvd = nil
-	fnsgesvdBufferSize = nil
-	fnsgesvdaStridedBatched = nil
-	fnsgesvdaStridedBatchedBufferSize = nil
-	fnsgesvdj = nil
-	fnsgesvdjBatched = nil
-	fnsgesvdjBatchedBufferSize = nil
-	fnsgesvdjBufferSize = nil
-	fnsgetrf = nil
-	fnsgetrfBufferSize = nil
-	fnsgetrs = nil
-	fnslaswp = nil
-	fnslauum = nil
-	fnslauumBufferSize = nil
-	fnsorgbr = nil
-	fnsorgbrBufferSize = nil
-	fnsorgqr = nil
-	fnsorgqrBufferSize = nil
-	fnsorgtr = nil
-	fnsorgtrBufferSize = nil
-	fnsormqr = nil
-	fnsormqrBufferSize = nil
-	fnsormtr = nil
-	fnsormtrBufferSize = nil
-	fnspotrf = nil
-	fnspotrfBatched = nil
-	fnspotrfBufferSize = nil
-	fnspotri = nil
-	fnspotriBufferSize = nil
-	fnspotrs = nil
-	fnspotrsBatched = nil
-	fnssyevd = nil
-	fnssyevdBufferSize = nil
-	fnssyevdx = nil
-	fnssyevdxBufferSize = nil
-	fnssyevj = nil
-	fnssyevjBatched = nil
-	fnssyevjBatchedBufferSize = nil
-	fnssyevjBufferSize = nil
-	fnssygvd = nil
-	fnssygvdBufferSize = nil
-	fnssygvdx = nil
-	fnssygvdxBufferSize = nil
-	fnssygvj = nil
-	fnssygvjBufferSize = nil
-	fnssytrd = nil
-	fnssytrdBufferSize = nil
-	fnssytrf = nil
-	fnssytrfBufferSize = nil
-	fnssytri = nil
-	fnssytriBufferSize = nil
-	fnxgeev = nil
-	fnxgeevBufferSize = nil
-	fnxgeqrf = nil
-	fnxgeqrfBufferSize = nil
-	fnxgesvd = nil
-	fnxgesvdBufferSize = nil
-	fnxgesvdjGetResidual = nil
-	fnxgesvdjGetSweeps = nil
-	fnxgesvdjSetMaxSweeps = nil
-	fnxgesvdjSetSortEig = nil
-	fnxgesvdjSetTolerance = nil
-	fnxgesvdp = nil
-	fnxgesvdpBufferSize = nil
-	fnxgesvdr = nil
-	fnxgesvdrBufferSize = nil
-	fnxgetrf = nil
-	fnxgetrfBufferSize = nil
-	fnxgetrs = nil
-	fnxlarft = nil
-	fnxlarftBufferSize = nil
-	fnxpotrf = nil
-	fnxpotrfBufferSize = nil
-	fnxpotrs = nil
-	fnxsyevBatched = nil
-	fnxsyevBatchedBufferSize = nil
-	fnxsyevd = nil
-	fnxsyevdBufferSize = nil
-	fnxsyevdx = nil
-	fnxsyevdxBufferSize = nil
-	fnxsyevjGetResidual = nil
-	fnxsyevjGetSweeps = nil
-	fnxsyevjSetMaxSweeps = nil
-	fnxsyevjSetSortEig = nil
-	fnxsyevjSetTolerance = nil
-	fnxsygvd = nil
-	fnxsygvdBufferSize = nil
-	fnxsygvdx = nil
-	fnxsygvdxBufferSize = nil
-	fnxsytrs = nil
-	fnxsytrsBufferSize = nil
-	fnxtrtri = nil
-	fnxtrtriBufferSize = nil
-	fnzCgels = nil
-	fnzCgelsBufferSize = nil
-	fnzCgesv = nil
-	fnzCgesvBufferSize = nil
-	fnzEgels = nil
-	fnzEgelsBufferSize = nil
-	fnzEgesv = nil
-	fnzEgesvBufferSize = nil
-	fnzKgels = nil
-	fnzKgelsBufferSize = nil
-	fnzKgesv = nil
-	fnzKgesvBufferSize = nil
-	fnzYgels = nil
-	fnzYgelsBufferSize = nil
-	fnzYgesv = nil
-	fnzYgesvBufferSize = nil
-	fnzZgels = nil
-	fnzZgelsBufferSize = nil
-	fnzZgesv = nil
-	fnzZgesvBufferSize = nil
-	fnzgebrd = nil
-	fnzgebrdBufferSize = nil
-	fnzgeqrf = nil
-	fnzgeqrfBufferSize = nil
-	fnzgesvd = nil
-	fnzgesvdBufferSize = nil
-	fnzgesvdaStridedBatched = nil
-	fnzgesvdaStridedBatchedBufferSize = nil
-	fnzgesvdj = nil
-	fnzgesvdjBatched = nil
-	fnzgesvdjBatchedBufferSize = nil
-	fnzgesvdjBufferSize = nil
-	fnzgetrf = nil
-	fnzgetrfBufferSize = nil
-	fnzgetrs = nil
-	fnzheevd = nil
-	fnzheevdBufferSize = nil
-	fnzheevdx = nil
-	fnzheevdxBufferSize = nil
-	fnzheevj = nil
-	fnzheevjBatched = nil
-	fnzheevjBatchedBufferSize = nil
-	fnzheevjBufferSize = nil
-	fnzhegvd = nil
-	fnzhegvdBufferSize = nil
-	fnzhegvdx = nil
-	fnzhegvdxBufferSize = nil
-	fnzhegvj = nil
-	fnzhegvjBufferSize = nil
-	fnzhetrd = nil
-	fnzhetrdBufferSize = nil
-	fnzlaswp = nil
-	fnzlauum = nil
-	fnzlauumBufferSize = nil
-	fnzpotrf = nil
-	fnzpotrfBatched = nil
-	fnzpotrfBufferSize = nil
-	fnzpotri = nil
-	fnzpotriBufferSize = nil
-	fnzpotrs = nil
-	fnzpotrsBatched = nil
-	fnzsytrf = nil
-	fnzsytrfBufferSize = nil
-	fnzsytri = nil
-	fnzsytriBufferSize = nil
-	fnzungbr = nil
-	fnzungbrBufferSize = nil
-	fnzungqr = nil
-	fnzungqrBufferSize = nil
-	fnzungtr = nil
-	fnzungtrBufferSize = nil
-	fnzunmqr = nil
-	fnzunmqrBufferSize = nil
-	fnzunmtr = nil
-	fnzunmtrBufferSize = nil
+	symsgebrd = 0
+	symsgebrdBufferSize = 0
+	symsgeqrf = 0
+	symsgeqrfBufferSize = 0
+	symsgesvd = 0
+	symsgesvdBufferSize = 0
+	symsgesvdaStridedBatched = 0
+	symsgesvdaStridedBatchedBufferSize = 0
+	symsgesvdj = 0
+	symsgesvdjBatched = 0
+	symsgesvdjBatchedBufferSize = 0
+	symsgesvdjBufferSize = 0
+	symsgetrf = 0
+	symsgetrfBufferSize = 0
+	symsgetrs = 0
+	symslaswp = 0
+	symslauum = 0
+	symslauumBufferSize = 0
+	symsorgbr = 0
+	symsorgbrBufferSize = 0
+	symsorgqr = 0
+	symsorgqrBufferSize = 0
+	symsorgtr = 0
+	symsorgtrBufferSize = 0
+	symsormqr = 0
+	symsormqrBufferSize = 0
+	symsormtr = 0
+	symsormtrBufferSize = 0
+	symspotrf = 0
+	symspotrfBatched = 0
+	symspotrfBufferSize = 0
+	symspotri = 0
+	symspotriBufferSize = 0
+	symspotrs = 0
+	symspotrsBatched = 0
+	symssyevd = 0
+	symssyevdBufferSize = 0
+	symssyevdx = 0
+	symssyevdxBufferSize = 0
+	symssyevj = 0
+	symssyevjBatched = 0
+	symssyevjBatchedBufferSize = 0
+	symssyevjBufferSize = 0
+	symssygvd = 0
+	symssygvdBufferSize = 0
+	symssygvdx = 0
+	symssygvdxBufferSize = 0
+	symssygvj = 0
+	symssygvjBufferSize = 0
+	symssytrd = 0
+	symssytrdBufferSize = 0
+	symssytrf = 0
+	symssytrfBufferSize = 0
+	symssytri = 0
+	symssytriBufferSize = 0
+	symxgeev = 0
+	symxgeevBufferSize = 0
+	symxgeqrf = 0
+	symxgeqrfBufferSize = 0
+	symxgesvd = 0
+	symxgesvdBufferSize = 0
+	symxgesvdjGetResidual = 0
+	symxgesvdjGetSweeps = 0
+	symxgesvdjSetMaxSweeps = 0
+	symxgesvdjSetSortEig = 0
+	symxgesvdjSetTolerance = 0
+	symxgesvdp = 0
+	symxgesvdpBufferSize = 0
+	symxgesvdr = 0
+	symxgesvdrBufferSize = 0
+	symxgetrf = 0
+	symxgetrfBufferSize = 0
+	symxgetrs = 0
+	symxlarft = 0
+	symxlarftBufferSize = 0
+	symxpotrf = 0
+	symxpotrfBufferSize = 0
+	symxpotrs = 0
+	symxsyevBatched = 0
+	symxsyevBatchedBufferSize = 0
+	symxsyevd = 0
+	symxsyevdBufferSize = 0
+	symxsyevdx = 0
+	symxsyevdxBufferSize = 0
+	symxsyevjGetResidual = 0
+	symxsyevjGetSweeps = 0
+	symxsyevjSetMaxSweeps = 0
+	symxsyevjSetSortEig = 0
+	symxsyevjSetTolerance = 0
+	symxsygvd = 0
+	symxsygvdBufferSize = 0
+	symxsygvdx = 0
+	symxsygvdxBufferSize = 0
+	symxsytrs = 0
+	symxsytrsBufferSize = 0
+	symxtrtri = 0
+	symxtrtriBufferSize = 0
+	symzCgels = 0
+	symzCgelsBufferSize = 0
+	symzCgesv = 0
+	symzCgesvBufferSize = 0
+	symzEgels = 0
+	symzEgelsBufferSize = 0
+	symzEgesv = 0
+	symzEgesvBufferSize = 0
+	symzKgels = 0
+	symzKgelsBufferSize = 0
+	symzKgesv = 0
+	symzKgesvBufferSize = 0
+	symzYgels = 0
+	symzYgelsBufferSize = 0
+	symzYgesv = 0
+	symzYgesvBufferSize = 0
+	symzZgels = 0
+	symzZgelsBufferSize = 0
+	symzZgesv = 0
+	symzZgesvBufferSize = 0
+	symzgebrd = 0
+	symzgebrdBufferSize = 0
+	symzgeqrf = 0
+	symzgeqrfBufferSize = 0
+	symzgesvd = 0
+	symzgesvdBufferSize = 0
+	symzgesvdaStridedBatched = 0
+	symzgesvdaStridedBatchedBufferSize = 0
+	symzgesvdj = 0
+	symzgesvdjBatched = 0
+	symzgesvdjBatchedBufferSize = 0
+	symzgesvdjBufferSize = 0
+	symzgetrf = 0
+	symzgetrfBufferSize = 0
+	symzgetrs = 0
+	symzheevd = 0
+	symzheevdBufferSize = 0
+	symzheevdx = 0
+	symzheevdxBufferSize = 0
+	symzheevj = 0
+	symzheevjBatched = 0
+	symzheevjBatchedBufferSize = 0
+	symzheevjBufferSize = 0
+	symzhegvd = 0
+	symzhegvdBufferSize = 0
+	symzhegvdx = 0
+	symzhegvdxBufferSize = 0
+	symzhegvj = 0
+	symzhegvjBufferSize = 0
+	symzhetrd = 0
+	symzhetrdBufferSize = 0
+	symzlaswp = 0
+	symzlauum = 0
+	symzlauumBufferSize = 0
+	symzpotrf = 0
+	symzpotrfBatched = 0
+	symzpotrfBufferSize = 0
+	symzpotri = 0
+	symzpotriBufferSize = 0
+	symzpotrs = 0
+	symzpotrsBatched = 0
+	symzsytrf = 0
+	symzsytrfBufferSize = 0
+	symzsytri = 0
+	symzsytriBufferSize = 0
+	symzungbr = 0
+	symzungbrBufferSize = 0
+	symzungqr = 0
+	symzungqrBufferSize = 0
+	symzungtr = 0
+	symzungtrBufferSize = 0
+	symzunmqr = 0
+	symzunmqrBufferSize = 0
+	symzunmtr = 0
+	symzunmtrBufferSize = 0
 }
 
 // HasCCgels reports whether cusolverDnCCgels resolved in the loaded library.

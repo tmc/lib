@@ -2,7 +2,24 @@
 
 package cusparse
 
-// MVOpDestroyPlan wraps cusparseSpMVOpDestroyPlan, bound as cusparseSpMVOp_destroyPlan.
+// MVOpDestroyPlan is only available if macro CUSPARSE_ENABLE_EXPERIMENTAL_API is defined.
+//
+// It performs the multiplication of a sparse matrix matA and a dense vector vecX.
+// This function is experimental.
+// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// where
+// [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
+// [Handle.SpMVOp] supports the following type combinations:
+// [Handle.SpMVOp] supports the following algorithms:
+// The function [Handle.SpMVOpBufferSize] returns the size of the workspace needed by [Handle.SpMVOpCreateDescr] and [Handle.SpMVOp]. Currently, it accepts NULL for vecX, vecY and vecZ.
+// The function [Handle.SpMVOpCreateDescr] prepares the internal data represented by the descriptor which is needed by [Handle.SpMVOpCreatePlan] and [Handle.SpMVOp]. The passed-in device buffer must remain valid and unmodified until the associated descriptor is destroyed. It supports passing dummy vecX, vecY and vecZ objects, as long as their data type attributes are valid. Other attributes are ignored during the descriptor creation. If epilogueLTOBuffer is NULL or epilogueLTOBufferSize is 0, the built-in default epilogue will be employed without Link-Time-Optimization (LTO):
+// The function [Handle.SpMVOpCreatePlan] takes in the descriptor and the LTO-IR of the custom epilogue, and returns the execution plan. The same descriptor can be used to create multiple execution plans, each with its own epilogue and epilogue auxiliary data. A caching system is employed to avoid redundant JIT compilation: plans compiled from identical LTO-IR (same epilogueLTOBuffer content and epilogueLTOBufferSize) share a single CUmodule.
+// The function [Handle.SpMVOpSetGlobalUserData] copies epilogueDataSize bytes from the host buffer epilogueData to the device __device__ or __constant__ variable named epilogueDataName in the compiled epilogue module. epilogueDataName must match the symbol name of the variable as declared in the epilogue device code. The invocation is optional; it should be called only if the epilogue requires auxiliary data. It can be invoked repeatedly before [Handle.SpMVOp] to update the auxiliary data. As a consequence of the plan caching, calling [Handle.SpMVOpSetGlobalUserData] affects every plan that links to the same compiled epilogue, not only the plan passed as argument. If multiple plans share the same LTO-IR but require different runtime constant values, the caller is responsible for serializing each [Handle.SpMVOpSetGlobalUserData] + [Handle.SpMVOp] pair so that each plan’s constants are current at the time it executes.
+// [Handle.SpMVOp] has the following properties:
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - [Handle.SpMVOp] for a code example.
+//
+// Wraps cusparseSpMVOpDestroyPlan, bound as cusparseSpMVOp_destroyPlan.
 func (s SpMVOpPlan) MVOpDestroyPlan() error {
 	return spMVOpDestroyPlan(s)
 }

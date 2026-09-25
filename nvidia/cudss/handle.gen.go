@@ -5,6 +5,10 @@
 
 package cudss
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // NewHandle wraps cudssCreate.
 func NewHandle() (Handle, error) {
 	return Create()
@@ -41,12 +45,12 @@ func (h Handle) SetDeviceMemHandler(handler *DeviceMemHandler) error {
 }
 
 // SetMgStreams wraps cudssSetMgStreams.
-func (h Handle) SetMgStreams(streams *Stream, streamCount int32) error {
+func (h Handle) SetMgStreams(streams *driver.Stream, streamCount int32) error {
 	return SetMgStreams(h, streams, streamCount)
 }
 
 // SetStream wraps cudssSetStream.
-func (h Handle) SetStream(stream Stream) error {
+func (h Handle) SetStream(stream driver.Stream) error {
 	return SetStream(h, stream)
 }
 

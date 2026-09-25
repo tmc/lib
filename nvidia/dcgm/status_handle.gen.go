@@ -2,7 +2,7 @@
 
 package dcgm
 
-// NewStatusHandle Creates reference to DCGM status handler which can be used to get the statuses for multiple operations on one or more devices.
+// NewStatusHandle creates reference to DCGM status handler which can be used to get the statuses for multiple operations on one or more devices.
 //
 // The multiple statuses are useful when the operations are performed at group level. The status
 // handle provides a mechanism to access error attributes for the failed operations.
@@ -22,14 +22,16 @@ func NewStatusHandle() (StatusHandle, error) {
 	return StatusCreate()
 }
 
-// Clear Used to clear all the errors in the status handle created by the API [NewStatusHandle].
+// Clear is used to clear all the errors in the status handle created by the API [NewStatusHandle].
+//
+// After one set of operation, the statusHandle can be cleared and reused for the next set of operation.
 //
 // Wraps dcgmStatusClear.
 func (s StatusHandle) Clear() error {
 	return StatusClear(s)
 }
 
-// Count Used to get count of error entries stored inside the opaque handle statusHandle.
+// Count is used to get count of error entries stored inside the opaque handle statusHandle.
 //
 //   - count: OUT: Number of error entries present in the list of statuses
 //
@@ -38,14 +40,16 @@ func (s StatusHandle) Count() (uint32, error) {
 	return StatusGetCount(s)
 }
 
-// Destroy Used to destroy status handle created using [NewStatusHandle].
+// Destroy is used to destroy status handle created using [NewStatusHandle].
 //
 // Wraps dcgmStatusDestroy.
 func (s StatusHandle) Destroy() error {
 	return StatusDestroy(s)
 }
 
-// PopError Used to iterate through the list of errors maintained behind statusHandle.
+// PopError is used to iterate through the list of errors maintained behind statusHandle.
+//
+// The method pops the first error from the list of DCGM statuses. In order to iterate through all the errors, the user can invoke this API for the number of errors or until all the errors are fetched.
 //
 //   - pDcgmErrorInfo: OUT: First error from the list of statuses
 //

@@ -325,6 +325,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -411,759 +426,759 @@ func checkLibSym(symbol string) error {
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnErrorString, "nvmlErrorString")
-	register(&fncomputeInstanceDestroy, "nvmlComputeInstanceDestroy")
-	register(&fncomputeInstanceGetInfo, "nvmlComputeInstanceGetInfo_v2")
-	register(&fndeviceClearAccountingPids, "nvmlDeviceClearAccountingPids")
-	register(&fndeviceClearCpuAffinity, "nvmlDeviceClearCpuAffinity")
-	register(&fndeviceClearEccErrorCounts, "nvmlDeviceClearEccErrorCounts")
-	register(&fndeviceClearFieldValues, "nvmlDeviceClearFieldValues")
-	register(&fndeviceCreateGpuInstance, "nvmlDeviceCreateGpuInstance")
-	register(&fndeviceCreateGpuInstanceWithPlacement, "nvmlDeviceCreateGpuInstanceWithPlacement")
-	register(&fnDeviceDiscoverGpus, "nvmlDeviceDiscoverGpus")
-	register(&fndeviceFreezeNvLinkUtilizationCounter, "nvmlDeviceFreezeNvLinkUtilizationCounter")
-	register(&fndeviceGetAPIRestriction, "nvmlDeviceGetAPIRestriction")
-	register(&fndeviceGetAccountingBufferSize, "nvmlDeviceGetAccountingBufferSize")
-	register(&fndeviceGetAccountingMode, "nvmlDeviceGetAccountingMode")
-	register(&fndeviceGetAccountingPids, "nvmlDeviceGetAccountingPids")
-	register(&fndeviceGetAccountingStats, "nvmlDeviceGetAccountingStats")
-	register(&fndeviceGetActiveVgpus, "nvmlDeviceGetActiveVgpus")
-	register(&fndeviceGetAdaptiveClockInfoStatus, "nvmlDeviceGetAdaptiveClockInfoStatus")
-	register(&fndeviceGetAddressingMode, "nvmlDeviceGetAddressingMode")
-	register(&fndeviceGetApplicationsClock, "nvmlDeviceGetApplicationsClock")
-	register(&fndeviceGetArchitecture, "nvmlDeviceGetArchitecture")
-	register(&fndeviceGetAttributes, "nvmlDeviceGetAttributes_v2")
-	register(&fndeviceGetAutoBoostedClocksEnabled, "nvmlDeviceGetAutoBoostedClocksEnabled")
-	register(&fndeviceGetBAR1MemoryInfo, "nvmlDeviceGetBAR1MemoryInfo")
-	register(&fndeviceGetBoardId, "nvmlDeviceGetBoardId")
-	register(&fndeviceGetBoardPartNumber, "nvmlDeviceGetBoardPartNumber")
-	register(&fndeviceGetBrand, "nvmlDeviceGetBrand")
-	register(&fndeviceGetBridgeChipInfo, "nvmlDeviceGetBridgeChipInfo")
-	register(&fndeviceGetBusType, "nvmlDeviceGetBusType")
-	register(&fndeviceGetC2cModeInfoV, "nvmlDeviceGetC2cModeInfoV")
-	register(&fndeviceGetCapabilities, "nvmlDeviceGetCapabilities")
-	register(&fndeviceGetClkMonStatus, "nvmlDeviceGetClkMonStatus")
-	register(&fndeviceGetClock, "nvmlDeviceGetClock")
-	register(&fndeviceGetClockInfo, "nvmlDeviceGetClockInfo")
-	register(&fndeviceGetClockOffsets, "nvmlDeviceGetClockOffsets")
-	register(&fndeviceGetComputeInstanceId, "nvmlDeviceGetComputeInstanceId")
-	register(&fndeviceGetComputeMode, "nvmlDeviceGetComputeMode")
-	register(&fndeviceGetComputeRunningProcesses, "nvmlDeviceGetComputeRunningProcesses_v3")
-	register(&fndeviceGetConfComputeGpuAttestationReport, "nvmlDeviceGetConfComputeGpuAttestationReport")
-	register(&fndeviceGetConfComputeGpuCertificate, "nvmlDeviceGetConfComputeGpuCertificate")
-	register(&fndeviceGetConfComputeMemSizeInfo, "nvmlDeviceGetConfComputeMemSizeInfo")
-	register(&fndeviceGetConfComputeProtectedMemoryUsage, "nvmlDeviceGetConfComputeProtectedMemoryUsage")
-	register(&fndeviceGetCoolerInfo, "nvmlDeviceGetCoolerInfo")
-	register(&fnDeviceGetCount, "nvmlDeviceGetCount_v2")
-	register(&fndeviceGetCpuAffinity, "nvmlDeviceGetCpuAffinity")
-	register(&fndeviceGetCpuAffinityWithinScope, "nvmlDeviceGetCpuAffinityWithinScope")
-	register(&fndeviceGetCreatableVgpus, "nvmlDeviceGetCreatableVgpus")
-	register(&fndeviceGetCudaComputeCapability, "nvmlDeviceGetCudaComputeCapability")
-	register(&fndeviceGetCurrPcieLinkGeneration, "nvmlDeviceGetCurrPcieLinkGeneration")
-	register(&fndeviceGetCurrPcieLinkWidth, "nvmlDeviceGetCurrPcieLinkWidth")
-	register(&fndeviceGetCurrentClockFreqs, "nvmlDeviceGetCurrentClockFreqs")
-	register(&fndeviceGetCurrentClocksEventReasons, "nvmlDeviceGetCurrentClocksEventReasons")
-	register(&fndeviceGetCurrentClocksThrottleReasons, "nvmlDeviceGetCurrentClocksThrottleReasons")
-	register(&fndeviceGetDecoderUtilization, "nvmlDeviceGetDecoderUtilization")
-	register(&fndeviceGetDefaultApplicationsClock, "nvmlDeviceGetDefaultApplicationsClock")
-	register(&fndeviceGetDefaultEccMode, "nvmlDeviceGetDefaultEccMode")
-	register(&fndeviceGetDetailedEccErrors, "nvmlDeviceGetDetailedEccErrors")
-	register(&fndeviceGetDeviceHandleFromMigDeviceHandle, "nvmlDeviceGetDeviceHandleFromMigDeviceHandle")
-	register(&fndeviceGetDisplayActive, "nvmlDeviceGetDisplayActive")
-	register(&fndeviceGetDisplayMode, "nvmlDeviceGetDisplayMode")
-	register(&fndeviceGetDramEncryptionMode, "nvmlDeviceGetDramEncryptionMode")
-	register(&fndeviceGetDriverModel, "nvmlDeviceGetDriverModel_v2")
-	register(&fndeviceGetDynamicPstatesInfo, "nvmlDeviceGetDynamicPstatesInfo")
-	register(&fndeviceGetEccMode, "nvmlDeviceGetEccMode")
-	register(&fndeviceGetEncoderCapacity, "nvmlDeviceGetEncoderCapacity")
-	register(&fndeviceGetEncoderSessions, "nvmlDeviceGetEncoderSessions")
-	register(&fndeviceGetEncoderStats, "nvmlDeviceGetEncoderStats")
-	register(&fndeviceGetEncoderUtilization, "nvmlDeviceGetEncoderUtilization")
-	register(&fndeviceGetEnforcedPowerLimit, "nvmlDeviceGetEnforcedPowerLimit")
-	register(&fndeviceGetFBCSessions, "nvmlDeviceGetFBCSessions")
-	register(&fndeviceGetFBCStats, "nvmlDeviceGetFBCStats")
-	register(&fndeviceGetFanControlPolicy, "nvmlDeviceGetFanControlPolicy_v2")
-	register(&fndeviceGetFanSpeedRPM, "nvmlDeviceGetFanSpeedRPM")
-	register(&fndeviceGetFanSpeed, "nvmlDeviceGetFanSpeed_v2")
-	register(&fndeviceGetFieldValues, "nvmlDeviceGetFieldValues")
-	register(&fndeviceGetGpcClkMinMaxVfOffset, "nvmlDeviceGetGpcClkMinMaxVfOffset")
-	register(&fndeviceGetGpcClkVfOffset, "nvmlDeviceGetGpcClkVfOffset")
-	register(&fndeviceGetGpuFabricInfo, "nvmlDeviceGetGpuFabricInfo")
-	register(&fndeviceGetGpuFabricInfoV, "nvmlDeviceGetGpuFabricInfoV")
-	register(&fndeviceGetGpuInstanceById, "nvmlDeviceGetGpuInstanceById")
-	register(&fndeviceGetGpuInstanceId, "nvmlDeviceGetGpuInstanceId")
-	register(&fndeviceGetGpuInstancePossiblePlacements, "nvmlDeviceGetGpuInstancePossiblePlacements_v2")
-	register(&fndeviceGetGpuInstanceProfileInfo, "nvmlDeviceGetGpuInstanceProfileInfo")
-	register(&fndeviceGetGpuInstanceProfileInfoByIdV, "nvmlDeviceGetGpuInstanceProfileInfoByIdV")
-	register(&fndeviceGetGpuInstanceProfileInfoV, "nvmlDeviceGetGpuInstanceProfileInfoV")
-	register(&fndeviceGetGpuInstanceRemainingCapacity, "nvmlDeviceGetGpuInstanceRemainingCapacity")
-	register(&fndeviceGetGpuInstances, "nvmlDeviceGetGpuInstances")
-	register(&fndeviceGetGpuMaxPcieLinkGeneration, "nvmlDeviceGetGpuMaxPcieLinkGeneration")
-	register(&fndeviceGetGpuOperationMode, "nvmlDeviceGetGpuOperationMode")
-	register(&fndeviceGetGraphicsRunningProcesses, "nvmlDeviceGetGraphicsRunningProcesses_v3")
-	register(&fndeviceGetGridLicensableFeatures, "nvmlDeviceGetGridLicensableFeatures_v4")
-	register(&fndeviceGetGspFirmwareMode, "nvmlDeviceGetGspFirmwareMode")
-	register(&fndeviceGetGspFirmwareVersion, "nvmlDeviceGetGspFirmwareVersion")
-	register(&fndeviceGetHandleByIndex, "nvmlDeviceGetHandleByIndex_v2")
-	register(&fndeviceGetHandleByPciBusId, "nvmlDeviceGetHandleByPciBusId_v2")
-	register(&fndeviceGetHandleBySerial, "nvmlDeviceGetHandleBySerial")
-	register(&fndeviceGetHandleByUUID, "nvmlDeviceGetHandleByUUID")
-	register(&fndeviceGetHandleByUUIDV, "nvmlDeviceGetHandleByUUIDV")
-	register(&fndeviceGetHostVgpuMode, "nvmlDeviceGetHostVgpuMode")
-	register(&fndeviceGetHostname, "nvmlDeviceGetHostname_v1")
-	register(&fndeviceGetIndex, "nvmlDeviceGetIndex")
-	register(&fndeviceGetInforomConfigurationChecksum, "nvmlDeviceGetInforomConfigurationChecksum")
-	register(&fndeviceGetInforomImageVersion, "nvmlDeviceGetInforomImageVersion")
-	register(&fndeviceGetInforomVersion, "nvmlDeviceGetInforomVersion")
-	register(&fndeviceGetIrqNum, "nvmlDeviceGetIrqNum")
-	register(&fndeviceGetJpgUtilization, "nvmlDeviceGetJpgUtilization")
-	register(&fndeviceGetLastBBXFlushTime, "nvmlDeviceGetLastBBXFlushTime")
-	register(&fndeviceGetMPSComputeRunningProcesses, "nvmlDeviceGetMPSComputeRunningProcesses_v3")
-	register(&fndeviceGetMarginTemperature, "nvmlDeviceGetMarginTemperature")
-	register(&fndeviceGetMaxClockInfo, "nvmlDeviceGetMaxClockInfo")
-	register(&fndeviceGetMaxCustomerBoostClock, "nvmlDeviceGetMaxCustomerBoostClock")
-	register(&fndeviceGetMaxMigDeviceCount, "nvmlDeviceGetMaxMigDeviceCount")
-	register(&fndeviceGetMaxPcieLinkGeneration, "nvmlDeviceGetMaxPcieLinkGeneration")
-	register(&fndeviceGetMaxPcieLinkWidth, "nvmlDeviceGetMaxPcieLinkWidth")
-	register(&fndeviceGetMemClkMinMaxVfOffset, "nvmlDeviceGetMemClkMinMaxVfOffset")
-	register(&fndeviceGetMemClkVfOffset, "nvmlDeviceGetMemClkVfOffset")
-	register(&fndeviceGetMemoryAffinity, "nvmlDeviceGetMemoryAffinity")
-	register(&fndeviceGetMemoryBusWidth, "nvmlDeviceGetMemoryBusWidth")
-	register(&fndeviceGetMemoryErrorCounter, "nvmlDeviceGetMemoryErrorCounter")
-	register(&fndeviceGetMemoryInfo, "nvmlDeviceGetMemoryInfo_v2")
-	register(&fndeviceGetMigDeviceHandleByIndex, "nvmlDeviceGetMigDeviceHandleByIndex")
-	register(&fndeviceGetMigMode, "nvmlDeviceGetMigMode")
-	register(&fndeviceGetMinMaxClockOfPState, "nvmlDeviceGetMinMaxClockOfPState")
-	register(&fndeviceGetMinMaxFanSpeed, "nvmlDeviceGetMinMaxFanSpeed")
-	register(&fndeviceGetMinorNumber, "nvmlDeviceGetMinorNumber")
-	register(&fndeviceGetModuleId, "nvmlDeviceGetModuleId")
-	register(&fndeviceGetMultiGpuBoard, "nvmlDeviceGetMultiGpuBoard")
-	register(&fndeviceGetName, "nvmlDeviceGetName")
-	register(&fndeviceGetNumFans, "nvmlDeviceGetNumFans")
-	register(&fndeviceGetNumGpuCores, "nvmlDeviceGetNumGpuCores")
-	register(&fndeviceGetNumaNodeId, "nvmlDeviceGetNumaNodeId")
-	register(&fndeviceGetNvLinkCapability, "nvmlDeviceGetNvLinkCapability")
-	register(&fndeviceGetNvLinkErrorCounter, "nvmlDeviceGetNvLinkErrorCounter")
-	register(&fndeviceGetNvLinkInfo, "nvmlDeviceGetNvLinkInfo")
-	register(&fndeviceGetNvLinkRemoteDeviceType, "nvmlDeviceGetNvLinkRemoteDeviceType")
-	register(&fndeviceGetNvLinkRemotePciInfo, "nvmlDeviceGetNvLinkRemotePciInfo_v2")
-	register(&fndeviceGetNvLinkState, "nvmlDeviceGetNvLinkState")
-	register(&fndeviceGetNvLinkUtilizationControl, "nvmlDeviceGetNvLinkUtilizationControl")
-	register(&fndeviceGetNvLinkUtilizationCounter, "nvmlDeviceGetNvLinkUtilizationCounter")
-	register(&fndeviceGetNvLinkVersion, "nvmlDeviceGetNvLinkVersion")
-	register(&fndeviceGetNvlinkBwMode, "nvmlDeviceGetNvlinkBwMode")
-	register(&fndeviceGetNvlinkSupportedBwModes, "nvmlDeviceGetNvlinkSupportedBwModes")
-	register(&fndeviceGetOfaUtilization, "nvmlDeviceGetOfaUtilization")
-	register(&fndeviceGetP2PStatus, "nvmlDeviceGetP2PStatus")
-	register(&fndeviceGetPciInfo, "nvmlDeviceGetPciInfo_v3")
-	register(&fndeviceGetPciInfoExt, "nvmlDeviceGetPciInfoExt")
-	register(&fndeviceGetPcieLinkMaxSpeed, "nvmlDeviceGetPcieLinkMaxSpeed")
-	register(&fndeviceGetPcieReplayCounter, "nvmlDeviceGetPcieReplayCounter")
-	register(&fndeviceGetPcieSpeed, "nvmlDeviceGetPcieSpeed")
-	register(&fndeviceGetPcieThroughput, "nvmlDeviceGetPcieThroughput")
-	register(&fndeviceGetPdi, "nvmlDeviceGetPdi")
-	register(&fndeviceGetPerformanceModes, "nvmlDeviceGetPerformanceModes")
-	register(&fndeviceGetPerformanceState, "nvmlDeviceGetPerformanceState")
-	register(&fndeviceGetPersistenceMode, "nvmlDeviceGetPersistenceMode")
-	register(&fndeviceGetPgpuMetadataString, "nvmlDeviceGetPgpuMetadataString")
-	register(&fndeviceGetPlatformInfo, "nvmlDeviceGetPlatformInfo")
-	register(&fndeviceGetPowerManagementDefaultLimit, "nvmlDeviceGetPowerManagementDefaultLimit")
-	register(&fndeviceGetPowerManagementLimit, "nvmlDeviceGetPowerManagementLimit")
-	register(&fndeviceGetPowerManagementLimitConstraints, "nvmlDeviceGetPowerManagementLimitConstraints")
-	register(&fndeviceGetPowerManagementMode, "nvmlDeviceGetPowerManagementMode")
-	register(&fndeviceGetPowerMizerMode, "nvmlDeviceGetPowerMizerMode_v1")
-	register(&fndeviceGetPowerSource, "nvmlDeviceGetPowerSource")
-	register(&fndeviceGetPowerState, "nvmlDeviceGetPowerState")
-	register(&fndeviceGetPowerUsage, "nvmlDeviceGetPowerUsage")
-	register(&fndeviceGetProcessUtilization, "nvmlDeviceGetProcessUtilization")
-	register(&fndeviceGetProcessesUtilizationInfo, "nvmlDeviceGetProcessesUtilizationInfo")
-	register(&fndeviceGetRemappedRows, "nvmlDeviceGetRemappedRows")
-	register(&fndeviceGetRepairStatus, "nvmlDeviceGetRepairStatus")
-	register(&fndeviceGetRetiredPagesPendingStatus, "nvmlDeviceGetRetiredPagesPendingStatus")
-	register(&fndeviceGetRetiredPages, "nvmlDeviceGetRetiredPages_v2")
-	register(&fndeviceGetRowRemapperHistogram, "nvmlDeviceGetRowRemapperHistogram")
-	register(&fndeviceGetRunningProcessDetailList, "nvmlDeviceGetRunningProcessDetailList")
-	register(&fndeviceGetSamples, "nvmlDeviceGetSamples")
-	register(&fndeviceGetSerial, "nvmlDeviceGetSerial")
-	register(&fndeviceGetSramEccErrorStatus, "nvmlDeviceGetSramEccErrorStatus")
-	register(&fndeviceGetSramUniqueUncorrectedEccErrorCounts, "nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts")
-	register(&fndeviceGetSupportedClocksEventReasons, "nvmlDeviceGetSupportedClocksEventReasons")
-	register(&fndeviceGetSupportedClocksThrottleReasons, "nvmlDeviceGetSupportedClocksThrottleReasons")
-	register(&fndeviceGetSupportedEventTypes, "nvmlDeviceGetSupportedEventTypes")
-	register(&fndeviceGetSupportedGraphicsClocks, "nvmlDeviceGetSupportedGraphicsClocks")
-	register(&fndeviceGetSupportedMemoryClocks, "nvmlDeviceGetSupportedMemoryClocks")
-	register(&fndeviceGetSupportedPerformanceStates, "nvmlDeviceGetSupportedPerformanceStates")
-	register(&fndeviceGetSupportedVgpus, "nvmlDeviceGetSupportedVgpus")
-	register(&fndeviceGetTargetFanSpeed, "nvmlDeviceGetTargetFanSpeed")
-	register(&fndeviceGetTemperature, "nvmlDeviceGetTemperature")
-	register(&fndeviceGetTemperatureThreshold, "nvmlDeviceGetTemperatureThreshold")
-	register(&fndeviceGetTemperatureV, "nvmlDeviceGetTemperatureV")
-	register(&fndeviceGetThermalSettings, "nvmlDeviceGetThermalSettings")
-	register(&fndeviceGetTopologyCommonAncestor, "nvmlDeviceGetTopologyCommonAncestor")
-	register(&fndeviceGetTopologyNearestGpus, "nvmlDeviceGetTopologyNearestGpus")
-	register(&fndeviceGetTotalEccErrors, "nvmlDeviceGetTotalEccErrors")
-	register(&fndeviceGetTotalEnergyConsumption, "nvmlDeviceGetTotalEnergyConsumption")
-	register(&fndeviceGetUUID, "nvmlDeviceGetUUID")
-	register(&fndeviceGetUnrepairableMemoryFlag, "nvmlDeviceGetUnrepairableMemoryFlag_v1")
-	register(&fndeviceGetUtilizationRates, "nvmlDeviceGetUtilizationRates")
-	register(&fndeviceGetVbiosVersion, "nvmlDeviceGetVbiosVersion")
-	register(&fndeviceGetVgpuCapabilities, "nvmlDeviceGetVgpuCapabilities")
-	register(&fndeviceGetVgpuHeterogeneousMode, "nvmlDeviceGetVgpuHeterogeneousMode")
-	register(&fndeviceGetVgpuInstancesUtilizationInfo, "nvmlDeviceGetVgpuInstancesUtilizationInfo")
-	register(&fndeviceGetVgpuMetadata, "nvmlDeviceGetVgpuMetadata")
-	register(&fndeviceGetVgpuProcessUtilization, "nvmlDeviceGetVgpuProcessUtilization")
-	register(&fndeviceGetVgpuProcessesUtilizationInfo, "nvmlDeviceGetVgpuProcessesUtilizationInfo")
-	register(&fndeviceGetVgpuSchedulerCapabilities, "nvmlDeviceGetVgpuSchedulerCapabilities")
-	register(&fndeviceGetVgpuSchedulerLog, "nvmlDeviceGetVgpuSchedulerLog_v2")
-	register(&fndeviceGetVgpuSchedulerState, "nvmlDeviceGetVgpuSchedulerState_v2")
-	register(&fndeviceGetVgpuTypeCreatablePlacements, "nvmlDeviceGetVgpuTypeCreatablePlacements")
-	register(&fndeviceGetVgpuTypeSupportedPlacements, "nvmlDeviceGetVgpuTypeSupportedPlacements")
-	register(&fndeviceGetVgpuUtilization, "nvmlDeviceGetVgpuUtilization")
-	register(&fndeviceGetViolationStatus, "nvmlDeviceGetViolationStatus")
-	register(&fndeviceGetVirtualizationMode, "nvmlDeviceGetVirtualizationMode")
-	register(&fndeviceIsMigDeviceHandle, "nvmlDeviceIsMigDeviceHandle")
-	register(&fnDeviceModifyDrainState, "nvmlDeviceModifyDrainState")
-	register(&fndeviceOnSameBoard, "nvmlDeviceOnSameBoard")
-	register(&fndevicePowerSmoothingActivatePresetProfile, "nvmlDevicePowerSmoothingActivatePresetProfile")
-	register(&fndevicePowerSmoothingSetState, "nvmlDevicePowerSmoothingSetState")
-	register(&fndevicePowerSmoothingUpdatePresetProfileParam, "nvmlDevicePowerSmoothingUpdatePresetProfileParam")
-	register(&fnDeviceQueryDrainState, "nvmlDeviceQueryDrainState")
-	register(&fndeviceReadPRMCounters, "nvmlDeviceReadPRMCounters_v1")
-	register(&fndeviceReadWritePRM, "nvmlDeviceReadWritePRM_v1")
-	register(&fndeviceRegisterEvents, "nvmlDeviceRegisterEvents")
-	register(&fnDeviceRemoveGpu, "nvmlDeviceRemoveGpu_v2")
-	register(&fndeviceResetApplicationsClocks, "nvmlDeviceResetApplicationsClocks")
-	register(&fndeviceResetGpuLockedClocks, "nvmlDeviceResetGpuLockedClocks")
-	register(&fndeviceResetMemoryLockedClocks, "nvmlDeviceResetMemoryLockedClocks")
-	register(&fndeviceResetNvLinkErrorCounters, "nvmlDeviceResetNvLinkErrorCounters")
-	register(&fndeviceResetNvLinkUtilizationCounter, "nvmlDeviceResetNvLinkUtilizationCounter")
-	register(&fndeviceSetAPIRestriction, "nvmlDeviceSetAPIRestriction")
-	register(&fndeviceSetAccountingMode, "nvmlDeviceSetAccountingMode")
-	register(&fndeviceSetApplicationsClocks, "nvmlDeviceSetApplicationsClocks")
-	register(&fndeviceSetAutoBoostedClocksEnabled, "nvmlDeviceSetAutoBoostedClocksEnabled")
-	register(&fndeviceSetClockOffsets, "nvmlDeviceSetClockOffsets")
-	register(&fndeviceSetComputeMode, "nvmlDeviceSetComputeMode")
-	register(&fndeviceSetConfComputeUnprotectedMemSize, "nvmlDeviceSetConfComputeUnprotectedMemSize")
-	register(&fndeviceSetCpuAffinity, "nvmlDeviceSetCpuAffinity")
-	register(&fndeviceSetDefaultAutoBoostedClocksEnabled, "nvmlDeviceSetDefaultAutoBoostedClocksEnabled")
-	register(&fndeviceSetDefaultFanSpeed, "nvmlDeviceSetDefaultFanSpeed_v2")
-	register(&fndeviceSetDramEncryptionMode, "nvmlDeviceSetDramEncryptionMode")
-	register(&fndeviceSetDriverModel, "nvmlDeviceSetDriverModel")
-	register(&fndeviceSetEccMode, "nvmlDeviceSetEccMode")
-	register(&fndeviceSetFanControlPolicy, "nvmlDeviceSetFanControlPolicy")
-	register(&fndeviceSetFanSpeed, "nvmlDeviceSetFanSpeed_v2")
-	register(&fndeviceSetGpcClkVfOffset, "nvmlDeviceSetGpcClkVfOffset")
-	register(&fndeviceSetGpuLockedClocks, "nvmlDeviceSetGpuLockedClocks")
-	register(&fndeviceSetGpuOperationMode, "nvmlDeviceSetGpuOperationMode")
-	register(&fndeviceSetHostname, "nvmlDeviceSetHostname_v1")
-	register(&fndeviceSetMemClkVfOffset, "nvmlDeviceSetMemClkVfOffset")
-	register(&fndeviceSetMemoryLockedClocks, "nvmlDeviceSetMemoryLockedClocks")
-	register(&fndeviceSetMigMode, "nvmlDeviceSetMigMode")
-	register(&fndeviceSetNvLinkDeviceLowPowerThreshold, "nvmlDeviceSetNvLinkDeviceLowPowerThreshold")
-	register(&fndeviceSetNvLinkUtilizationControl, "nvmlDeviceSetNvLinkUtilizationControl")
-	register(&fndeviceSetNvlinkBwMode, "nvmlDeviceSetNvlinkBwMode")
-	register(&fndeviceSetPersistenceMode, "nvmlDeviceSetPersistenceMode")
-	register(&fndeviceSetPowerManagementLimit, "nvmlDeviceSetPowerManagementLimit_v2")
-	register(&fndeviceSetPowerMizerMode, "nvmlDeviceSetPowerMizerMode_v1")
-	register(&fndeviceSetRusdSettings, "nvmlDeviceSetRusdSettings_v1")
-	register(&fndeviceSetTemperatureThreshold, "nvmlDeviceSetTemperatureThreshold")
-	register(&fndeviceSetVgpuCapabilities, "nvmlDeviceSetVgpuCapabilities")
-	register(&fndeviceSetVgpuHeterogeneousMode, "nvmlDeviceSetVgpuHeterogeneousMode")
-	register(&fndeviceSetVgpuSchedulerState, "nvmlDeviceSetVgpuSchedulerState_v2")
-	register(&fndeviceSetVirtualizationMode, "nvmlDeviceSetVirtualizationMode")
-	register(&fndeviceValidateInforom, "nvmlDeviceValidateInforom")
-	register(&fndeviceVgpuForceGspUnload, "nvmlDeviceVgpuForceGspUnload")
-	register(&fndeviceWorkloadPowerProfileClearRequestedProfiles, "nvmlDeviceWorkloadPowerProfileClearRequestedProfiles")
-	register(&fndeviceWorkloadPowerProfileGetCurrentProfiles, "nvmlDeviceWorkloadPowerProfileGetCurrentProfiles")
-	register(&fndeviceWorkloadPowerProfileGetProfilesInfo, "nvmlDeviceWorkloadPowerProfileGetProfilesInfo")
-	register(&fndeviceWorkloadPowerProfileSetRequestedProfiles, "nvmlDeviceWorkloadPowerProfileSetRequestedProfiles")
-	register(&fndeviceWorkloadPowerProfileUpdateProfiles, "nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1")
-	register(&fneventSetCreate, "nvmlEventSetCreate")
-	register(&fneventSetFree, "nvmlEventSetFree")
-	register(&fneventSetWait, "nvmlEventSetWait_v2")
-	register(&fnGetExcludedDeviceCount, "nvmlGetExcludedDeviceCount")
-	register(&fnGetExcludedDeviceInfoByIndex, "nvmlGetExcludedDeviceInfoByIndex")
-	register(&fnGetVgpuCompatibility, "nvmlGetVgpuCompatibility")
-	register(&fnGetVgpuDriverCapabilities, "nvmlGetVgpuDriverCapabilities")
-	register(&fnGetVgpuVersion, "nvmlGetVgpuVersion")
-	register(&fnGpmMetricsGet, "nvmlGpmMetricsGet")
-	register(&fngpmMigSampleGet, "nvmlGpmMigSampleGet")
-	register(&fngpmQueryDeviceSupport, "nvmlGpmQueryDeviceSupport")
-	register(&fngpmQueryIfStreamingEnabled, "nvmlGpmQueryIfStreamingEnabled")
-	register(&fngpmSampleAlloc, "nvmlGpmSampleAlloc")
-	register(&fngpmSampleFree, "nvmlGpmSampleFree")
-	register(&fngpmSampleGet, "nvmlGpmSampleGet")
-	register(&fngpmSetStreamingEnabled, "nvmlGpmSetStreamingEnabled")
-	register(&fngpuInstanceCreateComputeInstance, "nvmlGpuInstanceCreateComputeInstance")
-	register(&fngpuInstanceCreateComputeInstanceWithPlacement, "nvmlGpuInstanceCreateComputeInstanceWithPlacement")
-	register(&fngpuInstanceDestroy, "nvmlGpuInstanceDestroy")
-	register(&fngpuInstanceGetActiveVgpus, "nvmlGpuInstanceGetActiveVgpus")
-	register(&fngpuInstanceGetComputeInstanceById, "nvmlGpuInstanceGetComputeInstanceById")
-	register(&fngpuInstanceGetComputeInstancePossiblePlacements, "nvmlGpuInstanceGetComputeInstancePossiblePlacements")
-	register(&fngpuInstanceGetComputeInstanceProfileInfo, "nvmlGpuInstanceGetComputeInstanceProfileInfo")
-	register(&fngpuInstanceGetComputeInstanceProfileInfoV, "nvmlGpuInstanceGetComputeInstanceProfileInfoV")
-	register(&fngpuInstanceGetComputeInstanceRemainingCapacity, "nvmlGpuInstanceGetComputeInstanceRemainingCapacity")
-	register(&fngpuInstanceGetComputeInstances, "nvmlGpuInstanceGetComputeInstances")
-	register(&fngpuInstanceGetCreatableVgpus, "nvmlGpuInstanceGetCreatableVgpus")
-	register(&fngpuInstanceGetInfo, "nvmlGpuInstanceGetInfo")
-	register(&fngpuInstanceGetVgpuHeterogeneousMode, "nvmlGpuInstanceGetVgpuHeterogeneousMode")
-	register(&fngpuInstanceGetVgpuSchedulerLog, "nvmlGpuInstanceGetVgpuSchedulerLog_v2")
-	register(&fngpuInstanceGetVgpuSchedulerState, "nvmlGpuInstanceGetVgpuSchedulerState_v2")
-	register(&fngpuInstanceGetVgpuTypeCreatablePlacements, "nvmlGpuInstanceGetVgpuTypeCreatablePlacements")
-	register(&fngpuInstanceSetVgpuHeterogeneousMode, "nvmlGpuInstanceSetVgpuHeterogeneousMode")
-	register(&fngpuInstanceSetVgpuSchedulerState, "nvmlGpuInstanceSetVgpuSchedulerState_v2")
-	register(&fnInit, "nvmlInit_v2")
-	register(&fnInitWithFlags, "nvmlInitWithFlags")
-	register(&fnSetVgpuVersion, "nvmlSetVgpuVersion")
-	register(&fnShutdown, "nvmlShutdown")
-	register(&fnSystemEventSetCreate, "nvmlSystemEventSetCreate")
-	register(&fnSystemEventSetFree, "nvmlSystemEventSetFree")
-	register(&fnSystemEventSetWait, "nvmlSystemEventSetWait")
-	register(&fnSystemGetConfComputeCapabilities, "nvmlSystemGetConfComputeCapabilities")
-	register(&fnSystemGetConfComputeGpusReadyState, "nvmlSystemGetConfComputeGpusReadyState")
-	register(&fnSystemGetConfComputeKeyRotationThresholdInfo, "nvmlSystemGetConfComputeKeyRotationThresholdInfo")
-	register(&fnSystemGetConfComputeSettings, "nvmlSystemGetConfComputeSettings")
-	register(&fnSystemGetConfComputeState, "nvmlSystemGetConfComputeState")
-	register(&fnSystemGetCudaDriverVersion, "nvmlSystemGetCudaDriverVersion_v2")
-	register(&fnSystemGetDriverBranch, "nvmlSystemGetDriverBranch")
-	register(&fnSystemGetDriverVersion, "nvmlSystemGetDriverVersion")
-	register(&fnSystemGetHicVersion, "nvmlSystemGetHicVersion")
-	register(&fnSystemGetNVMLVersion, "nvmlSystemGetNVMLVersion")
-	register(&fnSystemGetNvlinkBwMode, "nvmlSystemGetNvlinkBwMode")
-	register(&fnSystemGetProcessName, "nvmlSystemGetProcessName")
-	register(&fnSystemGetTopologyGpuSet, "nvmlSystemGetTopologyGpuSet")
-	register(&fnSystemRegisterEvents, "nvmlSystemRegisterEvents")
-	register(&fnSystemSetConfComputeGpusReadyState, "nvmlSystemSetConfComputeGpusReadyState")
-	register(&fnSystemSetConfComputeKeyRotationThresholdInfo, "nvmlSystemSetConfComputeKeyRotationThresholdInfo")
-	register(&fnSystemSetNvlinkBwMode, "nvmlSystemSetNvlinkBwMode")
-	register(&fnUnitGetCount, "nvmlUnitGetCount")
-	register(&fnunitGetDevices, "nvmlUnitGetDevices")
-	register(&fnunitGetFanSpeedInfo, "nvmlUnitGetFanSpeedInfo")
-	register(&fnunitGetHandleByIndex, "nvmlUnitGetHandleByIndex")
-	register(&fnunitGetLedState, "nvmlUnitGetLedState")
-	register(&fnunitGetPsuInfo, "nvmlUnitGetPsuInfo")
-	register(&fnunitGetTemperature, "nvmlUnitGetTemperature")
-	register(&fnunitGetUnitInfo, "nvmlUnitGetUnitInfo")
-	register(&fnunitSetLedState, "nvmlUnitSetLedState")
-	register(&fnvgpuInstanceClearAccountingPids, "nvmlVgpuInstanceClearAccountingPids")
-	register(&fnvgpuInstanceGetAccountingMode, "nvmlVgpuInstanceGetAccountingMode")
-	register(&fnvgpuInstanceGetAccountingPids, "nvmlVgpuInstanceGetAccountingPids")
-	register(&fnvgpuInstanceGetAccountingStats, "nvmlVgpuInstanceGetAccountingStats")
-	register(&fnvgpuInstanceGetEccMode, "nvmlVgpuInstanceGetEccMode")
-	register(&fnvgpuInstanceGetEncoderCapacity, "nvmlVgpuInstanceGetEncoderCapacity")
-	register(&fnvgpuInstanceGetEncoderSessions, "nvmlVgpuInstanceGetEncoderSessions")
-	register(&fnvgpuInstanceGetEncoderStats, "nvmlVgpuInstanceGetEncoderStats")
-	register(&fnvgpuInstanceGetFBCSessions, "nvmlVgpuInstanceGetFBCSessions")
-	register(&fnvgpuInstanceGetFBCStats, "nvmlVgpuInstanceGetFBCStats")
-	register(&fnvgpuInstanceGetFbUsage, "nvmlVgpuInstanceGetFbUsage")
-	register(&fnvgpuInstanceGetFrameRateLimit, "nvmlVgpuInstanceGetFrameRateLimit")
-	register(&fnvgpuInstanceGetGpuInstanceId, "nvmlVgpuInstanceGetGpuInstanceId")
-	register(&fnvgpuInstanceGetGpuPciId, "nvmlVgpuInstanceGetGpuPciId")
-	register(&fnvgpuInstanceGetLicenseInfo, "nvmlVgpuInstanceGetLicenseInfo_v2")
-	register(&fnvgpuInstanceGetLicenseStatus, "nvmlVgpuInstanceGetLicenseStatus")
-	register(&fnvgpuInstanceGetMdevUUID, "nvmlVgpuInstanceGetMdevUUID")
-	register(&fnvgpuInstanceGetMetadata, "nvmlVgpuInstanceGetMetadata")
-	register(&fnvgpuInstanceGetPlacementId, "nvmlVgpuInstanceGetPlacementId")
-	register(&fnvgpuInstanceGetRuntimeStateSize, "nvmlVgpuInstanceGetRuntimeStateSize")
-	register(&fnvgpuInstanceGetType, "nvmlVgpuInstanceGetType")
-	register(&fnvgpuInstanceGetUUID, "nvmlVgpuInstanceGetUUID")
-	register(&fnvgpuInstanceGetVmDriverVersion, "nvmlVgpuInstanceGetVmDriverVersion")
-	register(&fnvgpuInstanceGetVmID, "nvmlVgpuInstanceGetVmID")
-	register(&fnvgpuInstanceSetEncoderCapacity, "nvmlVgpuInstanceSetEncoderCapacity")
-	register(&fnvgpuTypeGetBAR1Info, "nvmlVgpuTypeGetBAR1Info")
-	register(&fnvgpuTypeGetCapabilities, "nvmlVgpuTypeGetCapabilities")
-	register(&fnvgpuTypeGetClass, "nvmlVgpuTypeGetClass")
-	register(&fnvgpuTypeGetDeviceID, "nvmlVgpuTypeGetDeviceID")
-	register(&fnvgpuTypeGetFbReservation, "nvmlVgpuTypeGetFbReservation")
-	register(&fnvgpuTypeGetFrameRateLimit, "nvmlVgpuTypeGetFrameRateLimit")
-	register(&fnvgpuTypeGetFramebufferSize, "nvmlVgpuTypeGetFramebufferSize")
-	register(&fnvgpuTypeGetGpuInstanceProfileId, "nvmlVgpuTypeGetGpuInstanceProfileId")
-	register(&fnvgpuTypeGetGspHeapSize, "nvmlVgpuTypeGetGspHeapSize")
-	register(&fnvgpuTypeGetLicense, "nvmlVgpuTypeGetLicense")
-	register(&fnvgpuTypeGetMaxInstances, "nvmlVgpuTypeGetMaxInstances")
-	register(&fnVgpuTypeGetMaxInstancesPerGpuInstance, "nvmlVgpuTypeGetMaxInstancesPerGpuInstance")
-	register(&fnvgpuTypeGetMaxInstancesPerVm, "nvmlVgpuTypeGetMaxInstancesPerVm")
-	register(&fnvgpuTypeGetName, "nvmlVgpuTypeGetName")
-	register(&fnvgpuTypeGetNumDisplayHeads, "nvmlVgpuTypeGetNumDisplayHeads")
-	register(&fnvgpuTypeGetResolution, "nvmlVgpuTypeGetResolution")
+	symcomputeInstanceDestroy = registerSym("nvmlComputeInstanceDestroy")
+	symcomputeInstanceGetInfo = registerSym("nvmlComputeInstanceGetInfo_v2")
+	symdeviceClearAccountingPids = registerSym("nvmlDeviceClearAccountingPids")
+	symdeviceClearCpuAffinity = registerSym("nvmlDeviceClearCpuAffinity")
+	symdeviceClearEccErrorCounts = registerSym("nvmlDeviceClearEccErrorCounts")
+	symdeviceClearFieldValues = registerSym("nvmlDeviceClearFieldValues")
+	symdeviceCreateGpuInstance = registerSym("nvmlDeviceCreateGpuInstance")
+	symdeviceCreateGpuInstanceWithPlacement = registerSym("nvmlDeviceCreateGpuInstanceWithPlacement")
+	symDeviceDiscoverGpus = registerSym("nvmlDeviceDiscoverGpus")
+	symdeviceFreezeNvLinkUtilizationCounter = registerSym("nvmlDeviceFreezeNvLinkUtilizationCounter")
+	symdeviceGetAPIRestriction = registerSym("nvmlDeviceGetAPIRestriction")
+	symdeviceGetAccountingBufferSize = registerSym("nvmlDeviceGetAccountingBufferSize")
+	symdeviceGetAccountingMode = registerSym("nvmlDeviceGetAccountingMode")
+	symdeviceGetAccountingPids = registerSym("nvmlDeviceGetAccountingPids")
+	symdeviceGetAccountingStats = registerSym("nvmlDeviceGetAccountingStats")
+	symdeviceGetActiveVgpus = registerSym("nvmlDeviceGetActiveVgpus")
+	symdeviceGetAdaptiveClockInfoStatus = registerSym("nvmlDeviceGetAdaptiveClockInfoStatus")
+	symdeviceGetAddressingMode = registerSym("nvmlDeviceGetAddressingMode")
+	symdeviceGetApplicationsClock = registerSym("nvmlDeviceGetApplicationsClock")
+	symdeviceGetArchitecture = registerSym("nvmlDeviceGetArchitecture")
+	symdeviceGetAttributes = registerSym("nvmlDeviceGetAttributes_v2")
+	symdeviceGetAutoBoostedClocksEnabled = registerSym("nvmlDeviceGetAutoBoostedClocksEnabled")
+	symdeviceGetBAR1MemoryInfo = registerSym("nvmlDeviceGetBAR1MemoryInfo")
+	symdeviceGetBoardId = registerSym("nvmlDeviceGetBoardId")
+	symdeviceGetBoardPartNumber = registerSym("nvmlDeviceGetBoardPartNumber")
+	symdeviceGetBrand = registerSym("nvmlDeviceGetBrand")
+	symdeviceGetBridgeChipInfo = registerSym("nvmlDeviceGetBridgeChipInfo")
+	symdeviceGetBusType = registerSym("nvmlDeviceGetBusType")
+	symdeviceGetC2cModeInfoV = registerSym("nvmlDeviceGetC2cModeInfoV")
+	symdeviceGetCapabilities = registerSym("nvmlDeviceGetCapabilities")
+	symdeviceGetClkMonStatus = registerSym("nvmlDeviceGetClkMonStatus")
+	symdeviceGetClock = registerSym("nvmlDeviceGetClock")
+	symdeviceGetClockInfo = registerSym("nvmlDeviceGetClockInfo")
+	symdeviceGetClockOffsets = registerSym("nvmlDeviceGetClockOffsets")
+	symdeviceGetComputeInstanceId = registerSym("nvmlDeviceGetComputeInstanceId")
+	symdeviceGetComputeMode = registerSym("nvmlDeviceGetComputeMode")
+	symdeviceGetComputeRunningProcesses = registerSym("nvmlDeviceGetComputeRunningProcesses_v3")
+	symdeviceGetConfComputeGpuAttestationReport = registerSym("nvmlDeviceGetConfComputeGpuAttestationReport")
+	symdeviceGetConfComputeGpuCertificate = registerSym("nvmlDeviceGetConfComputeGpuCertificate")
+	symdeviceGetConfComputeMemSizeInfo = registerSym("nvmlDeviceGetConfComputeMemSizeInfo")
+	symdeviceGetConfComputeProtectedMemoryUsage = registerSym("nvmlDeviceGetConfComputeProtectedMemoryUsage")
+	symdeviceGetCoolerInfo = registerSym("nvmlDeviceGetCoolerInfo")
+	symDeviceGetCount = registerSym("nvmlDeviceGetCount_v2")
+	symdeviceGetCpuAffinity = registerSym("nvmlDeviceGetCpuAffinity")
+	symdeviceGetCpuAffinityWithinScope = registerSym("nvmlDeviceGetCpuAffinityWithinScope")
+	symdeviceGetCreatableVgpus = registerSym("nvmlDeviceGetCreatableVgpus")
+	symdeviceGetCudaComputeCapability = registerSym("nvmlDeviceGetCudaComputeCapability")
+	symdeviceGetCurrPcieLinkGeneration = registerSym("nvmlDeviceGetCurrPcieLinkGeneration")
+	symdeviceGetCurrPcieLinkWidth = registerSym("nvmlDeviceGetCurrPcieLinkWidth")
+	symdeviceGetCurrentClockFreqs = registerSym("nvmlDeviceGetCurrentClockFreqs")
+	symdeviceGetCurrentClocksEventReasons = registerSym("nvmlDeviceGetCurrentClocksEventReasons")
+	symdeviceGetCurrentClocksThrottleReasons = registerSym("nvmlDeviceGetCurrentClocksThrottleReasons")
+	symdeviceGetDecoderUtilization = registerSym("nvmlDeviceGetDecoderUtilization")
+	symdeviceGetDefaultApplicationsClock = registerSym("nvmlDeviceGetDefaultApplicationsClock")
+	symdeviceGetDefaultEccMode = registerSym("nvmlDeviceGetDefaultEccMode")
+	symdeviceGetDetailedEccErrors = registerSym("nvmlDeviceGetDetailedEccErrors")
+	symdeviceGetDeviceHandleFromMigDeviceHandle = registerSym("nvmlDeviceGetDeviceHandleFromMigDeviceHandle")
+	symdeviceGetDisplayActive = registerSym("nvmlDeviceGetDisplayActive")
+	symdeviceGetDisplayMode = registerSym("nvmlDeviceGetDisplayMode")
+	symdeviceGetDramEncryptionMode = registerSym("nvmlDeviceGetDramEncryptionMode")
+	symdeviceGetDriverModel = registerSym("nvmlDeviceGetDriverModel_v2")
+	symdeviceGetDynamicPstatesInfo = registerSym("nvmlDeviceGetDynamicPstatesInfo")
+	symdeviceGetEccMode = registerSym("nvmlDeviceGetEccMode")
+	symdeviceGetEncoderCapacity = registerSym("nvmlDeviceGetEncoderCapacity")
+	symdeviceGetEncoderSessions = registerSym("nvmlDeviceGetEncoderSessions")
+	symdeviceGetEncoderStats = registerSym("nvmlDeviceGetEncoderStats")
+	symdeviceGetEncoderUtilization = registerSym("nvmlDeviceGetEncoderUtilization")
+	symdeviceGetEnforcedPowerLimit = registerSym("nvmlDeviceGetEnforcedPowerLimit")
+	symdeviceGetFBCSessions = registerSym("nvmlDeviceGetFBCSessions")
+	symdeviceGetFBCStats = registerSym("nvmlDeviceGetFBCStats")
+	symdeviceGetFanControlPolicy = registerSym("nvmlDeviceGetFanControlPolicy_v2")
+	symdeviceGetFanSpeedRPM = registerSym("nvmlDeviceGetFanSpeedRPM")
+	symdeviceGetFanSpeed = registerSym("nvmlDeviceGetFanSpeed_v2")
+	symdeviceGetFieldValues = registerSym("nvmlDeviceGetFieldValues")
+	symdeviceGetGpcClkMinMaxVfOffset = registerSym("nvmlDeviceGetGpcClkMinMaxVfOffset")
+	symdeviceGetGpcClkVfOffset = registerSym("nvmlDeviceGetGpcClkVfOffset")
+	symdeviceGetGpuFabricInfo = registerSym("nvmlDeviceGetGpuFabricInfo")
+	symdeviceGetGpuFabricInfoV = registerSym("nvmlDeviceGetGpuFabricInfoV")
+	symdeviceGetGpuInstanceById = registerSym("nvmlDeviceGetGpuInstanceById")
+	symdeviceGetGpuInstanceId = registerSym("nvmlDeviceGetGpuInstanceId")
+	symdeviceGetGpuInstancePossiblePlacements = registerSym("nvmlDeviceGetGpuInstancePossiblePlacements_v2")
+	symdeviceGetGpuInstanceProfileInfo = registerSym("nvmlDeviceGetGpuInstanceProfileInfo")
+	symdeviceGetGpuInstanceProfileInfoByIdV = registerSym("nvmlDeviceGetGpuInstanceProfileInfoByIdV")
+	symdeviceGetGpuInstanceProfileInfoV = registerSym("nvmlDeviceGetGpuInstanceProfileInfoV")
+	symdeviceGetGpuInstanceRemainingCapacity = registerSym("nvmlDeviceGetGpuInstanceRemainingCapacity")
+	symdeviceGetGpuInstances = registerSym("nvmlDeviceGetGpuInstances")
+	symdeviceGetGpuMaxPcieLinkGeneration = registerSym("nvmlDeviceGetGpuMaxPcieLinkGeneration")
+	symdeviceGetGpuOperationMode = registerSym("nvmlDeviceGetGpuOperationMode")
+	symdeviceGetGraphicsRunningProcesses = registerSym("nvmlDeviceGetGraphicsRunningProcesses_v3")
+	symdeviceGetGridLicensableFeatures = registerSym("nvmlDeviceGetGridLicensableFeatures_v4")
+	symdeviceGetGspFirmwareMode = registerSym("nvmlDeviceGetGspFirmwareMode")
+	symdeviceGetGspFirmwareVersion = registerSym("nvmlDeviceGetGspFirmwareVersion")
+	symdeviceGetHandleByIndex = registerSym("nvmlDeviceGetHandleByIndex_v2")
+	symdeviceGetHandleByPciBusId = registerSym("nvmlDeviceGetHandleByPciBusId_v2")
+	symdeviceGetHandleBySerial = registerSym("nvmlDeviceGetHandleBySerial")
+	symdeviceGetHandleByUUID = registerSym("nvmlDeviceGetHandleByUUID")
+	symdeviceGetHandleByUUIDV = registerSym("nvmlDeviceGetHandleByUUIDV")
+	symdeviceGetHostVgpuMode = registerSym("nvmlDeviceGetHostVgpuMode")
+	symdeviceGetHostname = registerSym("nvmlDeviceGetHostname_v1")
+	symdeviceGetIndex = registerSym("nvmlDeviceGetIndex")
+	symdeviceGetInforomConfigurationChecksum = registerSym("nvmlDeviceGetInforomConfigurationChecksum")
+	symdeviceGetInforomImageVersion = registerSym("nvmlDeviceGetInforomImageVersion")
+	symdeviceGetInforomVersion = registerSym("nvmlDeviceGetInforomVersion")
+	symdeviceGetIrqNum = registerSym("nvmlDeviceGetIrqNum")
+	symdeviceGetJpgUtilization = registerSym("nvmlDeviceGetJpgUtilization")
+	symdeviceGetLastBBXFlushTime = registerSym("nvmlDeviceGetLastBBXFlushTime")
+	symdeviceGetMPSComputeRunningProcesses = registerSym("nvmlDeviceGetMPSComputeRunningProcesses_v3")
+	symdeviceGetMarginTemperature = registerSym("nvmlDeviceGetMarginTemperature")
+	symdeviceGetMaxClockInfo = registerSym("nvmlDeviceGetMaxClockInfo")
+	symdeviceGetMaxCustomerBoostClock = registerSym("nvmlDeviceGetMaxCustomerBoostClock")
+	symdeviceGetMaxMigDeviceCount = registerSym("nvmlDeviceGetMaxMigDeviceCount")
+	symdeviceGetMaxPcieLinkGeneration = registerSym("nvmlDeviceGetMaxPcieLinkGeneration")
+	symdeviceGetMaxPcieLinkWidth = registerSym("nvmlDeviceGetMaxPcieLinkWidth")
+	symdeviceGetMemClkMinMaxVfOffset = registerSym("nvmlDeviceGetMemClkMinMaxVfOffset")
+	symdeviceGetMemClkVfOffset = registerSym("nvmlDeviceGetMemClkVfOffset")
+	symdeviceGetMemoryAffinity = registerSym("nvmlDeviceGetMemoryAffinity")
+	symdeviceGetMemoryBusWidth = registerSym("nvmlDeviceGetMemoryBusWidth")
+	symdeviceGetMemoryErrorCounter = registerSym("nvmlDeviceGetMemoryErrorCounter")
+	symdeviceGetMemoryInfo = registerSym("nvmlDeviceGetMemoryInfo_v2")
+	symdeviceGetMigDeviceHandleByIndex = registerSym("nvmlDeviceGetMigDeviceHandleByIndex")
+	symdeviceGetMigMode = registerSym("nvmlDeviceGetMigMode")
+	symdeviceGetMinMaxClockOfPState = registerSym("nvmlDeviceGetMinMaxClockOfPState")
+	symdeviceGetMinMaxFanSpeed = registerSym("nvmlDeviceGetMinMaxFanSpeed")
+	symdeviceGetMinorNumber = registerSym("nvmlDeviceGetMinorNumber")
+	symdeviceGetModuleId = registerSym("nvmlDeviceGetModuleId")
+	symdeviceGetMultiGpuBoard = registerSym("nvmlDeviceGetMultiGpuBoard")
+	symdeviceGetName = registerSym("nvmlDeviceGetName")
+	symdeviceGetNumFans = registerSym("nvmlDeviceGetNumFans")
+	symdeviceGetNumGpuCores = registerSym("nvmlDeviceGetNumGpuCores")
+	symdeviceGetNumaNodeId = registerSym("nvmlDeviceGetNumaNodeId")
+	symdeviceGetNvLinkCapability = registerSym("nvmlDeviceGetNvLinkCapability")
+	symdeviceGetNvLinkErrorCounter = registerSym("nvmlDeviceGetNvLinkErrorCounter")
+	symdeviceGetNvLinkInfo = registerSym("nvmlDeviceGetNvLinkInfo")
+	symdeviceGetNvLinkRemoteDeviceType = registerSym("nvmlDeviceGetNvLinkRemoteDeviceType")
+	symdeviceGetNvLinkRemotePciInfo = registerSym("nvmlDeviceGetNvLinkRemotePciInfo_v2")
+	symdeviceGetNvLinkState = registerSym("nvmlDeviceGetNvLinkState")
+	symdeviceGetNvLinkUtilizationControl = registerSym("nvmlDeviceGetNvLinkUtilizationControl")
+	symdeviceGetNvLinkUtilizationCounter = registerSym("nvmlDeviceGetNvLinkUtilizationCounter")
+	symdeviceGetNvLinkVersion = registerSym("nvmlDeviceGetNvLinkVersion")
+	symdeviceGetNvlinkBwMode = registerSym("nvmlDeviceGetNvlinkBwMode")
+	symdeviceGetNvlinkSupportedBwModes = registerSym("nvmlDeviceGetNvlinkSupportedBwModes")
+	symdeviceGetOfaUtilization = registerSym("nvmlDeviceGetOfaUtilization")
+	symdeviceGetP2PStatus = registerSym("nvmlDeviceGetP2PStatus")
+	symdeviceGetPciInfo = registerSym("nvmlDeviceGetPciInfo_v3")
+	symdeviceGetPciInfoExt = registerSym("nvmlDeviceGetPciInfoExt")
+	symdeviceGetPcieLinkMaxSpeed = registerSym("nvmlDeviceGetPcieLinkMaxSpeed")
+	symdeviceGetPcieReplayCounter = registerSym("nvmlDeviceGetPcieReplayCounter")
+	symdeviceGetPcieSpeed = registerSym("nvmlDeviceGetPcieSpeed")
+	symdeviceGetPcieThroughput = registerSym("nvmlDeviceGetPcieThroughput")
+	symdeviceGetPdi = registerSym("nvmlDeviceGetPdi")
+	symdeviceGetPerformanceModes = registerSym("nvmlDeviceGetPerformanceModes")
+	symdeviceGetPerformanceState = registerSym("nvmlDeviceGetPerformanceState")
+	symdeviceGetPersistenceMode = registerSym("nvmlDeviceGetPersistenceMode")
+	symdeviceGetPgpuMetadataString = registerSym("nvmlDeviceGetPgpuMetadataString")
+	symdeviceGetPlatformInfo = registerSym("nvmlDeviceGetPlatformInfo")
+	symdeviceGetPowerManagementDefaultLimit = registerSym("nvmlDeviceGetPowerManagementDefaultLimit")
+	symdeviceGetPowerManagementLimit = registerSym("nvmlDeviceGetPowerManagementLimit")
+	symdeviceGetPowerManagementLimitConstraints = registerSym("nvmlDeviceGetPowerManagementLimitConstraints")
+	symdeviceGetPowerManagementMode = registerSym("nvmlDeviceGetPowerManagementMode")
+	symdeviceGetPowerMizerMode = registerSym("nvmlDeviceGetPowerMizerMode_v1")
+	symdeviceGetPowerSource = registerSym("nvmlDeviceGetPowerSource")
+	symdeviceGetPowerState = registerSym("nvmlDeviceGetPowerState")
+	symdeviceGetPowerUsage = registerSym("nvmlDeviceGetPowerUsage")
+	symdeviceGetProcessUtilization = registerSym("nvmlDeviceGetProcessUtilization")
+	symdeviceGetProcessesUtilizationInfo = registerSym("nvmlDeviceGetProcessesUtilizationInfo")
+	symdeviceGetRemappedRows = registerSym("nvmlDeviceGetRemappedRows")
+	symdeviceGetRepairStatus = registerSym("nvmlDeviceGetRepairStatus")
+	symdeviceGetRetiredPagesPendingStatus = registerSym("nvmlDeviceGetRetiredPagesPendingStatus")
+	symdeviceGetRetiredPages = registerSym("nvmlDeviceGetRetiredPages_v2")
+	symdeviceGetRowRemapperHistogram = registerSym("nvmlDeviceGetRowRemapperHistogram")
+	symdeviceGetRunningProcessDetailList = registerSym("nvmlDeviceGetRunningProcessDetailList")
+	symdeviceGetSamples = registerSym("nvmlDeviceGetSamples")
+	symdeviceGetSerial = registerSym("nvmlDeviceGetSerial")
+	symdeviceGetSramEccErrorStatus = registerSym("nvmlDeviceGetSramEccErrorStatus")
+	symdeviceGetSramUniqueUncorrectedEccErrorCounts = registerSym("nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts")
+	symdeviceGetSupportedClocksEventReasons = registerSym("nvmlDeviceGetSupportedClocksEventReasons")
+	symdeviceGetSupportedClocksThrottleReasons = registerSym("nvmlDeviceGetSupportedClocksThrottleReasons")
+	symdeviceGetSupportedEventTypes = registerSym("nvmlDeviceGetSupportedEventTypes")
+	symdeviceGetSupportedGraphicsClocks = registerSym("nvmlDeviceGetSupportedGraphicsClocks")
+	symdeviceGetSupportedMemoryClocks = registerSym("nvmlDeviceGetSupportedMemoryClocks")
+	symdeviceGetSupportedPerformanceStates = registerSym("nvmlDeviceGetSupportedPerformanceStates")
+	symdeviceGetSupportedVgpus = registerSym("nvmlDeviceGetSupportedVgpus")
+	symdeviceGetTargetFanSpeed = registerSym("nvmlDeviceGetTargetFanSpeed")
+	symdeviceGetTemperature = registerSym("nvmlDeviceGetTemperature")
+	symdeviceGetTemperatureThreshold = registerSym("nvmlDeviceGetTemperatureThreshold")
+	symdeviceGetTemperatureV = registerSym("nvmlDeviceGetTemperatureV")
+	symdeviceGetThermalSettings = registerSym("nvmlDeviceGetThermalSettings")
+	symdeviceGetTopologyCommonAncestor = registerSym("nvmlDeviceGetTopologyCommonAncestor")
+	symdeviceGetTopologyNearestGpus = registerSym("nvmlDeviceGetTopologyNearestGpus")
+	symdeviceGetTotalEccErrors = registerSym("nvmlDeviceGetTotalEccErrors")
+	symdeviceGetTotalEnergyConsumption = registerSym("nvmlDeviceGetTotalEnergyConsumption")
+	symdeviceGetUUID = registerSym("nvmlDeviceGetUUID")
+	symdeviceGetUnrepairableMemoryFlag = registerSym("nvmlDeviceGetUnrepairableMemoryFlag_v1")
+	symdeviceGetUtilizationRates = registerSym("nvmlDeviceGetUtilizationRates")
+	symdeviceGetVbiosVersion = registerSym("nvmlDeviceGetVbiosVersion")
+	symdeviceGetVgpuCapabilities = registerSym("nvmlDeviceGetVgpuCapabilities")
+	symdeviceGetVgpuHeterogeneousMode = registerSym("nvmlDeviceGetVgpuHeterogeneousMode")
+	symdeviceGetVgpuInstancesUtilizationInfo = registerSym("nvmlDeviceGetVgpuInstancesUtilizationInfo")
+	symdeviceGetVgpuMetadata = registerSym("nvmlDeviceGetVgpuMetadata")
+	symdeviceGetVgpuProcessUtilization = registerSym("nvmlDeviceGetVgpuProcessUtilization")
+	symdeviceGetVgpuProcessesUtilizationInfo = registerSym("nvmlDeviceGetVgpuProcessesUtilizationInfo")
+	symdeviceGetVgpuSchedulerCapabilities = registerSym("nvmlDeviceGetVgpuSchedulerCapabilities")
+	symdeviceGetVgpuSchedulerLog = registerSym("nvmlDeviceGetVgpuSchedulerLog_v2")
+	symdeviceGetVgpuSchedulerState = registerSym("nvmlDeviceGetVgpuSchedulerState_v2")
+	symdeviceGetVgpuTypeCreatablePlacements = registerSym("nvmlDeviceGetVgpuTypeCreatablePlacements")
+	symdeviceGetVgpuTypeSupportedPlacements = registerSym("nvmlDeviceGetVgpuTypeSupportedPlacements")
+	symdeviceGetVgpuUtilization = registerSym("nvmlDeviceGetVgpuUtilization")
+	symdeviceGetViolationStatus = registerSym("nvmlDeviceGetViolationStatus")
+	symdeviceGetVirtualizationMode = registerSym("nvmlDeviceGetVirtualizationMode")
+	symdeviceIsMigDeviceHandle = registerSym("nvmlDeviceIsMigDeviceHandle")
+	symDeviceModifyDrainState = registerSym("nvmlDeviceModifyDrainState")
+	symdeviceOnSameBoard = registerSym("nvmlDeviceOnSameBoard")
+	symdevicePowerSmoothingActivatePresetProfile = registerSym("nvmlDevicePowerSmoothingActivatePresetProfile")
+	symdevicePowerSmoothingSetState = registerSym("nvmlDevicePowerSmoothingSetState")
+	symdevicePowerSmoothingUpdatePresetProfileParam = registerSym("nvmlDevicePowerSmoothingUpdatePresetProfileParam")
+	symDeviceQueryDrainState = registerSym("nvmlDeviceQueryDrainState")
+	symdeviceReadPRMCounters = registerSym("nvmlDeviceReadPRMCounters_v1")
+	symdeviceReadWritePRM = registerSym("nvmlDeviceReadWritePRM_v1")
+	symdeviceRegisterEvents = registerSym("nvmlDeviceRegisterEvents")
+	symDeviceRemoveGpu = registerSym("nvmlDeviceRemoveGpu_v2")
+	symdeviceResetApplicationsClocks = registerSym("nvmlDeviceResetApplicationsClocks")
+	symdeviceResetGpuLockedClocks = registerSym("nvmlDeviceResetGpuLockedClocks")
+	symdeviceResetMemoryLockedClocks = registerSym("nvmlDeviceResetMemoryLockedClocks")
+	symdeviceResetNvLinkErrorCounters = registerSym("nvmlDeviceResetNvLinkErrorCounters")
+	symdeviceResetNvLinkUtilizationCounter = registerSym("nvmlDeviceResetNvLinkUtilizationCounter")
+	symdeviceSetAPIRestriction = registerSym("nvmlDeviceSetAPIRestriction")
+	symdeviceSetAccountingMode = registerSym("nvmlDeviceSetAccountingMode")
+	symdeviceSetApplicationsClocks = registerSym("nvmlDeviceSetApplicationsClocks")
+	symdeviceSetAutoBoostedClocksEnabled = registerSym("nvmlDeviceSetAutoBoostedClocksEnabled")
+	symdeviceSetClockOffsets = registerSym("nvmlDeviceSetClockOffsets")
+	symdeviceSetComputeMode = registerSym("nvmlDeviceSetComputeMode")
+	symdeviceSetConfComputeUnprotectedMemSize = registerSym("nvmlDeviceSetConfComputeUnprotectedMemSize")
+	symdeviceSetCpuAffinity = registerSym("nvmlDeviceSetCpuAffinity")
+	symdeviceSetDefaultAutoBoostedClocksEnabled = registerSym("nvmlDeviceSetDefaultAutoBoostedClocksEnabled")
+	symdeviceSetDefaultFanSpeed = registerSym("nvmlDeviceSetDefaultFanSpeed_v2")
+	symdeviceSetDramEncryptionMode = registerSym("nvmlDeviceSetDramEncryptionMode")
+	symdeviceSetDriverModel = registerSym("nvmlDeviceSetDriverModel")
+	symdeviceSetEccMode = registerSym("nvmlDeviceSetEccMode")
+	symdeviceSetFanControlPolicy = registerSym("nvmlDeviceSetFanControlPolicy")
+	symdeviceSetFanSpeed = registerSym("nvmlDeviceSetFanSpeed_v2")
+	symdeviceSetGpcClkVfOffset = registerSym("nvmlDeviceSetGpcClkVfOffset")
+	symdeviceSetGpuLockedClocks = registerSym("nvmlDeviceSetGpuLockedClocks")
+	symdeviceSetGpuOperationMode = registerSym("nvmlDeviceSetGpuOperationMode")
+	symdeviceSetHostname = registerSym("nvmlDeviceSetHostname_v1")
+	symdeviceSetMemClkVfOffset = registerSym("nvmlDeviceSetMemClkVfOffset")
+	symdeviceSetMemoryLockedClocks = registerSym("nvmlDeviceSetMemoryLockedClocks")
+	symdeviceSetMigMode = registerSym("nvmlDeviceSetMigMode")
+	symdeviceSetNvLinkDeviceLowPowerThreshold = registerSym("nvmlDeviceSetNvLinkDeviceLowPowerThreshold")
+	symdeviceSetNvLinkUtilizationControl = registerSym("nvmlDeviceSetNvLinkUtilizationControl")
+	symdeviceSetNvlinkBwMode = registerSym("nvmlDeviceSetNvlinkBwMode")
+	symdeviceSetPersistenceMode = registerSym("nvmlDeviceSetPersistenceMode")
+	symdeviceSetPowerManagementLimit = registerSym("nvmlDeviceSetPowerManagementLimit_v2")
+	symdeviceSetPowerMizerMode = registerSym("nvmlDeviceSetPowerMizerMode_v1")
+	symdeviceSetRusdSettings = registerSym("nvmlDeviceSetRusdSettings_v1")
+	symdeviceSetTemperatureThreshold = registerSym("nvmlDeviceSetTemperatureThreshold")
+	symdeviceSetVgpuCapabilities = registerSym("nvmlDeviceSetVgpuCapabilities")
+	symdeviceSetVgpuHeterogeneousMode = registerSym("nvmlDeviceSetVgpuHeterogeneousMode")
+	symdeviceSetVgpuSchedulerState = registerSym("nvmlDeviceSetVgpuSchedulerState_v2")
+	symdeviceSetVirtualizationMode = registerSym("nvmlDeviceSetVirtualizationMode")
+	symdeviceValidateInforom = registerSym("nvmlDeviceValidateInforom")
+	symdeviceVgpuForceGspUnload = registerSym("nvmlDeviceVgpuForceGspUnload")
+	symdeviceWorkloadPowerProfileClearRequestedProfiles = registerSym("nvmlDeviceWorkloadPowerProfileClearRequestedProfiles")
+	symdeviceWorkloadPowerProfileGetCurrentProfiles = registerSym("nvmlDeviceWorkloadPowerProfileGetCurrentProfiles")
+	symdeviceWorkloadPowerProfileGetProfilesInfo = registerSym("nvmlDeviceWorkloadPowerProfileGetProfilesInfo")
+	symdeviceWorkloadPowerProfileSetRequestedProfiles = registerSym("nvmlDeviceWorkloadPowerProfileSetRequestedProfiles")
+	symdeviceWorkloadPowerProfileUpdateProfiles = registerSym("nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1")
+	symeventSetCreate = registerSym("nvmlEventSetCreate")
+	symeventSetFree = registerSym("nvmlEventSetFree")
+	symeventSetWait = registerSym("nvmlEventSetWait_v2")
+	symGetExcludedDeviceCount = registerSym("nvmlGetExcludedDeviceCount")
+	symGetExcludedDeviceInfoByIndex = registerSym("nvmlGetExcludedDeviceInfoByIndex")
+	symGetVgpuCompatibility = registerSym("nvmlGetVgpuCompatibility")
+	symGetVgpuDriverCapabilities = registerSym("nvmlGetVgpuDriverCapabilities")
+	symGetVgpuVersion = registerSym("nvmlGetVgpuVersion")
+	symGpmMetricsGet = registerSym("nvmlGpmMetricsGet")
+	symgpmMigSampleGet = registerSym("nvmlGpmMigSampleGet")
+	symgpmQueryDeviceSupport = registerSym("nvmlGpmQueryDeviceSupport")
+	symgpmQueryIfStreamingEnabled = registerSym("nvmlGpmQueryIfStreamingEnabled")
+	symgpmSampleAlloc = registerSym("nvmlGpmSampleAlloc")
+	symgpmSampleFree = registerSym("nvmlGpmSampleFree")
+	symgpmSampleGet = registerSym("nvmlGpmSampleGet")
+	symgpmSetStreamingEnabled = registerSym("nvmlGpmSetStreamingEnabled")
+	symgpuInstanceCreateComputeInstance = registerSym("nvmlGpuInstanceCreateComputeInstance")
+	symgpuInstanceCreateComputeInstanceWithPlacement = registerSym("nvmlGpuInstanceCreateComputeInstanceWithPlacement")
+	symgpuInstanceDestroy = registerSym("nvmlGpuInstanceDestroy")
+	symgpuInstanceGetActiveVgpus = registerSym("nvmlGpuInstanceGetActiveVgpus")
+	symgpuInstanceGetComputeInstanceById = registerSym("nvmlGpuInstanceGetComputeInstanceById")
+	symgpuInstanceGetComputeInstancePossiblePlacements = registerSym("nvmlGpuInstanceGetComputeInstancePossiblePlacements")
+	symgpuInstanceGetComputeInstanceProfileInfo = registerSym("nvmlGpuInstanceGetComputeInstanceProfileInfo")
+	symgpuInstanceGetComputeInstanceProfileInfoV = registerSym("nvmlGpuInstanceGetComputeInstanceProfileInfoV")
+	symgpuInstanceGetComputeInstanceRemainingCapacity = registerSym("nvmlGpuInstanceGetComputeInstanceRemainingCapacity")
+	symgpuInstanceGetComputeInstances = registerSym("nvmlGpuInstanceGetComputeInstances")
+	symgpuInstanceGetCreatableVgpus = registerSym("nvmlGpuInstanceGetCreatableVgpus")
+	symgpuInstanceGetInfo = registerSym("nvmlGpuInstanceGetInfo")
+	symgpuInstanceGetVgpuHeterogeneousMode = registerSym("nvmlGpuInstanceGetVgpuHeterogeneousMode")
+	symgpuInstanceGetVgpuSchedulerLog = registerSym("nvmlGpuInstanceGetVgpuSchedulerLog_v2")
+	symgpuInstanceGetVgpuSchedulerState = registerSym("nvmlGpuInstanceGetVgpuSchedulerState_v2")
+	symgpuInstanceGetVgpuTypeCreatablePlacements = registerSym("nvmlGpuInstanceGetVgpuTypeCreatablePlacements")
+	symgpuInstanceSetVgpuHeterogeneousMode = registerSym("nvmlGpuInstanceSetVgpuHeterogeneousMode")
+	symgpuInstanceSetVgpuSchedulerState = registerSym("nvmlGpuInstanceSetVgpuSchedulerState_v2")
+	symInit = registerSym("nvmlInit_v2")
+	symInitWithFlags = registerSym("nvmlInitWithFlags")
+	symSetVgpuVersion = registerSym("nvmlSetVgpuVersion")
+	symShutdown = registerSym("nvmlShutdown")
+	symSystemEventSetCreate = registerSym("nvmlSystemEventSetCreate")
+	symSystemEventSetFree = registerSym("nvmlSystemEventSetFree")
+	symSystemEventSetWait = registerSym("nvmlSystemEventSetWait")
+	symSystemGetConfComputeCapabilities = registerSym("nvmlSystemGetConfComputeCapabilities")
+	symSystemGetConfComputeGpusReadyState = registerSym("nvmlSystemGetConfComputeGpusReadyState")
+	symSystemGetConfComputeKeyRotationThresholdInfo = registerSym("nvmlSystemGetConfComputeKeyRotationThresholdInfo")
+	symSystemGetConfComputeSettings = registerSym("nvmlSystemGetConfComputeSettings")
+	symSystemGetConfComputeState = registerSym("nvmlSystemGetConfComputeState")
+	symSystemGetCudaDriverVersion = registerSym("nvmlSystemGetCudaDriverVersion_v2")
+	symSystemGetDriverBranch = registerSym("nvmlSystemGetDriverBranch")
+	symSystemGetDriverVersion = registerSym("nvmlSystemGetDriverVersion")
+	symSystemGetHicVersion = registerSym("nvmlSystemGetHicVersion")
+	symSystemGetNVMLVersion = registerSym("nvmlSystemGetNVMLVersion")
+	symSystemGetNvlinkBwMode = registerSym("nvmlSystemGetNvlinkBwMode")
+	symSystemGetProcessName = registerSym("nvmlSystemGetProcessName")
+	symSystemGetTopologyGpuSet = registerSym("nvmlSystemGetTopologyGpuSet")
+	symSystemRegisterEvents = registerSym("nvmlSystemRegisterEvents")
+	symSystemSetConfComputeGpusReadyState = registerSym("nvmlSystemSetConfComputeGpusReadyState")
+	symSystemSetConfComputeKeyRotationThresholdInfo = registerSym("nvmlSystemSetConfComputeKeyRotationThresholdInfo")
+	symSystemSetNvlinkBwMode = registerSym("nvmlSystemSetNvlinkBwMode")
+	symUnitGetCount = registerSym("nvmlUnitGetCount")
+	symunitGetDevices = registerSym("nvmlUnitGetDevices")
+	symunitGetFanSpeedInfo = registerSym("nvmlUnitGetFanSpeedInfo")
+	symunitGetHandleByIndex = registerSym("nvmlUnitGetHandleByIndex")
+	symunitGetLedState = registerSym("nvmlUnitGetLedState")
+	symunitGetPsuInfo = registerSym("nvmlUnitGetPsuInfo")
+	symunitGetTemperature = registerSym("nvmlUnitGetTemperature")
+	symunitGetUnitInfo = registerSym("nvmlUnitGetUnitInfo")
+	symunitSetLedState = registerSym("nvmlUnitSetLedState")
+	symvgpuInstanceClearAccountingPids = registerSym("nvmlVgpuInstanceClearAccountingPids")
+	symvgpuInstanceGetAccountingMode = registerSym("nvmlVgpuInstanceGetAccountingMode")
+	symvgpuInstanceGetAccountingPids = registerSym("nvmlVgpuInstanceGetAccountingPids")
+	symvgpuInstanceGetAccountingStats = registerSym("nvmlVgpuInstanceGetAccountingStats")
+	symvgpuInstanceGetEccMode = registerSym("nvmlVgpuInstanceGetEccMode")
+	symvgpuInstanceGetEncoderCapacity = registerSym("nvmlVgpuInstanceGetEncoderCapacity")
+	symvgpuInstanceGetEncoderSessions = registerSym("nvmlVgpuInstanceGetEncoderSessions")
+	symvgpuInstanceGetEncoderStats = registerSym("nvmlVgpuInstanceGetEncoderStats")
+	symvgpuInstanceGetFBCSessions = registerSym("nvmlVgpuInstanceGetFBCSessions")
+	symvgpuInstanceGetFBCStats = registerSym("nvmlVgpuInstanceGetFBCStats")
+	symvgpuInstanceGetFbUsage = registerSym("nvmlVgpuInstanceGetFbUsage")
+	symvgpuInstanceGetFrameRateLimit = registerSym("nvmlVgpuInstanceGetFrameRateLimit")
+	symvgpuInstanceGetGpuInstanceId = registerSym("nvmlVgpuInstanceGetGpuInstanceId")
+	symvgpuInstanceGetGpuPciId = registerSym("nvmlVgpuInstanceGetGpuPciId")
+	symvgpuInstanceGetLicenseInfo = registerSym("nvmlVgpuInstanceGetLicenseInfo_v2")
+	symvgpuInstanceGetLicenseStatus = registerSym("nvmlVgpuInstanceGetLicenseStatus")
+	symvgpuInstanceGetMdevUUID = registerSym("nvmlVgpuInstanceGetMdevUUID")
+	symvgpuInstanceGetMetadata = registerSym("nvmlVgpuInstanceGetMetadata")
+	symvgpuInstanceGetPlacementId = registerSym("nvmlVgpuInstanceGetPlacementId")
+	symvgpuInstanceGetRuntimeStateSize = registerSym("nvmlVgpuInstanceGetRuntimeStateSize")
+	symvgpuInstanceGetType = registerSym("nvmlVgpuInstanceGetType")
+	symvgpuInstanceGetUUID = registerSym("nvmlVgpuInstanceGetUUID")
+	symvgpuInstanceGetVmDriverVersion = registerSym("nvmlVgpuInstanceGetVmDriverVersion")
+	symvgpuInstanceGetVmID = registerSym("nvmlVgpuInstanceGetVmID")
+	symvgpuInstanceSetEncoderCapacity = registerSym("nvmlVgpuInstanceSetEncoderCapacity")
+	symvgpuTypeGetBAR1Info = registerSym("nvmlVgpuTypeGetBAR1Info")
+	symvgpuTypeGetCapabilities = registerSym("nvmlVgpuTypeGetCapabilities")
+	symvgpuTypeGetClass = registerSym("nvmlVgpuTypeGetClass")
+	symvgpuTypeGetDeviceID = registerSym("nvmlVgpuTypeGetDeviceID")
+	symvgpuTypeGetFbReservation = registerSym("nvmlVgpuTypeGetFbReservation")
+	symvgpuTypeGetFrameRateLimit = registerSym("nvmlVgpuTypeGetFrameRateLimit")
+	symvgpuTypeGetFramebufferSize = registerSym("nvmlVgpuTypeGetFramebufferSize")
+	symvgpuTypeGetGpuInstanceProfileId = registerSym("nvmlVgpuTypeGetGpuInstanceProfileId")
+	symvgpuTypeGetGspHeapSize = registerSym("nvmlVgpuTypeGetGspHeapSize")
+	symvgpuTypeGetLicense = registerSym("nvmlVgpuTypeGetLicense")
+	symvgpuTypeGetMaxInstances = registerSym("nvmlVgpuTypeGetMaxInstances")
+	symVgpuTypeGetMaxInstancesPerGpuInstance = registerSym("nvmlVgpuTypeGetMaxInstancesPerGpuInstance")
+	symvgpuTypeGetMaxInstancesPerVm = registerSym("nvmlVgpuTypeGetMaxInstancesPerVm")
+	symvgpuTypeGetName = registerSym("nvmlVgpuTypeGetName")
+	symvgpuTypeGetNumDisplayHeads = registerSym("nvmlVgpuTypeGetNumDisplayHeads")
+	symvgpuTypeGetResolution = registerSym("nvmlVgpuTypeGetResolution")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnErrorString = nil
-	fncomputeInstanceDestroy = nil
-	fncomputeInstanceGetInfo = nil
-	fndeviceClearAccountingPids = nil
-	fndeviceClearCpuAffinity = nil
-	fndeviceClearEccErrorCounts = nil
-	fndeviceClearFieldValues = nil
-	fndeviceCreateGpuInstance = nil
-	fndeviceCreateGpuInstanceWithPlacement = nil
-	fnDeviceDiscoverGpus = nil
-	fndeviceFreezeNvLinkUtilizationCounter = nil
-	fndeviceGetAPIRestriction = nil
-	fndeviceGetAccountingBufferSize = nil
-	fndeviceGetAccountingMode = nil
-	fndeviceGetAccountingPids = nil
-	fndeviceGetAccountingStats = nil
-	fndeviceGetActiveVgpus = nil
-	fndeviceGetAdaptiveClockInfoStatus = nil
-	fndeviceGetAddressingMode = nil
-	fndeviceGetApplicationsClock = nil
-	fndeviceGetArchitecture = nil
-	fndeviceGetAttributes = nil
-	fndeviceGetAutoBoostedClocksEnabled = nil
-	fndeviceGetBAR1MemoryInfo = nil
-	fndeviceGetBoardId = nil
-	fndeviceGetBoardPartNumber = nil
-	fndeviceGetBrand = nil
-	fndeviceGetBridgeChipInfo = nil
-	fndeviceGetBusType = nil
-	fndeviceGetC2cModeInfoV = nil
-	fndeviceGetCapabilities = nil
-	fndeviceGetClkMonStatus = nil
-	fndeviceGetClock = nil
-	fndeviceGetClockInfo = nil
-	fndeviceGetClockOffsets = nil
-	fndeviceGetComputeInstanceId = nil
-	fndeviceGetComputeMode = nil
-	fndeviceGetComputeRunningProcesses = nil
-	fndeviceGetConfComputeGpuAttestationReport = nil
-	fndeviceGetConfComputeGpuCertificate = nil
-	fndeviceGetConfComputeMemSizeInfo = nil
-	fndeviceGetConfComputeProtectedMemoryUsage = nil
-	fndeviceGetCoolerInfo = nil
-	fnDeviceGetCount = nil
-	fndeviceGetCpuAffinity = nil
-	fndeviceGetCpuAffinityWithinScope = nil
-	fndeviceGetCreatableVgpus = nil
-	fndeviceGetCudaComputeCapability = nil
-	fndeviceGetCurrPcieLinkGeneration = nil
-	fndeviceGetCurrPcieLinkWidth = nil
-	fndeviceGetCurrentClockFreqs = nil
-	fndeviceGetCurrentClocksEventReasons = nil
-	fndeviceGetCurrentClocksThrottleReasons = nil
-	fndeviceGetDecoderUtilization = nil
-	fndeviceGetDefaultApplicationsClock = nil
-	fndeviceGetDefaultEccMode = nil
-	fndeviceGetDetailedEccErrors = nil
-	fndeviceGetDeviceHandleFromMigDeviceHandle = nil
-	fndeviceGetDisplayActive = nil
-	fndeviceGetDisplayMode = nil
-	fndeviceGetDramEncryptionMode = nil
-	fndeviceGetDriverModel = nil
-	fndeviceGetDynamicPstatesInfo = nil
-	fndeviceGetEccMode = nil
-	fndeviceGetEncoderCapacity = nil
-	fndeviceGetEncoderSessions = nil
-	fndeviceGetEncoderStats = nil
-	fndeviceGetEncoderUtilization = nil
-	fndeviceGetEnforcedPowerLimit = nil
-	fndeviceGetFBCSessions = nil
-	fndeviceGetFBCStats = nil
-	fndeviceGetFanControlPolicy = nil
-	fndeviceGetFanSpeedRPM = nil
-	fndeviceGetFanSpeed = nil
-	fndeviceGetFieldValues = nil
-	fndeviceGetGpcClkMinMaxVfOffset = nil
-	fndeviceGetGpcClkVfOffset = nil
-	fndeviceGetGpuFabricInfo = nil
-	fndeviceGetGpuFabricInfoV = nil
-	fndeviceGetGpuInstanceById = nil
-	fndeviceGetGpuInstanceId = nil
-	fndeviceGetGpuInstancePossiblePlacements = nil
-	fndeviceGetGpuInstanceProfileInfo = nil
-	fndeviceGetGpuInstanceProfileInfoByIdV = nil
-	fndeviceGetGpuInstanceProfileInfoV = nil
-	fndeviceGetGpuInstanceRemainingCapacity = nil
-	fndeviceGetGpuInstances = nil
-	fndeviceGetGpuMaxPcieLinkGeneration = nil
-	fndeviceGetGpuOperationMode = nil
-	fndeviceGetGraphicsRunningProcesses = nil
-	fndeviceGetGridLicensableFeatures = nil
-	fndeviceGetGspFirmwareMode = nil
-	fndeviceGetGspFirmwareVersion = nil
-	fndeviceGetHandleByIndex = nil
-	fndeviceGetHandleByPciBusId = nil
-	fndeviceGetHandleBySerial = nil
-	fndeviceGetHandleByUUID = nil
-	fndeviceGetHandleByUUIDV = nil
-	fndeviceGetHostVgpuMode = nil
-	fndeviceGetHostname = nil
-	fndeviceGetIndex = nil
-	fndeviceGetInforomConfigurationChecksum = nil
-	fndeviceGetInforomImageVersion = nil
-	fndeviceGetInforomVersion = nil
-	fndeviceGetIrqNum = nil
-	fndeviceGetJpgUtilization = nil
-	fndeviceGetLastBBXFlushTime = nil
-	fndeviceGetMPSComputeRunningProcesses = nil
-	fndeviceGetMarginTemperature = nil
-	fndeviceGetMaxClockInfo = nil
-	fndeviceGetMaxCustomerBoostClock = nil
-	fndeviceGetMaxMigDeviceCount = nil
-	fndeviceGetMaxPcieLinkGeneration = nil
-	fndeviceGetMaxPcieLinkWidth = nil
-	fndeviceGetMemClkMinMaxVfOffset = nil
-	fndeviceGetMemClkVfOffset = nil
-	fndeviceGetMemoryAffinity = nil
-	fndeviceGetMemoryBusWidth = nil
-	fndeviceGetMemoryErrorCounter = nil
-	fndeviceGetMemoryInfo = nil
-	fndeviceGetMigDeviceHandleByIndex = nil
-	fndeviceGetMigMode = nil
-	fndeviceGetMinMaxClockOfPState = nil
-	fndeviceGetMinMaxFanSpeed = nil
-	fndeviceGetMinorNumber = nil
-	fndeviceGetModuleId = nil
-	fndeviceGetMultiGpuBoard = nil
-	fndeviceGetName = nil
-	fndeviceGetNumFans = nil
-	fndeviceGetNumGpuCores = nil
-	fndeviceGetNumaNodeId = nil
-	fndeviceGetNvLinkCapability = nil
-	fndeviceGetNvLinkErrorCounter = nil
-	fndeviceGetNvLinkInfo = nil
-	fndeviceGetNvLinkRemoteDeviceType = nil
-	fndeviceGetNvLinkRemotePciInfo = nil
-	fndeviceGetNvLinkState = nil
-	fndeviceGetNvLinkUtilizationControl = nil
-	fndeviceGetNvLinkUtilizationCounter = nil
-	fndeviceGetNvLinkVersion = nil
-	fndeviceGetNvlinkBwMode = nil
-	fndeviceGetNvlinkSupportedBwModes = nil
-	fndeviceGetOfaUtilization = nil
-	fndeviceGetP2PStatus = nil
-	fndeviceGetPciInfo = nil
-	fndeviceGetPciInfoExt = nil
-	fndeviceGetPcieLinkMaxSpeed = nil
-	fndeviceGetPcieReplayCounter = nil
-	fndeviceGetPcieSpeed = nil
-	fndeviceGetPcieThroughput = nil
-	fndeviceGetPdi = nil
-	fndeviceGetPerformanceModes = nil
-	fndeviceGetPerformanceState = nil
-	fndeviceGetPersistenceMode = nil
-	fndeviceGetPgpuMetadataString = nil
-	fndeviceGetPlatformInfo = nil
-	fndeviceGetPowerManagementDefaultLimit = nil
-	fndeviceGetPowerManagementLimit = nil
-	fndeviceGetPowerManagementLimitConstraints = nil
-	fndeviceGetPowerManagementMode = nil
-	fndeviceGetPowerMizerMode = nil
-	fndeviceGetPowerSource = nil
-	fndeviceGetPowerState = nil
-	fndeviceGetPowerUsage = nil
-	fndeviceGetProcessUtilization = nil
-	fndeviceGetProcessesUtilizationInfo = nil
-	fndeviceGetRemappedRows = nil
-	fndeviceGetRepairStatus = nil
-	fndeviceGetRetiredPagesPendingStatus = nil
-	fndeviceGetRetiredPages = nil
-	fndeviceGetRowRemapperHistogram = nil
-	fndeviceGetRunningProcessDetailList = nil
-	fndeviceGetSamples = nil
-	fndeviceGetSerial = nil
-	fndeviceGetSramEccErrorStatus = nil
-	fndeviceGetSramUniqueUncorrectedEccErrorCounts = nil
-	fndeviceGetSupportedClocksEventReasons = nil
-	fndeviceGetSupportedClocksThrottleReasons = nil
-	fndeviceGetSupportedEventTypes = nil
-	fndeviceGetSupportedGraphicsClocks = nil
-	fndeviceGetSupportedMemoryClocks = nil
-	fndeviceGetSupportedPerformanceStates = nil
-	fndeviceGetSupportedVgpus = nil
-	fndeviceGetTargetFanSpeed = nil
-	fndeviceGetTemperature = nil
-	fndeviceGetTemperatureThreshold = nil
-	fndeviceGetTemperatureV = nil
-	fndeviceGetThermalSettings = nil
-	fndeviceGetTopologyCommonAncestor = nil
-	fndeviceGetTopologyNearestGpus = nil
-	fndeviceGetTotalEccErrors = nil
-	fndeviceGetTotalEnergyConsumption = nil
-	fndeviceGetUUID = nil
-	fndeviceGetUnrepairableMemoryFlag = nil
-	fndeviceGetUtilizationRates = nil
-	fndeviceGetVbiosVersion = nil
-	fndeviceGetVgpuCapabilities = nil
-	fndeviceGetVgpuHeterogeneousMode = nil
-	fndeviceGetVgpuInstancesUtilizationInfo = nil
-	fndeviceGetVgpuMetadata = nil
-	fndeviceGetVgpuProcessUtilization = nil
-	fndeviceGetVgpuProcessesUtilizationInfo = nil
-	fndeviceGetVgpuSchedulerCapabilities = nil
-	fndeviceGetVgpuSchedulerLog = nil
-	fndeviceGetVgpuSchedulerState = nil
-	fndeviceGetVgpuTypeCreatablePlacements = nil
-	fndeviceGetVgpuTypeSupportedPlacements = nil
-	fndeviceGetVgpuUtilization = nil
-	fndeviceGetViolationStatus = nil
-	fndeviceGetVirtualizationMode = nil
-	fndeviceIsMigDeviceHandle = nil
-	fnDeviceModifyDrainState = nil
-	fndeviceOnSameBoard = nil
-	fndevicePowerSmoothingActivatePresetProfile = nil
-	fndevicePowerSmoothingSetState = nil
-	fndevicePowerSmoothingUpdatePresetProfileParam = nil
-	fnDeviceQueryDrainState = nil
-	fndeviceReadPRMCounters = nil
-	fndeviceReadWritePRM = nil
-	fndeviceRegisterEvents = nil
-	fnDeviceRemoveGpu = nil
-	fndeviceResetApplicationsClocks = nil
-	fndeviceResetGpuLockedClocks = nil
-	fndeviceResetMemoryLockedClocks = nil
-	fndeviceResetNvLinkErrorCounters = nil
-	fndeviceResetNvLinkUtilizationCounter = nil
-	fndeviceSetAPIRestriction = nil
-	fndeviceSetAccountingMode = nil
-	fndeviceSetApplicationsClocks = nil
-	fndeviceSetAutoBoostedClocksEnabled = nil
-	fndeviceSetClockOffsets = nil
-	fndeviceSetComputeMode = nil
-	fndeviceSetConfComputeUnprotectedMemSize = nil
-	fndeviceSetCpuAffinity = nil
-	fndeviceSetDefaultAutoBoostedClocksEnabled = nil
-	fndeviceSetDefaultFanSpeed = nil
-	fndeviceSetDramEncryptionMode = nil
-	fndeviceSetDriverModel = nil
-	fndeviceSetEccMode = nil
-	fndeviceSetFanControlPolicy = nil
-	fndeviceSetFanSpeed = nil
-	fndeviceSetGpcClkVfOffset = nil
-	fndeviceSetGpuLockedClocks = nil
-	fndeviceSetGpuOperationMode = nil
-	fndeviceSetHostname = nil
-	fndeviceSetMemClkVfOffset = nil
-	fndeviceSetMemoryLockedClocks = nil
-	fndeviceSetMigMode = nil
-	fndeviceSetNvLinkDeviceLowPowerThreshold = nil
-	fndeviceSetNvLinkUtilizationControl = nil
-	fndeviceSetNvlinkBwMode = nil
-	fndeviceSetPersistenceMode = nil
-	fndeviceSetPowerManagementLimit = nil
-	fndeviceSetPowerMizerMode = nil
-	fndeviceSetRusdSettings = nil
-	fndeviceSetTemperatureThreshold = nil
-	fndeviceSetVgpuCapabilities = nil
-	fndeviceSetVgpuHeterogeneousMode = nil
-	fndeviceSetVgpuSchedulerState = nil
-	fndeviceSetVirtualizationMode = nil
-	fndeviceValidateInforom = nil
-	fndeviceVgpuForceGspUnload = nil
-	fndeviceWorkloadPowerProfileClearRequestedProfiles = nil
-	fndeviceWorkloadPowerProfileGetCurrentProfiles = nil
-	fndeviceWorkloadPowerProfileGetProfilesInfo = nil
-	fndeviceWorkloadPowerProfileSetRequestedProfiles = nil
-	fndeviceWorkloadPowerProfileUpdateProfiles = nil
-	fneventSetCreate = nil
-	fneventSetFree = nil
-	fneventSetWait = nil
-	fnGetExcludedDeviceCount = nil
-	fnGetExcludedDeviceInfoByIndex = nil
-	fnGetVgpuCompatibility = nil
-	fnGetVgpuDriverCapabilities = nil
-	fnGetVgpuVersion = nil
-	fnGpmMetricsGet = nil
-	fngpmMigSampleGet = nil
-	fngpmQueryDeviceSupport = nil
-	fngpmQueryIfStreamingEnabled = nil
-	fngpmSampleAlloc = nil
-	fngpmSampleFree = nil
-	fngpmSampleGet = nil
-	fngpmSetStreamingEnabled = nil
-	fngpuInstanceCreateComputeInstance = nil
-	fngpuInstanceCreateComputeInstanceWithPlacement = nil
-	fngpuInstanceDestroy = nil
-	fngpuInstanceGetActiveVgpus = nil
-	fngpuInstanceGetComputeInstanceById = nil
-	fngpuInstanceGetComputeInstancePossiblePlacements = nil
-	fngpuInstanceGetComputeInstanceProfileInfo = nil
-	fngpuInstanceGetComputeInstanceProfileInfoV = nil
-	fngpuInstanceGetComputeInstanceRemainingCapacity = nil
-	fngpuInstanceGetComputeInstances = nil
-	fngpuInstanceGetCreatableVgpus = nil
-	fngpuInstanceGetInfo = nil
-	fngpuInstanceGetVgpuHeterogeneousMode = nil
-	fngpuInstanceGetVgpuSchedulerLog = nil
-	fngpuInstanceGetVgpuSchedulerState = nil
-	fngpuInstanceGetVgpuTypeCreatablePlacements = nil
-	fngpuInstanceSetVgpuHeterogeneousMode = nil
-	fngpuInstanceSetVgpuSchedulerState = nil
-	fnInit = nil
-	fnInitWithFlags = nil
-	fnSetVgpuVersion = nil
-	fnShutdown = nil
-	fnSystemEventSetCreate = nil
-	fnSystemEventSetFree = nil
-	fnSystemEventSetWait = nil
-	fnSystemGetConfComputeCapabilities = nil
-	fnSystemGetConfComputeGpusReadyState = nil
-	fnSystemGetConfComputeKeyRotationThresholdInfo = nil
-	fnSystemGetConfComputeSettings = nil
-	fnSystemGetConfComputeState = nil
-	fnSystemGetCudaDriverVersion = nil
-	fnSystemGetDriverBranch = nil
-	fnSystemGetDriverVersion = nil
-	fnSystemGetHicVersion = nil
-	fnSystemGetNVMLVersion = nil
-	fnSystemGetNvlinkBwMode = nil
-	fnSystemGetProcessName = nil
-	fnSystemGetTopologyGpuSet = nil
-	fnSystemRegisterEvents = nil
-	fnSystemSetConfComputeGpusReadyState = nil
-	fnSystemSetConfComputeKeyRotationThresholdInfo = nil
-	fnSystemSetNvlinkBwMode = nil
-	fnUnitGetCount = nil
-	fnunitGetDevices = nil
-	fnunitGetFanSpeedInfo = nil
-	fnunitGetHandleByIndex = nil
-	fnunitGetLedState = nil
-	fnunitGetPsuInfo = nil
-	fnunitGetTemperature = nil
-	fnunitGetUnitInfo = nil
-	fnunitSetLedState = nil
-	fnvgpuInstanceClearAccountingPids = nil
-	fnvgpuInstanceGetAccountingMode = nil
-	fnvgpuInstanceGetAccountingPids = nil
-	fnvgpuInstanceGetAccountingStats = nil
-	fnvgpuInstanceGetEccMode = nil
-	fnvgpuInstanceGetEncoderCapacity = nil
-	fnvgpuInstanceGetEncoderSessions = nil
-	fnvgpuInstanceGetEncoderStats = nil
-	fnvgpuInstanceGetFBCSessions = nil
-	fnvgpuInstanceGetFBCStats = nil
-	fnvgpuInstanceGetFbUsage = nil
-	fnvgpuInstanceGetFrameRateLimit = nil
-	fnvgpuInstanceGetGpuInstanceId = nil
-	fnvgpuInstanceGetGpuPciId = nil
-	fnvgpuInstanceGetLicenseInfo = nil
-	fnvgpuInstanceGetLicenseStatus = nil
-	fnvgpuInstanceGetMdevUUID = nil
-	fnvgpuInstanceGetMetadata = nil
-	fnvgpuInstanceGetPlacementId = nil
-	fnvgpuInstanceGetRuntimeStateSize = nil
-	fnvgpuInstanceGetType = nil
-	fnvgpuInstanceGetUUID = nil
-	fnvgpuInstanceGetVmDriverVersion = nil
-	fnvgpuInstanceGetVmID = nil
-	fnvgpuInstanceSetEncoderCapacity = nil
-	fnvgpuTypeGetBAR1Info = nil
-	fnvgpuTypeGetCapabilities = nil
-	fnvgpuTypeGetClass = nil
-	fnvgpuTypeGetDeviceID = nil
-	fnvgpuTypeGetFbReservation = nil
-	fnvgpuTypeGetFrameRateLimit = nil
-	fnvgpuTypeGetFramebufferSize = nil
-	fnvgpuTypeGetGpuInstanceProfileId = nil
-	fnvgpuTypeGetGspHeapSize = nil
-	fnvgpuTypeGetLicense = nil
-	fnvgpuTypeGetMaxInstances = nil
-	fnVgpuTypeGetMaxInstancesPerGpuInstance = nil
-	fnvgpuTypeGetMaxInstancesPerVm = nil
-	fnvgpuTypeGetName = nil
-	fnvgpuTypeGetNumDisplayHeads = nil
-	fnvgpuTypeGetResolution = nil
+	symcomputeInstanceDestroy = 0
+	symcomputeInstanceGetInfo = 0
+	symdeviceClearAccountingPids = 0
+	symdeviceClearCpuAffinity = 0
+	symdeviceClearEccErrorCounts = 0
+	symdeviceClearFieldValues = 0
+	symdeviceCreateGpuInstance = 0
+	symdeviceCreateGpuInstanceWithPlacement = 0
+	symDeviceDiscoverGpus = 0
+	symdeviceFreezeNvLinkUtilizationCounter = 0
+	symdeviceGetAPIRestriction = 0
+	symdeviceGetAccountingBufferSize = 0
+	symdeviceGetAccountingMode = 0
+	symdeviceGetAccountingPids = 0
+	symdeviceGetAccountingStats = 0
+	symdeviceGetActiveVgpus = 0
+	symdeviceGetAdaptiveClockInfoStatus = 0
+	symdeviceGetAddressingMode = 0
+	symdeviceGetApplicationsClock = 0
+	symdeviceGetArchitecture = 0
+	symdeviceGetAttributes = 0
+	symdeviceGetAutoBoostedClocksEnabled = 0
+	symdeviceGetBAR1MemoryInfo = 0
+	symdeviceGetBoardId = 0
+	symdeviceGetBoardPartNumber = 0
+	symdeviceGetBrand = 0
+	symdeviceGetBridgeChipInfo = 0
+	symdeviceGetBusType = 0
+	symdeviceGetC2cModeInfoV = 0
+	symdeviceGetCapabilities = 0
+	symdeviceGetClkMonStatus = 0
+	symdeviceGetClock = 0
+	symdeviceGetClockInfo = 0
+	symdeviceGetClockOffsets = 0
+	symdeviceGetComputeInstanceId = 0
+	symdeviceGetComputeMode = 0
+	symdeviceGetComputeRunningProcesses = 0
+	symdeviceGetConfComputeGpuAttestationReport = 0
+	symdeviceGetConfComputeGpuCertificate = 0
+	symdeviceGetConfComputeMemSizeInfo = 0
+	symdeviceGetConfComputeProtectedMemoryUsage = 0
+	symdeviceGetCoolerInfo = 0
+	symDeviceGetCount = 0
+	symdeviceGetCpuAffinity = 0
+	symdeviceGetCpuAffinityWithinScope = 0
+	symdeviceGetCreatableVgpus = 0
+	symdeviceGetCudaComputeCapability = 0
+	symdeviceGetCurrPcieLinkGeneration = 0
+	symdeviceGetCurrPcieLinkWidth = 0
+	symdeviceGetCurrentClockFreqs = 0
+	symdeviceGetCurrentClocksEventReasons = 0
+	symdeviceGetCurrentClocksThrottleReasons = 0
+	symdeviceGetDecoderUtilization = 0
+	symdeviceGetDefaultApplicationsClock = 0
+	symdeviceGetDefaultEccMode = 0
+	symdeviceGetDetailedEccErrors = 0
+	symdeviceGetDeviceHandleFromMigDeviceHandle = 0
+	symdeviceGetDisplayActive = 0
+	symdeviceGetDisplayMode = 0
+	symdeviceGetDramEncryptionMode = 0
+	symdeviceGetDriverModel = 0
+	symdeviceGetDynamicPstatesInfo = 0
+	symdeviceGetEccMode = 0
+	symdeviceGetEncoderCapacity = 0
+	symdeviceGetEncoderSessions = 0
+	symdeviceGetEncoderStats = 0
+	symdeviceGetEncoderUtilization = 0
+	symdeviceGetEnforcedPowerLimit = 0
+	symdeviceGetFBCSessions = 0
+	symdeviceGetFBCStats = 0
+	symdeviceGetFanControlPolicy = 0
+	symdeviceGetFanSpeedRPM = 0
+	symdeviceGetFanSpeed = 0
+	symdeviceGetFieldValues = 0
+	symdeviceGetGpcClkMinMaxVfOffset = 0
+	symdeviceGetGpcClkVfOffset = 0
+	symdeviceGetGpuFabricInfo = 0
+	symdeviceGetGpuFabricInfoV = 0
+	symdeviceGetGpuInstanceById = 0
+	symdeviceGetGpuInstanceId = 0
+	symdeviceGetGpuInstancePossiblePlacements = 0
+	symdeviceGetGpuInstanceProfileInfo = 0
+	symdeviceGetGpuInstanceProfileInfoByIdV = 0
+	symdeviceGetGpuInstanceProfileInfoV = 0
+	symdeviceGetGpuInstanceRemainingCapacity = 0
+	symdeviceGetGpuInstances = 0
+	symdeviceGetGpuMaxPcieLinkGeneration = 0
+	symdeviceGetGpuOperationMode = 0
+	symdeviceGetGraphicsRunningProcesses = 0
+	symdeviceGetGridLicensableFeatures = 0
+	symdeviceGetGspFirmwareMode = 0
+	symdeviceGetGspFirmwareVersion = 0
+	symdeviceGetHandleByIndex = 0
+	symdeviceGetHandleByPciBusId = 0
+	symdeviceGetHandleBySerial = 0
+	symdeviceGetHandleByUUID = 0
+	symdeviceGetHandleByUUIDV = 0
+	symdeviceGetHostVgpuMode = 0
+	symdeviceGetHostname = 0
+	symdeviceGetIndex = 0
+	symdeviceGetInforomConfigurationChecksum = 0
+	symdeviceGetInforomImageVersion = 0
+	symdeviceGetInforomVersion = 0
+	symdeviceGetIrqNum = 0
+	symdeviceGetJpgUtilization = 0
+	symdeviceGetLastBBXFlushTime = 0
+	symdeviceGetMPSComputeRunningProcesses = 0
+	symdeviceGetMarginTemperature = 0
+	symdeviceGetMaxClockInfo = 0
+	symdeviceGetMaxCustomerBoostClock = 0
+	symdeviceGetMaxMigDeviceCount = 0
+	symdeviceGetMaxPcieLinkGeneration = 0
+	symdeviceGetMaxPcieLinkWidth = 0
+	symdeviceGetMemClkMinMaxVfOffset = 0
+	symdeviceGetMemClkVfOffset = 0
+	symdeviceGetMemoryAffinity = 0
+	symdeviceGetMemoryBusWidth = 0
+	symdeviceGetMemoryErrorCounter = 0
+	symdeviceGetMemoryInfo = 0
+	symdeviceGetMigDeviceHandleByIndex = 0
+	symdeviceGetMigMode = 0
+	symdeviceGetMinMaxClockOfPState = 0
+	symdeviceGetMinMaxFanSpeed = 0
+	symdeviceGetMinorNumber = 0
+	symdeviceGetModuleId = 0
+	symdeviceGetMultiGpuBoard = 0
+	symdeviceGetName = 0
+	symdeviceGetNumFans = 0
+	symdeviceGetNumGpuCores = 0
+	symdeviceGetNumaNodeId = 0
+	symdeviceGetNvLinkCapability = 0
+	symdeviceGetNvLinkErrorCounter = 0
+	symdeviceGetNvLinkInfo = 0
+	symdeviceGetNvLinkRemoteDeviceType = 0
+	symdeviceGetNvLinkRemotePciInfo = 0
+	symdeviceGetNvLinkState = 0
+	symdeviceGetNvLinkUtilizationControl = 0
+	symdeviceGetNvLinkUtilizationCounter = 0
+	symdeviceGetNvLinkVersion = 0
+	symdeviceGetNvlinkBwMode = 0
+	symdeviceGetNvlinkSupportedBwModes = 0
+	symdeviceGetOfaUtilization = 0
+	symdeviceGetP2PStatus = 0
+	symdeviceGetPciInfo = 0
+	symdeviceGetPciInfoExt = 0
+	symdeviceGetPcieLinkMaxSpeed = 0
+	symdeviceGetPcieReplayCounter = 0
+	symdeviceGetPcieSpeed = 0
+	symdeviceGetPcieThroughput = 0
+	symdeviceGetPdi = 0
+	symdeviceGetPerformanceModes = 0
+	symdeviceGetPerformanceState = 0
+	symdeviceGetPersistenceMode = 0
+	symdeviceGetPgpuMetadataString = 0
+	symdeviceGetPlatformInfo = 0
+	symdeviceGetPowerManagementDefaultLimit = 0
+	symdeviceGetPowerManagementLimit = 0
+	symdeviceGetPowerManagementLimitConstraints = 0
+	symdeviceGetPowerManagementMode = 0
+	symdeviceGetPowerMizerMode = 0
+	symdeviceGetPowerSource = 0
+	symdeviceGetPowerState = 0
+	symdeviceGetPowerUsage = 0
+	symdeviceGetProcessUtilization = 0
+	symdeviceGetProcessesUtilizationInfo = 0
+	symdeviceGetRemappedRows = 0
+	symdeviceGetRepairStatus = 0
+	symdeviceGetRetiredPagesPendingStatus = 0
+	symdeviceGetRetiredPages = 0
+	symdeviceGetRowRemapperHistogram = 0
+	symdeviceGetRunningProcessDetailList = 0
+	symdeviceGetSamples = 0
+	symdeviceGetSerial = 0
+	symdeviceGetSramEccErrorStatus = 0
+	symdeviceGetSramUniqueUncorrectedEccErrorCounts = 0
+	symdeviceGetSupportedClocksEventReasons = 0
+	symdeviceGetSupportedClocksThrottleReasons = 0
+	symdeviceGetSupportedEventTypes = 0
+	symdeviceGetSupportedGraphicsClocks = 0
+	symdeviceGetSupportedMemoryClocks = 0
+	symdeviceGetSupportedPerformanceStates = 0
+	symdeviceGetSupportedVgpus = 0
+	symdeviceGetTargetFanSpeed = 0
+	symdeviceGetTemperature = 0
+	symdeviceGetTemperatureThreshold = 0
+	symdeviceGetTemperatureV = 0
+	symdeviceGetThermalSettings = 0
+	symdeviceGetTopologyCommonAncestor = 0
+	symdeviceGetTopologyNearestGpus = 0
+	symdeviceGetTotalEccErrors = 0
+	symdeviceGetTotalEnergyConsumption = 0
+	symdeviceGetUUID = 0
+	symdeviceGetUnrepairableMemoryFlag = 0
+	symdeviceGetUtilizationRates = 0
+	symdeviceGetVbiosVersion = 0
+	symdeviceGetVgpuCapabilities = 0
+	symdeviceGetVgpuHeterogeneousMode = 0
+	symdeviceGetVgpuInstancesUtilizationInfo = 0
+	symdeviceGetVgpuMetadata = 0
+	symdeviceGetVgpuProcessUtilization = 0
+	symdeviceGetVgpuProcessesUtilizationInfo = 0
+	symdeviceGetVgpuSchedulerCapabilities = 0
+	symdeviceGetVgpuSchedulerLog = 0
+	symdeviceGetVgpuSchedulerState = 0
+	symdeviceGetVgpuTypeCreatablePlacements = 0
+	symdeviceGetVgpuTypeSupportedPlacements = 0
+	symdeviceGetVgpuUtilization = 0
+	symdeviceGetViolationStatus = 0
+	symdeviceGetVirtualizationMode = 0
+	symdeviceIsMigDeviceHandle = 0
+	symDeviceModifyDrainState = 0
+	symdeviceOnSameBoard = 0
+	symdevicePowerSmoothingActivatePresetProfile = 0
+	symdevicePowerSmoothingSetState = 0
+	symdevicePowerSmoothingUpdatePresetProfileParam = 0
+	symDeviceQueryDrainState = 0
+	symdeviceReadPRMCounters = 0
+	symdeviceReadWritePRM = 0
+	symdeviceRegisterEvents = 0
+	symDeviceRemoveGpu = 0
+	symdeviceResetApplicationsClocks = 0
+	symdeviceResetGpuLockedClocks = 0
+	symdeviceResetMemoryLockedClocks = 0
+	symdeviceResetNvLinkErrorCounters = 0
+	symdeviceResetNvLinkUtilizationCounter = 0
+	symdeviceSetAPIRestriction = 0
+	symdeviceSetAccountingMode = 0
+	symdeviceSetApplicationsClocks = 0
+	symdeviceSetAutoBoostedClocksEnabled = 0
+	symdeviceSetClockOffsets = 0
+	symdeviceSetComputeMode = 0
+	symdeviceSetConfComputeUnprotectedMemSize = 0
+	symdeviceSetCpuAffinity = 0
+	symdeviceSetDefaultAutoBoostedClocksEnabled = 0
+	symdeviceSetDefaultFanSpeed = 0
+	symdeviceSetDramEncryptionMode = 0
+	symdeviceSetDriverModel = 0
+	symdeviceSetEccMode = 0
+	symdeviceSetFanControlPolicy = 0
+	symdeviceSetFanSpeed = 0
+	symdeviceSetGpcClkVfOffset = 0
+	symdeviceSetGpuLockedClocks = 0
+	symdeviceSetGpuOperationMode = 0
+	symdeviceSetHostname = 0
+	symdeviceSetMemClkVfOffset = 0
+	symdeviceSetMemoryLockedClocks = 0
+	symdeviceSetMigMode = 0
+	symdeviceSetNvLinkDeviceLowPowerThreshold = 0
+	symdeviceSetNvLinkUtilizationControl = 0
+	symdeviceSetNvlinkBwMode = 0
+	symdeviceSetPersistenceMode = 0
+	symdeviceSetPowerManagementLimit = 0
+	symdeviceSetPowerMizerMode = 0
+	symdeviceSetRusdSettings = 0
+	symdeviceSetTemperatureThreshold = 0
+	symdeviceSetVgpuCapabilities = 0
+	symdeviceSetVgpuHeterogeneousMode = 0
+	symdeviceSetVgpuSchedulerState = 0
+	symdeviceSetVirtualizationMode = 0
+	symdeviceValidateInforom = 0
+	symdeviceVgpuForceGspUnload = 0
+	symdeviceWorkloadPowerProfileClearRequestedProfiles = 0
+	symdeviceWorkloadPowerProfileGetCurrentProfiles = 0
+	symdeviceWorkloadPowerProfileGetProfilesInfo = 0
+	symdeviceWorkloadPowerProfileSetRequestedProfiles = 0
+	symdeviceWorkloadPowerProfileUpdateProfiles = 0
+	symeventSetCreate = 0
+	symeventSetFree = 0
+	symeventSetWait = 0
+	symGetExcludedDeviceCount = 0
+	symGetExcludedDeviceInfoByIndex = 0
+	symGetVgpuCompatibility = 0
+	symGetVgpuDriverCapabilities = 0
+	symGetVgpuVersion = 0
+	symGpmMetricsGet = 0
+	symgpmMigSampleGet = 0
+	symgpmQueryDeviceSupport = 0
+	symgpmQueryIfStreamingEnabled = 0
+	symgpmSampleAlloc = 0
+	symgpmSampleFree = 0
+	symgpmSampleGet = 0
+	symgpmSetStreamingEnabled = 0
+	symgpuInstanceCreateComputeInstance = 0
+	symgpuInstanceCreateComputeInstanceWithPlacement = 0
+	symgpuInstanceDestroy = 0
+	symgpuInstanceGetActiveVgpus = 0
+	symgpuInstanceGetComputeInstanceById = 0
+	symgpuInstanceGetComputeInstancePossiblePlacements = 0
+	symgpuInstanceGetComputeInstanceProfileInfo = 0
+	symgpuInstanceGetComputeInstanceProfileInfoV = 0
+	symgpuInstanceGetComputeInstanceRemainingCapacity = 0
+	symgpuInstanceGetComputeInstances = 0
+	symgpuInstanceGetCreatableVgpus = 0
+	symgpuInstanceGetInfo = 0
+	symgpuInstanceGetVgpuHeterogeneousMode = 0
+	symgpuInstanceGetVgpuSchedulerLog = 0
+	symgpuInstanceGetVgpuSchedulerState = 0
+	symgpuInstanceGetVgpuTypeCreatablePlacements = 0
+	symgpuInstanceSetVgpuHeterogeneousMode = 0
+	symgpuInstanceSetVgpuSchedulerState = 0
+	symInit = 0
+	symInitWithFlags = 0
+	symSetVgpuVersion = 0
+	symShutdown = 0
+	symSystemEventSetCreate = 0
+	symSystemEventSetFree = 0
+	symSystemEventSetWait = 0
+	symSystemGetConfComputeCapabilities = 0
+	symSystemGetConfComputeGpusReadyState = 0
+	symSystemGetConfComputeKeyRotationThresholdInfo = 0
+	symSystemGetConfComputeSettings = 0
+	symSystemGetConfComputeState = 0
+	symSystemGetCudaDriverVersion = 0
+	symSystemGetDriverBranch = 0
+	symSystemGetDriverVersion = 0
+	symSystemGetHicVersion = 0
+	symSystemGetNVMLVersion = 0
+	symSystemGetNvlinkBwMode = 0
+	symSystemGetProcessName = 0
+	symSystemGetTopologyGpuSet = 0
+	symSystemRegisterEvents = 0
+	symSystemSetConfComputeGpusReadyState = 0
+	symSystemSetConfComputeKeyRotationThresholdInfo = 0
+	symSystemSetNvlinkBwMode = 0
+	symUnitGetCount = 0
+	symunitGetDevices = 0
+	symunitGetFanSpeedInfo = 0
+	symunitGetHandleByIndex = 0
+	symunitGetLedState = 0
+	symunitGetPsuInfo = 0
+	symunitGetTemperature = 0
+	symunitGetUnitInfo = 0
+	symunitSetLedState = 0
+	symvgpuInstanceClearAccountingPids = 0
+	symvgpuInstanceGetAccountingMode = 0
+	symvgpuInstanceGetAccountingPids = 0
+	symvgpuInstanceGetAccountingStats = 0
+	symvgpuInstanceGetEccMode = 0
+	symvgpuInstanceGetEncoderCapacity = 0
+	symvgpuInstanceGetEncoderSessions = 0
+	symvgpuInstanceGetEncoderStats = 0
+	symvgpuInstanceGetFBCSessions = 0
+	symvgpuInstanceGetFBCStats = 0
+	symvgpuInstanceGetFbUsage = 0
+	symvgpuInstanceGetFrameRateLimit = 0
+	symvgpuInstanceGetGpuInstanceId = 0
+	symvgpuInstanceGetGpuPciId = 0
+	symvgpuInstanceGetLicenseInfo = 0
+	symvgpuInstanceGetLicenseStatus = 0
+	symvgpuInstanceGetMdevUUID = 0
+	symvgpuInstanceGetMetadata = 0
+	symvgpuInstanceGetPlacementId = 0
+	symvgpuInstanceGetRuntimeStateSize = 0
+	symvgpuInstanceGetType = 0
+	symvgpuInstanceGetUUID = 0
+	symvgpuInstanceGetVmDriverVersion = 0
+	symvgpuInstanceGetVmID = 0
+	symvgpuInstanceSetEncoderCapacity = 0
+	symvgpuTypeGetBAR1Info = 0
+	symvgpuTypeGetCapabilities = 0
+	symvgpuTypeGetClass = 0
+	symvgpuTypeGetDeviceID = 0
+	symvgpuTypeGetFbReservation = 0
+	symvgpuTypeGetFrameRateLimit = 0
+	symvgpuTypeGetFramebufferSize = 0
+	symvgpuTypeGetGpuInstanceProfileId = 0
+	symvgpuTypeGetGspHeapSize = 0
+	symvgpuTypeGetLicense = 0
+	symvgpuTypeGetMaxInstances = 0
+	symVgpuTypeGetMaxInstancesPerGpuInstance = 0
+	symvgpuTypeGetMaxInstancesPerVm = 0
+	symvgpuTypeGetName = 0
+	symvgpuTypeGetNumDisplayHeads = 0
+	symvgpuTypeGetResolution = 0
 }
 
 // HasErrorString reports whether nvmlErrorString resolved in the loaded library.

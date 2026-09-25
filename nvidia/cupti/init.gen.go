@@ -16,6 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -491,6 +492,150 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
+// ffiCall0 through ffiCall10 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall0(fn uintptr, floatMask uint32) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	return ffi.CallFloat(fn, 0, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
 // BindFailure names a symbol the loaded library exports but that could not
 // be bound, and why.
 type BindFailure struct {
@@ -554,196 +699,196 @@ func registerFuncs() {
 	register(&fnGetResultString, "cuptiGetResultString")
 	register(&fnGetErrorMessage, "cuptiGetErrorMessage")
 	register(&fnActivityConfigurePCSampling, "cuptiActivityConfigurePCSampling")
-	register(&fnActivityConfigureUnifiedMemoryCounter, "cuptiActivityConfigureUnifiedMemoryCounter")
-	register(&fnActivityDisable, "cuptiActivityDisable")
+	symActivityConfigureUnifiedMemoryCounter = registerSym("cuptiActivityConfigureUnifiedMemoryCounter")
+	symActivityDisable = registerSym("cuptiActivityDisable")
 	register(&fnActivityDisableContext, "cuptiActivityDisableContext")
-	register(&fnactivityDisableV2, "cuptiActivityDisable_v2")
-	register(&fnActivityEnable, "cuptiActivityEnable")
-	register(&fnActivityEnableAllSyncRecords, "cuptiActivityEnableAllSyncRecords")
-	register(&fnActivityEnableAllocationSource, "cuptiActivityEnableAllocationSource")
-	register(&fnActivityEnableAndDump, "cuptiActivityEnableAndDump")
-	register(&fnactivityEnableAndDumpV2, "cuptiActivityEnableAndDump_v2")
+	symactivityDisableV2 = registerSym("cuptiActivityDisable_v2")
+	symActivityEnable = registerSym("cuptiActivityEnable")
+	symActivityEnableAllSyncRecords = registerSym("cuptiActivityEnableAllSyncRecords")
+	symActivityEnableAllocationSource = registerSym("cuptiActivityEnableAllocationSource")
+	symActivityEnableAndDump = registerSym("cuptiActivityEnableAndDump")
+	symactivityEnableAndDumpV2 = registerSym("cuptiActivityEnableAndDump_v2")
 	register(&fnActivityEnableContext, "cuptiActivityEnableContext")
-	register(&fnActivityEnableCudaEventDeviceTimestamps, "cuptiActivityEnableCudaEventDeviceTimestamps")
-	register(&fnActivityEnableDeviceGraph, "cuptiActivityEnableDeviceGraph")
-	register(&fnActivityEnableDriverApi, "cuptiActivityEnableDriverApi")
-	register(&fnActivityEnableHWTrace, "cuptiActivityEnableHWTrace")
-	register(&fnActivityEnableLatencyTimestamps, "cuptiActivityEnableLatencyTimestamps")
-	register(&fnActivityEnableLaunchAttributes, "cuptiActivityEnableLaunchAttributes")
-	register(&fnActivityEnableRuntimeApi, "cuptiActivityEnableRuntimeApi")
-	register(&fnactivityEnableV2, "cuptiActivityEnable_v2")
+	symActivityEnableCudaEventDeviceTimestamps = registerSym("cuptiActivityEnableCudaEventDeviceTimestamps")
+	symActivityEnableDeviceGraph = registerSym("cuptiActivityEnableDeviceGraph")
+	symActivityEnableDriverApi = registerSym("cuptiActivityEnableDriverApi")
+	symActivityEnableHWTrace = registerSym("cuptiActivityEnableHWTrace")
+	symActivityEnableLatencyTimestamps = registerSym("cuptiActivityEnableLatencyTimestamps")
+	symActivityEnableLaunchAttributes = registerSym("cuptiActivityEnableLaunchAttributes")
+	symActivityEnableRuntimeApi = registerSym("cuptiActivityEnableRuntimeApi")
+	symactivityEnableV2 = registerSym("cuptiActivityEnable_v2")
 	register(&fnActivityFlush, "cuptiActivityFlush")
-	register(&fnActivityFlushAll, "cuptiActivityFlushAll")
-	register(&fnActivityFlushPeriod, "cuptiActivityFlushPeriod")
-	register(&fnActivityGetAttribute, "cuptiActivityGetAttribute")
-	register(&fnactivityGetAttributeV2, "cuptiActivityGetAttribute_v2")
-	register(&fnactivityGetEnabledKinds, "cuptiActivityGetEnabledKinds")
-	register(&fnActivityGetNextRecord, "cuptiActivityGetNextRecord")
+	symActivityFlushAll = registerSym("cuptiActivityFlushAll")
+	symActivityFlushPeriod = registerSym("cuptiActivityFlushPeriod")
+	symActivityGetAttribute = registerSym("cuptiActivityGetAttribute")
+	symactivityGetAttributeV2 = registerSym("cuptiActivityGetAttribute_v2")
+	symactivityGetEnabledKinds = registerSym("cuptiActivityGetEnabledKinds")
+	symActivityGetNextRecord = registerSym("cuptiActivityGetNextRecord")
 	register(&fnActivityGetNumDroppedRecords, "cuptiActivityGetNumDroppedRecords")
-	register(&fnActivityGetStructSize, "cuptiActivityGetStructSize")
-	register(&fnActivityPopExternalCorrelationId, "cuptiActivityPopExternalCorrelationId")
-	register(&fnActivityPushExternalCorrelationId, "cuptiActivityPushExternalCorrelationId")
-	register(&fnActivityRegisterCallbacks, "cuptiActivityRegisterCallbacks")
-	register(&fnactivityRegisterCallbacksV2, "cuptiActivityRegisterCallbacks_v2")
-	register(&fnActivityRegisterTimestampCallback, "cuptiActivityRegisterTimestampCallback")
-	register(&fnActivitySetAttribute, "cuptiActivitySetAttribute")
-	register(&fnactivitySetAttributeV2, "cuptiActivitySetAttribute_v2")
-	register(&fnCheckpointFree, "cuptiCheckpointFree")
-	register(&fnCheckpointRestore, "cuptiCheckpointRestore")
-	register(&fnCheckpointSave, "cuptiCheckpointSave")
-	register(&fnComputeCapabilitySupported, "cuptiComputeCapabilitySupported")
-	register(&fnDeviceEnumEventDomains, "cuptiDeviceEnumEventDomains")
-	register(&fnDeviceEnumMetrics, "cuptiDeviceEnumMetrics")
-	register(&fnDeviceGetAttribute, "cuptiDeviceGetAttribute")
-	register(&fnDeviceGetChipName, "cuptiDeviceGetChipName")
-	register(&fnDeviceGetEventDomainAttribute, "cuptiDeviceGetEventDomainAttribute")
-	register(&fnDeviceGetNumEventDomains, "cuptiDeviceGetNumEventDomains")
-	register(&fnDeviceGetNumMetrics, "cuptiDeviceGetNumMetrics")
-	register(&fnDeviceSupported, "cuptiDeviceSupported")
-	register(&fnDeviceVirtualizationMode, "cuptiDeviceVirtualizationMode")
+	symActivityGetStructSize = registerSym("cuptiActivityGetStructSize")
+	symActivityPopExternalCorrelationId = registerSym("cuptiActivityPopExternalCorrelationId")
+	symActivityPushExternalCorrelationId = registerSym("cuptiActivityPushExternalCorrelationId")
+	symActivityRegisterCallbacks = registerSym("cuptiActivityRegisterCallbacks")
+	symactivityRegisterCallbacksV2 = registerSym("cuptiActivityRegisterCallbacks_v2")
+	symActivityRegisterTimestampCallback = registerSym("cuptiActivityRegisterTimestampCallback")
+	symActivitySetAttribute = registerSym("cuptiActivitySetAttribute")
+	symactivitySetAttributeV2 = registerSym("cuptiActivitySetAttribute_v2")
+	symCheckpointFree = registerSym("cuptiCheckpointFree")
+	symCheckpointRestore = registerSym("cuptiCheckpointRestore")
+	symCheckpointSave = registerSym("cuptiCheckpointSave")
+	symComputeCapabilitySupported = registerSym("cuptiComputeCapabilitySupported")
+	symDeviceEnumEventDomains = registerSym("cuptiDeviceEnumEventDomains")
+	symDeviceEnumMetrics = registerSym("cuptiDeviceEnumMetrics")
+	symDeviceGetAttribute = registerSym("cuptiDeviceGetAttribute")
+	symDeviceGetChipName = registerSym("cuptiDeviceGetChipName")
+	symDeviceGetEventDomainAttribute = registerSym("cuptiDeviceGetEventDomainAttribute")
+	symDeviceGetNumEventDomains = registerSym("cuptiDeviceGetNumEventDomains")
+	symDeviceGetNumMetrics = registerSym("cuptiDeviceGetNumMetrics")
+	symDeviceSupported = registerSym("cuptiDeviceSupported")
+	symDeviceVirtualizationMode = registerSym("cuptiDeviceVirtualizationMode")
 	register(&fnDisableKernelReplayMode, "cuptiDisableKernelReplayMode")
-	register(&fnenableAllDomains, "cuptiEnableAllDomains")
-	register(&fnenableCallback, "cuptiEnableCallback")
-	register(&fnenableDomain, "cuptiEnableDomain")
+	symenableAllDomains = registerSym("cuptiEnableAllDomains")
+	symenableCallback = registerSym("cuptiEnableCallback")
+	symenableDomain = registerSym("cuptiEnableDomain")
 	register(&fnEnableKernelReplayMode, "cuptiEnableKernelReplayMode")
-	register(&fnEnumEventDomains, "cuptiEnumEventDomains")
-	register(&fnEnumMetrics, "cuptiEnumMetrics")
-	register(&fnEventDomainEnumEvents, "cuptiEventDomainEnumEvents")
-	register(&fnEventDomainGetAttribute, "cuptiEventDomainGetAttribute")
-	register(&fnEventDomainGetNumEvents, "cuptiEventDomainGetNumEvents")
-	register(&fnEventGetAttribute, "cuptiEventGetAttribute")
-	register(&fnEventGetIdFromName, "cuptiEventGetIdFromName")
-	register(&fneventGroupAddEvent, "cuptiEventGroupAddEvent")
+	symEnumEventDomains = registerSym("cuptiEnumEventDomains")
+	symEnumMetrics = registerSym("cuptiEnumMetrics")
+	symEventDomainEnumEvents = registerSym("cuptiEventDomainEnumEvents")
+	symEventDomainGetAttribute = registerSym("cuptiEventDomainGetAttribute")
+	symEventDomainGetNumEvents = registerSym("cuptiEventDomainGetNumEvents")
+	symEventGetAttribute = registerSym("cuptiEventGetAttribute")
+	symEventGetIdFromName = registerSym("cuptiEventGetIdFromName")
+	symeventGroupAddEvent = registerSym("cuptiEventGroupAddEvent")
 	register(&fneventGroupCreate, "cuptiEventGroupCreate")
-	register(&fneventGroupDestroy, "cuptiEventGroupDestroy")
-	register(&fneventGroupDisable, "cuptiEventGroupDisable")
-	register(&fneventGroupEnable, "cuptiEventGroupEnable")
-	register(&fneventGroupGetAttribute, "cuptiEventGroupGetAttribute")
-	register(&fneventGroupReadAllEvents, "cuptiEventGroupReadAllEvents")
-	register(&fneventGroupReadEvent, "cuptiEventGroupReadEvent")
-	register(&fneventGroupRemoveAllEvents, "cuptiEventGroupRemoveAllEvents")
-	register(&fneventGroupRemoveEvent, "cuptiEventGroupRemoveEvent")
-	register(&fneventGroupResetAllEvents, "cuptiEventGroupResetAllEvents")
-	register(&fneventGroupSetAttribute, "cuptiEventGroupSetAttribute")
-	register(&fnEventGroupSetDisable, "cuptiEventGroupSetDisable")
-	register(&fnEventGroupSetEnable, "cuptiEventGroupSetEnable")
+	symeventGroupDestroy = registerSym("cuptiEventGroupDestroy")
+	symeventGroupDisable = registerSym("cuptiEventGroupDisable")
+	symeventGroupEnable = registerSym("cuptiEventGroupEnable")
+	symeventGroupGetAttribute = registerSym("cuptiEventGroupGetAttribute")
+	symeventGroupReadAllEvents = registerSym("cuptiEventGroupReadAllEvents")
+	symeventGroupReadEvent = registerSym("cuptiEventGroupReadEvent")
+	symeventGroupRemoveAllEvents = registerSym("cuptiEventGroupRemoveAllEvents")
+	symeventGroupRemoveEvent = registerSym("cuptiEventGroupRemoveEvent")
+	symeventGroupResetAllEvents = registerSym("cuptiEventGroupResetAllEvents")
+	symeventGroupSetAttribute = registerSym("cuptiEventGroupSetAttribute")
+	symEventGroupSetDisable = registerSym("cuptiEventGroupSetDisable")
+	symEventGroupSetEnable = registerSym("cuptiEventGroupSetEnable")
 	register(&fnEventGroupSetsCreate, "cuptiEventGroupSetsCreate")
-	register(&fnEventGroupSetsDestroy, "cuptiEventGroupSetsDestroy")
-	register(&fnFinalize, "cuptiFinalize")
+	symEventGroupSetsDestroy = registerSym("cuptiEventGroupSetsDestroy")
+	symFinalize = registerSym("cuptiFinalize")
 	register(&fnGetAutoBoostState, "cuptiGetAutoBoostState")
-	register(&fnGetCallbackName, "cuptiGetCallbackName")
-	register(&fngetCallbackState, "cuptiGetCallbackState")
+	symGetCallbackName = registerSym("cuptiGetCallbackName")
+	symgetCallbackState = registerSym("cuptiGetCallbackState")
 	register(&fnGetContextId, "cuptiGetContextId")
-	register(&fnGetCubinCrc, "cuptiGetCubinCrc")
+	symGetCubinCrc = registerSym("cuptiGetCubinCrc")
 	register(&fnGetDeviceId, "cuptiGetDeviceId")
-	register(&fngetEnabledCallbacks, "cuptiGetEnabledCallbacks")
-	register(&fnGetGraphExecId, "cuptiGetGraphExecId")
-	register(&fnGetGraphId, "cuptiGetGraphId")
-	register(&fnGetGraphNodeId, "cuptiGetGraphNodeId")
-	register(&fnGetLastError, "cuptiGetLastError")
-	register(&fnGetNumEventDomains, "cuptiGetNumEventDomains")
-	register(&fnGetNumMetrics, "cuptiGetNumMetrics")
-	register(&fnGetSassToSourceCorrelation, "cuptiGetSassToSourceCorrelation")
+	symgetEnabledCallbacks = registerSym("cuptiGetEnabledCallbacks")
+	symGetGraphExecId = registerSym("cuptiGetGraphExecId")
+	symGetGraphId = registerSym("cuptiGetGraphId")
+	symGetGraphNodeId = registerSym("cuptiGetGraphNodeId")
+	symGetLastError = registerSym("cuptiGetLastError")
+	symGetNumEventDomains = registerSym("cuptiGetNumEventDomains")
+	symGetNumMetrics = registerSym("cuptiGetNumMetrics")
+	symGetSassToSourceCorrelation = registerSym("cuptiGetSassToSourceCorrelation")
 	register(&fnGetStreamId, "cuptiGetStreamId")
 	register(&fnGetStreamIdEx, "cuptiGetStreamIdEx")
-	register(&fnGetThreadIdType, "cuptiGetThreadIdType")
-	register(&fnGetTimestamp, "cuptiGetTimestamp")
+	symGetThreadIdType = registerSym("cuptiGetThreadIdType")
+	symGetTimestamp = registerSym("cuptiGetTimestamp")
 	register(&fnGetVersion, "cuptiGetVersion")
-	register(&fnIsTracingSessionRunning, "cuptiIsTracingSessionRunning")
-	register(&fnKernelReplaySubscribeUpdate, "cuptiKernelReplaySubscribeUpdate")
+	symIsTracingSessionRunning = registerSym("cuptiIsTracingSessionRunning")
+	symKernelReplaySubscribeUpdate = registerSym("cuptiKernelReplaySubscribeUpdate")
 	register(&fnMetricCreateEventGroupSets, "cuptiMetricCreateEventGroupSets")
-	register(&fnMetricEnumEvents, "cuptiMetricEnumEvents")
-	register(&fnMetricEnumProperties, "cuptiMetricEnumProperties")
-	register(&fnMetricGetAttribute, "cuptiMetricGetAttribute")
-	register(&fnMetricGetIdFromName, "cuptiMetricGetIdFromName")
-	register(&fnMetricGetNumEvents, "cuptiMetricGetNumEvents")
-	register(&fnMetricGetNumProperties, "cuptiMetricGetNumProperties")
+	symMetricEnumEvents = registerSym("cuptiMetricEnumEvents")
+	symMetricEnumProperties = registerSym("cuptiMetricEnumProperties")
+	symMetricGetAttribute = registerSym("cuptiMetricGetAttribute")
+	symMetricGetIdFromName = registerSym("cuptiMetricGetIdFromName")
+	symMetricGetNumEvents = registerSym("cuptiMetricGetNumEvents")
+	symMetricGetNumProperties = registerSym("cuptiMetricGetNumProperties")
 	register(&fnMetricGetRequiredEventGroupSets, "cuptiMetricGetRequiredEventGroupSets")
-	register(&fnMetricGetValue, "cuptiMetricGetValue")
-	register(&fnMetricGetValue2, "cuptiMetricGetValue2")
-	register(&fnPCSamplingDisable, "cuptiPCSamplingDisable")
-	register(&fnPCSamplingEnable, "cuptiPCSamplingEnable")
-	register(&fnPCSamplingGetConfigurationAttribute, "cuptiPCSamplingGetConfigurationAttribute")
-	register(&fnPCSamplingGetData, "cuptiPCSamplingGetData")
-	register(&fnPCSamplingGetNumStallReasons, "cuptiPCSamplingGetNumStallReasons")
-	register(&fnPCSamplingGetStallReasons, "cuptiPCSamplingGetStallReasons")
-	register(&fnPCSamplingSetConfigurationAttribute, "cuptiPCSamplingSetConfigurationAttribute")
-	register(&fnPCSamplingStart, "cuptiPCSamplingStart")
-	register(&fnPCSamplingStop, "cuptiPCSamplingStop")
-	register(&fnPmSamplingCounterDataGetSampleInfo, "cuptiPmSamplingCounterDataGetSampleInfo")
-	register(&fnPmSamplingCounterDataImageInitialize, "cuptiPmSamplingCounterDataImageInitialize")
-	register(&fnPmSamplingDecodeData, "cuptiPmSamplingDecodeData")
-	register(&fnPmSamplingDisable, "cuptiPmSamplingDisable")
-	register(&fnPmSamplingEnable, "cuptiPmSamplingEnable")
-	register(&fnPmSamplingGetCounterAvailability, "cuptiPmSamplingGetCounterAvailability")
-	register(&fnPmSamplingGetCounterDataInfo, "cuptiPmSamplingGetCounterDataInfo")
-	register(&fnPmSamplingGetCounterDataSize, "cuptiPmSamplingGetCounterDataSize")
-	register(&fnPmSamplingSetConfig, "cuptiPmSamplingSetConfig")
-	register(&fnPmSamplingStart, "cuptiPmSamplingStart")
-	register(&fnPmSamplingStop, "cuptiPmSamplingStop")
-	register(&fnProfilerBeginPass, "cuptiProfilerBeginPass")
-	register(&fnProfilerBeginSession, "cuptiProfilerBeginSession")
-	register(&fnProfilerCounterDataImageCalculateScratchBufferSize, "cuptiProfilerCounterDataImageCalculateScratchBufferSize")
-	register(&fnProfilerCounterDataImageCalculateSize, "cuptiProfilerCounterDataImageCalculateSize")
-	register(&fnProfilerCounterDataImageInitialize, "cuptiProfilerCounterDataImageInitialize")
-	register(&fnProfilerCounterDataImageInitializeScratchBuffer, "cuptiProfilerCounterDataImageInitializeScratchBuffer")
-	register(&fnProfilerDeInitialize, "cuptiProfilerDeInitialize")
-	register(&fnProfilerDeviceSupported, "cuptiProfilerDeviceSupported")
-	register(&fnProfilerDisableProfiling, "cuptiProfilerDisableProfiling")
-	register(&fnProfilerEnableProfiling, "cuptiProfilerEnableProfiling")
-	register(&fnProfilerEndPass, "cuptiProfilerEndPass")
-	register(&fnProfilerEndSession, "cuptiProfilerEndSession")
-	register(&fnProfilerFlushCounterData, "cuptiProfilerFlushCounterData")
-	register(&fnProfilerGetCounterAvailability, "cuptiProfilerGetCounterAvailability")
-	register(&fnProfilerHostConfigAddMetrics, "cuptiProfilerHostConfigAddMetrics")
-	register(&fnProfilerHostDeinitialize, "cuptiProfilerHostDeinitialize")
-	register(&fnProfilerHostEvaluateToGpuValues, "cuptiProfilerHostEvaluateToGpuValues")
-	register(&fnProfilerHostGetBaseMetrics, "cuptiProfilerHostGetBaseMetrics")
-	register(&fnProfilerHostGetConfigImage, "cuptiProfilerHostGetConfigImage")
-	register(&fnProfilerHostGetConfigImageSize, "cuptiProfilerHostGetConfigImageSize")
-	register(&fnProfilerHostGetMaxNumHardwareMetricsPerPass, "cuptiProfilerHostGetMaxNumHardwareMetricsPerPass")
-	register(&fnProfilerHostGetMetricProperties, "cuptiProfilerHostGetMetricProperties")
-	register(&fnProfilerHostGetMetricsInSinglePassSet, "cuptiProfilerHostGetMetricsInSinglePassSet")
-	register(&fnProfilerHostGetNumOfPasses, "cuptiProfilerHostGetNumOfPasses")
-	register(&fnProfilerHostGetRangeName, "cuptiProfilerHostGetRangeName")
-	register(&fnProfilerHostGetSinglePassSets, "cuptiProfilerHostGetSinglePassSets")
-	register(&fnProfilerHostGetSubMetrics, "cuptiProfilerHostGetSubMetrics")
-	register(&fnProfilerHostGetSupportedChips, "cuptiProfilerHostGetSupportedChips")
-	register(&fnProfilerHostInitialize, "cuptiProfilerHostInitialize")
-	register(&fnProfilerInitialize, "cuptiProfilerInitialize")
-	register(&fnProfilerIsPassCollected, "cuptiProfilerIsPassCollected")
-	register(&fnProfilerPopRange, "cuptiProfilerPopRange")
-	register(&fnProfilerPushRange, "cuptiProfilerPushRange")
-	register(&fnProfilerSetConfig, "cuptiProfilerSetConfig")
-	register(&fnProfilerUnsetConfig, "cuptiProfilerUnsetConfig")
-	register(&fnRangeProfilerCounterDataGetRangeInfo, "cuptiRangeProfilerCounterDataGetRangeInfo")
-	register(&fnRangeProfilerCounterDataImageInitialize, "cuptiRangeProfilerCounterDataImageInitialize")
-	register(&fnRangeProfilerDecodeData, "cuptiRangeProfilerDecodeData")
-	register(&fnRangeProfilerDisable, "cuptiRangeProfilerDisable")
-	register(&fnRangeProfilerEnable, "cuptiRangeProfilerEnable")
-	register(&fnRangeProfilerGetCounterDataInfo, "cuptiRangeProfilerGetCounterDataInfo")
-	register(&fnRangeProfilerGetCounterDataSize, "cuptiRangeProfilerGetCounterDataSize")
-	register(&fnRangeProfilerPopRange, "cuptiRangeProfilerPopRange")
-	register(&fnRangeProfilerPushRange, "cuptiRangeProfilerPushRange")
-	register(&fnRangeProfilerSetConfig, "cuptiRangeProfilerSetConfig")
-	register(&fnRangeProfilerStart, "cuptiRangeProfilerStart")
-	register(&fnRangeProfilerStop, "cuptiRangeProfilerStop")
-	register(&fnRegisterComputeCrcCallback, "cuptiRegisterComputeCrcCallback")
-	register(&fnSassMetricsDisable, "cuptiSassMetricsDisable")
-	register(&fnSassMetricsEnable, "cuptiSassMetricsEnable")
-	register(&fnSassMetricsFlushData, "cuptiSassMetricsFlushData")
-	register(&fnSassMetricsGetDataProperties, "cuptiSassMetricsGetDataProperties")
-	register(&fnSassMetricsGetMetrics, "cuptiSassMetricsGetMetrics")
-	register(&fnSassMetricsGetNumOfMetrics, "cuptiSassMetricsGetNumOfMetrics")
-	register(&fnSassMetricsGetProperties, "cuptiSassMetricsGetProperties")
-	register(&fnSassMetricsSetConfig, "cuptiSassMetricsSetConfig")
-	register(&fnSassMetricsUnsetConfig, "cuptiSassMetricsUnsetConfig")
+	symMetricGetValue = registerSym("cuptiMetricGetValue")
+	symMetricGetValue2 = registerSym("cuptiMetricGetValue2")
+	symPCSamplingDisable = registerSym("cuptiPCSamplingDisable")
+	symPCSamplingEnable = registerSym("cuptiPCSamplingEnable")
+	symPCSamplingGetConfigurationAttribute = registerSym("cuptiPCSamplingGetConfigurationAttribute")
+	symPCSamplingGetData = registerSym("cuptiPCSamplingGetData")
+	symPCSamplingGetNumStallReasons = registerSym("cuptiPCSamplingGetNumStallReasons")
+	symPCSamplingGetStallReasons = registerSym("cuptiPCSamplingGetStallReasons")
+	symPCSamplingSetConfigurationAttribute = registerSym("cuptiPCSamplingSetConfigurationAttribute")
+	symPCSamplingStart = registerSym("cuptiPCSamplingStart")
+	symPCSamplingStop = registerSym("cuptiPCSamplingStop")
+	symPmSamplingCounterDataGetSampleInfo = registerSym("cuptiPmSamplingCounterDataGetSampleInfo")
+	symPmSamplingCounterDataImageInitialize = registerSym("cuptiPmSamplingCounterDataImageInitialize")
+	symPmSamplingDecodeData = registerSym("cuptiPmSamplingDecodeData")
+	symPmSamplingDisable = registerSym("cuptiPmSamplingDisable")
+	symPmSamplingEnable = registerSym("cuptiPmSamplingEnable")
+	symPmSamplingGetCounterAvailability = registerSym("cuptiPmSamplingGetCounterAvailability")
+	symPmSamplingGetCounterDataInfo = registerSym("cuptiPmSamplingGetCounterDataInfo")
+	symPmSamplingGetCounterDataSize = registerSym("cuptiPmSamplingGetCounterDataSize")
+	symPmSamplingSetConfig = registerSym("cuptiPmSamplingSetConfig")
+	symPmSamplingStart = registerSym("cuptiPmSamplingStart")
+	symPmSamplingStop = registerSym("cuptiPmSamplingStop")
+	symProfilerBeginPass = registerSym("cuptiProfilerBeginPass")
+	symProfilerBeginSession = registerSym("cuptiProfilerBeginSession")
+	symProfilerCounterDataImageCalculateScratchBufferSize = registerSym("cuptiProfilerCounterDataImageCalculateScratchBufferSize")
+	symProfilerCounterDataImageCalculateSize = registerSym("cuptiProfilerCounterDataImageCalculateSize")
+	symProfilerCounterDataImageInitialize = registerSym("cuptiProfilerCounterDataImageInitialize")
+	symProfilerCounterDataImageInitializeScratchBuffer = registerSym("cuptiProfilerCounterDataImageInitializeScratchBuffer")
+	symProfilerDeInitialize = registerSym("cuptiProfilerDeInitialize")
+	symProfilerDeviceSupported = registerSym("cuptiProfilerDeviceSupported")
+	symProfilerDisableProfiling = registerSym("cuptiProfilerDisableProfiling")
+	symProfilerEnableProfiling = registerSym("cuptiProfilerEnableProfiling")
+	symProfilerEndPass = registerSym("cuptiProfilerEndPass")
+	symProfilerEndSession = registerSym("cuptiProfilerEndSession")
+	symProfilerFlushCounterData = registerSym("cuptiProfilerFlushCounterData")
+	symProfilerGetCounterAvailability = registerSym("cuptiProfilerGetCounterAvailability")
+	symProfilerHostConfigAddMetrics = registerSym("cuptiProfilerHostConfigAddMetrics")
+	symProfilerHostDeinitialize = registerSym("cuptiProfilerHostDeinitialize")
+	symProfilerHostEvaluateToGpuValues = registerSym("cuptiProfilerHostEvaluateToGpuValues")
+	symProfilerHostGetBaseMetrics = registerSym("cuptiProfilerHostGetBaseMetrics")
+	symProfilerHostGetConfigImage = registerSym("cuptiProfilerHostGetConfigImage")
+	symProfilerHostGetConfigImageSize = registerSym("cuptiProfilerHostGetConfigImageSize")
+	symProfilerHostGetMaxNumHardwareMetricsPerPass = registerSym("cuptiProfilerHostGetMaxNumHardwareMetricsPerPass")
+	symProfilerHostGetMetricProperties = registerSym("cuptiProfilerHostGetMetricProperties")
+	symProfilerHostGetMetricsInSinglePassSet = registerSym("cuptiProfilerHostGetMetricsInSinglePassSet")
+	symProfilerHostGetNumOfPasses = registerSym("cuptiProfilerHostGetNumOfPasses")
+	symProfilerHostGetRangeName = registerSym("cuptiProfilerHostGetRangeName")
+	symProfilerHostGetSinglePassSets = registerSym("cuptiProfilerHostGetSinglePassSets")
+	symProfilerHostGetSubMetrics = registerSym("cuptiProfilerHostGetSubMetrics")
+	symProfilerHostGetSupportedChips = registerSym("cuptiProfilerHostGetSupportedChips")
+	symProfilerHostInitialize = registerSym("cuptiProfilerHostInitialize")
+	symProfilerInitialize = registerSym("cuptiProfilerInitialize")
+	symProfilerIsPassCollected = registerSym("cuptiProfilerIsPassCollected")
+	symProfilerPopRange = registerSym("cuptiProfilerPopRange")
+	symProfilerPushRange = registerSym("cuptiProfilerPushRange")
+	symProfilerSetConfig = registerSym("cuptiProfilerSetConfig")
+	symProfilerUnsetConfig = registerSym("cuptiProfilerUnsetConfig")
+	symRangeProfilerCounterDataGetRangeInfo = registerSym("cuptiRangeProfilerCounterDataGetRangeInfo")
+	symRangeProfilerCounterDataImageInitialize = registerSym("cuptiRangeProfilerCounterDataImageInitialize")
+	symRangeProfilerDecodeData = registerSym("cuptiRangeProfilerDecodeData")
+	symRangeProfilerDisable = registerSym("cuptiRangeProfilerDisable")
+	symRangeProfilerEnable = registerSym("cuptiRangeProfilerEnable")
+	symRangeProfilerGetCounterDataInfo = registerSym("cuptiRangeProfilerGetCounterDataInfo")
+	symRangeProfilerGetCounterDataSize = registerSym("cuptiRangeProfilerGetCounterDataSize")
+	symRangeProfilerPopRange = registerSym("cuptiRangeProfilerPopRange")
+	symRangeProfilerPushRange = registerSym("cuptiRangeProfilerPushRange")
+	symRangeProfilerSetConfig = registerSym("cuptiRangeProfilerSetConfig")
+	symRangeProfilerStart = registerSym("cuptiRangeProfilerStart")
+	symRangeProfilerStop = registerSym("cuptiRangeProfilerStop")
+	symRegisterComputeCrcCallback = registerSym("cuptiRegisterComputeCrcCallback")
+	symSassMetricsDisable = registerSym("cuptiSassMetricsDisable")
+	symSassMetricsEnable = registerSym("cuptiSassMetricsEnable")
+	symSassMetricsFlushData = registerSym("cuptiSassMetricsFlushData")
+	symSassMetricsGetDataProperties = registerSym("cuptiSassMetricsGetDataProperties")
+	symSassMetricsGetMetrics = registerSym("cuptiSassMetricsGetMetrics")
+	symSassMetricsGetNumOfMetrics = registerSym("cuptiSassMetricsGetNumOfMetrics")
+	symSassMetricsGetProperties = registerSym("cuptiSassMetricsGetProperties")
+	symSassMetricsSetConfig = registerSym("cuptiSassMetricsSetConfig")
+	symSassMetricsUnsetConfig = registerSym("cuptiSassMetricsUnsetConfig")
 	register(&fnSetEventCollectionMode, "cuptiSetEventCollectionMode")
-	register(&fnSetThreadIdType, "cuptiSetThreadIdType")
-	register(&fnSubscribe, "cuptiSubscribe")
-	register(&fnSubscribeV2, "cuptiSubscribe_v2")
-	register(&fnSupportedDomains, "cuptiSupportedDomains")
-	register(&fnunsubscribe, "cuptiUnsubscribe")
+	symSetThreadIdType = registerSym("cuptiSetThreadIdType")
+	symSubscribe = registerSym("cuptiSubscribe")
+	symSubscribeV2 = registerSym("cuptiSubscribe_v2")
+	symSupportedDomains = registerSym("cuptiSupportedDomains")
+	symunsubscribe = registerSym("cuptiUnsubscribe")
 }
 
 // clearFuncs unbinds all raw function pointers.
@@ -751,196 +896,196 @@ func clearFuncs() {
 	fnGetResultString = nil
 	fnGetErrorMessage = nil
 	fnActivityConfigurePCSampling = nil
-	fnActivityConfigureUnifiedMemoryCounter = nil
-	fnActivityDisable = nil
+	symActivityConfigureUnifiedMemoryCounter = 0
+	symActivityDisable = 0
 	fnActivityDisableContext = nil
-	fnactivityDisableV2 = nil
-	fnActivityEnable = nil
-	fnActivityEnableAllSyncRecords = nil
-	fnActivityEnableAllocationSource = nil
-	fnActivityEnableAndDump = nil
-	fnactivityEnableAndDumpV2 = nil
+	symactivityDisableV2 = 0
+	symActivityEnable = 0
+	symActivityEnableAllSyncRecords = 0
+	symActivityEnableAllocationSource = 0
+	symActivityEnableAndDump = 0
+	symactivityEnableAndDumpV2 = 0
 	fnActivityEnableContext = nil
-	fnActivityEnableCudaEventDeviceTimestamps = nil
-	fnActivityEnableDeviceGraph = nil
-	fnActivityEnableDriverApi = nil
-	fnActivityEnableHWTrace = nil
-	fnActivityEnableLatencyTimestamps = nil
-	fnActivityEnableLaunchAttributes = nil
-	fnActivityEnableRuntimeApi = nil
-	fnactivityEnableV2 = nil
+	symActivityEnableCudaEventDeviceTimestamps = 0
+	symActivityEnableDeviceGraph = 0
+	symActivityEnableDriverApi = 0
+	symActivityEnableHWTrace = 0
+	symActivityEnableLatencyTimestamps = 0
+	symActivityEnableLaunchAttributes = 0
+	symActivityEnableRuntimeApi = 0
+	symactivityEnableV2 = 0
 	fnActivityFlush = nil
-	fnActivityFlushAll = nil
-	fnActivityFlushPeriod = nil
-	fnActivityGetAttribute = nil
-	fnactivityGetAttributeV2 = nil
-	fnactivityGetEnabledKinds = nil
-	fnActivityGetNextRecord = nil
+	symActivityFlushAll = 0
+	symActivityFlushPeriod = 0
+	symActivityGetAttribute = 0
+	symactivityGetAttributeV2 = 0
+	symactivityGetEnabledKinds = 0
+	symActivityGetNextRecord = 0
 	fnActivityGetNumDroppedRecords = nil
-	fnActivityGetStructSize = nil
-	fnActivityPopExternalCorrelationId = nil
-	fnActivityPushExternalCorrelationId = nil
-	fnActivityRegisterCallbacks = nil
-	fnactivityRegisterCallbacksV2 = nil
-	fnActivityRegisterTimestampCallback = nil
-	fnActivitySetAttribute = nil
-	fnactivitySetAttributeV2 = nil
-	fnCheckpointFree = nil
-	fnCheckpointRestore = nil
-	fnCheckpointSave = nil
-	fnComputeCapabilitySupported = nil
-	fnDeviceEnumEventDomains = nil
-	fnDeviceEnumMetrics = nil
-	fnDeviceGetAttribute = nil
-	fnDeviceGetChipName = nil
-	fnDeviceGetEventDomainAttribute = nil
-	fnDeviceGetNumEventDomains = nil
-	fnDeviceGetNumMetrics = nil
-	fnDeviceSupported = nil
-	fnDeviceVirtualizationMode = nil
+	symActivityGetStructSize = 0
+	symActivityPopExternalCorrelationId = 0
+	symActivityPushExternalCorrelationId = 0
+	symActivityRegisterCallbacks = 0
+	symactivityRegisterCallbacksV2 = 0
+	symActivityRegisterTimestampCallback = 0
+	symActivitySetAttribute = 0
+	symactivitySetAttributeV2 = 0
+	symCheckpointFree = 0
+	symCheckpointRestore = 0
+	symCheckpointSave = 0
+	symComputeCapabilitySupported = 0
+	symDeviceEnumEventDomains = 0
+	symDeviceEnumMetrics = 0
+	symDeviceGetAttribute = 0
+	symDeviceGetChipName = 0
+	symDeviceGetEventDomainAttribute = 0
+	symDeviceGetNumEventDomains = 0
+	symDeviceGetNumMetrics = 0
+	symDeviceSupported = 0
+	symDeviceVirtualizationMode = 0
 	fnDisableKernelReplayMode = nil
-	fnenableAllDomains = nil
-	fnenableCallback = nil
-	fnenableDomain = nil
+	symenableAllDomains = 0
+	symenableCallback = 0
+	symenableDomain = 0
 	fnEnableKernelReplayMode = nil
-	fnEnumEventDomains = nil
-	fnEnumMetrics = nil
-	fnEventDomainEnumEvents = nil
-	fnEventDomainGetAttribute = nil
-	fnEventDomainGetNumEvents = nil
-	fnEventGetAttribute = nil
-	fnEventGetIdFromName = nil
-	fneventGroupAddEvent = nil
+	symEnumEventDomains = 0
+	symEnumMetrics = 0
+	symEventDomainEnumEvents = 0
+	symEventDomainGetAttribute = 0
+	symEventDomainGetNumEvents = 0
+	symEventGetAttribute = 0
+	symEventGetIdFromName = 0
+	symeventGroupAddEvent = 0
 	fneventGroupCreate = nil
-	fneventGroupDestroy = nil
-	fneventGroupDisable = nil
-	fneventGroupEnable = nil
-	fneventGroupGetAttribute = nil
-	fneventGroupReadAllEvents = nil
-	fneventGroupReadEvent = nil
-	fneventGroupRemoveAllEvents = nil
-	fneventGroupRemoveEvent = nil
-	fneventGroupResetAllEvents = nil
-	fneventGroupSetAttribute = nil
-	fnEventGroupSetDisable = nil
-	fnEventGroupSetEnable = nil
+	symeventGroupDestroy = 0
+	symeventGroupDisable = 0
+	symeventGroupEnable = 0
+	symeventGroupGetAttribute = 0
+	symeventGroupReadAllEvents = 0
+	symeventGroupReadEvent = 0
+	symeventGroupRemoveAllEvents = 0
+	symeventGroupRemoveEvent = 0
+	symeventGroupResetAllEvents = 0
+	symeventGroupSetAttribute = 0
+	symEventGroupSetDisable = 0
+	symEventGroupSetEnable = 0
 	fnEventGroupSetsCreate = nil
-	fnEventGroupSetsDestroy = nil
-	fnFinalize = nil
+	symEventGroupSetsDestroy = 0
+	symFinalize = 0
 	fnGetAutoBoostState = nil
-	fnGetCallbackName = nil
-	fngetCallbackState = nil
+	symGetCallbackName = 0
+	symgetCallbackState = 0
 	fnGetContextId = nil
-	fnGetCubinCrc = nil
+	symGetCubinCrc = 0
 	fnGetDeviceId = nil
-	fngetEnabledCallbacks = nil
-	fnGetGraphExecId = nil
-	fnGetGraphId = nil
-	fnGetGraphNodeId = nil
-	fnGetLastError = nil
-	fnGetNumEventDomains = nil
-	fnGetNumMetrics = nil
-	fnGetSassToSourceCorrelation = nil
+	symgetEnabledCallbacks = 0
+	symGetGraphExecId = 0
+	symGetGraphId = 0
+	symGetGraphNodeId = 0
+	symGetLastError = 0
+	symGetNumEventDomains = 0
+	symGetNumMetrics = 0
+	symGetSassToSourceCorrelation = 0
 	fnGetStreamId = nil
 	fnGetStreamIdEx = nil
-	fnGetThreadIdType = nil
-	fnGetTimestamp = nil
+	symGetThreadIdType = 0
+	symGetTimestamp = 0
 	fnGetVersion = nil
-	fnIsTracingSessionRunning = nil
-	fnKernelReplaySubscribeUpdate = nil
+	symIsTracingSessionRunning = 0
+	symKernelReplaySubscribeUpdate = 0
 	fnMetricCreateEventGroupSets = nil
-	fnMetricEnumEvents = nil
-	fnMetricEnumProperties = nil
-	fnMetricGetAttribute = nil
-	fnMetricGetIdFromName = nil
-	fnMetricGetNumEvents = nil
-	fnMetricGetNumProperties = nil
+	symMetricEnumEvents = 0
+	symMetricEnumProperties = 0
+	symMetricGetAttribute = 0
+	symMetricGetIdFromName = 0
+	symMetricGetNumEvents = 0
+	symMetricGetNumProperties = 0
 	fnMetricGetRequiredEventGroupSets = nil
-	fnMetricGetValue = nil
-	fnMetricGetValue2 = nil
-	fnPCSamplingDisable = nil
-	fnPCSamplingEnable = nil
-	fnPCSamplingGetConfigurationAttribute = nil
-	fnPCSamplingGetData = nil
-	fnPCSamplingGetNumStallReasons = nil
-	fnPCSamplingGetStallReasons = nil
-	fnPCSamplingSetConfigurationAttribute = nil
-	fnPCSamplingStart = nil
-	fnPCSamplingStop = nil
-	fnPmSamplingCounterDataGetSampleInfo = nil
-	fnPmSamplingCounterDataImageInitialize = nil
-	fnPmSamplingDecodeData = nil
-	fnPmSamplingDisable = nil
-	fnPmSamplingEnable = nil
-	fnPmSamplingGetCounterAvailability = nil
-	fnPmSamplingGetCounterDataInfo = nil
-	fnPmSamplingGetCounterDataSize = nil
-	fnPmSamplingSetConfig = nil
-	fnPmSamplingStart = nil
-	fnPmSamplingStop = nil
-	fnProfilerBeginPass = nil
-	fnProfilerBeginSession = nil
-	fnProfilerCounterDataImageCalculateScratchBufferSize = nil
-	fnProfilerCounterDataImageCalculateSize = nil
-	fnProfilerCounterDataImageInitialize = nil
-	fnProfilerCounterDataImageInitializeScratchBuffer = nil
-	fnProfilerDeInitialize = nil
-	fnProfilerDeviceSupported = nil
-	fnProfilerDisableProfiling = nil
-	fnProfilerEnableProfiling = nil
-	fnProfilerEndPass = nil
-	fnProfilerEndSession = nil
-	fnProfilerFlushCounterData = nil
-	fnProfilerGetCounterAvailability = nil
-	fnProfilerHostConfigAddMetrics = nil
-	fnProfilerHostDeinitialize = nil
-	fnProfilerHostEvaluateToGpuValues = nil
-	fnProfilerHostGetBaseMetrics = nil
-	fnProfilerHostGetConfigImage = nil
-	fnProfilerHostGetConfigImageSize = nil
-	fnProfilerHostGetMaxNumHardwareMetricsPerPass = nil
-	fnProfilerHostGetMetricProperties = nil
-	fnProfilerHostGetMetricsInSinglePassSet = nil
-	fnProfilerHostGetNumOfPasses = nil
-	fnProfilerHostGetRangeName = nil
-	fnProfilerHostGetSinglePassSets = nil
-	fnProfilerHostGetSubMetrics = nil
-	fnProfilerHostGetSupportedChips = nil
-	fnProfilerHostInitialize = nil
-	fnProfilerInitialize = nil
-	fnProfilerIsPassCollected = nil
-	fnProfilerPopRange = nil
-	fnProfilerPushRange = nil
-	fnProfilerSetConfig = nil
-	fnProfilerUnsetConfig = nil
-	fnRangeProfilerCounterDataGetRangeInfo = nil
-	fnRangeProfilerCounterDataImageInitialize = nil
-	fnRangeProfilerDecodeData = nil
-	fnRangeProfilerDisable = nil
-	fnRangeProfilerEnable = nil
-	fnRangeProfilerGetCounterDataInfo = nil
-	fnRangeProfilerGetCounterDataSize = nil
-	fnRangeProfilerPopRange = nil
-	fnRangeProfilerPushRange = nil
-	fnRangeProfilerSetConfig = nil
-	fnRangeProfilerStart = nil
-	fnRangeProfilerStop = nil
-	fnRegisterComputeCrcCallback = nil
-	fnSassMetricsDisable = nil
-	fnSassMetricsEnable = nil
-	fnSassMetricsFlushData = nil
-	fnSassMetricsGetDataProperties = nil
-	fnSassMetricsGetMetrics = nil
-	fnSassMetricsGetNumOfMetrics = nil
-	fnSassMetricsGetProperties = nil
-	fnSassMetricsSetConfig = nil
-	fnSassMetricsUnsetConfig = nil
+	symMetricGetValue = 0
+	symMetricGetValue2 = 0
+	symPCSamplingDisable = 0
+	symPCSamplingEnable = 0
+	symPCSamplingGetConfigurationAttribute = 0
+	symPCSamplingGetData = 0
+	symPCSamplingGetNumStallReasons = 0
+	symPCSamplingGetStallReasons = 0
+	symPCSamplingSetConfigurationAttribute = 0
+	symPCSamplingStart = 0
+	symPCSamplingStop = 0
+	symPmSamplingCounterDataGetSampleInfo = 0
+	symPmSamplingCounterDataImageInitialize = 0
+	symPmSamplingDecodeData = 0
+	symPmSamplingDisable = 0
+	symPmSamplingEnable = 0
+	symPmSamplingGetCounterAvailability = 0
+	symPmSamplingGetCounterDataInfo = 0
+	symPmSamplingGetCounterDataSize = 0
+	symPmSamplingSetConfig = 0
+	symPmSamplingStart = 0
+	symPmSamplingStop = 0
+	symProfilerBeginPass = 0
+	symProfilerBeginSession = 0
+	symProfilerCounterDataImageCalculateScratchBufferSize = 0
+	symProfilerCounterDataImageCalculateSize = 0
+	symProfilerCounterDataImageInitialize = 0
+	symProfilerCounterDataImageInitializeScratchBuffer = 0
+	symProfilerDeInitialize = 0
+	symProfilerDeviceSupported = 0
+	symProfilerDisableProfiling = 0
+	symProfilerEnableProfiling = 0
+	symProfilerEndPass = 0
+	symProfilerEndSession = 0
+	symProfilerFlushCounterData = 0
+	symProfilerGetCounterAvailability = 0
+	symProfilerHostConfigAddMetrics = 0
+	symProfilerHostDeinitialize = 0
+	symProfilerHostEvaluateToGpuValues = 0
+	symProfilerHostGetBaseMetrics = 0
+	symProfilerHostGetConfigImage = 0
+	symProfilerHostGetConfigImageSize = 0
+	symProfilerHostGetMaxNumHardwareMetricsPerPass = 0
+	symProfilerHostGetMetricProperties = 0
+	symProfilerHostGetMetricsInSinglePassSet = 0
+	symProfilerHostGetNumOfPasses = 0
+	symProfilerHostGetRangeName = 0
+	symProfilerHostGetSinglePassSets = 0
+	symProfilerHostGetSubMetrics = 0
+	symProfilerHostGetSupportedChips = 0
+	symProfilerHostInitialize = 0
+	symProfilerInitialize = 0
+	symProfilerIsPassCollected = 0
+	symProfilerPopRange = 0
+	symProfilerPushRange = 0
+	symProfilerSetConfig = 0
+	symProfilerUnsetConfig = 0
+	symRangeProfilerCounterDataGetRangeInfo = 0
+	symRangeProfilerCounterDataImageInitialize = 0
+	symRangeProfilerDecodeData = 0
+	symRangeProfilerDisable = 0
+	symRangeProfilerEnable = 0
+	symRangeProfilerGetCounterDataInfo = 0
+	symRangeProfilerGetCounterDataSize = 0
+	symRangeProfilerPopRange = 0
+	symRangeProfilerPushRange = 0
+	symRangeProfilerSetConfig = 0
+	symRangeProfilerStart = 0
+	symRangeProfilerStop = 0
+	symRegisterComputeCrcCallback = 0
+	symSassMetricsDisable = 0
+	symSassMetricsEnable = 0
+	symSassMetricsFlushData = 0
+	symSassMetricsGetDataProperties = 0
+	symSassMetricsGetMetrics = 0
+	symSassMetricsGetNumOfMetrics = 0
+	symSassMetricsGetProperties = 0
+	symSassMetricsSetConfig = 0
+	symSassMetricsUnsetConfig = 0
 	fnSetEventCollectionMode = nil
-	fnSetThreadIdType = nil
-	fnSubscribe = nil
-	fnSubscribeV2 = nil
-	fnSupportedDomains = nil
-	fnunsubscribe = nil
+	symSetThreadIdType = 0
+	symSubscribe = 0
+	symSubscribeV2 = 0
+	symSupportedDomains = 0
+	symunsubscribe = 0
 }
 
 // HasGetResultString reports whether cuptiGetResultString resolved in the loaded library.

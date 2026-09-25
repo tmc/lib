@@ -2,7 +2,7 @@
 
 package cudensitymat
 
-// Destroy Destroys a workspace descriptor.
+// Destroy destroys a workspace descriptor.
 //
 // Wraps cudensitymatDestroyWorkspace.
 func (w WorkspaceDescriptor) Destroy() error {

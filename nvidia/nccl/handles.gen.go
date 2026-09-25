@@ -33,12 +33,16 @@ type Registration uintptr
 type UniqueId struct{ Internal [128]byte }
 
 // Comm is NCCL communicator.
+//
+// Points to an opaque structure inside NCCL.
 type Comm uintptr
 
 // Window is NCCL window object for window registration and deregistration.
 type Window uintptr
 
-// ParamHandle is an opaque handle for ncclParamHandle_t.
+// ParamHandle is Opaque handle that represents a binding between a caller and a parameter.
+//
+// It is created by [ParamBind]. The handle remains valid for duration of the NCCL module’s lifetime; callers must not free it or expect it to be accessible during static destruction or process tear down.
 type ParamHandle uintptr
 
 // DevCommWindowTable is an opaque handle for ncclDevCommWindowTable_t.

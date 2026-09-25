@@ -6,7 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
-	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func TestCallbackABI(t *testing.T) {
@@ -14,7 +14,7 @@ func TestCallbackABI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := &collection{pool: pool, dropped: func(context cupti.Context, stream uint32) (uint, error) {
+	c := &collection{pool: pool, dropped: func(context driver.Context, stream uint32) (uint, error) {
 		if context != 17 || stream != 23 {
 			t.Errorf("callback context=%d stream=%d", context, stream)
 		}
@@ -29,7 +29,7 @@ func TestCallbackABI(t *testing.T) {
 	nativeSessions.Unlock()
 	t.Cleanup(func() { nativeSessions.Lock(); nativeSessions.active = nil; nativeSessions.Unlock() })
 	var request func(*uintptr, *uint, *uint)
-	var complete func(cupti.Context, uint32, uintptr, uint, uint)
+	var complete func(driver.Context, uint32, uintptr, uint, uint)
 	purego.RegisterFunc(&request, purego.NewCallback(requestBuffer))
 	purego.RegisterFunc(&complete, purego.NewCallback(completeBuffer))
 	var pointer uintptr
@@ -87,7 +87,7 @@ func TestCompleteBufferRemainsActiveAfterBufferReturn(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	done := make(chan struct{})
-	c := &collection{pool: pool, dropped: func(cupti.Context, uint32) (uint, error) {
+	c := &collection{pool: pool, dropped: func(driver.Context, uint32) (uint, error) {
 		close(entered)
 		<-release
 		return 0, nil

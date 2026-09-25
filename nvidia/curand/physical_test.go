@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"slices"
 	"testing"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/curand"
 	"github.com/tmc/lib/nvidia/driver"
@@ -64,10 +63,10 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 		check(err)
 		defer func() { check(gen.Destroy()) }()
 		check(gen.SetPseudoRandomGeneratorSeed(seed))
-		check(gen.GenerateUniform((*float32)(unsafe.Pointer(uintptr(ptr))), count))
+		check(gen.GenerateUniform(ptr, count))
 		check(driver.CtxSynchronize())
 		out := make([]float32, count)
-		check(ptr.CopyToHostPtr(unsafe.Pointer(&out[0]), count*4))
+		check(ptr.CopyToHost(out))
 		return out
 	}
 	host := func(seed uint64) []float32 {
@@ -77,7 +76,7 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 		defer func() { check(gen.Destroy()) }()
 		check(gen.SetPseudoRandomGeneratorSeed(seed))
 		out := make([]float32, count)
-		check(gen.GenerateUniform(&out[0], count))
+		check(gen.GenerateUniformHost(out))
 		return out
 	}
 

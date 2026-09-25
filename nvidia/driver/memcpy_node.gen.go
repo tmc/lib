@@ -10,7 +10,7 @@ type MemcpyNode struct {
 	GraphNode
 }
 
-// Params Returns a memcpy node’s parameters.
+// Params returns a memcpy node’s parameters.
 //
 // Returns the parameters of memcpy node hNode in nodeParams.
 //
@@ -25,7 +25,7 @@ func (m MemcpyNode) Params() (Memcpy3d, error) {
 	return graphMemcpyNodeGetParams(m.GraphNode)
 }
 
-// SetParams Sets a memcpy node’s parameters.
+// SetParams sets a memcpy node’s parameters.
 //
 // Sets the parameters of memcpy node hNode to nodeParams.
 //

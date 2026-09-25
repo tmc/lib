@@ -325,6 +325,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -412,106 +427,106 @@ func checkLibSym(symbol string) error {
 func registerFuncs() {
 	register(&fnGetStatusName, "cublasLtGetStatusName")
 	register(&fnGetStatusString, "cublasLtGetStatusString")
-	register(&fnCreate, "cublasLtCreate")
-	register(&fndestroy, "cublasLtDestroy")
-	register(&fnemulationDescCreate, "cublasLtEmulationDescCreate")
-	register(&fnemulationDescDestroy, "cublasLtEmulationDescDestroy")
-	register(&fnemulationDescGetAttribute, "cublasLtEmulationDescGetAttribute")
-	register(&fnemulationDescInit_internal, "cublasLtEmulationDescInit_internal")
-	register(&fnemulationDescSetAttribute, "cublasLtEmulationDescSetAttribute")
-	register(&fnGetProperty, "cublasLtGetProperty")
-	register(&fnGroupedMatrixLayoutCreate, "cublasLtGroupedMatrixLayoutCreate")
-	register(&fngroupedMatrixLayoutInit_internal, "cublasLtGroupedMatrixLayoutInit_internal")
-	register(&fnHeuristicsCacheGetCapacity, "cublasLtHeuristicsCacheGetCapacity")
-	register(&fnHeuristicsCacheSetCapacity, "cublasLtHeuristicsCacheSetCapacity")
-	register(&fnLoggerForceDisable, "cublasLtLoggerForceDisable")
-	register(&fnLoggerOpenFile, "cublasLtLoggerOpenFile")
-	register(&fnLoggerSetCallback, "cublasLtLoggerSetCallback")
-	register(&fnLoggerSetFile, "cublasLtLoggerSetFile")
-	register(&fnLoggerSetLevel, "cublasLtLoggerSetLevel")
-	register(&fnLoggerSetMask, "cublasLtLoggerSetMask")
+	symCreate = registerSym("cublasLtCreate")
+	symdestroy = registerSym("cublasLtDestroy")
+	symemulationDescCreate = registerSym("cublasLtEmulationDescCreate")
+	symemulationDescDestroy = registerSym("cublasLtEmulationDescDestroy")
+	symemulationDescGetAttribute = registerSym("cublasLtEmulationDescGetAttribute")
+	symemulationDescInit_internal = registerSym("cublasLtEmulationDescInit_internal")
+	symemulationDescSetAttribute = registerSym("cublasLtEmulationDescSetAttribute")
+	symGetProperty = registerSym("cublasLtGetProperty")
+	symGroupedMatrixLayoutCreate = registerSym("cublasLtGroupedMatrixLayoutCreate")
+	symgroupedMatrixLayoutInit_internal = registerSym("cublasLtGroupedMatrixLayoutInit_internal")
+	symHeuristicsCacheGetCapacity = registerSym("cublasLtHeuristicsCacheGetCapacity")
+	symHeuristicsCacheSetCapacity = registerSym("cublasLtHeuristicsCacheSetCapacity")
+	symLoggerForceDisable = registerSym("cublasLtLoggerForceDisable")
+	symLoggerOpenFile = registerSym("cublasLtLoggerOpenFile")
+	symLoggerSetCallback = registerSym("cublasLtLoggerSetCallback")
+	symLoggerSetFile = registerSym("cublasLtLoggerSetFile")
+	symLoggerSetLevel = registerSym("cublasLtLoggerSetLevel")
+	symLoggerSetMask = registerSym("cublasLtLoggerSetMask")
 	register(&fnmatmul, "cublasLtMatmul")
-	register(&fnMatmulAlgoCapGetAttribute, "cublasLtMatmulAlgoCapGetAttribute")
-	register(&fnmatmulAlgoCheck, "cublasLtMatmulAlgoCheck")
-	register(&fnMatmulAlgoConfigGetAttribute, "cublasLtMatmulAlgoConfigGetAttribute")
-	register(&fnMatmulAlgoConfigSetAttribute, "cublasLtMatmulAlgoConfigSetAttribute")
-	register(&fnmatmulAlgoGetHeuristic, "cublasLtMatmulAlgoGetHeuristic")
-	register(&fnmatmulAlgoGetIds, "cublasLtMatmulAlgoGetIds")
-	register(&fnmatmulAlgoInit, "cublasLtMatmulAlgoInit")
-	register(&fnmatmulDescCreate, "cublasLtMatmulDescCreate")
-	register(&fnmatmulDescDestroy, "cublasLtMatmulDescDestroy")
-	register(&fnmatmulDescGetAttribute, "cublasLtMatmulDescGetAttribute")
-	register(&fnmatmulDescInit_internal, "cublasLtMatmulDescInit_internal")
-	register(&fnmatmulDescSetAttribute, "cublasLtMatmulDescSetAttribute")
-	register(&fnmatmulPreferenceCreate, "cublasLtMatmulPreferenceCreate")
-	register(&fnmatmulPreferenceDestroy, "cublasLtMatmulPreferenceDestroy")
-	register(&fnmatmulPreferenceGetAttribute, "cublasLtMatmulPreferenceGetAttribute")
-	register(&fnmatmulPreferenceInit_internal, "cublasLtMatmulPreferenceInit_internal")
-	register(&fnmatmulPreferenceSetAttribute, "cublasLtMatmulPreferenceSetAttribute")
-	register(&fnmatrixLayoutCreate, "cublasLtMatrixLayoutCreate")
-	register(&fnmatrixLayoutDestroy, "cublasLtMatrixLayoutDestroy")
-	register(&fnmatrixLayoutGetAttribute, "cublasLtMatrixLayoutGetAttribute")
-	register(&fnmatrixLayoutInit_internal, "cublasLtMatrixLayoutInit_internal")
-	register(&fnmatrixLayoutSetAttribute, "cublasLtMatrixLayoutSetAttribute")
+	symMatmulAlgoCapGetAttribute = registerSym("cublasLtMatmulAlgoCapGetAttribute")
+	symmatmulAlgoCheck = registerSym("cublasLtMatmulAlgoCheck")
+	symMatmulAlgoConfigGetAttribute = registerSym("cublasLtMatmulAlgoConfigGetAttribute")
+	symMatmulAlgoConfigSetAttribute = registerSym("cublasLtMatmulAlgoConfigSetAttribute")
+	symmatmulAlgoGetHeuristic = registerSym("cublasLtMatmulAlgoGetHeuristic")
+	symmatmulAlgoGetIds = registerSym("cublasLtMatmulAlgoGetIds")
+	symmatmulAlgoInit = registerSym("cublasLtMatmulAlgoInit")
+	symmatmulDescCreate = registerSym("cublasLtMatmulDescCreate")
+	symmatmulDescDestroy = registerSym("cublasLtMatmulDescDestroy")
+	symmatmulDescGetAttribute = registerSym("cublasLtMatmulDescGetAttribute")
+	symmatmulDescInit_internal = registerSym("cublasLtMatmulDescInit_internal")
+	symmatmulDescSetAttribute = registerSym("cublasLtMatmulDescSetAttribute")
+	symmatmulPreferenceCreate = registerSym("cublasLtMatmulPreferenceCreate")
+	symmatmulPreferenceDestroy = registerSym("cublasLtMatmulPreferenceDestroy")
+	symmatmulPreferenceGetAttribute = registerSym("cublasLtMatmulPreferenceGetAttribute")
+	symmatmulPreferenceInit_internal = registerSym("cublasLtMatmulPreferenceInit_internal")
+	symmatmulPreferenceSetAttribute = registerSym("cublasLtMatmulPreferenceSetAttribute")
+	symmatrixLayoutCreate = registerSym("cublasLtMatrixLayoutCreate")
+	symmatrixLayoutDestroy = registerSym("cublasLtMatrixLayoutDestroy")
+	symmatrixLayoutGetAttribute = registerSym("cublasLtMatrixLayoutGetAttribute")
+	symmatrixLayoutInit_internal = registerSym("cublasLtMatrixLayoutInit_internal")
+	symmatrixLayoutSetAttribute = registerSym("cublasLtMatrixLayoutSetAttribute")
 	register(&fnmatrixTransform, "cublasLtMatrixTransform")
-	register(&fnmatrixTransformDescCreate, "cublasLtMatrixTransformDescCreate")
-	register(&fnmatrixTransformDescDestroy, "cublasLtMatrixTransformDescDestroy")
-	register(&fnmatrixTransformDescGetAttribute, "cublasLtMatrixTransformDescGetAttribute")
-	register(&fnmatrixTransformDescInit_internal, "cublasLtMatrixTransformDescInit_internal")
-	register(&fnmatrixTransformDescSetAttribute, "cublasLtMatrixTransformDescSetAttribute")
+	symmatrixTransformDescCreate = registerSym("cublasLtMatrixTransformDescCreate")
+	symmatrixTransformDescDestroy = registerSym("cublasLtMatrixTransformDescDestroy")
+	symmatrixTransformDescGetAttribute = registerSym("cublasLtMatrixTransformDescGetAttribute")
+	symmatrixTransformDescInit_internal = registerSym("cublasLtMatrixTransformDescInit_internal")
+	symmatrixTransformDescSetAttribute = registerSym("cublasLtMatrixTransformDescSetAttribute")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetStatusName = nil
 	fnGetStatusString = nil
-	fnCreate = nil
-	fndestroy = nil
-	fnemulationDescCreate = nil
-	fnemulationDescDestroy = nil
-	fnemulationDescGetAttribute = nil
-	fnemulationDescInit_internal = nil
-	fnemulationDescSetAttribute = nil
-	fnGetProperty = nil
-	fnGroupedMatrixLayoutCreate = nil
-	fngroupedMatrixLayoutInit_internal = nil
-	fnHeuristicsCacheGetCapacity = nil
-	fnHeuristicsCacheSetCapacity = nil
-	fnLoggerForceDisable = nil
-	fnLoggerOpenFile = nil
-	fnLoggerSetCallback = nil
-	fnLoggerSetFile = nil
-	fnLoggerSetLevel = nil
-	fnLoggerSetMask = nil
+	symCreate = 0
+	symdestroy = 0
+	symemulationDescCreate = 0
+	symemulationDescDestroy = 0
+	symemulationDescGetAttribute = 0
+	symemulationDescInit_internal = 0
+	symemulationDescSetAttribute = 0
+	symGetProperty = 0
+	symGroupedMatrixLayoutCreate = 0
+	symgroupedMatrixLayoutInit_internal = 0
+	symHeuristicsCacheGetCapacity = 0
+	symHeuristicsCacheSetCapacity = 0
+	symLoggerForceDisable = 0
+	symLoggerOpenFile = 0
+	symLoggerSetCallback = 0
+	symLoggerSetFile = 0
+	symLoggerSetLevel = 0
+	symLoggerSetMask = 0
 	fnmatmul = nil
-	fnMatmulAlgoCapGetAttribute = nil
-	fnmatmulAlgoCheck = nil
-	fnMatmulAlgoConfigGetAttribute = nil
-	fnMatmulAlgoConfigSetAttribute = nil
-	fnmatmulAlgoGetHeuristic = nil
-	fnmatmulAlgoGetIds = nil
-	fnmatmulAlgoInit = nil
-	fnmatmulDescCreate = nil
-	fnmatmulDescDestroy = nil
-	fnmatmulDescGetAttribute = nil
-	fnmatmulDescInit_internal = nil
-	fnmatmulDescSetAttribute = nil
-	fnmatmulPreferenceCreate = nil
-	fnmatmulPreferenceDestroy = nil
-	fnmatmulPreferenceGetAttribute = nil
-	fnmatmulPreferenceInit_internal = nil
-	fnmatmulPreferenceSetAttribute = nil
-	fnmatrixLayoutCreate = nil
-	fnmatrixLayoutDestroy = nil
-	fnmatrixLayoutGetAttribute = nil
-	fnmatrixLayoutInit_internal = nil
-	fnmatrixLayoutSetAttribute = nil
+	symMatmulAlgoCapGetAttribute = 0
+	symmatmulAlgoCheck = 0
+	symMatmulAlgoConfigGetAttribute = 0
+	symMatmulAlgoConfigSetAttribute = 0
+	symmatmulAlgoGetHeuristic = 0
+	symmatmulAlgoGetIds = 0
+	symmatmulAlgoInit = 0
+	symmatmulDescCreate = 0
+	symmatmulDescDestroy = 0
+	symmatmulDescGetAttribute = 0
+	symmatmulDescInit_internal = 0
+	symmatmulDescSetAttribute = 0
+	symmatmulPreferenceCreate = 0
+	symmatmulPreferenceDestroy = 0
+	symmatmulPreferenceGetAttribute = 0
+	symmatmulPreferenceInit_internal = 0
+	symmatmulPreferenceSetAttribute = 0
+	symmatrixLayoutCreate = 0
+	symmatrixLayoutDestroy = 0
+	symmatrixLayoutGetAttribute = 0
+	symmatrixLayoutInit_internal = 0
+	symmatrixLayoutSetAttribute = 0
 	fnmatrixTransform = nil
-	fnmatrixTransformDescCreate = nil
-	fnmatrixTransformDescDestroy = nil
-	fnmatrixTransformDescGetAttribute = nil
-	fnmatrixTransformDescInit_internal = nil
-	fnmatrixTransformDescSetAttribute = nil
+	symmatrixTransformDescCreate = 0
+	symmatrixTransformDescDestroy = 0
+	symmatrixTransformDescGetAttribute = 0
+	symmatrixTransformDescInit_internal = 0
+	symmatrixTransformDescSetAttribute = 0
 }
 
 // HasGetStatusName reports whether cublasLtGetStatusName resolved in the loaded library.

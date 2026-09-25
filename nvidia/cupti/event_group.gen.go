@@ -2,9 +2,12 @@
 
 package cupti
 
-import "unsafe"
+import (
+	"github.com/tmc/lib/nvidia/driver"
+	"unsafe"
+)
 
-// AddEvent Add an event to an event group.
+// AddEvent adds an event to an event group.
 //
 // The event add can fail for a number of reasons:
 // - The event group is enabled
@@ -32,7 +35,7 @@ func (e EventGroup) AddEvent(event uint32) error {
 	return eventGroupAddEvent(e, event)
 }
 
-// Destroy Destroy an event group.
+// Destroy destroys an event group.
 //
 // Destroy an eventGroup and free its resources. An event group
 // cannot be destroyed if it is enabled.
@@ -50,7 +53,7 @@ func (e EventGroup) Destroy() error {
 	return eventGroupDestroy(e)
 }
 
-// Disable Disable an event group.
+// Disable disables an event group.
 //
 // Disabling an event group stops collection
 // of events contained in the group.
@@ -68,7 +71,7 @@ func (e EventGroup) Disable() error {
 	return eventGroupDisable(e)
 }
 
-// Enable Enable an event group.
+// Enable enables an event group.
 //
 // Enabling an event group zeros the value of
 // all the events in the group and then starts collection of those
@@ -90,7 +93,7 @@ func (e EventGroup) Enable() error {
 	return eventGroupEnable(e)
 }
 
-// Attribute Read an event group attribute.
+// Attribute reads an event group attribute.
 //
 // Read an event group attribute and return it in *value.
 // must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
@@ -117,10 +120,10 @@ func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value
 	return eventGroupGetAttribute(e, attrib, valueSize, value)
 }
 
-// ReadAllEvents Read the values for all the events in an event group.
+// ReadAllEvents reads the values for all the events in an event group.
 //
 // The event
-// values are returned in the eventValueBuffer buffer. eventValueBufferSizeBytes indicates the size of eventValueBuffer. The buffer must be at least (sizeof(uint64) *
+// values are returned in the eventValueBuffer buffer. The buffer must be at least (sizeof(uint64) *
 // number of events in group) if
 // [EventGroupAttrProfileAllDomainInstances] is not set on
 // the group containing the events. The buffer must be at least
@@ -134,7 +137,7 @@ func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value
 // - ...
 // - domain instance M: event0 event1 ... eventN
 //
-// The event order in eventValueBuffer is returned in eventIdArray. The size of eventIdArray is specified in eventIdArraySizeBytes. The size should be at least
+// The event order in eventValueBuffer is returned in eventIdArray. The size should be at least
 // (sizeof(CUpti_EventID) * number of events in group).
 //
 // If any instance of any event counter overflows, the value returned
@@ -156,9 +159,7 @@ func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value
 // Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
 //
 //   - flags: Flags controlling the reading mode
-//   - eventValueBufferSizeBytes: The size of eventValueBuffer in bytes, and returns the number of bytes written to eventValueBuffer
 //   - eventValueBuffer: Returns the event values
-//   - eventIdArraySizeBytes: The size of eventIdArray in bytes, and returns the number of bytes written to eventIdArray
 //   - eventIdArray: Returns the IDs of the events in the same order as the values return in eventValueBuffer
 //
 // Returns:
@@ -170,11 +171,11 @@ func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value
 //   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer or eventIdArray is not sufficient
 //
 // Wraps cuptiEventGroupReadAllEvents.
-func (e EventGroup) ReadAllEvents(flags ReadEventFlags, eventValueBufferSizeBytes *uint, eventValueBuffer *uint64, eventIdArraySizeBytes *uint, eventIdArray *uint32) (uint, error) {
-	return eventGroupReadAllEvents(e, flags, eventValueBufferSizeBytes, eventValueBuffer, eventIdArraySizeBytes, eventIdArray)
+func (e EventGroup) ReadAllEvents(flags ReadEventFlags, eventValueBuffer []uint64, eventIdArray []uint32) (int, error) {
+	return eventGroupReadAllEvents(e, flags, eventValueBuffer, eventIdArray)
 }
 
-// ReadEvent Read the value for an event in an event group.
+// ReadEvent reads the value for an event in an event group.
 //
 // The event value is
 // returned in the eventValueBuffer buffer. eventValueBufferSizeBytes indicates the size of the eventValueBuffer buffer. The buffer must be at least sizeof(uint64)
@@ -221,7 +222,7 @@ func (e EventGroup) ReadEvent(flags ReadEventFlags, event uint32, eventValueBuff
 	return eventGroupReadEvent(e, flags, event, eventValueBufferSizeBytes, eventValueBuffer)
 }
 
-// RemoveAllEvents Remove all events from an event group.
+// RemoveAllEvents removes all events from an event group.
 //
 // Events cannot be removed if
 // the event group is enabled.
@@ -239,7 +240,7 @@ func (e EventGroup) RemoveAllEvents() error {
 	return eventGroupRemoveAllEvents(e)
 }
 
-// RemoveEvent Remove an event from an event group.
+// RemoveEvent removes an event from an event group.
 //
 // Remove event from the an event group. The event cannot be
 // removed if the event group is enabled.
@@ -282,7 +283,7 @@ func (e EventGroup) ResetAllEvents() error {
 	return eventGroupResetAllEvents(e)
 }
 
-// SetAttribute Write an event group attribute.
+// SetAttribute writes an event group attribute.
 //
 // Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
 //
@@ -301,7 +302,7 @@ func (e EventGroup) SetAttribute(attrib EventGroupAttribute, valueSize uint, val
 	return eventGroupSetAttribute(e, attrib, valueSize, value)
 }
 
-// NewEventGroup Create a new event group for a context.
+// NewEventGroup creates a new event group for a context.
 //
 // Creates a new event group for context and returns the new group
 // in *eventGroup.
@@ -320,6 +321,6 @@ func (e EventGroup) SetAttribute(attrib EventGroupAttribute, valueSize uint, val
 //   - [ErrInvalidParameter]: if eventGroup is NULL
 //
 // Wraps cuptiEventGroupCreate.
-func NewEventGroup(context Context, flags uint32) (EventGroup, error) {
+func NewEventGroup(context driver.Context, flags uint32) (EventGroup, error) {
 	return eventGroupCreate(context, flags)
 }

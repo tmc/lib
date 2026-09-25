@@ -321,3 +321,155 @@ func (e MathMode) String() string {
 	}
 	return fmt.Sprintf("MathMode(%d)", e)
 }
+
+// EmulationStrategy selects CUDA floating-point emulation.
+type EmulationStrategy int32
+
+const (
+	EmulationStrategyDefault    EmulationStrategy = 0
+	EmulationStrategyPerformant EmulationStrategy = 1
+	EmulationStrategyEager      EmulationStrategy = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EmulationStrategy) String() string {
+	switch e {
+	case EmulationStrategyDefault:
+		return "EmulationStrategyDefault"
+	case EmulationStrategyPerformant:
+		return "EmulationStrategyPerformant"
+	case EmulationStrategyEager:
+		return "EmulationStrategyEager"
+	}
+	return fmt.Sprintf("EmulationStrategy(%d)", e)
+}
+
+// EmulationMantissaControl controls emulated mantissa precision.
+type EmulationMantissaControl int32
+
+const (
+	EmulationMantissaControlDynamic EmulationMantissaControl = 0
+	EmulationMantissaControlFixed   EmulationMantissaControl = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EmulationMantissaControl) String() string {
+	switch e {
+	case EmulationMantissaControlDynamic:
+		return "EmulationMantissaControlDynamic"
+	case EmulationMantissaControlFixed:
+		return "EmulationMantissaControlFixed"
+	}
+	return fmt.Sprintf("EmulationMantissaControl(%d)", e)
+}
+
+// EmulationSpecialValuesSupport controls special-value emulation.
+type EmulationSpecialValuesSupport int32
+
+const (
+	EmulationSpecialValuesSupportDefault  EmulationSpecialValuesSupport = 0xFFFF
+	EmulationSpecialValuesSupportNone     EmulationSpecialValuesSupport = 0
+	EmulationSpecialValuesSupportInfinity EmulationSpecialValuesSupport = 1
+	EmulationSpecialValuesSupportNan      EmulationSpecialValuesSupport = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e EmulationSpecialValuesSupport) String() string {
+	switch e {
+	case EmulationSpecialValuesSupportDefault:
+		return "EmulationSpecialValuesSupportDefault"
+	case EmulationSpecialValuesSupportNone:
+		return "EmulationSpecialValuesSupportNone"
+	case EmulationSpecialValuesSupportInfinity:
+		return "EmulationSpecialValuesSupportInfinity"
+	case EmulationSpecialValuesSupportNan:
+		return "EmulationSpecialValuesSupportNan"
+	}
+	return fmt.Sprintf("EmulationSpecialValuesSupport(%d)", e)
+}
+
+// FillMode selects the stored triangle of a matrix.
+type FillMode int32
+
+const (
+	FillModeLower FillMode = 0
+	FillModeUpper FillMode = 1
+	FillModeFull  FillMode = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e FillMode) String() string {
+	switch e {
+	case FillModeLower:
+		return "FillModeLower"
+	case FillModeUpper:
+		return "FillModeUpper"
+	case FillModeFull:
+		return "FillModeFull"
+	}
+	return fmt.Sprintf("FillMode(%d)", e)
+}
+
+// DiagType selects whether a matrix diagonal is unit.
+type DiagType int32
+
+const (
+	DiagNonUnit DiagType = 0
+	DiagUnit    DiagType = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e DiagType) String() string {
+	switch e {
+	case DiagNonUnit:
+		return "DiagNonUnit"
+	case DiagUnit:
+		return "DiagUnit"
+	}
+	return fmt.Sprintf("DiagType(%d)", e)
+}
+
+// SideMode selects the side of a matrix operation.
+type SideMode int32
+
+const (
+	SideLeft  SideMode = 0
+	SideRight SideMode = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e SideMode) String() string {
+	switch e {
+	case SideLeft:
+		return "SideLeft"
+	case SideRight:
+		return "SideRight"
+	}
+	return fmt.Sprintf("SideMode(%d)", e)
+}
+
+// Operation selects a matrix operation.
+type Operation int32
+
+const (
+	OpN        Operation = 0
+	OpT        Operation = 1
+	OpC        Operation = 2
+	OpHermitan Operation = 2
+	OpConjg    Operation = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e Operation) String() string {
+	switch e {
+	case OpN:
+		return "OpN"
+	case OpT:
+		return "OpT"
+	case OpC:
+		return "OpC"
+	case OpConjg:
+		return "OpConjg"
+	}
+	return fmt.Sprintf("Operation(%d)", e)
+}

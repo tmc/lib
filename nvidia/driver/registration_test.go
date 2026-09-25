@@ -26,11 +26,19 @@ func TestGeneratedRegistrationCoverage(t *testing.T) {
 			if g, ok := d.(*ast.GenDecl); ok && g.Tok == token.VAR {
 				for _, spec := range g.Specs {
 					v := spec.(*ast.ValueSpec)
-					if _, ok := v.Type.(*ast.FuncType); !ok {
+					prefix := "fn"
+					switch t := v.Type.(type) {
+					case *ast.FuncType:
+					case *ast.Ident:
+						if t.Name != "uintptr" {
+							continue
+						}
+						prefix = "sym"
+					default:
 						continue
 					}
 					for _, name := range v.Names {
-						if strings.HasPrefix(name.Name, "fn") {
+						if strings.HasPrefix(name.Name, prefix) {
 							declared[name.Name] = true
 						}
 					}
@@ -41,12 +49,29 @@ func TestGeneratedRegistrationCoverage(t *testing.T) {
 				continue
 			}
 			ast.Inspect(fn.Body, func(n ast.Node) bool {
-				if fn.Name.Name == "clearFuncs" {
-					if a, ok := n.(*ast.AssignStmt); ok && len(a.Lhs) == 1 && len(a.Rhs) == 1 {
-						lhs, lok := a.Lhs[0].(*ast.Ident)
-						rhs, rok := a.Rhs[0].(*ast.Ident)
-						if lok && rok && rhs.Name == "nil" {
+				if a, ok := n.(*ast.AssignStmt); ok && len(a.Lhs) == 1 && len(a.Rhs) == 1 {
+					lhs, _ := a.Lhs[0].(*ast.Ident)
+					switch rhs := a.Rhs[0].(type) {
+					case *ast.Ident:
+						if fn.Name.Name == "clearFuncs" && lhs != nil && rhs.Name == "nil" {
 							cleared[lhs.Name] = true
+						}
+					case *ast.BasicLit:
+						if fn.Name.Name == "clearFuncs" && lhs != nil && rhs.Value == "0" {
+							cleared[lhs.Name] = true
+						}
+					case *ast.CallExpr:
+						// symX = registerSym("symbol") binds a positional call.
+						callee, ok := rhs.Fun.(*ast.Ident)
+						if fn.Name.Name == "registerFuncs" && lhs != nil && ok && callee.Name == "registerSym" && len(rhs.Args) == 1 {
+							symbol, err := strconv.Unquote(rhs.Args[0].(*ast.BasicLit).Value)
+							if err != nil {
+								t.Fatal(err)
+							}
+							if _, exists := registered[lhs.Name]; exists {
+								t.Errorf("%s registered more than once", lhs.Name)
+							}
+							registered[lhs.Name] = symbol
 						}
 					}
 				}

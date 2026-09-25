@@ -6,7 +6,7 @@ import (
 	"unsafe"
 )
 
-// CreateElementaryOperator Creates an elementary tensor operator acting on a given number of quantum state modes (aka space modes).
+// CreateElementaryOperator creates an elementary tensor operator acting on a given number of quantum state modes (aka space modes).
 //
 // An elementary tensor operator is a single tensor operator
 // acting on a specific set of space modes (quantum degrees of freedom).
@@ -55,7 +55,7 @@ func (h Handle) CreateElementaryOperator(numSpaceModes int32, spaceModeExtents *
 	return createElementaryOperator(h, numSpaceModes, spaceModeExtents, sparsity, numDiagonals, diagonalOffsets, dataType, tensorData, tensorCallback, tensorGradientCallback)
 }
 
-// CreateExpectation Creates the operator expectation value computation object.
+// CreateExpectation creates the operator expectation value computation object.
 //
 // Note: The unnormalized expectation value will be produced
 // during the computation. If the quantum state is not normalized,
@@ -71,7 +71,7 @@ func (h Handle) CreateExpectation(superoperator Operator) (Expectation, error) {
 	return createExpectation(h, superoperator)
 }
 
-// CreateOperator Creates an empty operator which is going to be a collection of operator terms with some coefficients.
+// CreateOperator creates an empty operator which is going to be a collection of operator terms with some coefficients.
 //
 // If the operator is expected to act on a pure quantum state,
 // it is just a regular operator that will act on the pure state vector
@@ -93,7 +93,9 @@ func (h Handle) CreateOperator(numSpaceModes int32, spaceModeExtents *int64) (Op
 	return createOperator(h, numSpaceModes, spaceModeExtents)
 }
 
-// CreateOperatorTerm Creates an empty operator term which is going to be a sum of products of either elementary tensor operators or full matrix operators.
+// CreateOperatorTerm creates an empty operator term which is going to be a sum of products of either elementary tensor operators or full matrix operators.
+//
+// Each individual elementary tensor operator within a product acts on a subset of space modes, either from the left or from the right (for each mode). Each full matrix operator within a product acts on all space modes, either from the left or from the right (for all modes).
 //
 // Note: The created operator term will only be able to act on the quantum
 // states which reside in the same space where the operator term is set to act.
@@ -106,7 +108,7 @@ func (h Handle) CreateOperatorTerm(numSpaceModes int32, spaceModeExtents *int64)
 	return createOperatorTerm(h, numSpaceModes, spaceModeExtents)
 }
 
-// CreateState Defines an empty dense quantum state of a given purity and shape, or a batch of such dense quantum states.
+// CreateState defines an empty dense quantum state of a given purity and shape, or a batch of such dense quantum states.
 //
 // The number of space modes defining the state space is always the
 // number of quantum degrees of freedom used to define the corresponding
@@ -135,35 +137,35 @@ func (h Handle) CreateState(purity StatePurity, numSpaceModes int32, spaceModeEx
 	return createState(h, purity, numSpaceModes, spaceModeExtents, batchSize, dataType)
 }
 
-// CreateWorkspace Creates a workspace descriptor.
+// CreateWorkspace creates a workspace descriptor.
 //
 // Wraps cudensitymatCreateWorkspace.
 func (h Handle) CreateWorkspace() (WorkspaceDescriptor, error) {
 	return createWorkspace(h)
 }
 
-// Destroy Destroys the library context.
+// Destroy destroys the library context.
 //
 // Wraps cudensitymatDestroy.
 func (h Handle) Destroy() error {
 	return destroy(h)
 }
 
-// NumRanks Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
+// NumRanks returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
 //
 // Wraps cudensitymatGetNumRanks.
 func (h Handle) NumRanks() (int32, error) {
 	return getNumRanks(h)
 }
 
-// ProcRank Returns the rank of the current process in the distributed execution configuration associated with the given library context.
+// ProcRank returns the rank of the current process in the distributed execution configuration associated with the given library context.
 //
 // Wraps cudensitymatGetProcRank.
 func (h Handle) ProcRank() (int32, error) {
 	return getProcRank(h)
 }
 
-// ResetDistributedConfiguration Resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
+// ResetDistributedConfiguration resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
 //
 // Accepts and stores a copy of the provided inter-process communicator
 // which will be used for distributing numerical operations across all involved
@@ -178,7 +180,7 @@ func (h Handle) ResetDistributedConfiguration(provider DistributedProvider, comm
 	return resetDistributedConfiguration(h, provider, commPtr, commSize)
 }
 
-// ResetRandomSeed Resets the context-level random seed used by the random number generator inside the library context.
+// ResetRandomSeed resets the context-level random seed used by the random number generator inside the library context.
 //
 //   - randomSeed: in Random seed value
 //
@@ -187,7 +189,7 @@ func (h Handle) ResetRandomSeed(randomSeed int32) error {
 	return resetRandomSeed(h, randomSeed)
 }
 
-// WorkspaceGetMemory Retrieves a workspace buffer.
+// WorkspaceGetMemory retrieves a workspace buffer.
 //
 //   - workspaceDescr: in Workspace descriptor
 //   - memSpace: in Memory space
@@ -198,7 +200,7 @@ func (h Handle) WorkspaceGetMemory(workspaceDescr WorkspaceDescriptor, memSpace 
 	return workspaceGetMemory(h, workspaceDescr, memSpace, workspaceKind)
 }
 
-// WorkspaceGetMemorySize Queries the required workspace buffer size.
+// WorkspaceGetMemorySize queries the required workspace buffer size.
 //
 //   - workspaceDescr: in Workspace descriptor
 //   - memSpace: in Memory space
@@ -209,7 +211,7 @@ func (h Handle) WorkspaceGetMemorySize(workspaceDescr WorkspaceDescriptor, memSp
 	return workspaceGetMemorySize(h, workspaceDescr, memSpace, workspaceKind)
 }
 
-// WorkspaceSetMemory Attaches memory to a workspace buffer.
+// WorkspaceSetMemory attaches memory to a workspace buffer.
 //
 //   - workspaceDescr: inout Workspace descriptor
 //   - memSpace: in Memory space

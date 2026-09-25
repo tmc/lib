@@ -4,11 +4,13 @@ package nccl
 
 import "github.com/tmc/lib/nvidia/driver"
 
-// PutSignal Write data from localbuff to rank peer’s registered memory window peerWin at offset peerWinOffset and subsequently updating a remote signal.
+// PutSignal writes data from localbuff to rank peer’s registered memory window peerWin at offset peerWinOffset and subsequently updating a remote signal.
 //
 // The target memory window peerWin must be registered using [Comm.WindowRegister].
-// The sigIdx is the signal index identifier for the operation. It must be set to 0 for now.
-// The ctx is the context identifier for the operation. It must be set to 0 for now.
+//
+// Note: localbuff must currently also be registered with [Comm.WindowRegister]. This requirement may be relaxed in a future release.
+// The sigIdx is the signal index identifier for the operation. Prior to NCCL 2.31, it must be set to 0. Since NCCL 2.31, it may be set in the range [0, numRmaSig) (see numRmaSig).
+// The ctx selects the communication context. Prior to NCCL 2.31, it must be set to 0. Since NCCL 2.31, it may be set in the range [0, numRmaCtx) (see numRmaCtx).
 // The flags parameter is reserved for future use. It must be set to 0 for now.
 // The return of [Window.PutSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Window.PutSignal] on the CUDA stream, the localbuff is safe to reuse or modify. When a signal is updated on the remote peer, it guarantees that the data from the corresponding [Window.PutSignal] operation has been delivered to the remote memory. All prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
 //

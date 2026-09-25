@@ -2,7 +2,28 @@
 
 package cusparse
 
-// SVDestroyDescr wraps cusparseSpSVDestroyDescr, bound as cusparseSpSV_destroyDescr.
+// SVDestroyDescr solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅Y=αX
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose].
+// The function [Handle.SpSVBufferSize] returns the size of the workspace needed by [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVAnalysis] performs the analysis phase, while [Handle.SpSVSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsvDescr is used to share information among all functions. The function [Handle.SpSVUpdateMatrix] updates spsvDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// NOTE: all parameters must be consistent across cusparseSpSV API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSVAnalysis] and [Handle.SpSVSolve]. The function [Handle.SpSVUpdateMatrix] can be used to update the values on the sparse matrix stored inside the opaque data structure spsvDescr
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSV() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSV() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSV() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSV() supports the following algorithms:
+// cusparseSpSV() has the following properties:
+// cusparseSpSV() supports the following optimizations:
+// [Handle.SpSVUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSV CSR and cuSPARSE Library Samples - cusparseSpSV COO for code examples.
+//
+// Wraps cusparseSpSVDestroyDescr, bound as cusparseSpSV_destroyDescr.
 func (s SpSVDescr) SVDestroyDescr() error {
 	return spSVDestroyDescr(s)
 }

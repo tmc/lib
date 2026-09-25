@@ -2,7 +2,7 @@
 
 package sanitizer
 
-// SetCallbackData Specifies the user data pointer for callbacks.
+// SetCallbackData specifies the user data pointer for callbacks.
 //
 // Mark launch to use userdata pointer as the device memory buffer
 // to pass in to callback functions. This function is only available if

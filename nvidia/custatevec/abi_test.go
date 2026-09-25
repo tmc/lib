@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // These tests need no GPU, no CUDA driver and no cuQuantum installation. They
@@ -169,8 +171,8 @@ func TestEnumWidths(t *testing.T) {
 	if unsafe.Sizeof(Handle(0)) != unsafe.Sizeof(uintptr(0)) {
 		t.Errorf("sizeof(Handle) = %d, want pointer width", unsafe.Sizeof(Handle(0)))
 	}
-	if unsafe.Sizeof(Stream(0)) != unsafe.Sizeof(uintptr(0)) {
-		t.Errorf("sizeof(Stream) = %d, want pointer width", unsafe.Sizeof(Stream(0)))
+	if unsafe.Sizeof(driver.Stream(0)) != unsafe.Sizeof(uintptr(0)) {
+		t.Errorf("sizeof(Stream) = %d, want pointer width", unsafe.Sizeof(driver.Stream(0)))
 	}
 	// size_t parameters are bound as Go uint, which must be 64-bit on the
 	// platforms this library ships for.

@@ -311,6 +311,21 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// registerSym resolves a symbol to its address and records whether it
+// resolved. A symbol absent from the loaded version stays at zero, so
+// calling it reports *SymbolError rather than jumping to address zero.
+func registerSym(symbol string) uintptr {
+	if lib == 0 {
+		return 0
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0
+	}
+	present[symbol] = true
+	return sym
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -396,72 +411,72 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnCreate, "nvjpeg2kCreate")
-	register(&fnCreateSimple, "nvjpeg2kCreateSimple")
-	register(&fnCreateV2, "nvjpeg2kCreateV2")
+	symCreate = registerSym("nvjpeg2kCreate")
+	symCreateSimple = registerSym("nvjpeg2kCreateSimple")
+	symCreateV2 = registerSym("nvjpeg2kCreateV2")
 	register(&fnDecode, "nvjpeg2kDecode")
 	register(&fnDecodeImage, "nvjpeg2kDecodeImage")
-	register(&fnDecodeParamsCreate, "nvjpeg2kDecodeParamsCreate")
-	register(&fnDecodeParamsDestroy, "nvjpeg2kDecodeParamsDestroy")
-	register(&fnDecodeParamsSetDecodeArea, "nvjpeg2kDecodeParamsSetDecodeArea")
-	register(&fnDecodeParamsSetOutputFormat, "nvjpeg2kDecodeParamsSetOutputFormat")
-	register(&fnDecodeParamsSetRGBOutput, "nvjpeg2kDecodeParamsSetRGBOutput")
-	register(&fnDecodeStateCreate, "nvjpeg2kDecodeStateCreate")
-	register(&fnDecodeStateDestroy, "nvjpeg2kDecodeStateDestroy")
+	symDecodeParamsCreate = registerSym("nvjpeg2kDecodeParamsCreate")
+	symDecodeParamsDestroy = registerSym("nvjpeg2kDecodeParamsDestroy")
+	symDecodeParamsSetDecodeArea = registerSym("nvjpeg2kDecodeParamsSetDecodeArea")
+	symDecodeParamsSetOutputFormat = registerSym("nvjpeg2kDecodeParamsSetOutputFormat")
+	symDecodeParamsSetRGBOutput = registerSym("nvjpeg2kDecodeParamsSetRGBOutput")
+	symDecodeStateCreate = registerSym("nvjpeg2kDecodeStateCreate")
+	symDecodeStateDestroy = registerSym("nvjpeg2kDecodeStateDestroy")
 	register(&fnDecodeTile, "nvjpeg2kDecodeTile")
-	register(&fnDestroy, "nvjpeg2kDestroy")
-	register(&fnGetCudartProperty, "nvjpeg2kGetCudartProperty")
-	register(&fnGetDeviceMemoryPadding, "nvjpeg2kGetDeviceMemoryPadding")
-	register(&fnGetPinnedMemoryPadding, "nvjpeg2kGetPinnedMemoryPadding")
-	register(&fnGetProperty, "nvjpeg2kGetProperty")
-	register(&fnSetDeviceMemoryPadding, "nvjpeg2kSetDeviceMemoryPadding")
-	register(&fnSetPinnedMemoryPadding, "nvjpeg2kSetPinnedMemoryPadding")
-	register(&fnStreamCreate, "nvjpeg2kStreamCreate")
-	register(&fnStreamDestroy, "nvjpeg2kStreamDestroy")
-	register(&fnStreamGetColorSpace, "nvjpeg2kStreamGetColorSpace")
-	register(&fnStreamGetComponentNLTInfo, "nvjpeg2kStreamGetComponentNLTInfo")
-	register(&fnStreamGetImageComponentInfo, "nvjpeg2kStreamGetImageComponentInfo")
-	register(&fnStreamGetImageInfo, "nvjpeg2kStreamGetImageInfo")
-	register(&fnStreamGetResolutionComponentDim, "nvjpeg2kStreamGetResolutionComponentDim")
-	register(&fnStreamGetResolutionsInTile, "nvjpeg2kStreamGetResolutionsInTile")
-	register(&fnStreamGetTileComponentDim, "nvjpeg2kStreamGetTileComponentDim")
-	register(&fnStreamParse, "nvjpeg2kStreamParse")
-	register(&fnStreamParseFile, "nvjpeg2kStreamParseFile")
+	symDestroy = registerSym("nvjpeg2kDestroy")
+	symGetCudartProperty = registerSym("nvjpeg2kGetCudartProperty")
+	symGetDeviceMemoryPadding = registerSym("nvjpeg2kGetDeviceMemoryPadding")
+	symGetPinnedMemoryPadding = registerSym("nvjpeg2kGetPinnedMemoryPadding")
+	symGetProperty = registerSym("nvjpeg2kGetProperty")
+	symSetDeviceMemoryPadding = registerSym("nvjpeg2kSetDeviceMemoryPadding")
+	symSetPinnedMemoryPadding = registerSym("nvjpeg2kSetPinnedMemoryPadding")
+	symStreamCreate = registerSym("nvjpeg2kStreamCreate")
+	symStreamDestroy = registerSym("nvjpeg2kStreamDestroy")
+	symStreamGetColorSpace = registerSym("nvjpeg2kStreamGetColorSpace")
+	symStreamGetComponentNLTInfo = registerSym("nvjpeg2kStreamGetComponentNLTInfo")
+	symStreamGetImageComponentInfo = registerSym("nvjpeg2kStreamGetImageComponentInfo")
+	symStreamGetImageInfo = registerSym("nvjpeg2kStreamGetImageInfo")
+	symStreamGetResolutionComponentDim = registerSym("nvjpeg2kStreamGetResolutionComponentDim")
+	symStreamGetResolutionsInTile = registerSym("nvjpeg2kStreamGetResolutionsInTile")
+	symStreamGetTileComponentDim = registerSym("nvjpeg2kStreamGetTileComponentDim")
+	symStreamParse = registerSym("nvjpeg2kStreamParse")
+	symStreamParseFile = registerSym("nvjpeg2kStreamParseFile")
 }
 
 // clearFuncs unbinds all function pointers.
 func clearFuncs() {
-	fnCreate = nil
-	fnCreateSimple = nil
-	fnCreateV2 = nil
+	symCreate = 0
+	symCreateSimple = 0
+	symCreateV2 = 0
 	fnDecode = nil
 	fnDecodeImage = nil
-	fnDecodeParamsCreate = nil
-	fnDecodeParamsDestroy = nil
-	fnDecodeParamsSetDecodeArea = nil
-	fnDecodeParamsSetOutputFormat = nil
-	fnDecodeParamsSetRGBOutput = nil
-	fnDecodeStateCreate = nil
-	fnDecodeStateDestroy = nil
+	symDecodeParamsCreate = 0
+	symDecodeParamsDestroy = 0
+	symDecodeParamsSetDecodeArea = 0
+	symDecodeParamsSetOutputFormat = 0
+	symDecodeParamsSetRGBOutput = 0
+	symDecodeStateCreate = 0
+	symDecodeStateDestroy = 0
 	fnDecodeTile = nil
-	fnDestroy = nil
-	fnGetCudartProperty = nil
-	fnGetDeviceMemoryPadding = nil
-	fnGetPinnedMemoryPadding = nil
-	fnGetProperty = nil
-	fnSetDeviceMemoryPadding = nil
-	fnSetPinnedMemoryPadding = nil
-	fnStreamCreate = nil
-	fnStreamDestroy = nil
-	fnStreamGetColorSpace = nil
-	fnStreamGetComponentNLTInfo = nil
-	fnStreamGetImageComponentInfo = nil
-	fnStreamGetImageInfo = nil
-	fnStreamGetResolutionComponentDim = nil
-	fnStreamGetResolutionsInTile = nil
-	fnStreamGetTileComponentDim = nil
-	fnStreamParse = nil
-	fnStreamParseFile = nil
+	symDestroy = 0
+	symGetCudartProperty = 0
+	symGetDeviceMemoryPadding = 0
+	symGetPinnedMemoryPadding = 0
+	symGetProperty = 0
+	symSetDeviceMemoryPadding = 0
+	symSetPinnedMemoryPadding = 0
+	symStreamCreate = 0
+	symStreamDestroy = 0
+	symStreamGetColorSpace = 0
+	symStreamGetComponentNLTInfo = 0
+	symStreamGetImageComponentInfo = 0
+	symStreamGetImageInfo = 0
+	symStreamGetResolutionComponentDim = 0
+	symStreamGetResolutionsInTile = 0
+	symStreamGetTileComponentDim = 0
+	symStreamParse = 0
+	symStreamParseFile = 0
 }
 
 // HasCreate reports whether nvjpeg2kCreate resolved in the loaded library.

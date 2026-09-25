@@ -4,6 +4,7 @@ package cudnn
 
 // Destroy destroys a previously created RNN descriptor object.
 //
+// Invoking [RNNDescriptor.Destroy] with the NULL argument is a no operation (NOP).
 // The [RNNDescriptor.Destroy] function is not able to detect if the rnnDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDescriptor] function, or in the double deletion scenario of a valid address.
 //
 // Returns:
@@ -28,7 +29,7 @@ func (r RNNDescriptor) Get() (RNNConfig, error) {
 	return getRNNDescriptor(r)
 }
 
-// Clip Retrieves the current LSTM cell clipping parameters, and stores them in the arguments provided.
+// Clip retrieves the current LSTM cell clipping parameters, and stores them in the arguments provided.
 //
 // The user can assign NULL to any pointer except rnnDesc when the retrieved value is not needed. The function does not check the validity of retrieved parameters.
 //
@@ -41,7 +42,7 @@ func (r RNNDescriptor) Clip() (clipMode RNNClipMode, lclip float64, rclip float6
 	return rNNGetClip(r)
 }
 
-// SetClip Sets the LSTM cell clipping mode.
+// SetClip sets the LSTM cell clipping mode.
 //
 // The LSTM clipping is disabled by default. When enabled, clipping is applied to all layers. This cudnnRNNSetClip_v8() function does not affect the work, reserve, and weight-space buffer sizes and may be called multiple times.
 //

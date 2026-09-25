@@ -2,7 +2,30 @@
 
 package cusparse
 
-// SMDestroyDescr wraps cusparseSpSMDestroyDescr, bound as cusparseSpSM_destroyDescr.
+// SMDestroyDescr solves a system of linear equations whose coefficients are represented in a sparse triangular matrix:
+//
+// op(A)⋅C=αop(B)
+// where
+// Also, for matrix A: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], and op(B) = Bᵀ if opB == [OperationTranspose].
+// The function [Handle.SpSMBufferSize] returns the size of the workspace needed by [Handle.SpSMAnalysis] and [Handle.SpSMSolve]. The function [Handle.SpSMAnalysis] performs the analysis phase, while [Handle.SpSMSolve] executes the solve phase for a sparse triangular linear system. The opaque data structure spsmDescr is used to share information among all functions. The function [Handle.SpSMUpdateMatrix] updates spsmDescr with new matrix values.
+// The routine supports arbitrary sparsity for the input matrix, but only the upper or lower triangular part is taken into account in the computation.
+// [Handle.SpSMBufferSize] requires a buffer size for the analysis phase which is proportional to number of non-zero entries of the sparse matrix
+// The externalBuffer is stored into spsmDescr and used by [Handle.SpSMSolve]. For this reason, the device memory buffer must be deallocated only after [Handle.SpSMSolve]
+// NOTE: all parameters must be consistent across cusparseSpSM API calls and the matrix descriptions and externalBuffer must not be modified between [Handle.SpSMAnalysis] and [Handle.SpSMSolve]
+// The sparse matrix formats currently supported are listed below:
+// The cusparseSpSM() supports the following shapes and properties:
+// The fill mode and diagonal type can be set by [SpMatDescr.MatSetAttribute].
+// cusparseSpSM() supports the following index type for representing the sparse matrix matA:
+// cusparseSpSM() supports the following data types:
+// Uniform-precision computation:
+// cusparseSpSM() supports the following algorithms:
+// cusparseSpSM() has the following properties:
+// cusparseSpSM() supports the following optimizations:
+// [Handle.SpSMUpdateMatrix] updates the sparse matrix after calling the analysis phase. This functions supports the following update strategies ( updatePart):
+// See [Result] for the description of the return status.
+// Please visit cuSPARSE Library Samples - cusparseSpSM CSR and cuSPARSE Library Samples - cusparseSpSM COO for code examples.
+//
+// Wraps cusparseSpSMDestroyDescr, bound as cusparseSpSM_destroyDescr.
 func (s SpSMDescr) SMDestroyDescr() error {
 	return spSMDestroyDescr(s)
 }

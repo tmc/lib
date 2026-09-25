@@ -4,7 +4,7 @@ package cufft
 
 import "github.com/tmc/lib/nvidia/driver"
 
-// Destroy Frees all GPU resources associated with a cuFFT plan and destroys the internal plan data structure.
+// Destroy frees all GPU resources associated with a cuFFT plan and destroys the internal plan data structure.
 //
 // This function should be called once a plan is no longer needed, to avoid wasting GPU memory. In the case of multi-GPU plans, the plan created first should be destroyed last.
 //
@@ -21,18 +21,20 @@ func (h Handle) Destroy() error {
 //
 // cuFFT uses the GPU memory pointed to by the idata parameter as input data. This function stores the Fourier coefficients in the odata array. If idata and odata are the same, this method does an in-place transform.
 //
+//   - idata: Pointer to the complex input data (in GPU memory) to transform
+//   - odata: Contains the complex Fourier coefficients
 //   - direction: The transform direction: CUFFT_FORWARD or CUFFT_INVERSE
 //
 // Returns:
 //   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
 //   - [ErrInternalError]: An internal driver error was detected.
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
-//   - [ErrInvalidValue]: At least one of the parameters idata, odata, and direction is not valid.
+//   - [ErrInvalidValue]: At least one of the parameters idata, odata, and direction is not valid, or the work area provided in [Handle.SetWorkArea] is not valid.
 //   - [ErrSetupFailed]: The cuFFT library failed to initialize.
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecC2C.
-func (h Handle) ExecC2C(idata driver.DevicePtr, odata driver.DevicePtr, direction int32) error {
+func (h Handle) ExecC2C(idata driver.DevicePtr, odata driver.DevicePtr, direction Direction) error {
 	return execC2C(h, idata, odata, direction)
 }
 
@@ -40,11 +42,14 @@ func (h Handle) ExecC2C(idata driver.DevicePtr, odata driver.DevicePtr, directio
 //
 // cuFFT uses as input data the GPU memory pointed to by the idata parameter. The input array holds only the nonredundant complex Fourier coefficients. This function stores the real output values in the odata array. and pointers are both required to be aligned to [Complex] data type in single-precision transforms and [DoubleComplex] type in double-precision transforms. If idata and odata are the same, this method does an in-place transform.
 //
+//   - idata: Pointer to the complex input data (in GPU memory) to transform
+//   - odata: Contains the real output data
+//
 // Returns:
 //   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
 //   - [ErrInternalError]: An internal driver error was detected.
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
-//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid.
+//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid, or the work area provided in [Handle.SetWorkArea] is not valid.
 //   - [ErrSetupFailed]: The cuFFT library failed to initialize.
 //   - [Success]: cuFFT successfully executed the FFT plan.
 //
@@ -57,11 +62,14 @@ func (h Handle) ExecC2R(idata driver.DevicePtr, odata driver.DevicePtr) error {
 //
 // cuFFT uses as input data the GPU memory pointed to by the idata parameter. This function stores the nonredundant Fourier coefficients in the odata array. Pointers to idata and odata are both required to be aligned to [Complex] data type in single-precision transforms and [DoubleComplex] data type in double-precision transforms. If idata and odata are the same, this method does an in-place transform. Note the data layout differences between in-place and out-of-place transforms as described in Parameter [Type].
 //
+//   - idata: Pointer to the real input data (in GPU memory) to transform
+//   - odata: Contains the complex Fourier coefficients
+//
 // Returns:
 //   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
 //   - [ErrInternalError]: An internal driver error was detected.
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
-//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid.
+//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid, or the work area provided in [Handle.SetWorkArea] is not valid.
 //   - [ErrSetupFailed]: The cuFFT library failed to initialize.
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
@@ -74,11 +82,14 @@ func (h Handle) ExecD2Z(idata driver.DevicePtr, odata driver.DevicePtr) error {
 //
 // cuFFT uses as input data the GPU memory pointed to by the idata parameter. This function stores the nonredundant Fourier coefficients in the odata array. Pointers to idata and odata are both required to be aligned to [Complex] data type in single-precision transforms and [DoubleComplex] data type in double-precision transforms. If idata and odata are the same, this method does an in-place transform. Note the data layout differences between in-place and out-of-place transforms as described in Parameter [Type].
 //
+//   - idata: Pointer to the real input data (in GPU memory) to transform
+//   - odata: Contains the complex Fourier coefficients
+//
 // Returns:
 //   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
 //   - [ErrInternalError]: An internal driver error was detected.
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
-//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid.
+//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid, or the work area provided in [Handle.SetWorkArea] is not valid.
 //   - [ErrSetupFailed]: The cuFFT library failed to initialize.
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
@@ -91,11 +102,14 @@ func (h Handle) ExecR2C(idata driver.DevicePtr, odata driver.DevicePtr) error {
 //
 // cuFFT uses as input data the GPU memory pointed to by the idata parameter. The input array holds only the nonredundant complex Fourier coefficients. This function stores the real output values in the odata array. and pointers are both required to be aligned to [Complex] data type in single-precision transforms and [DoubleComplex] type in double-precision transforms. If idata and odata are the same, this method does an in-place transform.
 //
+//   - idata: Pointer to the complex input data (in GPU memory) to transform
+//   - odata: Contains the real output data
+//
 // Returns:
 //   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
 //   - [ErrInternalError]: An internal driver error was detected.
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
-//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid.
+//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid, or the work area provided in [Handle.SetWorkArea] is not valid.
 //   - [ErrSetupFailed]: The cuFFT library failed to initialize.
 //   - [Success]: cuFFT successfully executed the FFT plan.
 //
@@ -108,26 +122,28 @@ func (h Handle) ExecZ2D(idata driver.DevicePtr, odata driver.DevicePtr) error {
 //
 // cuFFT uses the GPU memory pointed to by the idata parameter as input data. This function stores the Fourier coefficients in the odata array. If idata and odata are the same, this method does an in-place transform.
 //
+//   - idata: Pointer to the complex input data (in GPU memory) to transform
+//   - odata: Contains the complex Fourier coefficients
 //   - direction: The transform direction: CUFFT_FORWARD or CUFFT_INVERSE
 //
 // Returns:
 //   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
 //   - [ErrInternalError]: An internal driver error was detected.
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
-//   - [ErrInvalidValue]: At least one of the parameters idata, odata, and direction is not valid.
+//   - [ErrInvalidValue]: At least one of the parameters idata, odata, and direction is not valid, or the work area provided in [Handle.SetWorkArea] is not valid.
 //   - [ErrSetupFailed]: The cuFFT library failed to initialize.
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecZ2Z.
-func (h Handle) ExecZ2Z(idata driver.DevicePtr, odata driver.DevicePtr, direction int32) error {
+func (h Handle) ExecZ2Z(idata driver.DevicePtr, odata driver.DevicePtr, direction Direction) error {
 	return execZ2Z(h, idata, odata, direction)
 }
 
-// PlanPropertyInt64 Retrieves the property value identified by the key property associated with the cuFFT plan plan.
+// PlanPropertyInt64 retrieves the property value identified by the key property associated with the cuFFT plan plan.
 //
 // The value for the property, which is a signed long long integer, is set in the address space pointed by propertyValueInt64.
 //
-//   - property: The property identifier, of type cufftPlanProperty
+//   - property: The property identifier, of type [Property]
 //
 // Returns:
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
@@ -154,7 +170,7 @@ func (h Handle) Size() (uint, error) {
 	return getSize(h)
 }
 
-// Size1d This call gives a more accurate estimate of the work area size required for a plan than [Estimate1d], given the specified parameters, and taking into account any plan settings that may have been made.
+// Size1d gives a more accurate estimate of the work area size required for a plan than [Estimate1d], given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
@@ -176,7 +192,7 @@ func (h Handle) Size1d(nx int32, type_ Type, batch int32) (uint, error) {
 	return getSize1d(h, nx, type_, batch)
 }
 
-// Size2d This call gives a more accurate estimate of the work area size required for a plan than [Estimate2d], given the specified parameters, and taking into account any plan settings that may have been made.
+// Size2d gives a more accurate estimate of the work area size required for a plan than [Estimate2d], given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
@@ -198,7 +214,7 @@ func (h Handle) Size2d(nx int32, ny int32, type_ Type) (uint, error) {
 	return getSize2d(h, nx, ny, type_)
 }
 
-// Size3d This call gives a more accurate estimate of the work area size required for a plan than [Estimate3d], given the specified parameters, and taking into account any plan settings that may have been made.
+// Size3d gives a more accurate estimate of the work area size required for a plan than [Estimate3d], given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
@@ -221,13 +237,16 @@ func (h Handle) Size3d(nx int32, ny int32, nz int32, type_ Type) (uint, error) {
 	return getSize3d(h, nx, ny, nz, type_)
 }
 
-// SizeMany This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
+// SizeMany gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
 //   - rank: Dimensionality of the transform (1, 2, or 3)
+//   - n: Array of size rank, describing the size of each dimension
+//   - inembed: Pointer of size rank that indicates the storage dimensions of the input data in memory. If set to NULL all other advanced data layout parameters are ignored
 //   - istride: Indicates the distance between two successive input elements in the least significant (i.e., innermost) dimension
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
+//   - onembed: Pointer of size rank that indicates the storage dimensions of the output data in memory. If set to NULL all other advanced data layout parameters are ignored
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
 //   - type_: The transform data type (e.g., R2C for single precision real to complex)
@@ -247,14 +266,18 @@ func (h Handle) SizeMany(rank int32, n *int32, inembed *int32, istride int32, id
 	return getSizeMany(h, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch)
 }
 
-// SizeMany64 This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
+// SizeMany64 gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
 //
+// If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 // This API is identical to [Handle.MakePlanMany] except that the arguments specifying sizes and strides are 64 bit integers. This API makes very large transforms possible. cuFFT includes kernels that use 32 bit indexes, and kernels that use 64 bit indexes. cuFFT planning selects 32 bit kernels whenever possible to avoid any overhead due to 64 bit arithmetic.
 // All sizes and types of transform are supported by this interface, with two exceptions. For transforms whose total size exceeds 4G elements, the dimensions specified in the array n must be factorable into primes that are less than or equal to 127. For real to complex and complex to real transforms whose total size exceeds 4G elements, the fastest changing dimension must be even.
 //
 //   - rank: Dimensionality of the transform (1, 2, or 3)
+//   - n: Array of size rank, describing the size of each dimension
+//   - inembed: Pointer of size rank that indicates the storage dimensions of the input data in memory. If set to NULL all other advanced data layout parameters are ignored
 //   - istride: Indicates the distance between two successive input elements in the least significant (i.e., innermost) dimension
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
+//   - onembed: Pointer of size rank that indicates the storage dimensions of the output data in memory. If set to NULL all other advanced data layout parameters are ignored
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
 //   - type_: The transform data type (e.g., R2C for single precision real to complex)
@@ -276,6 +299,7 @@ func (h Handle) SizeMany64(rank int32, n *int64, inembed *int64, istride int64, 
 
 // MakePlan1d Following a call to [Create] makes a 1D FFT plan configuration for a specified signal size and data type.
 //
+// The batch input parameter tells cuFFT how many 1D transforms to configure.
 // This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
 // If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
 //
@@ -328,6 +352,7 @@ func (h Handle) MakePlan2d(nx int32, ny int32, type_ Type) (uint, error) {
 
 // MakePlan3d Following a call to [Create] makes a 3D FFT plan configuration according to specified signal sizes and data type.
 //
+// This function is the same as [Plan2d] except that it takes a third size parameter nz.
 // This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
 // If cufftXtSetGPUs() was called prior to this call with multiple GPUs, then workSize will contain multiple sizes. See sections on multiple GPUs for more details.
 //
@@ -355,6 +380,7 @@ func (h Handle) MakePlan3d(nx int32, ny int32, nz int32, type_ Type) (uint, erro
 
 // MakePlanMany Following a call to [Create] makes a FFT plan configuration of dimension rank, with sizes specified in the array n.
 //
+// The batch input parameter tells cuFFT how many transforms to configure. With this function, batched plans of 1, 2, or 3 dimensions may be created.
 // The [PlanMany] API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist.
 // If inembed and onembed are set to NULL, all other stride information is ignored, and default strides are used. The default assumes contiguous data arrays.
 // This call can only be used once for a given handle. It will fail and return [ErrInvalidPlan] if the plan is locked, i.e. the handle was previously used with a different cufftPlan or cufftMakePlan call.
@@ -362,8 +388,11 @@ func (h Handle) MakePlan3d(nx int32, ny int32, nz int32, type_ Type) (uint, erro
 // All arrays are assumed to be in CPU memory.
 //
 //   - rank: Dimensionality of the transform (1, 2, or 3)
+//   - n: Array of size rank, describing the size of each dimension, n [0] being the size of the outermost and n [rank-1] innermost (contiguous) dimension of a transform. For multiple GPUs and rank equal to 1, the sizes must be a power of 2. For multiple GPUs and rank equal to 2 or 3, the sizes must be factorable into primes less than or equal to 127
+//   - inembed: Pointer of size rank that indicates the storage dimensions of the input data in memory, inembed [0] being the storage dimension of the outermost dimension. If set to NULL all other advanced data layout parameters are ignored
 //   - istride: Indicates the distance between two successive input elements in the least significant (i.e., innermost) dimension
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
+//   - onembed: Pointer of size rank that indicates the storage dimensions of the output data in memory, onembed [0] being the storage dimension of the outermost dimension. If set to NULL all other advanced data layout parameters are ignored
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
 //   - type_: The transform data type (e.g., R2C for single precision real to complex). For 2 GPUs this must be a complex to complex transform
@@ -388,6 +417,7 @@ func (h Handle) MakePlanMany(rank int32, n *int32, inembed *int32, istride int32
 
 // MakePlanMany64 Following a call to [Create] makes a FFT plan configuration of dimension rank, with sizes specified in the array n.
 //
+// The batch input parameter tells cuFFT how many transforms to configure. With this function, batched plans of 1, 2, or 3 dimensions may be created.
 // This API is identical to [Handle.MakePlanMany] except that the arguments specifying sizes and strides are 64 bit integers. This API makes very large transforms possible. cuFFT includes kernels that use 32 bit indexes, and kernels that use 64 bit indexes. cuFFT planning selects 32 bit kernels whenever possible to avoid any overhead due to 64 bit arithmetic.
 // All sizes and types of transform are supported by this interface, with two exceptions. For transforms whose size exceeds 4G elements, the dimensions specified in the array n must be factorable into primes that are less than or equal to 127. For real to complex and complex to real transforms whose size exceeds 4G elements, the fastest changing dimension must be even.
 // The cufftPlanMany64() API supports more complicated input and output data layouts via the advanced data layout parameters: inembed, istride, idist, onembed, ostride, and odist.
@@ -397,8 +427,11 @@ func (h Handle) MakePlanMany(rank int32, n *int32, inembed *int32, istride int32
 // All arrays are assumed to be in CPU memory.
 //
 //   - rank: Dimensionality of the transform (1, 2, or 3)
+//   - n: Array of size rank, describing the size of each dimension. For multiple GPUs and rank equal to 1, the sizes must be a power of 2. For multiple GPUs and rank equal to 2 or 3, the sizes must be factorable into primes less than or equal to 127
+//   - inembed: Pointer of size rank that indicates the storage dimensions of the input data in memory. If set to NULL all other advanced data layout parameters are ignored
 //   - istride: Indicates the distance between two successive input elements in the least significant (i.e., innermost) dimension
 //   - idist: Indicates the distance between the first element of two consecutive signals in a batch of the input data
+//   - onembed: Pointer of size rank that indicates the storage dimensions of the output data in memory. If set to NULL all other advanced data layout parameters are ignored
 //   - ostride: Indicates the distance between two successive output elements in the output array in the least significant (i.e., innermost) dimension
 //   - odist: Indicates the distance between the first element of two consecutive signals in a batch of the output data
 //   - type_: The transform data type (e.g., R2C for single precision real to complex). For 2 GPUs this must be a complex to complex transform
@@ -421,9 +454,9 @@ func (h Handle) MakePlanMany64(rank int32, n *int64, inembed *int64, istride int
 	return makePlanMany64(h, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch)
 }
 
-// ResetPlanProperty Resets the value of the property identified by the key property, associated with the cuFFT plan plan, to its default value.
+// ResetPlanProperty resets the value of the property identified by the key property, associated with the cuFFT plan plan, to its default value.
 //
-//   - property: The property identifier, of type cufftPlanProperty
+//   - property: The property identifier, of type [Property]
 //
 // Returns:
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
@@ -436,7 +469,7 @@ func (h Handle) ResetPlanProperty(property Property) error {
 	return resetPlanProperty(h, property)
 }
 
-// SetAutoAllocation [Handle.SetAutoAllocation] indicates that the caller intends to allocate and manage work areas for plans that have been generated.
+// SetAutoAllocation indicates that the caller intends to allocate and manage work areas for plans that have been generated.
 //
 // cuFFT default behavior is to allocate the work area at plan generation time. If [Handle.SetAutoAllocation] has been called with autoAllocate set to 0 (“false”) prior to one of the cufftMakePlan*() calls, cuFFT does not allocate the work area. This is the preferred sequence for callers wishing to manage work area allocation.
 //
@@ -452,11 +485,11 @@ func (h Handle) SetAutoAllocation(autoAllocate int32) error {
 	return setAutoAllocation(h, autoAllocate)
 }
 
-// SetPlanPropertyInt64 Associates a cuFFT plan with a property identified by the key property.
+// SetPlanPropertyInt64 associates a cuFFT plan with a property identified by the key property.
 //
 // The value for the property is given by value propertyValueInt64, which is a signed long long integer.
 //
-//   - property: The property identifier, of type cufftPlanProperty
+//   - property: The property identifier, of type [Property]
 //
 // Returns:
 //   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
@@ -469,8 +502,9 @@ func (h Handle) SetPlanPropertyInt64(property Property, inputValueInt int64) err
 	return setPlanPropertyInt64(h, property, inputValueInt)
 }
 
-// SetStream Associates a CUDA stream with a cuFFT plan.
+// SetStream associates a CUDA stream with a cuFFT plan.
 //
+// All kernel launches made during plan execution are now done through the associated stream, enabling overlap with activity in other streams (e.g. data copying). The association remains until the plan is destroyed or the stream is changed with another call to [Handle.SetStream].
 // Note that starting from CUDA 11.2 (cuFFT 10.4.0), [Handle.SetStream] is supported on multi-GPU plans. When associating a stream with a plan, cufftXtMemcpy() remains synchronous across the multiple GPUs. For previous versions of cuFFT, [Handle.SetStream] will return an error in multiple GPU plans.
 // Note that starting from CUDA 12.2 (cuFFT 11.0.8), on multi-GPU plans, stream can be associated with any context on any GPU. However, repeated calls to [Handle.SetStream] with streams from different contexts incur a small time penalty. Optimal performance is obtained when repeated calls to [Handle.SetStream] use streams from the same CUDA context.
 //
@@ -485,9 +519,11 @@ func (h Handle) SetStream(stream driver.Stream) error {
 	return setStream(h, stream)
 }
 
-// SetWorkArea [Handle.SetWorkArea] overrides the work area pointer associated with a plan.
+// SetWorkArea overrides the work area pointer associated with a plan.
 //
-// If the work area was auto-allocated, cuFFT frees the auto-allocated space. The cufftExec*() calls assume that the work area pointer is valid and that it points to a contiguous region in device memory that does not overlap with any other work area. If this is not the case, results are indeterminate.
+// If the work area was auto-allocated, cuFFT frees the auto-allocated space. The cufftExec*() calls assume that the work area pointer is valid, aligned to the complex type of the plan ( [Complex] for single precision and [DoubleComplex] for double precision transforms), and that it points to a contiguous region in device memory that does not overlap with any other work area. If the work area is misaligned, cufftExec*() fails with [ErrInvalidValue]. Other assumption violations yield indeterminate results.
+//
+//   - workArea: Pointer to workArea. For multiple GPUs, multiple work area pointers must be given
 //
 // Returns:
 //   - [ErrInternalError]: An internal driver error was detected.

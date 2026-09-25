@@ -27,20 +27,20 @@
 //   - [Handle.CgemmEx64]: is an extension of cublasgemm().
 //   - [Handle.CgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.CgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
-//   - [Handle.Cgemm]: performs the matrix-matrix multiplication
-//   - [Handle.Cgemm64]: performs the matrix-matrix multiplication
+//   - [Handle.Cgemm]: performs the matrix-matrix multiplication.
+//   - [Handle.Cgemm64]: performs the matrix-matrix multiplication.
 //   - [Handle.DgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.DgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.DgemmGroupedBatched]: performs the matrix-matrix multiplication on groups of matrices.
 //   - [Handle.DgemmGroupedBatched64]: performs the matrix-matrix multiplication on groups of matrices.
 //   - [Handle.DgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.DgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
-//   - [Handle.Dgemm]: performs the matrix-matrix multiplication
-//   - [Handle.Dgemm64]: performs the matrix-matrix multiplication
-//   - [Handle.DtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides
-//   - [Handle.DtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides
-//   - [Handle.Dtrsm]: solves the triangular linear system with multiple right-hand-sides
-//   - [Handle.Dtrsm64]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Dgemm]: performs the matrix-matrix multiplication.
+//   - [Handle.Dgemm64]: performs the matrix-matrix multiplication.
+//   - [Handle.DtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides.
+//   - [Handle.DtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides.
+//   - [Handle.Dtrsm]: solves the triangular linear system with multiple right-hand-sides.
+//   - [Handle.Dtrsm64]: solves the triangular linear system with multiple right-hand-sides.
 //   - [Handle.SgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.SgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.SgemmEx]: is an extension of cublasgemm().
@@ -49,20 +49,20 @@
 //   - [Handle.SgemmGroupedBatched64]: performs the matrix-matrix multiplication on groups of matrices.
 //   - [Handle.SgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.SgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
-//   - [Handle.Sgemm]: performs the matrix-matrix multiplication
-//   - [Handle.Sgemm64]: performs the matrix-matrix multiplication
-//   - [Handle.StrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides
-//   - [Handle.StrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides
-//   - [Handle.Strsm]: solves the triangular linear system with multiple right-hand-sides
-//   - [Handle.Strsm64]: solves the triangular linear system with multiple right-hand-sides
+//   - [Handle.Sgemm]: performs the matrix-matrix multiplication.
+//   - [Handle.Sgemm64]: performs the matrix-matrix multiplication.
+//   - [Handle.StrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides.
+//   - [Handle.StrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides.
+//   - [Handle.Strsm]: solves the triangular linear system with multiple right-hand-sides.
+//   - [Handle.Strsm64]: solves the triangular linear system with multiple right-hand-sides.
 //   - [Handle.Zgemm3m]: performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //   - [Handle.Zgemm3m64]: performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //   - [Handle.ZgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.ZgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.ZgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.ZgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
-//   - [Handle.Zgemm]: performs the matrix-matrix multiplication
-//   - [Handle.Zgemm64]: performs the matrix-matrix multiplication
+//   - [Handle.Zgemm]: performs the matrix-matrix multiplication.
+//   - [Handle.Zgemm64]: performs the matrix-matrix multiplication.
 //
 // # Lifecycle
 //
@@ -90,14 +90,14 @@
 //   - [Handle.DgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.DgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.DgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
-//   - [Handle.Dgemv]: performs the matrix-vector multiplication
-//   - [Handle.Dgemv64]: performs the matrix-vector multiplication
+//   - [Handle.Dgemv]: performs the matrix-vector multiplication.
+//   - [Handle.Dgemv64]: performs the matrix-vector multiplication.
 //   - [Handle.SgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.SgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.SgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.SgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
-//   - [Handle.Sgemv]: performs the matrix-vector multiplication
-//   - [Handle.Sgemv64]: performs the matrix-vector multiplication
+//   - [Handle.Sgemv]: performs the matrix-vector multiplication.
+//   - [Handle.Sgemv64]: performs the matrix-vector multiplication.
 //
 // # Configuration
 //
@@ -119,61 +119,61 @@
 //   - [Handle.Caxpy64]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //   - [Handle.Ccopy]: copies the vector x into the vector y.
 //   - [Handle.Ccopy64]: copies the vector x into the vector y.
-//   - [Handle.Cdgmm]: performs the matrix-matrix multiplication
-//   - [Handle.Cdgmm64]: performs the matrix-matrix multiplication
+//   - [Handle.Cdgmm]: performs the matrix-matrix multiplication.
+//   - [Handle.Cdgmm64]: performs the matrix-matrix multiplication.
 //   - [Handle.Cdotc]: computes the dot product of vectors x and y.
 //   - [Handle.Cdotc64]: computes the dot product of vectors x and y.
 //   - [Handle.Cdotu]: computes the dot product of vectors x and y.
 //   - [Handle.Cdotu64]: computes the dot product of vectors x and y.
-//   - [Handle.Cgbmv]: performs the banded matrix-vector multiplication
-//   - [Handle.Cgbmv64]: performs the banded matrix-vector multiplication
-//   - [Handle.Cgeam]: performs the matrix-matrix addition/transposition
-//   - [Handle.Cgeam64]: performs the matrix-matrix addition/transposition
+//   - [Handle.Cgbmv]: performs the banded matrix-vector multiplication.
+//   - [Handle.Cgbmv64]: performs the banded matrix-vector multiplication.
+//   - [Handle.Cgeam]: performs the matrix-matrix addition/transposition.
+//   - [Handle.Cgeam64]: performs the matrix-matrix addition/transposition.
 //   - [Handle.CgelsBatched]: Aarray is an array of pointers to matrices stored in column-major format.
 //   - [Handle.CgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.CgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.CgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.CgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
-//   - [Handle.Cgemv]: performs the matrix-vector multiplication
-//   - [Handle.Cgemv64]: performs the matrix-vector multiplication
+//   - [Handle.Cgemv]: performs the matrix-vector multiplication.
+//   - [Handle.Cgemv64]: performs the matrix-vector multiplication.
 //   - [Handle.CgeqrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
-//   - [Handle.Cgerc]: performs the rank-1 update
-//   - [Handle.Cgerc64]: performs the rank-1 update
-//   - [Handle.Cgeru]: performs the rank-1 update
-//   - [Handle.Cgeru64]: performs the rank-1 update
+//   - [Handle.Cgerc]: performs the rank-1 update.
+//   - [Handle.Cgerc64]: performs the rank-1 update.
+//   - [Handle.Cgeru]: performs the rank-1 update.
+//   - [Handle.Cgeru64]: performs the rank-1 update.
 //   - [Handle.CgetrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //   - [Handle.CgetriBatched]: Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //   - [Handle.CgetrsBatched]: solves an array of systems of linear equations of the form:
-//   - [Handle.Chbmv]: performs the Hermitian banded matrix-vector multiplication
-//   - [Handle.Chbmv64]: performs the Hermitian banded matrix-vector multiplication
-//   - [Handle.Chemm]: performs the Hermitian matrix-matrix multiplication
-//   - [Handle.Chemm64]: performs the Hermitian matrix-matrix multiplication
-//   - [Handle.Chemv]: performs the Hermitian matrix-vector multiplication
-//   - [Handle.Chemv64]: performs the Hermitian matrix-vector multiplication
-//   - [Handle.Cher2]: performs the Hermitian rank-2 update
-//   - [Handle.Cher264]: performs the Hermitian rank-2 update
-//   - [Handle.Cher2k]: performs the Hermitian rank- 2k update
-//   - [Handle.Cher2k64]: performs the Hermitian rank- 2k update
-//   - [Handle.Cher]: performs the Hermitian rank-1 update
-//   - [Handle.Cher64]: performs the Hermitian rank-1 update
+//   - [Handle.Chbmv]: performs the Hermitian banded matrix-vector multiplication.
+//   - [Handle.Chbmv64]: performs the Hermitian banded matrix-vector multiplication.
+//   - [Handle.Chemm]: performs the Hermitian matrix-matrix multiplication.
+//   - [Handle.Chemm64]: performs the Hermitian matrix-matrix multiplication.
+//   - [Handle.Chemv]: performs the Hermitian matrix-vector multiplication.
+//   - [Handle.Chemv64]: performs the Hermitian matrix-vector multiplication.
+//   - [Handle.Cher2]: performs the Hermitian rank-2 update.
+//   - [Handle.Cher264]: performs the Hermitian rank-2 update.
+//   - [Handle.Cher2k]: performs the Hermitian rank- 2k update.
+//   - [Handle.Cher2k64]: performs the Hermitian rank- 2k update.
+//   - [Handle.Cher]: performs the Hermitian rank-1 update.
+//   - [Handle.Cher64]: performs the Hermitian rank-1 update.
 //   - [Handle.Cherk3mEx]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //   - [Handle.Cherk3mEx64]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
-//   - [Handle.CherkEx]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
-//   - [Handle.CherkEx64]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
-//   - [Handle.Cherk]: performs the Hermitian rank- k update
-//   - [Handle.Cherk64]: performs the Hermitian rank- k update
-//   - [Handle.Cherkx]: performs a variation of the Hermitian rank- k update
-//   - [Handle.Cherkx64]: performs a variation of the Hermitian rank- k update
-//   - [Handle.Chpmv]: performs the Hermitian packed matrix-vector multiplication
-//   - [Handle.Chpmv64]: performs the Hermitian packed matrix-vector multiplication
-//   - [Handle.Chpr2]: performs the packed Hermitian rank-2 update
-//   - [Handle.Chpr264]: performs the packed Hermitian rank-2 update
-//   - [Handle.Chpr]: performs the packed Hermitian rank-1 update
-//   - [Handle.Chpr64]: performs the packed Hermitian rank-1 update
+//   - [Handle.CherkEx]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
+//   - [Handle.CherkEx64]: is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
+//   - [Handle.Cherk]: performs the Hermitian rank- k update.
+//   - [Handle.Cherk64]: performs the Hermitian rank- k update.
+//   - [Handle.Cherkx]: performs a variation of the Hermitian rank- k update.
+//   - [Handle.Cherkx64]: performs a variation of the Hermitian rank- k update.
+//   - [Handle.Chpmv]: performs the Hermitian packed matrix-vector multiplication.
+//   - [Handle.Chpmv64]: performs the Hermitian packed matrix-vector multiplication.
+//   - [Handle.Chpr2]: performs the packed Hermitian rank-2 update.
+//   - [Handle.Chpr264]: performs the packed Hermitian rank-2 update.
+//   - [Handle.Chpr]: performs the packed Hermitian rank-1 update.
+//   - [Handle.Chpr64]: performs the packed Hermitian rank-1 update.
 //   - [Handle.CmatinvBatched]: A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
 //   - [Handle.Crot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //   - [Handle.Crot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
-//   - [Handle.Crotg]: constructs the Givens rotation matrix
+//   - [Handle.Crotg]: constructs the Givens rotation matrix.
 //   - [Handle.Cscal]: scales the vector x by the scalar α and overwrites it with the result.
 //   - [Handle.Cscal64]: scales the vector x by the scalar α and overwrites it with the result.
 //   - [Handle.Csrot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
@@ -182,60 +182,60 @@
 //   - [Handle.Csscal64]: scales the vector x by the scalar α and overwrites it with the result.
 //   - [Handle.Cswap]: interchanges the elements of vector x and y.
 //   - [Handle.Cswap64]: interchanges the elements of vector x and y.
-//   - [Handle.Csymm]: performs the symmetric matrix-matrix multiplication
-//   - [Handle.Csymm64]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Csymm]: performs the symmetric matrix-matrix multiplication.
+//   - [Handle.Csymm64]: performs the symmetric matrix-matrix multiplication.
 //   - [Handle.Csymv]: performs the symmetric matrix-vector multiplication.
 //   - [Handle.Csymv64]: performs the symmetric matrix-vector multiplication.
-//   - [Handle.Csyr2]: performs the symmetric rank-2 update
-//   - [Handle.Csyr264]: performs the symmetric rank-2 update
-//   - [Handle.Csyr2k]: performs the symmetric rank- 2k update
-//   - [Handle.Csyr2k64]: performs the symmetric rank- 2k update
-//   - [Handle.Csyr]: performs the symmetric rank-1 update
-//   - [Handle.Csyr64]: performs the symmetric rank-1 update
+//   - [Handle.Csyr2]: performs the symmetric rank-2 update.
+//   - [Handle.Csyr264]: performs the symmetric rank-2 update.
+//   - [Handle.Csyr2k]: performs the symmetric rank- 2k update.
+//   - [Handle.Csyr2k64]: performs the symmetric rank- 2k update.
+//   - [Handle.Csyr]: performs the symmetric rank-1 update.
+//   - [Handle.Csyr64]: performs the symmetric rank-1 update.
 //   - [Handle.Csyrk3mEx]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //   - [Handle.Csyrk3mEx64]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
-//   - [Handle.CsyrkEx]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
-//   - [Handle.CsyrkEx64]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
-//   - [Handle.Csyrk]: performs the symmetric rank- k update
-//   - [Handle.Csyrk64]: performs the symmetric rank- k update
-//   - [Handle.Csyrkx]: performs a variation of the symmetric rank- k update
-//   - [Handle.Csyrkx64]: performs a variation of the symmetric rank- k update
-//   - [Handle.Ctbmv]: performs the triangular banded matrix-vector multiplication
-//   - [Handle.Ctbmv64]: performs the triangular banded matrix-vector multiplication
-//   - [Handle.Ctbsv]: solves the triangular banded linear system with a single right-hand-side
-//   - [Handle.Ctbsv64]: solves the triangular banded linear system with a single right-hand-side
-//   - [Handle.Ctpmv]: performs the triangular packed matrix-vector multiplication
-//   - [Handle.Ctpmv64]: performs the triangular packed matrix-vector multiplication
-//   - [Handle.Ctpsv]: solves the packed triangular linear system with a single right-hand-side
-//   - [Handle.Ctpsv64]: solves the packed triangular linear system with a single right-hand-side
-//   - [Handle.Ctpttr]: performs the conversion from the triangular packed format to the triangular format
-//   - [Handle.Ctrmm]: performs the triangular matrix-matrix multiplication
-//   - [Handle.Ctrmm64]: performs the triangular matrix-matrix multiplication
-//   - [Handle.Ctrmv]: performs the triangular matrix-vector multiplication
-//   - [Handle.Ctrmv64]: performs the triangular matrix-vector multiplication
-//   - [Handle.CtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides
-//   - [Handle.CtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides
-//   - [Handle.Ctrsm]: solves the triangular linear system with multiple right-hand-sides
-//   - [Handle.Ctrsm64]: solves the triangular linear system with multiple right-hand-sides
-//   - [Handle.Ctrsv]: solves the triangular linear system with a single right-hand-side
-//   - [Handle.Ctrsv64]: solves the triangular linear system with a single right-hand-side
-//   - [Handle.Ctrttp]: performs the conversion from the triangular format to the triangular packed format
+//   - [Handle.CsyrkEx]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
+//   - [Handle.CsyrkEx64]: is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
+//   - [Handle.Csyrk]: performs the symmetric rank- k update.
+//   - [Handle.Csyrk64]: performs the symmetric rank- k update.
+//   - [Handle.Csyrkx]: performs a variation of the symmetric rank- k update.
+//   - [Handle.Csyrkx64]: performs a variation of the symmetric rank- k update.
+//   - [Handle.Ctbmv]: performs the triangular banded matrix-vector multiplication.
+//   - [Handle.Ctbmv64]: performs the triangular banded matrix-vector multiplication.
+//   - [Handle.Ctbsv]: solves the triangular banded linear system with a single right-hand-side.
+//   - [Handle.Ctbsv64]: solves the triangular banded linear system with a single right-hand-side.
+//   - [Handle.Ctpmv]: performs the triangular packed matrix-vector multiplication.
+//   - [Handle.Ctpmv64]: performs the triangular packed matrix-vector multiplication.
+//   - [Handle.Ctpsv]: solves the packed triangular linear system with a single right-hand-side.
+//   - [Handle.Ctpsv64]: solves the packed triangular linear system with a single right-hand-side.
+//   - [Handle.Ctpttr]: performs the conversion from the triangular packed format to the triangular format.
+//   - [Handle.Ctrmm]: performs the triangular matrix-matrix multiplication.
+//   - [Handle.Ctrmm64]: performs the triangular matrix-matrix multiplication.
+//   - [Handle.Ctrmv]: performs the triangular matrix-vector multiplication.
+//   - [Handle.Ctrmv64]: performs the triangular matrix-vector multiplication.
+//   - [Handle.CtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides.
+//   - [Handle.CtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides.
+//   - [Handle.Ctrsm]: solves the triangular linear system with multiple right-hand-sides.
+//   - [Handle.Ctrsm64]: solves the triangular linear system with multiple right-hand-sides.
+//   - [Handle.Ctrsv]: solves the triangular linear system with a single right-hand-side.
+//   - [Handle.Ctrsv64]: solves the triangular linear system with a single right-hand-side.
+//   - [Handle.Ctrttp]: performs the conversion from the triangular format to the triangular packed format.
 //   - [Handle.Dasum]: computes the sum of the absolute values of the elements of vector x.
 //   - [Handle.Dasum64]: computes the sum of the absolute values of the elements of vector x.
 //   - [Handle.Dcopy]: copies the vector x into the vector y.
 //   - [Handle.Dcopy64]: copies the vector x into the vector y.
-//   - [Handle.Ddgmm]: performs the matrix-matrix multiplication
-//   - [Handle.Ddgmm64]: performs the matrix-matrix multiplication
+//   - [Handle.Ddgmm]: performs the matrix-matrix multiplication.
+//   - [Handle.Ddgmm64]: performs the matrix-matrix multiplication.
 //   - [Handle.Ddot]: computes the dot product of vectors x and y.
 //   - [Handle.Ddot64]: computes the dot product of vectors x and y.
-//   - [Handle.Dgbmv]: performs the banded matrix-vector multiplication
-//   - [Handle.Dgbmv64]: performs the banded matrix-vector multiplication
-//   - [Handle.Dgeam]: performs the matrix-matrix addition/transposition
-//   - [Handle.Dgeam64]: performs the matrix-matrix addition/transposition
+//   - [Handle.Dgbmv]: performs the banded matrix-vector multiplication.
+//   - [Handle.Dgbmv64]: performs the banded matrix-vector multiplication.
+//   - [Handle.Dgeam]: performs the matrix-matrix addition/transposition.
+//   - [Handle.Dgeam64]: performs the matrix-matrix addition/transposition.
 //   - [Handle.DgelsBatched]: Aarray is an array of pointers to matrices stored in column-major format.
 //   - [Handle.DgeqrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
-//   - [Handle.Dger]: performs the rank-1 update
-//   - [Handle.Dger64]: performs the rank-1 update
+//   - [Handle.Dger]: performs the rank-1 update.
+//   - [Handle.Dger64]: performs the rank-1 update.
 //   - [Handle.DgetrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //   - [Handle.DgetriBatched]: Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //   - [Handle.DgetrsBatched]: solves an array of systems of linear equations of the form:
@@ -246,50 +246,50 @@
 //   - [Handle.DotcEx64]: These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //   - [Handle.Drot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //   - [Handle.Drot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
-//   - [Handle.Drotg]: constructs the Givens rotation matrix
-//   - [Handle.Drotm]: applies the modified Givens transformation
-//   - [Handle.Drotm64]: applies the modified Givens transformation
-//   - [Handle.Drotmg]: constructs the modified Givens transformation
-//   - [Handle.Dsbmv]: performs the symmetric banded matrix-vector multiplication
-//   - [Handle.Dsbmv64]: performs the symmetric banded matrix-vector multiplication
-//   - [Handle.Dspmv]: performs the symmetric packed matrix-vector multiplication
-//   - [Handle.Dspmv64]: performs the symmetric packed matrix-vector multiplication
-//   - [Handle.Dspr2]: performs the packed symmetric rank-2 update
-//   - [Handle.Dspr264]: performs the packed symmetric rank-2 update
-//   - [Handle.Dspr]: performs the packed symmetric rank-1 update
-//   - [Handle.Dspr64]: performs the packed symmetric rank-1 update
+//   - [Handle.Drotg]: constructs the Givens rotation matrix.
+//   - [Handle.Drotm]: applies the modified Givens transformation.
+//   - [Handle.Drotm64]: applies the modified Givens transformation.
+//   - [Handle.Drotmg]: constructs the modified Givens transformation.
+//   - [Handle.Dsbmv]: performs the symmetric banded matrix-vector multiplication.
+//   - [Handle.Dsbmv64]: performs the symmetric banded matrix-vector multiplication.
+//   - [Handle.Dspmv]: performs the symmetric packed matrix-vector multiplication.
+//   - [Handle.Dspmv64]: performs the symmetric packed matrix-vector multiplication.
+//   - [Handle.Dspr2]: performs the packed symmetric rank-2 update.
+//   - [Handle.Dspr264]: performs the packed symmetric rank-2 update.
+//   - [Handle.Dspr]: performs the packed symmetric rank-1 update.
+//   - [Handle.Dspr64]: performs the packed symmetric rank-1 update.
 //   - [Handle.Dswap]: interchanges the elements of vector x and y.
 //   - [Handle.Dswap64]: interchanges the elements of vector x and y.
-//   - [Handle.Dsymm]: performs the symmetric matrix-matrix multiplication
-//   - [Handle.Dsymm64]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Dsymm]: performs the symmetric matrix-matrix multiplication.
+//   - [Handle.Dsymm64]: performs the symmetric matrix-matrix multiplication.
 //   - [Handle.Dsymv]: performs the symmetric matrix-vector multiplication.
 //   - [Handle.Dsymv64]: performs the symmetric matrix-vector multiplication.
-//   - [Handle.Dsyr2]: performs the symmetric rank-2 update
-//   - [Handle.Dsyr264]: performs the symmetric rank-2 update
-//   - [Handle.Dsyr2k]: performs the symmetric rank- 2k update
-//   - [Handle.Dsyr2k64]: performs the symmetric rank- 2k update
-//   - [Handle.Dsyr]: performs the symmetric rank-1 update
-//   - [Handle.Dsyr64]: performs the symmetric rank-1 update
-//   - [Handle.Dsyrk]: performs the symmetric rank- k update
-//   - [Handle.Dsyrk64]: performs the symmetric rank- k update
-//   - [Handle.Dsyrkx]: performs a variation of the symmetric rank- k update
-//   - [Handle.Dsyrkx64]: performs a variation of the symmetric rank- k update
-//   - [Handle.Dtbmv]: performs the triangular banded matrix-vector multiplication
-//   - [Handle.Dtbmv64]: performs the triangular banded matrix-vector multiplication
-//   - [Handle.Dtbsv]: solves the triangular banded linear system with a single right-hand-side
-//   - [Handle.Dtbsv64]: solves the triangular banded linear system with a single right-hand-side
-//   - [Handle.Dtpmv]: performs the triangular packed matrix-vector multiplication
-//   - [Handle.Dtpmv64]: performs the triangular packed matrix-vector multiplication
-//   - [Handle.Dtpsv]: solves the packed triangular linear system with a single right-hand-side
-//   - [Handle.Dtpsv64]: solves the packed triangular linear system with a single right-hand-side
-//   - [Handle.Dtpttr]: performs the conversion from the triangular packed format to the triangular format
-//   - [Handle.Dtrmm]: performs the triangular matrix-matrix multiplication
-//   - [Handle.Dtrmm64]: performs the triangular matrix-matrix multiplication
-//   - [Handle.Dtrmv]: performs the triangular matrix-vector multiplication
-//   - [Handle.Dtrmv64]: performs the triangular matrix-vector multiplication
-//   - [Handle.Dtrsv]: solves the triangular linear system with a single right-hand-side
-//   - [Handle.Dtrsv64]: solves the triangular linear system with a single right-hand-side
-//   - [Handle.Dtrttp]: performs the conversion from the triangular format to the triangular packed format
+//   - [Handle.Dsyr2]: performs the symmetric rank-2 update.
+//   - [Handle.Dsyr264]: performs the symmetric rank-2 update.
+//   - [Handle.Dsyr2k]: performs the symmetric rank- 2k update.
+//   - [Handle.Dsyr2k64]: performs the symmetric rank- 2k update.
+//   - [Handle.Dsyr]: performs the symmetric rank-1 update.
+//   - [Handle.Dsyr64]: performs the symmetric rank-1 update.
+//   - [Handle.Dsyrk]: performs the symmetric rank- k update.
+//   - [Handle.Dsyrk64]: performs the symmetric rank- k update.
+//   - [Handle.Dsyrkx]: performs a variation of the symmetric rank- k update.
+//   - [Handle.Dsyrkx64]: performs a variation of the symmetric rank- k update.
+//   - [Handle.Dtbmv]: performs the triangular banded matrix-vector multiplication.
+//   - [Handle.Dtbmv64]: performs the triangular banded matrix-vector multiplication.
+//   - [Handle.Dtbsv]: solves the triangular banded linear system with a single right-hand-side.
+//   - [Handle.Dtbsv64]: solves the triangular banded linear system with a single right-hand-side.
+//   - [Handle.Dtpmv]: performs the triangular packed matrix-vector multiplication.
+//   - [Handle.Dtpmv64]: performs the triangular packed matrix-vector multiplication.
+//   - [Handle.Dtpsv]: solves the packed triangular linear system with a single right-hand-side.
+//   - [Handle.Dtpsv64]: solves the packed triangular linear system with a single right-hand-side.
+//   - [Handle.Dtpttr]: performs the conversion from the triangular packed format to the triangular format.
+//   - [Handle.Dtrmm]: performs the triangular matrix-matrix multiplication.
+//   - [Handle.Dtrmm64]: performs the triangular matrix-matrix multiplication.
+//   - [Handle.Dtrmv]: performs the triangular matrix-vector multiplication.
+//   - [Handle.Dtrmv64]: performs the triangular matrix-vector multiplication.
+//   - [Handle.Dtrsv]: solves the triangular linear system with a single right-hand-side.
+//   - [Handle.Dtrsv64]: solves the triangular linear system with a single right-hand-side.
+//   - [Handle.Dtrttp]: performs the conversion from the triangular format to the triangular packed format.
 //   - [Handle.Dzasum]: computes the sum of the absolute values of the elements of vector x.
 //   - [Handle.Dzasum64]: computes the sum of the absolute values of the elements of vector x.
 //   - [Handle.Dznrm2]: computes the Euclidean norm of the vector x.
@@ -329,12 +329,12 @@
 //   - [Handle.HSSgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.HSSgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.HSSgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
-//   - [Handle.Hgemm]: performs the matrix-matrix multiplication
+//   - [Handle.Hgemm]: performs the matrix-matrix multiplication.
 //   - [Handle.HgemmBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.HgemmBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.HgemmStridedBatched]: performs the matrix-matrix multiplication of a batch of matrices.
 //   - [Handle.HgemmStridedBatched64]: performs the matrix-matrix multiplication of a batch of matrices.
-//   - [Handle.Hgemm64]: performs the matrix-matrix multiplication
+//   - [Handle.Hgemm64]: performs the matrix-matrix multiplication.
 //   - [Handle.Icamax]: finds the (smallest) index of the element of the maximum magnitude.
 //   - [Handle.Icamax64]: finds the (smallest) index of the element of the maximum magnitude.
 //   - [Handle.Icamin]: finds the (smallest) index of the element of the minimum magnitude.
@@ -366,8 +366,8 @@
 //   - [Handle.Scnrm264]: computes the Euclidean norm of the vector x.
 //   - [Handle.Scopy]: copies the vector x into the vector y.
 //   - [Handle.Scopy64]: copies the vector x into the vector y.
-//   - [Handle.Sdgmm]: performs the matrix-matrix multiplication
-//   - [Handle.Sdgmm64]: performs the matrix-matrix multiplication
+//   - [Handle.Sdgmm]: performs the matrix-matrix multiplication.
+//   - [Handle.Sdgmm64]: performs the matrix-matrix multiplication.
 //   - [Handle.Sdot]: computes the dot product of vectors x and y.
 //   - [Handle.Sdot64]: computes the dot product of vectors x and y.
 //   - [Handle.SetAtomicsMode]: Some routines like cublassymv() and cublashemv() have an alternate implementation that use atomics to cumulate results.
@@ -388,64 +388,64 @@
 //   - [SetVectorAsync64]: has the same functionality as [SetVector], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
 //   - [SetVector64]: copies n elements from a vector x in host memory space to a vector y in GPU memory space.
 //   - [Handle.SetWorkspace]: sets the cuBLAS library workspace to a user-owned device buffer, which will be used to execute all subsequent calls to the cuBLAS library functions (on the currently set stream).
-//   - [Handle.Sgbmv]: performs the banded matrix-vector multiplication
-//   - [Handle.Sgbmv64]: performs the banded matrix-vector multiplication
-//   - [Handle.Sgeam]: performs the matrix-matrix addition/transposition
-//   - [Handle.Sgeam64]: performs the matrix-matrix addition/transposition
+//   - [Handle.Sgbmv]: performs the banded matrix-vector multiplication.
+//   - [Handle.Sgbmv64]: performs the banded matrix-vector multiplication.
+//   - [Handle.Sgeam]: performs the matrix-matrix addition/transposition.
+//   - [Handle.Sgeam64]: performs the matrix-matrix addition/transposition.
 //   - [Handle.SgelsBatched]: Aarray is an array of pointers to matrices stored in column-major format.
 //   - [Handle.SgeqrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
-//   - [Handle.Sger]: performs the rank-1 update
-//   - [Handle.Sger64]: performs the rank-1 update
+//   - [Handle.Sger]: performs the rank-1 update.
+//   - [Handle.Sger64]: performs the rank-1 update.
 //   - [Handle.SgetrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //   - [Handle.SgetriBatched]: Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //   - [Handle.SgetrsBatched]: solves an array of systems of linear equations of the form:
 //   - [Handle.SmatinvBatched]: A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
 //   - [Handle.Srot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //   - [Handle.Srot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
-//   - [Handle.Srotg]: constructs the Givens rotation matrix
-//   - [Handle.Srotm]: applies the modified Givens transformation
-//   - [Handle.Srotm64]: applies the modified Givens transformation
-//   - [Handle.Srotmg]: constructs the modified Givens transformation
-//   - [Handle.Ssbmv]: performs the symmetric banded matrix-vector multiplication
-//   - [Handle.Ssbmv64]: performs the symmetric banded matrix-vector multiplication
-//   - [Handle.Sspmv]: performs the symmetric packed matrix-vector multiplication
-//   - [Handle.Sspmv64]: performs the symmetric packed matrix-vector multiplication
-//   - [Handle.Sspr2]: performs the packed symmetric rank-2 update
-//   - [Handle.Sspr264]: performs the packed symmetric rank-2 update
-//   - [Handle.Sspr]: performs the packed symmetric rank-1 update
-//   - [Handle.Sspr64]: performs the packed symmetric rank-1 update
+//   - [Handle.Srotg]: constructs the Givens rotation matrix.
+//   - [Handle.Srotm]: applies the modified Givens transformation.
+//   - [Handle.Srotm64]: applies the modified Givens transformation.
+//   - [Handle.Srotmg]: constructs the modified Givens transformation.
+//   - [Handle.Ssbmv]: performs the symmetric banded matrix-vector multiplication.
+//   - [Handle.Ssbmv64]: performs the symmetric banded matrix-vector multiplication.
+//   - [Handle.Sspmv]: performs the symmetric packed matrix-vector multiplication.
+//   - [Handle.Sspmv64]: performs the symmetric packed matrix-vector multiplication.
+//   - [Handle.Sspr2]: performs the packed symmetric rank-2 update.
+//   - [Handle.Sspr264]: performs the packed symmetric rank-2 update.
+//   - [Handle.Sspr]: performs the packed symmetric rank-1 update.
+//   - [Handle.Sspr64]: performs the packed symmetric rank-1 update.
 //   - [Handle.Sswap]: interchanges the elements of vector x and y.
 //   - [Handle.Sswap64]: interchanges the elements of vector x and y.
-//   - [Handle.Ssymm]: performs the symmetric matrix-matrix multiplication
-//   - [Handle.Ssymm64]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Ssymm]: performs the symmetric matrix-matrix multiplication.
+//   - [Handle.Ssymm64]: performs the symmetric matrix-matrix multiplication.
 //   - [Handle.Ssymv]: performs the symmetric matrix-vector multiplication.
 //   - [Handle.Ssymv64]: performs the symmetric matrix-vector multiplication.
-//   - [Handle.Ssyr2]: performs the symmetric rank-2 update
-//   - [Handle.Ssyr264]: performs the symmetric rank-2 update
-//   - [Handle.Ssyr2k]: performs the symmetric rank- 2k update
-//   - [Handle.Ssyr2k64]: performs the symmetric rank- 2k update
-//   - [Handle.Ssyr]: performs the symmetric rank-1 update
-//   - [Handle.Ssyr64]: performs the symmetric rank-1 update
-//   - [Handle.Ssyrk]: performs the symmetric rank- k update
-//   - [Handle.Ssyrk64]: performs the symmetric rank- k update
-//   - [Handle.Ssyrkx]: performs a variation of the symmetric rank- k update
-//   - [Handle.Ssyrkx64]: performs a variation of the symmetric rank- k update
-//   - [Handle.Stbmv]: performs the triangular banded matrix-vector multiplication
-//   - [Handle.Stbmv64]: performs the triangular banded matrix-vector multiplication
-//   - [Handle.Stbsv]: solves the triangular banded linear system with a single right-hand-side
-//   - [Handle.Stbsv64]: solves the triangular banded linear system with a single right-hand-side
-//   - [Handle.Stpmv]: performs the triangular packed matrix-vector multiplication
-//   - [Handle.Stpmv64]: performs the triangular packed matrix-vector multiplication
-//   - [Handle.Stpsv]: solves the packed triangular linear system with a single right-hand-side
-//   - [Handle.Stpsv64]: solves the packed triangular linear system with a single right-hand-side
-//   - [Handle.Stpttr]: performs the conversion from the triangular packed format to the triangular format
-//   - [Handle.Strmm]: performs the triangular matrix-matrix multiplication
-//   - [Handle.Strmm64]: performs the triangular matrix-matrix multiplication
-//   - [Handle.Strmv]: performs the triangular matrix-vector multiplication
-//   - [Handle.Strmv64]: performs the triangular matrix-vector multiplication
-//   - [Handle.Strsv]: solves the triangular linear system with a single right-hand-side
-//   - [Handle.Strsv64]: solves the triangular linear system with a single right-hand-side
-//   - [Handle.Strttp]: performs the conversion from the triangular format to the triangular packed format
+//   - [Handle.Ssyr2]: performs the symmetric rank-2 update.
+//   - [Handle.Ssyr264]: performs the symmetric rank-2 update.
+//   - [Handle.Ssyr2k]: performs the symmetric rank- 2k update.
+//   - [Handle.Ssyr2k64]: performs the symmetric rank- 2k update.
+//   - [Handle.Ssyr]: performs the symmetric rank-1 update.
+//   - [Handle.Ssyr64]: performs the symmetric rank-1 update.
+//   - [Handle.Ssyrk]: performs the symmetric rank- k update.
+//   - [Handle.Ssyrk64]: performs the symmetric rank- k update.
+//   - [Handle.Ssyrkx]: performs a variation of the symmetric rank- k update.
+//   - [Handle.Ssyrkx64]: performs a variation of the symmetric rank- k update.
+//   - [Handle.Stbmv]: performs the triangular banded matrix-vector multiplication.
+//   - [Handle.Stbmv64]: performs the triangular banded matrix-vector multiplication.
+//   - [Handle.Stbsv]: solves the triangular banded linear system with a single right-hand-side.
+//   - [Handle.Stbsv64]: solves the triangular banded linear system with a single right-hand-side.
+//   - [Handle.Stpmv]: performs the triangular packed matrix-vector multiplication.
+//   - [Handle.Stpmv64]: performs the triangular packed matrix-vector multiplication.
+//   - [Handle.Stpsv]: solves the packed triangular linear system with a single right-hand-side.
+//   - [Handle.Stpsv64]: solves the packed triangular linear system with a single right-hand-side.
+//   - [Handle.Stpttr]: performs the conversion from the triangular packed format to the triangular format.
+//   - [Handle.Strmm]: performs the triangular matrix-matrix multiplication.
+//   - [Handle.Strmm64]: performs the triangular matrix-matrix multiplication.
+//   - [Handle.Strmv]: performs the triangular matrix-vector multiplication.
+//   - [Handle.Strmv64]: performs the triangular matrix-vector multiplication.
+//   - [Handle.Strsv]: solves the triangular linear system with a single right-hand-side.
+//   - [Handle.Strsv64]: solves the triangular linear system with a single right-hand-side.
+//   - [Handle.Strttp]: performs the conversion from the triangular format to the triangular packed format.
 //   - [Handle.TSSgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.TSSgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.TSSgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
@@ -458,8 +458,8 @@
 //   - [Handle.Zaxpy64]: multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //   - [Handle.Zcopy]: copies the vector x into the vector y.
 //   - [Handle.Zcopy64]: copies the vector x into the vector y.
-//   - [Handle.Zdgmm]: performs the matrix-matrix multiplication
-//   - [Handle.Zdgmm64]: performs the matrix-matrix multiplication
+//   - [Handle.Zdgmm]: performs the matrix-matrix multiplication.
+//   - [Handle.Zdgmm64]: performs the matrix-matrix multiplication.
 //   - [Handle.Zdotc]: computes the dot product of vectors x and y.
 //   - [Handle.Zdotc64]: computes the dot product of vectors x and y.
 //   - [Handle.Zdotu]: computes the dot product of vectors x and y.
@@ -468,89 +468,89 @@
 //   - [Handle.Zdrot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //   - [Handle.Zdscal]: scales the vector x by the scalar α and overwrites it with the result.
 //   - [Handle.Zdscal64]: scales the vector x by the scalar α and overwrites it with the result.
-//   - [Handle.Zgbmv]: performs the banded matrix-vector multiplication
-//   - [Handle.Zgbmv64]: performs the banded matrix-vector multiplication
-//   - [Handle.Zgeam]: performs the matrix-matrix addition/transposition
-//   - [Handle.Zgeam64]: performs the matrix-matrix addition/transposition
+//   - [Handle.Zgbmv]: performs the banded matrix-vector multiplication.
+//   - [Handle.Zgbmv64]: performs the banded matrix-vector multiplication.
+//   - [Handle.Zgeam]: performs the matrix-matrix addition/transposition.
+//   - [Handle.Zgeam64]: performs the matrix-matrix addition/transposition.
 //   - [Handle.ZgelsBatched]: Aarray is an array of pointers to matrices stored in column-major format.
 //   - [Handle.ZgemvBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.ZgemvBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.ZgemvStridedBatched]: performs the matrix-vector multiplication of a batch of matrices and vectors.
 //   - [Handle.ZgemvStridedBatched64]: performs the matrix-vector multiplication of a batch of matrices and vectors.
-//   - [Handle.Zgemv]: performs the matrix-vector multiplication
-//   - [Handle.Zgemv64]: performs the matrix-vector multiplication
+//   - [Handle.Zgemv]: performs the matrix-vector multiplication.
+//   - [Handle.Zgemv64]: performs the matrix-vector multiplication.
 //   - [Handle.ZgeqrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
-//   - [Handle.Zgerc]: performs the rank-1 update
-//   - [Handle.Zgerc64]: performs the rank-1 update
-//   - [Handle.Zgeru]: performs the rank-1 update
-//   - [Handle.Zgeru64]: performs the rank-1 update
+//   - [Handle.Zgerc]: performs the rank-1 update.
+//   - [Handle.Zgerc64]: performs the rank-1 update.
+//   - [Handle.Zgeru]: performs the rank-1 update.
+//   - [Handle.Zgeru64]: performs the rank-1 update.
 //   - [Handle.ZgetrfBatched]: Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
 //   - [Handle.ZgetriBatched]: Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
 //   - [Handle.ZgetrsBatched]: solves an array of systems of linear equations of the form:
-//   - [Handle.Zhbmv]: performs the Hermitian banded matrix-vector multiplication
-//   - [Handle.Zhbmv64]: performs the Hermitian banded matrix-vector multiplication
-//   - [Handle.Zhemm]: performs the Hermitian matrix-matrix multiplication
-//   - [Handle.Zhemm64]: performs the Hermitian matrix-matrix multiplication
-//   - [Handle.Zhemv]: performs the Hermitian matrix-vector multiplication
-//   - [Handle.Zhemv64]: performs the Hermitian matrix-vector multiplication
-//   - [Handle.Zher2]: performs the Hermitian rank-2 update
-//   - [Handle.Zher264]: performs the Hermitian rank-2 update
-//   - [Handle.Zher2k]: performs the Hermitian rank- 2k update
-//   - [Handle.Zher2k64]: performs the Hermitian rank- 2k update
-//   - [Handle.Zher]: performs the Hermitian rank-1 update
-//   - [Handle.Zher64]: performs the Hermitian rank-1 update
-//   - [Handle.Zherk]: performs the Hermitian rank- k update
-//   - [Handle.Zherk64]: performs the Hermitian rank- k update
-//   - [Handle.Zherkx]: performs a variation of the Hermitian rank- k update
-//   - [Handle.Zherkx64]: performs a variation of the Hermitian rank- k update
-//   - [Handle.Zhpmv]: performs the Hermitian packed matrix-vector multiplication
-//   - [Handle.Zhpmv64]: performs the Hermitian packed matrix-vector multiplication
-//   - [Handle.Zhpr2]: performs the packed Hermitian rank-2 update
-//   - [Handle.Zhpr264]: performs the packed Hermitian rank-2 update
-//   - [Handle.Zhpr]: performs the packed Hermitian rank-1 update
-//   - [Handle.Zhpr64]: performs the packed Hermitian rank-1 update
+//   - [Handle.Zhbmv]: performs the Hermitian banded matrix-vector multiplication.
+//   - [Handle.Zhbmv64]: performs the Hermitian banded matrix-vector multiplication.
+//   - [Handle.Zhemm]: performs the Hermitian matrix-matrix multiplication.
+//   - [Handle.Zhemm64]: performs the Hermitian matrix-matrix multiplication.
+//   - [Handle.Zhemv]: performs the Hermitian matrix-vector multiplication.
+//   - [Handle.Zhemv64]: performs the Hermitian matrix-vector multiplication.
+//   - [Handle.Zher2]: performs the Hermitian rank-2 update.
+//   - [Handle.Zher264]: performs the Hermitian rank-2 update.
+//   - [Handle.Zher2k]: performs the Hermitian rank- 2k update.
+//   - [Handle.Zher2k64]: performs the Hermitian rank- 2k update.
+//   - [Handle.Zher]: performs the Hermitian rank-1 update.
+//   - [Handle.Zher64]: performs the Hermitian rank-1 update.
+//   - [Handle.Zherk]: performs the Hermitian rank- k update.
+//   - [Handle.Zherk64]: performs the Hermitian rank- k update.
+//   - [Handle.Zherkx]: performs a variation of the Hermitian rank- k update.
+//   - [Handle.Zherkx64]: performs a variation of the Hermitian rank- k update.
+//   - [Handle.Zhpmv]: performs the Hermitian packed matrix-vector multiplication.
+//   - [Handle.Zhpmv64]: performs the Hermitian packed matrix-vector multiplication.
+//   - [Handle.Zhpr2]: performs the packed Hermitian rank-2 update.
+//   - [Handle.Zhpr264]: performs the packed Hermitian rank-2 update.
+//   - [Handle.Zhpr]: performs the packed Hermitian rank-1 update.
+//   - [Handle.Zhpr64]: performs the packed Hermitian rank-1 update.
 //   - [Handle.ZmatinvBatched]: A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
 //   - [Handle.Zrot]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //   - [Handle.Zrot64]: applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
-//   - [Handle.Zrotg]: constructs the Givens rotation matrix
+//   - [Handle.Zrotg]: constructs the Givens rotation matrix.
 //   - [Handle.Zscal]: scales the vector x by the scalar α and overwrites it with the result.
 //   - [Handle.Zscal64]: scales the vector x by the scalar α and overwrites it with the result.
 //   - [Handle.Zswap]: interchanges the elements of vector x and y.
 //   - [Handle.Zswap64]: interchanges the elements of vector x and y.
-//   - [Handle.Zsymm]: performs the symmetric matrix-matrix multiplication
-//   - [Handle.Zsymm64]: performs the symmetric matrix-matrix multiplication
+//   - [Handle.Zsymm]: performs the symmetric matrix-matrix multiplication.
+//   - [Handle.Zsymm64]: performs the symmetric matrix-matrix multiplication.
 //   - [Handle.Zsymv]: performs the symmetric matrix-vector multiplication.
 //   - [Handle.Zsymv64]: performs the symmetric matrix-vector multiplication.
-//   - [Handle.Zsyr2]: performs the symmetric rank-2 update
-//   - [Handle.Zsyr264]: performs the symmetric rank-2 update
-//   - [Handle.Zsyr2k]: performs the symmetric rank- 2k update
-//   - [Handle.Zsyr2k64]: performs the symmetric rank- 2k update
-//   - [Handle.Zsyr]: performs the symmetric rank-1 update
-//   - [Handle.Zsyr64]: performs the symmetric rank-1 update
-//   - [Handle.Zsyrk]: performs the symmetric rank- k update
-//   - [Handle.Zsyrk64]: performs the symmetric rank- k update
-//   - [Handle.Zsyrkx]: performs a variation of the symmetric rank- k update
-//   - [Handle.Zsyrkx64]: performs a variation of the symmetric rank- k update
-//   - [Handle.Ztbmv]: performs the triangular banded matrix-vector multiplication
-//   - [Handle.Ztbmv64]: performs the triangular banded matrix-vector multiplication
-//   - [Handle.Ztbsv]: solves the triangular banded linear system with a single right-hand-side
-//   - [Handle.Ztbsv64]: solves the triangular banded linear system with a single right-hand-side
-//   - [Handle.Ztpmv]: performs the triangular packed matrix-vector multiplication
-//   - [Handle.Ztpmv64]: performs the triangular packed matrix-vector multiplication
-//   - [Handle.Ztpsv]: solves the packed triangular linear system with a single right-hand-side
-//   - [Handle.Ztpsv64]: solves the packed triangular linear system with a single right-hand-side
-//   - [Handle.Ztpttr]: performs the conversion from the triangular packed format to the triangular format
-//   - [Handle.Ztrmm]: performs the triangular matrix-matrix multiplication
-//   - [Handle.Ztrmm64]: performs the triangular matrix-matrix multiplication
-//   - [Handle.Ztrmv]: performs the triangular matrix-vector multiplication
-//   - [Handle.Ztrmv64]: performs the triangular matrix-vector multiplication
-//   - [Handle.ZtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides
-//   - [Handle.ZtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides
-//   - [Handle.Ztrsm]: solves the triangular linear system with multiple right-hand-sides
-//   - [Handle.Ztrsm64]: solves the triangular linear system with multiple right-hand-sides
-//   - [Handle.Ztrsv]: solves the triangular linear system with a single right-hand-side
-//   - [Handle.Ztrsv64]: solves the triangular linear system with a single right-hand-side
-//   - [Handle.Ztrttp]: performs the conversion from the triangular format to the triangular packed format
+//   - [Handle.Zsyr2]: performs the symmetric rank-2 update.
+//   - [Handle.Zsyr264]: performs the symmetric rank-2 update.
+//   - [Handle.Zsyr2k]: performs the symmetric rank- 2k update.
+//   - [Handle.Zsyr2k64]: performs the symmetric rank- 2k update.
+//   - [Handle.Zsyr]: performs the symmetric rank-1 update.
+//   - [Handle.Zsyr64]: performs the symmetric rank-1 update.
+//   - [Handle.Zsyrk]: performs the symmetric rank- k update.
+//   - [Handle.Zsyrk64]: performs the symmetric rank- k update.
+//   - [Handle.Zsyrkx]: performs a variation of the symmetric rank- k update.
+//   - [Handle.Zsyrkx64]: performs a variation of the symmetric rank- k update.
+//   - [Handle.Ztbmv]: performs the triangular banded matrix-vector multiplication.
+//   - [Handle.Ztbmv64]: performs the triangular banded matrix-vector multiplication.
+//   - [Handle.Ztbsv]: solves the triangular banded linear system with a single right-hand-side.
+//   - [Handle.Ztbsv64]: solves the triangular banded linear system with a single right-hand-side.
+//   - [Handle.Ztpmv]: performs the triangular packed matrix-vector multiplication.
+//   - [Handle.Ztpmv64]: performs the triangular packed matrix-vector multiplication.
+//   - [Handle.Ztpsv]: solves the packed triangular linear system with a single right-hand-side.
+//   - [Handle.Ztpsv64]: solves the packed triangular linear system with a single right-hand-side.
+//   - [Handle.Ztpttr]: performs the conversion from the triangular packed format to the triangular format.
+//   - [Handle.Ztrmm]: performs the triangular matrix-matrix multiplication.
+//   - [Handle.Ztrmm64]: performs the triangular matrix-matrix multiplication.
+//   - [Handle.Ztrmv]: performs the triangular matrix-vector multiplication.
+//   - [Handle.Ztrmv64]: performs the triangular matrix-vector multiplication.
+//   - [Handle.ZtrsmBatched]: solves an array of triangular linear systems with multiple right-hand-sides.
+//   - [Handle.ZtrsmBatched64]: solves an array of triangular linear systems with multiple right-hand-sides.
+//   - [Handle.Ztrsm]: solves the triangular linear system with multiple right-hand-sides.
+//   - [Handle.Ztrsm64]: solves the triangular linear system with multiple right-hand-sides.
+//   - [Handle.Ztrsv]: solves the triangular linear system with a single right-hand-side.
+//   - [Handle.Ztrsv64]: solves the triangular linear system with a single right-hand-side.
+//   - [Handle.Ztrttp]: performs the conversion from the triangular format to the triangular packed format.
 //
 // [cuBLAS Documentation]: https://docs.nvidia.com/cuda/cublas/
 package cublas

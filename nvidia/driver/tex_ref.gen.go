@@ -2,33 +2,33 @@
 
 package driver
 
-// Destroy Destroys a texture reference.
+// Destroy destroys a texture reference.
 //
 // Destroys the texture reference specified by hTexRef.
 //
 // See also: [NewTexRef]
 //
-// Deprecated: Destroys the texture reference specified by hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefDestroy.
 func (t TexRef) Destroy() error {
 	return texRefDestroy(t)
 }
 
-// Address Gets the address associated with a texture reference.
+// Address gets the address associated with a texture reference.
 //
 // Returns in *pdptr the base address bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any device memory range.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
-// Deprecated: Returns in *pdptr the base address bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any device memory range.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetAddress, bound as cuTexRefGetAddress_v2.
 func (t TexRef) Address() (DevicePtr, error) {
 	return texRefGetAddress(t)
 }
 
-// AddressMode Gets the addressing mode used by a texture reference.
+// AddressMode gets the addressing mode used by a texture reference.
 //
 // Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1.
 //
@@ -36,144 +36,144 @@ func (t TexRef) Address() (DevicePtr, error) {
 //
 //   - dim: Dimension
 //
-// Deprecated: Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetAddressMode.
 func (t TexRef) AddressMode(dim int32) (AddressMode, error) {
 	return texRefGetAddressMode(t, dim)
 }
 
-// Array Gets the array bound to a texture reference.
+// Array gets the array bound to a texture reference.
 //
 // Returns in *phArray the CUDA array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA array.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
-// Deprecated: Returns in *phArray the CUDA array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetArray.
 func (t TexRef) Array() (Array, error) {
 	return texRefGetArray(t)
 }
 
-// BorderColor Gets the border color used by a texture reference.
+// BorderColor gets the border color used by a texture reference.
 //
 // Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor [0] holds ‘R’ component pBorderColor [1] holds ‘G’ component pBorderColor [2] holds ‘B’ component pBorderColor [3] holds ‘A’ component
 //
 // See also: [TexRef.SetAddressMode], [TexRef.SetBorderColor]
 //
-// Deprecated: Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetBorderColor.
 func (t TexRef) BorderColor() (float32, error) {
 	return texRefGetBorderColor(t)
 }
 
-// FilterMode Gets the filter-mode used by a texture reference.
+// FilterMode gets the filter-mode used by a texture reference.
 //
 // Returns in *pfm the filtering mode of the texture reference hTexRef.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.Flags], [TexRef.Format]
 //
-// Deprecated: Returns in *pfm the filtering mode of the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetFilterMode.
 func (t TexRef) FilterMode() (FilterMode, error) {
 	return texRefGetFilterMode(t)
 }
 
-// Flags Gets the flags used by a texture reference.
+// Flags gets the flags used by a texture reference.
 //
 // Returns in *pFlags the flags of the texture reference hTexRef.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Format]
 //
-// Deprecated: Returns in *pFlags the flags of the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetFlags.
 func (t TexRef) Flags() (uint32, error) {
 	return texRefGetFlags(t)
 }
 
-// Format Gets the format used by a texture reference.
+// Format gets the format used by a texture reference.
 //
 // Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags]
 //
-// Deprecated: Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetFormat.
 func (t TexRef) Format() (pFormat ArrayFormat, pNumChannels int32, err error) {
 	return texRefGetFormat(t)
 }
 
-// MaxAnisotropy Gets the maximum anisotropy for a texture reference.
+// MaxAnisotropy gets the maximum anisotropy for a texture reference.
 //
 // Returns the maximum anisotropy in pmaxAniso that’s used when reading memory through the texture reference hTexRef.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
-// Deprecated: Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMaxAnisotropy.
 func (t TexRef) MaxAnisotropy() (int32, error) {
 	return texRefGetMaxAnisotropy(t)
 }
 
-// MipmapFilterMode Gets the mipmap filtering mode for a texture reference.
+// MipmapFilterMode gets the mipmap filtering mode for a texture reference.
 //
 // Returns the mipmap filtering mode in pfm that’s used when reading memory through the texture reference hTexRef.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
-// Deprecated: Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmapFilterMode.
 func (t TexRef) MipmapFilterMode() (FilterMode, error) {
 	return texRefGetMipmapFilterMode(t)
 }
 
-// MipmapLevelBias Gets the mipmap level bias for a texture reference.
+// MipmapLevelBias gets the mipmap level bias for a texture reference.
 //
 // Returns the mipmap level bias in pBias that’s added to the specified mipmap level when reading memory through the texture reference hTexRef.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
-// Deprecated: Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmapLevelBias.
 func (t TexRef) MipmapLevelBias() (float32, error) {
 	return texRefGetMipmapLevelBias(t)
 }
 
-// MipmapLevelClamp Gets the min/max mipmap level clamps for a texture reference.
+// MipmapLevelClamp gets the min/max mipmap level clamps for a texture reference.
 //
 // Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that’s used when reading memory through the texture reference hTexRef.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
-// Deprecated: Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmapLevelClamp.
 func (t TexRef) MipmapLevelClamp() (pminMipmapLevelClamp float32, pmaxMipmapLevelClamp float32, err error) {
 	return texRefGetMipmapLevelClamp(t)
 }
 
-// MipmappedArray Gets the mipmapped array bound to a texture reference.
+// MipmappedArray gets the mipmapped array bound to a texture reference.
 //
 // Returns in *phMipmappedArray the CUDA mipmapped array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA mipmapped array.
 //
 // See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
-// Deprecated: Returns in *phMipmappedArray the CUDA mipmapped array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA mipmapped array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefGetMipmappedArray.
 func (t TexRef) MipmappedArray() (MipmappedArray, error) {
 	return texRefGetMipmappedArray(t)
 }
 
-// SetAddress Binds an address as a texture reference.
+// SetAddress binds an address as a texture reference.
 //
 // Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound.
 // Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress] passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function.
@@ -185,14 +185,14 @@ func (t TexRef) MipmappedArray() (MipmappedArray, error) {
 //   - dptr: Device pointer to bind
 //   - bytes: Size of memory to bind in bytes
 //
-// Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress] passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc], the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as (bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using [TexRef.SetFormat].
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetAddress, bound as cuTexRefSetAddress_v2.
 func (t TexRef) SetAddress(dptr DevicePtr, bytes uint) (uint, error) {
 	return texRefSetAddress(t, dptr, bytes)
 }
 
-// SetAddress2D Binds an address as a 2D texture reference.
+// SetAddress2D binds an address as a 2D texture reference.
 //
 // Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound.
 // Using a tex2D() function inside a kernel requires a call to either [TexRef.SetArray] to bind the corresponding texture reference to an array, or [TexRef.SetAddress2D] to bind the texture reference to linear memory.
@@ -207,14 +207,14 @@ func (t TexRef) SetAddress(dptr DevicePtr, bytes uint) (uint, error) {
 //   - dptr: Device pointer to bind
 //   - pitch: Line pitch in bytes
 //
-// Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Using a tex2D() function inside a kernel requires a call to either [TexRef.SetArray] to bind the corresponding texture reference to an array, or [TexRef.SetAddress2D] to bind the texture reference to linear memory. Function calls to [TexRef.SetFormat] cannot follow calls to [TexRef.SetAddress2D] for the same texture reference. It is required that dptr be aligned to the appropriate hardware-specific texture alignment. You can query this value using the device attribute [DevAttrTextureAlignment]. If an unaligned dptr is supplied, [ErrInvalidValue] is returned. Pitch has to be aligned to the hardware-specific texture pitch alignment. This value can be queried using the device attribute [DevAttrTexturePitchAlignment]. If an unaligned Pitch is supplied, [ErrInvalidValue] is returned. Width and Height, which are specified in elements (or texels), cannot exceed [DevAttrMaximumTexture2dLinearWidth] and [DevAttrMaximumTexture2dLinearHeight] respectively. Pitch, which is specified in bytes, cannot exceed [DevAttrMaximumTexture2dLinearPitch].
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetAddress2D, bound as cuTexRefSetAddress2D_v3.
 func (t TexRef) SetAddress2D(desc *ArrayDescriptor, dptr DevicePtr, pitch uint) error {
 	return texRefSetAddress2D(t, desc, dptr, pitch)
 }
 
-// SetAddressMode Sets the addressing mode for a texture reference.
+// SetAddressMode sets the addressing mode for a texture reference.
 //
 // Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as:
 // Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp].
@@ -224,14 +224,14 @@ func (t TexRef) SetAddress2D(desc *ArrayDescriptor, dptr DevicePtr, pitch uint) 
 //   - dim: Dimension
 //   - am: Addressing mode to set
 //
-// Deprecated: Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as: Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp].
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetAddressMode.
 func (t TexRef) SetAddressMode(dim int32, am AddressMode) error {
 	return texRefSetAddressMode(t, dim, am)
 }
 
-// SetArray Binds an array as a texture reference.
+// SetArray binds an array as a texture reference.
 //
 // Binds the CUDA array hArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
 //
@@ -240,28 +240,28 @@ func (t TexRef) SetAddressMode(dim int32, am AddressMode) error {
 //   - hArray: Array to bind
 //   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
 //
-// Deprecated: Binds the CUDA array hArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetArray.
 func (t TexRef) SetArray(hArray Array, flags uint32) error {
 	return texRefSetArray(t, hArray, flags)
 }
 
-// SetBorderColor Sets the border color for a texture reference.
+// SetBorderColor sets the border color for a texture reference.
 //
 // Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds ‘R’ component pBorderColor [1] holds ‘G’ component pBorderColor [2] holds ‘B’ component pBorderColor [3] holds ‘A’ component
 // Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to “reinterpret_cast” their values to float.
 //
 // See also: [TexRef.SetAddressMode], [TexRef.AddressMode], [TexRef.BorderColor]
 //
-// Deprecated: Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to "reinterpret_cast" their values to float.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetBorderColor.
 func (t TexRef) SetBorderColor() (float32, error) {
 	return texRefSetBorderColor(t)
 }
 
-// SetFilterMode Sets the filtering mode for a texture reference.
+// SetFilterMode sets the filtering mode for a texture reference.
 //
 // Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
 // Note that this call has no effect if hTexRef is bound to linear memory.
@@ -270,14 +270,14 @@ func (t TexRef) SetBorderColor() (float32, error) {
 //
 //   - fm: Filtering mode to set
 //
-// Deprecated: Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as: Note that this call has no effect if hTexRef is bound to linear memory.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetFilterMode.
 func (t TexRef) SetFilterMode(fm FilterMode) error {
 	return texRefSetFilterMode(t, fm)
 }
 
-// SetFlags Sets the flags for a texture reference.
+// SetFlags sets the flags for a texture reference.
 //
 // Specifies optional flags via Flags to specify the behavior of data returned through the texture reference hTexRef. The valid flags are:
 //
@@ -285,14 +285,14 @@ func (t TexRef) SetFilterMode(fm FilterMode) error {
 //
 //   - flags: Optional flags to set
 //
-// Deprecated: Specifies optional flags via Flags to specify the behavior of data returned through the texture reference hTexRef. The valid flags are: - CU_TRSF_READ_AS_INTEGER, which suppresses the default behavior of having the texture promote integer data to floating point data in the range [0, 1]. Note that texture with 32-bit integer format would not be promoted, regardless of whether or not this flag is specified; - CU_TRSF_NORMALIZED_COORDINATES, which suppresses the default behavior of having the texture coordinates range from [0, Dim) where Dim is the width or height of the CUDA array. Instead, the texture coordinates [0, 1.0) reference the entire breadth of the array dimension; - CU_TRSF_DISABLE_TRILINEAR_OPTIMIZATION, which disables any trilinear filtering optimizations. Trilinear optimizations improve texture filtering performance by allowing bilinear filtering on textures in scenarios where it can closely approximate the expected results.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetFlags.
 func (t TexRef) SetFlags(flags uint32) error {
 	return texRefSetFlags(t, flags)
 }
 
-// SetFormat Sets the format for a texture reference.
+// SetFormat sets the format for a texture reference.
 //
 // Specifies the format of the data to be read by the texture reference hTexRef. fmt and NumPackedComponents are exactly analogous to the Format and NumChannels members of the [ArrayDescriptor] structure: They specify the format of each component and the number of components per array element.
 //
@@ -301,14 +301,14 @@ func (t TexRef) SetFlags(flags uint32) error {
 //   - fmt: Format to set
 //   - numPackedComponents: Number of components per array element
 //
-// Deprecated: Specifies the format of the data to be read by the texture reference hTexRef. fmt and NumPackedComponents are exactly analogous to the Format and NumChannels members of the [ArrayDescriptor] structure: They specify the format of each component and the number of components per array element.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetFormat.
 func (t TexRef) SetFormat(fmt ArrayFormat, numPackedComponents int32) error {
 	return texRefSetFormat(t, fmt, numPackedComponents)
 }
 
-// SetMaxAnisotropy Sets the maximum anisotropy for a texture reference.
+// SetMaxAnisotropy sets the maximum anisotropy for a texture reference.
 //
 // Specifies the maximum anisotropy maxAniso to be used when reading memory through the texture reference hTexRef.
 // Note that this call has no effect if hTexRef is bound to linear memory.
@@ -317,14 +317,14 @@ func (t TexRef) SetFormat(fmt ArrayFormat, numPackedComponents int32) error {
 //
 //   - maxAniso: Maximum anisotropy
 //
-// Deprecated: Specifies the maximum anisotropy maxAniso to be used when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is bound to linear memory.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMaxAnisotropy.
 func (t TexRef) SetMaxAnisotropy(maxAniso uint32) error {
 	return texRefSetMaxAnisotropy(t, maxAniso)
 }
 
-// SetMipmapFilterMode Sets the mipmap filtering mode for a texture reference.
+// SetMipmapFilterMode sets the mipmap filtering mode for a texture reference.
 //
 // Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as:
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
@@ -333,14 +333,14 @@ func (t TexRef) SetMaxAnisotropy(maxAniso uint32) error {
 //
 //   - fm: Filtering mode to set
 //
-// Deprecated: Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as: Note that this call has no effect if hTexRef is not bound to a mipmapped array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmapFilterMode.
 func (t TexRef) SetMipmapFilterMode(fm FilterMode) error {
 	return texRefSetMipmapFilterMode(t, fm)
 }
 
-// SetMipmapLevelBias Sets the mipmap level bias for a texture reference.
+// SetMipmapLevelBias sets the mipmap level bias for a texture reference.
 //
 // Specifies the mipmap level bias bias to be added to the specified mipmap level when reading memory through the texture reference hTexRef.
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
@@ -349,14 +349,14 @@ func (t TexRef) SetMipmapFilterMode(fm FilterMode) error {
 //
 //   - bias: Mipmap level bias
 //
-// Deprecated: Specifies the mipmap level bias bias to be added to the specified mipmap level when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is not bound to a mipmapped array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmapLevelBias.
 func (t TexRef) SetMipmapLevelBias(bias float32) error {
 	return texRefSetMipmapLevelBias(t, bias)
 }
 
-// SetMipmapLevelClamp Sets the mipmap min/max mipmap level clamps for a texture reference.
+// SetMipmapLevelClamp sets the mipmap min/max mipmap level clamps for a texture reference.
 //
 // Specifies the min/max mipmap level clamps, minMipmapLevelClamp and maxMipmapLevelClamp respectively, to be used when reading memory through the texture reference hTexRef.
 // Note that this call has no effect if hTexRef is not bound to a mipmapped array.
@@ -366,14 +366,14 @@ func (t TexRef) SetMipmapLevelBias(bias float32) error {
 //   - minMipmapLevelClamp: Mipmap min level clamp
 //   - maxMipmapLevelClamp: Mipmap max level clamp
 //
-// Deprecated: Specifies the min/max mipmap level clamps, minMipmapLevelClamp and maxMipmapLevelClamp respectively, to be used when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is not bound to a mipmapped array.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmapLevelClamp.
 func (t TexRef) SetMipmapLevelClamp(minMipmapLevelClamp float32, maxMipmapLevelClamp float32) error {
 	return texRefSetMipmapLevelClamp(t, minMipmapLevelClamp, maxMipmapLevelClamp)
 }
 
-// SetMipmappedArray Binds a mipmapped array to a texture reference.
+// SetMipmappedArray binds a mipmapped array to a texture reference.
 //
 // Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
 //
@@ -382,20 +382,20 @@ func (t TexRef) SetMipmapLevelClamp(minMipmapLevelClamp float32, maxMipmapLevelC
 //   - hMipmappedArray: Mipmapped array to bind
 //   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
 //
-// Deprecated: Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefSetMipmappedArray.
 func (t TexRef) SetMipmappedArray(hMipmappedArray MipmappedArray, flags uint32) error {
 	return texRefSetMipmappedArray(t, hMipmappedArray, flags)
 }
 
-// NewTexRef Creates a texture reference.
+// NewTexRef creates a texture reference.
 //
 // Creates a texture reference and returns its handle in *pTexRef. Once created, the application must call [TexRef.SetArray] or [TexRef.SetAddress] to associate the reference with allocated memory. Other texture reference functions are used to specify the format and interpretation (addressing, filtering, etc.) to be used when the memory is read through this texture reference.
 //
 // See also: [TexRef.Destroy]
 //
-// Deprecated: Creates a texture reference and returns its handle in *pTexRef. Once created, the application must call [TexRef.SetArray] or [TexRef.SetAddress] to associate the reference with allocated memory. Other texture reference functions are used to specify the format and interpretation (addressing, filtering, etc.) to be used when the memory is read through this texture reference.
+// Deprecated: This function is deprecated.
 //
 // Wraps cuTexRefCreate.
 func NewTexRef() (TexRef, error) {

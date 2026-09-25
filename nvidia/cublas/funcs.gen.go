@@ -3,549 +3,4101 @@
 package cublas
 
 import (
+	"sync"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 // Generated function pointer variables.
 var (
-	fnasumEx                                        func(Handle, int32, uintptr, DataType, int32, uintptr, DataType, DataType) Result
-	fnasumEx64                                      func(Handle, int64, uintptr, DataType, int64, uintptr, DataType, DataType) Result
-	fnaxpyEx                                        func(Handle, int32, uintptr, DataType, uintptr, DataType, int32, uintptr, DataType, int32, DataType) Result
-	fnaxpyEx64                                      func(Handle, int64, uintptr, DataType, uintptr, DataType, int64, uintptr, DataType, int64, DataType) Result
-	fncaxpy                                         func(Handle, int32, *Complex64, uintptr, int32, uintptr, int32) Result
-	fncaxpy64                                       func(Handle, int64, *Complex64, uintptr, int64, uintptr, int64) Result
-	fnccopy                                         func(Handle, int32, uintptr, int32, uintptr, int32) Result
-	fnccopy64                                       func(Handle, int64, uintptr, int64, uintptr, int64) Result
-	fncdgmm                                         func(Handle, SideMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fncdgmm64                                       func(Handle, SideMode, int64, int64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fncdotc                                         func(Handle, int32, uintptr, int32, uintptr, int32, *Complex64) Result
-	fncdotc64                                       func(Handle, int64, uintptr, int64, uintptr, int64, *Complex64) Result
-	fncdotu                                         func(Handle, int32, uintptr, int32, uintptr, int32, *Complex64) Result
-	fncdotu64                                       func(Handle, int64, uintptr, int64, uintptr, int64, *Complex64) Result
-	fncgbmv                                         func(Handle, Operation, int32, int32, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncgbmv64                                       func(Handle, Operation, int64, int64, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncgeam                                         func(Handle, Operation, Operation, int32, int32, *Complex64, uintptr, int32, *Complex64, uintptr, int32, uintptr, int32) Result
-	fncgeam64                                       func(Handle, Operation, Operation, int64, int64, *Complex64, uintptr, int64, *Complex64, uintptr, int64, uintptr, int64) Result
-	fncgelsBatched                                  func(Handle, Operation, int32, int32, int32, uintptr, int32, uintptr, int32, *int32, uintptr, int32) Result
-	fncgemm3m                                       func(Handle, Operation, Operation, int32, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncgemm3mBatched                                func(Handle, Operation, Operation, int32, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32, int32) Result
-	fncgemm3mBatched64                              func(Handle, Operation, Operation, int64, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64, int64) Result
-	fncgemm3mEx                                     func(Handle, Operation, Operation, int32, int32, int32, *Complex64, uintptr, DataType, int32, uintptr, DataType, int32, *Complex64, uintptr, DataType, int32) Result
-	fncgemm3mEx64                                   func(Handle, Operation, Operation, int64, int64, int64, *Complex64, uintptr, DataType, int64, uintptr, DataType, int64, *Complex64, uintptr, DataType, int64) Result
-	fncgemm3mStridedBatched                         func(Handle, Operation, Operation, int32, int32, int32, *Complex64, uintptr, int32, int64, uintptr, int32, int64, *Complex64, uintptr, int32, int64, int32) Result
-	fncgemm3mStridedBatched64                       func(Handle, Operation, Operation, int64, int64, int64, *Complex64, uintptr, int64, int64, uintptr, int64, int64, *Complex64, uintptr, int64, int64, int64) Result
-	fncgemm3m64                                     func(Handle, Operation, Operation, int64, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncgemmBatched                                  func(Handle, Operation, Operation, int32, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32, int32) Result
-	fncgemmBatched64                                func(Handle, Operation, Operation, int64, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64, int64) Result
-	fncgemmEx                                       func(Handle, Operation, Operation, int32, int32, int32, *Complex64, uintptr, DataType, int32, uintptr, DataType, int32, *Complex64, uintptr, DataType, int32) Result
-	fncgemmEx64                                     func(Handle, Operation, Operation, int64, int64, int64, *Complex64, uintptr, DataType, int64, uintptr, DataType, int64, *Complex64, uintptr, DataType, int64) Result
-	fncgemmStridedBatched                           func(Handle, Operation, Operation, int32, int32, int32, *Complex64, uintptr, int32, int64, uintptr, int32, int64, *Complex64, uintptr, int32, int64, int32) Result
-	fncgemmStridedBatched64                         func(Handle, Operation, Operation, int64, int64, int64, *Complex64, uintptr, int64, int64, uintptr, int64, int64, *Complex64, uintptr, int64, int64, int64) Result
-	fncgemm                                         func(Handle, Operation, Operation, int32, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncgemm64                                       func(Handle, Operation, Operation, int64, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncgemvBatched                                  func(Handle, Operation, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32, int32) Result
-	fncgemvBatched64                                func(Handle, Operation, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64, int64) Result
-	fncgemvStridedBatched                           func(Handle, Operation, int32, int32, *Complex64, uintptr, int32, int64, uintptr, int32, int64, *Complex64, uintptr, int32, int64, int32) Result
-	fncgemvStridedBatched64                         func(Handle, Operation, int64, int64, *Complex64, uintptr, int64, int64, uintptr, int64, int64, *Complex64, uintptr, int64, int64, int64) Result
-	fncgemv                                         func(Handle, Operation, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncgemv64                                       func(Handle, Operation, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncgeqrfBatched                                 func(Handle, int32, int32, uintptr, int32, uintptr, *int32, int32) Result
-	fncgerc                                         func(Handle, int32, int32, *Complex64, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fncgerc64                                       func(Handle, int64, int64, *Complex64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fncgeru                                         func(Handle, int32, int32, *Complex64, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fncgeru64                                       func(Handle, int64, int64, *Complex64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fncgetrfBatched                                 func(Handle, int32, uintptr, int32, uintptr, uintptr, int32) Result
-	fncgetriBatched                                 func(Handle, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32) Result
-	fncgetrsBatched                                 func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32, int32) Result
-	fnchbmv                                         func(Handle, FillMode, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fnchbmv64                                       func(Handle, FillMode, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fnchemm                                         func(Handle, SideMode, FillMode, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fnchemm64                                       func(Handle, SideMode, FillMode, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fnchemv                                         func(Handle, FillMode, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fnchemv64                                       func(Handle, FillMode, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncher2                                         func(Handle, FillMode, int32, *Complex64, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fncher264                                       func(Handle, FillMode, int64, *Complex64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fncher2k                                        func(Handle, FillMode, Operation, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fncher2k64                                      func(Handle, FillMode, Operation, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fncher                                          func(Handle, FillMode, int32, *float32, uintptr, int32, uintptr, int32) Result
-	fncher64                                        func(Handle, FillMode, int64, *float32, uintptr, int64, uintptr, int64) Result
-	fncherk3mEx                                     func(Handle, FillMode, Operation, int32, int32, *float32, uintptr, DataType, int32, *float32, uintptr, DataType, int32) Result
-	fncherk3mEx64                                   func(Handle, FillMode, Operation, int64, int64, *float32, uintptr, DataType, int64, *float32, uintptr, DataType, int64) Result
-	fncherkEx                                       func(Handle, FillMode, Operation, int32, int32, *float32, uintptr, DataType, int32, *float32, uintptr, DataType, int32) Result
-	fncherkEx64                                     func(Handle, FillMode, Operation, int64, int64, *float32, uintptr, DataType, int64, *float32, uintptr, DataType, int64) Result
-	fncherk                                         func(Handle, FillMode, Operation, int32, int32, *float32, uintptr, int32, *float32, uintptr, int32) Result
-	fncherk64                                       func(Handle, FillMode, Operation, int64, int64, *float32, uintptr, int64, *float32, uintptr, int64) Result
-	fncherkx                                        func(Handle, FillMode, Operation, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fncherkx64                                      func(Handle, FillMode, Operation, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnchpmv                                         func(Handle, FillMode, int32, *Complex64, uintptr, uintptr, int32, *Complex64, uintptr, int32) Result
-	fnchpmv64                                       func(Handle, FillMode, int64, *Complex64, uintptr, uintptr, int64, *Complex64, uintptr, int64) Result
-	fnchpr2                                         func(Handle, FillMode, int32, *Complex64, uintptr, int32, uintptr, int32, uintptr) Result
-	fnchpr264                                       func(Handle, FillMode, int64, *Complex64, uintptr, int64, uintptr, int64, uintptr) Result
-	fnchpr                                          func(Handle, FillMode, int32, *float32, uintptr, int32, uintptr) Result
-	fnchpr64                                        func(Handle, FillMode, int64, *float32, uintptr, int64, uintptr) Result
-	fncmatinvBatched                                func(Handle, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fncopyEx                                        func(Handle, int32, uintptr, DataType, int32, uintptr, DataType, int32) Result
-	fncopyEx64                                      func(Handle, int64, uintptr, DataType, int64, uintptr, DataType, int64) Result
-	fnCreate                                        func(*Handle) Result
-	fncrot                                          func(Handle, int32, uintptr, int32, uintptr, int32, *float32, *Complex64) Result
-	fncrot64                                        func(Handle, int64, uintptr, int64, uintptr, int64, *float32, *Complex64) Result
-	fncrotg                                         func(Handle, *Complex64, *Complex64, *float32, *Complex64) Result
-	fncscal                                         func(Handle, int32, *Complex64, uintptr, int32) Result
-	fncscal64                                       func(Handle, int64, *Complex64, uintptr, int64) Result
-	fncsrot                                         func(Handle, int32, uintptr, int32, uintptr, int32, *float32, *float32) Result
-	fncsrot64                                       func(Handle, int64, uintptr, int64, uintptr, int64, *float32, *float32) Result
-	fncsscal                                        func(Handle, int32, *float32, uintptr, int32) Result
-	fncsscal64                                      func(Handle, int64, *float32, uintptr, int64) Result
-	fncswap                                         func(Handle, int32, uintptr, int32, uintptr, int32) Result
-	fncswap64                                       func(Handle, int64, uintptr, int64, uintptr, int64) Result
-	fncsymm                                         func(Handle, SideMode, FillMode, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncsymm64                                       func(Handle, SideMode, FillMode, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncsymv                                         func(Handle, FillMode, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncsymv64                                       func(Handle, FillMode, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncsyr2                                         func(Handle, FillMode, int32, *Complex64, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fncsyr264                                       func(Handle, FillMode, int64, *Complex64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fncsyr2k                                        func(Handle, FillMode, Operation, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncsyr2k64                                      func(Handle, FillMode, Operation, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncsyr                                          func(Handle, FillMode, int32, *Complex64, uintptr, int32, uintptr, int32) Result
-	fncsyr64                                        func(Handle, FillMode, int64, *Complex64, uintptr, int64, uintptr, int64) Result
-	fncsyrk3mEx                                     func(Handle, FillMode, Operation, int32, int32, *Complex64, uintptr, DataType, int32, *Complex64, uintptr, DataType, int32) Result
-	fncsyrk3mEx64                                   func(Handle, FillMode, Operation, int64, int64, *Complex64, uintptr, DataType, int64, *Complex64, uintptr, DataType, int64) Result
-	fncsyrkEx                                       func(Handle, FillMode, Operation, int32, int32, *Complex64, uintptr, DataType, int32, *Complex64, uintptr, DataType, int32) Result
-	fncsyrkEx64                                     func(Handle, FillMode, Operation, int64, int64, *Complex64, uintptr, DataType, int64, *Complex64, uintptr, DataType, int64) Result
-	fncsyrk                                         func(Handle, FillMode, Operation, int32, int32, *Complex64, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncsyrk64                                       func(Handle, FillMode, Operation, int64, int64, *Complex64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fncsyrkx                                        func(Handle, FillMode, Operation, int32, int32, *Complex64, uintptr, int32, uintptr, int32, *Complex64, uintptr, int32) Result
-	fncsyrkx64                                      func(Handle, FillMode, Operation, int64, int64, *Complex64, uintptr, int64, uintptr, int64, *Complex64, uintptr, int64) Result
-	fnctbmv                                         func(Handle, FillMode, Operation, DiagType, int32, int32, uintptr, int32, uintptr, int32) Result
-	fnctbmv64                                       func(Handle, FillMode, Operation, DiagType, int64, int64, uintptr, int64, uintptr, int64) Result
-	fnctbsv                                         func(Handle, FillMode, Operation, DiagType, int32, int32, uintptr, int32, uintptr, int32) Result
-	fnctbsv64                                       func(Handle, FillMode, Operation, DiagType, int64, int64, uintptr, int64, uintptr, int64) Result
-	fnctpmv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, uintptr, int32) Result
-	fnctpmv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, uintptr, int64) Result
-	fnctpsv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, uintptr, int32) Result
-	fnctpsv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, uintptr, int64) Result
-	fnctpttr                                        func(Handle, FillMode, int32, uintptr, uintptr, int32) Result
-	fnctrmm                                         func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *Complex64, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnctrmm64                                       func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *Complex64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnctrmv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, int32, uintptr, int32) Result
-	fnctrmv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, int64, uintptr, int64) Result
-	fnctrsmBatched                                  func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *Complex64, uintptr, int32, uintptr, int32, int32) Result
-	fnctrsmBatched64                                func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *Complex64, uintptr, int64, uintptr, int64, int64) Result
-	fnctrsm                                         func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *Complex64, uintptr, int32, uintptr, int32) Result
-	fnctrsm64                                       func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *Complex64, uintptr, int64, uintptr, int64) Result
-	fnctrsv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, int32, uintptr, int32) Result
-	fnctrsv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, int64, uintptr, int64) Result
-	fnctrttp                                        func(Handle, FillMode, int32, uintptr, int32, uintptr) Result
-	fndasum                                         func(Handle, int32, uintptr, int32, *float64) Result
-	fndasum64                                       func(Handle, int64, uintptr, int64, *float64) Result
-	fndaxpy                                         func(Handle, int32, *float64, uintptr, int32, uintptr, int32) Result
-	fndaxpy64                                       func(Handle, int64, *float64, uintptr, int64, uintptr, int64) Result
-	fndcopy                                         func(Handle, int32, uintptr, int32, uintptr, int32) Result
-	fndcopy64                                       func(Handle, int64, uintptr, int64, uintptr, int64) Result
-	fnddgmm                                         func(Handle, SideMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnddgmm64                                       func(Handle, SideMode, int64, int64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnddot                                          func(Handle, int32, uintptr, int32, uintptr, int32, *float64) Result
-	fnddot64                                        func(Handle, int64, uintptr, int64, uintptr, int64, *float64) Result
-	fndestroy                                       func(Handle) Result
-	fndgbmv                                         func(Handle, Operation, int32, int32, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fndgbmv64                                       func(Handle, Operation, int64, int64, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fndgeam                                         func(Handle, Operation, Operation, int32, int32, *float64, uintptr, int32, *float64, uintptr, int32, uintptr, int32) Result
-	fndgeam64                                       func(Handle, Operation, Operation, int64, int64, *float64, uintptr, int64, *float64, uintptr, int64, uintptr, int64) Result
-	fndgelsBatched                                  func(Handle, Operation, int32, int32, int32, uintptr, int32, uintptr, int32, *int32, uintptr, int32) Result
-	fndgemmBatched                                  func(Handle, Operation, Operation, int32, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32, int32) Result
-	fndgemmBatched64                                func(Handle, Operation, Operation, int64, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64, int64) Result
-	fndgemmGroupedBatched                           func(Handle, *Operation, *Operation, *int32, *int32, *int32, *float64, uintptr, *int32, uintptr, *int32, *float64, uintptr, *int32, int32, *int32) Result
-	fndgemmGroupedBatched64                         func(Handle, *Operation, *Operation, *int64, *int64, *int64, *float64, uintptr, *int64, uintptr, *int64, *float64, uintptr, *int64, int64, *int64) Result
-	fndgemmStridedBatched                           func(Handle, Operation, Operation, int32, int32, int32, *float64, uintptr, int32, int64, uintptr, int32, int64, *float64, uintptr, int32, int64, int32) Result
-	fndgemmStridedBatched64                         func(Handle, Operation, Operation, int64, int64, int64, *float64, uintptr, int64, int64, uintptr, int64, int64, *float64, uintptr, int64, int64, int64) Result
-	fndgemm                                         func(Handle, Operation, Operation, int32, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fndgemm64                                       func(Handle, Operation, Operation, int64, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fndgemvBatched                                  func(Handle, Operation, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32, int32) Result
-	fndgemvBatched64                                func(Handle, Operation, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64, int64) Result
-	fndgemvStridedBatched                           func(Handle, Operation, int32, int32, *float64, uintptr, int32, int64, uintptr, int32, int64, *float64, uintptr, int32, int64, int32) Result
-	fndgemvStridedBatched64                         func(Handle, Operation, int64, int64, *float64, uintptr, int64, int64, uintptr, int64, int64, *float64, uintptr, int64, int64, int64) Result
-	fndgemv                                         func(Handle, Operation, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fndgemv64                                       func(Handle, Operation, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fndgeqrfBatched                                 func(Handle, int32, int32, uintptr, int32, uintptr, *int32, int32) Result
-	fndger                                          func(Handle, int32, int32, *float64, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fndger64                                        func(Handle, int64, int64, *float64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fndgetrfBatched                                 func(Handle, int32, uintptr, int32, uintptr, uintptr, int32) Result
-	fndgetriBatched                                 func(Handle, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32) Result
-	fndgetrsBatched                                 func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32, int32) Result
-	fndmatinvBatched                                func(Handle, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fndnrm2                                         func(Handle, int32, uintptr, int32, *float64) Result
-	fndnrm264                                       func(Handle, int64, uintptr, int64, *float64) Result
-	fndotEx                                         func(Handle, int32, uintptr, DataType, int32, uintptr, DataType, int32, uintptr, DataType, DataType) Result
-	fndotEx64                                       func(Handle, int64, uintptr, DataType, int64, uintptr, DataType, int64, uintptr, DataType, DataType) Result
-	fndotcEx                                        func(Handle, int32, uintptr, DataType, int32, uintptr, DataType, int32, uintptr, DataType, DataType) Result
-	fndotcEx64                                      func(Handle, int64, uintptr, DataType, int64, uintptr, DataType, int64, uintptr, DataType, DataType) Result
-	fndrot                                          func(Handle, int32, uintptr, int32, uintptr, int32, *float64, *float64) Result
-	fndrot64                                        func(Handle, int64, uintptr, int64, uintptr, int64, *float64, *float64) Result
-	fndrotg                                         func(Handle, *float64, *float64, *float64, *float64) Result
-	fndrotm                                         func(Handle, int32, uintptr, int32, uintptr, int32, *float64) Result
-	fndrotm64                                       func(Handle, int64, uintptr, int64, uintptr, int64, *float64) Result
-	fndrotmg                                        func(Handle, *float64, *float64, *float64, *float64, *float64) Result
-	fndsbmv                                         func(Handle, FillMode, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fndsbmv64                                       func(Handle, FillMode, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fndscal                                         func(Handle, int32, *float64, uintptr, int32) Result
-	fndscal64                                       func(Handle, int64, *float64, uintptr, int64) Result
-	fndspmv                                         func(Handle, FillMode, int32, *float64, uintptr, uintptr, int32, *float64, uintptr, int32) Result
-	fndspmv64                                       func(Handle, FillMode, int64, *float64, uintptr, uintptr, int64, *float64, uintptr, int64) Result
-	fndspr2                                         func(Handle, FillMode, int32, *float64, uintptr, int32, uintptr, int32, uintptr) Result
-	fndspr264                                       func(Handle, FillMode, int64, *float64, uintptr, int64, uintptr, int64, uintptr) Result
-	fndspr                                          func(Handle, FillMode, int32, *float64, uintptr, int32, uintptr) Result
-	fndspr64                                        func(Handle, FillMode, int64, *float64, uintptr, int64, uintptr) Result
-	fndswap                                         func(Handle, int32, uintptr, int32, uintptr, int32) Result
-	fndswap64                                       func(Handle, int64, uintptr, int64, uintptr, int64) Result
-	fndsymm                                         func(Handle, SideMode, FillMode, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fndsymm64                                       func(Handle, SideMode, FillMode, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fndsymv                                         func(Handle, FillMode, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fndsymv64                                       func(Handle, FillMode, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fndsyr2                                         func(Handle, FillMode, int32, *float64, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fndsyr264                                       func(Handle, FillMode, int64, *float64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fndsyr2k                                        func(Handle, FillMode, Operation, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fndsyr2k64                                      func(Handle, FillMode, Operation, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fndsyr                                          func(Handle, FillMode, int32, *float64, uintptr, int32, uintptr, int32) Result
-	fndsyr64                                        func(Handle, FillMode, int64, *float64, uintptr, int64, uintptr, int64) Result
-	fndsyrk                                         func(Handle, FillMode, Operation, int32, int32, *float64, uintptr, int32, *float64, uintptr, int32) Result
-	fndsyrk64                                       func(Handle, FillMode, Operation, int64, int64, *float64, uintptr, int64, *float64, uintptr, int64) Result
-	fndsyrkx                                        func(Handle, FillMode, Operation, int32, int32, *float64, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fndsyrkx64                                      func(Handle, FillMode, Operation, int64, int64, *float64, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fndtbmv                                         func(Handle, FillMode, Operation, DiagType, int32, int32, uintptr, int32, uintptr, int32) Result
-	fndtbmv64                                       func(Handle, FillMode, Operation, DiagType, int64, int64, uintptr, int64, uintptr, int64) Result
-	fndtbsv                                         func(Handle, FillMode, Operation, DiagType, int32, int32, uintptr, int32, uintptr, int32) Result
-	fndtbsv64                                       func(Handle, FillMode, Operation, DiagType, int64, int64, uintptr, int64, uintptr, int64) Result
-	fndtpmv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, uintptr, int32) Result
-	fndtpmv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, uintptr, int64) Result
-	fndtpsv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, uintptr, int32) Result
-	fndtpsv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, uintptr, int64) Result
-	fndtpttr                                        func(Handle, FillMode, int32, uintptr, uintptr, int32) Result
-	fndtrmm                                         func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *float64, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fndtrmm64                                       func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *float64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fndtrmv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, int32, uintptr, int32) Result
-	fndtrmv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, int64, uintptr, int64) Result
-	fndtrsmBatched                                  func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *float64, uintptr, int32, uintptr, int32, int32) Result
-	fndtrsmBatched64                                func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *float64, uintptr, int64, uintptr, int64, int64) Result
-	fndtrsm                                         func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *float64, uintptr, int32, uintptr, int32) Result
-	fndtrsm64                                       func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *float64, uintptr, int64, uintptr, int64) Result
-	fndtrsv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, int32, uintptr, int32) Result
-	fndtrsv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, int64, uintptr, int64) Result
-	fndtrttp                                        func(Handle, FillMode, int32, uintptr, int32, uintptr) Result
-	fndzasum                                        func(Handle, int32, uintptr, int32, *float64) Result
-	fndzasum64                                      func(Handle, int64, uintptr, int64, *float64) Result
-	fndznrm2                                        func(Handle, int32, uintptr, int32, *float64) Result
-	fndznrm264                                      func(Handle, int64, uintptr, int64, *float64) Result
-	fngemmBatchedEx                                 func(Handle, Operation, Operation, int32, int32, int32, uintptr, uintptr, DataType, int32, uintptr, DataType, int32, uintptr, uintptr, DataType, int32, int32, ComputeType, GemmAlgo) Result
-	fngemmBatchedEx64                               func(Handle, Operation, Operation, int64, int64, int64, uintptr, uintptr, DataType, int64, uintptr, DataType, int64, uintptr, uintptr, DataType, int64, int64, ComputeType, GemmAlgo) Result
-	fngemmEx                                        func(Handle, Operation, Operation, int32, int32, int32, uintptr, uintptr, DataType, int32, uintptr, DataType, int32, uintptr, uintptr, DataType, int32, ComputeType, GemmAlgo) Result
-	fngemmEx64                                      func(Handle, Operation, Operation, int64, int64, int64, uintptr, uintptr, DataType, int64, uintptr, DataType, int64, uintptr, uintptr, DataType, int64, ComputeType, GemmAlgo) Result
-	fngemmGroupedBatchedEx                          func(Handle, *Operation, *Operation, *int32, *int32, *int32, uintptr, uintptr, DataType, *int32, uintptr, DataType, *int32, uintptr, uintptr, DataType, *int32, int32, *int32, ComputeType) Result
-	fngemmGroupedBatchedEx64                        func(Handle, *Operation, *Operation, *int64, *int64, *int64, uintptr, uintptr, DataType, *int64, uintptr, DataType, *int64, uintptr, uintptr, DataType, *int64, int64, *int64, ComputeType) Result
-	fngemmStridedBatchedEx                          func(Handle, Operation, Operation, int32, int32, int32, uintptr, uintptr, DataType, int32, int64, uintptr, DataType, int32, int64, uintptr, uintptr, DataType, int32, int64, int32, ComputeType, GemmAlgo) Result
-	fngemmStridedBatchedEx64                        func(Handle, Operation, Operation, int64, int64, int64, uintptr, uintptr, DataType, int64, int64, uintptr, DataType, int64, int64, uintptr, uintptr, DataType, int64, int64, int64, ComputeType, GemmAlgo) Result
-	fngetAtomicsMode                                func(Handle, *AtomicsMode) Result
-	fngetEmulationSpecialValuesSupport              func(Handle, *CudaEmulationSpecialValuesSupport) Result
-	fngetEmulationStrategy                          func(Handle, *EmulationStrategy) Result
-	fngetFixedPointEmulationMantissaBitCountPointer func(Handle, uintptr) Result
-	fngetFixedPointEmulationMantissaBitOffset       func(Handle, *int32) Result
-	fngetFixedPointEmulationMantissaControl         func(Handle, *CudaEmulationMantissaControl) Result
-	fngetFixedPointEmulationMaxMantissaBitCount     func(Handle, *int32) Result
-	fnGetLoggerCallback                             func(*LogCallback) Result
-	fngetMathMode                                   func(Handle, *Math) Result
-	fnGetMatrix                                     func(int32, int32, int32, uintptr, int32, uintptr, int32) Result
-	fnGetMatrixAsync                                func(int32, int32, int32, uintptr, int32, uintptr, int32, driver.Stream) Result
-	fnGetMatrixAsync64                              func(int64, int64, int64, uintptr, int64, uintptr, int64, driver.Stream) Result
-	fnGetMatrix64                                   func(int64, int64, int64, uintptr, int64, uintptr, int64) Result
-	fngetPointerMode                                func(Handle, *PointerMode) Result
-	fnGetProperty                                   func(LibraryPropertyType, *int32) Result
-	fngetSmCountTarget                              func(Handle, *int32) Result
-	fngetStream                                     func(Handle, *driver.Stream) Result
-	fnGetVector                                     func(int32, int32, uintptr, int32, uintptr, int32) Result
-	fnGetVectorAsync                                func(int32, int32, uintptr, int32, unsafe.Pointer, int32, driver.Stream) Result
-	fnGetVectorAsync64                              func(int64, int64, uintptr, int64, unsafe.Pointer, int64, driver.Stream) Result
-	fnGetVector64                                   func(int64, int64, uintptr, int64, uintptr, int64) Result
-	fngetVersion                                    func(Handle, *int32) Result
-	fnhSHgemvBatched                                func(Handle, Operation, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32, int32) Result
-	fnhSHgemvBatched64                              func(Handle, Operation, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64, int64) Result
-	fnhSHgemvStridedBatched                         func(Handle, Operation, int32, int32, *float32, uintptr, int32, int64, uintptr, int32, int64, *float32, uintptr, int32, int64, int32) Result
-	fnhSHgemvStridedBatched64                       func(Handle, Operation, int64, int64, *float32, uintptr, int64, int64, uintptr, int64, int64, *float32, uintptr, int64, int64, int64) Result
-	fnhSSgemvBatched                                func(Handle, Operation, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32, int32) Result
-	fnhSSgemvBatched64                              func(Handle, Operation, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64, int64) Result
-	fnhSSgemvStridedBatched                         func(Handle, Operation, int32, int32, *float32, uintptr, int32, int64, uintptr, int32, int64, *float32, uintptr, int32, int64, int32) Result
-	fnhSSgemvStridedBatched64                       func(Handle, Operation, int64, int64, *float32, uintptr, int64, int64, uintptr, int64, int64, *float32, uintptr, int64, int64, int64) Result
-	fnhgemm                                         func(Handle, Operation, Operation, int32, int32, int32, *Half, uintptr, int32, uintptr, int32, *Half, uintptr, int32) Result
-	fnhgemmBatched                                  func(Handle, Operation, Operation, int32, int32, int32, *Half, uintptr, int32, uintptr, int32, *Half, uintptr, int32, int32) Result
-	fnhgemmBatched64                                func(Handle, Operation, Operation, int64, int64, int64, *Half, uintptr, int64, uintptr, int64, *Half, uintptr, int64, int64) Result
-	fnhgemmStridedBatched                           func(Handle, Operation, Operation, int32, int32, int32, *Half, uintptr, int32, int64, uintptr, int32, int64, *Half, uintptr, int32, int64, int32) Result
-	fnhgemmStridedBatched64                         func(Handle, Operation, Operation, int64, int64, int64, *Half, uintptr, int64, int64, uintptr, int64, int64, *Half, uintptr, int64, int64, int64) Result
-	fnhgemm64                                       func(Handle, Operation, Operation, int64, int64, int64, *Half, uintptr, int64, uintptr, int64, *Half, uintptr, int64) Result
-	fniamaxEx                                       func(Handle, int32, uintptr, DataType, int32, *int32) Result
-	fniamaxEx64                                     func(Handle, int64, uintptr, DataType, int64, *int64) Result
-	fniaminEx                                       func(Handle, int32, uintptr, DataType, int32, *int32) Result
-	fniaminEx64                                     func(Handle, int64, uintptr, DataType, int64, *int64) Result
-	fnicamax                                        func(Handle, int32, uintptr, int32, *int32) Result
-	fnicamax64                                      func(Handle, int64, uintptr, int64, *int64) Result
-	fnicamin                                        func(Handle, int32, uintptr, int32, *int32) Result
-	fnicamin64                                      func(Handle, int64, uintptr, int64, *int64) Result
-	fnidamax                                        func(Handle, int32, uintptr, int32, *int32) Result
-	fnidamax64                                      func(Handle, int64, uintptr, int64, *int64) Result
-	fnidamin                                        func(Handle, int32, uintptr, int32, *int32) Result
-	fnidamin64                                      func(Handle, int64, uintptr, int64, *int64) Result
-	fnisamax                                        func(Handle, int32, uintptr, int32, *int32) Result
-	fnisamax64                                      func(Handle, int64, uintptr, int64, *int64) Result
-	fnisamin                                        func(Handle, int32, uintptr, int32, *int32) Result
-	fnisamin64                                      func(Handle, int64, uintptr, int64, *int64) Result
-	fnizamax                                        func(Handle, int32, uintptr, int32, *int32) Result
-	fnizamax64                                      func(Handle, int64, uintptr, int64, *int64) Result
-	fnizamin                                        func(Handle, int32, uintptr, int32, *int32) Result
-	fnizamin64                                      func(Handle, int64, uintptr, int64, *int64) Result
-	fnLoggerConfigure                               func(int32, int32, int32, *byte) Result
-	fnnrm2Ex                                        func(Handle, int32, uintptr, DataType, int32, uintptr, DataType, DataType) Result
-	fnnrm2Ex64                                      func(Handle, int64, uintptr, DataType, int64, uintptr, DataType, DataType) Result
-	fnrotEx                                         func(Handle, int32, uintptr, DataType, int32, uintptr, DataType, int32, uintptr, uintptr, DataType, DataType) Result
-	fnrotEx64                                       func(Handle, int64, uintptr, DataType, int64, uintptr, DataType, int64, uintptr, uintptr, DataType, DataType) Result
-	fnrotgEx                                        func(Handle, uintptr, uintptr, DataType, uintptr, uintptr, DataType, DataType) Result
-	fnrotmEx                                        func(Handle, int32, uintptr, DataType, int32, uintptr, DataType, int32, uintptr, DataType, DataType) Result
-	fnrotmEx64                                      func(Handle, int64, uintptr, DataType, int64, uintptr, DataType, int64, uintptr, DataType, DataType) Result
-	fnrotmgEx                                       func(Handle, uintptr, DataType, uintptr, DataType, uintptr, DataType, uintptr, DataType, uintptr, DataType, DataType) Result
-	fnsasum                                         func(Handle, int32, uintptr, int32, *float32) Result
-	fnsasum64                                       func(Handle, int64, uintptr, int64, *float32) Result
-	fnsaxpy                                         func(Handle, int32, *float32, uintptr, int32, uintptr, int32) Result
-	fnsaxpy64                                       func(Handle, int64, *float32, uintptr, int64, uintptr, int64) Result
-	fnscalEx                                        func(Handle, int32, uintptr, DataType, uintptr, DataType, int32, DataType) Result
-	fnscalEx64                                      func(Handle, int64, uintptr, DataType, uintptr, DataType, int64, DataType) Result
-	fnscasum                                        func(Handle, int32, uintptr, int32, *float32) Result
-	fnscasum64                                      func(Handle, int64, uintptr, int64, *float32) Result
-	fnscnrm2                                        func(Handle, int32, uintptr, int32, *float32) Result
-	fnscnrm264                                      func(Handle, int64, uintptr, int64, *float32) Result
-	fnscopy                                         func(Handle, int32, uintptr, int32, uintptr, int32) Result
-	fnscopy64                                       func(Handle, int64, uintptr, int64, uintptr, int64) Result
-	fnsdgmm                                         func(Handle, SideMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnsdgmm64                                       func(Handle, SideMode, int64, int64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnsdot                                          func(Handle, int32, uintptr, int32, uintptr, int32, *float32) Result
-	fnsdot64                                        func(Handle, int64, uintptr, int64, uintptr, int64, *float32) Result
-	fnsetAtomicsMode                                func(Handle, AtomicsMode) Result
-	fnsetEmulationSpecialValuesSupport              func(Handle, CudaEmulationSpecialValuesSupport) Result
-	fnsetEmulationStrategy                          func(Handle, EmulationStrategy) Result
-	fnsetFixedPointEmulationMantissaBitCountPointer func(Handle, *int32) Result
-	fnsetFixedPointEmulationMantissaBitOffset       func(Handle, int32) Result
-	fnsetFixedPointEmulationMantissaControl         func(Handle, CudaEmulationMantissaControl) Result
-	fnsetFixedPointEmulationMaxMantissaBitCount     func(Handle, int32) Result
-	fnSetLoggerCallback                             func(LogCallback) Result
-	fnsetMathMode                                   func(Handle, Math) Result
-	fnSetMatrix                                     func(int32, int32, int32, uintptr, int32, uintptr, int32) Result
-	fnSetMatrixAsync                                func(int32, int32, int32, uintptr, int32, uintptr, int32, driver.Stream) Result
-	fnSetMatrixAsync64                              func(int64, int64, int64, uintptr, int64, uintptr, int64, driver.Stream) Result
-	fnSetMatrix64                                   func(int64, int64, int64, uintptr, int64, uintptr, int64) Result
-	fnsetPointerMode                                func(Handle, PointerMode) Result
-	fnsetSmCountTarget                              func(Handle, int32) Result
-	fnsetStream                                     func(Handle, driver.Stream) Result
-	fnSetVector                                     func(int32, int32, uintptr, int32, uintptr, int32) Result
-	fnSetVectorAsync                                func(int32, int32, unsafe.Pointer, int32, uintptr, int32, driver.Stream) Result
-	fnSetVectorAsync64                              func(int64, int64, unsafe.Pointer, int64, uintptr, int64, driver.Stream) Result
-	fnSetVector64                                   func(int64, int64, uintptr, int64, uintptr, int64) Result
-	fnsetWorkspace                                  func(Handle, uintptr, uint) Result
-	fnsgbmv                                         func(Handle, Operation, int32, int32, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fnsgbmv64                                       func(Handle, Operation, int64, int64, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnsgeam                                         func(Handle, Operation, Operation, int32, int32, *float32, uintptr, int32, *float32, uintptr, int32, uintptr, int32) Result
-	fnsgeam64                                       func(Handle, Operation, Operation, int64, int64, *float32, uintptr, int64, *float32, uintptr, int64, uintptr, int64) Result
-	fnsgelsBatched                                  func(Handle, Operation, int32, int32, int32, uintptr, int32, uintptr, int32, *int32, uintptr, int32) Result
-	fnsgemmBatched                                  func(Handle, Operation, Operation, int32, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32, int32) Result
-	fnsgemmBatched64                                func(Handle, Operation, Operation, int64, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64, int64) Result
-	fnsgemmEx                                       func(Handle, Operation, Operation, int32, int32, int32, *float32, uintptr, DataType, int32, uintptr, DataType, int32, *float32, uintptr, DataType, int32) Result
-	fnsgemmEx64                                     func(Handle, Operation, Operation, int64, int64, int64, *float32, uintptr, DataType, int64, uintptr, DataType, int64, *float32, uintptr, DataType, int64) Result
-	fnsgemmGroupedBatched                           func(Handle, *Operation, *Operation, *int32, *int32, *int32, *float32, uintptr, *int32, uintptr, *int32, *float32, uintptr, *int32, int32, *int32) Result
-	fnsgemmGroupedBatched64                         func(Handle, *Operation, *Operation, *int64, *int64, *int64, *float32, uintptr, *int64, uintptr, *int64, *float32, uintptr, *int64, int64, *int64) Result
-	fnsgemmStridedBatched                           func(Handle, Operation, Operation, int32, int32, int32, *float32, uintptr, int32, int64, uintptr, int32, int64, *float32, uintptr, int32, int64, int32) Result
-	fnsgemmStridedBatched64                         func(Handle, Operation, Operation, int64, int64, int64, *float32, uintptr, int64, int64, uintptr, int64, int64, *float32, uintptr, int64, int64, int64) Result
-	fnsgemm                                         func(Handle, Operation, Operation, int32, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fnsgemm64                                       func(Handle, Operation, Operation, int64, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnsgemvBatched                                  func(Handle, Operation, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32, int32) Result
-	fnsgemvBatched64                                func(Handle, Operation, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64, int64) Result
-	fnsgemvStridedBatched                           func(Handle, Operation, int32, int32, *float32, uintptr, int32, int64, uintptr, int32, int64, *float32, uintptr, int32, int64, int32) Result
-	fnsgemvStridedBatched64                         func(Handle, Operation, int64, int64, *float32, uintptr, int64, int64, uintptr, int64, int64, *float32, uintptr, int64, int64, int64) Result
-	fnsgemv                                         func(Handle, Operation, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fnsgemv64                                       func(Handle, Operation, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnsgeqrfBatched                                 func(Handle, int32, int32, uintptr, int32, uintptr, *int32, int32) Result
-	fnsger                                          func(Handle, int32, int32, *float32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnsger64                                        func(Handle, int64, int64, *float32, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnsgetrfBatched                                 func(Handle, int32, uintptr, int32, uintptr, uintptr, int32) Result
-	fnsgetriBatched                                 func(Handle, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32) Result
-	fnsgetrsBatched                                 func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32, int32) Result
-	fnsmatinvBatched                                func(Handle, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnsnrm2                                         func(Handle, int32, uintptr, int32, *float32) Result
-	fnsnrm264                                       func(Handle, int64, uintptr, int64, *float32) Result
-	fnsrot                                          func(Handle, int32, uintptr, int32, uintptr, int32, *float32, *float32) Result
-	fnsrot64                                        func(Handle, int64, uintptr, int64, uintptr, int64, *float32, *float32) Result
-	fnsrotg                                         func(Handle, *float32, *float32, *float32, *float32) Result
-	fnsrotm                                         func(Handle, int32, uintptr, int32, uintptr, int32, *float32) Result
-	fnsrotm64                                       func(Handle, int64, uintptr, int64, uintptr, int64, *float32) Result
-	fnsrotmg                                        func(Handle, *float32, *float32, *float32, *float32, *float32) Result
-	fnssbmv                                         func(Handle, FillMode, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fnssbmv64                                       func(Handle, FillMode, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnsscal                                         func(Handle, int32, *float32, uintptr, int32) Result
-	fnsscal64                                       func(Handle, int64, *float32, uintptr, int64) Result
-	fnsspmv                                         func(Handle, FillMode, int32, *float32, uintptr, uintptr, int32, *float32, uintptr, int32) Result
-	fnsspmv64                                       func(Handle, FillMode, int64, *float32, uintptr, uintptr, int64, *float32, uintptr, int64) Result
-	fnsspr2                                         func(Handle, FillMode, int32, *float32, uintptr, int32, uintptr, int32, uintptr) Result
-	fnsspr264                                       func(Handle, FillMode, int64, *float32, uintptr, int64, uintptr, int64, uintptr) Result
-	fnsspr                                          func(Handle, FillMode, int32, *float32, uintptr, int32, uintptr) Result
-	fnsspr64                                        func(Handle, FillMode, int64, *float32, uintptr, int64, uintptr) Result
-	fnsswap                                         func(Handle, int32, uintptr, int32, uintptr, int32) Result
-	fnsswap64                                       func(Handle, int64, uintptr, int64, uintptr, int64) Result
-	fnssymm                                         func(Handle, SideMode, FillMode, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fnssymm64                                       func(Handle, SideMode, FillMode, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnssymv                                         func(Handle, FillMode, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fnssymv64                                       func(Handle, FillMode, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnssyr2                                         func(Handle, FillMode, int32, *float32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnssyr264                                       func(Handle, FillMode, int64, *float32, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnssyr2k                                        func(Handle, FillMode, Operation, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fnssyr2k64                                      func(Handle, FillMode, Operation, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnssyr                                          func(Handle, FillMode, int32, *float32, uintptr, int32, uintptr, int32) Result
-	fnssyr64                                        func(Handle, FillMode, int64, *float32, uintptr, int64, uintptr, int64) Result
-	fnssyrk                                         func(Handle, FillMode, Operation, int32, int32, *float32, uintptr, int32, *float32, uintptr, int32) Result
-	fnssyrk64                                       func(Handle, FillMode, Operation, int64, int64, *float32, uintptr, int64, *float32, uintptr, int64) Result
-	fnssyrkx                                        func(Handle, FillMode, Operation, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32) Result
-	fnssyrkx64                                      func(Handle, FillMode, Operation, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64) Result
-	fnstbmv                                         func(Handle, FillMode, Operation, DiagType, int32, int32, uintptr, int32, uintptr, int32) Result
-	fnstbmv64                                       func(Handle, FillMode, Operation, DiagType, int64, int64, uintptr, int64, uintptr, int64) Result
-	fnstbsv                                         func(Handle, FillMode, Operation, DiagType, int32, int32, uintptr, int32, uintptr, int32) Result
-	fnstbsv64                                       func(Handle, FillMode, Operation, DiagType, int64, int64, uintptr, int64, uintptr, int64) Result
-	fnstpmv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, uintptr, int32) Result
-	fnstpmv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, uintptr, int64) Result
-	fnstpsv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, uintptr, int32) Result
-	fnstpsv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, uintptr, int64) Result
-	fnstpttr                                        func(Handle, FillMode, int32, uintptr, uintptr, int32) Result
-	fnstrmm                                         func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *float32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnstrmm64                                       func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *float32, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnstrmv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, int32, uintptr, int32) Result
-	fnstrmv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, int64, uintptr, int64) Result
-	fnstrsmBatched                                  func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *float32, uintptr, int32, uintptr, int32, int32) Result
-	fnstrsmBatched64                                func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *float32, uintptr, int64, uintptr, int64, int64) Result
-	fnstrsm                                         func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *float32, uintptr, int32, uintptr, int32) Result
-	fnstrsm64                                       func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *float32, uintptr, int64, uintptr, int64) Result
-	fnstrsv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, int32, uintptr, int32) Result
-	fnstrsv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, int64, uintptr, int64) Result
-	fnstrttp                                        func(Handle, FillMode, int32, uintptr, int32, uintptr) Result
-	fnswapEx                                        func(Handle, int32, uintptr, DataType, int32, uintptr, DataType, int32) Result
-	fnswapEx64                                      func(Handle, int64, uintptr, DataType, int64, uintptr, DataType, int64) Result
-	fntSSgemvBatched                                func(Handle, Operation, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32, int32) Result
-	fntSSgemvBatched64                              func(Handle, Operation, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64, int64) Result
-	fntSSgemvStridedBatched                         func(Handle, Operation, int32, int32, *float32, uintptr, int32, int64, uintptr, int32, int64, *float32, uintptr, int32, int64, int32) Result
-	fntSSgemvStridedBatched64                       func(Handle, Operation, int64, int64, *float32, uintptr, int64, int64, uintptr, int64, int64, *float32, uintptr, int64, int64, int64) Result
-	fntSTgemvBatched                                func(Handle, Operation, int32, int32, *float32, uintptr, int32, uintptr, int32, *float32, uintptr, int32, int32) Result
-	fntSTgemvBatched64                              func(Handle, Operation, int64, int64, *float32, uintptr, int64, uintptr, int64, *float32, uintptr, int64, int64) Result
-	fntSTgemvStridedBatched                         func(Handle, Operation, int32, int32, *float32, uintptr, int32, int64, uintptr, int32, int64, *float32, uintptr, int32, int64, int32) Result
-	fntSTgemvStridedBatched64                       func(Handle, Operation, int64, int64, *float32, uintptr, int64, int64, uintptr, int64, int64, *float32, uintptr, int64, int64, int64) Result
-	fnuint8gemmBias                                 func(Handle, Operation, Operation, Operation, int32, int32, int32, uintptr, int32, int32, uintptr, int32, int32, uintptr, int32, int32, int32, int32) Result
-	fnzaxpy                                         func(Handle, int32, *Complex128, uintptr, int32, uintptr, int32) Result
-	fnzaxpy64                                       func(Handle, int64, *Complex128, uintptr, int64, uintptr, int64) Result
-	fnzcopy                                         func(Handle, int32, uintptr, int32, uintptr, int32) Result
-	fnzcopy64                                       func(Handle, int64, uintptr, int64, uintptr, int64) Result
-	fnzdgmm                                         func(Handle, SideMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnzdgmm64                                       func(Handle, SideMode, int64, int64, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnzdotc                                         func(Handle, int32, uintptr, int32, uintptr, int32, *Complex128) Result
-	fnzdotc64                                       func(Handle, int64, uintptr, int64, uintptr, int64, *Complex128) Result
-	fnzdotu                                         func(Handle, int32, uintptr, int32, uintptr, int32, *Complex128) Result
-	fnzdotu64                                       func(Handle, int64, uintptr, int64, uintptr, int64, *Complex128) Result
-	fnzdrot                                         func(Handle, int32, uintptr, int32, uintptr, int32, *float64, *float64) Result
-	fnzdrot64                                       func(Handle, int64, uintptr, int64, uintptr, int64, *float64, *float64) Result
-	fnzdscal                                        func(Handle, int32, *float64, uintptr, int32) Result
-	fnzdscal64                                      func(Handle, int64, *float64, uintptr, int64) Result
-	fnzgbmv                                         func(Handle, Operation, int32, int32, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzgbmv64                                       func(Handle, Operation, int64, int64, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzgeam                                         func(Handle, Operation, Operation, int32, int32, *Complex128, uintptr, int32, *Complex128, uintptr, int32, uintptr, int32) Result
-	fnzgeam64                                       func(Handle, Operation, Operation, int64, int64, *Complex128, uintptr, int64, *Complex128, uintptr, int64, uintptr, int64) Result
-	fnzgelsBatched                                  func(Handle, Operation, int32, int32, int32, uintptr, int32, uintptr, int32, *int32, uintptr, int32) Result
-	fnzgemm3m                                       func(Handle, Operation, Operation, int32, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzgemm3m64                                     func(Handle, Operation, Operation, int64, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzgemmBatched                                  func(Handle, Operation, Operation, int32, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32, int32) Result
-	fnzgemmBatched64                                func(Handle, Operation, Operation, int64, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64, int64) Result
-	fnzgemmStridedBatched                           func(Handle, Operation, Operation, int32, int32, int32, *Complex128, uintptr, int32, int64, uintptr, int32, int64, *Complex128, uintptr, int32, int64, int32) Result
-	fnzgemmStridedBatched64                         func(Handle, Operation, Operation, int64, int64, int64, *Complex128, uintptr, int64, int64, uintptr, int64, int64, *Complex128, uintptr, int64, int64, int64) Result
-	fnzgemm                                         func(Handle, Operation, Operation, int32, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzgemm64                                       func(Handle, Operation, Operation, int64, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzgemvBatched                                  func(Handle, Operation, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32, int32) Result
-	fnzgemvBatched64                                func(Handle, Operation, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64, int64) Result
-	fnzgemvStridedBatched                           func(Handle, Operation, int32, int32, *Complex128, uintptr, int32, int64, uintptr, int32, int64, *Complex128, uintptr, int32, int64, int32) Result
-	fnzgemvStridedBatched64                         func(Handle, Operation, int64, int64, *Complex128, uintptr, int64, int64, uintptr, int64, int64, *Complex128, uintptr, int64, int64, int64) Result
-	fnzgemv                                         func(Handle, Operation, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzgemv64                                       func(Handle, Operation, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzgeqrfBatched                                 func(Handle, int32, int32, uintptr, int32, uintptr, *int32, int32) Result
-	fnzgerc                                         func(Handle, int32, int32, *Complex128, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnzgerc64                                       func(Handle, int64, int64, *Complex128, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnzgeru                                         func(Handle, int32, int32, *Complex128, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnzgeru64                                       func(Handle, int64, int64, *Complex128, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnzgetrfBatched                                 func(Handle, int32, uintptr, int32, uintptr, uintptr, int32) Result
-	fnzgetriBatched                                 func(Handle, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32) Result
-	fnzgetrsBatched                                 func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32, int32) Result
-	fnzhbmv                                         func(Handle, FillMode, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzhbmv64                                       func(Handle, FillMode, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzhemm                                         func(Handle, SideMode, FillMode, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzhemm64                                       func(Handle, SideMode, FillMode, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzhemv                                         func(Handle, FillMode, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzhemv64                                       func(Handle, FillMode, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzher2                                         func(Handle, FillMode, int32, *Complex128, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnzher264                                       func(Handle, FillMode, int64, *Complex128, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnzher2k                                        func(Handle, FillMode, Operation, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fnzher2k64                                      func(Handle, FillMode, Operation, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fnzher                                          func(Handle, FillMode, int32, *float64, uintptr, int32, uintptr, int32) Result
-	fnzher64                                        func(Handle, FillMode, int64, *float64, uintptr, int64, uintptr, int64) Result
-	fnzherk                                         func(Handle, FillMode, Operation, int32, int32, *float64, uintptr, int32, *float64, uintptr, int32) Result
-	fnzherk64                                       func(Handle, FillMode, Operation, int64, int64, *float64, uintptr, int64, *float64, uintptr, int64) Result
-	fnzherkx                                        func(Handle, FillMode, Operation, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *float64, uintptr, int32) Result
-	fnzherkx64                                      func(Handle, FillMode, Operation, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *float64, uintptr, int64) Result
-	fnzhpmv                                         func(Handle, FillMode, int32, *Complex128, uintptr, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzhpmv64                                       func(Handle, FillMode, int64, *Complex128, uintptr, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzhpr2                                         func(Handle, FillMode, int32, *Complex128, uintptr, int32, uintptr, int32, uintptr) Result
-	fnzhpr264                                       func(Handle, FillMode, int64, *Complex128, uintptr, int64, uintptr, int64, uintptr) Result
-	fnzhpr                                          func(Handle, FillMode, int32, *float64, uintptr, int32, uintptr) Result
-	fnzhpr64                                        func(Handle, FillMode, int64, *float64, uintptr, int64, uintptr) Result
-	fnzmatinvBatched                                func(Handle, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnzrot                                          func(Handle, int32, uintptr, int32, uintptr, int32, *float64, *Complex128) Result
-	fnzrot64                                        func(Handle, int64, uintptr, int64, uintptr, int64, *float64, *Complex128) Result
-	fnzrotg                                         func(Handle, *Complex128, *Complex128, *float64, *Complex128) Result
-	fnzscal                                         func(Handle, int32, *Complex128, uintptr, int32) Result
-	fnzscal64                                       func(Handle, int64, *Complex128, uintptr, int64) Result
-	fnzswap                                         func(Handle, int32, uintptr, int32, uintptr, int32) Result
-	fnzswap64                                       func(Handle, int64, uintptr, int64, uintptr, int64) Result
-	fnzsymm                                         func(Handle, SideMode, FillMode, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzsymm64                                       func(Handle, SideMode, FillMode, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzsymv                                         func(Handle, FillMode, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzsymv64                                       func(Handle, FillMode, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzsyr2                                         func(Handle, FillMode, int32, *Complex128, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnzsyr264                                       func(Handle, FillMode, int64, *Complex128, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnzsyr2k                                        func(Handle, FillMode, Operation, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzsyr2k64                                      func(Handle, FillMode, Operation, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzsyr                                          func(Handle, FillMode, int32, *Complex128, uintptr, int32, uintptr, int32) Result
-	fnzsyr64                                        func(Handle, FillMode, int64, *Complex128, uintptr, int64, uintptr, int64) Result
-	fnzsyrk                                         func(Handle, FillMode, Operation, int32, int32, *Complex128, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzsyrk64                                       func(Handle, FillMode, Operation, int64, int64, *Complex128, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnzsyrkx                                        func(Handle, FillMode, Operation, int32, int32, *Complex128, uintptr, int32, uintptr, int32, *Complex128, uintptr, int32) Result
-	fnzsyrkx64                                      func(Handle, FillMode, Operation, int64, int64, *Complex128, uintptr, int64, uintptr, int64, *Complex128, uintptr, int64) Result
-	fnztbmv                                         func(Handle, FillMode, Operation, DiagType, int32, int32, uintptr, int32, uintptr, int32) Result
-	fnztbmv64                                       func(Handle, FillMode, Operation, DiagType, int64, int64, uintptr, int64, uintptr, int64) Result
-	fnztbsv                                         func(Handle, FillMode, Operation, DiagType, int32, int32, uintptr, int32, uintptr, int32) Result
-	fnztbsv64                                       func(Handle, FillMode, Operation, DiagType, int64, int64, uintptr, int64, uintptr, int64) Result
-	fnztpmv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, uintptr, int32) Result
-	fnztpmv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, uintptr, int64) Result
-	fnztpsv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, uintptr, int32) Result
-	fnztpsv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, uintptr, int64) Result
-	fnztpttr                                        func(Handle, FillMode, int32, uintptr, uintptr, int32) Result
-	fnztrmm                                         func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *Complex128, uintptr, int32, uintptr, int32, uintptr, int32) Result
-	fnztrmm64                                       func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *Complex128, uintptr, int64, uintptr, int64, uintptr, int64) Result
-	fnztrmv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, int32, uintptr, int32) Result
-	fnztrmv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, int64, uintptr, int64) Result
-	fnztrsmBatched                                  func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *Complex128, uintptr, int32, uintptr, int32, int32) Result
-	fnztrsmBatched64                                func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *Complex128, uintptr, int64, uintptr, int64, int64) Result
-	fnztrsm                                         func(Handle, SideMode, FillMode, Operation, DiagType, int32, int32, *Complex128, uintptr, int32, uintptr, int32) Result
-	fnztrsm64                                       func(Handle, SideMode, FillMode, Operation, DiagType, int64, int64, *Complex128, uintptr, int64, uintptr, int64) Result
-	fnztrsv                                         func(Handle, FillMode, Operation, DiagType, int32, uintptr, int32, uintptr, int32) Result
-	fnztrsv64                                       func(Handle, FillMode, Operation, DiagType, int64, uintptr, int64, uintptr, int64) Result
-	fnztrttp                                        func(Handle, FillMode, int32, uintptr, int32, uintptr) Result
+	symasumEx                                        uintptr
+	symasumEx64                                      uintptr
+	symaxpyEx                                        uintptr
+	symaxpyEx64                                      uintptr
+	symcaxpy                                         uintptr
+	symcaxpy64                                       uintptr
+	symccopy                                         uintptr
+	symccopy64                                       uintptr
+	symcdgmm                                         uintptr
+	symcdgmm64                                       uintptr
+	symcdotc                                         uintptr
+	symcdotc64                                       uintptr
+	symcdotu                                         uintptr
+	symcdotu64                                       uintptr
+	symcgbmv                                         uintptr
+	symcgbmv64                                       uintptr
+	symcgeam                                         uintptr
+	symcgeam64                                       uintptr
+	symcgelsBatched                                  uintptr
+	symcgemm3m                                       uintptr
+	symcgemm3mBatched                                uintptr
+	symcgemm3mBatched64                              uintptr
+	symcgemm3mEx                                     uintptr
+	symcgemm3mEx64                                   uintptr
+	symcgemm3mStridedBatched                         uintptr
+	symcgemm3mStridedBatched64                       uintptr
+	symcgemm3m64                                     uintptr
+	symcgemmBatched                                  uintptr
+	symcgemmBatched64                                uintptr
+	symcgemmEx                                       uintptr
+	symcgemmEx64                                     uintptr
+	symcgemmStridedBatched                           uintptr
+	symcgemmStridedBatched64                         uintptr
+	symcgemm                                         uintptr
+	symcgemm64                                       uintptr
+	symcgemvBatched                                  uintptr
+	symcgemvBatched64                                uintptr
+	symcgemvStridedBatched                           uintptr
+	symcgemvStridedBatched64                         uintptr
+	symcgemv                                         uintptr
+	symcgemv64                                       uintptr
+	symcgeqrfBatched                                 uintptr
+	symcgerc                                         uintptr
+	symcgerc64                                       uintptr
+	symcgeru                                         uintptr
+	symcgeru64                                       uintptr
+	symcgetrfBatched                                 uintptr
+	symcgetriBatched                                 uintptr
+	symcgetrsBatched                                 uintptr
+	symchbmv                                         uintptr
+	symchbmv64                                       uintptr
+	symchemm                                         uintptr
+	symchemm64                                       uintptr
+	symchemv                                         uintptr
+	symchemv64                                       uintptr
+	symcher2                                         uintptr
+	symcher264                                       uintptr
+	symcher2k                                        uintptr
+	symcher2k64                                      uintptr
+	symcher                                          uintptr
+	symcher64                                        uintptr
+	symcherk3mEx                                     uintptr
+	symcherk3mEx64                                   uintptr
+	symcherkEx                                       uintptr
+	symcherkEx64                                     uintptr
+	symcherk                                         uintptr
+	symcherk64                                       uintptr
+	symcherkx                                        uintptr
+	symcherkx64                                      uintptr
+	symchpmv                                         uintptr
+	symchpmv64                                       uintptr
+	symchpr2                                         uintptr
+	symchpr264                                       uintptr
+	symchpr                                          uintptr
+	symchpr64                                        uintptr
+	symcmatinvBatched                                uintptr
+	symcopyEx                                        uintptr
+	symcopyEx64                                      uintptr
+	symCreate                                        uintptr
+	symcrot                                          uintptr
+	symcrot64                                        uintptr
+	symcrotg                                         uintptr
+	symcscal                                         uintptr
+	symcscal64                                       uintptr
+	symcsrot                                         uintptr
+	symcsrot64                                       uintptr
+	symcsscal                                        uintptr
+	symcsscal64                                      uintptr
+	symcswap                                         uintptr
+	symcswap64                                       uintptr
+	symcsymm                                         uintptr
+	symcsymm64                                       uintptr
+	symcsymv                                         uintptr
+	symcsymv64                                       uintptr
+	symcsyr2                                         uintptr
+	symcsyr264                                       uintptr
+	symcsyr2k                                        uintptr
+	symcsyr2k64                                      uintptr
+	symcsyr                                          uintptr
+	symcsyr64                                        uintptr
+	symcsyrk3mEx                                     uintptr
+	symcsyrk3mEx64                                   uintptr
+	symcsyrkEx                                       uintptr
+	symcsyrkEx64                                     uintptr
+	symcsyrk                                         uintptr
+	symcsyrk64                                       uintptr
+	symcsyrkx                                        uintptr
+	symcsyrkx64                                      uintptr
+	symctbmv                                         uintptr
+	symctbmv64                                       uintptr
+	symctbsv                                         uintptr
+	symctbsv64                                       uintptr
+	symctpmv                                         uintptr
+	symctpmv64                                       uintptr
+	symctpsv                                         uintptr
+	symctpsv64                                       uintptr
+	symctpttr                                        uintptr
+	symctrmm                                         uintptr
+	symctrmm64                                       uintptr
+	symctrmv                                         uintptr
+	symctrmv64                                       uintptr
+	symctrsmBatched                                  uintptr
+	symctrsmBatched64                                uintptr
+	symctrsm                                         uintptr
+	symctrsm64                                       uintptr
+	symctrsv                                         uintptr
+	symctrsv64                                       uintptr
+	symctrttp                                        uintptr
+	symdasum                                         uintptr
+	symdasum64                                       uintptr
+	symdaxpy                                         uintptr
+	symdaxpy64                                       uintptr
+	symdcopy                                         uintptr
+	symdcopy64                                       uintptr
+	symddgmm                                         uintptr
+	symddgmm64                                       uintptr
+	symddot                                          uintptr
+	symddot64                                        uintptr
+	symdestroy                                       uintptr
+	symdgbmv                                         uintptr
+	symdgbmv64                                       uintptr
+	symdgeam                                         uintptr
+	symdgeam64                                       uintptr
+	symdgelsBatched                                  uintptr
+	symdgemmBatched                                  uintptr
+	symdgemmBatched64                                uintptr
+	symdgemmGroupedBatched                           uintptr
+	symdgemmGroupedBatched64                         uintptr
+	symdgemmStridedBatched                           uintptr
+	symdgemmStridedBatched64                         uintptr
+	symdgemm                                         uintptr
+	symdgemm64                                       uintptr
+	symdgemvBatched                                  uintptr
+	symdgemvBatched64                                uintptr
+	symdgemvStridedBatched                           uintptr
+	symdgemvStridedBatched64                         uintptr
+	symdgemv                                         uintptr
+	symdgemv64                                       uintptr
+	symdgeqrfBatched                                 uintptr
+	symdger                                          uintptr
+	symdger64                                        uintptr
+	symdgetrfBatched                                 uintptr
+	symdgetriBatched                                 uintptr
+	symdgetrsBatched                                 uintptr
+	symdmatinvBatched                                uintptr
+	symdnrm2                                         uintptr
+	symdnrm264                                       uintptr
+	symdotEx                                         uintptr
+	symdotEx64                                       uintptr
+	symdotcEx                                        uintptr
+	symdotcEx64                                      uintptr
+	symdrot                                          uintptr
+	symdrot64                                        uintptr
+	symdrotg                                         uintptr
+	symdrotm                                         uintptr
+	symdrotm64                                       uintptr
+	symdrotmg                                        uintptr
+	symdsbmv                                         uintptr
+	symdsbmv64                                       uintptr
+	symdscal                                         uintptr
+	symdscal64                                       uintptr
+	symdspmv                                         uintptr
+	symdspmv64                                       uintptr
+	symdspr2                                         uintptr
+	symdspr264                                       uintptr
+	symdspr                                          uintptr
+	symdspr64                                        uintptr
+	symdswap                                         uintptr
+	symdswap64                                       uintptr
+	symdsymm                                         uintptr
+	symdsymm64                                       uintptr
+	symdsymv                                         uintptr
+	symdsymv64                                       uintptr
+	symdsyr2                                         uintptr
+	symdsyr264                                       uintptr
+	symdsyr2k                                        uintptr
+	symdsyr2k64                                      uintptr
+	symdsyr                                          uintptr
+	symdsyr64                                        uintptr
+	symdsyrk                                         uintptr
+	symdsyrk64                                       uintptr
+	symdsyrkx                                        uintptr
+	symdsyrkx64                                      uintptr
+	symdtbmv                                         uintptr
+	symdtbmv64                                       uintptr
+	symdtbsv                                         uintptr
+	symdtbsv64                                       uintptr
+	symdtpmv                                         uintptr
+	symdtpmv64                                       uintptr
+	symdtpsv                                         uintptr
+	symdtpsv64                                       uintptr
+	symdtpttr                                        uintptr
+	symdtrmm                                         uintptr
+	symdtrmm64                                       uintptr
+	symdtrmv                                         uintptr
+	symdtrmv64                                       uintptr
+	symdtrsmBatched                                  uintptr
+	symdtrsmBatched64                                uintptr
+	symdtrsm                                         uintptr
+	symdtrsm64                                       uintptr
+	symdtrsv                                         uintptr
+	symdtrsv64                                       uintptr
+	symdtrttp                                        uintptr
+	symdzasum                                        uintptr
+	symdzasum64                                      uintptr
+	symdznrm2                                        uintptr
+	symdznrm264                                      uintptr
+	symgemmBatchedEx                                 uintptr
+	symgemmBatchedEx64                               uintptr
+	symgemmEx                                        uintptr
+	symgemmEx64                                      uintptr
+	symgemmGroupedBatchedEx                          uintptr
+	symgemmGroupedBatchedEx64                        uintptr
+	symgemmStridedBatchedEx                          uintptr
+	symgemmStridedBatchedEx64                        uintptr
+	symgetAtomicsMode                                uintptr
+	symgetEmulationSpecialValuesSupport              uintptr
+	symgetEmulationStrategy                          uintptr
+	symgetFixedPointEmulationMantissaBitCountPointer uintptr
+	symgetFixedPointEmulationMantissaBitOffset       uintptr
+	symgetFixedPointEmulationMantissaControl         uintptr
+	symgetFixedPointEmulationMaxMantissaBitCount     uintptr
+	symGetLoggerCallback                             uintptr
+	symgetMathMode                                   uintptr
+	symGetMatrix                                     uintptr
+	fnGetMatrixAsync                                 func(int32, int32, int32, uintptr, int32, uintptr, int32, driver.Stream) Result
+	fnGetMatrixAsync64                               func(int64, int64, int64, uintptr, int64, uintptr, int64, driver.Stream) Result
+	symGetMatrix64                                   uintptr
+	symgetPointerMode                                uintptr
+	symGetProperty                                   uintptr
+	symgetSmCountTarget                              uintptr
+	symgetStream                                     uintptr
+	symGetVector                                     uintptr
+	fnGetVectorAsync                                 func(int32, int32, uintptr, int32, unsafe.Pointer, int32, driver.Stream) Result
+	fnGetVectorAsync64                               func(int64, int64, uintptr, int64, unsafe.Pointer, int64, driver.Stream) Result
+	symGetVector64                                   uintptr
+	symgetVersion                                    uintptr
+	symhSHgemvBatched                                uintptr
+	symhSHgemvBatched64                              uintptr
+	symhSHgemvStridedBatched                         uintptr
+	symhSHgemvStridedBatched64                       uintptr
+	symhSSgemvBatched                                uintptr
+	symhSSgemvBatched64                              uintptr
+	symhSSgemvStridedBatched                         uintptr
+	symhSSgemvStridedBatched64                       uintptr
+	symhgemm                                         uintptr
+	symhgemmBatched                                  uintptr
+	symhgemmBatched64                                uintptr
+	symhgemmStridedBatched                           uintptr
+	symhgemmStridedBatched64                         uintptr
+	symhgemm64                                       uintptr
+	symiamaxEx                                       uintptr
+	symiamaxEx64                                     uintptr
+	symiaminEx                                       uintptr
+	symiaminEx64                                     uintptr
+	symicamax                                        uintptr
+	symicamax64                                      uintptr
+	symicamin                                        uintptr
+	symicamin64                                      uintptr
+	symidamax                                        uintptr
+	symidamax64                                      uintptr
+	symidamin                                        uintptr
+	symidamin64                                      uintptr
+	symisamax                                        uintptr
+	symisamax64                                      uintptr
+	symisamin                                        uintptr
+	symisamin64                                      uintptr
+	symizamax                                        uintptr
+	symizamax64                                      uintptr
+	symizamin                                        uintptr
+	symizamin64                                      uintptr
+	symLoggerConfigure                               uintptr
+	symnrm2Ex                                        uintptr
+	symnrm2Ex64                                      uintptr
+	symrotEx                                         uintptr
+	symrotEx64                                       uintptr
+	symrotgEx                                        uintptr
+	symrotmEx                                        uintptr
+	symrotmEx64                                      uintptr
+	symrotmgEx                                       uintptr
+	symsasum                                         uintptr
+	symsasum64                                       uintptr
+	symsaxpy                                         uintptr
+	symsaxpy64                                       uintptr
+	symscalEx                                        uintptr
+	symscalEx64                                      uintptr
+	symscasum                                        uintptr
+	symscasum64                                      uintptr
+	symscnrm2                                        uintptr
+	symscnrm264                                      uintptr
+	symscopy                                         uintptr
+	symscopy64                                       uintptr
+	symsdgmm                                         uintptr
+	symsdgmm64                                       uintptr
+	symsdot                                          uintptr
+	symsdot64                                        uintptr
+	symsetAtomicsMode                                uintptr
+	symsetEmulationSpecialValuesSupport              uintptr
+	symsetEmulationStrategy                          uintptr
+	symsetFixedPointEmulationMantissaBitCountPointer uintptr
+	symsetFixedPointEmulationMantissaBitOffset       uintptr
+	symsetFixedPointEmulationMantissaControl         uintptr
+	symsetFixedPointEmulationMaxMantissaBitCount     uintptr
+	symSetLoggerCallback                             uintptr
+	symsetMathMode                                   uintptr
+	symSetMatrix                                     uintptr
+	fnSetMatrixAsync                                 func(int32, int32, int32, uintptr, int32, uintptr, int32, driver.Stream) Result
+	fnSetMatrixAsync64                               func(int64, int64, int64, uintptr, int64, uintptr, int64, driver.Stream) Result
+	symSetMatrix64                                   uintptr
+	symsetPointerMode                                uintptr
+	symsetSmCountTarget                              uintptr
+	fnsetStream                                      func(Handle, driver.Stream) Result
+	symSetVector                                     uintptr
+	fnSetVectorAsync                                 func(int32, int32, unsafe.Pointer, int32, uintptr, int32, driver.Stream) Result
+	fnSetVectorAsync64                               func(int64, int64, unsafe.Pointer, int64, uintptr, int64, driver.Stream) Result
+	symSetVector64                                   uintptr
+	symsetWorkspace                                  uintptr
+	symsgbmv                                         uintptr
+	symsgbmv64                                       uintptr
+	symsgeam                                         uintptr
+	symsgeam64                                       uintptr
+	symsgelsBatched                                  uintptr
+	symsgemmBatched                                  uintptr
+	symsgemmBatched64                                uintptr
+	symsgemmEx                                       uintptr
+	symsgemmEx64                                     uintptr
+	symsgemmGroupedBatched                           uintptr
+	symsgemmGroupedBatched64                         uintptr
+	symsgemmStridedBatched                           uintptr
+	symsgemmStridedBatched64                         uintptr
+	symsgemm                                         uintptr
+	symsgemm64                                       uintptr
+	symsgemvBatched                                  uintptr
+	symsgemvBatched64                                uintptr
+	symsgemvStridedBatched                           uintptr
+	symsgemvStridedBatched64                         uintptr
+	symsgemv                                         uintptr
+	symsgemv64                                       uintptr
+	symsgeqrfBatched                                 uintptr
+	symsger                                          uintptr
+	symsger64                                        uintptr
+	symsgetrfBatched                                 uintptr
+	symsgetriBatched                                 uintptr
+	symsgetrsBatched                                 uintptr
+	symsmatinvBatched                                uintptr
+	symsnrm2                                         uintptr
+	symsnrm264                                       uintptr
+	symsrot                                          uintptr
+	symsrot64                                        uintptr
+	symsrotg                                         uintptr
+	symsrotm                                         uintptr
+	symsrotm64                                       uintptr
+	symsrotmg                                        uintptr
+	symssbmv                                         uintptr
+	symssbmv64                                       uintptr
+	symsscal                                         uintptr
+	symsscal64                                       uintptr
+	symsspmv                                         uintptr
+	symsspmv64                                       uintptr
+	symsspr2                                         uintptr
+	symsspr264                                       uintptr
+	symsspr                                          uintptr
+	symsspr64                                        uintptr
+	symsswap                                         uintptr
+	symsswap64                                       uintptr
+	symssymm                                         uintptr
+	symssymm64                                       uintptr
+	symssymv                                         uintptr
+	symssymv64                                       uintptr
+	symssyr2                                         uintptr
+	symssyr264                                       uintptr
+	symssyr2k                                        uintptr
+	symssyr2k64                                      uintptr
+	symssyr                                          uintptr
+	symssyr64                                        uintptr
+	symssyrk                                         uintptr
+	symssyrk64                                       uintptr
+	symssyrkx                                        uintptr
+	symssyrkx64                                      uintptr
+	symstbmv                                         uintptr
+	symstbmv64                                       uintptr
+	symstbsv                                         uintptr
+	symstbsv64                                       uintptr
+	symstpmv                                         uintptr
+	symstpmv64                                       uintptr
+	symstpsv                                         uintptr
+	symstpsv64                                       uintptr
+	symstpttr                                        uintptr
+	symstrmm                                         uintptr
+	symstrmm64                                       uintptr
+	symstrmv                                         uintptr
+	symstrmv64                                       uintptr
+	symstrsmBatched                                  uintptr
+	symstrsmBatched64                                uintptr
+	symstrsm                                         uintptr
+	symstrsm64                                       uintptr
+	symstrsv                                         uintptr
+	symstrsv64                                       uintptr
+	symstrttp                                        uintptr
+	symswapEx                                        uintptr
+	symswapEx64                                      uintptr
+	symtSSgemvBatched                                uintptr
+	symtSSgemvBatched64                              uintptr
+	symtSSgemvStridedBatched                         uintptr
+	symtSSgemvStridedBatched64                       uintptr
+	symtSTgemvBatched                                uintptr
+	symtSTgemvBatched64                              uintptr
+	symtSTgemvStridedBatched                         uintptr
+	symtSTgemvStridedBatched64                       uintptr
+	symuint8gemmBias                                 uintptr
+	symzaxpy                                         uintptr
+	symzaxpy64                                       uintptr
+	symzcopy                                         uintptr
+	symzcopy64                                       uintptr
+	symzdgmm                                         uintptr
+	symzdgmm64                                       uintptr
+	symzdotc                                         uintptr
+	symzdotc64                                       uintptr
+	symzdotu                                         uintptr
+	symzdotu64                                       uintptr
+	symzdrot                                         uintptr
+	symzdrot64                                       uintptr
+	symzdscal                                        uintptr
+	symzdscal64                                      uintptr
+	symzgbmv                                         uintptr
+	symzgbmv64                                       uintptr
+	symzgeam                                         uintptr
+	symzgeam64                                       uintptr
+	symzgelsBatched                                  uintptr
+	symzgemm3m                                       uintptr
+	symzgemm3m64                                     uintptr
+	symzgemmBatched                                  uintptr
+	symzgemmBatched64                                uintptr
+	symzgemmStridedBatched                           uintptr
+	symzgemmStridedBatched64                         uintptr
+	symzgemm                                         uintptr
+	symzgemm64                                       uintptr
+	symzgemvBatched                                  uintptr
+	symzgemvBatched64                                uintptr
+	symzgemvStridedBatched                           uintptr
+	symzgemvStridedBatched64                         uintptr
+	symzgemv                                         uintptr
+	symzgemv64                                       uintptr
+	symzgeqrfBatched                                 uintptr
+	symzgerc                                         uintptr
+	symzgerc64                                       uintptr
+	symzgeru                                         uintptr
+	symzgeru64                                       uintptr
+	symzgetrfBatched                                 uintptr
+	symzgetriBatched                                 uintptr
+	symzgetrsBatched                                 uintptr
+	symzhbmv                                         uintptr
+	symzhbmv64                                       uintptr
+	symzhemm                                         uintptr
+	symzhemm64                                       uintptr
+	symzhemv                                         uintptr
+	symzhemv64                                       uintptr
+	symzher2                                         uintptr
+	symzher264                                       uintptr
+	symzher2k                                        uintptr
+	symzher2k64                                      uintptr
+	symzher                                          uintptr
+	symzher64                                        uintptr
+	symzherk                                         uintptr
+	symzherk64                                       uintptr
+	symzherkx                                        uintptr
+	symzherkx64                                      uintptr
+	symzhpmv                                         uintptr
+	symzhpmv64                                       uintptr
+	symzhpr2                                         uintptr
+	symzhpr264                                       uintptr
+	symzhpr                                          uintptr
+	symzhpr64                                        uintptr
+	symzmatinvBatched                                uintptr
+	symzrot                                          uintptr
+	symzrot64                                        uintptr
+	symzrotg                                         uintptr
+	symzscal                                         uintptr
+	symzscal64                                       uintptr
+	symzswap                                         uintptr
+	symzswap64                                       uintptr
+	symzsymm                                         uintptr
+	symzsymm64                                       uintptr
+	symzsymv                                         uintptr
+	symzsymv64                                       uintptr
+	symzsyr2                                         uintptr
+	symzsyr264                                       uintptr
+	symzsyr2k                                        uintptr
+	symzsyr2k64                                      uintptr
+	symzsyr                                          uintptr
+	symzsyr64                                        uintptr
+	symzsyrk                                         uintptr
+	symzsyrk64                                       uintptr
+	symzsyrkx                                        uintptr
+	symzsyrkx64                                      uintptr
+	symztbmv                                         uintptr
+	symztbmv64                                       uintptr
+	symztbsv                                         uintptr
+	symztbsv64                                       uintptr
+	symztpmv                                         uintptr
+	symztpmv64                                       uintptr
+	symztpsv                                         uintptr
+	symztpsv64                                       uintptr
+	symztpttr                                        uintptr
+	symztrmm                                         uintptr
+	symztrmm64                                       uintptr
+	symztrmv                                         uintptr
+	symztrmv64                                       uintptr
+	symztrsmBatched                                  uintptr
+	symztrsmBatched64                                uintptr
+	symztrsm                                         uintptr
+	symztrsm64                                       uintptr
+	symztrsv                                         uintptr
+	symztrsv64                                       uintptr
+	symztrttp                                        uintptr
 )
+
+// ffiCall0 through ffiCall23 hand a call to github.com/tmc/lib/nvidia/internal/ffi.
+//
+// Bit i of floatMask marks argument word i as a floating-point bit
+// pattern, which the C ABI passes in a different register file from the
+// integer and pointer words. Each returns the first integer result
+// register and the first floating-point one; a caller reads whichever the
+// C function sets.
+//
+// The //go:uintptrescapes directive is what makes a Go pointer safe to
+// pass: a pointer converted to uintptr in one of these argument lists is
+// moved to the heap and kept there until the call returns. A
+// runtime.KeepAlive after the call would prevent reclamation but not
+// movement, which is the failure this avoids.
+
+//go:uintptrescapes
+func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	return ffi.CallFloat(fn, 1, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall2(fn uintptr, floatMask uint32, a0, a1 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	return ffi.CallFloat(fn, 2, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	return ffi.CallFloat(fn, 5, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall6(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	return ffi.CallFloat(fn, 6, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall7(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	return ffi.CallFloat(fn, 7, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall8(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	return ffi.CallFloat(fn, 8, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall9(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	return ffi.CallFloat(fn, 9, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall10(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	return ffi.CallFloat(fn, 10, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall11(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	return ffi.CallFloat(fn, 11, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall12(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	return ffi.CallFloat(fn, 12, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall13(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	return ffi.CallFloat(fn, 13, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall14(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	return ffi.CallFloat(fn, 14, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall15(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	return ffi.CallFloat(fn, 15, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall16(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	return ffi.CallFloat(fn, 16, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall17(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	return ffi.CallFloat(fn, 17, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall18(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	return ffi.CallFloat(fn, 18, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall19(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	return ffi.CallFloat(fn, 19, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall20(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	return ffi.CallFloat(fn, 20, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall23(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	args[4] = a4
+	args[5] = a5
+	args[6] = a6
+	args[7] = a7
+	args[8] = a8
+	args[9] = a9
+	args[10] = a10
+	args[11] = a11
+	args[12] = a12
+	args[13] = a13
+	args[14] = a14
+	args[15] = a15
+	args[16] = a16
+	args[17] = a17
+	args[18] = a18
+	args[19] = a19
+	args[20] = a20
+	args[21] = a21
+	args[22] = a22
+	return ffi.CallFloat(fn, 23, &args, floatMask)
+}
+
+// An outSlot pools the heap cells a wrapper passes to C for its outputs.
+//
+// A pointer passed through a positional call is moved to the heap, so the
+// address of a local output variable would be one allocation per call. A
+// pooled cell is already on the heap, where it never moves, and is reused.
+// put clears the cell before returning it, so no output outlives its call.
+type outSlot[T any] struct{ pool sync.Pool }
+
+func (s *outSlot[T]) get() *T {
+	if p, ok := s.pool.Get().(*T); ok {
+		return p
+	}
+	return new(T)
+}
+
+func (s *outSlot[T]) put(p *T) {
+	var zero T
+	*p = zero
+	s.pool.Put(p)
+}
+
+// fnasumEx calls cublasAsumEx.
+func fnasumEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 uintptr, a6 DataType, a7 DataType) Result {
+	r1, _ := ffiCall8(symasumEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnasumEx64 calls cublasAsumEx_64.
+func fnasumEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 uintptr, a6 DataType, a7 DataType) Result {
+	r1, _ := ffiCall8(symasumEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnaxpyEx calls cublasAxpyEx.
+func fnaxpyEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 uintptr, a5 DataType, a6 int32, a7 uintptr, a8 DataType, a9 int32, a10 DataType) Result {
+	r1, _ := ffiCall11(symaxpyEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnaxpyEx64 calls cublasAxpyEx_64.
+func fnaxpyEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 uintptr, a5 DataType, a6 int64, a7 uintptr, a8 DataType, a9 int64, a10 DataType) Result {
+	r1, _ := ffiCall11(symaxpyEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncaxpy calls cublasCaxpy_v2.
+func fncaxpy(a0 Handle, a1 int32, a2 *Complex64, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symcaxpy, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fncaxpy64 calls cublasCaxpy_v2_64.
+func fncaxpy64(a0 Handle, a1 int64, a2 *Complex64, a3 uintptr, a4 int64, a5 uintptr, a6 int64) Result {
+	r1, _ := ffiCall7(symcaxpy64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnccopy calls cublasCcopy_v2.
+func fnccopy(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symccopy, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnccopy64 calls cublasCcopy_v2_64.
+func fnccopy64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symccopy64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fncdgmm calls cublasCdgmm.
+func fncdgmm(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symcdgmm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncdgmm64 calls cublasCdgmm_64.
+func fncdgmm64(a0 Handle, a1 SideMode, a2 int64, a3 int64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symcdgmm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncdotc calls cublasCdotc_v2.
+func fncdotc(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *Complex64) Result {
+	r1, _ := ffiCall7(symcdotc, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fncdotc64 calls cublasCdotc_v2_64.
+func fncdotc64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *Complex64) Result {
+	r1, _ := ffiCall7(symcdotc64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fncdotu calls cublasCdotu_v2.
+func fncdotu(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *Complex64) Result {
+	r1, _ := ffiCall7(symcdotu, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fncdotu64 calls cublasCdotu_v2_64.
+func fncdotu64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *Complex64) Result {
+	r1, _ := ffiCall7(symcdotu64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fncgbmv calls cublasCgbmv_v2.
+func fncgbmv(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex64, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symcgbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncgbmv64 calls cublasCgbmv_v2_64.
+func fncgbmv64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symcgbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncgeam calls cublasCgeam.
+func fncgeam(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 int32, a8 *Complex64, a9 uintptr, a10 int32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symcgeam, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncgeam64 calls cublasCgeam_64.
+func fncgeam64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 int64, a8 *Complex64, a9 uintptr, a10 int64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symcgeam64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncgelsBatched calls cublasCgelsBatched.
+func fncgelsBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *int32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symcgelsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fncgemm3m calls cublasCgemm3m.
+func fncgemm3m(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex64, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symcgemm3m, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncgemm3mBatched calls cublasCgemm3mBatched.
+func fncgemm3mBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex64, a12 uintptr, a13 int32, a14 int32) Result {
+	r1, _ := ffiCall15(symcgemm3mBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fncgemm3mBatched64 calls cublasCgemm3mBatched_64.
+func fncgemm3mBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex64, a12 uintptr, a13 int64, a14 int64) Result {
+	r1, _ := ffiCall15(symcgemm3mBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fncgemm3mEx calls cublasCgemm3mEx.
+func fncgemm3mEx(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 DataType, a9 int32, a10 uintptr, a11 DataType, a12 int32, a13 *Complex64, a14 uintptr, a15 DataType, a16 int32) Result {
+	r1, _ := ffiCall17(symcgemm3mEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16))
+	return Result(r1)
+}
+
+// fncgemm3mEx64 calls cublasCgemm3mEx_64.
+func fncgemm3mEx64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 DataType, a9 int64, a10 uintptr, a11 DataType, a12 int64, a13 *Complex64, a14 uintptr, a15 DataType, a16 int64) Result {
+	r1, _ := ffiCall17(symcgemm3mEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16))
+	return Result(r1)
+}
+
+// fncgemm3mStridedBatched calls cublasCgemm3mStridedBatched.
+func fncgemm3mStridedBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 int32, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 *Complex64, a14 uintptr, a15 int32, a16 int64, a17 int32) Result {
+	r1, _ := ffiCall18(symcgemm3mStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fncgemm3mStridedBatched64 calls cublasCgemm3mStridedBatched_64.
+func fncgemm3mStridedBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 int64, a9 int64, a10 uintptr, a11 int64, a12 int64, a13 *Complex64, a14 uintptr, a15 int64, a16 int64, a17 int64) Result {
+	r1, _ := ffiCall18(symcgemm3mStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fncgemm3m64 calls cublasCgemm3m_64.
+func fncgemm3m64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symcgemm3m64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncgemmBatched calls cublasCgemmBatched.
+func fncgemmBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex64, a12 uintptr, a13 int32, a14 int32) Result {
+	r1, _ := ffiCall15(symcgemmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fncgemmBatched64 calls cublasCgemmBatched_64.
+func fncgemmBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex64, a12 uintptr, a13 int64, a14 int64) Result {
+	r1, _ := ffiCall15(symcgemmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fncgemmEx calls cublasCgemmEx.
+func fncgemmEx(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 DataType, a9 int32, a10 uintptr, a11 DataType, a12 int32, a13 *Complex64, a14 uintptr, a15 DataType, a16 int32) Result {
+	r1, _ := ffiCall17(symcgemmEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16))
+	return Result(r1)
+}
+
+// fncgemmEx64 calls cublasCgemmEx_64.
+func fncgemmEx64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 DataType, a9 int64, a10 uintptr, a11 DataType, a12 int64, a13 *Complex64, a14 uintptr, a15 DataType, a16 int64) Result {
+	r1, _ := ffiCall17(symcgemmEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16))
+	return Result(r1)
+}
+
+// fncgemmStridedBatched calls cublasCgemmStridedBatched.
+func fncgemmStridedBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 int32, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 *Complex64, a14 uintptr, a15 int32, a16 int64, a17 int32) Result {
+	r1, _ := ffiCall18(symcgemmStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fncgemmStridedBatched64 calls cublasCgemmStridedBatched_64.
+func fncgemmStridedBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 int64, a9 int64, a10 uintptr, a11 int64, a12 int64, a13 *Complex64, a14 uintptr, a15 int64, a16 int64, a17 int64) Result {
+	r1, _ := ffiCall18(symcgemmStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fncgemm calls cublasCgemm_v2.
+func fncgemm(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex64, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex64, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symcgemm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncgemm64 calls cublasCgemm_v2_64.
+func fncgemm64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex64, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symcgemm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fncgemvBatched calls cublasCgemvBatched.
+func fncgemvBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *Complex64, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *Complex64, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symcgemvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncgemvBatched64 calls cublasCgemvBatched_64.
+func fncgemvBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *Complex64, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *Complex64, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symcgemvBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncgemvStridedBatched calls cublasCgemvStridedBatched.
+func fncgemvStridedBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *Complex64, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int32, a10 int64, a11 *Complex64, a12 uintptr, a13 int32, a14 int64, a15 int32) Result {
+	r1, _ := ffiCall16(symcgemvStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fncgemvStridedBatched64 calls cublasCgemvStridedBatched_64.
+func fncgemvStridedBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *Complex64, a5 uintptr, a6 int64, a7 int64, a8 uintptr, a9 int64, a10 int64, a11 *Complex64, a12 uintptr, a13 int64, a14 int64, a15 int64) Result {
+	r1, _ := ffiCall16(symcgemvStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fncgemv calls cublasCgemv_v2.
+func fncgemv(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *Complex64, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *Complex64, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symcgemv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fncgemv64 calls cublasCgemv_v2_64.
+func fncgemv64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *Complex64, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *Complex64, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symcgemv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fncgeqrfBatched calls cublasCgeqrfBatched.
+func fncgeqrfBatched(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32, a7 int32) Result {
+	r1, _ := ffiCall8(symcgeqrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fncgerc calls cublasCgerc_v2.
+func fncgerc(a0 Handle, a1 int32, a2 int32, a3 *Complex64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symcgerc, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncgerc64 calls cublasCgerc_v2_64.
+func fncgerc64(a0 Handle, a1 int64, a2 int64, a3 *Complex64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symcgerc64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncgeru calls cublasCgeru_v2.
+func fncgeru(a0 Handle, a1 int32, a2 int32, a3 *Complex64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symcgeru, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncgeru64 calls cublasCgeru_v2_64.
+func fncgeru64(a0 Handle, a1 int64, a2 int64, a3 *Complex64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symcgeru64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncgetrfBatched calls cublasCgetrfBatched.
+func fncgetrfBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symcgetrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fncgetriBatched calls cublasCgetriBatched.
+func fncgetriBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symcgetriBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fncgetrsBatched calls cublasCgetrsBatched.
+func fncgetrsBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 *int32, a10 int32) Result {
+	r1, _ := ffiCall11(symcgetrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10))
+	return Result(r1)
+}
+
+// fnchbmv calls cublasChbmv_v2.
+func fnchbmv(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 *Complex64, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *Complex64, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symchbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnchbmv64 calls cublasChbmv_v2_64.
+func fnchbmv64(a0 Handle, a1 FillMode, a2 int64, a3 int64, a4 *Complex64, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *Complex64, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symchbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnchemm calls cublasChemm_v2.
+func fnchemm(a0 Handle, a1 SideMode, a2 FillMode, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *Complex64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symchemm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnchemm64 calls cublasChemm_v2_64.
+func fnchemm64(a0 Handle, a1 SideMode, a2 FillMode, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *Complex64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symchemm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnchemv calls cublasChemv_v2.
+func fnchemv(a0 Handle, a1 FillMode, a2 int32, a3 *Complex64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 *Complex64, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symchemv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnchemv64 calls cublasChemv_v2_64.
+func fnchemv64(a0 Handle, a1 FillMode, a2 int64, a3 *Complex64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 *Complex64, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symchemv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncher2 calls cublasCher2_v2.
+func fncher2(a0 Handle, a1 FillMode, a2 int32, a3 *Complex64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symcher2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncher264 calls cublasCher2_v2_64.
+func fncher264(a0 Handle, a1 FillMode, a2 int64, a3 *Complex64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symcher264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncher2k calls cublasCher2k_v2.
+func fncher2k(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symcher2k, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncher2k64 calls cublasCher2k_v2_64.
+func fncher2k64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float32, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symcher2k64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncher calls cublasCher_v2.
+func fncher(a0 Handle, a1 FillMode, a2 int32, a3 *float32, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symcher, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncher64 calls cublasCher_v2_64.
+func fncher64(a0 Handle, a1 FillMode, a2 int64, a3 *float32, a4 uintptr, a5 int64, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symcher64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncherk3mEx calls cublasCherk3mEx.
+func fncherk3mEx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float32, a6 uintptr, a7 DataType, a8 int32, a9 *float32, a10 uintptr, a11 DataType, a12 int32) Result {
+	r1, _ := ffiCall13(symcherk3mEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncherk3mEx64 calls cublasCherk3mEx_64.
+func fncherk3mEx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float32, a6 uintptr, a7 DataType, a8 int64, a9 *float32, a10 uintptr, a11 DataType, a12 int64) Result {
+	r1, _ := ffiCall13(symcherk3mEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncherkEx calls cublasCherkEx.
+func fncherkEx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float32, a6 uintptr, a7 DataType, a8 int32, a9 *float32, a10 uintptr, a11 DataType, a12 int32) Result {
+	r1, _ := ffiCall13(symcherkEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncherkEx64 calls cublasCherkEx_64.
+func fncherkEx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float32, a6 uintptr, a7 DataType, a8 int64, a9 *float32, a10 uintptr, a11 DataType, a12 int64) Result {
+	r1, _ := ffiCall13(symcherkEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncherk calls cublasCherk_v2.
+func fncherk(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float32, a6 uintptr, a7 int32, a8 *float32, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symcherk, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncherk64 calls cublasCherk_v2_64.
+func fncherk64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float32, a6 uintptr, a7 int64, a8 *float32, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symcherk64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncherkx calls cublasCherkx.
+func fncherkx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symcherkx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncherkx64 calls cublasCherkx_64.
+func fncherkx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float32, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symcherkx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnchpmv calls cublasChpmv_v2.
+func fnchpmv(a0 Handle, a1 FillMode, a2 int32, a3 *Complex64, a4 uintptr, a5 uintptr, a6 int32, a7 *Complex64, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symchpmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnchpmv64 calls cublasChpmv_v2_64.
+func fnchpmv64(a0 Handle, a1 FillMode, a2 int64, a3 *Complex64, a4 uintptr, a5 uintptr, a6 int64, a7 *Complex64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symchpmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnchpr2 calls cublasChpr2_v2.
+func fnchpr2(a0 Handle, a1 FillMode, a2 int32, a3 *Complex64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symchpr2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnchpr264 calls cublasChpr2_v2_64.
+func fnchpr264(a0 Handle, a1 FillMode, a2 int64, a3 *Complex64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr) Result {
+	r1, _ := ffiCall9(symchpr264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnchpr calls cublasChpr_v2.
+func fnchpr(a0 Handle, a1 FillMode, a2 int32, a3 *float32, a4 uintptr, a5 int32, a6 uintptr) Result {
+	r1, _ := ffiCall7(symchpr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnchpr64 calls cublasChpr_v2_64.
+func fnchpr64(a0 Handle, a1 FillMode, a2 int64, a3 *float32, a4 uintptr, a5 int64, a6 uintptr) Result {
+	r1, _ := ffiCall7(symchpr64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fncmatinvBatched calls cublasCmatinvBatched.
+func fncmatinvBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symcmatinvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncopyEx calls cublasCopyEx.
+func fncopyEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 uintptr, a6 DataType, a7 int32) Result {
+	r1, _ := ffiCall8(symcopyEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncopyEx64 calls cublasCopyEx_64.
+func fncopyEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 uintptr, a6 DataType, a7 int64) Result {
+	r1, _ := ffiCall8(symcopyEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnCreate calls cublasCreate_v2.
+func fnCreate(a0 *Handle) Result {
+	r1, _ := ffiCall1(symCreate, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fncrot calls cublasCrot_v2.
+func fncrot(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float32, a7 *Complex64) Result {
+	r1, _ := ffiCall8(symcrot, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fncrot64 calls cublasCrot_v2_64.
+func fncrot64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float32, a7 *Complex64) Result {
+	r1, _ := ffiCall8(symcrot64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fncrotg calls cublasCrotg_v2.
+func fncrotg(a0 Handle, a1 *Complex64, a2 *Complex64, a3 *float32, a4 *Complex64) Result {
+	r1, _ := ffiCall5(symcrotg, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fncscal calls cublasCscal_v2.
+func fncscal(a0 Handle, a1 int32, a2 *Complex64, a3 uintptr, a4 int32) Result {
+	r1, _ := ffiCall5(symcscal, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncscal64 calls cublasCscal_v2_64.
+func fncscal64(a0 Handle, a1 int64, a2 *Complex64, a3 uintptr, a4 int64) Result {
+	r1, _ := ffiCall5(symcscal64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncsrot calls cublasCsrot_v2.
+func fncsrot(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float32, a7 *float32) Result {
+	r1, _ := ffiCall8(symcsrot, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fncsrot64 calls cublasCsrot_v2_64.
+func fncsrot64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float32, a7 *float32) Result {
+	r1, _ := ffiCall8(symcsrot64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fncsscal calls cublasCsscal_v2.
+func fncsscal(a0 Handle, a1 int32, a2 *float32, a3 uintptr, a4 int32) Result {
+	r1, _ := ffiCall5(symcsscal, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncsscal64 calls cublasCsscal_v2_64.
+func fncsscal64(a0 Handle, a1 int64, a2 *float32, a3 uintptr, a4 int64) Result {
+	r1, _ := ffiCall5(symcsscal64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fncswap calls cublasCswap_v2.
+func fncswap(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symcswap, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fncswap64 calls cublasCswap_v2_64.
+func fncswap64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symcswap64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fncsymm calls cublasCsymm_v2.
+func fncsymm(a0 Handle, a1 SideMode, a2 FillMode, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *Complex64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symcsymm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsymm64 calls cublasCsymm_v2_64.
+func fncsymm64(a0 Handle, a1 SideMode, a2 FillMode, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *Complex64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symcsymm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsymv calls cublasCsymv_v2.
+func fncsymv(a0 Handle, a1 FillMode, a2 int32, a3 *Complex64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 *Complex64, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symcsymv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncsymv64 calls cublasCsymv_v2_64.
+func fncsymv64(a0 Handle, a1 FillMode, a2 int64, a3 *Complex64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 *Complex64, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symcsymv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncsyr2 calls cublasCsyr2_v2.
+func fncsyr2(a0 Handle, a1 FillMode, a2 int32, a3 *Complex64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symcsyr2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncsyr264 calls cublasCsyr2_v2_64.
+func fncsyr264(a0 Handle, a1 FillMode, a2 int64, a3 *Complex64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symcsyr264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fncsyr2k calls cublasCsyr2k_v2.
+func fncsyr2k(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *Complex64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symcsyr2k, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsyr2k64 calls cublasCsyr2k_v2_64.
+func fncsyr2k64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *Complex64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symcsyr2k64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsyr calls cublasCsyr_v2.
+func fncsyr(a0 Handle, a1 FillMode, a2 int32, a3 *Complex64, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symcsyr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncsyr64 calls cublasCsyr_v2_64.
+func fncsyr64(a0 Handle, a1 FillMode, a2 int64, a3 *Complex64, a4 uintptr, a5 int64, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symcsyr64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fncsyrk3mEx calls cublasCsyrk3mEx.
+func fncsyrk3mEx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 DataType, a8 int32, a9 *Complex64, a10 uintptr, a11 DataType, a12 int32) Result {
+	r1, _ := ffiCall13(symcsyrk3mEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsyrk3mEx64 calls cublasCsyrk3mEx_64.
+func fncsyrk3mEx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 DataType, a8 int64, a9 *Complex64, a10 uintptr, a11 DataType, a12 int64) Result {
+	r1, _ := ffiCall13(symcsyrk3mEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsyrkEx calls cublasCsyrkEx.
+func fncsyrkEx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 DataType, a8 int32, a9 *Complex64, a10 uintptr, a11 DataType, a12 int32) Result {
+	r1, _ := ffiCall13(symcsyrkEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsyrkEx64 calls cublasCsyrkEx_64.
+func fncsyrkEx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 DataType, a8 int64, a9 *Complex64, a10 uintptr, a11 DataType, a12 int64) Result {
+	r1, _ := ffiCall13(symcsyrkEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsyrk calls cublasCsyrk_v2.
+func fncsyrk(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 int32, a8 *Complex64, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symcsyrk, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncsyrk64 calls cublasCsyrk_v2_64.
+func fncsyrk64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 int64, a8 *Complex64, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symcsyrk64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fncsyrkx calls cublasCsyrkx.
+func fncsyrkx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *Complex64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symcsyrkx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fncsyrkx64 calls cublasCsyrkx_64.
+func fncsyrkx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *Complex64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symcsyrkx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnctbmv calls cublasCtbmv_v2.
+func fnctbmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symctbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnctbmv64 calls cublasCtbmv_v2_64.
+func fnctbmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symctbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnctbsv calls cublasCtbsv_v2.
+func fnctbsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symctbsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnctbsv64 calls cublasCtbsv_v2_64.
+func fnctbsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symctbsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnctpmv calls cublasCtpmv_v2.
+func fnctpmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symctpmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnctpmv64 calls cublasCtpmv_v2_64.
+func fnctpmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symctpmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnctpsv calls cublasCtpsv_v2.
+func fnctpsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symctpsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnctpsv64 calls cublasCtpsv_v2_64.
+func fnctpsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symctpsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnctpttr calls cublasCtpttr.
+func fnctpttr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symctpttr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnctrmm calls cublasCtrmm_v2.
+func fnctrmm(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *Complex64, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symctrmm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnctrmm64 calls cublasCtrmm_v2_64.
+func fnctrmm64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *Complex64, a8 uintptr, a9 int64, a10 uintptr, a11 int64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symctrmm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnctrmv calls cublasCtrmv_v2.
+func fnctrmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symctrmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnctrmv64 calls cublasCtrmv_v2_64.
+func fnctrmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 int64, a7 uintptr, a8 int64) Result {
+	r1, _ := ffiCall9(symctrmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnctrsmBatched calls cublasCtrsmBatched.
+func fnctrsmBatched(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *Complex64, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symctrsmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnctrsmBatched64 calls cublasCtrsmBatched_64.
+func fnctrsmBatched64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *Complex64, a8 uintptr, a9 int64, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symctrsmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnctrsm calls cublasCtrsm_v2.
+func fnctrsm(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *Complex64, a8 uintptr, a9 int32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symctrsm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnctrsm64 calls cublasCtrsm_v2_64.
+func fnctrsm64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *Complex64, a8 uintptr, a9 int64, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symctrsm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnctrsv calls cublasCtrsv_v2.
+func fnctrsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symctrsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnctrsv64 calls cublasCtrsv_v2_64.
+func fnctrsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 int64, a7 uintptr, a8 int64) Result {
+	r1, _ := ffiCall9(symctrsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnctrttp calls cublasCtrttp.
+func fnctrttp(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr) Result {
+	r1, _ := ffiCall6(symctrttp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fndasum calls cublasDasum_v2.
+func fndasum(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *float64) Result {
+	r1, _ := ffiCall5(symdasum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndasum64 calls cublasDasum_v2_64.
+func fndasum64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *float64) Result {
+	r1, _ := ffiCall5(symdasum64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndaxpy calls cublasDaxpy_v2.
+func fndaxpy(a0 Handle, a1 int32, a2 *float64, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symdaxpy, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fndaxpy64 calls cublasDaxpy_v2_64.
+func fndaxpy64(a0 Handle, a1 int64, a2 *float64, a3 uintptr, a4 int64, a5 uintptr, a6 int64) Result {
+	r1, _ := ffiCall7(symdaxpy64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fndcopy calls cublasDcopy_v2.
+func fndcopy(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symdcopy, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fndcopy64 calls cublasDcopy_v2_64.
+func fndcopy64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symdcopy64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnddgmm calls cublasDdgmm.
+func fnddgmm(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symddgmm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnddgmm64 calls cublasDdgmm_64.
+func fnddgmm64(a0 Handle, a1 SideMode, a2 int64, a3 int64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symddgmm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnddot calls cublasDdot_v2.
+func fnddot(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float64) Result {
+	r1, _ := ffiCall7(symddot, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnddot64 calls cublasDdot_v2_64.
+func fnddot64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float64) Result {
+	r1, _ := ffiCall7(symddot64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fndestroy calls cublasDestroy_v2.
+func fndestroy(a0 Handle) Result {
+	r1, _ := ffiCall1(symdestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fndgbmv calls cublasDgbmv_v2.
+func fndgbmv(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 int32, a5 int32, a6 *float64, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *float64, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symdgbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndgbmv64 calls cublasDgbmv_v2_64.
+func fndgbmv64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 int64, a5 int64, a6 *float64, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *float64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symdgbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndgeam calls cublasDgeam.
+func fndgeam(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 *float64, a6 uintptr, a7 int32, a8 *float64, a9 uintptr, a10 int32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symdgeam, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndgeam64 calls cublasDgeam_64.
+func fndgeam64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 *float64, a6 uintptr, a7 int64, a8 *float64, a9 uintptr, a10 int64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symdgeam64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndgelsBatched calls cublasDgelsBatched.
+func fndgelsBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *int32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symdgelsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndgemmBatched calls cublasDgemmBatched.
+func fndgemmBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *float64, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *float64, a12 uintptr, a13 int32, a14 int32) Result {
+	r1, _ := ffiCall15(symdgemmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fndgemmBatched64 calls cublasDgemmBatched_64.
+func fndgemmBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *float64, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *float64, a12 uintptr, a13 int64, a14 int64) Result {
+	r1, _ := ffiCall15(symdgemmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fndgemmGroupedBatched calls cublasDgemmGroupedBatched.
+func fndgemmGroupedBatched(a0 Handle, a1 *Operation, a2 *Operation, a3 *int32, a4 *int32, a5 *int32, a6 *float64, a7 uintptr, a8 *int32, a9 uintptr, a10 *int32, a11 *float64, a12 uintptr, a13 *int32, a14 int32, a15 *int32) Result {
+	r1, _ := ffiCall16(symdgemmGroupedBatched, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(unsafe.Pointer(a15)))
+	return Result(r1)
+}
+
+// fndgemmGroupedBatched64 calls cublasDgemmGroupedBatched_64.
+func fndgemmGroupedBatched64(a0 Handle, a1 *Operation, a2 *Operation, a3 *int64, a4 *int64, a5 *int64, a6 *float64, a7 uintptr, a8 *int64, a9 uintptr, a10 *int64, a11 *float64, a12 uintptr, a13 *int64, a14 int64, a15 *int64) Result {
+	r1, _ := ffiCall16(symdgemmGroupedBatched64, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(unsafe.Pointer(a15)))
+	return Result(r1)
+}
+
+// fndgemmStridedBatched calls cublasDgemmStridedBatched.
+func fndgemmStridedBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *float64, a7 uintptr, a8 int32, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 *float64, a14 uintptr, a15 int32, a16 int64, a17 int32) Result {
+	r1, _ := ffiCall18(symdgemmStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fndgemmStridedBatched64 calls cublasDgemmStridedBatched_64.
+func fndgemmStridedBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *float64, a7 uintptr, a8 int64, a9 int64, a10 uintptr, a11 int64, a12 int64, a13 *float64, a14 uintptr, a15 int64, a16 int64, a17 int64) Result {
+	r1, _ := ffiCall18(symdgemmStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fndgemm calls cublasDgemm_v2.
+func fndgemm(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *float64, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *float64, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symdgemm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndgemm64 calls cublasDgemm_v2_64.
+func fndgemm64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *float64, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *float64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symdgemm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndgemvBatched calls cublasDgemvBatched.
+func fndgemvBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float64, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float64, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symdgemvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndgemvBatched64 calls cublasDgemvBatched_64.
+func fndgemvBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float64, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float64, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symdgemvBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndgemvStridedBatched calls cublasDgemvStridedBatched.
+func fndgemvStridedBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float64, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int32, a10 int64, a11 *float64, a12 uintptr, a13 int32, a14 int64, a15 int32) Result {
+	r1, _ := ffiCall16(symdgemvStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fndgemvStridedBatched64 calls cublasDgemvStridedBatched_64.
+func fndgemvStridedBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float64, a5 uintptr, a6 int64, a7 int64, a8 uintptr, a9 int64, a10 int64, a11 *float64, a12 uintptr, a13 int64, a14 int64, a15 int64) Result {
+	r1, _ := ffiCall16(symdgemvStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fndgemv calls cublasDgemv_v2.
+func fndgemv(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float64, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float64, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symdgemv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndgemv64 calls cublasDgemv_v2_64.
+func fndgemv64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float64, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float64, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symdgemv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndgeqrfBatched calls cublasDgeqrfBatched.
+func fndgeqrfBatched(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32, a7 int32) Result {
+	r1, _ := ffiCall8(symdgeqrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fndger calls cublasDger_v2.
+func fndger(a0 Handle, a1 int32, a2 int32, a3 *float64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symdger, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndger64 calls cublasDger_v2_64.
+func fndger64(a0 Handle, a1 int64, a2 int64, a3 *float64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symdger64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndgetrfBatched calls cublasDgetrfBatched.
+func fndgetrfBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symdgetrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fndgetriBatched calls cublasDgetriBatched.
+func fndgetriBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symdgetriBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndgetrsBatched calls cublasDgetrsBatched.
+func fndgetrsBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 *int32, a10 int32) Result {
+	r1, _ := ffiCall11(symdgetrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10))
+	return Result(r1)
+}
+
+// fndmatinvBatched calls cublasDmatinvBatched.
+func fndmatinvBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symdmatinvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndnrm2 calls cublasDnrm2_v2.
+func fndnrm2(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *float64) Result {
+	r1, _ := ffiCall5(symdnrm2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndnrm264 calls cublasDnrm2_v2_64.
+func fndnrm264(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *float64) Result {
+	r1, _ := ffiCall5(symdnrm264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndotEx calls cublasDotEx.
+func fndotEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 uintptr, a6 DataType, a7 int32, a8 uintptr, a9 DataType, a10 DataType) Result {
+	r1, _ := ffiCall11(symdotEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndotEx64 calls cublasDotEx_64.
+func fndotEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 uintptr, a6 DataType, a7 int64, a8 uintptr, a9 DataType, a10 DataType) Result {
+	r1, _ := ffiCall11(symdotEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndotcEx calls cublasDotcEx.
+func fndotcEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 uintptr, a6 DataType, a7 int32, a8 uintptr, a9 DataType, a10 DataType) Result {
+	r1, _ := ffiCall11(symdotcEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndotcEx64 calls cublasDotcEx_64.
+func fndotcEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 uintptr, a6 DataType, a7 int64, a8 uintptr, a9 DataType, a10 DataType) Result {
+	r1, _ := ffiCall11(symdotcEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndrot calls cublasDrot_v2.
+func fndrot(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float64, a7 *float64) Result {
+	r1, _ := ffiCall8(symdrot, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fndrot64 calls cublasDrot_v2_64.
+func fndrot64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float64, a7 *float64) Result {
+	r1, _ := ffiCall8(symdrot64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fndrotg calls cublasDrotg_v2.
+func fndrotg(a0 Handle, a1 *float64, a2 *float64, a3 *float64, a4 *float64) Result {
+	r1, _ := ffiCall5(symdrotg, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndrotm calls cublasDrotm_v2.
+func fndrotm(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float64) Result {
+	r1, _ := ffiCall7(symdrotm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fndrotm64 calls cublasDrotm_v2_64.
+func fndrotm64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float64) Result {
+	r1, _ := ffiCall7(symdrotm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fndrotmg calls cublasDrotmg_v2.
+func fndrotmg(a0 Handle, a1 *float64, a2 *float64, a3 *float64, a4 *float64, a5 *float64) Result {
+	r1, _ := ffiCall6(symdrotmg, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fndsbmv calls cublasDsbmv_v2.
+func fndsbmv(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 *float64, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float64, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symdsbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndsbmv64 calls cublasDsbmv_v2_64.
+func fndsbmv64(a0 Handle, a1 FillMode, a2 int64, a3 int64, a4 *float64, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float64, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symdsbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndscal calls cublasDscal_v2.
+func fndscal(a0 Handle, a1 int32, a2 *float64, a3 uintptr, a4 int32) Result {
+	r1, _ := ffiCall5(symdscal, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fndscal64 calls cublasDscal_v2_64.
+func fndscal64(a0 Handle, a1 int64, a2 *float64, a3 uintptr, a4 int64) Result {
+	r1, _ := ffiCall5(symdscal64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fndspmv calls cublasDspmv_v2.
+func fndspmv(a0 Handle, a1 FillMode, a2 int32, a3 *float64, a4 uintptr, a5 uintptr, a6 int32, a7 *float64, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symdspmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndspmv64 calls cublasDspmv_v2_64.
+func fndspmv64(a0 Handle, a1 FillMode, a2 int64, a3 *float64, a4 uintptr, a5 uintptr, a6 int64, a7 *float64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symdspmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndspr2 calls cublasDspr2_v2.
+func fndspr2(a0 Handle, a1 FillMode, a2 int32, a3 *float64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symdspr2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndspr264 calls cublasDspr2_v2_64.
+func fndspr264(a0 Handle, a1 FillMode, a2 int64, a3 *float64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr) Result {
+	r1, _ := ffiCall9(symdspr264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndspr calls cublasDspr_v2.
+func fndspr(a0 Handle, a1 FillMode, a2 int32, a3 *float64, a4 uintptr, a5 int32, a6 uintptr) Result {
+	r1, _ := ffiCall7(symdspr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fndspr64 calls cublasDspr_v2_64.
+func fndspr64(a0 Handle, a1 FillMode, a2 int64, a3 *float64, a4 uintptr, a5 int64, a6 uintptr) Result {
+	r1, _ := ffiCall7(symdspr64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fndswap calls cublasDswap_v2.
+func fndswap(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symdswap, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fndswap64 calls cublasDswap_v2_64.
+func fndswap64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symdswap64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fndsymm calls cublasDsymm_v2.
+func fndsymm(a0 Handle, a1 SideMode, a2 FillMode, a3 int32, a4 int32, a5 *float64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symdsymm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndsymm64 calls cublasDsymm_v2_64.
+func fndsymm64(a0 Handle, a1 SideMode, a2 FillMode, a3 int64, a4 int64, a5 *float64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symdsymm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndsymv calls cublasDsymv_v2.
+func fndsymv(a0 Handle, a1 FillMode, a2 int32, a3 *float64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 *float64, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symdsymv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndsymv64 calls cublasDsymv_v2_64.
+func fndsymv64(a0 Handle, a1 FillMode, a2 int64, a3 *float64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 *float64, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symdsymv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndsyr2 calls cublasDsyr2_v2.
+func fndsyr2(a0 Handle, a1 FillMode, a2 int32, a3 *float64, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symdsyr2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndsyr264 calls cublasDsyr2_v2_64.
+func fndsyr264(a0 Handle, a1 FillMode, a2 int64, a3 *float64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symdsyr264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndsyr2k calls cublasDsyr2k_v2.
+func fndsyr2k(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symdsyr2k, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndsyr2k64 calls cublasDsyr2k_v2_64.
+func fndsyr2k64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symdsyr2k64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndsyr calls cublasDsyr_v2.
+func fndsyr(a0 Handle, a1 FillMode, a2 int32, a3 *float64, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symdsyr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndsyr64 calls cublasDsyr_v2_64.
+func fndsyr64(a0 Handle, a1 FillMode, a2 int64, a3 *float64, a4 uintptr, a5 int64, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symdsyr64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndsyrk calls cublasDsyrk_v2.
+func fndsyrk(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float64, a6 uintptr, a7 int32, a8 *float64, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symdsyrk, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndsyrk64 calls cublasDsyrk_v2_64.
+func fndsyrk64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float64, a6 uintptr, a7 int64, a8 *float64, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symdsyrk64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fndsyrkx calls cublasDsyrkx.
+func fndsyrkx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float64, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symdsyrkx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndsyrkx64 calls cublasDsyrkx_64.
+func fndsyrkx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float64, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symdsyrkx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndtbmv calls cublasDtbmv_v2.
+func fndtbmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symdtbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndtbmv64 calls cublasDtbmv_v2_64.
+func fndtbmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symdtbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndtbsv calls cublasDtbsv_v2.
+func fndtbsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symdtbsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndtbsv64 calls cublasDtbsv_v2_64.
+func fndtbsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symdtbsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fndtpmv calls cublasDtpmv_v2.
+func fndtpmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symdtpmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndtpmv64 calls cublasDtpmv_v2_64.
+func fndtpmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symdtpmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndtpsv calls cublasDtpsv_v2.
+func fndtpsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symdtpsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndtpsv64 calls cublasDtpsv_v2_64.
+func fndtpsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symdtpsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fndtpttr calls cublasDtpttr.
+func fndtpttr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symdtpttr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fndtrmm calls cublasDtrmm_v2.
+func fndtrmm(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *float64, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symdtrmm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndtrmm64 calls cublasDtrmm_v2_64.
+func fndtrmm64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *float64, a8 uintptr, a9 int64, a10 uintptr, a11 int64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symdtrmm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fndtrmv calls cublasDtrmv_v2.
+func fndtrmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symdtrmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndtrmv64 calls cublasDtrmv_v2_64.
+func fndtrmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 int64, a7 uintptr, a8 int64) Result {
+	r1, _ := ffiCall9(symdtrmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndtrsmBatched calls cublasDtrsmBatched.
+func fndtrsmBatched(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *float64, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symdtrsmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndtrsmBatched64 calls cublasDtrsmBatched_64.
+func fndtrsmBatched64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *float64, a8 uintptr, a9 int64, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symdtrsmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fndtrsm calls cublasDtrsm_v2.
+func fndtrsm(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *float64, a8 uintptr, a9 int32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symdtrsm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndtrsm64 calls cublasDtrsm_v2_64.
+func fndtrsm64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *float64, a8 uintptr, a9 int64, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symdtrsm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fndtrsv calls cublasDtrsv_v2.
+func fndtrsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symdtrsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndtrsv64 calls cublasDtrsv_v2_64.
+func fndtrsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 int64, a7 uintptr, a8 int64) Result {
+	r1, _ := ffiCall9(symdtrsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fndtrttp calls cublasDtrttp.
+func fndtrttp(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr) Result {
+	r1, _ := ffiCall6(symdtrttp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fndzasum calls cublasDzasum_v2.
+func fndzasum(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *float64) Result {
+	r1, _ := ffiCall5(symdzasum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndzasum64 calls cublasDzasum_v2_64.
+func fndzasum64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *float64) Result {
+	r1, _ := ffiCall5(symdzasum64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndznrm2 calls cublasDznrm2_v2.
+func fndznrm2(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *float64) Result {
+	r1, _ := ffiCall5(symdznrm2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fndznrm264 calls cublasDznrm2_v2_64.
+func fndznrm264(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *float64) Result {
+	r1, _ := ffiCall5(symdznrm264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngemmBatchedEx calls cublasGemmBatchedEx.
+func fngemmBatchedEx(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 uintptr, a8 DataType, a9 int32, a10 uintptr, a11 DataType, a12 int32, a13 uintptr, a14 uintptr, a15 DataType, a16 int32, a17 int32, a18 ComputeType, a19 GemmAlgo) Result {
+	r1, _ := ffiCall20(symgemmBatchedEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19))
+	return Result(r1)
+}
+
+// fngemmBatchedEx64 calls cublasGemmBatchedEx_64.
+func fngemmBatchedEx64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 uintptr, a7 uintptr, a8 DataType, a9 int64, a10 uintptr, a11 DataType, a12 int64, a13 uintptr, a14 uintptr, a15 DataType, a16 int64, a17 int64, a18 ComputeType, a19 GemmAlgo) Result {
+	r1, _ := ffiCall20(symgemmBatchedEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19))
+	return Result(r1)
+}
+
+// fngemmEx calls cublasGemmEx.
+func fngemmEx(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 uintptr, a8 DataType, a9 int32, a10 uintptr, a11 DataType, a12 int32, a13 uintptr, a14 uintptr, a15 DataType, a16 int32, a17 ComputeType, a18 GemmAlgo) Result {
+	r1, _ := ffiCall19(symgemmEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	return Result(r1)
+}
+
+// fngemmEx64 calls cublasGemmEx_64.
+func fngemmEx64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 uintptr, a7 uintptr, a8 DataType, a9 int64, a10 uintptr, a11 DataType, a12 int64, a13 uintptr, a14 uintptr, a15 DataType, a16 int64, a17 ComputeType, a18 GemmAlgo) Result {
+	r1, _ := ffiCall19(symgemmEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18))
+	return Result(r1)
+}
+
+// fngemmGroupedBatchedEx calls cublasGemmGroupedBatchedEx.
+func fngemmGroupedBatchedEx(a0 Handle, a1 *Operation, a2 *Operation, a3 *int32, a4 *int32, a5 *int32, a6 uintptr, a7 uintptr, a8 DataType, a9 *int32, a10 uintptr, a11 DataType, a12 *int32, a13 uintptr, a14 uintptr, a15 DataType, a16 *int32, a17 int32, a18 *int32, a19 ComputeType) Result {
+	r1, _ := ffiCall20(symgemmGroupedBatchedEx, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17), uintptr(unsafe.Pointer(a18)), uintptr(a19))
+	return Result(r1)
+}
+
+// fngemmGroupedBatchedEx64 calls cublasGemmGroupedBatchedEx_64.
+func fngemmGroupedBatchedEx64(a0 Handle, a1 *Operation, a2 *Operation, a3 *int64, a4 *int64, a5 *int64, a6 uintptr, a7 uintptr, a8 DataType, a9 *int64, a10 uintptr, a11 DataType, a12 *int64, a13 uintptr, a14 uintptr, a15 DataType, a16 *int64, a17 int64, a18 *int64, a19 ComputeType) Result {
+	r1, _ := ffiCall20(symgemmGroupedBatchedEx64, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(unsafe.Pointer(a12)), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(unsafe.Pointer(a16)), uintptr(a17), uintptr(unsafe.Pointer(a18)), uintptr(a19))
+	return Result(r1)
+}
+
+// fngemmStridedBatchedEx calls cublasGemmStridedBatchedEx.
+func fngemmStridedBatchedEx(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 uintptr, a7 uintptr, a8 DataType, a9 int32, a10 int64, a11 uintptr, a12 DataType, a13 int32, a14 int64, a15 uintptr, a16 uintptr, a17 DataType, a18 int32, a19 int64, a20 int32, a21 ComputeType, a22 GemmAlgo) Result {
+	r1, _ := ffiCall23(symgemmStridedBatchedEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22))
+	return Result(r1)
+}
+
+// fngemmStridedBatchedEx64 calls cublasGemmStridedBatchedEx_64.
+func fngemmStridedBatchedEx64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 uintptr, a7 uintptr, a8 DataType, a9 int64, a10 int64, a11 uintptr, a12 DataType, a13 int64, a14 int64, a15 uintptr, a16 uintptr, a17 DataType, a18 int64, a19 int64, a20 int64, a21 ComputeType, a22 GemmAlgo) Result {
+	r1, _ := ffiCall23(symgemmStridedBatchedEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17), uintptr(a18), uintptr(a19), uintptr(a20), uintptr(a21), uintptr(a22))
+	return Result(r1)
+}
+
+// fngetAtomicsMode calls cublasGetAtomicsMode.
+func fngetAtomicsMode(a0 Handle, a1 *AtomicsMode) Result {
+	r1, _ := ffiCall2(symgetAtomicsMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetEmulationSpecialValuesSupport calls cublasGetEmulationSpecialValuesSupport.
+func fngetEmulationSpecialValuesSupport(a0 Handle, a1 *CudaEmulationSpecialValuesSupport) Result {
+	r1, _ := ffiCall2(symgetEmulationSpecialValuesSupport, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetEmulationStrategy calls cublasGetEmulationStrategy.
+func fngetEmulationStrategy(a0 Handle, a1 *EmulationStrategy) Result {
+	r1, _ := ffiCall2(symgetEmulationStrategy, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetFixedPointEmulationMantissaBitCountPointer calls cublasGetFixedPointEmulationMantissaBitCountPointer.
+func fngetFixedPointEmulationMantissaBitCountPointer(a0 Handle, a1 uintptr) Result {
+	r1, _ := ffiCall2(symgetFixedPointEmulationMantissaBitCountPointer, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fngetFixedPointEmulationMantissaBitOffset calls cublasGetFixedPointEmulationMantissaBitOffset.
+func fngetFixedPointEmulationMantissaBitOffset(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetFixedPointEmulationMantissaBitOffset, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetFixedPointEmulationMantissaControl calls cublasGetFixedPointEmulationMantissaControl.
+func fngetFixedPointEmulationMantissaControl(a0 Handle, a1 *CudaEmulationMantissaControl) Result {
+	r1, _ := ffiCall2(symgetFixedPointEmulationMantissaControl, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetFixedPointEmulationMaxMantissaBitCount calls cublasGetFixedPointEmulationMaxMantissaBitCount.
+func fngetFixedPointEmulationMaxMantissaBitCount(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetFixedPointEmulationMaxMantissaBitCount, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetLoggerCallback calls cublasGetLoggerCallback.
+func fnGetLoggerCallback(a0 *LogCallback) Result {
+	r1, _ := ffiCall1(symGetLoggerCallback, 0, uintptr(unsafe.Pointer(a0)))
+	return Result(r1)
+}
+
+// fngetMathMode calls cublasGetMathMode.
+func fngetMathMode(a0 Handle, a1 *Math) Result {
+	r1, _ := ffiCall2(symgetMathMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetMatrix calls cublasGetMatrix.
+func fnGetMatrix(a0 int32, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symGetMatrix, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnGetMatrix64 calls cublasGetMatrix_64.
+func fnGetMatrix64(a0 int64, a1 int64, a2 int64, a3 uintptr, a4 int64, a5 uintptr, a6 int64) Result {
+	r1, _ := ffiCall7(symGetMatrix64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fngetPointerMode calls cublasGetPointerMode_v2.
+func fngetPointerMode(a0 Handle, a1 *PointerMode) Result {
+	r1, _ := ffiCall2(symgetPointerMode, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetProperty calls cublasGetProperty.
+func fnGetProperty(a0 LibraryPropertyType, a1 *int32) Result {
+	r1, _ := ffiCall2(symGetProperty, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetSmCountTarget calls cublasGetSmCountTarget.
+func fngetSmCountTarget(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetSmCountTarget, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngetStream calls cublasGetStream_v2.
+func fngetStream(a0 Handle, a1 *driver.Stream) Result {
+	r1, _ := ffiCall2(symgetStream, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnGetVector calls cublasGetVector.
+func fnGetVector(a0 int32, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symGetVector, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnGetVector64 calls cublasGetVector_64.
+func fnGetVector64(a0 int64, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symGetVector64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fngetVersion calls cublasGetVersion_v2.
+func fngetVersion(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symgetVersion, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnhSHgemvBatched calls cublasHSHgemvBatched.
+func fnhSHgemvBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symhSHgemvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnhSHgemvBatched64 calls cublasHSHgemvBatched_64.
+func fnhSHgemvBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float32, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symhSHgemvBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnhSHgemvStridedBatched calls cublasHSHgemvStridedBatched.
+func fnhSHgemvStridedBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int32, a10 int64, a11 *float32, a12 uintptr, a13 int32, a14 int64, a15 int32) Result {
+	r1, _ := ffiCall16(symhSHgemvStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnhSHgemvStridedBatched64 calls cublasHSHgemvStridedBatched_64.
+func fnhSHgemvStridedBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 int64, a8 uintptr, a9 int64, a10 int64, a11 *float32, a12 uintptr, a13 int64, a14 int64, a15 int64) Result {
+	r1, _ := ffiCall16(symhSHgemvStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnhSSgemvBatched calls cublasHSSgemvBatched.
+func fnhSSgemvBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symhSSgemvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnhSSgemvBatched64 calls cublasHSSgemvBatched_64.
+func fnhSSgemvBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float32, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symhSSgemvBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnhSSgemvStridedBatched calls cublasHSSgemvStridedBatched.
+func fnhSSgemvStridedBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int32, a10 int64, a11 *float32, a12 uintptr, a13 int32, a14 int64, a15 int32) Result {
+	r1, _ := ffiCall16(symhSSgemvStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnhSSgemvStridedBatched64 calls cublasHSSgemvStridedBatched_64.
+func fnhSSgemvStridedBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 int64, a8 uintptr, a9 int64, a10 int64, a11 *float32, a12 uintptr, a13 int64, a14 int64, a15 int64) Result {
+	r1, _ := ffiCall16(symhSSgemvStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnhgemm calls cublasHgemm.
+func fnhgemm(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Half, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Half, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symhgemm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnhgemmBatched calls cublasHgemmBatched.
+func fnhgemmBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Half, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Half, a12 uintptr, a13 int32, a14 int32) Result {
+	r1, _ := ffiCall15(symhgemmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnhgemmBatched64 calls cublasHgemmBatched_64.
+func fnhgemmBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Half, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Half, a12 uintptr, a13 int64, a14 int64) Result {
+	r1, _ := ffiCall15(symhgemmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnhgemmStridedBatched calls cublasHgemmStridedBatched.
+func fnhgemmStridedBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Half, a7 uintptr, a8 int32, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 *Half, a14 uintptr, a15 int32, a16 int64, a17 int32) Result {
+	r1, _ := ffiCall18(symhgemmStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnhgemmStridedBatched64 calls cublasHgemmStridedBatched_64.
+func fnhgemmStridedBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Half, a7 uintptr, a8 int64, a9 int64, a10 uintptr, a11 int64, a12 int64, a13 *Half, a14 uintptr, a15 int64, a16 int64, a17 int64) Result {
+	r1, _ := ffiCall18(symhgemmStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnhgemm64 calls cublasHgemm_64.
+func fnhgemm64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Half, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Half, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symhgemm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fniamaxEx calls cublasIamaxEx.
+func fniamaxEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symiamaxEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fniamaxEx64 calls cublasIamaxEx_64.
+func fniamaxEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 *int64) Result {
+	r1, _ := ffiCall6(symiamaxEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fniaminEx calls cublasIaminEx.
+func fniaminEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 *int32) Result {
+	r1, _ := ffiCall6(symiaminEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fniaminEx64 calls cublasIaminEx_64.
+func fniaminEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 *int64) Result {
+	r1, _ := ffiCall6(symiaminEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnicamax calls cublasIcamax_v2.
+func fnicamax(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symicamax, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnicamax64 calls cublasIcamax_v2_64.
+func fnicamax64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *int64) Result {
+	r1, _ := ffiCall5(symicamax64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnicamin calls cublasIcamin_v2.
+func fnicamin(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symicamin, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnicamin64 calls cublasIcamin_v2_64.
+func fnicamin64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *int64) Result {
+	r1, _ := ffiCall5(symicamin64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnidamax calls cublasIdamax_v2.
+func fnidamax(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symidamax, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnidamax64 calls cublasIdamax_v2_64.
+func fnidamax64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *int64) Result {
+	r1, _ := ffiCall5(symidamax64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnidamin calls cublasIdamin_v2.
+func fnidamin(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symidamin, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnidamin64 calls cublasIdamin_v2_64.
+func fnidamin64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *int64) Result {
+	r1, _ := ffiCall5(symidamin64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnisamax calls cublasIsamax_v2.
+func fnisamax(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symisamax, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnisamax64 calls cublasIsamax_v2_64.
+func fnisamax64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *int64) Result {
+	r1, _ := ffiCall5(symisamax64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnisamin calls cublasIsamin_v2.
+func fnisamin(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symisamin, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnisamin64 calls cublasIsamin_v2_64.
+func fnisamin64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *int64) Result {
+	r1, _ := ffiCall5(symisamin64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnizamax calls cublasIzamax_v2.
+func fnizamax(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symizamax, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnizamax64 calls cublasIzamax_v2_64.
+func fnizamax64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *int64) Result {
+	r1, _ := ffiCall5(symizamax64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnizamin calls cublasIzamin_v2.
+func fnizamin(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *int32) Result {
+	r1, _ := ffiCall5(symizamin, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnizamin64 calls cublasIzamin_v2_64.
+func fnizamin64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *int64) Result {
+	r1, _ := ffiCall5(symizamin64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnLoggerConfigure calls cublasLoggerConfigure.
+func fnLoggerConfigure(a0 int32, a1 int32, a2 int32, a3 *byte) Result {
+	r1, _ := ffiCall4(symLoggerConfigure, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fnnrm2Ex calls cublasNrm2Ex.
+func fnnrm2Ex(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 uintptr, a6 DataType, a7 DataType) Result {
+	r1, _ := ffiCall8(symnrm2Ex, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnnrm2Ex64 calls cublasNrm2Ex_64.
+func fnnrm2Ex64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 uintptr, a6 DataType, a7 DataType) Result {
+	r1, _ := ffiCall8(symnrm2Ex64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnrotEx calls cublasRotEx.
+func fnrotEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 uintptr, a6 DataType, a7 int32, a8 uintptr, a9 uintptr, a10 DataType, a11 DataType) Result {
+	r1, _ := ffiCall12(symrotEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnrotEx64 calls cublasRotEx_64.
+func fnrotEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 uintptr, a6 DataType, a7 int64, a8 uintptr, a9 uintptr, a10 DataType, a11 DataType) Result {
+	r1, _ := ffiCall12(symrotEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnrotgEx calls cublasRotgEx.
+func fnrotgEx(a0 Handle, a1 uintptr, a2 uintptr, a3 DataType, a4 uintptr, a5 uintptr, a6 DataType, a7 DataType) Result {
+	r1, _ := ffiCall8(symrotgEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnrotmEx calls cublasRotmEx.
+func fnrotmEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 uintptr, a6 DataType, a7 int32, a8 uintptr, a9 DataType, a10 DataType) Result {
+	r1, _ := ffiCall11(symrotmEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnrotmEx64 calls cublasRotmEx_64.
+func fnrotmEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 uintptr, a6 DataType, a7 int64, a8 uintptr, a9 DataType, a10 DataType) Result {
+	r1, _ := ffiCall11(symrotmEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnrotmgEx calls cublasRotmgEx.
+func fnrotmgEx(a0 Handle, a1 uintptr, a2 DataType, a3 uintptr, a4 DataType, a5 uintptr, a6 DataType, a7 uintptr, a8 DataType, a9 uintptr, a10 DataType, a11 DataType) Result {
+	r1, _ := ffiCall12(symrotmgEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnsasum calls cublasSasum_v2.
+func fnsasum(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *float32) Result {
+	r1, _ := ffiCall5(symsasum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsasum64 calls cublasSasum_v2_64.
+func fnsasum64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *float32) Result {
+	r1, _ := ffiCall5(symsasum64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsaxpy calls cublasSaxpy_v2.
+func fnsaxpy(a0 Handle, a1 int32, a2 *float32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symsaxpy, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsaxpy64 calls cublasSaxpy_v2_64.
+func fnsaxpy64(a0 Handle, a1 int64, a2 *float32, a3 uintptr, a4 int64, a5 uintptr, a6 int64) Result {
+	r1, _ := ffiCall7(symsaxpy64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnscalEx calls cublasScalEx.
+func fnscalEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 uintptr, a5 DataType, a6 int32, a7 DataType) Result {
+	r1, _ := ffiCall8(symscalEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnscalEx64 calls cublasScalEx_64.
+func fnscalEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 uintptr, a5 DataType, a6 int64, a7 DataType) Result {
+	r1, _ := ffiCall8(symscalEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnscasum calls cublasScasum_v2.
+func fnscasum(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *float32) Result {
+	r1, _ := ffiCall5(symscasum, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnscasum64 calls cublasScasum_v2_64.
+func fnscasum64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *float32) Result {
+	r1, _ := ffiCall5(symscasum64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnscnrm2 calls cublasScnrm2_v2.
+func fnscnrm2(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *float32) Result {
+	r1, _ := ffiCall5(symscnrm2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnscnrm264 calls cublasScnrm2_v2_64.
+func fnscnrm264(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *float32) Result {
+	r1, _ := ffiCall5(symscnrm264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnscopy calls cublasScopy_v2.
+func fnscopy(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symscopy, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnscopy64 calls cublasScopy_v2_64.
+func fnscopy64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symscopy64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnsdgmm calls cublasSdgmm.
+func fnsdgmm(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symsdgmm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnsdgmm64 calls cublasSdgmm_64.
+func fnsdgmm64(a0 Handle, a1 SideMode, a2 int64, a3 int64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symsdgmm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnsdot calls cublasSdot_v2.
+func fnsdot(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float32) Result {
+	r1, _ := ffiCall7(symsdot, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnsdot64 calls cublasSdot_v2_64.
+func fnsdot64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float32) Result {
+	r1, _ := ffiCall7(symsdot64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnsetAtomicsMode calls cublasSetAtomicsMode.
+func fnsetAtomicsMode(a0 Handle, a1 AtomicsMode) Result {
+	r1, _ := ffiCall2(symsetAtomicsMode, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetEmulationSpecialValuesSupport calls cublasSetEmulationSpecialValuesSupport.
+func fnsetEmulationSpecialValuesSupport(a0 Handle, a1 CudaEmulationSpecialValuesSupport) Result {
+	r1, _ := ffiCall2(symsetEmulationSpecialValuesSupport, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetEmulationStrategy calls cublasSetEmulationStrategy.
+func fnsetEmulationStrategy(a0 Handle, a1 EmulationStrategy) Result {
+	r1, _ := ffiCall2(symsetEmulationStrategy, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetFixedPointEmulationMantissaBitCountPointer calls cublasSetFixedPointEmulationMantissaBitCountPointer.
+func fnsetFixedPointEmulationMantissaBitCountPointer(a0 Handle, a1 *int32) Result {
+	r1, _ := ffiCall2(symsetFixedPointEmulationMantissaBitCountPointer, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnsetFixedPointEmulationMantissaBitOffset calls cublasSetFixedPointEmulationMantissaBitOffset.
+func fnsetFixedPointEmulationMantissaBitOffset(a0 Handle, a1 int32) Result {
+	r1, _ := ffiCall2(symsetFixedPointEmulationMantissaBitOffset, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetFixedPointEmulationMantissaControl calls cublasSetFixedPointEmulationMantissaControl.
+func fnsetFixedPointEmulationMantissaControl(a0 Handle, a1 CudaEmulationMantissaControl) Result {
+	r1, _ := ffiCall2(symsetFixedPointEmulationMantissaControl, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetFixedPointEmulationMaxMantissaBitCount calls cublasSetFixedPointEmulationMaxMantissaBitCount.
+func fnsetFixedPointEmulationMaxMantissaBitCount(a0 Handle, a1 int32) Result {
+	r1, _ := ffiCall2(symsetFixedPointEmulationMaxMantissaBitCount, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnSetLoggerCallback calls cublasSetLoggerCallback.
+func fnSetLoggerCallback(a0 LogCallback) Result {
+	r1, _ := ffiCall1(symSetLoggerCallback, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnsetMathMode calls cublasSetMathMode.
+func fnsetMathMode(a0 Handle, a1 Math) Result {
+	r1, _ := ffiCall2(symsetMathMode, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnSetMatrix calls cublasSetMatrix.
+func fnSetMatrix(a0 int32, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symSetMatrix, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnSetMatrix64 calls cublasSetMatrix_64.
+func fnSetMatrix64(a0 int64, a1 int64, a2 int64, a3 uintptr, a4 int64, a5 uintptr, a6 int64) Result {
+	r1, _ := ffiCall7(symSetMatrix64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsetPointerMode calls cublasSetPointerMode_v2.
+func fnsetPointerMode(a0 Handle, a1 PointerMode) Result {
+	r1, _ := ffiCall2(symsetPointerMode, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnsetSmCountTarget calls cublasSetSmCountTarget.
+func fnsetSmCountTarget(a0 Handle, a1 int32) Result {
+	r1, _ := ffiCall2(symsetSmCountTarget, 0, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnSetVector calls cublasSetVector.
+func fnSetVector(a0 int32, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symSetVector, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnSetVector64 calls cublasSetVector_64.
+func fnSetVector64(a0 int64, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symSetVector64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnsetWorkspace calls cublasSetWorkspace_v2.
+func fnsetWorkspace(a0 Handle, a1 uintptr, a2 uint) Result {
+	r1, _ := ffiCall3(symsetWorkspace, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnsgbmv calls cublasSgbmv_v2.
+func fnsgbmv(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 int32, a5 int32, a6 *float32, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *float32, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symsgbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsgbmv64 calls cublasSgbmv_v2_64.
+func fnsgbmv64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 int64, a5 int64, a6 *float32, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *float32, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symsgbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsgeam calls cublasSgeam.
+func fnsgeam(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 *float32, a6 uintptr, a7 int32, a8 *float32, a9 uintptr, a10 int32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symsgeam, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnsgeam64 calls cublasSgeam_64.
+func fnsgeam64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 *float32, a6 uintptr, a7 int64, a8 *float32, a9 uintptr, a10 int64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symsgeam64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnsgelsBatched calls cublasSgelsBatched.
+func fnsgelsBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *int32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symsgelsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnsgemmBatched calls cublasSgemmBatched.
+func fnsgemmBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *float32, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *float32, a12 uintptr, a13 int32, a14 int32) Result {
+	r1, _ := ffiCall15(symsgemmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnsgemmBatched64 calls cublasSgemmBatched_64.
+func fnsgemmBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *float32, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *float32, a12 uintptr, a13 int64, a14 int64) Result {
+	r1, _ := ffiCall15(symsgemmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnsgemmEx calls cublasSgemmEx.
+func fnsgemmEx(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *float32, a7 uintptr, a8 DataType, a9 int32, a10 uintptr, a11 DataType, a12 int32, a13 *float32, a14 uintptr, a15 DataType, a16 int32) Result {
+	r1, _ := ffiCall17(symsgemmEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16))
+	return Result(r1)
+}
+
+// fnsgemmEx64 calls cublasSgemmEx_64.
+func fnsgemmEx64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *float32, a7 uintptr, a8 DataType, a9 int64, a10 uintptr, a11 DataType, a12 int64, a13 *float32, a14 uintptr, a15 DataType, a16 int64) Result {
+	r1, _ := ffiCall17(symsgemmEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16))
+	return Result(r1)
+}
+
+// fnsgemmGroupedBatched calls cublasSgemmGroupedBatched.
+func fnsgemmGroupedBatched(a0 Handle, a1 *Operation, a2 *Operation, a3 *int32, a4 *int32, a5 *int32, a6 *float32, a7 uintptr, a8 *int32, a9 uintptr, a10 *int32, a11 *float32, a12 uintptr, a13 *int32, a14 int32, a15 *int32) Result {
+	r1, _ := ffiCall16(symsgemmGroupedBatched, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(unsafe.Pointer(a15)))
+	return Result(r1)
+}
+
+// fnsgemmGroupedBatched64 calls cublasSgemmGroupedBatched_64.
+func fnsgemmGroupedBatched64(a0 Handle, a1 *Operation, a2 *Operation, a3 *int64, a4 *int64, a5 *int64, a6 *float32, a7 uintptr, a8 *int64, a9 uintptr, a10 *int64, a11 *float32, a12 uintptr, a13 *int64, a14 int64, a15 *int64) Result {
+	r1, _ := ffiCall16(symsgemmGroupedBatched64, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(unsafe.Pointer(a15)))
+	return Result(r1)
+}
+
+// fnsgemmStridedBatched calls cublasSgemmStridedBatched.
+func fnsgemmStridedBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *float32, a7 uintptr, a8 int32, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 *float32, a14 uintptr, a15 int32, a16 int64, a17 int32) Result {
+	r1, _ := ffiCall18(symsgemmStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnsgemmStridedBatched64 calls cublasSgemmStridedBatched_64.
+func fnsgemmStridedBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *float32, a7 uintptr, a8 int64, a9 int64, a10 uintptr, a11 int64, a12 int64, a13 *float32, a14 uintptr, a15 int64, a16 int64, a17 int64) Result {
+	r1, _ := ffiCall18(symsgemmStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnsgemm calls cublasSgemm_v2.
+func fnsgemm(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *float32, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *float32, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symsgemm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsgemm64 calls cublasSgemm_v2_64.
+func fnsgemm64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *float32, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *float32, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symsgemm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnsgemvBatched calls cublasSgemvBatched.
+func fnsgemvBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symsgemvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnsgemvBatched64 calls cublasSgemvBatched_64.
+func fnsgemvBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float32, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symsgemvBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnsgemvStridedBatched calls cublasSgemvStridedBatched.
+func fnsgemvStridedBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int32, a10 int64, a11 *float32, a12 uintptr, a13 int32, a14 int64, a15 int32) Result {
+	r1, _ := ffiCall16(symsgemvStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnsgemvStridedBatched64 calls cublasSgemvStridedBatched_64.
+func fnsgemvStridedBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 int64, a8 uintptr, a9 int64, a10 int64, a11 *float32, a12 uintptr, a13 int64, a14 int64, a15 int64) Result {
+	r1, _ := ffiCall16(symsgemvStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnsgemv calls cublasSgemv_v2.
+func fnsgemv(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symsgemv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnsgemv64 calls cublasSgemv_v2_64.
+func fnsgemv64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float32, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symsgemv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnsgeqrfBatched calls cublasSgeqrfBatched.
+func fnsgeqrfBatched(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32, a7 int32) Result {
+	r1, _ := ffiCall8(symsgeqrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fnsger calls cublasSger_v2.
+func fnsger(a0 Handle, a1 int32, a2 int32, a3 *float32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symsger, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnsger64 calls cublasSger_v2_64.
+func fnsger64(a0 Handle, a1 int64, a2 int64, a3 *float32, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symsger64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnsgetrfBatched calls cublasSgetrfBatched.
+func fnsgetrfBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symsgetrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsgetriBatched calls cublasSgetriBatched.
+func fnsgetriBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symsgetriBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnsgetrsBatched calls cublasSgetrsBatched.
+func fnsgetrsBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 *int32, a10 int32) Result {
+	r1, _ := ffiCall11(symsgetrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10))
+	return Result(r1)
+}
+
+// fnsmatinvBatched calls cublasSmatinvBatched.
+func fnsmatinvBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symsmatinvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnsnrm2 calls cublasSnrm2_v2.
+func fnsnrm2(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 *float32) Result {
+	r1, _ := ffiCall5(symsnrm2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsnrm264 calls cublasSnrm2_v2_64.
+func fnsnrm264(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 *float32) Result {
+	r1, _ := ffiCall5(symsnrm264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsrot calls cublasSrot_v2.
+func fnsrot(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float32, a7 *float32) Result {
+	r1, _ := ffiCall8(symsrot, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnsrot64 calls cublasSrot_v2_64.
+func fnsrot64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float32, a7 *float32) Result {
+	r1, _ := ffiCall8(symsrot64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnsrotg calls cublasSrotg_v2.
+func fnsrotg(a0 Handle, a1 *float32, a2 *float32, a3 *float32, a4 *float32) Result {
+	r1, _ := ffiCall5(symsrotg, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnsrotm calls cublasSrotm_v2.
+func fnsrotm(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float32) Result {
+	r1, _ := ffiCall7(symsrotm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnsrotm64 calls cublasSrotm_v2_64.
+func fnsrotm64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float32) Result {
+	r1, _ := ffiCall7(symsrotm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnsrotmg calls cublasSrotmg_v2.
+func fnsrotmg(a0 Handle, a1 *float32, a2 *float32, a3 *float32, a4 *float32, a5 *float32) Result {
+	r1, _ := ffiCall6(symsrotmg, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fnssbmv calls cublasSsbmv_v2.
+func fnssbmv(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symssbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnssbmv64 calls cublasSsbmv_v2_64.
+func fnssbmv64(a0 Handle, a1 FillMode, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float32, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symssbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnsscal calls cublasSscal_v2.
+func fnsscal(a0 Handle, a1 int32, a2 *float32, a3 uintptr, a4 int32) Result {
+	r1, _ := ffiCall5(symsscal, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnsscal64 calls cublasSscal_v2_64.
+func fnsscal64(a0 Handle, a1 int64, a2 *float32, a3 uintptr, a4 int64) Result {
+	r1, _ := ffiCall5(symsscal64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnsspmv calls cublasSspmv_v2.
+func fnsspmv(a0 Handle, a1 FillMode, a2 int32, a3 *float32, a4 uintptr, a5 uintptr, a6 int32, a7 *float32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symsspmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnsspmv64 calls cublasSspmv_v2_64.
+func fnsspmv64(a0 Handle, a1 FillMode, a2 int64, a3 *float32, a4 uintptr, a5 uintptr, a6 int64, a7 *float32, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symsspmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnsspr2 calls cublasSspr2_v2.
+func fnsspr2(a0 Handle, a1 FillMode, a2 int32, a3 *float32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symsspr2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnsspr264 calls cublasSspr2_v2_64.
+func fnsspr264(a0 Handle, a1 FillMode, a2 int64, a3 *float32, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr) Result {
+	r1, _ := ffiCall9(symsspr264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnsspr calls cublasSspr_v2.
+func fnsspr(a0 Handle, a1 FillMode, a2 int32, a3 *float32, a4 uintptr, a5 int32, a6 uintptr) Result {
+	r1, _ := ffiCall7(symsspr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsspr64 calls cublasSspr_v2_64.
+func fnsspr64(a0 Handle, a1 FillMode, a2 int64, a3 *float32, a4 uintptr, a5 int64, a6 uintptr) Result {
+	r1, _ := ffiCall7(symsspr64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnsswap calls cublasSswap_v2.
+func fnsswap(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symsswap, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnsswap64 calls cublasSswap_v2_64.
+func fnsswap64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symsswap64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnssymm calls cublasSsymm_v2.
+func fnssymm(a0 Handle, a1 SideMode, a2 FillMode, a3 int32, a4 int32, a5 *float32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symssymm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnssymm64 calls cublasSsymm_v2_64.
+func fnssymm64(a0 Handle, a1 SideMode, a2 FillMode, a3 int64, a4 int64, a5 *float32, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float32, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symssymm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnssymv calls cublasSsymv_v2.
+func fnssymv(a0 Handle, a1 FillMode, a2 int32, a3 *float32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 *float32, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symssymv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnssymv64 calls cublasSsymv_v2_64.
+func fnssymv64(a0 Handle, a1 FillMode, a2 int64, a3 *float32, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 *float32, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symssymv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnssyr2 calls cublasSsyr2_v2.
+func fnssyr2(a0 Handle, a1 FillMode, a2 int32, a3 *float32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symssyr2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnssyr264 calls cublasSsyr2_v2_64.
+func fnssyr264(a0 Handle, a1 FillMode, a2 int64, a3 *float32, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symssyr264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnssyr2k calls cublasSsyr2k_v2.
+func fnssyr2k(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symssyr2k, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnssyr2k64 calls cublasSsyr2k_v2_64.
+func fnssyr2k64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float32, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float32, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symssyr2k64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnssyr calls cublasSsyr_v2.
+func fnssyr(a0 Handle, a1 FillMode, a2 int32, a3 *float32, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symssyr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnssyr64 calls cublasSsyr_v2_64.
+func fnssyr64(a0 Handle, a1 FillMode, a2 int64, a3 *float32, a4 uintptr, a5 int64, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symssyr64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnssyrk calls cublasSsyrk_v2.
+func fnssyrk(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float32, a6 uintptr, a7 int32, a8 *float32, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symssyrk, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnssyrk64 calls cublasSsyrk_v2_64.
+func fnssyrk64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float32, a6 uintptr, a7 int64, a8 *float32, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symssyrk64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnssyrkx calls cublasSsyrkx.
+func fnssyrkx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float32, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symssyrkx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnssyrkx64 calls cublasSsyrkx_64.
+func fnssyrkx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float32, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float32, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symssyrkx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnstbmv calls cublasStbmv_v2.
+func fnstbmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symstbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnstbmv64 calls cublasStbmv_v2_64.
+func fnstbmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symstbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnstbsv calls cublasStbsv_v2.
+func fnstbsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symstbsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnstbsv64 calls cublasStbsv_v2_64.
+func fnstbsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symstbsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnstpmv calls cublasStpmv_v2.
+func fnstpmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symstpmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnstpmv64 calls cublasStpmv_v2_64.
+func fnstpmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symstpmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnstpsv calls cublasStpsv_v2.
+func fnstpsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symstpsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnstpsv64 calls cublasStpsv_v2_64.
+func fnstpsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symstpsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnstpttr calls cublasStpttr.
+func fnstpttr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symstpttr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnstrmm calls cublasStrmm_v2.
+func fnstrmm(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *float32, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symstrmm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnstrmm64 calls cublasStrmm_v2_64.
+func fnstrmm64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *float32, a8 uintptr, a9 int64, a10 uintptr, a11 int64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symstrmm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnstrmv calls cublasStrmv_v2.
+func fnstrmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symstrmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnstrmv64 calls cublasStrmv_v2_64.
+func fnstrmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 int64, a7 uintptr, a8 int64) Result {
+	r1, _ := ffiCall9(symstrmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnstrsmBatched calls cublasStrsmBatched.
+func fnstrsmBatched(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *float32, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symstrsmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnstrsmBatched64 calls cublasStrsmBatched_64.
+func fnstrsmBatched64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *float32, a8 uintptr, a9 int64, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symstrsmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnstrsm calls cublasStrsm_v2.
+func fnstrsm(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *float32, a8 uintptr, a9 int32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symstrsm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnstrsm64 calls cublasStrsm_v2_64.
+func fnstrsm64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *float32, a8 uintptr, a9 int64, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symstrsm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnstrsv calls cublasStrsv_v2.
+func fnstrsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symstrsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnstrsv64 calls cublasStrsv_v2_64.
+func fnstrsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 int64, a7 uintptr, a8 int64) Result {
+	r1, _ := ffiCall9(symstrsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnstrttp calls cublasStrttp.
+func fnstrttp(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr) Result {
+	r1, _ := ffiCall6(symstrttp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnswapEx calls cublasSwapEx.
+func fnswapEx(a0 Handle, a1 int32, a2 uintptr, a3 DataType, a4 int32, a5 uintptr, a6 DataType, a7 int32) Result {
+	r1, _ := ffiCall8(symswapEx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnswapEx64 calls cublasSwapEx_64.
+func fnswapEx64(a0 Handle, a1 int64, a2 uintptr, a3 DataType, a4 int64, a5 uintptr, a6 DataType, a7 int64) Result {
+	r1, _ := ffiCall8(symswapEx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fntSSgemvBatched calls cublasTSSgemvBatched.
+func fntSSgemvBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symtSSgemvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fntSSgemvBatched64 calls cublasTSSgemvBatched_64.
+func fntSSgemvBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float32, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symtSSgemvBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fntSSgemvStridedBatched calls cublasTSSgemvStridedBatched.
+func fntSSgemvStridedBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int32, a10 int64, a11 *float32, a12 uintptr, a13 int32, a14 int64, a15 int32) Result {
+	r1, _ := ffiCall16(symtSSgemvStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fntSSgemvStridedBatched64 calls cublasTSSgemvStridedBatched_64.
+func fntSSgemvStridedBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 int64, a8 uintptr, a9 int64, a10 int64, a11 *float32, a12 uintptr, a13 int64, a14 int64, a15 int64) Result {
+	r1, _ := ffiCall16(symtSSgemvStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fntSTgemvBatched calls cublasTSTgemvBatched.
+func fntSTgemvBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *float32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symtSTgemvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fntSTgemvBatched64 calls cublasTSTgemvBatched_64.
+func fntSTgemvBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *float32, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symtSTgemvBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fntSTgemvStridedBatched calls cublasTSTgemvStridedBatched.
+func fntSTgemvStridedBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *float32, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int32, a10 int64, a11 *float32, a12 uintptr, a13 int32, a14 int64, a15 int32) Result {
+	r1, _ := ffiCall16(symtSTgemvStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fntSTgemvStridedBatched64 calls cublasTSTgemvStridedBatched_64.
+func fntSTgemvStridedBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *float32, a5 uintptr, a6 int64, a7 int64, a8 uintptr, a9 int64, a10 int64, a11 *float32, a12 uintptr, a13 int64, a14 int64, a15 int64) Result {
+	r1, _ := ffiCall16(symtSTgemvStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnuint8gemmBias calls cublasUint8gemmBias.
+func fnuint8gemmBias(a0 Handle, a1 Operation, a2 Operation, a3 Operation, a4 int32, a5 int32, a6 int32, a7 uintptr, a8 int32, a9 int32, a10 uintptr, a11 int32, a12 int32, a13 uintptr, a14 int32, a15 int32, a16 int32, a17 int32) Result {
+	r1, _ := ffiCall18(symuint8gemmBias, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnzaxpy calls cublasZaxpy_v2.
+func fnzaxpy(a0 Handle, a1 int32, a2 *Complex128, a3 uintptr, a4 int32, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symzaxpy, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnzaxpy64 calls cublasZaxpy_v2_64.
+func fnzaxpy64(a0 Handle, a1 int64, a2 *Complex128, a3 uintptr, a4 int64, a5 uintptr, a6 int64) Result {
+	r1, _ := ffiCall7(symzaxpy64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnzcopy calls cublasZcopy_v2.
+func fnzcopy(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symzcopy, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnzcopy64 calls cublasZcopy_v2_64.
+func fnzcopy64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symzcopy64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnzdgmm calls cublasZdgmm.
+func fnzdgmm(a0 Handle, a1 SideMode, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symzdgmm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzdgmm64 calls cublasZdgmm_64.
+func fnzdgmm64(a0 Handle, a1 SideMode, a2 int64, a3 int64, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symzdgmm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzdotc calls cublasZdotc_v2.
+func fnzdotc(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *Complex128) Result {
+	r1, _ := ffiCall7(symzdotc, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnzdotc64 calls cublasZdotc_v2_64.
+func fnzdotc64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *Complex128) Result {
+	r1, _ := ffiCall7(symzdotc64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnzdotu calls cublasZdotu_v2.
+func fnzdotu(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *Complex128) Result {
+	r1, _ := ffiCall7(symzdotu, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnzdotu64 calls cublasZdotu_v2_64.
+func fnzdotu64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *Complex128) Result {
+	r1, _ := ffiCall7(symzdotu64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnzdrot calls cublasZdrot_v2.
+func fnzdrot(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float64, a7 *float64) Result {
+	r1, _ := ffiCall8(symzdrot, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnzdrot64 calls cublasZdrot_v2_64.
+func fnzdrot64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float64, a7 *float64) Result {
+	r1, _ := ffiCall8(symzdrot64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnzdscal calls cublasZdscal_v2.
+func fnzdscal(a0 Handle, a1 int32, a2 *float64, a3 uintptr, a4 int32) Result {
+	r1, _ := ffiCall5(symzdscal, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnzdscal64 calls cublasZdscal_v2_64.
+func fnzdscal64(a0 Handle, a1 int64, a2 *float64, a3 uintptr, a4 int64) Result {
+	r1, _ := ffiCall5(symzdscal64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnzgbmv calls cublasZgbmv_v2.
+func fnzgbmv(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 int32, a5 int32, a6 *Complex128, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex128, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symzgbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzgbmv64 calls cublasZgbmv_v2_64.
+func fnzgbmv64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 int64, a5 int64, a6 *Complex128, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex128, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symzgbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzgeam calls cublasZgeam.
+func fnzgeam(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 *Complex128, a6 uintptr, a7 int32, a8 *Complex128, a9 uintptr, a10 int32, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symzgeam, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzgeam64 calls cublasZgeam_64.
+func fnzgeam64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 *Complex128, a6 uintptr, a7 int64, a8 *Complex128, a9 uintptr, a10 int64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symzgeam64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzgelsBatched calls cublasZgelsBatched.
+func fnzgelsBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *int32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symzgelsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnzgemm3m calls cublasZgemm3m.
+func fnzgemm3m(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex128, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex128, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symzgemm3m, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzgemm3m64 calls cublasZgemm3m_64.
+func fnzgemm3m64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex128, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex128, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symzgemm3m64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzgemmBatched calls cublasZgemmBatched.
+func fnzgemmBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex128, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex128, a12 uintptr, a13 int32, a14 int32) Result {
+	r1, _ := ffiCall15(symzgemmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnzgemmBatched64 calls cublasZgemmBatched_64.
+func fnzgemmBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex128, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex128, a12 uintptr, a13 int64, a14 int64) Result {
+	r1, _ := ffiCall15(symzgemmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14))
+	return Result(r1)
+}
+
+// fnzgemmStridedBatched calls cublasZgemmStridedBatched.
+func fnzgemmStridedBatched(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex128, a7 uintptr, a8 int32, a9 int64, a10 uintptr, a11 int32, a12 int64, a13 *Complex128, a14 uintptr, a15 int32, a16 int64, a17 int32) Result {
+	r1, _ := ffiCall18(symzgemmStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnzgemmStridedBatched64 calls cublasZgemmStridedBatched_64.
+func fnzgemmStridedBatched64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex128, a7 uintptr, a8 int64, a9 int64, a10 uintptr, a11 int64, a12 int64, a13 *Complex128, a14 uintptr, a15 int64, a16 int64, a17 int64) Result {
+	r1, _ := ffiCall18(symzgemmStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(unsafe.Pointer(a13)), uintptr(a14), uintptr(a15), uintptr(a16), uintptr(a17))
+	return Result(r1)
+}
+
+// fnzgemm calls cublasZgemm_v2.
+func fnzgemm(a0 Handle, a1 Operation, a2 Operation, a3 int32, a4 int32, a5 int32, a6 *Complex128, a7 uintptr, a8 int32, a9 uintptr, a10 int32, a11 *Complex128, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symzgemm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzgemm64 calls cublasZgemm_v2_64.
+func fnzgemm64(a0 Handle, a1 Operation, a2 Operation, a3 int64, a4 int64, a5 int64, a6 *Complex128, a7 uintptr, a8 int64, a9 uintptr, a10 int64, a11 *Complex128, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symzgemm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnzgemvBatched calls cublasZgemvBatched.
+func fnzgemvBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *Complex128, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *Complex128, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symzgemvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzgemvBatched64 calls cublasZgemvBatched_64.
+func fnzgemvBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *Complex128, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *Complex128, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symzgemvBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzgemvStridedBatched calls cublasZgemvStridedBatched.
+func fnzgemvStridedBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *Complex128, a5 uintptr, a6 int32, a7 int64, a8 uintptr, a9 int32, a10 int64, a11 *Complex128, a12 uintptr, a13 int32, a14 int64, a15 int32) Result {
+	r1, _ := ffiCall16(symzgemvStridedBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnzgemvStridedBatched64 calls cublasZgemvStridedBatched_64.
+func fnzgemvStridedBatched64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *Complex128, a5 uintptr, a6 int64, a7 int64, a8 uintptr, a9 int64, a10 int64, a11 *Complex128, a12 uintptr, a13 int64, a14 int64, a15 int64) Result {
+	r1, _ := ffiCall16(symzgemvStridedBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(unsafe.Pointer(a11)), uintptr(a12), uintptr(a13), uintptr(a14), uintptr(a15))
+	return Result(r1)
+}
+
+// fnzgemv calls cublasZgemv_v2.
+func fnzgemv(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 *Complex128, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *Complex128, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symzgemv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnzgemv64 calls cublasZgemv_v2_64.
+func fnzgemv64(a0 Handle, a1 Operation, a2 int64, a3 int64, a4 *Complex128, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *Complex128, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symzgemv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnzgeqrfBatched calls cublasZgeqrfBatched.
+func fnzgeqrfBatched(a0 Handle, a1 int32, a2 int32, a3 uintptr, a4 int32, a5 uintptr, a6 *int32, a7 int32) Result {
+	r1, _ := ffiCall8(symzgeqrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzgerc calls cublasZgerc_v2.
+func fnzgerc(a0 Handle, a1 int32, a2 int32, a3 *Complex128, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symzgerc, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzgerc64 calls cublasZgerc_v2_64.
+func fnzgerc64(a0 Handle, a1 int64, a2 int64, a3 *Complex128, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symzgerc64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzgeru calls cublasZgeru_v2.
+func fnzgeru(a0 Handle, a1 int32, a2 int32, a3 *Complex128, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symzgeru, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzgeru64 calls cublasZgeru_v2_64.
+func fnzgeru64(a0 Handle, a1 int64, a2 int64, a3 *Complex128, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symzgeru64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzgetrfBatched calls cublasZgetrfBatched.
+func fnzgetrfBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 uintptr, a6 int32) Result {
+	r1, _ := ffiCall7(symzgetrfBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnzgetriBatched calls cublasZgetriBatched.
+func fnzgetriBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symzgetriBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzgetrsBatched calls cublasZgetrsBatched.
+func fnzgetrsBatched(a0 Handle, a1 Operation, a2 int32, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 uintptr, a8 int32, a9 *int32, a10 int32) Result {
+	r1, _ := ffiCall11(symzgetrsBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzhbmv calls cublasZhbmv_v2.
+func fnzhbmv(a0 Handle, a1 FillMode, a2 int32, a3 int32, a4 *Complex128, a5 uintptr, a6 int32, a7 uintptr, a8 int32, a9 *Complex128, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symzhbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnzhbmv64 calls cublasZhbmv_v2_64.
+func fnzhbmv64(a0 Handle, a1 FillMode, a2 int64, a3 int64, a4 *Complex128, a5 uintptr, a6 int64, a7 uintptr, a8 int64, a9 *Complex128, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symzhbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(unsafe.Pointer(a9)), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnzhemm calls cublasZhemm_v2.
+func fnzhemm(a0 Handle, a1 SideMode, a2 FillMode, a3 int32, a4 int32, a5 *Complex128, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *Complex128, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symzhemm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzhemm64 calls cublasZhemm_v2_64.
+func fnzhemm64(a0 Handle, a1 SideMode, a2 FillMode, a3 int64, a4 int64, a5 *Complex128, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *Complex128, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symzhemm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzhemv calls cublasZhemv_v2.
+func fnzhemv(a0 Handle, a1 FillMode, a2 int32, a3 *Complex128, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 *Complex128, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symzhemv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzhemv64 calls cublasZhemv_v2_64.
+func fnzhemv64(a0 Handle, a1 FillMode, a2 int64, a3 *Complex128, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 *Complex128, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symzhemv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzher2 calls cublasZher2_v2.
+func fnzher2(a0 Handle, a1 FillMode, a2 int32, a3 *Complex128, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symzher2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzher264 calls cublasZher2_v2_64.
+func fnzher264(a0 Handle, a1 FillMode, a2 int64, a3 *Complex128, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symzher264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzher2k calls cublasZher2k_v2.
+func fnzher2k(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex128, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symzher2k, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzher2k64 calls cublasZher2k_v2_64.
+func fnzher2k64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex128, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symzher2k64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzher calls cublasZher_v2.
+func fnzher(a0 Handle, a1 FillMode, a2 int32, a3 *float64, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symzher, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzher64 calls cublasZher_v2_64.
+func fnzher64(a0 Handle, a1 FillMode, a2 int64, a3 *float64, a4 uintptr, a5 int64, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symzher64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzherk calls cublasZherk_v2.
+func fnzherk(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *float64, a6 uintptr, a7 int32, a8 *float64, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symzherk, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzherk64 calls cublasZherk_v2_64.
+func fnzherk64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *float64, a6 uintptr, a7 int64, a8 *float64, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symzherk64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzherkx calls cublasZherkx.
+func fnzherkx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex128, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *float64, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symzherkx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzherkx64 calls cublasZherkx_64.
+func fnzherkx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex128, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *float64, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symzherkx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzhpmv calls cublasZhpmv_v2.
+func fnzhpmv(a0 Handle, a1 FillMode, a2 int32, a3 *Complex128, a4 uintptr, a5 uintptr, a6 int32, a7 *Complex128, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symzhpmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzhpmv64 calls cublasZhpmv_v2_64.
+func fnzhpmv64(a0 Handle, a1 FillMode, a2 int64, a3 *Complex128, a4 uintptr, a5 uintptr, a6 int64, a7 *Complex128, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symzhpmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzhpr2 calls cublasZhpr2_v2.
+func fnzhpr2(a0 Handle, a1 FillMode, a2 int32, a3 *Complex128, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr) Result {
+	r1, _ := ffiCall9(symzhpr2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzhpr264 calls cublasZhpr2_v2_64.
+func fnzhpr264(a0 Handle, a1 FillMode, a2 int64, a3 *Complex128, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr) Result {
+	r1, _ := ffiCall9(symzhpr264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnzhpr calls cublasZhpr_v2.
+func fnzhpr(a0 Handle, a1 FillMode, a2 int32, a3 *float64, a4 uintptr, a5 int32, a6 uintptr) Result {
+	r1, _ := ffiCall7(symzhpr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnzhpr64 calls cublasZhpr_v2_64.
+func fnzhpr64(a0 Handle, a1 FillMode, a2 int64, a3 *float64, a4 uintptr, a5 int64, a6 uintptr) Result {
+	r1, _ := ffiCall7(symzhpr64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnzmatinvBatched calls cublasZmatinvBatched.
+func fnzmatinvBatched(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symzmatinvBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzrot calls cublasZrot_v2.
+func fnzrot(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32, a6 *float64, a7 *Complex128) Result {
+	r1, _ := ffiCall8(symzrot, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnzrot64 calls cublasZrot_v2_64.
+func fnzrot64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64, a6 *float64, a7 *Complex128) Result {
+	r1, _ := ffiCall8(symzrot64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(unsafe.Pointer(a6)), uintptr(unsafe.Pointer(a7)))
+	return Result(r1)
+}
+
+// fnzrotg calls cublasZrotg_v2.
+func fnzrotg(a0 Handle, a1 *Complex128, a2 *Complex128, a3 *float64, a4 *Complex128) Result {
+	r1, _ := ffiCall5(symzrotg, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fnzscal calls cublasZscal_v2.
+func fnzscal(a0 Handle, a1 int32, a2 *Complex128, a3 uintptr, a4 int32) Result {
+	r1, _ := ffiCall5(symzscal, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnzscal64 calls cublasZscal_v2_64.
+func fnzscal64(a0 Handle, a1 int64, a2 *Complex128, a3 uintptr, a4 int64) Result {
+	r1, _ := ffiCall5(symzscal64, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnzswap calls cublasZswap_v2.
+func fnzswap(a0 Handle, a1 int32, a2 uintptr, a3 int32, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symzswap, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnzswap64 calls cublasZswap_v2_64.
+func fnzswap64(a0 Handle, a1 int64, a2 uintptr, a3 int64, a4 uintptr, a5 int64) Result {
+	r1, _ := ffiCall6(symzswap64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnzsymm calls cublasZsymm_v2.
+func fnzsymm(a0 Handle, a1 SideMode, a2 FillMode, a3 int32, a4 int32, a5 *Complex128, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *Complex128, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symzsymm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzsymm64 calls cublasZsymm_v2_64.
+func fnzsymm64(a0 Handle, a1 SideMode, a2 FillMode, a3 int64, a4 int64, a5 *Complex128, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *Complex128, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symzsymm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzsymv calls cublasZsymv_v2.
+func fnzsymv(a0 Handle, a1 FillMode, a2 int32, a3 *Complex128, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 *Complex128, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symzsymv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzsymv64 calls cublasZsymv_v2_64.
+func fnzsymv64(a0 Handle, a1 FillMode, a2 int64, a3 *Complex128, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 *Complex128, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symzsymv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzsyr2 calls cublasZsyr2_v2.
+func fnzsyr2(a0 Handle, a1 FillMode, a2 int32, a3 *Complex128, a4 uintptr, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symzsyr2, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzsyr264 calls cublasZsyr2_v2_64.
+func fnzsyr264(a0 Handle, a1 FillMode, a2 int64, a3 *Complex128, a4 uintptr, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symzsyr264, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnzsyr2k calls cublasZsyr2k_v2.
+func fnzsyr2k(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex128, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *Complex128, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symzsyr2k, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzsyr2k64 calls cublasZsyr2k_v2_64.
+func fnzsyr2k64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex128, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *Complex128, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symzsyr2k64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzsyr calls cublasZsyr_v2.
+func fnzsyr(a0 Handle, a1 FillMode, a2 int32, a3 *Complex128, a4 uintptr, a5 int32, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symzsyr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzsyr64 calls cublasZsyr_v2_64.
+func fnzsyr64(a0 Handle, a1 FillMode, a2 int64, a3 *Complex128, a4 uintptr, a5 int64, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symzsyr64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnzsyrk calls cublasZsyrk_v2.
+func fnzsyrk(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex128, a6 uintptr, a7 int32, a8 *Complex128, a9 uintptr, a10 int32) Result {
+	r1, _ := ffiCall11(symzsyrk, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzsyrk64 calls cublasZsyrk_v2_64.
+func fnzsyrk64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex128, a6 uintptr, a7 int64, a8 *Complex128, a9 uintptr, a10 int64) Result {
+	r1, _ := ffiCall11(symzsyrk64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(unsafe.Pointer(a8)), uintptr(a9), uintptr(a10))
+	return Result(r1)
+}
+
+// fnzsyrkx calls cublasZsyrkx.
+func fnzsyrkx(a0 Handle, a1 FillMode, a2 Operation, a3 int32, a4 int32, a5 *Complex128, a6 uintptr, a7 int32, a8 uintptr, a9 int32, a10 *Complex128, a11 uintptr, a12 int32) Result {
+	r1, _ := ffiCall13(symzsyrkx, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnzsyrkx64 calls cublasZsyrkx_64.
+func fnzsyrkx64(a0 Handle, a1 FillMode, a2 Operation, a3 int64, a4 int64, a5 *Complex128, a6 uintptr, a7 int64, a8 uintptr, a9 int64, a10 *Complex128, a11 uintptr, a12 int64) Result {
+	r1, _ := ffiCall13(symzsyrkx64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(unsafe.Pointer(a5)), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9), uintptr(unsafe.Pointer(a10)), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnztbmv calls cublasZtbmv_v2.
+func fnztbmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symztbmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnztbmv64 calls cublasZtbmv_v2_64.
+func fnztbmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symztbmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnztbsv calls cublasZtbsv_v2.
+func fnztbsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 int32, a6 uintptr, a7 int32, a8 uintptr, a9 int32) Result {
+	r1, _ := ffiCall10(symztbsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnztbsv64 calls cublasZtbsv_v2_64.
+func fnztbsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 int64, a6 uintptr, a7 int64, a8 uintptr, a9 int64) Result {
+	r1, _ := ffiCall10(symztbsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8), uintptr(a9))
+	return Result(r1)
+}
+
+// fnztpmv calls cublasZtpmv_v2.
+func fnztpmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symztpmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnztpmv64 calls cublasZtpmv_v2_64.
+func fnztpmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symztpmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnztpsv calls cublasZtpsv_v2.
+func fnztpsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 uintptr, a7 int32) Result {
+	r1, _ := ffiCall8(symztpsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnztpsv64 calls cublasZtpsv_v2_64.
+func fnztpsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 uintptr, a7 int64) Result {
+	r1, _ := ffiCall8(symztpsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7))
+	return Result(r1)
+}
+
+// fnztpttr calls cublasZtpttr.
+func fnztpttr(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 uintptr, a5 int32) Result {
+	r1, _ := ffiCall6(symztpttr, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnztrmm calls cublasZtrmm_v2.
+func fnztrmm(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *Complex128, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 uintptr, a13 int32) Result {
+	r1, _ := ffiCall14(symztrmm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnztrmm64 calls cublasZtrmm_v2_64.
+func fnztrmm64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *Complex128, a8 uintptr, a9 int64, a10 uintptr, a11 int64, a12 uintptr, a13 int64) Result {
+	r1, _ := ffiCall14(symztrmm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12), uintptr(a13))
+	return Result(r1)
+}
+
+// fnztrmv calls cublasZtrmv_v2.
+func fnztrmv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symztrmv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnztrmv64 calls cublasZtrmv_v2_64.
+func fnztrmv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 int64, a7 uintptr, a8 int64) Result {
+	r1, _ := ffiCall9(symztrmv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnztrsmBatched calls cublasZtrsmBatched.
+func fnztrsmBatched(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *Complex128, a8 uintptr, a9 int32, a10 uintptr, a11 int32, a12 int32) Result {
+	r1, _ := ffiCall13(symztrsmBatched, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnztrsmBatched64 calls cublasZtrsmBatched_64.
+func fnztrsmBatched64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *Complex128, a8 uintptr, a9 int64, a10 uintptr, a11 int64, a12 int64) Result {
+	r1, _ := ffiCall13(symztrsmBatched64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11), uintptr(a12))
+	return Result(r1)
+}
+
+// fnztrsm calls cublasZtrsm_v2.
+func fnztrsm(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int32, a6 int32, a7 *Complex128, a8 uintptr, a9 int32, a10 uintptr, a11 int32) Result {
+	r1, _ := ffiCall12(symztrsm, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnztrsm64 calls cublasZtrsm_v2_64.
+func fnztrsm64(a0 Handle, a1 SideMode, a2 FillMode, a3 Operation, a4 DiagType, a5 int64, a6 int64, a7 *Complex128, a8 uintptr, a9 int64, a10 uintptr, a11 int64) Result {
+	r1, _ := ffiCall12(symztrsm64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(unsafe.Pointer(a7)), uintptr(a8), uintptr(a9), uintptr(a10), uintptr(a11))
+	return Result(r1)
+}
+
+// fnztrsv calls cublasZtrsv_v2.
+func fnztrsv(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int32, a5 uintptr, a6 int32, a7 uintptr, a8 int32) Result {
+	r1, _ := ffiCall9(symztrsv, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnztrsv64 calls cublasZtrsv_v2_64.
+func fnztrsv64(a0 Handle, a1 FillMode, a2 Operation, a3 DiagType, a4 int64, a5 uintptr, a6 int64, a7 uintptr, a8 int64) Result {
+	r1, _ := ffiCall9(symztrsv64, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6), uintptr(a7), uintptr(a8))
+	return Result(r1)
+}
+
+// fnztrttp calls cublasZtrttp.
+func fnztrttp(a0 Handle, a1 FillMode, a2 int32, a3 uintptr, a4 int32, a5 uintptr) Result {
+	r1, _ := ffiCall6(symztrttp, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
 
 // asumEx wraps cublasAsumEx.
 func asumEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int32, result uintptr, resultType DataType, executiontype DataType) error {
@@ -566,7 +4118,7 @@ func asumEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 // axpyEx is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
 //
 // This function supports the 64-bit Integer Interface.
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -601,7 +4153,7 @@ func axpyEx(handle Handle, n int32, alpha uintptr, alphaType DataType, x driver.
 // axpyEx64 is an API generalization of the routine cublasaxpy() where input data, output data and compute type can be specified independently.
 //
 // This function supports the 64-bit Integer Interface.
-// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result. Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.AxpyEx] are listed in the following table:
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -635,6 +4187,7 @@ func axpyEx64(handle Handle, n int64, alpha uintptr, alphaType DataType, x drive
 
 // caxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
+// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -663,6 +4216,7 @@ func caxpy(handle Handle, n int32, alpha *Complex64, x driver.DevicePtr, incx in
 
 // caxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
+// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -691,6 +4245,7 @@ func caxpy64(handle Handle, n int64, alpha *Complex64, x driver.DevicePtr, incx 
 
 // ccopy copies the vector x into the vector y.
 //
+// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -718,6 +4273,7 @@ func ccopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // ccopy64 copies the vector x into the vector y.
 //
+// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -743,7 +4299,7 @@ func ccopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fnccopy64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasCcopy_v2_64")
 }
 
-// cdgmm performs the matrix-matrix multiplication
+// cdgmm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
@@ -780,7 +4336,7 @@ func cdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 	return toError(fncdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasCdgmm")
 }
 
-// cdgmm64 performs the matrix-matrix multiplication
+// cdgmm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
@@ -819,6 +4375,7 @@ func cdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 
 // cdotc computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -844,16 +4401,20 @@ func cdotc(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 		var zero Complex64
 		return zero, err
 	}
-	var out Complex64
-	if err := toError(fncdotc(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasCdotc_v2"); err != nil {
+	out := slotCdotc.get()
+	defer slotCdotc.put(out)
+	if err := toError(fncdotc(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasCdotc_v2"); err != nil {
 		var zero Complex64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCdotc outSlot[Complex64]
 
 // cdotc64 computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -879,16 +4440,20 @@ func cdotc64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 		var zero Complex64
 		return zero, err
 	}
-	var out Complex64
-	if err := toError(fncdotc64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasCdotc_v2_64"); err != nil {
+	out := slotCdotc64.get()
+	defer slotCdotc64.put(out)
+	if err := toError(fncdotc64(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasCdotc_v2_64"); err != nil {
 		var zero Complex64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCdotc64 outSlot[Complex64]
 
 // cdotu computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -914,16 +4479,20 @@ func cdotu(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 		var zero Complex64
 		return zero, err
 	}
-	var out Complex64
-	if err := toError(fncdotu(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasCdotu_v2"); err != nil {
+	out := slotCdotu.get()
+	defer slotCdotu.put(out)
+	if err := toError(fncdotu(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasCdotu_v2"); err != nil {
 		var zero Complex64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCdotu outSlot[Complex64]
 
 // cdotu64 computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -949,20 +4518,22 @@ func cdotu64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 		var zero Complex64
 		return zero, err
 	}
-	var out Complex64
-	if err := toError(fncdotu64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasCdotu_v2_64"); err != nil {
+	out := slotCdotu64.get()
+	defer slotCdotu64.put(out)
+	if err := toError(fncdotu64(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasCdotu_v2_64"); err != nil {
 		var zero Complex64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// cgbmv performs the banded matrix-vector multiplication
+var slotCdotu64 outSlot[Complex64]
+
+// cgbmv performs the banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The banded matrix A is stored column by column, with the main diagonal stored in row ku+1 (starting in first position), the first superdiagonal stored in row ku (starting in second position), the first subdiagonal stored in row ku+2 (starting in first position), etc. So that in general, the element A(i,j) is stored in the memory location A(ku+1+i-j,j) for j=1,…,n and i∈[max(1,j−ku),min(m,j+kl)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left ku×ku and bottom right kl×kl triangles) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -997,12 +4568,11 @@ func cgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 	return toError(fncgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCgbmv_v2")
 }
 
-// cgbmv64 performs the banded matrix-vector multiplication
+// cgbmv64 performs the banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The banded matrix A is stored column by column, with the main diagonal stored in row ku+1 (starting in first position), the first superdiagonal stored in row ku (starting in second position), the first subdiagonal stored in row ku+2 (starting in first position), etc. So that in general, the element A(i,j) is stored in the memory location A(ku+1+i-j,j) for j=1,…,n and i∈[max(1,j−ku),min(m,j+kl)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left ku×ku and bottom right kl×kl triangles) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -1037,12 +4607,11 @@ func cgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 	return toError(fncgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCgbmv_v2_64")
 }
 
-// cgeam performs the matrix-matrix addition/transposition
+// cgeam performs the matrix-matrix addition/transposition.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)+βop(B)
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)+βop(B), where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The operation is out-of-place if C does not overlap A or B.
 // The in-place mode supports the following two operations,
@@ -1082,12 +4651,11 @@ func cgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	return toError(fncgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasCgeam")
 }
 
-// cgeam64 performs the matrix-matrix addition/transposition
+// cgeam64 performs the matrix-matrix addition/transposition.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)+βop(B)
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)+βop(B), where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The operation is out-of-place if C does not overlap A or B.
 // The in-place mode supports the following two operations,
@@ -1129,6 +4697,7 @@ func cgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 
 // cgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
 //
+// Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
 // On exit, each Aarray [i] is overwritten with their QR factorization and each Carray [i] is overwritten with the least square solution
 // cublasgelsBatched supports only the non-transpose operation and only solves over-determined systems (m >= n).
@@ -1168,10 +4737,10 @@ func cgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 
 // cgemm3m performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //
+// This can lead to an increase in performance up to 25%.
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 //
 // Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
@@ -1243,10 +4812,11 @@ func cgemm3mEx64(handle Handle, transa Operation, transb Operation, m int64, n i
 
 // cgemm3mStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -1291,10 +4861,11 @@ func cgemm3mStridedBatched(handle Handle, transa Operation, transb Operation, m 
 
 // cgemm3mStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -1339,10 +4910,10 @@ func cgemm3mStridedBatched64(handle Handle, transa Operation, transb Operation, 
 
 // cgemm3m64 performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //
+// This can lead to an increase in performance up to 25%.
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 //
 // Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
@@ -1382,10 +4953,11 @@ func cgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 
 // cgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -1426,10 +4998,11 @@ func cgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 
 // cgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -1470,10 +5043,11 @@ func cgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 
 // cgemmEx is an extension of cublasgemm().
 //
+// In this function the input matrices and output matrices can have a lower precision but the computation is still done in the type <t>. For example, in the type float for [Handle.SgemmEx] and in the type cuComplex for [Handle.CgemmEx].
 // This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The matrix types combinations supported for [Handle.SgemmEx] are listed below:
 // The matrix types combinations supported for [Handle.CgemmEx] are listed below :
@@ -1518,10 +5092,11 @@ func cgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32
 
 // cgemmEx64 is an extension of cublasgemm().
 //
+// In this function the input matrices and output matrices can have a lower precision but the computation is still done in the type <t>. For example, in the type float for [Handle.SgemmEx] and in the type cuComplex for [Handle.CgemmEx].
 // This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The matrix types combinations supported for [Handle.SgemmEx] are listed below:
 // The matrix types combinations supported for [Handle.CgemmEx] are listed below :
@@ -1566,10 +5141,11 @@ func cgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 
 // cgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -1614,10 +5190,11 @@ func cgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 
 // cgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -1660,12 +5237,11 @@ func cgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	return toError(fncgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasCgemmStridedBatched_64")
 }
 
-// cgemm performs the matrix-matrix multiplication
+// cgemm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -1701,12 +5277,11 @@ func cgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	return toError(fncgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCgemm_v2")
 }
 
-// cgemm64 performs the matrix-matrix multiplication
+// cgemm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -1744,10 +5319,11 @@ func cgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 
 // cgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -1784,10 +5360,11 @@ func cgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 
 // cgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -1824,10 +5401,11 @@ func cgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 
 // cgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -1868,10 +5446,11 @@ func cgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 
 // cgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -1910,12 +5489,11 @@ func cgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 	return toError(fncgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasCgemvStridedBatched_64")
 }
 
-// cgemv performs the matrix-vector multiplication
+// cgemv performs the matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sgemv(), dgemv(), cgemv(), zgemv()
@@ -1947,12 +5525,11 @@ func cgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, a
 	return toError(fncgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCgemv_v2")
 }
 
-// cgemv64 performs the matrix-vector multiplication
+// cgemv64 performs the matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sgemv(), dgemv(), cgemv(), zgemv()
@@ -1986,6 +5563,7 @@ func cgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64,
 
 // cgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
+// TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
 // This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
 // Each H [j][i] has the form
 // where tau [j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray [j][i+1:m,i], and tau in TauArray [j][i].
@@ -2019,10 +5597,10 @@ func cgeqrfBatched(handle Handle, m int32, n int32, aarray driver.DevicePtr, lda
 	return toError(fncgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize), "cublasCgeqrfBatched")
 }
 
-// cgerc performs the rank-1 update
+// cgerc performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -2053,10 +5631,10 @@ func cgerc(handle Handle, m int32, n int32, alpha *Complex64, x driver.DevicePtr
 	return toError(fncgerc(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCgerc_v2")
 }
 
-// cgerc64 performs the rank-1 update
+// cgerc64 performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -2087,10 +5665,10 @@ func cgerc64(handle Handle, m int64, n int64, alpha *Complex64, x driver.DeviceP
 	return toError(fncgerc64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCgerc_v2_64")
 }
 
-// cgeru performs the rank-1 update
+// cgeru performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -2121,10 +5699,10 @@ func cgeru(handle Handle, m int32, n int32, alpha *Complex64, x driver.DevicePtr
 	return toError(fncgeru(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCgeru_v2")
 }
 
-// cgeru64 performs the rank-1 update
+// cgeru64 performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -2227,7 +5805,7 @@ func cgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 // op(A [i])X [i]=B [i]
 // where A [i] is a matrix which has been LU factorized with pivoting, X [i] and B [i] are n×nrhs matrices. Also, for matrix A
-// op(A [i])={A [i]if trans == CUBLAS_OP_NAT [i]if trans == CUBLAS_OP_TAH [i]if trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrsBatched() supports non-pivot LU factorization if devIpiv is NULL.
 // cublasgetrsBatched() supports arbitrary dimension.
@@ -2262,11 +5840,10 @@ func cgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray d
 	return toError(fncgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize), "cublasCgetrsBatched")
 }
 
-// chbmv performs the Hermitian banded matrix-vector multiplication
+// chbmv performs the Hermitian banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k),j] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -2300,11 +5877,10 @@ func chbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex64, a d
 	return toError(fnchbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasChbmv_v2")
 }
 
-// chbmv64 performs the Hermitian banded matrix-vector multiplication
+// chbmv64 performs the Hermitian banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k),j] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -2338,7 +5914,7 @@ func chbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex64, a
 	return toError(fnchbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasChbmv_v2_64")
 }
 
-// chemm performs the Hermitian matrix-matrix multiplication
+// chemm performs the Hermitian matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -2375,7 +5951,7 @@ func chemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	return toError(fnchemm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasChemm_v2")
 }
 
-// chemm64 performs the Hermitian matrix-matrix multiplication
+// chemm64 performs the Hermitian matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -2412,11 +5988,10 @@ func chemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 	return toError(fnchemm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasChemm_v2_64")
 }
 
-// chemv performs the Hermitian matrix-vector multiplication
+// chemv performs the Hermitian matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with
 // Please see the section on the for more details about the usage of atomics
 // The possible error values returned by this function and their meanings are listed below.
@@ -2449,11 +6024,10 @@ func chemv(handle Handle, uplo FillMode, n int32, alpha *Complex64, a driver.Dev
 	return toError(fnchemv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasChemv_v2")
 }
 
-// chemv64 performs the Hermitian matrix-vector multiplication
+// chemv64 performs the Hermitian matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with
 // Please see the section on the for more details about the usage of atomics
 // The possible error values returned by this function and their meanings are listed below.
@@ -2486,11 +6060,10 @@ func chemv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, a driver.D
 	return toError(fnchemv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasChemv_v2_64")
 }
 
-// cher2 performs the Hermitian rank-2 update
+// cher2 performs the Hermitian rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxyH+αˉyxH+A
-// where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher2(), zher2()
@@ -2520,11 +6093,10 @@ func cher2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Dev
 	return toError(fncher2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCher2_v2")
 }
 
-// cher264 performs the Hermitian rank-2 update
+// cher264 performs the Hermitian rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxyH+αˉyxH+A
-// where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher2(), zher2()
@@ -2554,12 +6126,11 @@ func cher264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.D
 	return toError(fncher264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCher2_v2_64")
 }
 
-// cher2k performs the Hermitian rank- 2k update
+// cher2k performs the Hermitian rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)H+αˉop(B)op(A)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
+// C=αop(A)op(B)ᴴ+αˉop(B)op(A)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᴴ and Bᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher2k(), zher2k()
@@ -2592,12 +6163,11 @@ func cher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fncher2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCher2k_v2")
 }
 
-// cher2k64 performs the Hermitian rank- 2k update
+// cher2k64 performs the Hermitian rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)H+αˉop(B)op(A)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
+// C=αop(A)op(B)ᴴ+αˉop(B)op(A)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᴴ and Bᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher2k(), zher2k()
@@ -2630,11 +6200,10 @@ func cher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fncher2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCher2k_v2_64")
 }
 
-// cher performs the Hermitian rank-1 update
+// cher performs the Hermitian rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxH+A
-// where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher(), zher()
@@ -2662,11 +6231,10 @@ func cher(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 	return toError(fncher(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasCher_v2")
 }
 
-// cher64 performs the Hermitian rank-1 update
+// cher64 performs the Hermitian rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxH+A
-// where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher(), zher()
@@ -2696,11 +6264,12 @@ func cher64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 
 // cherk3mEx is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
+// This routine is implemented using the Gauss complexity reduction algorithm which can lead to an increase in performance up to 25%.
 // This function supports the 64-bit Integer Interface.
 // This function performs the Hermitian rank- k update
-// C=αop(A)op(A)H+βC
+// C=αop(A)op(A)ᴴ+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᴴif transa == [OpC]
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Cherk3mEx] are listed in the following table:
@@ -2740,11 +6309,12 @@ func cherk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, 
 
 // cherk3mEx64 is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
+// This routine is implemented using the Gauss complexity reduction algorithm which can lead to an increase in performance up to 25%.
 // This function supports the 64-bit Integer Interface.
 // This function performs the Hermitian rank- k update
-// C=αop(A)op(A)H+βC
+// C=αop(A)op(A)ᴴ+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᴴif transa == [OpC]
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Cherk3mEx] are listed in the following table:
@@ -2782,13 +6352,13 @@ func cherk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64
 	return toError(fncherk3mEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCherk3mEx_64")
 }
 
-// cherkEx is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+// cherkEx is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
 // This function supports the 64-bit Integer Interface.
 // This function performs the Hermitian rank- k update
-// C=αop(A)op(A)H+βC
+// C=αop(A)op(A)ᴴ+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᴴif transa == [OpC]
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CherkEx] are listed in the following table:
@@ -2826,13 +6396,13 @@ func cherkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, al
 	return toError(fncherkEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCherkEx")
 }
 
-// cherkEx64 is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+// cherkEx64 is an extension of [Handle.Cherk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
 // This function supports the 64-bit Integer Interface.
 // This function performs the Hermitian rank- k update
-// C=αop(A)op(A)H+βC
+// C=αop(A)op(A)ᴴ+βC
 // where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᴴif transa == [OpC]
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CherkEx] are listed in the following table:
@@ -2870,12 +6440,11 @@ func cherkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, 
 	return toError(fncherkEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCherkEx_64")
 }
 
-// cherk performs the Hermitian rank- k update
+// cherk performs the Hermitian rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
+// C=αop(A)op(A)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᴴif transa == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cherk(), zherk()
@@ -2906,12 +6475,11 @@ func cherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	return toError(fncherk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasCherk_v2")
 }
 
-// cherk64 performs the Hermitian rank- k update
+// cherk64 performs the Hermitian rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
+// C=αop(A)op(A)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᴴif transa == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cherk(), zherk()
@@ -2942,12 +6510,11 @@ func cherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	return toError(fncherk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasCherk_v2_64")
 }
 
-// cherkx performs a variation of the Hermitian rank- k update
+// cherkx performs a variation of the Hermitian rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
+// C=αop(A)op(B)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᴴ and Bᴴif trans == [OpC]
 // This routine can be used when the matrix B is in such way that the result is guaranteed to be hermitian. An usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -2982,12 +6549,11 @@ func cherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fncherkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCherkx")
 }
 
-// cherkx64 performs a variation of the Hermitian rank- k update
+// cherkx64 performs a variation of the Hermitian rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
+// C=αop(A)op(B)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᴴ and Bᴴif trans == [OpC]
 // This routine can be used when the matrix B is in such way that the result is guaranteed to be hermitian. An usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3022,11 +6588,10 @@ func cherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fncherkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCherkx_64")
 }
 
-// chpmv performs the Hermitian packed matrix-vector multiplication
+// chpmv performs the Hermitian packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -3058,11 +6623,10 @@ func chpmv(handle Handle, uplo FillMode, n int32, alpha *Complex64, ap driver.De
 	return toError(fnchpmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasChpmv_v2")
 }
 
-// chpmv64 performs the Hermitian packed matrix-vector multiplication
+// chpmv64 performs the Hermitian packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -3094,11 +6658,10 @@ func chpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, ap driver.
 	return toError(fnchpmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasChpmv_v2_64")
 }
 
-// chpr2 performs the packed Hermitian rank-2 update
+// chpr2 performs the packed Hermitian rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxyH+αˉyxH+A
-// where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
+// A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -3129,11 +6692,10 @@ func chpr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Dev
 	return toError(fnchpr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasChpr2_v2")
 }
 
-// chpr264 performs the packed Hermitian rank-2 update
+// chpr264 performs the packed Hermitian rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxyH+αˉyxH+A
-// where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
+// A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -3164,11 +6726,10 @@ func chpr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.D
 	return toError(fnchpr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasChpr2_v2_64")
 }
 
-// chpr performs the packed Hermitian rank-1 update
+// chpr performs the packed Hermitian rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxH+A
-// where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
+// A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -3197,11 +6758,10 @@ func chpr(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 	return toError(fnchpr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasChpr_v2")
 }
 
-// chpr64 performs the packed Hermitian rank-1 update
+// chpr64 performs the packed Hermitian rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxH+A
-// where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
+// A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -3278,6 +6838,7 @@ func copyEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 
 // Create initializes the cuBLAS library and creates a handle to an opaque structure holding the cuBLAS library context.
 //
+// It allocates hardware resources on the host and device and must be called prior to making any other cuBLAS library calls.
 // The cuBLAS library context is tied to the current CUDA device. To use the library on multiple devices, one cuBLAS handle needs to be created for each device. See also cuBLAS Context.
 // For a given device, multiple cuBLAS handles with different configurations can be created. For multi-threaded applications that use the same device from different threads, the recommended programming model is to create one cuBLAS handle per thread and use that cuBLAS handle for the entire life of the thread.
 // Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
@@ -3288,20 +6849,23 @@ func Create() (Handle, error) {
 		var zero Handle
 		return zero, err
 	}
-	var out Handle
-	if err := toError(fnCreate(&out), "cublasCreate_v2"); err != nil {
+	out := slotCreate.get()
+	defer slotCreate.put(out)
+	if err := toError(fnCreate(out), "cublasCreate_v2"); err != nil {
 		var zero Handle
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotCreate outSlot[Handle]
 
 // crot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -3333,7 +6897,7 @@ func crot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -3360,18 +6924,17 @@ func crot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 	return toError(fncrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasCrot_v2_64")
 }
 
-// crotg constructs the Givens rotation matrix
+// crotg constructs the Givens rotation matrix.
 //
 // This function supports the 64-bit Integer Interface.
-// G=(cs−sc)
-// that zeros out the second entry of a 2×1 vector (a,b)T .
+// G=(cs−sc), that zeros out the second entry of a 2×1 vector (a,b)ᵀ .
 // Then, for real numbers we can write
 // (cs−sc)(ab)=(r0)
-// where c2+s2=1 and r=±a2+b2 . The parameters a and b are overwritten with r and z , respectively. The value of z is such that c and s may be recovered using the following rules:
-// (c,s)={(1−z2,z) if |z|<1(0.0,1.0) if |z|=1(1/z,1−z2) if |z|>1
+// where c²+s²=1 and r=±a²+b² . The parameters a and b are overwritten with r and z , respectively. The value of z is such that c and s may be recovered using the following rules:
+// (c,s)={(1−z²,z) if |z|<1(0.0,1.0) if |z|=1(1/z,1−z²) if |z|>1
 // For complex numbers we can write
 // (cs−s¯c)(ab)=(r0)
-// where c2+(s¯×s)=1 and r=a|a|×∥(a,b)T∥2 with ∥(a,b)T∥2=|a|2+|B|2 for a≠0 and r=b for a=0 . Finally, the parameter a is overwritten with r on exit.
+// where c²+(s¯×s)=1 and r=a|a|×∥(a,b)ᵀ∥2 with ∥(a,b)ᵀ∥2=|a|²+|B|² for a≠0 and r=b for a=0 . Finally, the parameter a is overwritten with r on exit.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srotg(), drotg(), crotg(), zrotg()
@@ -3397,6 +6960,7 @@ func crotg(handle Handle, a *Complex64, b *Complex64, c *float32, s *Complex64) 
 
 // cscal scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3423,6 +6987,7 @@ func cscal(handle Handle, n int32, alpha *Complex64, x driver.DevicePtr, incx in
 
 // cscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3452,7 +7017,7 @@ func cscal64(handle Handle, n int64, alpha *Complex64, x driver.DevicePtr, incx 
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -3484,7 +7049,7 @@ func csrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -3513,6 +7078,7 @@ func csrot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 
 // csscal scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3539,6 +7105,7 @@ func csscal(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int
 
 // csscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3565,6 +7132,7 @@ func csscal64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx i
 
 // cswap interchanges the elements of vector x and y.
 //
+// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3592,6 +7160,7 @@ func cswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // cswap64 interchanges the elements of vector x and y.
 //
+// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -3617,7 +7186,7 @@ func cswap64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fncswap64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasCswap_v2_64")
 }
 
-// csymm performs the symmetric matrix-matrix multiplication
+// csymm performs the symmetric matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -3654,7 +7223,7 @@ func csymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	return toError(fncsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsymm_v2")
 }
 
-// csymm64 performs the symmetric matrix-matrix multiplication
+// csymm64 performs the symmetric matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -3763,11 +7332,10 @@ func csymv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, a driver.D
 	return toError(fncsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCsymv_v2_64")
 }
 
-// csyr2 performs the symmetric rank-2 update
+// csyr2 performs the symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2(), dsyr2()
@@ -3797,11 +7365,10 @@ func csyr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Dev
 	return toError(fncsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCsyr2_v2")
 }
 
-// csyr264 performs the symmetric rank-2 update
+// csyr264 performs the symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2(), dsyr2()
@@ -3831,12 +7398,11 @@ func csyr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.D
 	return toError(fncsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCsyr2_v2_64")
 }
 
-// csyr2k performs the symmetric rank- 2k update
+// csyr2k performs the symmetric rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=α(op(A)op(B)T+op(B)op(A)T)+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=α(op(A)op(B)ᵀ+op(B)op(A)ᵀ)+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2k(), dsyr2k(), csyr2k(), zsyr2k()
@@ -3869,12 +7435,11 @@ func csyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fncsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsyr2k_v2")
 }
 
-// csyr2k64 performs the symmetric rank- 2k update
+// csyr2k64 performs the symmetric rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=α(op(A)op(B)T+op(B)op(A)T)+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=α(op(A)op(B)ᵀ+op(B)op(A)ᵀ)+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2k(), dsyr2k(), csyr2k(), zsyr2k()
@@ -3907,11 +7472,10 @@ func csyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fncsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsyr2k_v2_64")
 }
 
-// csyr performs the symmetric rank-1 update
+// csyr performs the symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr(), dsyr()
@@ -3939,11 +7503,10 @@ func csyr(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Devi
 	return toError(fncsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasCsyr_v2")
 }
 
-// csyr64 performs the symmetric rank-1 update
+// csyr64 performs the symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr(), dsyr()
@@ -3973,11 +7536,12 @@ func csyr64(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.De
 
 // csyrk3mEx is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
+// This routine is implemented using the Gauss complexity reduction algorithm which can lead to an increase in performance up to 25%.
 // This function supports the 64-bit Integer Interface.
 // This function performs the symmetric rank- k update
-// C=αop(A)op(A)T+βC
+// C=αop(A)op(A)ᵀ+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Csyrk3mEx] are listed below :
@@ -4017,11 +7581,12 @@ func csyrk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, 
 
 // csyrk3mEx64 is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
+// This routine is implemented using the Gauss complexity reduction algorithm which can lead to an increase in performance up to 25%.
 // This function supports the 64-bit Integer Interface.
 // This function performs the symmetric rank- k update
-// C=αop(A)op(A)T+βC
+// C=αop(A)op(A)ᵀ+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.Csyrk3mEx] are listed below :
@@ -4059,13 +7624,13 @@ func csyrk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64
 	return toError(fncsyrk3mEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCsyrk3mEx_64")
 }
 
-// csyrkEx is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+// csyrkEx is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
 // This function supports the 64-bit Integer Interface.
 // This function performs the symmetric rank- k update
-// C=αop(A)op(A)T+βC
+// C=αop(A)op(A)ᵀ+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CsyrkEx] are listed below:
@@ -4103,13 +7668,13 @@ func csyrkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, al
 	return toError(fncsyrkEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCsyrkEx")
 }
 
-// csyrkEx64 is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex
+// csyrkEx64 is an extension of [Handle.Csyrk] where the input matrix and output matrix can have a lower precision but the computation is still done in the type cuComplex.
 //
 // This function supports the 64-bit Integer Interface.
 // This function performs the symmetric rank- k update
-// C=αop(A)op(A)T+βC
+// C=αop(A)op(A)ᵀ+βC
 // where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 //
 // Note: This routine is only supported on GPUs with architecture capabilities equal to or greater than 5.0
 // The matrix types combinations supported for [Handle.CsyrkEx] are listed below:
@@ -4147,12 +7712,11 @@ func csyrkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, 
 	return toError(fncsyrkEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCsyrkEx_64")
 }
 
-// csyrk performs the symmetric rank- k update
+// csyrk performs the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// C=αop(A)op(A)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
@@ -4183,12 +7747,11 @@ func csyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	return toError(fncsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasCsyrk_v2")
 }
 
-// csyrk64 performs the symmetric rank- k update
+// csyrk64 performs the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// C=αop(A)op(A)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
@@ -4219,12 +7782,11 @@ func csyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	return toError(fncsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasCsyrk_v2_64")
 }
 
-// csyrkx performs a variation of the symmetric rank- k update
+// csyrkx performs a variation of the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=αop(A)op(B)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // This routine can be used when B is in such way that the result is guaranteed to be symmetric. A usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -4259,12 +7821,11 @@ func csyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fncsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsyrkx")
 }
 
-// csyrkx64 performs a variation of the symmetric rank- k update
+// csyrkx64 performs a variation of the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=αop(A)op(B)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // This routine can be used when B is in such way that the result is guaranteed to be symmetric. A usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -4299,12 +7860,11 @@ func csyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fncsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsyrkx_64")
 }
 
-// ctbmv performs the triangular banded matrix-vector multiplication
+// ctbmv performs the triangular banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular banded matrix, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular banded matrix, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k,j)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -4337,12 +7897,11 @@ func ctbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnctbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasCtbmv_v2")
 }
 
-// ctbmv64 performs the triangular banded matrix-vector multiplication
+// ctbmv64 performs the triangular banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular banded matrix, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular banded matrix, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k,j)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -4375,12 +7934,11 @@ func ctbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnctbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasCtbmv_v2_64")
 }
 
-// ctbsv solves the triangular banded linear system with a single right-hand-side
+// ctbsv solves the triangular banded linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -4414,12 +7972,11 @@ func ctbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnctbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasCtbsv_v2")
 }
 
-// ctbsv64 solves the triangular banded linear system with a single right-hand-side
+// ctbsv64 solves the triangular banded linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -4453,12 +8010,11 @@ func ctbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnctbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasCtbsv_v2_64")
 }
 
-// ctpmv performs the triangular packed matrix-vector multiplication
+// ctpmv performs the triangular packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -4489,12 +8045,11 @@ func ctpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnctpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasCtpmv_v2")
 }
 
-// ctpmv64 performs the triangular packed matrix-vector multiplication
+// ctpmv64 performs the triangular packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -4525,12 +8080,11 @@ func ctpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnctpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasCtpmv_v2_64")
 }
 
-// ctpsv solves the packed triangular linear system with a single right-hand-side
+// ctpsv solves the packed triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -4562,12 +8116,11 @@ func ctpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnctpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasCtpsv_v2")
 }
 
-// ctpsv64 solves the packed triangular linear system with a single right-hand-side
+// ctpsv64 solves the packed triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -4599,7 +8152,7 @@ func ctpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnctpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasCtpsv_v2_64")
 }
 
-// ctpttr performs the conversion from the triangular packed format to the triangular format
+// ctpttr performs the conversion from the triangular packed format to the triangular format.
 //
 // If uplo == [FillModeLower] then the elements of AP are copied into the lower triangular part of the triangular matrix A and the upper part of A is left untouched. If uplo == [FillModeUpper] then the elements of AP are copied into the upper triangular part of the triangular matrix A and the lower part of A is left untouched.
 // The possible error values returned by this function and their meanings are listed below.
@@ -4627,12 +8180,12 @@ func ctpttr(handle Handle, uplo FillMode, n int32, ap driver.DevicePtr, a driver
 	return toError(fnctpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda), "cublasCtpttr")
 }
 
-// ctrmm performs the triangular matrix-matrix multiplication
+// ctrmm performs the triangular matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // Notice that in order to achieve better parallelism cuBLAS differs from the BLAS API only for this routine. The BLAS API assumes an in-place implementation (with results written back to B), while the cuBLAS API assumes an out-of-place implementation (with results written into C). The application can obtain the in-place functionality of BLAS in the cuBLAS API by passing the address of the matrix B in place of the matrix C. No other overlapping in the input parameters is supported.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -4667,12 +8220,12 @@ func ctrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	return toError(fnctrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasCtrmm_v2")
 }
 
-// ctrmm64 performs the triangular matrix-matrix multiplication
+// ctrmm64 performs the triangular matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // Notice that in order to achieve better parallelism cuBLAS differs from the BLAS API only for this routine. The BLAS API assumes an in-place implementation (with results written back to B), while the cuBLAS API assumes an out-of-place implementation (with results written into C). The application can obtain the in-place functionality of BLAS in the cuBLAS API by passing the address of the matrix B in place of the matrix C. No other overlapping in the input parameters is supported.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -4707,12 +8260,11 @@ func ctrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	return toError(fnctrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasCtrmm_v2_64")
 }
 
-// ctrmv performs the triangular matrix-vector multiplication
+// ctrmv performs the triangular matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // strmv(), dtrmv(), ctrmv(), ztrmv()
@@ -4742,12 +8294,11 @@ func ctrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnctrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasCtrmv_v2")
 }
 
-// ctrmv64 performs the triangular matrix-vector multiplication
+// ctrmv64 performs the triangular matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // strmv(), dtrmv(), ctrmv(), ztrmv()
@@ -4777,12 +8328,12 @@ func ctrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnctrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasCtrmv_v2_64")
 }
 
-// ctrsmBatched solves an array of triangular linear systems with multiple right-hand-sides
+// ctrsmBatched solves an array of triangular linear systems with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
+// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
 // The solution X [i] overwrites the right-hand-sides B [i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
@@ -4819,12 +8370,12 @@ func ctrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 	return toError(fnctrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasCtrsmBatched")
 }
 
-// ctrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides
+// ctrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
+// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
 // The solution X [i] overwrites the right-hand-sides B [i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
@@ -4861,12 +8412,12 @@ func ctrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 	return toError(fnctrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasCtrsmBatched_64")
 }
 
-// ctrsm solves the triangular linear system with multiple right-hand-sides
+// ctrsm solves the triangular linear system with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution X overwrites the right-hand-sides B on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -4900,12 +8451,12 @@ func ctrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	return toError(fnctrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasCtrsm_v2")
 }
 
-// ctrsm64 solves the triangular linear system with multiple right-hand-sides
+// ctrsm64 solves the triangular linear system with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution X overwrites the right-hand-sides B on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -4939,12 +8490,11 @@ func ctrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	return toError(fnctrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasCtrsm_v2_64")
 }
 
-// ctrsv solves the triangular linear system with a single right-hand-side
+// ctrsv solves the triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -4975,12 +8525,11 @@ func ctrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnctrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasCtrsv_v2")
 }
 
-// ctrsv64 solves the triangular linear system with a single right-hand-side
+// ctrsv64 solves the triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -5011,7 +8560,7 @@ func ctrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnctrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasCtrsv_v2_64")
 }
 
-// ctrttp performs the conversion from the triangular format to the triangular packed format
+// ctrttp performs the conversion from the triangular format to the triangular packed format.
 //
 // If uplo == [FillModeLower] then the lower triangular part of the triangular matrix A is copied into the array AP. If uplo == [FillModeUpper] then then the upper triangular part of the triangular matrix A is copied into the array AP.
 // The possible error values returned by this function and their meanings are listed below.
@@ -5041,6 +8590,7 @@ func ctrttp(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 
 // dasum computes the sum of the absolute values of the elements of vector x.
 //
+// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5065,16 +8615,20 @@ func dasum(handle Handle, n int32, x driver.DevicePtr, incx int32) (float64, err
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fndasum(handle, n, uintptr(x), incx, &out), "cublasDasum_v2"); err != nil {
+	out := slotDasum.get()
+	defer slotDasum.put(out)
+	if err := toError(fndasum(handle, n, uintptr(x), incx, out), "cublasDasum_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDasum outSlot[float64]
 
 // dasum64 computes the sum of the absolute values of the elements of vector x.
 //
+// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5099,16 +8653,20 @@ func dasum64(handle Handle, n int64, x driver.DevicePtr, incx int64) (float64, e
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fndasum64(handle, n, uintptr(x), incx, &out), "cublasDasum_v2_64"); err != nil {
+	out := slotDasum64.get()
+	defer slotDasum64.put(out)
+	if err := toError(fndasum64(handle, n, uintptr(x), incx, out), "cublasDasum_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDasum64 outSlot[float64]
 
 // daxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
+// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5137,6 +8695,7 @@ func daxpy(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int3
 
 // daxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
+// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5165,6 +8724,7 @@ func daxpy64(handle Handle, n int64, alpha *float64, x driver.DevicePtr, incx in
 
 // dcopy copies the vector x into the vector y.
 //
+// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5192,6 +8752,7 @@ func dcopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // dcopy64 copies the vector x into the vector y.
 //
+// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5217,7 +8778,7 @@ func dcopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fndcopy64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasDcopy_v2_64")
 }
 
-// ddgmm performs the matrix-matrix multiplication
+// ddgmm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
@@ -5254,7 +8815,7 @@ func ddgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 	return toError(fnddgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasDdgmm")
 }
 
-// ddgmm64 performs the matrix-matrix multiplication
+// ddgmm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
@@ -5293,6 +8854,7 @@ func ddgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 
 // ddot computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5318,16 +8880,20 @@ func ddot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fnddot(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasDdot_v2"); err != nil {
+	out := slotDdot.get()
+	defer slotDdot.put(out)
+	if err := toError(fnddot(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasDdot_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDdot outSlot[float64]
 
 // ddot64 computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5353,15 +8919,20 @@ func ddot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fnddot64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasDdot_v2_64"); err != nil {
+	out := slotDdot64.get()
+	defer slotDdot64.put(out)
+	if err := toError(fnddot64(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasDdot_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotDdot64 outSlot[float64]
+
 // destroy releases hardware resources used by the cuBLAS library.
+//
+// This function is usually the last call with a particular handle to the cuBLAS library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
 //
 // Wraps cublasDestroy_v2.
 func destroy(handle Handle) error {
@@ -5371,12 +8942,11 @@ func destroy(handle Handle) error {
 	return toError(fndestroy(handle), "cublasDestroy_v2")
 }
 
-// dgbmv performs the banded matrix-vector multiplication
+// dgbmv performs the banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The banded matrix A is stored column by column, with the main diagonal stored in row ku+1 (starting in first position), the first superdiagonal stored in row ku (starting in second position), the first subdiagonal stored in row ku+2 (starting in first position), etc. So that in general, the element A(i,j) is stored in the memory location A(ku+1+i-j,j) for j=1,…,n and i∈[max(1,j−ku),min(m,j+kl)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left ku×ku and bottom right kl×kl triangles) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5411,12 +8981,11 @@ func dgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 	return toError(fndgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDgbmv_v2")
 }
 
-// dgbmv64 performs the banded matrix-vector multiplication
+// dgbmv64 performs the banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The banded matrix A is stored column by column, with the main diagonal stored in row ku+1 (starting in first position), the first superdiagonal stored in row ku (starting in second position), the first subdiagonal stored in row ku+2 (starting in first position), etc. So that in general, the element A(i,j) is stored in the memory location A(ku+1+i-j,j) for j=1,…,n and i∈[max(1,j−ku),min(m,j+kl)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left ku×ku and bottom right kl×kl triangles) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5451,12 +9020,11 @@ func dgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 	return toError(fndgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDgbmv_v2_64")
 }
 
-// dgeam performs the matrix-matrix addition/transposition
+// dgeam performs the matrix-matrix addition/transposition.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)+βop(B)
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)+βop(B), where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The operation is out-of-place if C does not overlap A or B.
 // The in-place mode supports the following two operations,
@@ -5496,12 +9064,11 @@ func dgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	return toError(fndgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasDgeam")
 }
 
-// dgeam64 performs the matrix-matrix addition/transposition
+// dgeam64 performs the matrix-matrix addition/transposition.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)+βop(B)
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)+βop(B), where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The operation is out-of-place if C does not overlap A or B.
 // The in-place mode supports the following two operations,
@@ -5543,6 +9110,7 @@ func dgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 
 // dgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
 //
+// Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
 // On exit, each Aarray [i] is overwritten with their QR factorization and each Carray [i] is overwritten with the least square solution
 // cublasgelsBatched supports only the non-transpose operation and only solves over-determined systems (m >= n).
@@ -5582,10 +9150,11 @@ func dgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 
 // dgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -5626,10 +9195,11 @@ func dgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 
 // dgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -5670,12 +9240,13 @@ func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 
 // dgemmGroupedBatched performs the matrix-matrix multiplication on groups of matrices.
 //
+// A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
 // Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 //
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -5717,12 +9288,13 @@ func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 
 // dgemmGroupedBatched64 performs the matrix-matrix multiplication on groups of matrices.
 //
+// A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
 // Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 //
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -5764,10 +9336,11 @@ func dgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 
 // dgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -5812,10 +9385,11 @@ func dgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 
 // dgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -5858,12 +9432,11 @@ func dgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	return toError(fndgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasDgemmStridedBatched_64")
 }
 
-// dgemm performs the matrix-matrix multiplication
+// dgemm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5899,12 +9472,11 @@ func dgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	return toError(fndgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDgemm_v2")
 }
 
-// dgemm64 performs the matrix-matrix multiplication
+// dgemm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -5942,10 +9514,11 @@ func dgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 
 // dgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -5982,10 +9555,11 @@ func dgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 
 // dgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -6022,10 +9596,11 @@ func dgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 
 // dgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -6066,10 +9641,11 @@ func dgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 
 // dgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -6108,12 +9684,11 @@ func dgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 	return toError(fndgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasDgemvStridedBatched_64")
 }
 
-// dgemv performs the matrix-vector multiplication
+// dgemv performs the matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sgemv(), dgemv(), cgemv(), zgemv()
@@ -6145,12 +9720,11 @@ func dgemv(handle Handle, trans Operation, m int32, n int32, alpha *float64, a d
 	return toError(fndgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDgemv_v2")
 }
 
-// dgemv64 performs the matrix-vector multiplication
+// dgemv64 performs the matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sgemv(), dgemv(), cgemv(), zgemv()
@@ -6184,6 +9758,7 @@ func dgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float64, a
 
 // dgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
+// TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
 // This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
 // Each H [j][i] has the form
 // where tau [j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray [j][i+1:m,i], and tau in TauArray [j][i].
@@ -6217,10 +9792,10 @@ func dgeqrfBatched(handle Handle, m int32, n int32, aarray driver.DevicePtr, lda
 	return toError(fndgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize), "cublasDgeqrfBatched")
 }
 
-// dger performs the rank-1 update
+// dger performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -6251,10 +9826,10 @@ func dger(handle Handle, m int32, n int32, alpha *float64, x driver.DevicePtr, i
 	return toError(fndger(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasDger_v2")
 }
 
-// dger64 performs the rank-1 update
+// dger64 performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -6357,7 +9932,7 @@ func dgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 // op(A [i])X [i]=B [i]
 // where A [i] is a matrix which has been LU factorized with pivoting, X [i] and B [i] are n×nrhs matrices. Also, for matrix A
-// op(A [i])={A [i]if trans == CUBLAS_OP_NAT [i]if trans == CUBLAS_OP_TAH [i]if trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrsBatched() supports non-pivot LU factorization if devIpiv is NULL.
 // cublasgetrsBatched() supports arbitrary dimension.
@@ -6424,6 +9999,7 @@ func dmatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 
 // dnrm2 computes the Euclidean norm of the vector x.
 //
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -6448,16 +10024,20 @@ func dnrm2(handle Handle, n int32, x driver.DevicePtr, incx int32) (float64, err
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fndnrm2(handle, n, uintptr(x), incx, &out), "cublasDnrm2_v2"); err != nil {
+	out := slotDnrm2.get()
+	defer slotDnrm2.put(out)
+	if err := toError(fndnrm2(handle, n, uintptr(x), incx, out), "cublasDnrm2_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDnrm2 outSlot[float64]
 
 // dnrm264 computes the Euclidean norm of the vector x.
 //
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -6482,18 +10062,22 @@ func dnrm264(handle Handle, n int64, x driver.DevicePtr, incx int64) (float64, e
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fndnrm264(handle, n, uintptr(x), incx, &out), "cublasDnrm2_v2_64"); err != nil {
+	out := slotDnrm264.get()
+	defer slotDnrm264.put(out)
+	if err := toError(fndnrm264(handle, n, uintptr(x), incx, out), "cublasDnrm2_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
-// dotEx These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
+var slotDnrm264 outSlot[float64]
+
+// dotEx is an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //
+// Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 // The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
@@ -6527,10 +10111,11 @@ func dotEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int3
 	return toError(fndotEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType), "cublasDotEx")
 }
 
-// dotEx64 These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
+// dotEx64 is an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //
+// Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 // The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
@@ -6564,10 +10149,11 @@ func dotEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx in
 	return toError(fndotEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType), "cublasDotEx_64")
 }
 
-// dotcEx These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
+// dotcEx is an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //
+// Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 // The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
@@ -6601,10 +10187,11 @@ func dotcEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 	return toError(fndotcEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType), "cublasDotcEx")
 }
 
-// dotcEx64 These functions are an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
+// dotcEx64 is an API generalization of the routines cublasdot() and cublasdotc() where input data, output data and compute type can be specified independently.
 //
+// Note: cublasdotc() is dot product conjugated, cublasdotu() is dot product unconjugated.
 // These functions support the 64-bit Integer Interface.
-// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// This function computes the dot product of vectors x and y. Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.DotEx] and [Handle.DotcEx] are listed below:
 // The possible error values returned by this function and their meanings are listed in the following table:
 // For references please refer to NETLIB documentation:
@@ -6643,7 +10230,7 @@ func dotcEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -6675,7 +10262,7 @@ func drot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -6702,18 +10289,17 @@ func drot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 	return toError(fndrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasDrot_v2_64")
 }
 
-// drotg constructs the Givens rotation matrix
+// drotg constructs the Givens rotation matrix.
 //
 // This function supports the 64-bit Integer Interface.
-// G=(cs−sc)
-// that zeros out the second entry of a 2×1 vector (a,b)T .
+// G=(cs−sc), that zeros out the second entry of a 2×1 vector (a,b)ᵀ .
 // Then, for real numbers we can write
 // (cs−sc)(ab)=(r0)
-// where c2+s2=1 and r=±a2+b2 . The parameters a and b are overwritten with r and z , respectively. The value of z is such that c and s may be recovered using the following rules:
-// (c,s)={(1−z2,z) if |z|<1(0.0,1.0) if |z|=1(1/z,1−z2) if |z|>1
+// where c²+s²=1 and r=±a²+b² . The parameters a and b are overwritten with r and z , respectively. The value of z is such that c and s may be recovered using the following rules:
+// (c,s)={(1−z²,z) if |z|<1(0.0,1.0) if |z|=1(1/z,1−z²) if |z|>1
 // For complex numbers we can write
 // (cs−s¯c)(ab)=(r0)
-// where c2+(s¯×s)=1 and r=a|a|×∥(a,b)T∥2 with ∥(a,b)T∥2=|a|2+|B|2 for a≠0 and r=b for a=0 . Finally, the parameter a is overwritten with r on exit.
+// where c²+(s¯×s)=1 and r=a|a|×∥(a,b)ᵀ∥2 with ∥(a,b)ᵀ∥2=|a|²+|B|² for a≠0 and r=b for a=0 . Finally, the parameter a is overwritten with r on exit.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srotg(), drotg(), crotg(), zrotg()
@@ -6737,12 +10323,11 @@ func drotg(handle Handle, a *float64, b *float64, c *float64, s *float64) error 
 	return toError(fndrotg(handle, a, b, c, s), "cublasDrotg_v2")
 }
 
-// drotm applies the modified Givens transformation
+// drotm applies the modified Givens transformation.
 //
 // This function supports the 64-bit Integer Interface.
-// H=(h11h12h21h22)
-// to vectors x and y.
-// Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// H=(h11h12h21h22), to vectors x and y.
+// Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6770,12 +10355,11 @@ func drotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	return toError(fndrotm(handle, n, uintptr(x), incx, uintptr(y), incy, param), "cublasDrotm_v2")
 }
 
-// drotm64 applies the modified Givens transformation
+// drotm64 applies the modified Givens transformation.
 //
 // This function supports the 64-bit Integer Interface.
-// H=(h11h12h21h22)
-// to vectors x and y.
-// Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// H=(h11h12h21h22), to vectors x and y.
+// Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6803,11 +10387,10 @@ func drotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fndrotm64(handle, n, uintptr(x), incx, uintptr(y), incy, param), "cublasDrotm_v2_64")
 }
 
-// drotmg constructs the modified Givens transformation
+// drotmg constructs the modified Givens transformation.
 //
 // This function supports the 64-bit Integer Interface.
-// H=(h11h12h21h22)
-// that zeros out the second entry of a 2×1 vector (d1∗x1,d2∗y1)T .
+// H=(h11h12h21h22), that zeros out the second entry of a 2×1 vector (d1*x1,d2*y1)ᵀ .
 // The flag = param [0] defines the following predefined values for the matrix H entries
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6834,11 +10417,10 @@ func drotmg(handle Handle, d1 *float64, d2 *float64, x1 *float64, y1 *float64, p
 	return toError(fndrotmg(handle, d1, d2, x1, y1, param), "cublasDrotmg_v2")
 }
 
-// dsbmv performs the symmetric banded matrix-vector multiplication
+// dsbmv performs the symmetric banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k),j] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6872,11 +10454,10 @@ func dsbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float64, a dri
 	return toError(fndsbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDsbmv_v2")
 }
 
-// dsbmv64 performs the symmetric banded matrix-vector multiplication
+// dsbmv64 performs the symmetric banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k),j] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6912,6 +10493,7 @@ func dsbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float64, a d
 
 // dscal scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -6938,6 +10520,7 @@ func dscal(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int3
 
 // dscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -6962,11 +10545,10 @@ func dscal64(handle Handle, n int64, alpha *float64, x driver.DevicePtr, incx in
 	return toError(fndscal64(handle, n, alpha, uintptr(x), incx), "cublasDscal_v2_64")
 }
 
-// dspmv performs the symmetric packed matrix-vector multiplication
+// dspmv performs the symmetric packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -6998,11 +10580,10 @@ func dspmv(handle Handle, uplo FillMode, n int32, alpha *float64, ap driver.Devi
 	return toError(fndspmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasDspmv_v2")
 }
 
-// dspmv64 performs the symmetric packed matrix-vector multiplication
+// dspmv64 performs the symmetric packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7034,11 +10615,10 @@ func dspmv64(handle Handle, uplo FillMode, n int64, alpha *float64, ap driver.De
 	return toError(fndspmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasDspmv_v2_64")
 }
 
-// dspr2 performs the packed symmetric rank-2 update
+// dspr2 performs the packed symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7069,11 +10649,10 @@ func dspr2(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Devic
 	return toError(fndspr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasDspr2_v2")
 }
 
-// dspr264 performs the packed symmetric rank-2 update
+// dspr264 performs the packed symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7104,11 +10683,10 @@ func dspr264(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Dev
 	return toError(fndspr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasDspr2_v2_64")
 }
 
-// dspr performs the packed symmetric rank-1 update
+// dspr performs the packed symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7137,11 +10715,10 @@ func dspr(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 	return toError(fndspr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasDspr_v2")
 }
 
-// dspr64 performs the packed symmetric rank-1 update
+// dspr64 performs the packed symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7172,6 +10749,7 @@ func dspr64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 
 // dswap interchanges the elements of vector x and y.
 //
+// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -7199,6 +10777,7 @@ func dswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // dswap64 interchanges the elements of vector x and y.
 //
+// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -7224,7 +10803,7 @@ func dswap64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fndswap64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasDswap_v2_64")
 }
 
-// dsymm performs the symmetric matrix-matrix multiplication
+// dsymm performs the symmetric matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -7261,7 +10840,7 @@ func dsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	return toError(fndsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsymm_v2")
 }
 
-// dsymm64 performs the symmetric matrix-matrix multiplication
+// dsymm64 performs the symmetric matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -7370,11 +10949,10 @@ func dsymv64(handle Handle, uplo FillMode, n int64, alpha *float64, a driver.Dev
 	return toError(fndsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDsymv_v2_64")
 }
 
-// dsyr2 performs the symmetric rank-2 update
+// dsyr2 performs the symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2(), dsyr2()
@@ -7404,11 +10982,10 @@ func dsyr2(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Devic
 	return toError(fndsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasDsyr2_v2")
 }
 
-// dsyr264 performs the symmetric rank-2 update
+// dsyr264 performs the symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2(), dsyr2()
@@ -7438,12 +11015,11 @@ func dsyr264(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Dev
 	return toError(fndsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasDsyr2_v2_64")
 }
 
-// dsyr2k performs the symmetric rank- 2k update
+// dsyr2k performs the symmetric rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=α(op(A)op(B)T+op(B)op(A)T)+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=α(op(A)op(B)ᵀ+op(B)op(A)ᵀ)+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2k(), dsyr2k(), csyr2k(), zsyr2k()
@@ -7476,12 +11052,11 @@ func dsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fndsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsyr2k_v2")
 }
 
-// dsyr2k64 performs the symmetric rank- 2k update
+// dsyr2k64 performs the symmetric rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=α(op(A)op(B)T+op(B)op(A)T)+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=α(op(A)op(B)ᵀ+op(B)op(A)ᵀ)+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2k(), dsyr2k(), csyr2k(), zsyr2k()
@@ -7514,11 +11089,10 @@ func dsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fndsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsyr2k_v2_64")
 }
 
-// dsyr performs the symmetric rank-1 update
+// dsyr performs the symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr(), dsyr()
@@ -7546,11 +11120,10 @@ func dsyr(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 	return toError(fndsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasDsyr_v2")
 }
 
-// dsyr64 performs the symmetric rank-1 update
+// dsyr64 performs the symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr(), dsyr()
@@ -7578,12 +11151,11 @@ func dsyr64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 	return toError(fndsyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasDsyr_v2_64")
 }
 
-// dsyrk performs the symmetric rank- k update
+// dsyrk performs the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// C=αop(A)op(A)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
@@ -7614,12 +11186,11 @@ func dsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	return toError(fndsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasDsyrk_v2")
 }
 
-// dsyrk64 performs the symmetric rank- k update
+// dsyrk64 performs the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// C=αop(A)op(A)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
@@ -7650,12 +11221,11 @@ func dsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	return toError(fndsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasDsyrk_v2_64")
 }
 
-// dsyrkx performs a variation of the symmetric rank- k update
+// dsyrkx performs a variation of the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=αop(A)op(B)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // This routine can be used when B is in such way that the result is guaranteed to be symmetric. A usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -7690,12 +11260,11 @@ func dsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fndsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsyrkx")
 }
 
-// dsyrkx64 performs a variation of the symmetric rank- k update
+// dsyrkx64 performs a variation of the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=αop(A)op(B)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // This routine can be used when B is in such way that the result is guaranteed to be symmetric. A usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -7730,12 +11299,11 @@ func dsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fndsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsyrkx_64")
 }
 
-// dtbmv performs the triangular banded matrix-vector multiplication
+// dtbmv performs the triangular banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular banded matrix, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular banded matrix, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k,j)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7768,12 +11336,11 @@ func dtbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fndtbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasDtbmv_v2")
 }
 
-// dtbmv64 performs the triangular banded matrix-vector multiplication
+// dtbmv64 performs the triangular banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular banded matrix, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular banded matrix, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k,j)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7806,12 +11373,11 @@ func dtbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fndtbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasDtbmv_v2_64")
 }
 
-// dtbsv solves the triangular banded linear system with a single right-hand-side
+// dtbsv solves the triangular banded linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -7845,12 +11411,11 @@ func dtbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fndtbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasDtbsv_v2")
 }
 
-// dtbsv64 solves the triangular banded linear system with a single right-hand-side
+// dtbsv64 solves the triangular banded linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -7884,12 +11449,11 @@ func dtbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fndtbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasDtbsv_v2_64")
 }
 
-// dtpmv performs the triangular packed matrix-vector multiplication
+// dtpmv performs the triangular packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7920,12 +11484,11 @@ func dtpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fndtpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasDtpmv_v2")
 }
 
-// dtpmv64 performs the triangular packed matrix-vector multiplication
+// dtpmv64 performs the triangular packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -7956,12 +11519,11 @@ func dtpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fndtpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasDtpmv_v2_64")
 }
 
-// dtpsv solves the packed triangular linear system with a single right-hand-side
+// dtpsv solves the packed triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -7993,12 +11555,11 @@ func dtpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fndtpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasDtpsv_v2")
 }
 
-// dtpsv64 solves the packed triangular linear system with a single right-hand-side
+// dtpsv64 solves the packed triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -8030,7 +11591,7 @@ func dtpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fndtpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasDtpsv_v2_64")
 }
 
-// dtpttr performs the conversion from the triangular packed format to the triangular format
+// dtpttr performs the conversion from the triangular packed format to the triangular format.
 //
 // If uplo == [FillModeLower] then the elements of AP are copied into the lower triangular part of the triangular matrix A and the upper part of A is left untouched. If uplo == [FillModeUpper] then the elements of AP are copied into the upper triangular part of the triangular matrix A and the lower part of A is left untouched.
 // The possible error values returned by this function and their meanings are listed below.
@@ -8058,12 +11619,12 @@ func dtpttr(handle Handle, uplo FillMode, n int32, ap driver.DevicePtr, a driver
 	return toError(fndtpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda), "cublasDtpttr")
 }
 
-// dtrmm performs the triangular matrix-matrix multiplication
+// dtrmm performs the triangular matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // Notice that in order to achieve better parallelism cuBLAS differs from the BLAS API only for this routine. The BLAS API assumes an in-place implementation (with results written back to B), while the cuBLAS API assumes an out-of-place implementation (with results written into C). The application can obtain the in-place functionality of BLAS in the cuBLAS API by passing the address of the matrix B in place of the matrix C. No other overlapping in the input parameters is supported.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -8098,12 +11659,12 @@ func dtrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	return toError(fndtrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasDtrmm_v2")
 }
 
-// dtrmm64 performs the triangular matrix-matrix multiplication
+// dtrmm64 performs the triangular matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // Notice that in order to achieve better parallelism cuBLAS differs from the BLAS API only for this routine. The BLAS API assumes an in-place implementation (with results written back to B), while the cuBLAS API assumes an out-of-place implementation (with results written into C). The application can obtain the in-place functionality of BLAS in the cuBLAS API by passing the address of the matrix B in place of the matrix C. No other overlapping in the input parameters is supported.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -8138,12 +11699,11 @@ func dtrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	return toError(fndtrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasDtrmm_v2_64")
 }
 
-// dtrmv performs the triangular matrix-vector multiplication
+// dtrmv performs the triangular matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // strmv(), dtrmv(), ctrmv(), ztrmv()
@@ -8173,12 +11733,11 @@ func dtrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fndtrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasDtrmv_v2")
 }
 
-// dtrmv64 performs the triangular matrix-vector multiplication
+// dtrmv64 performs the triangular matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // strmv(), dtrmv(), ctrmv(), ztrmv()
@@ -8208,12 +11767,12 @@ func dtrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fndtrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasDtrmv_v2_64")
 }
 
-// dtrsmBatched solves an array of triangular linear systems with multiple right-hand-sides
+// dtrsmBatched solves an array of triangular linear systems with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
+// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
 // The solution X [i] overwrites the right-hand-sides B [i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
@@ -8250,12 +11809,12 @@ func dtrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 	return toError(fndtrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasDtrsmBatched")
 }
 
-// dtrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides
+// dtrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
+// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
 // The solution X [i] overwrites the right-hand-sides B [i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
@@ -8292,12 +11851,12 @@ func dtrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 	return toError(fndtrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasDtrsmBatched_64")
 }
 
-// dtrsm solves the triangular linear system with multiple right-hand-sides
+// dtrsm solves the triangular linear system with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution X overwrites the right-hand-sides B on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -8331,12 +11890,12 @@ func dtrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	return toError(fndtrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasDtrsm_v2")
 }
 
-// dtrsm64 solves the triangular linear system with multiple right-hand-sides
+// dtrsm64 solves the triangular linear system with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution X overwrites the right-hand-sides B on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -8370,12 +11929,11 @@ func dtrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	return toError(fndtrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasDtrsm_v2_64")
 }
 
-// dtrsv solves the triangular linear system with a single right-hand-side
+// dtrsv solves the triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -8406,12 +11964,11 @@ func dtrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fndtrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasDtrsv_v2")
 }
 
-// dtrsv64 solves the triangular linear system with a single right-hand-side
+// dtrsv64 solves the triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -8442,7 +11999,7 @@ func dtrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fndtrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasDtrsv_v2_64")
 }
 
-// dtrttp performs the conversion from the triangular format to the triangular packed format
+// dtrttp performs the conversion from the triangular format to the triangular packed format.
 //
 // If uplo == [FillModeLower] then the lower triangular part of the triangular matrix A is copied into the array AP. If uplo == [FillModeUpper] then then the upper triangular part of the triangular matrix A is copied into the array AP.
 // The possible error values returned by this function and their meanings are listed below.
@@ -8472,6 +12029,7 @@ func dtrttp(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 
 // dzasum computes the sum of the absolute values of the elements of vector x.
 //
+// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -8496,16 +12054,20 @@ func dzasum(handle Handle, n int32, x driver.DevicePtr, incx int32) (float64, er
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fndzasum(handle, n, uintptr(x), incx, &out), "cublasDzasum_v2"); err != nil {
+	out := slotDzasum.get()
+	defer slotDzasum.put(out)
+	if err := toError(fndzasum(handle, n, uintptr(x), incx, out), "cublasDzasum_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDzasum outSlot[float64]
 
 // dzasum64 computes the sum of the absolute values of the elements of vector x.
 //
+// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -8530,16 +12092,20 @@ func dzasum64(handle Handle, n int64, x driver.DevicePtr, incx int64) (float64, 
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fndzasum64(handle, n, uintptr(x), incx, &out), "cublasDzasum_v2_64"); err != nil {
+	out := slotDzasum64.get()
+	defer slotDzasum64.put(out)
+	if err := toError(fndzasum64(handle, n, uintptr(x), incx, out), "cublasDzasum_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDzasum64 outSlot[float64]
 
 // dznrm2 computes the Euclidean norm of the vector x.
 //
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -8564,16 +12130,20 @@ func dznrm2(handle Handle, n int32, x driver.DevicePtr, incx int32) (float64, er
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fndznrm2(handle, n, uintptr(x), incx, &out), "cublasDznrm2_v2"); err != nil {
+	out := slotDznrm2.get()
+	defer slotDznrm2.put(out)
+	if err := toError(fndznrm2(handle, n, uintptr(x), incx, out), "cublasDznrm2_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDznrm2 outSlot[float64]
 
 // dznrm264 computes the Euclidean norm of the vector x.
 //
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -8598,22 +12168,26 @@ func dznrm264(handle Handle, n int64, x driver.DevicePtr, incx int64) (float64, 
 		var zero float64
 		return zero, err
 	}
-	var out float64
-	if err := toError(fndznrm264(handle, n, uintptr(x), incx, &out), "cublasDznrm2_v2_64"); err != nil {
+	out := slotDznrm264.get()
+	defer slotDznrm264.put(out)
+	if err := toError(fndznrm264(handle, n, uintptr(x), incx, out), "cublasDznrm2_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotDznrm264 outSlot[float64]
 
 // gemmBatchedEx is an extension of cublasgemmBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrix arrays, the precision of computation and the GEMM algorithm to be run.
 //
+// Like cublasgemmBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. Supported combinations of arguments are listed further down in this section.
 // This function supports the 64-bit Integer Interface.
 //
 // Note: The second variant of [Handle.GemmBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
@@ -8664,12 +12238,13 @@ func gemmBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n
 
 // gemmBatchedEx64 is an extension of cublasgemmBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrix arrays, the precision of computation and the GEMM algorithm to be run.
 //
+// Like cublasgemmBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. Supported combinations of arguments are listed further down in this section.
 // This function supports the 64-bit Integer Interface.
 //
 // Note: The second variant of [Handle.GemmBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, behavior is undefined.
@@ -8720,13 +12295,14 @@ func gemmBatchedEx64(handle Handle, transa Operation, transb Operation, m int64,
 
 // gemmEx is an extension of cublasgemm() that allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //
+// Supported combinations of arguments are listed further down in this section.
 // This function supports the 64-bit Integer Interface.
 //
 // Note: The second variant of [Handle.GemmEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
 // This function is only supported on devices with compute capability 5.0 or later.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // [Handle.GemmEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 //
@@ -8774,13 +12350,14 @@ func gemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32,
 
 // gemmEx64 is an extension of cublasgemm() that allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //
+// Supported combinations of arguments are listed further down in this section.
 // This function supports the 64-bit Integer Interface.
 //
 // Note: The second variant of [Handle.GemmEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType instead of [ComputeType]. C applications would still compile with the updated function signature.
 // This function is only supported on devices with compute capability 5.0 or later.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // [Handle.GemmEx] supports the following Compute Type, Scale Type, Atype/Btype, and Ctype:
 //
@@ -8828,12 +12405,13 @@ func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int6
 
 // gemmGroupedBatchedEx performs the matrix-matrix multiplication on groups of matrices.
 //
+// A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
 // Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 //
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -8880,12 +12458,13 @@ func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Op
 
 // gemmGroupedBatchedEx64 performs the matrix-matrix multiplication on groups of matrices.
 //
+// A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
 // Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 //
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -8932,12 +12511,13 @@ func gemmGroupedBatchedEx64(handle Handle, transaArray *Operation, transbArray *
 
 // gemmStridedBatchedEx is an extension of cublasgemmStridedBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //
+// Like cublasgemmStridedBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with the offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
 //
 // Note: The second variant of [Handle.GemmStridedBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType_t instead of [ComputeType]. C applications would still compile with the updated function signature.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
@@ -8992,12 +12572,13 @@ func gemmStridedBatchedEx(handle Handle, transa Operation, transb Operation, m i
 
 // gemmStridedBatchedEx64 is an extension of cublasgemmStridedBatched() that performs the matrix-matrix multiplication of a batch of matrices and allows the user to individually specify the data types for each of the A, B and C matrices, the precision of computation and the GEMM algorithm to be run.
 //
+// Like cublasgemmStridedBatched(), the batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with the offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
 //
 // Note: The second variant of [Handle.GemmStridedBatchedEx] function is provided for backward compatibility with C++ applications code, where the computeType parameter is of cudaDataType_t instead of [ComputeType]. C applications would still compile with the updated function signature.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, the behavior is undefined.
@@ -9060,13 +12641,16 @@ func getAtomicsMode(handle Handle) (AtomicsMode, error) {
 		var zero AtomicsMode
 		return zero, err
 	}
-	var out AtomicsMode
-	if err := toError(fngetAtomicsMode(handle, &out), "cublasGetAtomicsMode"); err != nil {
+	out := slotGetAtomicsMode.get()
+	defer slotGetAtomicsMode.put(out)
+	if err := toError(fngetAtomicsMode(handle, out), "cublasGetAtomicsMode"); err != nil {
 		var zero AtomicsMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetAtomicsMode outSlot[AtomicsMode]
 
 // getEmulationSpecialValuesSupport obtains the value previously programmed to the library handle.
 //
@@ -9106,13 +12690,16 @@ func getFixedPointEmulationMantissaBitOffset(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetFixedPointEmulationMantissaBitOffset(handle, &out), "cublasGetFixedPointEmulationMantissaBitOffset"); err != nil {
+	out := slotGetFixedPointEmulationMantissaBitOffset.get()
+	defer slotGetFixedPointEmulationMantissaBitOffset.put(out)
+	if err := toError(fngetFixedPointEmulationMantissaBitOffset(handle, out), "cublasGetFixedPointEmulationMantissaBitOffset"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetFixedPointEmulationMantissaBitOffset outSlot[int32]
 
 // getFixedPointEmulationMantissaControl obtains the value previously programmed to the library handle.
 //
@@ -9132,13 +12719,16 @@ func getFixedPointEmulationMaxMantissaBitCount(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetFixedPointEmulationMaxMantissaBitCount(handle, &out), "cublasGetFixedPointEmulationMaxMantissaBitCount"); err != nil {
+	out := slotGetFixedPointEmulationMaxMantissaBitCount.get()
+	defer slotGetFixedPointEmulationMaxMantissaBitCount.put(out)
+	if err := toError(fngetFixedPointEmulationMaxMantissaBitCount(handle, out), "cublasGetFixedPointEmulationMaxMantissaBitCount"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetFixedPointEmulationMaxMantissaBitCount outSlot[int32]
 
 // GetLoggerCallback retrieves function pointer to previously installed custom user defined callback function via [SetLoggerCallback] or zero otherwise.
 //
@@ -9166,16 +12756,20 @@ func getMathMode(handle Handle) (Math, error) {
 		var zero Math
 		return zero, err
 	}
-	var out Math
-	if err := toError(fngetMathMode(handle, &out), "cublasGetMathMode"); err != nil {
+	out := slotGetMathMode.get()
+	defer slotGetMathMode.put(out)
+	if err := toError(fngetMathMode(handle, out), "cublasGetMathMode"); err != nil {
 		var zero Math
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetMathMode outSlot[Math]
 
 // GetMatrix copies a tile of rows x cols elements from a matrix A in GPU memory space to a matrix B in host memory space.
 //
+// It is assumed that each element requires storage of elemSize bytes and that both matrices are stored in column-major format, with the leading dimension of the source matrix A and destination matrix B given in lda and ldb, respectively. The leading dimension indicates the number of rows of the allocated matrix, even if only a submatrix of it is being used.
 // This function supports the 64-bit Integer Interface.
 //
 // Wraps cublasGetMatrix.
@@ -9212,6 +12806,7 @@ func GetMatrixAsync64(rows int64, cols int64, elemSize int64, a driver.DevicePtr
 
 // GetMatrix64 copies a tile of rows x cols elements from a matrix A in GPU memory space to a matrix B in host memory space.
 //
+// It is assumed that each element requires storage of elemSize bytes and that both matrices are stored in column-major format, with the leading dimension of the source matrix A and destination matrix B given in lda and ldb, respectively. The leading dimension indicates the number of rows of the allocated matrix, even if only a submatrix of it is being used.
 // This function supports the 64-bit Integer Interface.
 //
 // Wraps cublasGetMatrix_64.
@@ -9224,21 +12819,28 @@ func GetMatrix64(rows int64, cols int64, elemSize int64, a driver.DevicePtr, lda
 
 // getPointerMode obtains the pointer mode used by the cuBLAS library.
 //
+// Please see the section on the [PointerMode] type for more details.
+//
 // Wraps cublasGetPointerMode_v2.
 func getPointerMode(handle Handle) (PointerMode, error) {
 	if err := checkLibSym("cublasGetPointerMode_v2"); err != nil {
 		var zero PointerMode
 		return zero, err
 	}
-	var out PointerMode
-	if err := toError(fngetPointerMode(handle, &out), "cublasGetPointerMode_v2"); err != nil {
+	out := slotGetPointerMode.get()
+	defer slotGetPointerMode.put(out)
+	if err := toError(fngetPointerMode(handle, out), "cublasGetPointerMode_v2"); err != nil {
 		var zero PointerMode
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotGetPointerMode outSlot[PointerMode]
+
 // GetProperty returns the value of the requested property in memory pointed to by value.
+//
+// Refer to libraryPropertyType for supported types.
 //
 // Wraps cublasGetProperty.
 func GetProperty(type_ LibraryPropertyType) (int32, error) {
@@ -9246,13 +12848,16 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnGetProperty(type_, &out), "cublasGetProperty"); err != nil {
+	out := slotGetProperty.get()
+	defer slotGetProperty.put(out)
+	if err := toError(fnGetProperty(type_, out), "cublasGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetProperty outSlot[int32]
 
 // getSmCountTarget obtains the value previously programmed to the library handle.
 //
@@ -9262,15 +12867,20 @@ func getSmCountTarget(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetSmCountTarget(handle, &out), "cublasGetSmCountTarget"); err != nil {
+	out := slotGetSmCountTarget.get()
+	defer slotGetSmCountTarget.put(out)
+	if err := toError(fngetSmCountTarget(handle, out), "cublasGetSmCountTarget"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotGetSmCountTarget outSlot[int32]
+
 // getStream gets the cuBLAS library stream, which is being used to execute all calls to the cuBLAS library functions.
+//
+// If the cuBLAS library stream is not set, all kernels use the default NULL stream.
 //
 // Wraps cublasGetStream_v2.
 func getStream(handle Handle) (driver.Stream, error) {
@@ -9278,16 +12888,20 @@ func getStream(handle Handle) (driver.Stream, error) {
 		var zero driver.Stream
 		return zero, err
 	}
-	var out driver.Stream
-	if err := toError(fngetStream(handle, &out), "cublasGetStream_v2"); err != nil {
+	out := slotGetStream.get()
+	defer slotGetStream.put(out)
+	if err := toError(fngetStream(handle, out), "cublasGetStream_v2"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetStream outSlot[driver.Stream]
 
 // GetVector copies n elements from a vector x in GPU memory space to a vector y in host memory space.
 //
+// Elements in both vectors are assumed to have a size of elemSize bytes. The storage spacing between consecutive elements is given by incx for the source vector and incy for the destination vector y.
 // This function supports the 64-bit Integer Interface.
 // Since column-major format for two-dimensional matrices is assumed, if a vector is part of a matrix, a vector increment equal to 1 accesses a (partial) column of that matrix. Similarly, using an increment equal to the leading dimension of the matrix results in accesses to a (partial) row of that matrix.
 //
@@ -9325,6 +12939,7 @@ func GetVectorAsync64(n int64, elemSize int64, devicePtr driver.DevicePtr, incx 
 
 // GetVector64 copies n elements from a vector x in GPU memory space to a vector y in host memory space.
 //
+// Elements in both vectors are assumed to have a size of elemSize bytes. The storage spacing between consecutive elements is given by incx for the source vector and incy for the destination vector y.
 // This function supports the 64-bit Integer Interface.
 // Since column-major format for two-dimensional matrices is assumed, if a vector is part of a matrix, a vector increment equal to 1 accesses a (partial) column of that matrix. Similarly, using an increment equal to the leading dimension of the matrix results in accesses to a (partial) row of that matrix.
 //
@@ -9346,20 +12961,24 @@ func getVersion(handle Handle) (int32, error) {
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fngetVersion(handle, &out), "cublasGetVersion_v2"); err != nil {
+	out := slotGetVersion.get()
+	defer slotGetVersion.put(out)
+	if err := toError(fngetVersion(handle, out), "cublasGetVersion_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotGetVersion outSlot[int32]
 
 // hSHgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -9396,10 +13015,11 @@ func hSHgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 
 // hSHgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -9436,10 +13056,11 @@ func hSHgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 
 // hSHgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -9480,10 +13101,11 @@ func hSHgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 
 // hSHgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -9524,10 +13146,11 @@ func hSHgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 
 // hSSgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -9564,10 +13187,11 @@ func hSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 
 // hSSgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -9604,10 +13228,11 @@ func hSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 
 // hSSgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -9648,10 +13273,11 @@ func hSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 
 // hSSgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -9690,12 +13316,11 @@ func hSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 	return toError(fnhSSgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasHSSgemvStridedBatched_64")
 }
 
-// hgemm performs the matrix-matrix multiplication
+// hgemm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -9733,10 +13358,11 @@ func hgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 
 // hgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -9777,10 +13403,11 @@ func hgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 
 // hgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -9821,10 +13448,11 @@ func hgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 
 // hgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -9869,10 +13497,11 @@ func hgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 
 // hgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -9915,12 +13544,11 @@ func hgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	return toError(fnhgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasHgemmStridedBatched_64")
 }
 
-// hgemm64 performs the matrix-matrix multiplication
+// hgemm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -9962,13 +13590,16 @@ func iamaxEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx in
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fniamaxEx(handle, n, uintptr(x), xType, incx, &out), "cublasIamaxEx"); err != nil {
+	out := slotIamaxEx.get()
+	defer slotIamaxEx.put(out)
+	if err := toError(fniamaxEx(handle, n, uintptr(x), xType, incx, out), "cublasIamaxEx"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIamaxEx outSlot[int32]
 
 // iamaxEx64 wraps cublasIamaxEx_64.
 func iamaxEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx int64) (int64, error) {
@@ -9976,13 +13607,16 @@ func iamaxEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx 
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fniamaxEx64(handle, n, uintptr(x), xType, incx, &out), "cublasIamaxEx_64"); err != nil {
+	out := slotIamaxEx64.get()
+	defer slotIamaxEx64.put(out)
+	if err := toError(fniamaxEx64(handle, n, uintptr(x), xType, incx, out), "cublasIamaxEx_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIamaxEx64 outSlot[int64]
 
 // iaminEx wraps cublasIaminEx.
 func iaminEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int32) (int32, error) {
@@ -9990,13 +13624,16 @@ func iaminEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx in
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fniaminEx(handle, n, uintptr(x), xType, incx, &out), "cublasIaminEx"); err != nil {
+	out := slotIaminEx.get()
+	defer slotIaminEx.put(out)
+	if err := toError(fniaminEx(handle, n, uintptr(x), xType, incx, out), "cublasIaminEx"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIaminEx outSlot[int32]
 
 // iaminEx64 wraps cublasIaminEx_64.
 func iaminEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx int64) (int64, error) {
@@ -10004,16 +13641,20 @@ func iaminEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx 
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fniaminEx64(handle, n, uintptr(x), xType, incx, &out), "cublasIaminEx_64"); err != nil {
+	out := slotIaminEx64.get()
+	defer slotIaminEx64.put(out)
+	if err := toError(fniaminEx64(handle, n, uintptr(x), xType, incx, out), "cublasIaminEx_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIaminEx64 outSlot[int64]
 
 // icamax finds the (smallest) index of the element of the maximum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10038,16 +13679,20 @@ func icamax(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnicamax(handle, n, uintptr(x), incx, &out), "cublasIcamax_v2"); err != nil {
+	out := slotIcamax.get()
+	defer slotIcamax.put(out)
+	if err := toError(fnicamax(handle, n, uintptr(x), incx, out), "cublasIcamax_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIcamax outSlot[int32]
 
 // icamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10072,16 +13717,20 @@ func icamax64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnicamax64(handle, n, uintptr(x), incx, &out), "cublasIcamax_v2_64"); err != nil {
+	out := slotIcamax64.get()
+	defer slotIcamax64.put(out)
+	if err := toError(fnicamax64(handle, n, uintptr(x), incx, out), "cublasIcamax_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIcamax64 outSlot[int64]
 
 // icamin finds the (smallest) index of the element of the minimum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10106,16 +13755,20 @@ func icamin(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnicamin(handle, n, uintptr(x), incx, &out), "cublasIcamin_v2"); err != nil {
+	out := slotIcamin.get()
+	defer slotIcamin.put(out)
+	if err := toError(fnicamin(handle, n, uintptr(x), incx, out), "cublasIcamin_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIcamin outSlot[int32]
 
 // icamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10140,16 +13793,20 @@ func icamin64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnicamin64(handle, n, uintptr(x), incx, &out), "cublasIcamin_v2_64"); err != nil {
+	out := slotIcamin64.get()
+	defer slotIcamin64.put(out)
+	if err := toError(fnicamin64(handle, n, uintptr(x), incx, out), "cublasIcamin_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIcamin64 outSlot[int64]
 
 // idamax finds the (smallest) index of the element of the maximum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10174,16 +13831,20 @@ func idamax(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnidamax(handle, n, uintptr(x), incx, &out), "cublasIdamax_v2"); err != nil {
+	out := slotIdamax.get()
+	defer slotIdamax.put(out)
+	if err := toError(fnidamax(handle, n, uintptr(x), incx, out), "cublasIdamax_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIdamax outSlot[int32]
 
 // idamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10208,16 +13869,20 @@ func idamax64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnidamax64(handle, n, uintptr(x), incx, &out), "cublasIdamax_v2_64"); err != nil {
+	out := slotIdamax64.get()
+	defer slotIdamax64.put(out)
+	if err := toError(fnidamax64(handle, n, uintptr(x), incx, out), "cublasIdamax_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIdamax64 outSlot[int64]
 
 // idamin finds the (smallest) index of the element of the minimum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10242,16 +13907,20 @@ func idamin(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnidamin(handle, n, uintptr(x), incx, &out), "cublasIdamin_v2"); err != nil {
+	out := slotIdamin.get()
+	defer slotIdamin.put(out)
+	if err := toError(fnidamin(handle, n, uintptr(x), incx, out), "cublasIdamin_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIdamin outSlot[int32]
 
 // idamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10276,16 +13945,20 @@ func idamin64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnidamin64(handle, n, uintptr(x), incx, &out), "cublasIdamin_v2_64"); err != nil {
+	out := slotIdamin64.get()
+	defer slotIdamin64.put(out)
+	if err := toError(fnidamin64(handle, n, uintptr(x), incx, out), "cublasIdamin_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIdamin64 outSlot[int64]
 
 // isamax finds the (smallest) index of the element of the maximum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10310,16 +13983,20 @@ func isamax(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnisamax(handle, n, uintptr(x), incx, &out), "cublasIsamax_v2"); err != nil {
+	out := slotIsamax.get()
+	defer slotIsamax.put(out)
+	if err := toError(fnisamax(handle, n, uintptr(x), incx, out), "cublasIsamax_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIsamax outSlot[int32]
 
 // isamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10344,16 +14021,20 @@ func isamax64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnisamax64(handle, n, uintptr(x), incx, &out), "cublasIsamax_v2_64"); err != nil {
+	out := slotIsamax64.get()
+	defer slotIsamax64.put(out)
+	if err := toError(fnisamax64(handle, n, uintptr(x), incx, out), "cublasIsamax_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIsamax64 outSlot[int64]
 
 // isamin finds the (smallest) index of the element of the minimum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10378,16 +14059,20 @@ func isamin(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnisamin(handle, n, uintptr(x), incx, &out), "cublasIsamin_v2"); err != nil {
+	out := slotIsamin.get()
+	defer slotIsamin.put(out)
+	if err := toError(fnisamin(handle, n, uintptr(x), incx, out), "cublasIsamin_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIsamin outSlot[int32]
 
 // isamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10412,16 +14097,20 @@ func isamin64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnisamin64(handle, n, uintptr(x), incx, &out), "cublasIsamin_v2_64"); err != nil {
+	out := slotIsamin64.get()
+	defer slotIsamin64.put(out)
+	if err := toError(fnisamin64(handle, n, uintptr(x), incx, out), "cublasIsamin_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIsamin64 outSlot[int64]
 
 // izamax finds the (smallest) index of the element of the maximum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10446,16 +14135,20 @@ func izamax(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnizamax(handle, n, uintptr(x), incx, &out), "cublasIzamax_v2"); err != nil {
+	out := slotIzamax.get()
+	defer slotIzamax.put(out)
+	if err := toError(fnizamax(handle, n, uintptr(x), incx, out), "cublasIzamax_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIzamax outSlot[int32]
 
 // izamax64 finds the (smallest) index of the element of the maximum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is maximum for i=1,…,n and j=1+(i−1)* incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10480,16 +14173,20 @@ func izamax64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnizamax64(handle, n, uintptr(x), incx, &out), "cublasIzamax_v2_64"); err != nil {
+	out := slotIzamax64.get()
+	defer slotIzamax64.put(out)
+	if err := toError(fnizamax64(handle, n, uintptr(x), incx, out), "cublasIzamax_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIzamax64 outSlot[int64]
 
 // izamin finds the (smallest) index of the element of the minimum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10514,16 +14211,20 @@ func izamin(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		var zero int32
 		return zero, err
 	}
-	var out int32
-	if err := toError(fnizamin(handle, n, uintptr(x), incx, &out), "cublasIzamin_v2"); err != nil {
+	out := slotIzamin.get()
+	defer slotIzamin.put(out)
+	if err := toError(fnizamin(handle, n, uintptr(x), incx, out), "cublasIzamin_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotIzamin outSlot[int32]
 
 // izamin64 finds the (smallest) index of the element of the minimum magnitude.
 //
+// Hence, the result is the first i such that |Im(x [j])|+|Re(x [j])| is minimum for i=1,…,n and j=1+(i−1)*incx Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10548,15 +14249,20 @@ func izamin64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		var zero int64
 		return zero, err
 	}
-	var out int64
-	if err := toError(fnizamin64(handle, n, uintptr(x), incx, &out), "cublasIzamin_v2_64"); err != nil {
+	out := slotIzamin64.get()
+	defer slotIzamin64.put(out)
+	if err := toError(fnizamin64(handle, n, uintptr(x), incx, out), "cublasIzamin_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
 
+var slotIzamin64 outSlot[int64]
+
 // LoggerConfigure configures logging during runtime.
+//
+// Besides this type of configuration, it is possible to configure logging with special environment variables which will be checked by libcublas:
 //
 //   - logIsOn: Turn on/off logging completely. By default is off, but is turned on by calling [SetLoggerCallback] to user defined callback function
 //   - logToStdOut: Turn on/off logging to standard output I/O stream. By default is off
@@ -10578,7 +14284,7 @@ func LoggerConfigure(logIsOn int32, logToStdOut int32, logToStdErr int32, logFil
 // nrm2Ex is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
 //
 // This function supports the 64-bit Integer Interface.
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10612,7 +14318,7 @@ func nrm2Ex(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 // nrm2Ex64 is an API generalization of the routine cublasnrm2() where input data, output data and compute type can be specified independently.
 //
 // This function supports the 64-bit Integer Interface.
-// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)∗incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
+// This function computes the Euclidean norm of the vector x. The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.Nrm2Ex] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10649,7 +14355,7 @@ func nrm2Ex64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 // This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.RotEx] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10686,7 +14392,7 @@ func rotEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int3
 // This function applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The datatypes combinations currently supported for [Handle.RotEx] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10751,6 +14457,7 @@ func rotmgEx(handle Handle, d1 uintptr, d1Type DataType, d2 uintptr, d2Type Data
 
 // sasum computes the sum of the absolute values of the elements of vector x.
 //
+// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10775,16 +14482,20 @@ func sasum(handle Handle, n int32, x driver.DevicePtr, incx int32) (float32, err
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnsasum(handle, n, uintptr(x), incx, &out), "cublasSasum_v2"); err != nil {
+	out := slotSasum.get()
+	defer slotSasum.put(out)
+	if err := toError(fnsasum(handle, n, uintptr(x), incx, out), "cublasSasum_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSasum outSlot[float32]
 
 // sasum64 computes the sum of the absolute values of the elements of vector x.
 //
+// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10809,16 +14520,20 @@ func sasum64(handle Handle, n int64, x driver.DevicePtr, incx int64) (float32, e
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnsasum64(handle, n, uintptr(x), incx, &out), "cublasSasum_v2_64"); err != nil {
+	out := slotSasum64.get()
+	defer slotSasum64.put(out)
+	if err := toError(fnsasum64(handle, n, uintptr(x), incx, out), "cublasSasum_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSasum64 outSlot[float32]
 
 // saxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
+// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10847,6 +14562,7 @@ func saxpy(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int3
 
 // saxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
+// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10875,6 +14591,7 @@ func saxpy64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx in
 
 // scalEx scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
@@ -10907,6 +14624,7 @@ func scalEx(handle Handle, n int32, alpha uintptr, alphaType DataType, x driver.
 
 // scalEx64 scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The datatypes combinations currently supported for [Handle.ScalEx] are listed below :
 // The possible error values returned by this function and their meanings are listed below.
@@ -10939,6 +14657,7 @@ func scalEx64(handle Handle, n int64, alpha uintptr, alphaType DataType, x drive
 
 // scasum computes the sum of the absolute values of the elements of vector x.
 //
+// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10963,16 +14682,20 @@ func scasum(handle Handle, n int32, x driver.DevicePtr, incx int32) (float32, er
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnscasum(handle, n, uintptr(x), incx, &out), "cublasScasum_v2"); err != nil {
+	out := slotScasum.get()
+	defer slotScasum.put(out)
+	if err := toError(fnscasum(handle, n, uintptr(x), incx, out), "cublasScasum_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotScasum outSlot[float32]
 
 // scasum64 computes the sum of the absolute values of the elements of vector x.
 //
+// Hence, the result is ∑i=1n|Im(x [j])|+|Re(x [j])| where j=1+(i−1)*incx . Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -10997,16 +14720,20 @@ func scasum64(handle Handle, n int64, x driver.DevicePtr, incx int64) (float32, 
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnscasum64(handle, n, uintptr(x), incx, &out), "cublasScasum_v2_64"); err != nil {
+	out := slotScasum64.get()
+	defer slotScasum64.put(out)
+	if err := toError(fnscasum64(handle, n, uintptr(x), incx, out), "cublasScasum_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotScasum64 outSlot[float32]
 
 // scnrm2 computes the Euclidean norm of the vector x.
 //
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -11031,16 +14758,20 @@ func scnrm2(handle Handle, n int32, x driver.DevicePtr, incx int32) (float32, er
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnscnrm2(handle, n, uintptr(x), incx, &out), "cublasScnrm2_v2"); err != nil {
+	out := slotScnrm2.get()
+	defer slotScnrm2.put(out)
+	if err := toError(fnscnrm2(handle, n, uintptr(x), incx, out), "cublasScnrm2_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotScnrm2 outSlot[float32]
 
 // scnrm264 computes the Euclidean norm of the vector x.
 //
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -11065,16 +14796,20 @@ func scnrm264(handle Handle, n int64, x driver.DevicePtr, incx int64) (float32, 
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnscnrm264(handle, n, uintptr(x), incx, &out), "cublasScnrm2_v2_64"); err != nil {
+	out := slotScnrm264.get()
+	defer slotScnrm264.put(out)
+	if err := toError(fnscnrm264(handle, n, uintptr(x), incx, out), "cublasScnrm2_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotScnrm264 outSlot[float32]
 
 // scopy copies the vector x into the vector y.
 //
+// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -11102,6 +14837,7 @@ func scopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // scopy64 copies the vector x into the vector y.
 //
+// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -11127,7 +14863,7 @@ func scopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fnscopy64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasScopy_v2_64")
 }
 
-// sdgmm performs the matrix-matrix multiplication
+// sdgmm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
@@ -11164,7 +14900,7 @@ func sdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 	return toError(fnsdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasSdgmm")
 }
 
-// sdgmm64 performs the matrix-matrix multiplication
+// sdgmm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
@@ -11203,6 +14939,7 @@ func sdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 
 // sdot computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -11228,16 +14965,20 @@ func sdot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnsdot(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasSdot_v2"); err != nil {
+	out := slotSdot.get()
+	defer slotSdot.put(out)
+	if err := toError(fnsdot(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasSdot_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSdot outSlot[float32]
 
 // sdot64 computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -11263,16 +15004,20 @@ func sdot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnsdot64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasSdot_v2_64"); err != nil {
+	out := slotSdot64.get()
+	defer slotSdot64.put(out)
+	if err := toError(fnsdot64(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasSdot_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSdot64 outSlot[float32]
 
 // setAtomicsMode Some routines like cublassymv() and cublashemv() have an alternate implementation that use atomics to cumulate results.
 //
+// This implementation is generally significantly faster but can generate results that are not strictly identical from one run to the others. Mathematically, those different results are not significant but when debugging those differences can be prejudicial.
 // This function allows or disallows the usage of atomics in the cuBLAS library for all routines which have an alternate implementation. When not explicitly specified in the documentation of any cuBLAS routine, it means that this routine does not have an alternate implementation that use atomics. When atomics mode is disabled, each cuBLAS routine should produce the same results from one run to the other when called with identical parameters on the same Hardware.
 // The default atomics mode of default initialized [Handle] object is [AtomicsNotAllowed]. Please see the section on the type for more details.
 //
@@ -11295,6 +15040,8 @@ func setEmulationSpecialValuesSupport(handle Handle, mask CudaEmulationSpecialVa
 }
 
 // setEmulationStrategy The [Handle.SetEmulationStrategy] function enables you to select how the library should make use of floating point emulation.
+//
+// For more details, please see [EmulationStrategy].
 //
 // Wraps cublasSetEmulationStrategy.
 func setEmulationStrategy(handle Handle, emulationStrategy EmulationStrategy) error {
@@ -11361,6 +15108,7 @@ func SetLoggerCallback(userCallback LogCallback) error {
 
 // setMathMode The [Handle.SetMathMode] function enables you to choose the compute precision modes as defined by [Math].
 //
+// Users are allowed to set the compute precision mode as a logical combination of them (except the deprecated [TensorOpMath]). For example, [Handle.SetMathMode](handle, [DefaultMath] | [MathDisallowReducedPrecisionReduction]). Please note that the default math mode is [DefaultMath].
 // For matrix and compute precisions allowed for [Handle.GemmEx] and cublasLtMatmul() APIs and their strided variants please refer to: [Handle.GemmEx] , [Handle.GemmBatchedEx], [Handle.GemmStridedBatchedEx], and cublasLtMatmul().
 //
 // Wraps cublasSetMathMode.
@@ -11373,6 +15121,7 @@ func setMathMode(handle Handle, mode Math) error {
 
 // SetMatrix copies a tile of rows x cols elements from a matrix A in host memory space to a matrix B in GPU memory space.
 //
+// It is assumed that each element requires storage of elemSize bytes and that both matrices are stored in column-major format, with the leading dimension of the source matrix A and destination matrix B given in lda and ldb, respectively. The leading dimension indicates the number of rows of the allocated matrix, even if only a submatrix of it is being used.
 // This function supports the 64-bit Integer Interface.
 //
 // Wraps cublasSetMatrix.
@@ -11409,6 +15158,7 @@ func SetMatrixAsync64(rows int64, cols int64, elemSize int64, a uintptr, lda int
 
 // SetMatrix64 copies a tile of rows x cols elements from a matrix A in host memory space to a matrix B in GPU memory space.
 //
+// It is assumed that each element requires storage of elemSize bytes and that both matrices are stored in column-major format, with the leading dimension of the source matrix A and destination matrix B given in lda and ldb, respectively. The leading dimension indicates the number of rows of the allocated matrix, even if only a submatrix of it is being used.
 // This function supports the 64-bit Integer Interface.
 //
 // Wraps cublasSetMatrix_64.
@@ -11420,6 +15170,8 @@ func SetMatrix64(rows int64, cols int64, elemSize int64, a uintptr, lda int64, b
 }
 
 // setPointerMode sets the pointer mode used by the cuBLAS library.
+//
+// The default is for the values to be passed by reference on the host. Please see the section on the [PointerMode] type for more details.
 //
 // Wraps cublasSetPointerMode_v2.
 func setPointerMode(handle Handle, mode PointerMode) error {
@@ -11445,6 +15197,8 @@ func setSmCountTarget(handle Handle, smCountTarget int32) error {
 
 // setStream sets the cuBLAS library stream, which will be used to execute all subsequent calls to the cuBLAS library functions.
 //
+// If the cuBLAS library stream is not set, all kernels use the default NULL stream. In particular, this routine can be used to change the stream between kernel launches and then to reset the cuBLAS library stream back to NULL. Additionally this function unconditionally resets the cuBLAS library workspace back to the default workspace pool (see [Handle.SetWorkspace]).
+//
 // Wraps cublasSetStream_v2.
 func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("cublasSetStream_v2"); err != nil {
@@ -11455,6 +15209,7 @@ func setStream(handle Handle, streamId driver.Stream) error {
 
 // SetVector copies n elements from a vector x in host memory space to a vector y in GPU memory space.
 //
+// Elements in both vectors are assumed to have a size of elemSize bytes. The storage spacing between consecutive elements is given by incx for the source vector x and by incy for the destination vector y.
 // This function supports the 64-bit Integer Interface.
 // Since column-major format for two-dimensional matrices is assumed, if a vector is part of a matrix, a vector increment equal to 1 accesses a (partial) column of that matrix. Similarly, using an increment equal to the leading dimension of the matrix results in accesses to a (partial) row of that matrix.
 //
@@ -11492,6 +15247,7 @@ func SetVectorAsync64(n int64, elemSize int64, hostPtr unsafe.Pointer, incx int6
 
 // SetVector64 copies n elements from a vector x in host memory space to a vector y in GPU memory space.
 //
+// Elements in both vectors are assumed to have a size of elemSize bytes. The storage spacing between consecutive elements is given by incx for the source vector x and by incy for the destination vector y.
 // This function supports the 64-bit Integer Interface.
 // Since column-major format for two-dimensional matrices is assumed, if a vector is part of a matrix, a vector increment equal to 1 accesses a (partial) column of that matrix. Similarly, using an increment equal to the leading dimension of the matrix results in accesses to a (partial) row of that matrix.
 //
@@ -11504,6 +15260,8 @@ func SetVector64(n int64, elemSize int64, x uintptr, incx int64, devicePtr drive
 }
 
 // setWorkspace sets the cuBLAS library workspace to a user-owned device buffer, which will be used to execute all subsequent calls to the cuBLAS library functions (on the currently set stream).
+//
+// If the cuBLAS library workspace is not set, all kernels will use the default workspace pool allocated during the cuBLAS context creation. In particular, this routine can be used to change the workspace between kernel launches. The workspace pointer has to be aligned to at least 256 bytes, otherwise [ErrInvalidValue] error is returned. The [Handle.SetStream] function unconditionally resets the cuBLAS library workspace back to the default workspace pool. Calling this function, including with workspaceSizeInBytes equal to 0, will prevent the cuBLAS library from utilizing the default workspace. Too small value of workspaceSizeInBytes may cause some routines to fail with [ErrAllocFailed] error returned or cause large regressions in performance. Workspace size equal to or larger than 16KiB is enough to prevent [ErrAllocFailed] error, while a larger workspace can provide performance benefits for some routines.
 //
 // Note: If the stream set by [Handle.SetStream] is cudaStreamPerThread and there are multiple threads using the same cuBLAS library handle, then users must manually manage synchronization to avoid possible race conditions in the user provided workspace. Alternatively, users may rely on the default workspace pool which safely guards against race conditions.
 //
@@ -11521,12 +15279,11 @@ func setWorkspace(handle Handle, workspace driver.DevicePtr, workspaceSizeInByte
 	return toError(fnsetWorkspace(handle, uintptr(workspace), workspaceSizeInBytes), "cublasSetWorkspace_v2")
 }
 
-// sgbmv performs the banded matrix-vector multiplication
+// sgbmv performs the banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The banded matrix A is stored column by column, with the main diagonal stored in row ku+1 (starting in first position), the first superdiagonal stored in row ku (starting in second position), the first subdiagonal stored in row ku+2 (starting in first position), etc. So that in general, the element A(i,j) is stored in the memory location A(ku+1+i-j,j) for j=1,…,n and i∈[max(1,j−ku),min(m,j+kl)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left ku×ku and bottom right kl×kl triangles) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -11561,12 +15318,11 @@ func sgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 	return toError(fnsgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSgbmv_v2")
 }
 
-// sgbmv64 performs the banded matrix-vector multiplication
+// sgbmv64 performs the banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The banded matrix A is stored column by column, with the main diagonal stored in row ku+1 (starting in first position), the first superdiagonal stored in row ku (starting in second position), the first subdiagonal stored in row ku+2 (starting in first position), etc. So that in general, the element A(i,j) is stored in the memory location A(ku+1+i-j,j) for j=1,…,n and i∈[max(1,j−ku),min(m,j+kl)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left ku×ku and bottom right kl×kl triangles) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -11601,12 +15357,11 @@ func sgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 	return toError(fnsgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSgbmv_v2_64")
 }
 
-// sgeam performs the matrix-matrix addition/transposition
+// sgeam performs the matrix-matrix addition/transposition.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)+βop(B)
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)+βop(B), where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The operation is out-of-place if C does not overlap A or B.
 // The in-place mode supports the following two operations,
@@ -11646,12 +15401,11 @@ func sgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	return toError(fnsgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasSgeam")
 }
 
-// sgeam64 performs the matrix-matrix addition/transposition
+// sgeam64 performs the matrix-matrix addition/transposition.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)+βop(B)
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)+βop(B), where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The operation is out-of-place if C does not overlap A or B.
 // The in-place mode supports the following two operations,
@@ -11693,6 +15447,7 @@ func sgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 
 // sgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
 //
+// Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
 // On exit, each Aarray [i] is overwritten with their QR factorization and each Carray [i] is overwritten with the least square solution
 // cublasgelsBatched supports only the non-transpose operation and only solves over-determined systems (m >= n).
@@ -11732,10 +15487,11 @@ func sgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 
 // sgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -11776,10 +15532,11 @@ func sgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 
 // sgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -11820,10 +15577,11 @@ func sgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 
 // sgemmEx is an extension of cublasgemm().
 //
+// In this function the input matrices and output matrices can have a lower precision but the computation is still done in the type <t>. For example, in the type float for [Handle.SgemmEx] and in the type cuComplex for [Handle.CgemmEx].
 // This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The matrix types combinations supported for [Handle.SgemmEx] are listed below:
 // The matrix types combinations supported for [Handle.CgemmEx] are listed below :
@@ -11868,10 +15626,11 @@ func sgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32
 
 // sgemmEx64 is an extension of cublasgemm().
 //
+// In this function the input matrices and output matrices can have a lower precision but the computation is still done in the type <t>. For example, in the type float for [Handle.SgemmEx] and in the type cuComplex for [Handle.CgemmEx].
 // This function supports the 64-bit Integer Interface.
 // C=αop(A)op(B)+βC
 // where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The matrix types combinations supported for [Handle.SgemmEx] are listed below:
 // The matrix types combinations supported for [Handle.CgemmEx] are listed below :
@@ -11916,12 +15675,13 @@ func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 
 // sgemmGroupedBatched performs the matrix-matrix multiplication on groups of matrices.
 //
+// A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
 // Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 //
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -11963,12 +15723,13 @@ func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 
 // sgemmGroupedBatched64 performs the matrix-matrix multiplication on groups of matrices.
 //
+// A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
 // This function supports the 64-bit Integer Interface.
 // where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 //
 // Note: This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]ᵀif transaArray [i] == CUBLAS_OP_TA [idx]ᴴif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 //
 // Note: C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -12010,10 +15771,11 @@ func sgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 
 // sgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -12058,10 +15820,11 @@ func sgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 
 // sgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -12104,12 +15867,11 @@ func sgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	return toError(fnsgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasSgemmStridedBatched_64")
 }
 
-// sgemm performs the matrix-matrix multiplication
+// sgemm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -12145,12 +15907,11 @@ func sgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	return toError(fnsgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSgemm_v2")
 }
 
-// sgemm64 performs the matrix-matrix multiplication
+// sgemm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -12188,10 +15949,11 @@ func sgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 
 // sgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -12228,10 +15990,11 @@ func sgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 
 // sgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -12268,10 +16031,11 @@ func sgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 
 // sgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -12312,10 +16076,11 @@ func sgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 
 // sgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -12354,12 +16119,11 @@ func sgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 	return toError(fnsgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasSgemvStridedBatched_64")
 }
 
-// sgemv performs the matrix-vector multiplication
+// sgemv performs the matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sgemv(), dgemv(), cgemv(), zgemv()
@@ -12391,12 +16155,11 @@ func sgemv(handle Handle, trans Operation, m int32, n int32, alpha *float32, a d
 	return toError(fnsgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSgemv_v2")
 }
 
-// sgemv64 performs the matrix-vector multiplication
+// sgemv64 performs the matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sgemv(), dgemv(), cgemv(), zgemv()
@@ -12430,6 +16193,7 @@ func sgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a
 
 // sgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
+// TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
 // This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
 // Each H [j][i] has the form
 // where tau [j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray [j][i+1:m,i], and tau in TauArray [j][i].
@@ -12463,10 +16227,10 @@ func sgeqrfBatched(handle Handle, m int32, n int32, aarray driver.DevicePtr, lda
 	return toError(fnsgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize), "cublasSgeqrfBatched")
 }
 
-// sger performs the rank-1 update
+// sger performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -12497,10 +16261,10 @@ func sger(handle Handle, m int32, n int32, alpha *float32, x driver.DevicePtr, i
 	return toError(fnsger(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasSger_v2")
 }
 
-// sger64 performs the rank-1 update
+// sger64 performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -12603,7 +16367,7 @@ func sgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 // op(A [i])X [i]=B [i]
 // where A [i] is a matrix which has been LU factorized with pivoting, X [i] and B [i] are n×nrhs matrices. Also, for matrix A
-// op(A [i])={A [i]if trans == CUBLAS_OP_NAT [i]if trans == CUBLAS_OP_TAH [i]if trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrsBatched() supports non-pivot LU factorization if devIpiv is NULL.
 // cublasgetrsBatched() supports arbitrary dimension.
@@ -12670,6 +16434,7 @@ func smatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 
 // snrm2 computes the Euclidean norm of the vector x.
 //
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -12694,16 +16459,20 @@ func snrm2(handle Handle, n int32, x driver.DevicePtr, incx int32) (float32, err
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnsnrm2(handle, n, uintptr(x), incx, &out), "cublasSnrm2_v2"); err != nil {
+	out := slotSnrm2.get()
+	defer slotSnrm2.put(out)
+	if err := toError(fnsnrm2(handle, n, uintptr(x), incx, out), "cublasSnrm2_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSnrm2 outSlot[float32]
 
 // snrm264 computes the Euclidean norm of the vector x.
 //
+// The code uses a multiphase model of accumulation to avoid intermediate underflow and overflow, with the result being equivalent to ∑i=1n(x [j]×x [j]) where j=1+(i−1)*incx in exact arithmetic. Notice that the last equation reflects 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -12728,20 +16497,23 @@ func snrm264(handle Handle, n int64, x driver.DevicePtr, incx int64) (float32, e
 		var zero float32
 		return zero, err
 	}
-	var out float32
-	if err := toError(fnsnrm264(handle, n, uintptr(x), incx, &out), "cublasSnrm2_v2_64"); err != nil {
+	out := slotSnrm264.get()
+	defer slotSnrm264.put(out)
+	if err := toError(fnsnrm264(handle, n, uintptr(x), incx, out), "cublasSnrm2_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotSnrm264 outSlot[float32]
 
 // srot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -12773,7 +16545,7 @@ func srot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -12800,18 +16572,17 @@ func srot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 	return toError(fnsrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasSrot_v2_64")
 }
 
-// srotg constructs the Givens rotation matrix
+// srotg constructs the Givens rotation matrix.
 //
 // This function supports the 64-bit Integer Interface.
-// G=(cs−sc)
-// that zeros out the second entry of a 2×1 vector (a,b)T .
+// G=(cs−sc), that zeros out the second entry of a 2×1 vector (a,b)ᵀ .
 // Then, for real numbers we can write
 // (cs−sc)(ab)=(r0)
-// where c2+s2=1 and r=±a2+b2 . The parameters a and b are overwritten with r and z , respectively. The value of z is such that c and s may be recovered using the following rules:
-// (c,s)={(1−z2,z) if |z|<1(0.0,1.0) if |z|=1(1/z,1−z2) if |z|>1
+// where c²+s²=1 and r=±a²+b² . The parameters a and b are overwritten with r and z , respectively. The value of z is such that c and s may be recovered using the following rules:
+// (c,s)={(1−z²,z) if |z|<1(0.0,1.0) if |z|=1(1/z,1−z²) if |z|>1
 // For complex numbers we can write
 // (cs−s¯c)(ab)=(r0)
-// where c2+(s¯×s)=1 and r=a|a|×∥(a,b)T∥2 with ∥(a,b)T∥2=|a|2+|B|2 for a≠0 and r=b for a=0 . Finally, the parameter a is overwritten with r on exit.
+// where c²+(s¯×s)=1 and r=a|a|×∥(a,b)ᵀ∥2 with ∥(a,b)ᵀ∥2=|a|²+|B|² for a≠0 and r=b for a=0 . Finally, the parameter a is overwritten with r on exit.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srotg(), drotg(), crotg(), zrotg()
@@ -12835,12 +16606,11 @@ func srotg(handle Handle, a *float32, b *float32, c *float32, s *float32) error 
 	return toError(fnsrotg(handle, a, b, c, s), "cublasSrotg_v2")
 }
 
-// srotm applies the modified Givens transformation
+// srotm applies the modified Givens transformation.
 //
 // This function supports the 64-bit Integer Interface.
-// H=(h11h12h21h22)
-// to vectors x and y.
-// Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// H=(h11h12h21h22), to vectors x and y.
+// Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // The possible error values returned by this function and their meanings are listed below.
@@ -12868,12 +16638,11 @@ func srotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	return toError(fnsrotm(handle, n, uintptr(x), incx, uintptr(y), incy, param), "cublasSrotm_v2")
 }
 
-// srotm64 applies the modified Givens transformation
+// srotm64 applies the modified Givens transformation.
 //
 // This function supports the 64-bit Integer Interface.
-// H=(h11h12h21h22)
-// to vectors x and y.
-// Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// H=(h11h12h21h22), to vectors x and y.
+// Hence, the result is x [k]=h11×x [k]+h12×y [j] and y [j]=h21×x [k]+h22×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The elements , , and of matrix H are stored in param [1], param [2], param [3] and param [4], respectively. The flag = param [0] defines the following predefined values for the matrix H entries
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // The possible error values returned by this function and their meanings are listed below.
@@ -12901,11 +16670,10 @@ func srotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fnsrotm64(handle, n, uintptr(x), incx, uintptr(y), incy, param), "cublasSrotm_v2_64")
 }
 
-// srotmg constructs the modified Givens transformation
+// srotmg constructs the modified Givens transformation.
 //
 // This function supports the 64-bit Integer Interface.
-// H=(h11h12h21h22)
-// that zeros out the second entry of a 2×1 vector (d1∗x1,d2∗y1)T .
+// H=(h11h12h21h22), that zeros out the second entry of a 2×1 vector (d1*x1,d2*y1)ᵀ .
 // The flag = param [0] defines the following predefined values for the matrix H entries
 // Notice that the values -1.0, 0.0 and 1.0 implied by the flag are not stored in param.
 // The possible error values returned by this function and their meanings are listed below.
@@ -12932,11 +16700,10 @@ func srotmg(handle Handle, d1 *float32, d2 *float32, x1 *float32, y1 *float32, p
 	return toError(fnsrotmg(handle, d1, d2, x1, y1, param), "cublasSrotmg_v2")
 }
 
-// ssbmv performs the symmetric banded matrix-vector multiplication
+// ssbmv performs the symmetric banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k),j] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -12970,11 +16737,10 @@ func ssbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float32, a dri
 	return toError(fnssbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSsbmv_v2")
 }
 
-// ssbmv64 performs the symmetric banded matrix-vector multiplication
+// ssbmv64 performs the symmetric banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n symmetric banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the symmetric banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k),j] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13010,6 +16776,7 @@ func ssbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float32, a d
 
 // sscal scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -13036,6 +16803,7 @@ func sscal(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int3
 
 // sscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -13060,11 +16828,10 @@ func sscal64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx in
 	return toError(fnsscal64(handle, n, alpha, uintptr(x), incx), "cublasSscal_v2_64")
 }
 
-// sspmv performs the symmetric packed matrix-vector multiplication
+// sspmv performs the symmetric packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13096,11 +16863,10 @@ func sspmv(handle Handle, uplo FillMode, n int32, alpha *float32, ap driver.Devi
 	return toError(fnsspmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasSspmv_v2")
 }
 
-// sspmv64 performs the symmetric packed matrix-vector multiplication
+// sspmv64 performs the symmetric packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n symmetric matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13132,11 +16898,10 @@ func sspmv64(handle Handle, uplo FillMode, n int64, alpha *float32, ap driver.De
 	return toError(fnsspmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasSspmv_v2_64")
 }
 
-// sspr2 performs the packed symmetric rank-2 update
+// sspr2 performs the packed symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13167,11 +16932,10 @@ func sspr2(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Devic
 	return toError(fnsspr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasSspr2_v2")
 }
 
-// sspr264 performs the packed symmetric rank-2 update
+// sspr264 performs the packed symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13202,11 +16966,10 @@ func sspr264(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Dev
 	return toError(fnsspr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasSspr2_v2_64")
 }
 
-// sspr performs the packed symmetric rank-1 update
+// sspr performs the packed symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13235,11 +16998,10 @@ func sspr(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 	return toError(fnsspr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasSspr_v2")
 }
 
-// sspr64 performs the packed symmetric rank-1 update
+// sspr64 performs the packed symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the symmetric matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13270,6 +17032,7 @@ func sspr64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 
 // sswap interchanges the elements of vector x and y.
 //
+// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -13297,6 +17060,7 @@ func sswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // sswap64 interchanges the elements of vector x and y.
 //
+// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -13322,7 +17086,7 @@ func sswap64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fnsswap64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasSswap_v2_64")
 }
 
-// ssymm performs the symmetric matrix-matrix multiplication
+// ssymm performs the symmetric matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -13359,7 +17123,7 @@ func ssymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	return toError(fnssymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsymm_v2")
 }
 
-// ssymm64 performs the symmetric matrix-matrix multiplication
+// ssymm64 performs the symmetric matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -13468,11 +17232,10 @@ func ssymv64(handle Handle, uplo FillMode, n int64, alpha *float32, a driver.Dev
 	return toError(fnssymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSsymv_v2_64")
 }
 
-// ssyr2 performs the symmetric rank-2 update
+// ssyr2 performs the symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2(), dsyr2()
@@ -13502,11 +17265,10 @@ func ssyr2(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Devic
 	return toError(fnssyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasSsyr2_v2")
 }
 
-// ssyr264 performs the symmetric rank-2 update
+// ssyr264 performs the symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2(), dsyr2()
@@ -13536,12 +17298,11 @@ func ssyr264(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Dev
 	return toError(fnssyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasSsyr2_v2_64")
 }
 
-// ssyr2k performs the symmetric rank- 2k update
+// ssyr2k performs the symmetric rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=α(op(A)op(B)T+op(B)op(A)T)+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=α(op(A)op(B)ᵀ+op(B)op(A)ᵀ)+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2k(), dsyr2k(), csyr2k(), zsyr2k()
@@ -13574,12 +17335,11 @@ func ssyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fnssyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsyr2k_v2")
 }
 
-// ssyr2k64 performs the symmetric rank- 2k update
+// ssyr2k64 performs the symmetric rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=α(op(A)op(B)T+op(B)op(A)T)+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=α(op(A)op(B)ᵀ+op(B)op(A)ᵀ)+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2k(), dsyr2k(), csyr2k(), zsyr2k()
@@ -13612,11 +17372,10 @@ func ssyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fnssyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsyr2k_v2_64")
 }
 
-// ssyr performs the symmetric rank-1 update
+// ssyr performs the symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr(), dsyr()
@@ -13644,11 +17403,10 @@ func ssyr(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 	return toError(fnssyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasSsyr_v2")
 }
 
-// ssyr64 performs the symmetric rank-1 update
+// ssyr64 performs the symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr(), dsyr()
@@ -13676,12 +17434,11 @@ func ssyr64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 	return toError(fnssyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasSsyr_v2_64")
 }
 
-// ssyrk performs the symmetric rank- k update
+// ssyrk performs the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// C=αop(A)op(A)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
@@ -13712,12 +17469,11 @@ func ssyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	return toError(fnssyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasSsyrk_v2")
 }
 
-// ssyrk64 performs the symmetric rank- k update
+// ssyrk64 performs the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// C=αop(A)op(A)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
@@ -13748,12 +17504,11 @@ func ssyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	return toError(fnssyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasSsyrk_v2_64")
 }
 
-// ssyrkx performs a variation of the symmetric rank- k update
+// ssyrkx performs a variation of the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=αop(A)op(B)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // This routine can be used when B is in such way that the result is guaranteed to be symmetric. A usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -13788,12 +17543,11 @@ func ssyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fnssyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsyrkx")
 }
 
-// ssyrkx64 performs a variation of the symmetric rank- k update
+// ssyrkx64 performs a variation of the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=αop(A)op(B)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // This routine can be used when B is in such way that the result is guaranteed to be symmetric. A usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -13828,12 +17582,11 @@ func ssyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fnssyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsyrkx_64")
 }
 
-// stbmv performs the triangular banded matrix-vector multiplication
+// stbmv performs the triangular banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular banded matrix, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular banded matrix, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k,j)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13866,12 +17619,11 @@ func stbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnstbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasStbmv_v2")
 }
 
-// stbmv64 performs the triangular banded matrix-vector multiplication
+// stbmv64 performs the triangular banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular banded matrix, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular banded matrix, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k,j)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -13904,12 +17656,11 @@ func stbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnstbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasStbmv_v2_64")
 }
 
-// stbsv solves the triangular banded linear system with a single right-hand-side
+// stbsv solves the triangular banded linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -13943,12 +17694,11 @@ func stbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnstbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasStbsv_v2")
 }
 
-// stbsv64 solves the triangular banded linear system with a single right-hand-side
+// stbsv64 solves the triangular banded linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -13982,12 +17732,11 @@ func stbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnstbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasStbsv_v2_64")
 }
 
-// stpmv performs the triangular packed matrix-vector multiplication
+// stpmv performs the triangular packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14018,12 +17767,11 @@ func stpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnstpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasStpmv_v2")
 }
 
-// stpmv64 performs the triangular packed matrix-vector multiplication
+// stpmv64 performs the triangular packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14054,12 +17802,11 @@ func stpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnstpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasStpmv_v2_64")
 }
 
-// stpsv solves the packed triangular linear system with a single right-hand-side
+// stpsv solves the packed triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -14091,12 +17838,11 @@ func stpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnstpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasStpsv_v2")
 }
 
-// stpsv64 solves the packed triangular linear system with a single right-hand-side
+// stpsv64 solves the packed triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -14128,7 +17874,7 @@ func stpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnstpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasStpsv_v2_64")
 }
 
-// stpttr performs the conversion from the triangular packed format to the triangular format
+// stpttr performs the conversion from the triangular packed format to the triangular format.
 //
 // If uplo == [FillModeLower] then the elements of AP are copied into the lower triangular part of the triangular matrix A and the upper part of A is left untouched. If uplo == [FillModeUpper] then the elements of AP are copied into the upper triangular part of the triangular matrix A and the lower part of A is left untouched.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14156,12 +17902,12 @@ func stpttr(handle Handle, uplo FillMode, n int32, ap driver.DevicePtr, a driver
 	return toError(fnstpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda), "cublasStpttr")
 }
 
-// strmm performs the triangular matrix-matrix multiplication
+// strmm performs the triangular matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // Notice that in order to achieve better parallelism cuBLAS differs from the BLAS API only for this routine. The BLAS API assumes an in-place implementation (with results written back to B), while the cuBLAS API assumes an out-of-place implementation (with results written into C). The application can obtain the in-place functionality of BLAS in the cuBLAS API by passing the address of the matrix B in place of the matrix C. No other overlapping in the input parameters is supported.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -14196,12 +17942,12 @@ func strmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	return toError(fnstrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasStrmm_v2")
 }
 
-// strmm64 performs the triangular matrix-matrix multiplication
+// strmm64 performs the triangular matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // Notice that in order to achieve better parallelism cuBLAS differs from the BLAS API only for this routine. The BLAS API assumes an in-place implementation (with results written back to B), while the cuBLAS API assumes an out-of-place implementation (with results written into C). The application can obtain the in-place functionality of BLAS in the cuBLAS API by passing the address of the matrix B in place of the matrix C. No other overlapping in the input parameters is supported.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -14236,12 +17982,11 @@ func strmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	return toError(fnstrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasStrmm_v2_64")
 }
 
-// strmv performs the triangular matrix-vector multiplication
+// strmv performs the triangular matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // strmv(), dtrmv(), ctrmv(), ztrmv()
@@ -14271,12 +18016,11 @@ func strmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnstrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasStrmv_v2")
 }
 
-// strmv64 performs the triangular matrix-vector multiplication
+// strmv64 performs the triangular matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // strmv(), dtrmv(), ctrmv(), ztrmv()
@@ -14306,12 +18050,12 @@ func strmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnstrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasStrmv_v2_64")
 }
 
-// strsmBatched solves an array of triangular linear systems with multiple right-hand-sides
+// strsmBatched solves an array of triangular linear systems with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
+// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
 // The solution X [i] overwrites the right-hand-sides B [i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
@@ -14348,12 +18092,12 @@ func strsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 	return toError(fnstrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasStrsmBatched")
 }
 
-// strsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides
+// strsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
+// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
 // The solution X [i] overwrites the right-hand-sides B [i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
@@ -14390,12 +18134,12 @@ func strsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 	return toError(fnstrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasStrsmBatched_64")
 }
 
-// strsm solves the triangular linear system with multiple right-hand-sides
+// strsm solves the triangular linear system with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution X overwrites the right-hand-sides B on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14429,12 +18173,12 @@ func strsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	return toError(fnstrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasStrsm_v2")
 }
 
-// strsm64 solves the triangular linear system with multiple right-hand-sides
+// strsm64 solves the triangular linear system with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution X overwrites the right-hand-sides B on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14468,12 +18212,11 @@ func strsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	return toError(fnstrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasStrsm_v2_64")
 }
 
-// strsv solves the triangular linear system with a single right-hand-side
+// strsv solves the triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14504,12 +18247,11 @@ func strsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnstrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasStrsv_v2")
 }
 
-// strsv64 solves the triangular linear system with a single right-hand-side
+// strsv64 solves the triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14540,7 +18282,7 @@ func strsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnstrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasStrsv_v2_64")
 }
 
-// strttp performs the conversion from the triangular format to the triangular packed format
+// strttp performs the conversion from the triangular format to the triangular packed format.
 //
 // If uplo == [FillModeLower] then the lower triangular part of the triangular matrix A is copied into the array AP. If uplo == [FillModeUpper] then then the upper triangular part of the triangular matrix A is copied into the array AP.
 // The possible error values returned by this function and their meanings are listed below.
@@ -14586,10 +18328,11 @@ func swapEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 
 // tSSgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -14626,10 +18369,11 @@ func tSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 
 // tSSgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -14666,10 +18410,11 @@ func tSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 
 // tSSgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -14710,10 +18455,11 @@ func tSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 
 // tSSgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -14754,10 +18500,11 @@ func tSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 
 // tSTgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -14794,10 +18541,11 @@ func tSTgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 
 // tSTgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -14834,10 +18582,11 @@ func tSTgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 
 // tSTgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -14878,10 +18627,11 @@ func tSTgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 
 // tSTgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -14930,6 +18680,7 @@ func uint8gemmBias(handle Handle, transa Operation, transb Operation, transc Ope
 
 // zaxpy multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
+// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -14958,6 +18709,7 @@ func zaxpy(handle Handle, n int32, alpha *Complex128, x driver.DevicePtr, incx i
 
 // zaxpy64 multiplies the vector x by the scalar α and adds it to the vector y overwriting the latest vector with the result.
 //
+// Hence, the performed operation is y [j]=α×x [k]+y [j] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -14986,6 +18738,7 @@ func zaxpy64(handle Handle, n int64, alpha *Complex128, x driver.DevicePtr, incx
 
 // zcopy copies the vector x into the vector y.
 //
+// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15013,6 +18766,7 @@ func zcopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // zcopy64 copies the vector x into the vector y.
 //
+// Hence, the performed operation is y [j]=x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15038,7 +18792,7 @@ func zcopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fnzcopy64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasZcopy_v2_64")
 }
 
-// zdgmm performs the matrix-matrix multiplication
+// zdgmm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
@@ -15075,7 +18829,7 @@ func zdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 	return toError(fnzdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasZdgmm")
 }
 
-// zdgmm64 performs the matrix-matrix multiplication
+// zdgmm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={A×diag(X)if mode == CUBLAS_SIDE_RIGHTdiag(X)×Aif mode == [SideLeft]
@@ -15114,6 +18868,7 @@ func zdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 
 // zdotc computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15139,16 +18894,20 @@ func zdotc(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 		var zero Complex128
 		return zero, err
 	}
-	var out Complex128
-	if err := toError(fnzdotc(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasZdotc_v2"); err != nil {
+	out := slotZdotc.get()
+	defer slotZdotc.put(out)
+	if err := toError(fnzdotc(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasZdotc_v2"); err != nil {
 		var zero Complex128
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZdotc outSlot[Complex128]
 
 // zdotc64 computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15174,16 +18933,20 @@ func zdotc64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 		var zero Complex128
 		return zero, err
 	}
-	var out Complex128
-	if err := toError(fnzdotc64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasZdotc_v2_64"); err != nil {
+	out := slotZdotc64.get()
+	defer slotZdotc64.put(out)
+	if err := toError(fnzdotc64(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasZdotc_v2_64"); err != nil {
 		var zero Complex128
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZdotc64 outSlot[Complex128]
 
 // zdotu computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15209,16 +18972,20 @@ func zdotu(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 		var zero Complex128
 		return zero, err
 	}
-	var out Complex128
-	if err := toError(fnzdotu(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasZdotu_v2"); err != nil {
+	out := slotZdotu.get()
+	defer slotZdotu.put(out)
+	if err := toError(fnzdotu(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasZdotu_v2"); err != nil {
 		var zero Complex128
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZdotu outSlot[Complex128]
 
 // zdotu64 computes the dot product of vectors x and y.
 //
+// Hence, the result is ∑i=1n(x [k]×y [j]) where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that in the first equation the conjugate of the element of vector x should be used if the function name ends in character ‘c’ and that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15244,20 +19011,23 @@ func zdotu64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 		var zero Complex128
 		return zero, err
 	}
-	var out Complex128
-	if err := toError(fnzdotu64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasZdotu_v2_64"); err != nil {
+	out := slotZdotu64.get()
+	defer slotZdotu64.put(out)
+	if err := toError(fnzdotu64(handle, n, uintptr(x), incx, uintptr(y), incy, out), "cublasZdotu_v2_64"); err != nil {
 		var zero Complex128
 		return zero, err
 	}
-	return out, nil
+	return *out, nil
 }
+
+var slotZdotu64 outSlot[Complex128]
 
 // zdrot applies Givens rotation matrix (i.e., rotation in the x,y plane counter-clockwise by angle defined by cos(alpha)=c, sin(alpha)=s):
 //
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -15289,7 +19059,7 @@ func zdrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -15318,6 +19088,7 @@ func zdrot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 
 // zdscal scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15344,6 +19115,7 @@ func zdscal(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int
 
 // zdscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15368,12 +19140,11 @@ func zdscal64(handle Handle, n int64, alpha *float64, x driver.DevicePtr, incx i
 	return toError(fnzdscal64(handle, n, alpha, uintptr(x), incx), "cublasZdscal_v2_64")
 }
 
-// zgbmv performs the banded matrix-vector multiplication
+// zgbmv performs the banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The banded matrix A is stored column by column, with the main diagonal stored in row ku+1 (starting in first position), the first superdiagonal stored in row ku (starting in second position), the first subdiagonal stored in row ku+2 (starting in first position), etc. So that in general, the element A(i,j) is stored in the memory location A(ku+1+i-j,j) for j=1,…,n and i∈[max(1,j−ku),min(m,j+kl)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left ku×ku and bottom right kl×kl triangles) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15408,12 +19179,11 @@ func zgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 	return toError(fnzgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZgbmv_v2")
 }
 
-// zgbmv64 performs the banded matrix-vector multiplication
+// zgbmv64 performs the banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a banded matrix with kl subdiagonals and ku superdiagonals, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The banded matrix A is stored column by column, with the main diagonal stored in row ku+1 (starting in first position), the first superdiagonal stored in row ku (starting in second position), the first subdiagonal stored in row ku+2 (starting in first position), etc. So that in general, the element A(i,j) is stored in the memory location A(ku+1+i-j,j) for j=1,…,n and i∈[max(1,j−ku),min(m,j+kl)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left ku×ku and bottom right kl×kl triangles) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15448,12 +19218,11 @@ func zgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 	return toError(fnzgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZgbmv_v2_64")
 }
 
-// zgeam performs the matrix-matrix addition/transposition
+// zgeam performs the matrix-matrix addition/transposition.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)+βop(B)
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)+βop(B), where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The operation is out-of-place if C does not overlap A or B.
 // The in-place mode supports the following two operations,
@@ -15493,12 +19262,11 @@ func zgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	return toError(fnzgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasZgeam")
 }
 
-// zgeam64 performs the matrix-matrix addition/transposition
+// zgeam64 performs the matrix-matrix addition/transposition.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)+βop(B)
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)+βop(B), where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×n , op(B)m×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The operation is out-of-place if C does not overlap A or B.
 // The in-place mode supports the following two operations,
@@ -15540,6 +19308,7 @@ func zgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 
 // zgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
 //
+// Carray is an array of pointers to matrices stored in column-major format.
 // This function find the least squares solution of a batch of overdetermined systems: it solves the least squares problem described as follows :
 // On exit, each Aarray [i] is overwritten with their QR factorization and each Carray [i] is overwritten with the least square solution
 // cublasgelsBatched supports only the non-transpose operation and only solves over-determined systems (m >= n).
@@ -15579,10 +19348,10 @@ func zgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 
 // zgemm3m performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //
+// This can lead to an increase in performance up to 25%.
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 //
 // Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
@@ -15622,10 +19391,10 @@ func zgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32
 
 // zgemm3m64 performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.
 //
+// This can lead to an increase in performance up to 25%.
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 //
 // Note: These 2 routines are only supported on GPUs with architecture capabilities equal to or greater than 5.0
@@ -15665,10 +19434,11 @@ func zgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 
 // zgemmBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -15709,10 +19479,11 @@ func zgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 
 // zgemmBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // C [i]=αop(A [i])op(B [i])+βC [i], for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -15753,10 +19524,11 @@ func zgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 
 // zgemmStridedBatched performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -15801,10 +19573,11 @@ func zgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 
 // zgemmStridedBatched64 performs the matrix-matrix multiplication of a batch of matrices.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. Input matrices A, B and output matrix C for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A, B and C matrices for the first instance are passed to the function by the user along with offsets in number of elements - strideA, strideB and strideC that determine the locations of input and output matrices in future instances.
 // This function supports the 64-bit Integer Interface.
-// C+i∗strideC=αop(A+i∗strideA)op(B+i∗strideB)+β(C+i∗strideC), for i ∈[0,batchCount−1]
+// C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A , B and C are arrays of pointers to matrices stored in column-major format with dimensions op(A [i])m×k , op(B [i])k×n and C [i]m×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B [i]) is defined similarly for matrix B [i] .
 //
 // Note: C [i] matrices must not overlap, i.e. the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -15847,12 +19620,11 @@ func zgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	return toError(fnzgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasZgemmStridedBatched_64")
 }
 
-// zgemm performs the matrix-matrix multiplication
+// zgemm performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15888,12 +19660,11 @@ func zgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	return toError(fnzgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZgemm_v2")
 }
 
-// zgemm64 performs the matrix-matrix multiplication
+// zgemm64 performs the matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)+βC
-// where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// C=αop(A)op(B)+βC, where α and β are scalars, and A , B and C are matrices stored in column-major format with dimensions op(A)m×k , op(B)k×n and Cm×n , respectively. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // and op(B) is defined similarly for matrix B .
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -15931,10 +19702,11 @@ func zgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 
 // zgemvBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -15971,10 +19743,11 @@ func zgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 
 // zgemvBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. The address of the input matrix and vector, and the output vector of each instance of the batch are read from arrays of pointers passed to the function by the caller.
 // This function supports the 64-bit Integer Interface.
 // y [i]=αop(A [i])x [i]+βy [i], for i∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrice A [i] stored in column-major format with dimension m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i] ,
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] vectors must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -16011,10 +19784,11 @@ func zgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 
 // zgemvStridedBatched performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -16055,10 +19829,11 @@ func zgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 
 // zgemvStridedBatched64 performs the matrix-vector multiplication of a batch of matrices and vectors.
 //
+// The batch is considered to be “uniform”, i.e. all instances have the same dimensions (m, n), leading dimension (lda), increments (incx, incy) and transposition (trans) for their respective A matrix, x and y vectors. Input matrix A and vector x, and output vector y for each instance of the batch are located at fixed offsets in number of elements from their locations in the previous instance. Pointers to A matrix, x and y vectors for the first instance are passed to the function by the user along with offsets in number of elements - strideA, stridex and stridey that determine the locations of input matrices and vectors, and output vectors in future instances.
 // This function supports the 64-bit Integer Interface.
-// y+i∗stridey=αop(A+i∗strideA)(x+i∗stridex)+β(y+i∗stridey), for i ∈[0,batchCount−1]
+// y+i*stridey=αop(A+i*strideA)(x+i*stridex)+β(y+i*stridey), for i ∈[0,batchCount−1]
 // where α and β are scalars, and A is an array of pointers to matrix stored in column-major format with dimension A [i]m×n , and x and y are arrays of pointers to vectors. Also, for matrix A [i]
-// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]Tif trans == CUBLAS_OP_TA [i]Hif trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NA [i]ᵀif trans == CUBLAS_OP_TA [i]ᴴif trans == [OpC]
 //
 // Note: y [i] matrices must not overlap, i.e. the individual gemv operations must be computable independently; otherwise, undefined behavior is expected.
 // On certain problem sizes, it might be advantageous to make multiple calls to cublasgemv() in different CUDA streams, rather than use this API.
@@ -16097,12 +19872,11 @@ func zgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 	return toError(fnzgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasZgemvStridedBatched_64")
 }
 
-// zgemv performs the matrix-vector multiplication
+// zgemv performs the matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sgemv(), dgemv(), cgemv(), zgemv()
@@ -16134,12 +19908,11 @@ func zgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, 
 	return toError(fnzgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZgemv_v2")
 }
 
-// zgemv64 performs the matrix-vector multiplication
+// zgemv64 performs the matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=α op(A)x+βy
-// where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
-// op(A)={A if trans == CUBLAS_OP_NAT if trans == CUBLAS_OP_TAH if trans == [OpC]
+// y=α op(A)x+βy, where A is a m×n matrix stored in column-major format, x and y are vectors, and α and β are scalars. Also, for matrix A
+// op(A)={A if trans == CUBLAS_OP_NAᵀ if trans == CUBLAS_OP_TAᴴ if trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // sgemv(), dgemv(), cgemv(), zgemv()
@@ -16173,6 +19946,7 @@ func zgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128
 
 // zgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
 //
+// TauArray is an array of pointers to vectors of dimension of at least max (1, min(m, n).
 // This function performs the QR factorization of each Aarray [i] for i = 0, ...,batchSize-1 using Householder reflections. Each matrix Q [i] is represented as a product of elementary reflectors and is stored in the lower part of each Aarray [i] as follows :
 // Each H [j][i] has the form
 // where tau [j] is a real scalar, and v is a real vector with v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in Aarray [j][i+1:m,i], and tau in TauArray [j][i].
@@ -16206,10 +19980,10 @@ func zgeqrfBatched(handle Handle, m int32, n int32, aarray driver.DevicePtr, lda
 	return toError(fnzgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize), "cublasZgeqrfBatched")
 }
 
-// zgerc performs the rank-1 update
+// zgerc performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -16240,10 +20014,10 @@ func zgerc(handle Handle, m int32, n int32, alpha *Complex128, x driver.DevicePt
 	return toError(fnzgerc(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZgerc_v2")
 }
 
-// zgerc64 performs the rank-1 update
+// zgerc64 performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -16274,10 +20048,10 @@ func zgerc64(handle Handle, m int64, n int64, alpha *Complex128, x driver.Device
 	return toError(fnzgerc64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZgerc_v2_64")
 }
 
-// zgeru performs the rank-1 update
+// zgeru performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -16308,10 +20082,10 @@ func zgeru(handle Handle, m int32, n int32, alpha *Complex128, x driver.DevicePt
 	return toError(fnzgeru(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZgeru_v2")
 }
 
-// zgeru64 performs the rank-1 update
+// zgeru64 performs the rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A={αxyT+Aif ger(),geru() is calledαxyH+Aif gerc() is called
+// A={αxyᵀ+Aif ger(),geru() is calledαxyᴴ+Aif gerc() is called
 // where A is a m×n matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -16414,7 +20188,7 @@ func zgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 //
 // op(A [i])X [i]=B [i]
 // where A [i] is a matrix which has been LU factorized with pivoting, X [i] and B [i] are n×nrhs matrices. Also, for matrix A
-// op(A [i])={A [i]if trans == CUBLAS_OP_NAT [i]if trans == CUBLAS_OP_TAH [i]if trans == [OpC]
+// op(A [i])={A [i]if trans == CUBLAS_OP_NAᵀ[i]if trans == CUBLAS_OP_TAᴴ[i]if trans == [OpC]
 // This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor.
 // cublasgetrsBatched() supports non-pivot LU factorization if devIpiv is NULL.
 // cublasgetrsBatched() supports arbitrary dimension.
@@ -16449,11 +20223,10 @@ func zgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray d
 	return toError(fnzgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize), "cublasZgetrsBatched")
 }
 
-// zhbmv performs the Hermitian banded matrix-vector multiplication
+// zhbmv performs the Hermitian banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k),j] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -16487,11 +20260,10 @@ func zhbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex128, a 
 	return toError(fnzhbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZhbmv_v2")
 }
 
-// zhbmv64 performs the Hermitian banded matrix-vector multiplication
+// zhbmv64 performs the Hermitian banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian banded matrix with k subdiagonals and superdiagonals, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the Hermitian banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k),j] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -16525,7 +20297,7 @@ func zhbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex128, 
 	return toError(fnzhbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZhbmv_v2_64")
 }
 
-// zhemm performs the Hermitian matrix-matrix multiplication
+// zhemm performs the Hermitian matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -16562,7 +20334,7 @@ func zhemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	return toError(fnzhemm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZhemm_v2")
 }
 
-// zhemm64 performs the Hermitian matrix-matrix multiplication
+// zhemm64 performs the Hermitian matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -16599,11 +20371,10 @@ func zhemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 	return toError(fnzhemm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZhemm_v2_64")
 }
 
-// zhemv performs the Hermitian matrix-vector multiplication
+// zhemv performs the Hermitian matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with
 // Please see the section on the for more details about the usage of atomics
 // The possible error values returned by this function and their meanings are listed below.
@@ -16636,11 +20407,10 @@ func zhemv(handle Handle, uplo FillMode, n int32, alpha *Complex128, a driver.De
 	return toError(fnzhemv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZhemv_v2")
 }
 
-// zhemv64 performs the Hermitian matrix-vector multiplication
+// zhemv64 performs the Hermitian matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian matrix stored in lower or upper mode, x and y are vectors, and α and β are scalars.
 // This function has an alternate faster implementation using atomics that can be enabled with
 // Please see the section on the for more details about the usage of atomics
 // The possible error values returned by this function and their meanings are listed below.
@@ -16673,11 +20443,10 @@ func zhemv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, a driver.
 	return toError(fnzhemv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZhemv_v2_64")
 }
 
-// zher2 performs the Hermitian rank-2 update
+// zher2 performs the Hermitian rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxyH+αˉyxH+A
-// where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher2(), zher2()
@@ -16707,11 +20476,10 @@ func zher2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.De
 	return toError(fnzher2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZher2_v2")
 }
 
-// zher264 performs the Hermitian rank-2 update
+// zher264 performs the Hermitian rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxyH+αˉyxH+A
-// where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher2(), zher2()
@@ -16741,12 +20509,11 @@ func zher264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.
 	return toError(fnzher264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZher2_v2_64")
 }
 
-// zher2k performs the Hermitian rank- 2k update
+// zher2k performs the Hermitian rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)H+αˉop(B)op(A)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
+// C=αop(A)op(B)ᴴ+αˉop(B)op(A)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᴴ and Bᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher2k(), zher2k()
@@ -16779,12 +20546,11 @@ func zher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fnzher2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZher2k_v2")
 }
 
-// zher2k64 performs the Hermitian rank- 2k update
+// zher2k64 performs the Hermitian rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)H+αˉop(B)op(A)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
+// C=αop(A)op(B)ᴴ+αˉop(B)op(A)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᴴ and Bᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher2k(), zher2k()
@@ -16817,11 +20583,10 @@ func zher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fnzher2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZher2k_v2_64")
 }
 
-// zher performs the Hermitian rank-1 update
+// zher performs the Hermitian rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxH+A
-// where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher(), zher()
@@ -16849,11 +20614,10 @@ func zher(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 	return toError(fnzher(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasZher_v2")
 }
 
-// zher64 performs the Hermitian rank-1 update
+// zher64 performs the Hermitian rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxH+A
-// where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cher(), zher()
@@ -16881,12 +20645,11 @@ func zher64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 	return toError(fnzher64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasZher_v2_64")
 }
 
-// zherk performs the Hermitian rank- k update
+// zherk performs the Hermitian rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
+// C=αop(A)op(A)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᴴif transa == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cherk(), zherk()
@@ -16917,12 +20680,11 @@ func zherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	return toError(fnzherk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasZherk_v2")
 }
 
-// zherk64 performs the Hermitian rank- k update
+// zherk64 performs the Hermitian rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NAHif transa == [OpC]
+// C=αop(A)op(A)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᴴif transa == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // cherk(), zherk()
@@ -16953,12 +20715,11 @@ func zherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	return toError(fnzherk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasZherk_v2_64")
 }
 
-// zherkx performs a variation of the Hermitian rank- k update
+// zherkx performs a variation of the Hermitian rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
+// C=αop(A)op(B)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᴴ and Bᴴif trans == [OpC]
 // This routine can be used when the matrix B is in such way that the result is guaranteed to be hermitian. An usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -16993,12 +20754,11 @@ func zherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fnzherkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZherkx")
 }
 
-// zherkx64 performs a variation of the Hermitian rank- k update
+// zherkx64 performs a variation of the Hermitian rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)H+βC
-// where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAH and BHif trans == [OpC]
+// C=αop(A)op(B)ᴴ+βC, where α and β are scalars, C is a Hermitian matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᴴ and Bᴴif trans == [OpC]
 // This routine can be used when the matrix B is in such way that the result is guaranteed to be hermitian. An usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -17033,11 +20793,10 @@ func zherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fnzherkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZherkx_64")
 }
 
-// zhpmv performs the Hermitian packed matrix-vector multiplication
+// zhpmv performs the Hermitian packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -17069,11 +20828,10 @@ func zhpmv(handle Handle, uplo FillMode, n int32, alpha *Complex128, ap driver.D
 	return toError(fnzhpmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasZhpmv_v2")
 }
 
-// zhpmv64 performs the Hermitian packed matrix-vector multiplication
+// zhpmv64 performs the Hermitian packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// y=αAx+βy
-// where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
+// y=αAx+βy, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α and β are scalars.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -17105,11 +20863,10 @@ func zhpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, ap driver
 	return toError(fnzhpmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasZhpmv_v2_64")
 }
 
-// zhpr2 performs the packed Hermitian rank-2 update
+// zhpr2 performs the packed Hermitian rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxyH+αˉyxH+A
-// where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
+// A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -17140,11 +20897,10 @@ func zhpr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.De
 	return toError(fnzhpr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasZhpr2_v2")
 }
 
-// zhpr264 performs the packed Hermitian rank-2 update
+// zhpr264 performs the packed Hermitian rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxyH+αˉyxH+A
-// where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
+// A=αxyᴴ+αˉyxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x and y are vectors, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -17175,11 +20931,10 @@ func zhpr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.
 	return toError(fnzhpr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasZhpr2_v2_64")
 }
 
-// zhpr performs the packed Hermitian rank-1 update
+// zhpr performs the packed Hermitian rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxH+A
-// where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
+// A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -17208,11 +20963,10 @@ func zhpr(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 	return toError(fnzhpr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasZhpr_v2")
 }
 
-// zhpr64 performs the packed Hermitian rank-1 update
+// zhpr64 performs the packed Hermitian rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxH+A
-// where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
+// A=αxxᴴ+A, where A is a n×n Hermitian matrix stored in packed format, x is a vector, and α is a scalar.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the Hermitian matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for j=1,…,n and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -17276,7 +21030,7 @@ func zmatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -17308,7 +21062,7 @@ func zrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 // This function supports the 64-bit Integer Interface.
 // G=(cs−sc)
 // to vectors x and y.
-// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)∗incx and j=1+(i−1)∗incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
+// Hence, the result is x [k]=c×x [k]+s×y [j] and y [j]=−s×x [k]+c×y [j] where k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srot(), drot(), crot(), csrot(), zrot(), zdrot()
@@ -17335,18 +21089,17 @@ func zrot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 	return toError(fnzrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasZrot_v2_64")
 }
 
-// zrotg constructs the Givens rotation matrix
+// zrotg constructs the Givens rotation matrix.
 //
 // This function supports the 64-bit Integer Interface.
-// G=(cs−sc)
-// that zeros out the second entry of a 2×1 vector (a,b)T .
+// G=(cs−sc), that zeros out the second entry of a 2×1 vector (a,b)ᵀ .
 // Then, for real numbers we can write
 // (cs−sc)(ab)=(r0)
-// where c2+s2=1 and r=±a2+b2 . The parameters a and b are overwritten with r and z , respectively. The value of z is such that c and s may be recovered using the following rules:
-// (c,s)={(1−z2,z) if |z|<1(0.0,1.0) if |z|=1(1/z,1−z2) if |z|>1
+// where c²+s²=1 and r=±a²+b² . The parameters a and b are overwritten with r and z , respectively. The value of z is such that c and s may be recovered using the following rules:
+// (c,s)={(1−z²,z) if |z|<1(0.0,1.0) if |z|=1(1/z,1−z²) if |z|>1
 // For complex numbers we can write
 // (cs−s¯c)(ab)=(r0)
-// where c2+(s¯×s)=1 and r=a|a|×∥(a,b)T∥2 with ∥(a,b)T∥2=|a|2+|B|2 for a≠0 and r=b for a=0 . Finally, the parameter a is overwritten with r on exit.
+// where c²+(s¯×s)=1 and r=a|a|×∥(a,b)ᵀ∥2 with ∥(a,b)ᵀ∥2=|a|²+|B|² for a≠0 and r=b for a=0 . Finally, the parameter a is overwritten with r on exit.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // srotg(), drotg(), crotg(), zrotg()
@@ -17372,6 +21125,7 @@ func zrotg(handle Handle, a *Complex128, b *Complex128, c *float64, s *Complex12
 
 // zscal scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -17398,6 +21152,7 @@ func zscal(handle Handle, n int32, alpha *Complex128, x driver.DevicePtr, incx i
 
 // zscal64 scales the vector x by the scalar α and overwrites it with the result.
 //
+// Hence, the performed operation is x [j]=α×x [j] for i=1,…,n and j=1+(i−1)*incx . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -17424,6 +21179,7 @@ func zscal64(handle Handle, n int64, alpha *Complex128, x driver.DevicePtr, incx
 
 // zswap interchanges the elements of vector x and y.
 //
+// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -17451,6 +21207,7 @@ func zswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 
 // zswap64 interchanges the elements of vector x and y.
 //
+// Hence, the performed operation is y [j]⇔x [k] for i=1,…,n , k=1+(i−1)*incx and j=1+(i−1)*incy . Notice that the last two equations reflect 1-based indexing used for compatibility with Fortran.
 // This function supports the 64-bit Integer Interface.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -17476,7 +21233,7 @@ func zswap64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	return toError(fnzswap64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasZswap_v2_64")
 }
 
-// zsymm performs the symmetric matrix-matrix multiplication
+// zsymm performs the symmetric matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -17513,7 +21270,7 @@ func zsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	return toError(fnzsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsymm_v2")
 }
 
-// zsymm64 performs the symmetric matrix-matrix multiplication
+// zsymm64 performs the symmetric matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αAB+βCif side == [SideLeft]αBA+βCif side == [SideRight]
@@ -17622,11 +21379,10 @@ func zsymv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, a driver.
 	return toError(fnzsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZsymv_v2_64")
 }
 
-// zsyr2 performs the symmetric rank-2 update
+// zsyr2 performs the symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2(), dsyr2()
@@ -17656,11 +21412,10 @@ func zsyr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.De
 	return toError(fnzsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZsyr2_v2")
 }
 
-// zsyr264 performs the symmetric rank-2 update
+// zsyr264 performs the symmetric rank-2 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=α(xyT+yxT)+A
-// where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
+// A=α(xyᵀ+yxᵀ)+A, where A is a n×n symmetric matrix stored in column-major format, x and y are vectors, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2(), dsyr2()
@@ -17690,12 +21445,11 @@ func zsyr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.
 	return toError(fnzsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZsyr2_v2_64")
 }
 
-// zsyr2k performs the symmetric rank- 2k update
+// zsyr2k performs the symmetric rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=α(op(A)op(B)T+op(B)op(A)T)+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=α(op(A)op(B)ᵀ+op(B)op(A)ᵀ)+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2k(), dsyr2k(), csyr2k(), zsyr2k()
@@ -17728,12 +21482,11 @@ func zsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fnzsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsyr2k_v2")
 }
 
-// zsyr2k64 performs the symmetric rank- 2k update
+// zsyr2k64 performs the symmetric rank- 2k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=α(op(A)op(B)T+op(B)op(A)T)+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=α(op(A)op(B)ᵀ+op(B)op(A)ᵀ)+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrix A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr2k(), dsyr2k(), csyr2k(), zsyr2k()
@@ -17766,11 +21519,10 @@ func zsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fnzsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsyr2k_v2_64")
 }
 
-// zsyr performs the symmetric rank-1 update
+// zsyr performs the symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr(), dsyr()
@@ -17798,11 +21550,10 @@ func zsyr(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.Dev
 	return toError(fnzsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasZsyr_v2")
 }
 
-// zsyr64 performs the symmetric rank-1 update
+// zsyr64 performs the symmetric rank-1 update.
 //
 // This function supports the 64-bit Integer Interface.
-// A=αxxT+A
-// where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
+// A=αxxᵀ+A, where A is a n×n symmetric matrix stored in column-major format, x is a vector, and α is a scalar.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyr(), dsyr()
@@ -17830,12 +21581,11 @@ func zsyr64(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.D
 	return toError(fnzsyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasZsyr_v2_64")
 }
 
-// zsyrk performs the symmetric rank- k update
+// zsyrk performs the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// C=αop(A)op(A)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
@@ -17866,12 +21616,11 @@ func zsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	return toError(fnzsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasZsyrk_v2")
 }
 
-// zsyrk64 performs the symmetric rank- k update
+// zsyrk64 performs the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(A)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == [OpT]
+// C=αop(A)op(A)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A is a matrix with dimensions op(A)n×k . Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == [OpT]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // ssyrk(), dsyrk(), csyrk(), zsyrk()
@@ -17902,12 +21651,11 @@ func zsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	return toError(fnzsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasZsyrk_v2_64")
 }
 
-// zsyrkx performs a variation of the symmetric rank- k update
+// zsyrkx performs a variation of the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=αop(A)op(B)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // This routine can be used when B is in such way that the result is guaranteed to be symmetric. A usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -17942,12 +21690,11 @@ func zsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	return toError(fnzsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsyrkx")
 }
 
-// zsyrkx64 performs a variation of the symmetric rank- k update
+// zsyrkx64 performs a variation of the symmetric rank- k update.
 //
 // This function supports the 64-bit Integer Interface.
-// C=αop(A)op(B)T+βC
-// where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
-// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAT and BTif trans == [OpT]
+// C=αop(A)op(B)ᵀ+βC, where α and β are scalars, C is a symmetric matrix stored in lower or upper mode, and A and B are matrices with dimensions op(A)n×k and op(B)n×k , respectively. Also, for matrices A and B
+// op(A) and op(B)={A and Bif trans == CUBLAS_OP_NAᵀ and Bᵀif trans == [OpT]
 // This routine can be used when B is in such way that the result is guaranteed to be symmetric. A usual example is when the matrix B is a scaled form of the matrix A: this is equivalent to B being the product of the matrix A and a diagonal matrix. For an efficient computation of the product of a regular matrix with a diagonal matrix, refer to the routine cublasdgmm().
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -17982,12 +21729,11 @@ func zsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	return toError(fnzsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsyrkx_64")
 }
 
-// ztbmv performs the triangular banded matrix-vector multiplication
+// ztbmv performs the triangular banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular banded matrix, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular banded matrix, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k,j)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18020,12 +21766,11 @@ func ztbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnztbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasZtbmv_v2")
 }
 
-// ztbmv64 performs the triangular banded matrix-vector multiplication
+// ztbmv64 performs the triangular banded matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular banded matrix, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular banded matrix, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
 // If uplo == [FillModeUpper] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row k + 1, the first superdiagonal in row k (starting at second position), the second superdiagonal in row k-1 (starting at third position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+k+i-j,j) for j=1,…,n and i∈[max(1,j−k,j)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the top left k×k triangle) are not referenced.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18058,12 +21803,11 @@ func ztbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnztbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasZtbmv_v2_64")
 }
 
-// ztbsv solves the triangular banded linear system with a single right-hand-side
+// ztbsv solves the triangular banded linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -18097,12 +21841,11 @@ func ztbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnztbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasZtbsv_v2")
 }
 
-// ztbsv64 solves the triangular banded linear system with a single right-hand-side
+// ztbsv64 solves the triangular banded linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular banded matrix, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the triangular banded matrix A is stored column by column, with the main diagonal of the matrix stored in row 1, the first subdiagonal in row 2 (starting at first position), the second subdiagonal in row 3 (starting at first position), etc. So that in general, the element A(i,j) is stored in the memory location A(1+i-j,j) for j=1,…,n and i∈[j,min(m,j+k)] . Also, the elements in the array A that do not conceptually correspond to the elements in the banded matrix (the bottom right k×k triangle) are not referenced.
@@ -18136,12 +21879,11 @@ func ztbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnztbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasZtbsv_v2_64")
 }
 
-// ztpmv performs the triangular packed matrix-vector multiplication
+// ztpmv performs the triangular packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18172,12 +21914,11 @@ func ztpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnztpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasZtpmv_v2")
 }
 
-// ztpmv64 performs the triangular packed matrix-vector multiplication
+// ztpmv64 performs the triangular packed matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in packed format, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // If uplo == [FillModeUpper] then the elements in the upper triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+(j*(j+1))/2] for A(i,j) and i≤j . Consequently, the packed format requires only n(n+1)2 elements for storage.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18208,12 +21949,11 @@ func ztpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnztpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasZtpmv_v2_64")
 }
 
-// ztpsv solves the packed triangular linear system with a single right-hand-side
+// ztpsv solves the packed triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -18245,12 +21985,11 @@ func ztpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnztpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasZtpsv_v2")
 }
 
-// ztpsv64 solves the packed triangular linear system with a single right-hand-side
+// ztpsv64 solves the packed triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in packed format, and x and b are vectors. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // If uplo == [FillModeLower] then the elements in the lower triangular part of the triangular matrix A are packed together column by column without gaps, so that the element A(i,j) is stored in the memory location AP [i+((2*n-j+1)*j)/2] for j=1,…,n and i≥j . Consequently, the packed format requires only n(n+1)2 elements for storage.
@@ -18282,7 +22021,7 @@ func ztpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnztpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasZtpsv_v2_64")
 }
 
-// ztpttr performs the conversion from the triangular packed format to the triangular format
+// ztpttr performs the conversion from the triangular packed format to the triangular format.
 //
 // If uplo == [FillModeLower] then the elements of AP are copied into the lower triangular part of the triangular matrix A and the upper part of A is left untouched. If uplo == [FillModeUpper] then the elements of AP are copied into the upper triangular part of the triangular matrix A and the lower part of A is left untouched.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18310,12 +22049,12 @@ func ztpttr(handle Handle, uplo FillMode, n int32, ap driver.DevicePtr, a driver
 	return toError(fnztpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda), "cublasZtpttr")
 }
 
-// ztrmm performs the triangular matrix-matrix multiplication
+// ztrmm performs the triangular matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // Notice that in order to achieve better parallelism cuBLAS differs from the BLAS API only for this routine. The BLAS API assumes an in-place implementation (with results written back to B), while the cuBLAS API assumes an out-of-place implementation (with results written into C). The application can obtain the in-place functionality of BLAS in the cuBLAS API by passing the address of the matrix B in place of the matrix C. No other overlapping in the input parameters is supported.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -18350,12 +22089,12 @@ func ztrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	return toError(fnztrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasZtrmm_v2")
 }
 
-// ztrmm64 performs the triangular matrix-matrix multiplication
+// ztrmm64 performs the triangular matrix-matrix multiplication.
 //
 // This function supports the 64-bit Integer Interface.
 // C={αop(A)Bif side == [SideLeft]αBop(A)if side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, B and C are m×n matrix, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // Notice that in order to achieve better parallelism cuBLAS differs from the BLAS API only for this routine. The BLAS API assumes an in-place implementation (with results written back to B), while the cuBLAS API assumes an out-of-place implementation (with results written into C). The application can obtain the in-place functionality of BLAS in the cuBLAS API by passing the address of the matrix B in place of the matrix C. No other overlapping in the input parameters is supported.
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
@@ -18390,12 +22129,11 @@ func ztrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	return toError(fnztrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasZtrmm_v2_64")
 }
 
-// ztrmv performs the triangular matrix-vector multiplication
+// ztrmv performs the triangular matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // strmv(), dtrmv(), ctrmv(), ztrmv()
@@ -18425,12 +22163,11 @@ func ztrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnztrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasZtrmv_v2")
 }
 
-// ztrmv64 performs the triangular matrix-vector multiplication
+// ztrmv64 performs the triangular matrix-vector multiplication.
 //
 // This function supports the 64-bit Integer Interface.
-// x=op(A)x
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
-// op(A)={Aif trans == CUBLAS_OP_NATif trans == CUBLAS_OP_TAHif trans == [OpC]
+// x=op(A)x, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x is a vector. Also, for matrix A
+// op(A)={Aif trans == CUBLAS_OP_NAᵀif trans == CUBLAS_OP_TAᴴif trans == [OpC]
 // The possible error values returned by this function and their meanings are listed below.
 // For references please refer to NETLIB documentation:
 // strmv(), dtrmv(), ctrmv(), ztrmv()
@@ -18460,12 +22197,12 @@ func ztrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnztrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasZtrmv_v2_64")
 }
 
-// ztrsmBatched solves an array of triangular linear systems with multiple right-hand-sides
+// ztrsmBatched solves an array of triangular linear systems with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
+// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
 // The solution X [i] overwrites the right-hand-sides B [i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
@@ -18502,12 +22239,12 @@ func ztrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 	return toError(fnztrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasZtrsmBatched")
 }
 
-// ztrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides
+// ztrsmBatched64 solves an array of triangular linear systems with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A [i])X [i]=αB [i]if side == CUBLAS_SIDE_LEFTX [i]op(A [i])=αB [i]if side == [SideRight]
 // where A [i] is a triangular matrix stored in lower or upper mode with or without the main diagonal, X [i] and B [i] are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A [i])={A [i]if transa == CUBLAS_OP_NAT [i]if transa == CUBLAS_OP_TAH [i]if transa == [OpC]
+// op(A [i])={A [i]if transa == CUBLAS_OP_NAᵀ[i]if transa == CUBLAS_OP_TAᴴ[i]if transa == [OpC]
 // The solution X [i] overwrites the right-hand-sides B [i] on exit.
 // No test for singularity or near-singularity is included in this function.
 // This function works for any sizes but is intended to be used for matrices of small sizes where the launch overhead is a significant factor. For bigger sizes, it might be advantageous to call batchCount times the regular cublastrsm() within a set of CUDA streams.
@@ -18544,12 +22281,12 @@ func ztrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 	return toError(fnztrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasZtrsmBatched_64")
 }
 
-// ztrsm solves the triangular linear system with multiple right-hand-sides
+// ztrsm solves the triangular linear system with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution X overwrites the right-hand-sides B on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18583,12 +22320,12 @@ func ztrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	return toError(fnztrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasZtrsm_v2")
 }
 
-// ztrsm64 solves the triangular linear system with multiple right-hand-sides
+// ztrsm64 solves the triangular linear system with multiple right-hand-sides.
 //
 // This function supports the 64-bit Integer Interface.
 // {op(A)X=αBif side == CUBLAS_SIDE_LEFTXop(A)=αBif side == [SideRight]
 // where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, X and B are m×n matrices, and α is a scalar. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution X overwrites the right-hand-sides B on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18622,12 +22359,11 @@ func ztrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	return toError(fnztrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasZtrsm_v2_64")
 }
 
-// ztrsv solves the triangular linear system with a single right-hand-side
+// ztrsv solves the triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18658,12 +22394,11 @@ func ztrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	return toError(fnztrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasZtrsv_v2")
 }
 
-// ztrsv64 solves the triangular linear system with a single right-hand-side
+// ztrsv64 solves the triangular linear system with a single right-hand-side.
 //
 // This function supports the 64-bit Integer Interface.
-// op(A)x=b
-// where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
-// op(A)={Aif transa == CUBLAS_OP_NATif transa == CUBLAS_OP_TAHif transa == [OpC]
+// op(A)x=b, where A is a triangular matrix stored in lower or upper mode with or without the main diagonal, and x and b are vectors. Also, for matrix A
+// op(A)={Aif transa == CUBLAS_OP_NAᵀif transa == CUBLAS_OP_TAᴴif transa == [OpC]
 // The solution x overwrites the right-hand-sides b on exit.
 // No test for singularity or near-singularity is included in this function.
 // The possible error values returned by this function and their meanings are listed below.
@@ -18694,7 +22429,7 @@ func ztrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	return toError(fnztrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasZtrsv_v2_64")
 }
 
-// ztrttp performs the conversion from the triangular format to the triangular packed format
+// ztrttp performs the conversion from the triangular format to the triangular packed format.
 //
 // If uplo == [FillModeLower] then the lower triangular part of the triangular matrix A is copied into the array AP. If uplo == [FillModeUpper] then then the upper triangular part of the triangular matrix A is copied into the array AP.
 // The possible error values returned by this function and their meanings are listed below.
