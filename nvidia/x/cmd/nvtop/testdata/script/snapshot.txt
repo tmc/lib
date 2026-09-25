@@ -1,0 +1,13 @@
+# A snapshot is a JSON array with one object per device.
+[!nvml] skip 'no NVML device'
+
+exec nvtop -s
+stdout '^\[$'
+stdout '^   "device_name": "'
+stdout '^   "gpu_util": '
+stdout '^   "processes" : \[$'
+stdout '^\]$'
+! stderr .
+
+exec nvtop -s -f
+stdout '^   "temp": ("[0-9]+F"|null),$'

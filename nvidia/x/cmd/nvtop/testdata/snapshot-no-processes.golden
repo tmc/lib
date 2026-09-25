@@ -1,0 +1,36 @@
+[
+  {
+   "device_name": "NVIDIA GeForce RTX 4090",
+   "device_architecture": "Ada",
+   "memory_type": null,
+   "gpu_clock": "2520MHz",
+   "mem_clock": "10501MHz",
+   "temp": "71C",
+   "fan_speed": "65%",
+   "power_draw": "270W",
+   "gpu_util": "87%",
+   "encode": "12%",
+   "decode": "0%",
+   "mem_util": "45%",
+   "mem_total": "25757220864",
+   "mem_used": "11534336000",
+   "mem_free": "14222884864"
+  },
+  {
+   "device_name": "NVIDIA GB10",
+   "device_architecture": null,
+   "memory_type": null,
+   "gpu_clock": null,
+   "mem_clock": null,
+   "temp": null,
+   "fan_speed": null,
+   "power_draw": null,
+   "gpu_util": null,
+   "encode": null,
+   "decode": null,
+   "mem_util": null,
+   "mem_total": null,
+   "mem_used": null,
+   "mem_free": null
+  }
+]

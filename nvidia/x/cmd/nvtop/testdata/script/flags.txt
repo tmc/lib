@@ -1,0 +1,24 @@
+# -v and -h print to standard output and succeed.
+exec nvtop -v
+stdout '^nvtop version 3\.3\.2-go$'
+! stderr .
+
+exec nvtop --help
+stdout '^Available options:$'
+stdout '-s --snapshot'
+! stderr .
+
+# A bad flag or argument prints the help to standard error and fails.
+! exec nvtop -x
+stderr 'flag provided but not defined: -x'
+stderr 'Available options:'
+! stdout .
+
+! exec nvtop extra
+stderr 'unexpected argument "extra"'
+
+! exec nvtop -d -1
+stderr 'a negative delay requires a time machine'
+
+! exec nvtop -E soon
+stderr 'invalid format for encode/decode hide time: soon'

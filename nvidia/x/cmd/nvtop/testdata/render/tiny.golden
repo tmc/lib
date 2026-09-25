@@ -1,0 +1,10 @@
+ Device 0 [NVIDIA GeForce RTX 4090] PCIe
+ GPU 2520MHz MEM 10501MHz TEMP  71°C  FA
+ GPU[||||||||||||||||87%(eff 52%)] MEM[|
+ Device 1 [NVIDIA GB10]             PCIe
+ GPU N/A MHz MEM N/A MHz  TEMP N/A°C   F
+ GPU[                                N/A
+    PID  USER DEV     TYPE  GPU        G
+   1234 alice   0  Compute  80%   9000Mi
+   4321   bob   0 Both G+C   7%   1488Mi
+F6Sort    F9Kill    F10Quit

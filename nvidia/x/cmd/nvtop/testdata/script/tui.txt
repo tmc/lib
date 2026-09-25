@@ -1,0 +1,6 @@
+# The interactive interface needs a terminal.
+[!nvml] skip 'no NVML device'
+[!GOOS:linux] skip 'the interface needs Linux'
+
+! exec nvtop
+stderr 'standard input is not a terminal; use -s for a snapshot'
