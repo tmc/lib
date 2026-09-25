@@ -15,7 +15,7 @@ func (s SurfRef) Array() (Array, error) {
 
 // SetArray Sets the CUDA array for a surface reference.
 //
-// Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound. See also: [Module.SurfRef], [SurfRef.Array] Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound. See also: [Module.SurfRef], [SurfRef.Array]
 //
 //   - hArray: CUDA array handle
 //   - flags: set to 0

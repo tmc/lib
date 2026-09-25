@@ -35,7 +35,9 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Sizeof(CudssFp64mp2{}); got != 16 {
 		t.Errorf("sizeof(CudssFp64mp2) = %d, want 16", got)
 	}
-	t.Log("alignof(CudssFp64mp2) = 16 in C and cannot be represented by a Go type")
+	if p := uintptr(unsafe.Pointer(NewCudssFp64mp2())); p%16 != 0 {
+		t.Errorf("NewCudssFp64mp2() = %#x, want a multiple of 16", p)
+	}
 	if got := unsafe.Offsetof(CudssFp64mp2{}.Hi); got != 0 {
 		t.Errorf("offsetof(CudssFp64mp2.Hi) = %d, want 0", got)
 	}

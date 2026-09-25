@@ -9,7 +9,9 @@ package nvml
 //
 //   - set: Reference in which to return the event handle
 //
-// Wraps nvmlEventSetCreate.
+// Wraps [nvmlEventSetCreate].
+//
+// [nvmlEventSetCreate]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv418nvmlEventSetCreateP14nvmlEventSet_t
 func NewEventSet() (EventSet, error) {
 	return eventSetCreate()
 }
@@ -19,7 +21,9 @@ func NewEventSet() (EventSet, error) {
 // For Fermi or newer fully supported devices.
 // See also: [Device.RegisterEvents]
 //
-// Wraps nvmlEventSetFree.
+// Wraps [nvmlEventSetFree].
+//
+// [nvmlEventSetFree]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv416nvmlEventSetFree14nvmlEventSet_t
 func (e EventSet) Free() error {
 	return eventSetFree(e)
 }
@@ -39,7 +43,9 @@ func (e EventSet) Free() error {
 //   - data: Reference in which to return event data
 //   - timeoutms: Maximum amount of wait time in milliseconds for registered event
 //
-// Wraps nvmlEventSetWait, bound as nvmlEventSetWait_v2.
+// Wraps [nvmlEventSetWait], bound as nvmlEventSetWait_v2.
+//
+// [nvmlEventSetWait]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv419nvmlEventSetWait_v214nvmlEventSet_tP15nvmlEventData_tj
 func (e EventSet) Wait(data *EventData, timeoutms uint32) error {
 	return eventSetWait(e, data, timeoutms)
 }

@@ -2,9 +2,11 @@
 
 package nvml
 
-// ActiveVgpus wraps nvmlGpuInstanceGetActiveVgpus.
+// ActiveVgpus wraps [nvmlGpuInstanceGetActiveVgpus].
 //
 //   - pVgpuInstanceInfo: Pointer to the vGPU instance information structure [ActiveVgpuInstanceInfo]
+//
+// [nvmlGpuInstanceGetActiveVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlGpuInstanceGetActiveVgpus17nvmlGpuInstance_tP28nvmlActiveVgpuInstanceInfo_t
 func (g GpuInstance) ActiveVgpus(pVgpuInstanceInfo *ActiveVgpuInstanceInfo) error {
 	return gpuInstanceGetActiveVgpus(g, pVgpuInstanceInfo)
 }
@@ -16,7 +18,9 @@ func (g GpuInstance) ActiveVgpus(pVgpuInstanceInfo *ActiveVgpuInstanceInfo) erro
 //   - id: The compute instance ID
 //   - computeInstance: Returns compute instance
 //
-// Wraps nvmlGpuInstanceGetComputeInstanceById.
+// Wraps [nvmlGpuInstanceGetComputeInstanceById].
+//
+// [nvmlGpuInstanceGetComputeInstanceById]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv437nvmlGpuInstanceGetComputeInstanceById17nvmlGpuInstance_tjP21nvmlComputeInstance_t
 func (g GpuInstance) ComputeInstanceById(id uint32) (ComputeInstance, error) {
 	return gpuInstanceGetComputeInstanceById(g, id)
 }
@@ -30,7 +34,9 @@ func (g GpuInstance) ComputeInstanceById(id uint32) (ComputeInstance, error) {
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 //
-// Wraps nvmlGpuInstanceGetComputeInstancePossiblePlacements.
+// Wraps [nvmlGpuInstanceGetComputeInstancePossiblePlacements].
+//
+// [nvmlGpuInstanceGetComputeInstancePossiblePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv451nvmlGpuInstanceGetComputeInstancePossiblePlacements17nvmlGpuInstance_tjP30nvmlComputeInstancePlacement_tPj
 func (g GpuInstance) ComputeInstancePossiblePlacements(profileId uint32, placements *ComputeInstancePlacement, count *uint32) error {
 	return gpuInstanceGetComputeInstancePossiblePlacements(g, profileId, placements, count)
 }
@@ -46,7 +52,9 @@ func (g GpuInstance) ComputeInstancePossiblePlacements(profileId uint32, placeme
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlGpuInstanceGetComputeInstanceProfileInfo.
+// Wraps [nvmlGpuInstanceGetComputeInstanceProfileInfo].
+//
+// [nvmlGpuInstanceGetComputeInstanceProfileInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv444nvmlGpuInstanceGetComputeInstanceProfileInfo17nvmlGpuInstance_tjjP32nvmlComputeInstanceProfileInfo_t
 func (g GpuInstance) ComputeInstanceProfileInfo(profile uint32, engProfile uint32) (ComputeInstanceProfileInfo, error) {
 	return gpuInstanceGetComputeInstanceProfileInfo(g, profile, engProfile)
 }
@@ -61,7 +69,9 @@ func (g GpuInstance) ComputeInstanceProfileInfo(profile uint32, engProfile uint3
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlGpuInstanceGetComputeInstanceProfileInfoV.
+// Wraps [nvmlGpuInstanceGetComputeInstanceProfileInfoV].
+//
+// [nvmlGpuInstanceGetComputeInstanceProfileInfoV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv445nvmlGpuInstanceGetComputeInstanceProfileInfoV17nvmlGpuInstance_tjjP35nvmlComputeInstanceProfileInfo_v2_t
 func (g GpuInstance) ComputeInstanceProfileInfoV(profile uint32, engProfile uint32) (ComputeInstanceProfileInfoV2, error) {
 	return gpuInstanceGetComputeInstanceProfileInfoV(g, profile, engProfile)
 }
@@ -73,7 +83,9 @@ func (g GpuInstance) ComputeInstanceProfileInfoV(profile uint32, engProfile uint
 //   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
-// Wraps nvmlGpuInstanceGetComputeInstanceRemainingCapacity.
+// Wraps [nvmlGpuInstanceGetComputeInstanceRemainingCapacity].
+//
+// [nvmlGpuInstanceGetComputeInstanceRemainingCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv450nvmlGpuInstanceGetComputeInstanceRemainingCapacity17nvmlGpuInstance_tjPj
 func (g GpuInstance) ComputeInstanceRemainingCapacity(profileId uint32, count *uint32) error {
 	return gpuInstanceGetComputeInstanceRemainingCapacity(g, profileId, count)
 }
@@ -86,14 +98,18 @@ func (g GpuInstance) ComputeInstanceRemainingCapacity(profileId uint32, count *u
 //   - computeInstances: Returns pre-exiting compute instances, the buffer must be large enough to accommodate the instances supported by the profile. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: The count of returned compute instances
 //
-// Wraps nvmlGpuInstanceGetComputeInstances.
+// Wraps [nvmlGpuInstanceGetComputeInstances].
+//
+// [nvmlGpuInstanceGetComputeInstances]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv434nvmlGpuInstanceGetComputeInstances17nvmlGpuInstance_tjP21nvmlComputeInstance_tPj
 func (g GpuInstance) ComputeInstances(profileId uint32, computeInstances *ComputeInstance, count *uint32) error {
 	return gpuInstanceGetComputeInstances(g, profileId, computeInstances, count)
 }
 
-// CreatableVgpus wraps nvmlGpuInstanceGetCreatableVgpus.
+// CreatableVgpus wraps [nvmlGpuInstanceGetCreatableVgpus].
 //
 //   - pVgpus: Pointer to the caller-provided structure of [VgpuTypeIdInfo]
+//
+// [nvmlGpuInstanceGetCreatableVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlGpuInstanceGetCreatableVgpus17nvmlGpuInstance_tP20nvmlVgpuTypeIdInfo_t
 func (g GpuInstance) CreatableVgpus(pVgpus *VgpuTypeIdInfo) error {
 	return gpuInstanceGetCreatableVgpus(g, pVgpus)
 }
@@ -106,7 +122,9 @@ func (g GpuInstance) CreatableVgpus(pVgpus *VgpuTypeIdInfo) error {
 //   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - computeInstance: Returns the compute instance handle
 //
-// Wraps nvmlGpuInstanceCreateComputeInstance.
+// Wraps [nvmlGpuInstanceCreateComputeInstance].
+//
+// [nvmlGpuInstanceCreateComputeInstance]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv436nvmlGpuInstanceCreateComputeInstance17nvmlGpuInstance_tjP21nvmlComputeInstance_t
 func (g GpuInstance) CreateComputeInstance(profileId uint32) (ComputeInstance, error) {
 	return gpuInstanceCreateComputeInstance(g, profileId)
 }
@@ -120,7 +138,9 @@ func (g GpuInstance) CreateComputeInstance(profileId uint32) (ComputeInstance, e
 //   - placement: The requested placement. See [GpuInstance.ComputeInstancePossiblePlacements]
 //   - computeInstance: Returns the compute instance handle
 //
-// Wraps nvmlGpuInstanceCreateComputeInstanceWithPlacement.
+// Wraps [nvmlGpuInstanceCreateComputeInstanceWithPlacement].
+//
+// [nvmlGpuInstanceCreateComputeInstanceWithPlacement]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv449nvmlGpuInstanceCreateComputeInstanceWithPlacement17nvmlGpuInstance_tjPK30nvmlComputeInstancePlacement_tP21nvmlComputeInstance_t
 func (g GpuInstance) CreateComputeInstanceWithPlacement(profileId uint32, placement *ComputeInstancePlacement) (ComputeInstance, error) {
 	return gpuInstanceCreateComputeInstanceWithPlacement(g, profileId, placement)
 }
@@ -129,7 +149,9 @@ func (g GpuInstance) CreateComputeInstanceWithPlacement(profileId uint32, placem
 //
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
-// Wraps nvmlGpuInstanceDestroy.
+// Wraps [nvmlGpuInstanceDestroy].
+//
+// [nvmlGpuInstanceDestroy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv422nvmlGpuInstanceDestroy17nvmlGpuInstance_t
 func (g GpuInstance) Destroy() error {
 	return gpuInstanceDestroy(g)
 }
@@ -140,49 +162,63 @@ func (g GpuInstance) Destroy() error {
 //
 //   - info: Return GPU instance information
 //
-// Wraps nvmlGpuInstanceGetInfo.
+// Wraps [nvmlGpuInstanceGetInfo].
+//
+// [nvmlGpuInstanceGetInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv422nvmlGpuInstanceGetInfo17nvmlGpuInstance_tP21nvmlGpuInstanceInfo_t
 func (g GpuInstance) Info() (GpuInstanceInfo, error) {
 	return gpuInstanceGetInfo(g)
 }
 
-// SetVgpuHeterogeneousMode wraps nvmlGpuInstanceSetVgpuHeterogeneousMode.
+// SetVgpuHeterogeneousMode wraps [nvmlGpuInstanceSetVgpuHeterogeneousMode].
 //
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
+//
+// [nvmlGpuInstanceSetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceSetVgpuHeterogeneousMode17nvmlGpuInstance_tPK27nvmlVgpuHeterogeneousMode_t
 func (g GpuInstance) SetVgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	return gpuInstanceSetVgpuHeterogeneousMode(g, pHeterogeneousMode)
 }
 
-// SetVgpuSchedulerState wraps nvmlGpuInstanceSetVgpuSchedulerState_v2.
+// SetVgpuSchedulerState wraps [nvmlGpuInstanceSetVgpuSchedulerState_v2].
 //
 //   - pSchedulerState: Pointer to the caller-provided structure of [VgpuSchedulerStateV2]
+//
+// [nvmlGpuInstanceSetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceSetVgpuSchedulerState_v217nvmlGpuInstance_tP27nvmlVgpuSchedulerState_v2_t
 func (g GpuInstance) SetVgpuSchedulerState(pSchedulerState *VgpuSchedulerStateV2) error {
 	return gpuInstanceSetVgpuSchedulerState(g, pSchedulerState)
 }
 
-// VgpuHeterogeneousMode wraps nvmlGpuInstanceGetVgpuHeterogeneousMode.
+// VgpuHeterogeneousMode wraps [nvmlGpuInstanceGetVgpuHeterogeneousMode].
 //
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
+//
+// [nvmlGpuInstanceGetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceGetVgpuHeterogeneousMode17nvmlGpuInstance_tP27nvmlVgpuHeterogeneousMode_t
 func (g GpuInstance) VgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	return gpuInstanceGetVgpuHeterogeneousMode(g, pHeterogeneousMode)
 }
 
-// VgpuSchedulerLog wraps nvmlGpuInstanceGetVgpuSchedulerLog_v2.
+// VgpuSchedulerLog wraps [nvmlGpuInstanceGetVgpuSchedulerLog_v2].
 //
 //   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
+//
+// [nvmlGpuInstanceGetVgpuSchedulerLog_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv437nvmlGpuInstanceGetVgpuSchedulerLog_v217nvmlGpuInstance_tP29nvmlVgpuSchedulerLogInfo_v2_t
 func (g GpuInstance) VgpuSchedulerLog(pSchedulerLogInfo *VgpuSchedulerLogInfoV2) error {
 	return gpuInstanceGetVgpuSchedulerLog(g, pSchedulerLogInfo)
 }
 
-// VgpuSchedulerState wraps nvmlGpuInstanceGetVgpuSchedulerState_v2.
+// VgpuSchedulerState wraps [nvmlGpuInstanceGetVgpuSchedulerState_v2].
 //
 //   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
+//
+// [nvmlGpuInstanceGetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceGetVgpuSchedulerState_v217nvmlGpuInstance_tP31nvmlVgpuSchedulerStateInfo_v2_t
 func (g GpuInstance) VgpuSchedulerState(pSchedulerStateInfo *VgpuSchedulerStateInfoV2) error {
 	return gpuInstanceGetVgpuSchedulerState(g, pSchedulerStateInfo)
 }
 
-// VgpuTypeCreatablePlacements wraps nvmlGpuInstanceGetVgpuTypeCreatablePlacements.
+// VgpuTypeCreatablePlacements wraps [nvmlGpuInstanceGetVgpuTypeCreatablePlacements].
 //
 //   - pCreatablePlacementInfo: Pointer to the list of vGPU creatable placement structure [VgpuCreatablePlacementInfo]
+//
+// [nvmlGpuInstanceGetVgpuTypeCreatablePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv445nvmlGpuInstanceGetVgpuTypeCreatablePlacements17nvmlGpuInstance_tP32nvmlVgpuCreatablePlacementInfo_t
 func (g GpuInstance) VgpuTypeCreatablePlacements(pCreatablePlacementInfo *VgpuCreatablePlacementInfo) error {
 	return gpuInstanceGetVgpuTypeCreatablePlacements(g, pCreatablePlacementInfo)
 }

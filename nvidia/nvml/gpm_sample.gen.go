@@ -8,7 +8,9 @@ package nvml
 //
 //   - gpmSample: Where the allocated sample will be stored
 //
-// Wraps nvmlGpmSampleAlloc.
+// Wraps [nvmlGpmSampleAlloc].
+//
+// [nvmlGpmSampleAlloc]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv418nvmlGpmSampleAllocP15nvmlGpmSample_t
 func NewGpmSample() (GpmSample, error) {
 	return gpmSampleAlloc()
 }
@@ -17,7 +19,9 @@ func NewGpmSample() (GpmSample, error) {
 //
 // For Hopper or newer fully supported devices.
 //
-// Wraps nvmlGpmSampleFree.
+// Wraps [nvmlGpmSampleFree].
+//
+// [nvmlGpmSampleFree]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv417nvmlGpmSampleFree15nvmlGpmSample_t
 func (g GpmSample) Free() error {
 	return gpmSampleFree(g)
 }
@@ -29,7 +33,9 @@ func (g GpmSample) Free() error {
 //
 //   - device: The device handle or MIG device handle to get samples for
 //
-// Wraps nvmlGpmSampleGet.
+// Wraps [nvmlGpmSampleGet].
+//
+// [nvmlGpmSampleGet]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv416nvmlGpmSampleGet12nvmlDevice_t15nvmlGpmSample_t
 func (g GpmSample) Get(device Device) error {
 	return gpmSampleGet(device, g)
 }

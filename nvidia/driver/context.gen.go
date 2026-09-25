@@ -120,7 +120,7 @@ func (c Context) SynchronizeV2() error {
 
 // WaitEvent Make a context wait on an event.
 //
-// Makes all future work submitted to context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [Context.RecordEvent] for details on what is captured by an event. If the context passed to hCtx is the primary context, the primary context and its green contexts will wait for hEvent. If the context passed to hCtx is a context converted from green context via [CtxFromGreenCtx], the green context will wait for hEvent. See also: [Context.RecordEvent], [GreenCtx.RecordEvent], [GreenCtx.WaitEvent], [Stream.WaitEvent] Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Makes all future work submitted to context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [Context.RecordEvent] for details on what is captured by an event. If the context passed to hCtx is the primary context, the primary context and its green contexts will wait for hEvent. If the context passed to hCtx is a context converted from green context via [CtxFromGreenCtx], the green context will wait for hEvent. See also: [Context.RecordEvent], [GreenCtx.RecordEvent], [GreenCtx.WaitEvent], [Stream.WaitEvent]
 //
 //   - hEvent: Event to wait on
 //

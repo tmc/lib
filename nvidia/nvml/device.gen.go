@@ -21,7 +21,9 @@ import (
 //   - index: The index of the target GPU, >= 0 and < accessibleDevices
 //   - device: Reference in which to return the device handle
 //
-// Wraps nvmlDeviceGetHandleByIndex, bound as nvmlDeviceGetHandleByIndex_v2.
+// Wraps [nvmlDeviceGetHandleByIndex], bound as nvmlDeviceGetHandleByIndex_v2.
+//
+// [nvmlDeviceGetHandleByIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetHandleByIndex_v2jP12nvmlDevice_t
 func NewDeviceByIndex(index uint32) (Device, error) {
 	return deviceGetHandleByIndex(index)
 }
@@ -37,7 +39,9 @@ func NewDeviceByIndex(index uint32) (Device, error) {
 //   - pciBusId: The PCI bus id of the target GPU Accept the following formats (all numbers in hexadecimal): domain:bus:device.function in format x:x:x.x domain:bus:device in format x:x:x bus:device.function in format x:x.x
 //   - device: Reference in which to return the device handle
 //
-// Wraps nvmlDeviceGetHandleByPciBusId, bound as nvmlDeviceGetHandleByPciBusId_v2.
+// Wraps [nvmlDeviceGetHandleByPciBusId], bound as nvmlDeviceGetHandleByPciBusId_v2.
+//
+// [nvmlDeviceGetHandleByPciBusId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetHandleByPciBusId_v2PKcP12nvmlDevice_t
 func NewDeviceByPciBusId(pciBusId string) (Device, error) {
 	return deviceGetHandleByPciBusId(pciBusId)
 }
@@ -55,7 +59,9 @@ func NewDeviceByPciBusId(pciBusId string) (Device, error) {
 //
 // Deprecated: Since more than one GPU can exist on a single board this function is deprecated in favor of [NewDeviceByUUID]. For dual GPU boards this function will return [ErrInvalidArgument]. Starting from NVML 5, this API causes NVML to initialize the target GPU NVML may initialize additional GPUs as it searches for the target GPU
 //
-// Wraps nvmlDeviceGetHandleBySerial.
+// Wraps [nvmlDeviceGetHandleBySerial].
+//
+// [nvmlDeviceGetHandleBySerial]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetHandleBySerialPKcP12nvmlDevice_t
 func NewDeviceBySerial(serial *byte) (Device, error) {
 	return deviceGetHandleBySerial(serial)
 }
@@ -69,7 +75,9 @@ func NewDeviceBySerial(serial *byte) (Device, error) {
 //   - uuid: The UUID of the target GPU or MIG instance
 //   - device: Reference in which to return the device handle or MIG device handle
 //
-// Wraps nvmlDeviceGetHandleByUUID.
+// Wraps [nvmlDeviceGetHandleByUUID].
+//
+// [nvmlDeviceGetHandleByUUID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetHandleByUUIDPKcP12nvmlDevice_t
 func NewDeviceByUUID(uuid string) (Device, error) {
 	return deviceGetHandleByUUID(uuid)
 }
@@ -82,7 +90,9 @@ func NewDeviceByUUID(uuid string) (Device, error) {
 //   - uuid: The UUID of the target GPU or MIG instance
 //   - device: Reference in which to return the device handle or MIG device handle
 //
-// Wraps nvmlDeviceGetHandleByUUIDV.
+// Wraps [nvmlDeviceGetHandleByUUIDV].
+//
+// [nvmlDeviceGetHandleByUUIDV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetHandleByUUIDVPK10nvmlUUID_tP12nvmlDevice_t
 func NewDeviceByUUIDV(uuid *UUID) (Device, error) {
 	return deviceGetHandleByUUIDV(uuid)
 }
@@ -95,7 +105,9 @@ func NewDeviceByUUIDV(uuid *UUID) (Device, error) {
 //   - apiType: Target API type for this operation
 //   - isRestricted: Reference in which to return the current restriction [FeatureEnabled] indicates that the API is root-only [FeatureDisabled] indicates that the API is accessible to all users
 //
-// Wraps nvmlDeviceGetAPIRestriction.
+// Wraps [nvmlDeviceGetAPIRestriction].
+//
+// [nvmlDeviceGetAPIRestriction]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetAPIRestriction12nvmlDevice_t19nvmlRestrictedAPI_tP17nvmlEnableState_t
 func (d Device) APIRestriction(apiType RestrictedAPI, isRestricted *EnableState) error {
 	return deviceGetAPIRestriction(d, apiType, isRestricted)
 }
@@ -109,7 +121,9 @@ func (d Device) APIRestriction(apiType RestrictedAPI, isRestricted *EnableState)
 //
 //   - bufferSize: Reference in which to provide the size (in number of elements) of the circular buffer for accounting stats
 //
-// Wraps nvmlDeviceGetAccountingBufferSize.
+// Wraps [nvmlDeviceGetAccountingBufferSize].
+//
+// [nvmlDeviceGetAccountingBufferSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv433nvmlDeviceGetAccountingBufferSize12nvmlDevice_tPj
 func (d Device) AccountingBufferSize(bufferSize *uint32) error {
 	return deviceGetAccountingBufferSize(d, bufferSize)
 }
@@ -121,7 +135,9 @@ func (d Device) AccountingBufferSize(bufferSize *uint32) error {
 //
 //   - mode: Reference in which to return the current accounting mode
 //
-// Wraps nvmlDeviceGetAccountingMode.
+// Wraps [nvmlDeviceGetAccountingMode].
+//
+// [nvmlDeviceGetAccountingMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv427nvmlDeviceGetAccountingMode12nvmlDevice_tP17nvmlEnableState_t
 func (d Device) AccountingMode() (EnableState, error) {
 	return deviceGetAccountingMode(d)
 }
@@ -138,9 +154,11 @@ func (d Device) AccountingMode() (EnableState, error) {
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
 //
-// Wraps nvmlDeviceGetAccountingPids.
+// Wraps [nvmlDeviceGetAccountingPids].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetAccountingPids]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv427nvmlDeviceGetAccountingPids12nvmlDevice_tPjPj
 func (d Device) AccountingPids(buf []uint32) ([]uint32, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -173,17 +191,21 @@ func (d Device) AccountingPids(buf []uint32) ([]uint32, error) {
 //   - pid: Process Id of the target process to query stats for
 //   - stats: Reference in which to return the process's accounting stats
 //
-// Wraps nvmlDeviceGetAccountingStats.
+// Wraps [nvmlDeviceGetAccountingStats].
+//
+// [nvmlDeviceGetAccountingStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv428nvmlDeviceGetAccountingStats12nvmlDevice_tjP21nvmlAccountingStats_t
 func (d Device) AccountingStats(pid uint32, stats *AccountingStats) error {
 	return deviceGetAccountingStats(d, pid, stats)
 }
 
-// ActiveVgpus wraps nvmlDeviceGetActiveVgpus.
+// ActiveVgpus wraps [nvmlDeviceGetActiveVgpus].
 //
 //   - vgpuCount: Pointer which passes in the array size as well as get back the number of types
 //   - vgpuInstances: Pointer to array in which to return list of vGPU instances
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetActiveVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv424nvmlDeviceGetActiveVgpus12nvmlDevice_tPjP18nvmlVgpuInstance_t
 func (d Device) ActiveVgpus(buf []VgpuInstance) ([]VgpuInstance, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -210,7 +232,9 @@ func (d Device) ActiveVgpus(buf []VgpuInstance) ([]VgpuInstance, error) {
 //
 //   - adaptiveClockStatus: The current adaptive clocking status, either [AdaptiveClockingInfoStatusDisabled] or [AdaptiveClockingInfoStatusEnabled]
 //
-// Wraps nvmlDeviceGetAdaptiveClockInfoStatus.
+// Wraps [nvmlDeviceGetAdaptiveClockInfoStatus].
+//
+// [nvmlDeviceGetAdaptiveClockInfoStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv436nvmlDeviceGetAdaptiveClockInfoStatus12nvmlDevice_tPj
 func (d Device) AdaptiveClockInfoStatus() (uint32, error) {
 	return deviceGetAdaptiveClockInfoStatus(d)
 }
@@ -221,7 +245,9 @@ func (d Device) AdaptiveClockInfoStatus() (uint32, error) {
 //
 //   - mode: Pointer to addressing mode of the device
 //
-// Wraps nvmlDeviceGetAddressingMode.
+// Wraps [nvmlDeviceGetAddressingMode].
+//
+// [nvmlDeviceGetAddressingMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv427nvmlDeviceGetAddressingMode12nvmlDevice_tP26nvmlDeviceAddressingMode_t
 func (d Device) AddressingMode() (DeviceAddressingMode, error) {
 	return deviceGetAddressingMode(d)
 }
@@ -230,16 +256,20 @@ func (d Device) AddressingMode() (DeviceAddressingMode, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetApplicationsClock.
+// Wraps [nvmlDeviceGetApplicationsClock].
+//
+// [nvmlDeviceGetApplicationsClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetApplicationsClock12nvmlDevice_t15nvmlClockType_tPj
 func (d Device) ApplicationsClock(clockType ClockType) (uint32, error) {
 	return deviceGetApplicationsClock(d, clockType)
 }
 
 // Architecture Get architecture for device
 //
-//   - arch: Reference where architecture is returned, if call successful. Set to NVML_DEVICE_ARCH_* upon success
+//   - arch: Reference where architecture is returned, if call successful. Set to NVML_DEVICE_ARCH_* ([DeviceArchitecture]) upon success
 //
-// Wraps nvmlDeviceGetArchitecture.
+// Wraps [nvmlDeviceGetArchitecture].
+//
+// [nvmlDeviceGetArchitecture]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetArchitecture12nvmlDevice_tP24nvmlDeviceArchitecture_t
 func (d Device) Architecture() (DeviceArchitecture, error) {
 	return deviceGetArchitecture(d)
 }
@@ -252,7 +282,9 @@ func (d Device) Architecture() (DeviceArchitecture, error) {
 //
 //   - attributes: Device attributes
 //
-// Wraps nvmlDeviceGetAttributes, bound as nvmlDeviceGetAttributes_v2.
+// Wraps [nvmlDeviceGetAttributes], bound as nvmlDeviceGetAttributes_v2.
+//
+// [nvmlDeviceGetAttributes]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetAttributes_v212nvmlDevice_tP22nvmlDeviceAttributes_t
 func (d Device) Attributes(attributes *DeviceAttributes) error {
 	return deviceGetAttributes(d, attributes)
 }
@@ -266,7 +298,9 @@ func (d Device) Attributes(attributes *DeviceAttributes) error {
 //   - isEnabled: Where to store the current state of Auto Boosted clocks of the target device
 //   - defaultIsEnabled: Where to store the default Auto Boosted clocks behavior of the target device that the device will revert to when no applications are using the GPU
 //
-// Wraps nvmlDeviceGetAutoBoostedClocksEnabled.
+// Wraps [nvmlDeviceGetAutoBoostedClocksEnabled].
+//
+// [nvmlDeviceGetAutoBoostedClocksEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetAutoBoostedClocksEnabled12nvmlDevice_tP17nvmlEnableState_tP17nvmlEnableState_t
 func (d Device) AutoBoostedClocksEnabled(isEnabled *EnableState, defaultIsEnabled *EnableState) error {
 	return deviceGetAutoBoostedClocksEnabled(d, isEnabled, defaultIsEnabled)
 }
@@ -280,7 +314,9 @@ func (d Device) AutoBoostedClocksEnabled(isEnabled *EnableState, defaultIsEnable
 //
 //   - bar1Memory: Reference in which BAR1 memory information is returned
 //
-// Wraps nvmlDeviceGetBAR1MemoryInfo.
+// Wraps [nvmlDeviceGetBAR1MemoryInfo].
+//
+// [nvmlDeviceGetBAR1MemoryInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetBAR1MemoryInfo12nvmlDevice_tP16nvmlBAR1Memory_t
 func (d Device) BAR1MemoryInfo() (BAR1Memory, error) {
 	return deviceGetBAR1MemoryInfo(d)
 }
@@ -291,7 +327,9 @@ func (d Device) BAR1MemoryInfo() (BAR1Memory, error) {
 //
 //   - boardId: Reference in which to return the device's board ID
 //
-// Wraps nvmlDeviceGetBoardId.
+// Wraps [nvmlDeviceGetBoardId].
+//
+// [nvmlDeviceGetBoardId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetBoardId12nvmlDevice_tPj
 func (d Device) BoardId() (uint32, error) {
 	return deviceGetBoardId(d)
 }
@@ -303,7 +341,9 @@ func (d Device) BoardId() (uint32, error) {
 //   - partNumber: Reference to the buffer to return
 //   - length: Length of the buffer reference
 //
-// Wraps nvmlDeviceGetBoardPartNumber.
+// Wraps [nvmlDeviceGetBoardPartNumber].
+//
+// [nvmlDeviceGetBoardPartNumber]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetBoardPartNumber12nvmlDevice_tPcj
 func (d Device) BoardPartNumber() (string, error) {
 	return deviceGetBoardPartNumber(d)
 }
@@ -315,7 +355,9 @@ func (d Device) BoardPartNumber() (string, error) {
 //
 //   - type_: Reference in which to return the product brand type
 //
-// Wraps nvmlDeviceGetBrand.
+// Wraps [nvmlDeviceGetBrand].
+//
+// [nvmlDeviceGetBrand]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv418nvmlDeviceGetBrand12nvmlDevice_tP15nvmlBrandType_t
 func (d Device) Brand() (BrandType, error) {
 	return deviceGetBrand(d)
 }
@@ -326,7 +368,9 @@ func (d Device) Brand() (BrandType, error) {
 //
 //   - bridgeHierarchy: Reference to the returned bridge chip Hierarchy
 //
-// Wraps nvmlDeviceGetBridgeChipInfo.
+// Wraps [nvmlDeviceGetBridgeChipInfo].
+//
+// [nvmlDeviceGetBridgeChipInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetBridgeChipInfo12nvmlDevice_tP25nvmlBridgeChipHierarchy_t
 func (d Device) BridgeChipInfo(bridgeHierarchy *BridgeChipHierarchy) error {
 	return deviceGetBridgeChipInfo(d, bridgeHierarchy)
 }
@@ -337,7 +381,9 @@ func (d Device) BridgeChipInfo(bridgeHierarchy *BridgeChipHierarchy) error {
 //
 //   - type_: The PCI Bus type
 //
-// Wraps nvmlDeviceGetBusType.
+// Wraps [nvmlDeviceGetBusType].
+//
+// [nvmlDeviceGetBusType]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetBusType12nvmlDevice_tP13nvmlBusType_t
 func (d Device) BusType() (BusType, error) {
 	return deviceGetBusType(d)
 }
@@ -346,7 +392,9 @@ func (d Device) BusType() (BusType, error) {
 //
 //   - c2cModeInfo: Output struct containing the device's C2C Mode info
 //
-// Wraps nvmlDeviceGetC2cModeInfoV.
+// Wraps [nvmlDeviceGetC2cModeInfoV].
+//
+// [nvmlDeviceGetC2cModeInfoV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetC2cModeInfoV12nvmlDevice_tP20nvmlC2cModeInfo_v1_t
 func (d Device) C2cModeInfoV(c2cModeInfo *C2cModeInfoV1) error {
 	return deviceGetC2cModeInfoV(d, c2cModeInfo)
 }
@@ -363,7 +411,9 @@ func (d Device) Capabilities() (DeviceCapabilities, error) {
 // For Kepler or newer fully supported devices. Requires root/admin permissions.
 // See [Device.AccountingMode] See [Device.AccountingStats] See [Device.SetAccountingMode]
 //
-// Wraps nvmlDeviceClearAccountingPids.
+// Wraps [nvmlDeviceClearAccountingPids].
+//
+// [nvmlDeviceClearAccountingPids]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv429nvmlDeviceClearAccountingPids12nvmlDevice_t
 func (d Device) ClearAccountingPids() error {
 	return deviceClearAccountingPids(d)
 }
@@ -372,7 +422,9 @@ func (d Device) ClearAccountingPids() error {
 //
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
-// Wraps nvmlDeviceClearCpuAffinity.
+// Wraps [nvmlDeviceClearCpuAffinity].
+//
+// [nvmlDeviceClearCpuAffinity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv426nvmlDeviceClearCpuAffinity12nvmlDevice_t
 func (d Device) ClearCpuAffinity() error {
 	return deviceClearCpuAffinity(d)
 }
@@ -383,11 +435,12 @@ func (d Device) ClearCpuAffinity() error {
 // Sets all of the specified ECC counters to 0, including both detailed and total counts.
 // This operation takes effect immediately.
 // See [MemoryErrorType] for details on available counter types.
-// See also:
 //
 //   - counterType: Flag that indicates which type of errors should be cleared
 //
-// Wraps nvmlDeviceClearEccErrorCounts.
+// Wraps [nvmlDeviceClearEccErrorCounts].
+//
+// [nvmlDeviceClearEccErrorCounts]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv429nvmlDeviceClearEccErrorCounts12nvmlDevice_t20nvmlEccCounterType_t
 func (d Device) ClearEccErrorCounts(counterType EccCounterType) error {
 	return deviceClearEccErrorCounts(d, counterType)
 }
@@ -397,7 +450,9 @@ func (d Device) ClearEccErrorCounts(counterType EccCounterType) error {
 //   - valuesCount: Number of entries in values that should be cleared
 //   - values: Array of valuesCount structures to hold field values. Each value's fieldId must be populated prior to this call
 //
-// Wraps nvmlDeviceClearFieldValues.
+// Wraps [nvmlDeviceClearFieldValues].
+//
+// [nvmlDeviceClearFieldValues]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlFieldValueQueries.html#_CPPv426nvmlDeviceClearFieldValues12nvmlDevice_tiP16nvmlFieldValue_t
 func (d Device) ClearFieldValues(valuesCount int32, values *FieldValue) error {
 	return deviceClearFieldValues(d, valuesCount, values)
 }
@@ -410,7 +465,9 @@ func (d Device) ClearFieldValues(valuesCount int32, values *FieldValue) error {
 //
 //   - status: Reference in which to return the clkmon fault status
 //
-// Wraps nvmlDeviceGetClkMonStatus.
+// Wraps [nvmlDeviceGetClkMonStatus].
+//
+// [nvmlDeviceGetClkMonStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetClkMonStatus12nvmlDevice_tP18nvmlClkMonStatus_t
 func (d Device) ClkMonStatus(status *ClkMonStatus) error {
 	return deviceGetClkMonStatus(d, status)
 }
@@ -423,7 +480,9 @@ func (d Device) ClkMonStatus(status *ClkMonStatus) error {
 //   - clockId: Identify which clock in the domain to query
 //   - clockMHz: Reference in which to return the clock in MHz
 //
-// Wraps nvmlDeviceGetClock.
+// Wraps [nvmlDeviceGetClock].
+//
+// [nvmlDeviceGetClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv418nvmlDeviceGetClock12nvmlDevice_t15nvmlClockType_t13nvmlClockId_tPj
 func (d Device) Clock(clockType ClockType, clockId ClockId) (uint32, error) {
 	return deviceGetClock(d, clockType, clockId)
 }
@@ -436,7 +495,9 @@ func (d Device) Clock(clockType ClockType, clockId ClockId) (uint32, error) {
 //   - type_: Identify which clock domain to query
 //   - clock: Reference in which to return the clock speed in MHz
 //
-// Wraps nvmlDeviceGetClockInfo.
+// Wraps [nvmlDeviceGetClockInfo].
+//
+// [nvmlDeviceGetClockInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv422nvmlDeviceGetClockInfo12nvmlDevice_t15nvmlClockType_tPj
 func (d Device) ClockInfo(type_ ClockType) (uint32, error) {
 	return deviceGetClockInfo(d, type_)
 }
@@ -448,7 +509,9 @@ func (d Device) ClockInfo(type_ ClockType) (uint32, error) {
 //
 //   - info: Structure specifying the clock type (input) and the pstate (input) retrieved clock offset value (output), min clock offset (output) and max clock offset (output)
 //
-// Wraps nvmlDeviceGetClockOffsets.
+// Wraps [nvmlDeviceGetClockOffsets].
+//
+// [nvmlDeviceGetClockOffsets]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetClockOffsets12nvmlDevice_tP17nvmlClockOffset_t
 func (d Device) ClockOffsets(info *ClockOffset) error {
 	return deviceGetClockOffsets(d, info)
 }
@@ -460,7 +523,9 @@ func (d Device) ClockOffsets(info *ClockOffset) error {
 //
 //   - id: Compute instance ID
 //
-// Wraps nvmlDeviceGetComputeInstanceId.
+// Wraps [nvmlDeviceGetComputeInstanceId].
+//
+// [nvmlDeviceGetComputeInstanceId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv430nvmlDeviceGetComputeInstanceId12nvmlDevice_tPj
 func (d Device) ComputeInstanceId() (uint32, error) {
 	return deviceGetComputeInstanceId(d)
 }
@@ -475,7 +540,9 @@ func (d Device) ComputeInstanceId() (uint32, error) {
 //
 //   - mode: Reference in which to return the current compute mode
 //
-// Wraps nvmlDeviceGetComputeMode.
+// Wraps [nvmlDeviceGetComputeMode].
+//
+// [nvmlDeviceGetComputeMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetComputeMode12nvmlDevice_tP17nvmlComputeMode_t
 func (d Device) ComputeMode() (ComputeMode, error) {
 	return deviceGetComputeMode(d)
 }
@@ -494,9 +561,11 @@ func (d Device) ComputeMode() (ComputeMode, error) {
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Wraps nvmlDeviceGetComputeRunningProcesses, bound as nvmlDeviceGetComputeRunningProcesses_v3.
+// Wraps [nvmlDeviceGetComputeRunningProcesses], bound as nvmlDeviceGetComputeRunningProcesses_v3.
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetComputeRunningProcesses]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv439nvmlDeviceGetComputeRunningProcesses_v312nvmlDevice_tPjP17nvmlProcessInfo_t
 func (d Device) ComputeRunningProcesses(buf []ProcessInfo) ([]ProcessInfo, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -525,7 +594,9 @@ func (d Device) ComputeRunningProcesses(buf []ProcessInfo) ([]ProcessInfo, error
 //
 //   - gpuAtstReport: Reference in which to return the gpu attestation report
 //
-// Wraps nvmlDeviceGetConfComputeGpuAttestationReport.
+// Wraps [nvmlDeviceGetConfComputeGpuAttestationReport].
+//
+// [nvmlDeviceGetConfComputeGpuAttestationReport]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv444nvmlDeviceGetConfComputeGpuAttestationReport12nvmlDevice_tP37nvmlConfComputeGpuAttestationReport_t
 func (d Device) ConfComputeGpuAttestationReport(gpuAtstReport *ConfComputeGpuAttestationReport) error {
 	return deviceGetConfComputeGpuAttestationReport(d, gpuAtstReport)
 }
@@ -536,7 +607,9 @@ func (d Device) ConfComputeGpuAttestationReport(gpuAtstReport *ConfComputeGpuAtt
 //
 //   - gpuCert: Reference in which to return the gpu certificate information
 //
-// Wraps nvmlDeviceGetConfComputeGpuCertificate.
+// Wraps [nvmlDeviceGetConfComputeGpuCertificate].
+//
+// [nvmlDeviceGetConfComputeGpuCertificate]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlDeviceGetConfComputeGpuCertificate12nvmlDevice_tP31nvmlConfComputeGpuCertificate_t
 func (d Device) ConfComputeGpuCertificate(gpuCert *ConfComputeGpuCertificate) error {
 	return deviceGetConfComputeGpuCertificate(d, gpuCert)
 }
@@ -547,7 +620,9 @@ func (d Device) ConfComputeGpuCertificate(gpuCert *ConfComputeGpuCertificate) er
 //
 //   - memInfo: Protected/Unprotected Memory sizes
 //
-// Wraps nvmlDeviceGetConfComputeMemSizeInfo.
+// Wraps [nvmlDeviceGetConfComputeMemSizeInfo].
+//
+// [nvmlDeviceGetConfComputeMemSizeInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv435nvmlDeviceGetConfComputeMemSizeInfo12nvmlDevice_tP28nvmlConfComputeMemSizeInfo_t
 func (d Device) ConfComputeMemSizeInfo(memInfo *ConfComputeMemSizeInfo) error {
 	return deviceGetConfComputeMemSizeInfo(d, memInfo)
 }
@@ -558,7 +633,9 @@ func (d Device) ConfComputeMemSizeInfo(memInfo *ConfComputeMemSizeInfo) error {
 //
 //   - memory: Reference in which to return the memory information
 //
-// Wraps nvmlDeviceGetConfComputeProtectedMemoryUsage.
+// Wraps [nvmlDeviceGetConfComputeProtectedMemoryUsage].
+//
+// [nvmlDeviceGetConfComputeProtectedMemoryUsage]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv444nvmlDeviceGetConfComputeProtectedMemoryUsage12nvmlDevice_tP12nvmlMemory_t
 func (d Device) ConfComputeProtectedMemoryUsage() (Memory, error) {
 	return deviceGetConfComputeProtectedMemoryUsage(d)
 }
@@ -570,7 +647,9 @@ func (d Device) ConfComputeProtectedMemoryUsage() (Memory, error) {
 //
 //   - coolerInfo: Structure specifying the cooler's control signal characteristics (out) and the target that cooler cools (out)
 //
-// Wraps nvmlDeviceGetCoolerInfo.
+// Wraps [nvmlDeviceGetCoolerInfo].
+//
+// [nvmlDeviceGetCoolerInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetCoolerInfo12nvmlDevice_tP16nvmlCoolerInfo_t
 func (d Device) CoolerInfo(coolerInfo *CoolerInfo) error {
 	return deviceGetCoolerInfo(d, coolerInfo)
 }
@@ -582,7 +661,9 @@ func (d Device) CoolerInfo(coolerInfo *CoolerInfo) error {
 //   - cpuSetSize: The size of the cpuSet array that is safe to access
 //   - cpuSet: Array reference in which to return a bitmask of CPUs, 64 CPUs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //
-// Wraps nvmlDeviceGetCpuAffinity.
+// Wraps [nvmlDeviceGetCpuAffinity].
+//
+// [nvmlDeviceGetCpuAffinity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv424nvmlDeviceGetCpuAffinity12nvmlDevice_tjPm
 func (d Device) CpuAffinity(cpuSetSize uint32, cpuSet *uint) error {
 	return deviceGetCpuAffinity(d, cpuSetSize, cpuSet)
 }
@@ -597,17 +678,21 @@ func (d Device) CpuAffinity(cpuSetSize uint32, cpuSet *uint) error {
 //   - cpuSet: Array reference in which to return a bitmask of CPUs, 64 CPUs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //   - scope: Scope that change the default behavior
 //
-// Wraps nvmlDeviceGetCpuAffinityWithinScope.
+// Wraps [nvmlDeviceGetCpuAffinityWithinScope].
+//
+// [nvmlDeviceGetCpuAffinityWithinScope]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv435nvmlDeviceGetCpuAffinityWithinScope12nvmlDevice_tjPm19nvmlAffinityScope_t
 func (d Device) CpuAffinityWithinScope(cpuSetSize uint32, cpuSet *uint, scope AffinityScope) error {
 	return deviceGetCpuAffinityWithinScope(d, cpuSetSize, cpuSet, scope)
 }
 
-// CreatableVgpus wraps nvmlDeviceGetCreatableVgpus.
+// CreatableVgpus wraps [nvmlDeviceGetCreatableVgpus].
 //
 //   - vgpuCount: Pointer to caller-supplied array size, and returns number of vGPU types
 //   - vgpuTypeIds: Pointer to caller-supplied array in which to return list of vGPU types
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetCreatableVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlDeviceGetCreatableVgpus12nvmlDevice_tPjP16nvmlVgpuTypeId_t
 func (d Device) CreatableVgpus(buf []VgpuTypeId) ([]VgpuTypeId, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -638,7 +723,9 @@ func (d Device) CreatableVgpus(buf []VgpuTypeId) ([]VgpuTypeId, error) {
 //   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - gpuInstance: Returns the GPU instance handle
 //
-// Wraps nvmlDeviceCreateGpuInstance.
+// Wraps [nvmlDeviceCreateGpuInstance].
+//
+// [nvmlDeviceCreateGpuInstance]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv427nvmlDeviceCreateGpuInstance12nvmlDevice_tjP17nvmlGpuInstance_t
 func (d Device) CreateGpuInstance(profileId uint32) (GpuInstance, error) {
 	return deviceCreateGpuInstance(d, profileId)
 }
@@ -652,7 +739,9 @@ func (d Device) CreateGpuInstance(profileId uint32) (GpuInstance, error) {
 //   - placement: The requested placement. See [Device.GpuInstancePossiblePlacements]
 //   - gpuInstance: Returns the GPU instance handle
 //
-// Wraps nvmlDeviceCreateGpuInstanceWithPlacement.
+// Wraps [nvmlDeviceCreateGpuInstanceWithPlacement].
+//
+// [nvmlDeviceCreateGpuInstanceWithPlacement]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv440nvmlDeviceCreateGpuInstanceWithPlacement12nvmlDevice_tjPK26nvmlGpuInstancePlacement_tP17nvmlGpuInstance_t
 func (d Device) CreateGpuInstanceWithPlacement(profileId uint32, placement *GpuInstancePlacement) (GpuInstance, error) {
 	return deviceCreateGpuInstanceWithPlacement(d, profileId, placement)
 }
@@ -665,7 +754,9 @@ func (d Device) CreateGpuInstanceWithPlacement(profileId uint32, placement *GpuI
 //   - major: Reference in which to return the major CUDA compute capability
 //   - minor: Reference in which to return the minor CUDA compute capability
 //
-// Wraps nvmlDeviceGetCudaComputeCapability.
+// Wraps [nvmlDeviceGetCudaComputeCapability].
+//
+// [nvmlDeviceGetCudaComputeCapability]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv434nvmlDeviceGetCudaComputeCapability12nvmlDevice_tPiPi
 func (d Device) CudaComputeCapability(minor *int32) (int32, error) {
 	return deviceGetCudaComputeCapability(d, minor)
 }
@@ -676,7 +767,9 @@ func (d Device) CudaComputeCapability(minor *int32) (int32, error) {
 //
 //   - currLinkGen: Reference in which to return the current PCIe link generation
 //
-// Wraps nvmlDeviceGetCurrPcieLinkGeneration.
+// Wraps [nvmlDeviceGetCurrPcieLinkGeneration].
+//
+// [nvmlDeviceGetCurrPcieLinkGeneration]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv435nvmlDeviceGetCurrPcieLinkGeneration12nvmlDevice_tPj
 func (d Device) CurrPcieLinkGeneration() (uint32, error) {
 	return deviceGetCurrPcieLinkGeneration(d)
 }
@@ -687,7 +780,9 @@ func (d Device) CurrPcieLinkGeneration() (uint32, error) {
 //
 //   - currLinkWidth: Reference in which to return the current PCIe link generation
 //
-// Wraps nvmlDeviceGetCurrPcieLinkWidth.
+// Wraps [nvmlDeviceGetCurrPcieLinkWidth].
+//
+// [nvmlDeviceGetCurrPcieLinkWidth]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetCurrPcieLinkWidth12nvmlDevice_tPj
 func (d Device) CurrPcieLinkWidth() (uint32, error) {
 	return deviceGetCurrPcieLinkWidth(d)
 }
@@ -703,7 +798,9 @@ func (d Device) CurrPcieLinkWidth() (uint32, error) {
 //
 //   - currentClockFreqs: Reference in which to return the performance level string
 //
-// Wraps nvmlDeviceGetCurrentClockFreqs.
+// Wraps [nvmlDeviceGetCurrentClockFreqs].
+//
+// [nvmlDeviceGetCurrentClockFreqs]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetCurrentClockFreqs12nvmlDevice_tP29nvmlDeviceCurrentClockFreqs_t
 func (d Device) CurrentClockFreqs(currentClockFreqs *DeviceCurrentClockFreqs) error {
 	return deviceGetCurrentClockFreqs(d, currentClockFreqs)
 }
@@ -713,13 +810,15 @@ func (d Device) CurrentClockFreqs(currentClockFreqs *DeviceCurrentClockFreqs) er
 // For all fully supported products.
 // Note:
 // More than one bit can be enabled at the same time. Multiple reasons can be affecting clocks at once.
-// See also:
-// NvmlClocksEventReasons
+// See also: [NvmlClocksEventReasons]
 // [Device.SupportedClocksEventReasons]
 //
 //   - clocksEventReasons: Reference in which to return bitmask of active clocks event reasons
 //
-// Wraps nvmlDeviceGetCurrentClocksEventReasons.
+// Wraps [nvmlDeviceGetCurrentClocksEventReasons].
+//
+// [NvmlClocksEventReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlClocksEventReasons.html
+// [nvmlDeviceGetCurrentClocksEventReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlDeviceGetCurrentClocksEventReasons12nvmlDevice_tPy
 func (d Device) CurrentClocksEventReasons() (uint64, error) {
 	return deviceGetCurrentClocksEventReasons(d)
 }
@@ -728,7 +827,9 @@ func (d Device) CurrentClocksEventReasons() (uint64, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetCurrentClocksThrottleReasons.
+// Wraps [nvmlDeviceGetCurrentClocksThrottleReasons].
+//
+// [nvmlDeviceGetCurrentClocksThrottleReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv441nvmlDeviceGetCurrentClocksThrottleReasons12nvmlDevice_tPy
 func (d Device) CurrentClocksThrottleReasons(clocksThrottleReasons *uint64) error {
 	return deviceGetCurrentClocksThrottleReasons(d, clocksThrottleReasons)
 }
@@ -742,7 +843,9 @@ func (d Device) CurrentClocksThrottleReasons(clocksThrottleReasons *uint64) erro
 //   - utilization: Reference to an unsigned int for decoder utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Wraps nvmlDeviceGetDecoderUtilization.
+// Wraps [nvmlDeviceGetDecoderUtilization].
+//
+// [nvmlDeviceGetDecoderUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetDecoderUtilization12nvmlDevice_tPjPj
 func (d Device) DecoderUtilization(samplingPeriodUs *uint32) (uint32, error) {
 	return deviceGetDecoderUtilization(d, samplingPeriodUs)
 }
@@ -751,7 +854,9 @@ func (d Device) DecoderUtilization(samplingPeriodUs *uint32) (uint32, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetDefaultApplicationsClock.
+// Wraps [nvmlDeviceGetDefaultApplicationsClock].
+//
+// [nvmlDeviceGetDefaultApplicationsClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetDefaultApplicationsClock12nvmlDevice_t15nvmlClockType_tPj
 func (d Device) DefaultApplicationsClock(clockType ClockType) (uint32, error) {
 	return deviceGetDefaultApplicationsClock(d, clockType)
 }
@@ -764,7 +869,9 @@ func (d Device) DefaultApplicationsClock(clockType ClockType) (uint32, error) {
 //
 //   - defaultMode: Reference in which to return the default ECC mode
 //
-// Wraps nvmlDeviceGetDefaultEccMode.
+// Wraps [nvmlDeviceGetDefaultEccMode].
+//
+// [nvmlDeviceGetDefaultEccMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetDefaultEccMode12nvmlDevice_tP17nvmlEnableState_t
 func (d Device) DefaultEccMode(defaultMode *EnableState) error {
 	return deviceGetDefaultEccMode(d, defaultMode)
 }
@@ -783,7 +890,9 @@ func (d Device) DefaultEccMode(defaultMode *EnableState) error {
 //
 // Deprecated: This API supports only a fixed set of ECC error locations On different GPU architectures different locations are supported See [Device.MemoryErrorCounter] For Fermi &tm; or newer fully supported devices. Only applicable to devices with ECC. Requires [InforomEcc] version 2.0 or higher to report aggregate location-based ECC counts. Requires [InforomEcc] version 1.0 or higher to report all other ECC counts. Requires ECC Mode to be enabled. Detailed errors provide separate ECC counts for specific parts of the memory system. Reports zero for unsupported ECC error counters when a subset of ECC error counters are supported. See [MemoryErrorType] for a description of available bit types.\n See [EccCounterType] for a description of available counter types.\n See [EccErrorCounts] for a description of provided detailed ECC counts.
 //
-// Wraps nvmlDeviceGetDetailedEccErrors.
+// Wraps [nvmlDeviceGetDetailedEccErrors].
+//
+// [nvmlDeviceGetDetailedEccErrors]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetDetailedEccErrors12nvmlDevice_t21nvmlMemoryErrorType_t20nvmlEccCounterType_tP20nvmlEccErrorCounts_t
 func (d Device) DetailedEccErrors(errorType MemoryErrorType, counterType EccCounterType) (EccErrorCounts, error) {
 	return deviceGetDetailedEccErrors(d, errorType, counterType)
 }
@@ -797,7 +906,9 @@ func (d Device) DetailedEccErrors(errorType MemoryErrorType, counterType EccCoun
 //
 //   - isActive: Reference in which to return the display active state
 //
-// Wraps nvmlDeviceGetDisplayActive.
+// Wraps [nvmlDeviceGetDisplayActive].
+//
+// [nvmlDeviceGetDisplayActive]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetDisplayActive12nvmlDevice_tP17nvmlEnableState_t
 func (d Device) DisplayActive() (EnableState, error) {
 	return deviceGetDisplayActive(d)
 }
@@ -810,7 +921,9 @@ func (d Device) DisplayActive() (EnableState, error) {
 //
 //   - display: Reference in which to return the display mode
 //
-// Wraps nvmlDeviceGetDisplayMode.
+// Wraps [nvmlDeviceGetDisplayMode].
+//
+// [nvmlDeviceGetDisplayMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetDisplayMode12nvmlDevice_tP17nvmlEnableState_t
 func (d Device) DisplayMode() (EnableState, error) {
 	return deviceGetDisplayMode(d)
 }
@@ -825,7 +938,9 @@ func (d Device) DisplayMode() (EnableState, error) {
 //   - current: Reference in which to return the current DRAM Encryption mode
 //   - pending: Reference in which to return the pending DRAM Encryption mode
 //
-// Wraps nvmlDeviceGetDramEncryptionMode.
+// Wraps [nvmlDeviceGetDramEncryptionMode].
+//
+// [nvmlDeviceGetDramEncryptionMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetDramEncryptionMode12nvmlDevice_tP24nvmlDramEncryptionInfo_tP24nvmlDramEncryptionInfo_t
 func (d Device) DramEncryptionMode(current *DramEncryptionInfo, pending *DramEncryptionInfo) error {
 	return deviceGetDramEncryptionMode(d, current, pending)
 }
@@ -841,14 +956,18 @@ func (d Device) DramEncryptionMode(current *DramEncryptionInfo, pending *DramEnc
 //   - current: Reference in which to return the current driver model
 //   - pending: Reference in which to return the pending driver model
 //
-// Wraps nvmlDeviceGetDriverModel, bound as nvmlDeviceGetDriverModel_v2.
+// Wraps [nvmlDeviceGetDriverModel], bound as nvmlDeviceGetDriverModel_v2.
+//
+// [nvmlDeviceGetDriverModel]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetDriverModel_v212nvmlDevice_tP17nvmlDriverModel_tP17nvmlDriverModel_t
 func (d Device) DriverModel(current *DriverModel, pending *DriverModel) error {
 	return deviceGetDriverModel(d, current, pending)
 }
 
 // DynamicPstatesInfo Retrieve performance monitor samples from the associated subdevice.
 //
-// Wraps nvmlDeviceGetDynamicPstatesInfo.
+// Wraps [nvmlDeviceGetDynamicPstatesInfo].
+//
+// [nvmlDeviceGetDynamicPstatesInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetDynamicPstatesInfo12nvmlDevice_tP27nvmlGpuDynamicPstatesInfo_t
 func (d Device) DynamicPstatesInfo(pDynamicPstatesInfo *GpuDynamicPstatesInfo) error {
 	return deviceGetDynamicPstatesInfo(d, pDynamicPstatesInfo)
 }
@@ -863,7 +982,9 @@ func (d Device) DynamicPstatesInfo(pDynamicPstatesInfo *GpuDynamicPstatesInfo) e
 //   - current: Reference in which to return the current ECC mode
 //   - pending: Reference in which to return the pending ECC mode
 //
-// Wraps nvmlDeviceGetEccMode.
+// Wraps [nvmlDeviceGetEccMode].
+//
+// [nvmlDeviceGetEccMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetEccMode12nvmlDevice_tP17nvmlEnableState_tP17nvmlEnableState_t
 func (d Device) EccMode(current *EnableState, pending *EnableState) error {
 	return deviceGetEccMode(d, current, pending)
 }
@@ -875,7 +996,9 @@ func (d Device) EccMode(current *EnableState, pending *EnableState) error {
 //   - encoderQueryType: Type of encoder to query
 //   - encoderCapacity: Reference to an unsigned int for the encoder capacity
 //
-// Wraps nvmlDeviceGetEncoderCapacity.
+// Wraps [nvmlDeviceGetEncoderCapacity].
+//
+// [nvmlDeviceGetEncoderCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetEncoderCapacity12nvmlDevice_t17nvmlEncoderType_tPj
 func (d Device) EncoderCapacity(encoderQueryType EncoderType) (uint32, error) {
 	return deviceGetEncoderCapacity(d, encoderQueryType)
 }
@@ -889,9 +1012,11 @@ func (d Device) EncoderCapacity(encoderQueryType EncoderType) (uint32, error) {
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfos: Reference in which to return the session information
 //
-// Wraps nvmlDeviceGetEncoderSessions.
+// Wraps [nvmlDeviceGetEncoderSessions].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetEncoderSessions]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetEncoderSessions12nvmlDevice_tPjP24nvmlEncoderSessionInfo_t
 func (d Device) EncoderSessions(buf []EncoderSessionInfo) ([]EncoderSessionInfo, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -922,7 +1047,9 @@ func (d Device) EncoderSessions(buf []EncoderSessionInfo) ([]EncoderSessionInfo,
 //   - averageFps: Reference to an unsigned int for trailing average FPS of all active sessions
 //   - averageLatency: Reference to an unsigned int for encode latency in microseconds
 //
-// Wraps nvmlDeviceGetEncoderStats.
+// Wraps [nvmlDeviceGetEncoderStats].
+//
+// [nvmlDeviceGetEncoderStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetEncoderStats12nvmlDevice_tPjPjPj
 func (d Device) EncoderStats(sessionCount *uint32, averageFps *uint32, averageLatency *uint32) error {
 	return deviceGetEncoderStats(d, sessionCount, averageFps, averageLatency)
 }
@@ -936,7 +1063,9 @@ func (d Device) EncoderStats(sessionCount *uint32, averageFps *uint32, averageLa
 //   - utilization: Reference to an unsigned int for encoder utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Wraps nvmlDeviceGetEncoderUtilization.
+// Wraps [nvmlDeviceGetEncoderUtilization].
+//
+// [nvmlDeviceGetEncoderUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetEncoderUtilization12nvmlDevice_tPjPj
 func (d Device) EncoderUtilization(samplingPeriodUs *uint32) (uint32, error) {
 	return deviceGetEncoderUtilization(d, samplingPeriodUs)
 }
@@ -948,7 +1077,9 @@ func (d Device) EncoderUtilization(samplingPeriodUs *uint32) (uint32, error) {
 //
 //   - limit: Reference in which to return the power management limit in milliwatts
 //
-// Wraps nvmlDeviceGetEnforcedPowerLimit.
+// Wraps [nvmlDeviceGetEnforcedPowerLimit].
+//
+// [nvmlDeviceGetEnforcedPowerLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetEnforcedPowerLimit12nvmlDevice_tPj
 func (d Device) EnforcedPowerLimit() (uint32, error) {
 	return deviceGetEnforcedPowerLimit(d)
 }
@@ -964,9 +1095,11 @@ func (d Device) EnforcedPowerLimit() (uint32, error) {
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information
 //
-// Wraps nvmlDeviceGetFBCSessions.
+// Wraps [nvmlDeviceGetFBCSessions].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetFBCSessions]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetFBCSessions12nvmlDevice_tPjP20nvmlFBCSessionInfo_t
 func (d Device) FBCSessions(buf []FBCSessionInfo) ([]FBCSessionInfo, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -995,7 +1128,9 @@ func (d Device) FBCSessions(buf []FBCSessionInfo) ([]FBCSessionInfo, error) {
 //
 //   - fbcStats: Reference to [FBCStats] structure containing NvFBC stats
 //
-// Wraps nvmlDeviceGetFBCStats.
+// Wraps [nvmlDeviceGetFBCStats].
+//
+// [nvmlDeviceGetFBCStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceGetFBCStats12nvmlDevice_tP14nvmlFBCStats_t
 func (d Device) FBCStats(fbcStats *FBCStats) error {
 	return deviceGetFBCStats(d, fbcStats)
 }
@@ -1008,7 +1143,9 @@ func (d Device) FBCStats(fbcStats *FBCStats) error {
 //   - fan: The index of the target fan, zero indexed
 //   - policy: Reference in which to return the fan control policy
 //
-// Wraps nvmlDeviceGetFanControlPolicy_v2.
+// Wraps [nvmlDeviceGetFanControlPolicy_v2].
+//
+// [nvmlDeviceGetFanControlPolicy_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetFanControlPolicy_v212nvmlDevice_tjP22nvmlFanControlPolicy_t
 func (d Device) FanControlPolicy(fan uint32) (FanControlPolicy, error) {
 	return deviceGetFanControlPolicy(d, fan)
 }
@@ -1022,7 +1159,9 @@ func (d Device) FanControlPolicy(fan uint32) (FanControlPolicy, error) {
 //   - fan: The index of the target fan, zero indexed
 //   - speed: Reference in which to return the fan speed percentage
 //
-// Wraps nvmlDeviceGetFanSpeed_v2.
+// Wraps [nvmlDeviceGetFanSpeed_v2].
+//
+// [nvmlDeviceGetFanSpeed_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetFanSpeed_v212nvmlDevice_tjPj
 func (d Device) FanSpeed(fan uint32) (uint32, error) {
 	return deviceGetFanSpeed(d, fan)
 }
@@ -1035,7 +1174,9 @@ func (d Device) FanSpeed(fan uint32) (uint32, error) {
 //
 //   - fanSpeed: Structure specifying the index of the target fan (input) and retrieved fan speed value (output)
 //
-// Wraps nvmlDeviceGetFanSpeedRPM.
+// Wraps [nvmlDeviceGetFanSpeedRPM].
+//
+// [nvmlDeviceGetFanSpeedRPM]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetFanSpeedRPM12nvmlDevice_tP18nvmlFanSpeedInfo_t
 func (d Device) FanSpeedRPM(fanSpeed *FanSpeedInfo) error {
 	return deviceGetFanSpeedRPM(d, fanSpeed)
 }
@@ -1045,7 +1186,9 @@ func (d Device) FanSpeedRPM(fanSpeed *FanSpeedInfo) error {
 //   - valuesCount: Number of entries in values that should be retrieved
 //   - values: Array of valuesCount structures to hold field values. Each value's fieldId must be populated prior to this call
 //
-// Wraps nvmlDeviceGetFieldValues.
+// Wraps [nvmlDeviceGetFieldValues].
+//
+// [nvmlDeviceGetFieldValues]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlFieldValueQueries.html#_CPPv424nvmlDeviceGetFieldValues12nvmlDevice_tiP16nvmlFieldValue_t
 func (d Device) FieldValues(valuesCount int32, values *FieldValue) error {
 	return deviceGetFieldValues(d, valuesCount, values)
 }
@@ -1060,7 +1203,9 @@ func (d Device) FieldValues(valuesCount int32, values *FieldValue) error {
 //
 // Deprecated: Freezing NVLINK utilization counters is no longer supported. Freeze the NVLINK utilization counters Both the receive and transmit counters are operated on by this function For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceFreezeNvLinkUtilizationCounter.
+// Wraps [nvmlDeviceFreezeNvLinkUtilizationCounter].
+//
+// [nvmlDeviceFreezeNvLinkUtilizationCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv440nvmlDeviceFreezeNvLinkUtilizationCounter12nvmlDevice_tjj17nvmlEnableState_t
 func (d Device) FreezeNvLinkUtilizationCounter(link uint32, counter uint32, freeze EnableState) error {
 	return deviceFreezeNvLinkUtilizationCounter(d, link, counter, freeze)
 }
@@ -1070,7 +1215,9 @@ func (d Device) FreezeNvLinkUtilizationCounter(link uint32, counter uint32, free
 //   - minOffset: The retrieved GPCCLK VF min offset value
 //   - maxOffset: The retrieved GPCCLK VF max offset value
 //
-// Wraps nvmlDeviceGetGpcClkMinMaxVfOffset.
+// Wraps [nvmlDeviceGetGpcClkMinMaxVfOffset].
+//
+// [nvmlDeviceGetGpcClkMinMaxVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetGpcClkMinMaxVfOffset12nvmlDevice_tPiPi
 func (d Device) GpcClkMinMaxVfOffset() (int32, int32, error) {
 	return deviceGetGpcClkMinMaxVfOffset(d)
 }
@@ -1079,7 +1226,9 @@ func (d Device) GpcClkMinMaxVfOffset() (int32, int32, error) {
 //
 //   - offset: The retrieved GPCCLK VF offset value
 //
-// Wraps nvmlDeviceGetGpcClkVfOffset.
+// Wraps [nvmlDeviceGetGpcClkVfOffset].
+//
+// [nvmlDeviceGetGpcClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetGpcClkVfOffset12nvmlDevice_tPi
 func (d Device) GpcClkVfOffset() (int32, error) {
 	return deviceGetGpcClkVfOffset(d)
 }
@@ -1094,7 +1243,9 @@ func (d Device) GpcClkVfOffset() (int32, error) {
 //   - gpuInstanceId: MIG GPU Instance ID
 //   - gpmSample: Buffer to read samples into
 //
-// Wraps nvmlGpmMigSampleGet.
+// Wraps [nvmlGpmMigSampleGet].
+//
+// [nvmlGpmMigSampleGet]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv419nvmlGpmMigSampleGet12nvmlDevice_tj15nvmlGpmSample_t
 func (d Device) GpmMigSampleGet(gpuInstanceId uint32, gpmSample GpmSample) error {
 	return gpmMigSampleGet(d, gpuInstanceId, gpmSample)
 }
@@ -1107,7 +1258,9 @@ func (d Device) GpmMigSampleGet(gpuInstanceId uint32, gpmSample GpmSample) error
 //
 //   - gpmSupport: Structure to indicate GPM support [GpmSupport] . Indicates GPM support per system for the supplied device
 //
-// Wraps nvmlGpmQueryDeviceSupport.
+// Wraps [nvmlGpmQueryDeviceSupport].
+//
+// [nvmlGpmQueryDeviceSupport]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv425nvmlGpmQueryDeviceSupport12nvmlDevice_tP16nvmlGpmSupport_t
 func (d Device) GpmQueryDeviceSupport(gpmSupport *GpmSupport) error {
 	return gpmQueryDeviceSupport(d, gpmSupport)
 }
@@ -1118,7 +1271,9 @@ func (d Device) GpmQueryDeviceSupport(gpmSupport *GpmSupport) error {
 //
 //   - state: Returns GPM stream state [FeatureDisabled] or [FeatureEnabled]
 //
-// Wraps nvmlGpmQueryIfStreamingEnabled.
+// Wraps [nvmlGpmQueryIfStreamingEnabled].
+//
+// [nvmlGpmQueryIfStreamingEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv430nvmlGpmQueryIfStreamingEnabled12nvmlDevice_tPj
 func (d Device) GpmQueryIfStreamingEnabled() (uint32, error) {
 	return gpmQueryIfStreamingEnabled(d)
 }
@@ -1129,7 +1284,9 @@ func (d Device) GpmQueryIfStreamingEnabled() (uint32, error) {
 //
 //   - state: GPM stream state, [FeatureDisabled] or [FeatureEnabled]
 //
-// Wraps nvmlGpmSetStreamingEnabled.
+// Wraps [nvmlGpmSetStreamingEnabled].
+//
+// [nvmlGpmSetStreamingEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv426nvmlGpmSetStreamingEnabled12nvmlDevice_tj
 func (d Device) GpmSetStreamingEnabled(state uint32) error {
 	return gpmSetStreamingEnabled(d, state)
 }
@@ -1143,7 +1300,9 @@ func (d Device) GpmSetStreamingEnabled(state uint32) error {
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.GpuFabricInfoV] instead Get fabric information associated with the device. For Hopper &tm; or newer fully supported devices. On Hopper + NVSwitch systems, GPU is registered with the NVIDIA Fabric Manager Upon successful registration, the GPU is added to the NVLink fabric to enable peer-to-peer communication. This API reports the current state of the GPU in the NVLink fabric along with other useful information.
 //
-// Wraps nvmlDeviceGetGpuFabricInfo.
+// Wraps [nvmlDeviceGetGpuFabricInfo].
+//
+// [nvmlDeviceGetGpuFabricInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetGpuFabricInfo12nvmlDevice_tP19nvmlGpuFabricInfo_t
 func (d Device) GpuFabricInfo(gpuFabricInfo *GpuFabricInfo) error {
 	return deviceGetGpuFabricInfo(d, gpuFabricInfo)
 }
@@ -1156,7 +1315,9 @@ func (d Device) GpuFabricInfo(gpuFabricInfo *GpuFabricInfo) error {
 //
 //   - gpuFabricInfo: Information about GPU fabric state
 //
-// Wraps nvmlDeviceGetGpuFabricInfoV.
+// Wraps [nvmlDeviceGetGpuFabricInfoV].
+//
+// [nvmlDeviceGetGpuFabricInfoV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetGpuFabricInfoV12nvmlDevice_tP20nvmlGpuFabricInfoV_t
 func (d Device) GpuFabricInfoV(gpuFabricInfo *GpuFabricInfoV) error {
 	return deviceGetGpuFabricInfoV(d, gpuFabricInfo)
 }
@@ -1168,7 +1329,9 @@ func (d Device) GpuFabricInfoV(gpuFabricInfo *GpuFabricInfoV) error {
 //   - id: The GPU instance ID
 //   - gpuInstance: Returns GPU instance
 //
-// Wraps nvmlDeviceGetGpuInstanceById.
+// Wraps [nvmlDeviceGetGpuInstanceById].
+//
+// [nvmlDeviceGetGpuInstanceById]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv428nvmlDeviceGetGpuInstanceById12nvmlDevice_tjP17nvmlGpuInstance_t
 func (d Device) GpuInstanceById(id uint32) (GpuInstance, error) {
 	return deviceGetGpuInstanceById(d, id)
 }
@@ -1180,7 +1343,9 @@ func (d Device) GpuInstanceById(id uint32) (GpuInstance, error) {
 //
 //   - id: GPU instance ID
 //
-// Wraps nvmlDeviceGetGpuInstanceId.
+// Wraps [nvmlDeviceGetGpuInstanceId].
+//
+// [nvmlDeviceGetGpuInstanceId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv426nvmlDeviceGetGpuInstanceId12nvmlDevice_tPj
 func (d Device) GpuInstanceId() (uint32, error) {
 	return deviceGetGpuInstanceId(d)
 }
@@ -1194,7 +1359,9 @@ func (d Device) GpuInstanceId() (uint32, error) {
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 //
-// Wraps nvmlDeviceGetGpuInstancePossiblePlacements, bound as nvmlDeviceGetGpuInstancePossiblePlacements_v2.
+// Wraps [nvmlDeviceGetGpuInstancePossiblePlacements], bound as nvmlDeviceGetGpuInstancePossiblePlacements_v2.
+//
+// [nvmlDeviceGetGpuInstancePossiblePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv445nvmlDeviceGetGpuInstancePossiblePlacements_v212nvmlDevice_tjP26nvmlGpuInstancePlacement_tPj
 func (d Device) GpuInstancePossiblePlacements(profileId uint32, placements *GpuInstancePlacement, count *uint32) error {
 	return deviceGetGpuInstancePossiblePlacements(d, profileId, placements, count)
 }
@@ -1209,7 +1376,9 @@ func (d Device) GpuInstancePossiblePlacements(profileId uint32, placements *GpuI
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlDeviceGetGpuInstanceProfileInfo.
+// Wraps [nvmlDeviceGetGpuInstanceProfileInfo].
+//
+// [nvmlDeviceGetGpuInstanceProfileInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv435nvmlDeviceGetGpuInstanceProfileInfo12nvmlDevice_tjP28nvmlGpuInstanceProfileInfo_t
 func (d Device) GpuInstanceProfileInfo(profile uint32) (GpuInstanceProfileInfo, error) {
 	return deviceGetGpuInstanceProfileInfo(d, profile)
 }
@@ -1223,7 +1392,9 @@ func (d Device) GpuInstanceProfileInfo(profile uint32) (GpuInstanceProfileInfo, 
 //   - profileId: One of the profile IDs
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlDeviceGetGpuInstanceProfileInfoByIdV.
+// Wraps [nvmlDeviceGetGpuInstanceProfileInfoByIdV].
+//
+// [nvmlDeviceGetGpuInstanceProfileInfoByIdV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv440nvmlDeviceGetGpuInstanceProfileInfoByIdV12nvmlDevice_tjP31nvmlGpuInstanceProfileInfo_v2_t
 func (d Device) GpuInstanceProfileInfoByIdV(profileId uint32) (GpuInstanceProfileInfoV2, error) {
 	return deviceGetGpuInstanceProfileInfoByIdV(d, profileId)
 }
@@ -1237,7 +1408,9 @@ func (d Device) GpuInstanceProfileInfoByIdV(profileId uint32) (GpuInstanceProfil
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlDeviceGetGpuInstanceProfileInfoV.
+// Wraps [nvmlDeviceGetGpuInstanceProfileInfoV].
+//
+// [nvmlDeviceGetGpuInstanceProfileInfoV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv436nvmlDeviceGetGpuInstanceProfileInfoV12nvmlDevice_tjP31nvmlGpuInstanceProfileInfo_v2_t
 func (d Device) GpuInstanceProfileInfoV(profile uint32) (GpuInstanceProfileInfoV2, error) {
 	return deviceGetGpuInstanceProfileInfoV(d, profile)
 }
@@ -1249,7 +1422,9 @@ func (d Device) GpuInstanceProfileInfoV(profile uint32) (GpuInstanceProfileInfoV
 //   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
-// Wraps nvmlDeviceGetGpuInstanceRemainingCapacity.
+// Wraps [nvmlDeviceGetGpuInstanceRemainingCapacity].
+//
+// [nvmlDeviceGetGpuInstanceRemainingCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv441nvmlDeviceGetGpuInstanceRemainingCapacity12nvmlDevice_tjPj
 func (d Device) GpuInstanceRemainingCapacity(profileId uint32, count *uint32) error {
 	return deviceGetGpuInstanceRemainingCapacity(d, profileId, count)
 }
@@ -1262,7 +1437,9 @@ func (d Device) GpuInstanceRemainingCapacity(profileId uint32, count *uint32) er
 //   - gpuInstances: Returns pre-exiting GPU instances, the buffer must be large enough to accommodate the instances supported by the profile. See [Device.GpuInstanceProfileInfo]
 //   - count: The count of returned GPU instances
 //
-// Wraps nvmlDeviceGetGpuInstances.
+// Wraps [nvmlDeviceGetGpuInstances].
+//
+// [nvmlDeviceGetGpuInstances]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv425nvmlDeviceGetGpuInstances12nvmlDevice_tjP17nvmlGpuInstance_tPj
 func (d Device) GpuInstances(profileId uint32, gpuInstances *GpuInstance, count *uint32) error {
 	return deviceGetGpuInstances(d, profileId, gpuInstances, count)
 }
@@ -1273,7 +1450,9 @@ func (d Device) GpuInstances(profileId uint32, gpuInstances *GpuInstance, count 
 //
 //   - maxLinkGenDevice: Reference in which to return the max PCIe link generation
 //
-// Wraps nvmlDeviceGetGpuMaxPcieLinkGeneration.
+// Wraps [nvmlDeviceGetGpuMaxPcieLinkGeneration].
+//
+// [nvmlDeviceGetGpuMaxPcieLinkGeneration]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetGpuMaxPcieLinkGeneration12nvmlDevice_tPj
 func (d Device) GpuMaxPcieLinkGeneration() (uint32, error) {
 	return deviceGetGpuMaxPcieLinkGeneration(d)
 }
@@ -1287,7 +1466,9 @@ func (d Device) GpuMaxPcieLinkGeneration() (uint32, error) {
 //   - current: Reference in which to return the current GOM
 //   - pending: Reference in which to return the pending GOM
 //
-// Wraps nvmlDeviceGetGpuOperationMode.
+// Wraps [nvmlDeviceGetGpuOperationMode].
+//
+// [nvmlDeviceGetGpuOperationMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetGpuOperationMode12nvmlDevice_tP22nvmlGpuOperationMode_tP22nvmlGpuOperationMode_t
 func (d Device) GpuOperationMode(current *GpuOperationMode, pending *GpuOperationMode) error {
 	return deviceGetGpuOperationMode(d, current, pending)
 }
@@ -1306,9 +1487,11 @@ func (d Device) GpuOperationMode(current *GpuOperationMode, pending *GpuOperatio
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Wraps nvmlDeviceGetGraphicsRunningProcesses, bound as nvmlDeviceGetGraphicsRunningProcesses_v3.
+// Wraps [nvmlDeviceGetGraphicsRunningProcesses], bound as nvmlDeviceGetGraphicsRunningProcesses_v3.
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetGraphicsRunningProcesses]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv440nvmlDeviceGetGraphicsRunningProcesses_v312nvmlDevice_tPjP17nvmlProcessInfo_t
 func (d Device) GraphicsRunningProcesses(buf []ProcessInfo) ([]ProcessInfo, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -1337,7 +1520,9 @@ func (d Device) GraphicsRunningProcesses(buf []ProcessInfo) ([]ProcessInfo, erro
 //
 //   - pGridLicensableFeatures: Pointer to structure in which vGPU software licensable features are returned
 //
-// Wraps nvmlDeviceGetGridLicensableFeatures, bound as nvmlDeviceGetGridLicensableFeatures_v4.
+// Wraps [nvmlDeviceGetGridLicensableFeatures], bound as nvmlDeviceGetGridLicensableFeatures_v4.
+//
+// [nvmlDeviceGetGridLicensableFeatures]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv438nvmlDeviceGetGridLicensableFeatures_v412nvmlDevice_tP28nvmlGridLicensableFeatures_t
 func (d Device) GridLicensableFeatures(pGridLicensableFeatures *GridLicensableFeatures) error {
 	return deviceGetGridLicensableFeatures(d, pGridLicensableFeatures)
 }
@@ -1349,7 +1534,9 @@ func (d Device) GridLicensableFeatures(pGridLicensableFeatures *GridLicensableFe
 //   - isEnabled: Pointer to specify if GSP firmware is enabled
 //   - defaultMode: Pointer to specify if GSP firmware is supported by default on device
 //
-// Wraps nvmlDeviceGetGspFirmwareMode.
+// Wraps [nvmlDeviceGetGspFirmwareMode].
+//
+// [nvmlDeviceGetGspFirmwareMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetGspFirmwareMode12nvmlDevice_tPjPj
 func (d Device) GspFirmwareMode(isEnabled *uint32, defaultMode *uint32) error {
 	return deviceGetGspFirmwareMode(d, isEnabled, defaultMode)
 }
@@ -1360,7 +1547,9 @@ func (d Device) GspFirmwareMode(isEnabled *uint32, defaultMode *uint32) error {
 //
 //   - version: The retrieved GSP firmware version
 //
-// Wraps nvmlDeviceGetGspFirmwareVersion.
+// Wraps [nvmlDeviceGetGspFirmwareVersion].
+//
+// [nvmlDeviceGetGspFirmwareVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetGspFirmwareVersion12nvmlDevice_tPc
 func (d Device) GspFirmwareVersion(version *byte) error {
 	return deviceGetGspFirmwareVersion(d, version)
 }
@@ -1371,7 +1560,9 @@ func (d Device) GspFirmwareVersion(version *byte) error {
 //
 //   - device: Device handle
 //
-// Wraps nvmlDeviceGetDeviceHandleFromMigDeviceHandle.
+// Wraps [nvmlDeviceGetDeviceHandleFromMigDeviceHandle].
+//
+// [nvmlDeviceGetDeviceHandleFromMigDeviceHandle]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv444nvmlDeviceGetDeviceHandleFromMigDeviceHandle12nvmlDevice_tP12nvmlDevice_t
 func (d Device) HandleFromMigDeviceHandle() (Device, error) {
 	return deviceGetDeviceHandleFromMigDeviceHandle(d)
 }
@@ -1382,7 +1573,9 @@ func (d Device) HandleFromMigDeviceHandle() (Device, error) {
 //
 //   - pHostVgpuMode: Reference in which to return the current vGPU mode
 //
-// Wraps nvmlDeviceGetHostVgpuMode.
+// Wraps [nvmlDeviceGetHostVgpuMode].
+//
+// [nvmlDeviceGetHostVgpuMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv425nvmlDeviceGetHostVgpuMode12nvmlDevice_tP18nvmlHostVgpuMode_t
 func (d Device) HostVgpuMode(pHostVgpuMode *HostVgpuMode) error {
 	return deviceGetHostVgpuMode(d, pHostVgpuMode)
 }
@@ -1395,7 +1588,9 @@ func (d Device) HostVgpuMode(pHostVgpuMode *HostVgpuMode) error {
 //
 //   - hostname: Reference to the caller-provided [HostnameV1] struct to return the hostname
 //
-// Wraps nvmlDeviceGetHostname_v1.
+// Wraps [nvmlDeviceGetHostname_v1].
+//
+// [nvmlDeviceGetHostname_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetHostname_v112nvmlDevice_tP17nvmlHostname_v1_t
 func (d Device) Hostname(hostname *HostnameV1) error {
 	return deviceGetHostname(d, hostname)
 }
@@ -1412,7 +1607,9 @@ func (d Device) Hostname(hostname *HostnameV1) error {
 //
 //   - index: Reference in which to return the NVML index of the device
 //
-// Wraps nvmlDeviceGetIndex.
+// Wraps [nvmlDeviceGetIndex].
+//
+// [nvmlDeviceGetIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv418nvmlDeviceGetIndex12nvmlDevice_tPj
 func (d Device) Index() (uint32, error) {
 	return deviceGetIndex(d)
 }
@@ -1424,7 +1621,9 @@ func (d Device) Index() (uint32, error) {
 //
 //   - checksum: Reference in which to return the infoROM configuration checksum
 //
-// Wraps nvmlDeviceGetInforomConfigurationChecksum.
+// Wraps [nvmlDeviceGetInforomConfigurationChecksum].
+//
+// [nvmlDeviceGetInforomConfigurationChecksum]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv441nvmlDeviceGetInforomConfigurationChecksum12nvmlDevice_tPj
 func (d Device) InforomConfigurationChecksum() (uint32, error) {
 	return deviceGetInforomConfigurationChecksum(d)
 }
@@ -1438,7 +1637,9 @@ func (d Device) InforomConfigurationChecksum() (uint32, error) {
 //   - version: Reference in which to return the infoROM image version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Wraps nvmlDeviceGetInforomImageVersion.
+// Wraps [nvmlDeviceGetInforomImageVersion].
+//
+// [nvmlDeviceGetInforomImageVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetInforomImageVersion12nvmlDevice_tPcj
 func (d Device) InforomImageVersion() (string, error) {
 	return deviceGetInforomImageVersion(d)
 }
@@ -1454,7 +1655,9 @@ func (d Device) InforomImageVersion() (string, error) {
 //   - version: Reference in which to return the infoROM version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Wraps nvmlDeviceGetInforomVersion.
+// Wraps [nvmlDeviceGetInforomVersion].
+//
+// [nvmlDeviceGetInforomVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetInforomVersion12nvmlDevice_t19nvmlInforomObject_tPcj
 func (d Device) InforomVersion(object InforomObject) (string, error) {
 	return deviceGetInforomVersion(d, object)
 }
@@ -1463,7 +1666,9 @@ func (d Device) InforomVersion(object InforomObject) (string, error) {
 //
 //   - irqNum: The interrupt number associated with the specified device
 //
-// Wraps nvmlDeviceGetIrqNum.
+// Wraps [nvmlDeviceGetIrqNum].
+//
+// [nvmlDeviceGetIrqNum]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv419nvmlDeviceGetIrqNum12nvmlDevice_tPj
 func (d Device) IrqNum() (uint32, error) {
 	return deviceGetIrqNum(d)
 }
@@ -1475,7 +1680,9 @@ func (d Device) IrqNum() (uint32, error) {
 //
 //   - isMigDevice: True when handle refers to a MIG device
 //
-// Wraps nvmlDeviceIsMigDeviceHandle.
+// Wraps [nvmlDeviceIsMigDeviceHandle].
+//
+// [nvmlDeviceIsMigDeviceHandle]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv427nvmlDeviceIsMigDeviceHandle12nvmlDevice_tPj
 func (d Device) IsMigDeviceHandle() (uint32, error) {
 	return deviceIsMigDeviceHandle(d)
 }
@@ -1489,7 +1696,9 @@ func (d Device) IsMigDeviceHandle() (uint32, error) {
 //   - utilization: Reference to an unsigned int for jpg utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Wraps nvmlDeviceGetJpgUtilization.
+// Wraps [nvmlDeviceGetJpgUtilization].
+//
+// [nvmlDeviceGetJpgUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetJpgUtilization12nvmlDevice_tPjPj
 func (d Device) JpgUtilization(samplingPeriodUs *uint32) (uint32, error) {
 	return deviceGetJpgUtilization(d, samplingPeriodUs)
 }
@@ -1502,7 +1711,9 @@ func (d Device) JpgUtilization(samplingPeriodUs *uint32) (uint32, error) {
 //   - timestamp: The start timestamp of the last BBX Flush
 //   - durationUs: The duration (us) of the last BBX Flush
 //
-// Wraps nvmlDeviceGetLastBBXFlushTime.
+// Wraps [nvmlDeviceGetLastBBXFlushTime].
+//
+// [nvmlDeviceGetLastBBXFlushTime]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetLastBBXFlushTime12nvmlDevice_tPyPm
 func (d Device) LastBBXFlushTime(timestamp *uint64, durationUs *uint) error {
 	return deviceGetLastBBXFlushTime(d, timestamp, durationUs)
 }
@@ -1521,9 +1732,11 @@ func (d Device) LastBBXFlushTime(timestamp *uint64, durationUs *uint) error {
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Wraps nvmlDeviceGetMPSComputeRunningProcesses, bound as nvmlDeviceGetMPSComputeRunningProcesses_v3.
+// Wraps [nvmlDeviceGetMPSComputeRunningProcesses], bound as nvmlDeviceGetMPSComputeRunningProcesses_v3.
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetMPSComputeRunningProcesses]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv442nvmlDeviceGetMPSComputeRunningProcesses_v312nvmlDevice_tPjP17nvmlProcessInfo_t
 func (d Device) MPSComputeRunningProcesses(buf []ProcessInfo) ([]ProcessInfo, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -1550,7 +1763,9 @@ func (d Device) MPSComputeRunningProcesses(buf []ProcessInfo) ([]ProcessInfo, er
 //
 //   - marginTempInfo: Versioned structure in which to return the temperature reading
 //
-// Wraps nvmlDeviceGetMarginTemperature.
+// Wraps [nvmlDeviceGetMarginTemperature].
+//
+// [nvmlDeviceGetMarginTemperature]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetMarginTemperature12nvmlDevice_tP23nvmlMarginTemperature_t
 func (d Device) MarginTemperature() (MarginTemperature, error) {
 	return deviceGetMarginTemperature(d)
 }
@@ -1565,7 +1780,9 @@ func (d Device) MarginTemperature() (MarginTemperature, error) {
 //   - type_: Identify which clock domain to query
 //   - clock: Reference in which to return the clock speed in MHz
 //
-// Wraps nvmlDeviceGetMaxClockInfo.
+// Wraps [nvmlDeviceGetMaxClockInfo].
+//
+// [nvmlDeviceGetMaxClockInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetMaxClockInfo12nvmlDevice_t15nvmlClockType_tPj
 func (d Device) MaxClockInfo(type_ ClockType) (uint32, error) {
 	return deviceGetMaxClockInfo(d, type_)
 }
@@ -1577,7 +1794,9 @@ func (d Device) MaxClockInfo(type_ ClockType) (uint32, error) {
 //   - clockType: Identify which clock domain to query
 //   - clockMHz: Reference in which to return the clock in MHz
 //
-// Wraps nvmlDeviceGetMaxCustomerBoostClock.
+// Wraps [nvmlDeviceGetMaxCustomerBoostClock].
+//
+// [nvmlDeviceGetMaxCustomerBoostClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv434nvmlDeviceGetMaxCustomerBoostClock12nvmlDevice_t15nvmlClockType_tPj
 func (d Device) MaxCustomerBoostClock(clockType ClockType) (uint32, error) {
 	return deviceGetMaxCustomerBoostClock(d, clockType)
 }
@@ -1589,7 +1808,9 @@ func (d Device) MaxCustomerBoostClock(clockType ClockType) (uint32, error) {
 //
 //   - count: Count of MIG devices
 //
-// Wraps nvmlDeviceGetMaxMigDeviceCount.
+// Wraps [nvmlDeviceGetMaxMigDeviceCount].
+//
+// [nvmlDeviceGetMaxMigDeviceCount]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv430nvmlDeviceGetMaxMigDeviceCount12nvmlDevice_tPj
 func (d Device) MaxMigDeviceCount(count *uint32) error {
 	return deviceGetMaxMigDeviceCount(d, count)
 }
@@ -1601,7 +1822,9 @@ func (d Device) MaxMigDeviceCount(count *uint32) error {
 //
 //   - maxLinkGen: Reference in which to return the max PCIe link generation
 //
-// Wraps nvmlDeviceGetMaxPcieLinkGeneration.
+// Wraps [nvmlDeviceGetMaxPcieLinkGeneration].
+//
+// [nvmlDeviceGetMaxPcieLinkGeneration]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv434nvmlDeviceGetMaxPcieLinkGeneration12nvmlDevice_tPj
 func (d Device) MaxPcieLinkGeneration() (uint32, error) {
 	return deviceGetMaxPcieLinkGeneration(d)
 }
@@ -1613,7 +1836,9 @@ func (d Device) MaxPcieLinkGeneration() (uint32, error) {
 //
 //   - maxLinkWidth: Reference in which to return the max PCIe link generation
 //
-// Wraps nvmlDeviceGetMaxPcieLinkWidth.
+// Wraps [nvmlDeviceGetMaxPcieLinkWidth].
+//
+// [nvmlDeviceGetMaxPcieLinkWidth]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetMaxPcieLinkWidth12nvmlDevice_tPj
 func (d Device) MaxPcieLinkWidth() (uint32, error) {
 	return deviceGetMaxPcieLinkWidth(d)
 }
@@ -1623,7 +1848,9 @@ func (d Device) MaxPcieLinkWidth() (uint32, error) {
 //   - minOffset: The retrieved MemClk VF min offset value
 //   - maxOffset: The retrieved MemClk VF max offset value
 //
-// Wraps nvmlDeviceGetMemClkMinMaxVfOffset.
+// Wraps [nvmlDeviceGetMemClkMinMaxVfOffset].
+//
+// [nvmlDeviceGetMemClkMinMaxVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetMemClkMinMaxVfOffset12nvmlDevice_tPiPi
 func (d Device) MemClkMinMaxVfOffset() (int32, int32, error) {
 	return deviceGetMemClkMinMaxVfOffset(d)
 }
@@ -1632,7 +1859,9 @@ func (d Device) MemClkMinMaxVfOffset() (int32, int32, error) {
 //
 //   - offset: The retrieved MemClk VF offset value
 //
-// Wraps nvmlDeviceGetMemClkVfOffset.
+// Wraps [nvmlDeviceGetMemClkVfOffset].
+//
+// [nvmlDeviceGetMemClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetMemClkVfOffset12nvmlDevice_tPi
 func (d Device) MemClkVfOffset() (int32, error) {
 	return deviceGetMemClkVfOffset(d)
 }
@@ -1647,7 +1876,9 @@ func (d Device) MemClkVfOffset() (int32, error) {
 //   - nodeSet: Array reference in which to return a bitmask of NODEs, 64 NODEs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //   - scope: Scope that change the default behavior
 //
-// Wraps nvmlDeviceGetMemoryAffinity.
+// Wraps [nvmlDeviceGetMemoryAffinity].
+//
+// [nvmlDeviceGetMemoryAffinity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv427nvmlDeviceGetMemoryAffinity12nvmlDevice_tjPm19nvmlAffinityScope_t
 func (d Device) MemoryAffinity(nodeSetSize uint32, nodeSet *uint, scope AffinityScope) error {
 	return deviceGetMemoryAffinity(d, nodeSetSize, nodeSet, scope)
 }
@@ -1656,7 +1887,9 @@ func (d Device) MemoryAffinity(nodeSetSize uint32, nodeSet *uint, scope Affinity
 //
 //   - busWidth: The devices's memory bus width
 //
-// Wraps nvmlDeviceGetMemoryBusWidth.
+// Wraps [nvmlDeviceGetMemoryBusWidth].
+//
+// [nvmlDeviceGetMemoryBusWidth]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetMemoryBusWidth12nvmlDevice_tPj
 func (d Device) MemoryBusWidth() (uint32, error) {
 	return deviceGetMemoryBusWidth(d)
 }
@@ -1675,7 +1908,9 @@ func (d Device) MemoryBusWidth() (uint32, error) {
 //   - locationType: Specifies the location of the counter
 //   - count: Reference in which to return the ECC counter
 //
-// Wraps nvmlDeviceGetMemoryErrorCounter.
+// Wraps [nvmlDeviceGetMemoryErrorCounter].
+//
+// [nvmlDeviceGetMemoryErrorCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetMemoryErrorCounter12nvmlDevice_t21nvmlMemoryErrorType_t20nvmlEccCounterType_t20nvmlMemoryLocation_tPy
 func (d Device) MemoryErrorCounter(errorType MemoryErrorType, counterType EccCounterType, locationType MemoryLocation, count *uint64) error {
 	return deviceGetMemoryErrorCounter(d, errorType, counterType, locationType, count)
 }
@@ -1689,7 +1924,9 @@ func (d Device) MemoryErrorCounter(errorType MemoryErrorType, counterType EccCou
 //
 //   - memory: Reference in which to return the memory information
 //
-// Wraps nvmlDeviceGetMemoryInfo_v2.
+// Wraps [nvmlDeviceGetMemoryInfo_v2].
+//
+// [nvmlDeviceGetMemoryInfo_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetMemoryInfo_v212nvmlDevice_tP15nvmlMemory_v2_t
 func (d Device) MemoryInfo() (MemoryV2, error) {
 	return deviceGetMemoryInfo(d)
 }
@@ -1702,7 +1939,9 @@ func (d Device) MemoryInfo() (MemoryV2, error) {
 //   - index: Index of the MIG device
 //   - migDevice: Reference to the MIG device handle
 //
-// Wraps nvmlDeviceGetMigDeviceHandleByIndex.
+// Wraps [nvmlDeviceGetMigDeviceHandleByIndex].
+//
+// [nvmlDeviceGetMigDeviceHandleByIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv435nvmlDeviceGetMigDeviceHandleByIndex12nvmlDevice_tjP12nvmlDevice_t
 func (d Device) MigDeviceHandleByIndex(index uint32) (Device, error) {
 	return deviceGetMigDeviceHandleByIndex(d, index)
 }
@@ -1715,7 +1954,9 @@ func (d Device) MigDeviceHandleByIndex(index uint32) (Device, error) {
 //   - currentMode: Returns the current mode, [DeviceMigDisable] or [DeviceMigEnable]
 //   - pendingMode: Returns the pending mode, [DeviceMigDisable] or [DeviceMigEnable]
 //
-// Wraps nvmlDeviceGetMigMode.
+// Wraps [nvmlDeviceGetMigMode].
+//
+// [nvmlDeviceGetMigMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv420nvmlDeviceGetMigMode12nvmlDevice_tPjPj
 func (d Device) MigMode(pendingMode *uint32) (uint32, error) {
 	return deviceGetMigMode(d, pendingMode)
 }
@@ -1727,7 +1968,9 @@ func (d Device) MigMode(pendingMode *uint32) (uint32, error) {
 //   - minClockMHz: Reference in which to return min clock frequency
 //   - maxClockMHz: Reference in which to return max clock frequency
 //
-// Wraps nvmlDeviceGetMinMaxClockOfPState.
+// Wraps [nvmlDeviceGetMinMaxClockOfPState].
+//
+// [nvmlDeviceGetMinMaxClockOfPState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetMinMaxClockOfPState12nvmlDevice_t15nvmlClockType_t13nvmlPstates_tPjPj
 func (d Device) MinMaxClockOfPState(type_ ClockType, pstate Pstates, minClockMHz *uint32, maxClockMHz *uint32) error {
 	return deviceGetMinMaxClockOfPState(d, type_, pstate, minClockMHz, maxClockMHz)
 }
@@ -1739,7 +1982,9 @@ func (d Device) MinMaxClockOfPState(type_ ClockType, pstate Pstates, minClockMHz
 //   - minSpeed: The minimum speed allowed to set
 //   - maxSpeed: The maximum speed allowed to set
 //
-// Wraps nvmlDeviceGetMinMaxFanSpeed.
+// Wraps [nvmlDeviceGetMinMaxFanSpeed].
+//
+// [nvmlDeviceGetMinMaxFanSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetMinMaxFanSpeed12nvmlDevice_tPjPj
 func (d Device) MinMaxFanSpeed() (uint32, uint32, error) {
 	return deviceGetMinMaxFanSpeed(d)
 }
@@ -1750,7 +1995,9 @@ func (d Device) MinMaxFanSpeed() (uint32, uint32, error) {
 //
 //   - minorNumber: Reference in which to return the minor number for the device
 //
-// Wraps nvmlDeviceGetMinorNumber.
+// Wraps [nvmlDeviceGetMinorNumber].
+//
+// [nvmlDeviceGetMinorNumber]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetMinorNumber12nvmlDevice_tPj
 func (d Device) MinorNumber() (uint32, error) {
 	return deviceGetMinorNumber(d)
 }
@@ -1761,7 +2008,9 @@ func (d Device) MinorNumber() (uint32, error) {
 //
 //   - moduleId: Unique identifier for the GPU module
 //
-// Wraps nvmlDeviceGetModuleId.
+// Wraps [nvmlDeviceGetModuleId].
+//
+// [nvmlDeviceGetModuleId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceGetModuleId12nvmlDevice_tPj
 func (d Device) ModuleId() (uint32, error) {
 	return deviceGetModuleId(d)
 }
@@ -1772,7 +2021,9 @@ func (d Device) ModuleId() (uint32, error) {
 //
 //   - multiGpuBool: Reference in which to return a zero or non-zero value to indicate whether the device is on a multi GPU board
 //
-// Wraps nvmlDeviceGetMultiGpuBoard.
+// Wraps [nvmlDeviceGetMultiGpuBoard].
+//
+// [nvmlDeviceGetMultiGpuBoard]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetMultiGpuBoard12nvmlDevice_tPj
 func (d Device) MultiGpuBoard() (uint32, error) {
 	return deviceGetMultiGpuBoard(d)
 }
@@ -1786,7 +2037,9 @@ func (d Device) MultiGpuBoard() (uint32, error) {
 //   - name: Reference in which to return the product name
 //   - length: The maximum allowed length of the string returned in name
 //
-// Wraps nvmlDeviceGetName.
+// Wraps [nvmlDeviceGetName].
+//
+// [nvmlDeviceGetName]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv417nvmlDeviceGetName12nvmlDevice_tPcj
 func (d Device) Name() (string, error) {
 	return deviceGetName(d)
 }
@@ -1797,7 +2050,9 @@ func (d Device) Name() (string, error) {
 //
 //   - numFans: The number of fans
 //
-// Wraps nvmlDeviceGetNumFans.
+// Wraps [nvmlDeviceGetNumFans].
+//
+// [nvmlDeviceGetNumFans]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetNumFans12nvmlDevice_tPj
 func (d Device) NumFans() (uint32, error) {
 	return deviceGetNumFans(d)
 }
@@ -1809,7 +2064,9 @@ func (d Device) NumFans() (uint32, error) {
 //
 //   - numCores: The number of cores for the specified device
 //
-// Wraps nvmlDeviceGetNumGpuCores.
+// Wraps [nvmlDeviceGetNumGpuCores].
+//
+// [nvmlDeviceGetNumGpuCores]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetNumGpuCores12nvmlDevice_tPj
 func (d Device) NumGpuCores() (uint32, error) {
 	return deviceGetNumGpuCores(d)
 }
@@ -1818,7 +2075,9 @@ func (d Device) NumGpuCores() (uint32, error) {
 //
 //   - node: NUMA node ID of the device
 //
-// Wraps nvmlDeviceGetNumaNodeId.
+// Wraps [nvmlDeviceGetNumaNodeId].
+//
+// [nvmlDeviceGetNumaNodeId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv423nvmlDeviceGetNumaNodeId12nvmlDevice_tPj
 func (d Device) NumaNodeId() (uint32, error) {
 	return deviceGetNumaNodeId(d)
 }
@@ -1831,7 +2090,9 @@ func (d Device) NumaNodeId() (uint32, error) {
 //   - capability: Specifies the [NvLinkCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is available
 //
-// Wraps nvmlDeviceGetNvLinkCapability.
+// Wraps [nvmlDeviceGetNvLinkCapability].
+//
+// [nvmlDeviceGetNvLinkCapability]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv429nvmlDeviceGetNvLinkCapability12nvmlDevice_tj22nvmlNvLinkCapability_tPj
 func (d Device) NvLinkCapability(link uint32, capability NvLinkCapability) (uint32, error) {
 	return deviceGetNvLinkCapability(d, link, capability)
 }
@@ -1844,7 +2105,9 @@ func (d Device) NvLinkCapability(link uint32, capability NvLinkCapability) (uint
 //   - counter: Specifies the NvLink counter to be queried
 //   - counterValue: Returned counter value
 //
-// Wraps nvmlDeviceGetNvLinkErrorCounter.
+// Wraps [nvmlDeviceGetNvLinkErrorCounter].
+//
+// [nvmlDeviceGetNvLinkErrorCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv431nvmlDeviceGetNvLinkErrorCounter12nvmlDevice_tj24nvmlNvLinkErrorCounter_tPy
 func (d Device) NvLinkErrorCounter(link uint32, counter NvLinkErrorCounter) (uint64, error) {
 	return deviceGetNvLinkErrorCounter(d, link, counter)
 }
@@ -1853,7 +2116,9 @@ func (d Device) NvLinkErrorCounter(link uint32, counter NvLinkErrorCounter) (uin
 //
 //   - info: Reference to [NvLinkInfo]
 //
-// Wraps nvmlDeviceGetNvLinkInfo.
+// Wraps [nvmlDeviceGetNvLinkInfo].
+//
+// [nvmlDeviceGetNvLinkInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv423nvmlDeviceGetNvLinkInfo12nvmlDevice_tP16nvmlNvLinkInfo_t
 func (d Device) NvLinkInfo() (NvLinkInfo, error) {
 	return deviceGetNvLinkInfo(d)
 }
@@ -1863,7 +2128,9 @@ func (d Device) NvLinkInfo() (NvLinkInfo, error) {
 //   - link: The NVLink link index on the target GPU
 //   - pNvLinkDeviceType: Pointer in which the output remote device type is returned
 //
-// Wraps nvmlDeviceGetNvLinkRemoteDeviceType.
+// Wraps [nvmlDeviceGetNvLinkRemoteDeviceType].
+//
+// [nvmlDeviceGetNvLinkRemoteDeviceType]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv435nvmlDeviceGetNvLinkRemoteDeviceType12nvmlDevice_tjP25nvmlIntNvLinkDeviceType_t
 func (d Device) NvLinkRemoteDeviceType(link uint32, pNvLinkDeviceType *IntNvLinkDeviceType) error {
 	return deviceGetNvLinkRemoteDeviceType(d, link, pNvLinkDeviceType)
 }
@@ -1875,7 +2142,9 @@ func (d Device) NvLinkRemoteDeviceType(link uint32, pNvLinkDeviceType *IntNvLink
 //   - link: Specifies the NvLink link to be queried
 //   - pci: [PciInfo] of the remote node for the specified link
 //
-// Wraps nvmlDeviceGetNvLinkRemotePciInfo, bound as nvmlDeviceGetNvLinkRemotePciInfo_v2.
+// Wraps [nvmlDeviceGetNvLinkRemotePciInfo], bound as nvmlDeviceGetNvLinkRemotePciInfo_v2.
+//
+// [nvmlDeviceGetNvLinkRemotePciInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv435nvmlDeviceGetNvLinkRemotePciInfo_v212nvmlDevice_tjP13nvmlPciInfo_t
 func (d Device) NvLinkRemotePciInfo(link uint32) (PciInfo, error) {
 	return deviceGetNvLinkRemotePciInfo(d, link)
 }
@@ -1887,7 +2156,9 @@ func (d Device) NvLinkRemotePciInfo(link uint32) (PciInfo, error) {
 //   - link: Specifies the NvLink link to be queried
 //   - isActive: [EnableState] where [FeatureEnabled] indicates that the link is active and [FeatureDisabled] indicates it is inactive
 //
-// Wraps nvmlDeviceGetNvLinkState.
+// Wraps [nvmlDeviceGetNvLinkState].
+//
+// [nvmlDeviceGetNvLinkState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv424nvmlDeviceGetNvLinkState12nvmlDevice_tjP17nvmlEnableState_t
 func (d Device) NvLinkState(link uint32) (EnableState, error) {
 	return deviceGetNvLinkState(d, link)
 }
@@ -1902,7 +2173,9 @@ func (d Device) NvLinkState(link uint32) (EnableState, error) {
 //
 // Deprecated: Getting utilization counter control is no longer supported. Get the NVLINK utilization counter control information for the specified counter, 0 or 1. Please refer to [NvLinkUtilizationControl] for the structure definition For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceGetNvLinkUtilizationControl.
+// Wraps [nvmlDeviceGetNvLinkUtilizationControl].
+//
+// [nvmlDeviceGetNvLinkUtilizationControl]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv437nvmlDeviceGetNvLinkUtilizationControl12nvmlDevice_tjjP30nvmlNvLinkUtilizationControl_t
 func (d Device) NvLinkUtilizationControl(link uint32, counter uint32, control *NvLinkUtilizationControl) error {
 	return deviceGetNvLinkUtilizationControl(d, link, counter, control)
 }
@@ -1918,7 +2191,9 @@ func (d Device) NvLinkUtilizationControl(link uint32, counter uint32, control *N
 //
 // Deprecated: Use [Device.FieldValues] with NVML_FI_DEV_NVLINK_THROUGHPUT_* as field values instead. Retrieve the NVLINK utilization counter based on the current control for a specified counter. In general it is good practice to use [Device.SetNvLinkUtilizationControl] before reading the utilization counters as they have no default state For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceGetNvLinkUtilizationCounter.
+// Wraps [nvmlDeviceGetNvLinkUtilizationCounter].
+//
+// [nvmlDeviceGetNvLinkUtilizationCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv437nvmlDeviceGetNvLinkUtilizationCounter12nvmlDevice_tjjPyPy
 func (d Device) NvLinkUtilizationCounter(link uint32, counter uint32, rxcounter *uint64, txcounter *uint64) error {
 	return deviceGetNvLinkUtilizationCounter(d, link, counter, rxcounter, txcounter)
 }
@@ -1930,7 +2205,9 @@ func (d Device) NvLinkUtilizationCounter(link uint32, counter uint32, rxcounter 
 //   - link: Specifies the NvLink link to be queried
 //   - version: Requested NvLink version from [NvlinkVersion]
 //
-// Wraps nvmlDeviceGetNvLinkVersion.
+// Wraps [nvmlDeviceGetNvLinkVersion].
+//
+// [nvmlDeviceGetNvLinkVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv426nvmlDeviceGetNvLinkVersion12nvmlDevice_tjPj
 func (d Device) NvLinkVersion(link uint32) (uint32, error) {
 	return deviceGetNvLinkVersion(d, link)
 }
@@ -1941,7 +2218,9 @@ func (d Device) NvLinkVersion(link uint32) (uint32, error) {
 //
 //   - getBwMode: Reference to [NvlinkGetBwMode]
 //
-// Wraps nvmlDeviceGetNvlinkBwMode.
+// Wraps [nvmlDeviceGetNvlinkBwMode].
+//
+// [nvmlDeviceGetNvlinkBwMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv425nvmlDeviceGetNvlinkBwMode12nvmlDevice_tP21nvmlNvlinkGetBwMode_t
 func (d Device) NvlinkBwMode(getBwMode *NvlinkGetBwMode) error {
 	return deviceGetNvlinkBwMode(d, getBwMode)
 }
@@ -1952,7 +2231,9 @@ func (d Device) NvlinkBwMode(getBwMode *NvlinkGetBwMode) error {
 //
 //   - supportedBwMode: Reference to [NvlinkSupportedBwModes]
 //
-// Wraps nvmlDeviceGetNvlinkSupportedBwModes.
+// Wraps [nvmlDeviceGetNvlinkSupportedBwModes].
+//
+// [nvmlDeviceGetNvlinkSupportedBwModes]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv435nvmlDeviceGetNvlinkSupportedBwModes12nvmlDevice_tP28nvmlNvlinkSupportedBwModes_t
 func (d Device) NvlinkSupportedBwModes(supportedBwMode *NvlinkSupportedBwModes) error {
 	return deviceGetNvlinkSupportedBwModes(d, supportedBwMode)
 }
@@ -1966,7 +2247,9 @@ func (d Device) NvlinkSupportedBwModes(supportedBwMode *NvlinkSupportedBwModes) 
 //   - utilization: Reference to an unsigned int for ofa utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Wraps nvmlDeviceGetOfaUtilization.
+// Wraps [nvmlDeviceGetOfaUtilization].
+//
+// [nvmlDeviceGetOfaUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetOfaUtilization12nvmlDevice_tPjPj
 func (d Device) OfaUtilization(samplingPeriodUs *uint32) (uint32, error) {
 	return deviceGetOfaUtilization(d, samplingPeriodUs)
 }
@@ -1978,7 +2261,9 @@ func (d Device) OfaUtilization(samplingPeriodUs *uint32) (uint32, error) {
 //   - device2: The second GPU device
 //   - onSameBoard: Reference in which to return the status. Non-zero indicates that the GPUs are on the same board
 //
-// Wraps nvmlDeviceOnSameBoard.
+// Wraps [nvmlDeviceOnSameBoard].
+//
+// [nvmlDeviceOnSameBoard]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceOnSameBoard12nvmlDevice_t12nvmlDevice_tPi
 func (d Device) OnSameBoard(device2 Device) (int32, error) {
 	return deviceOnSameBoard(d, device2)
 }
@@ -1989,7 +2274,9 @@ func (d Device) OnSameBoard(device2 Device) (int32, error) {
 //   - p2pIndex: p2p Capability Index being looked for between device1 and device2
 //   - p2pStatus: Reference in which to return the status of the p2pIndex between device1 and device2
 //
-// Wraps nvmlDeviceGetP2PStatus.
+// Wraps [nvmlDeviceGetP2PStatus].
+//
+// [nvmlDeviceGetP2PStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv422nvmlDeviceGetP2PStatus12nvmlDevice_t12nvmlDevice_t21nvmlGpuP2PCapsIndex_tP18nvmlGpuP2PStatus_t
 func (d Device) P2PStatus(device2 Device, p2pIndex GpuP2PCapsIndex, p2pStatus *GpuP2PStatus) error {
 	return deviceGetP2PStatus(d, device2, p2pIndex, p2pStatus)
 }
@@ -2001,7 +2288,9 @@ func (d Device) P2PStatus(device2 Device, p2pIndex GpuP2PCapsIndex, p2pStatus *G
 //
 //   - pci: Reference in which to return the PCI info
 //
-// Wraps nvmlDeviceGetPciInfo, bound as nvmlDeviceGetPciInfo_v3.
+// Wraps [nvmlDeviceGetPciInfo], bound as nvmlDeviceGetPciInfo_v3.
+//
+// [nvmlDeviceGetPciInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPciInfo_v312nvmlDevice_tP13nvmlPciInfo_t
 func (d Device) PciInfo() (PciInfo, error) {
 	return deviceGetPciInfo(d)
 }
@@ -2013,7 +2302,9 @@ func (d Device) PciInfo() (PciInfo, error) {
 //
 //   - pci: Reference in which to return the PCI info
 //
-// Wraps nvmlDeviceGetPciInfoExt.
+// Wraps [nvmlDeviceGetPciInfoExt].
+//
+// [nvmlDeviceGetPciInfoExt]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPciInfoExt12nvmlDevice_tP16nvmlPciInfoExt_t
 func (d Device) PciInfoExt() (PciInfoExt, error) {
 	return deviceGetPciInfoExt(d)
 }
@@ -2022,7 +2313,9 @@ func (d Device) PciInfoExt() (PciInfoExt, error) {
 //
 //   - maxSpeed: The devices's PCIE Max Link speed in MBPS
 //
-// Wraps nvmlDeviceGetPcieLinkMaxSpeed.
+// Wraps [nvmlDeviceGetPcieLinkMaxSpeed].
+//
+// [nvmlDeviceGetPcieLinkMaxSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetPcieLinkMaxSpeed12nvmlDevice_tPj
 func (d Device) PcieLinkMaxSpeed() (uint32, error) {
 	return deviceGetPcieLinkMaxSpeed(d)
 }
@@ -2033,7 +2326,9 @@ func (d Device) PcieLinkMaxSpeed() (uint32, error) {
 //
 //   - value: Reference in which to return the counter's value
 //
-// Wraps nvmlDeviceGetPcieReplayCounter.
+// Wraps [nvmlDeviceGetPcieReplayCounter].
+//
+// [nvmlDeviceGetPcieReplayCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetPcieReplayCounter12nvmlDevice_tPj
 func (d Device) PcieReplayCounter() (uint32, error) {
 	return deviceGetPcieReplayCounter(d)
 }
@@ -2042,7 +2337,9 @@ func (d Device) PcieReplayCounter() (uint32, error) {
 //
 //   - pcieSpeed: The devices's PCIe Max Link speed in Mbps
 //
-// Wraps nvmlDeviceGetPcieSpeed.
+// Wraps [nvmlDeviceGetPcieSpeed].
+//
+// [nvmlDeviceGetPcieSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv422nvmlDeviceGetPcieSpeed12nvmlDevice_tPj
 func (d Device) PcieSpeed() (uint32, error) {
 	return deviceGetPcieSpeed(d)
 }
@@ -2055,7 +2352,9 @@ func (d Device) PcieSpeed() (uint32, error) {
 //   - counter: The specific counter that should be queried [PcieUtilCounter]
 //   - value: Reference in which to return throughput in KB/s
 //
-// Wraps nvmlDeviceGetPcieThroughput.
+// Wraps [nvmlDeviceGetPcieThroughput].
+//
+// [nvmlDeviceGetPcieThroughput]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetPcieThroughput12nvmlDevice_t21nvmlPcieUtilCounter_tPj
 func (d Device) PcieThroughput(counter PcieUtilCounter) (uint32, error) {
 	return deviceGetPcieThroughput(d, counter)
 }
@@ -2067,7 +2366,9 @@ func (d Device) PcieThroughput(counter PcieUtilCounter) (uint32, error) {
 //
 //   - pdi: Reference to the caller-provided structure to return the GPU PDI
 //
-// Wraps nvmlDeviceGetPdi.
+// Wraps [nvmlDeviceGetPdi].
+//
+// [nvmlDeviceGetPdi]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv416nvmlDeviceGetPdi12nvmlDevice_tP9nvmlPdi_t
 func (d Device) Pdi() (Pdi, error) {
 	return deviceGetPdi(d)
 }
@@ -2083,7 +2384,9 @@ func (d Device) Pdi() (Pdi, error) {
 //
 //   - perfModes: Reference in which to return the performance level string
 //
-// Wraps nvmlDeviceGetPerformanceModes.
+// Wraps [nvmlDeviceGetPerformanceModes].
+//
+// [nvmlDeviceGetPerformanceModes]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetPerformanceModes12nvmlDevice_tP21nvmlDevicePerfModes_t
 func (d Device) PerformanceModes(perfModes *DevicePerfModes) error {
 	return deviceGetPerformanceModes(d, perfModes)
 }
@@ -2095,7 +2398,9 @@ func (d Device) PerformanceModes(perfModes *DevicePerfModes) error {
 //
 //   - pState: Reference in which to return the performance state reading
 //
-// Wraps nvmlDeviceGetPerformanceState.
+// Wraps [nvmlDeviceGetPerformanceState].
+//
+// [nvmlDeviceGetPerformanceState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetPerformanceState12nvmlDevice_tP13nvmlPstates_t
 func (d Device) PerformanceState() (Pstates, error) {
 	return deviceGetPerformanceState(d)
 }
@@ -2109,15 +2414,19 @@ func (d Device) PerformanceState() (Pstates, error) {
 //
 //   - mode: Reference in which to return the current driver persistence mode
 //
-// Wraps nvmlDeviceGetPersistenceMode.
+// Wraps [nvmlDeviceGetPersistenceMode].
+//
+// [nvmlDeviceGetPersistenceMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetPersistenceMode12nvmlDevice_tP17nvmlEnableState_t
 func (d Device) PersistenceMode() (EnableState, error) {
 	return deviceGetPersistenceMode(d)
 }
 
-// PgpuMetadataString wraps nvmlDeviceGetPgpuMetadataString.
+// PgpuMetadataString wraps [nvmlDeviceGetPgpuMetadataString].
 //
 //   - pgpuMetadata: Pointer to caller-supplied buffer into which pgpuMetadata is written
 //   - bufferSize: Pointer to size of pgpuMetadata buffer
+//
+// [nvmlDeviceGetPgpuMetadataString]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv431nvmlDeviceGetPgpuMetadataString12nvmlDevice_tPcPj
 func (d Device) PgpuMetadataString(pgpuMetadata *byte, bufferSize *uint32) error {
 	return deviceGetPgpuMetadataString(d, pgpuMetadata, bufferSize)
 }
@@ -2129,7 +2438,9 @@ func (d Device) PgpuMetadataString(pgpuMetadata *byte, bufferSize *uint32) error
 //
 //   - platformInfo: Pointer to the caller-provided structure of [PlatformInfo]
 //
-// Wraps nvmlDeviceGetPlatformInfo.
+// Wraps [nvmlDeviceGetPlatformInfo].
+//
+// [nvmlDeviceGetPlatformInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetPlatformInfo12nvmlDevice_tP18nvmlPlatformInfo_t
 func (d Device) PlatformInfo(platformInfo *PlatformInfo) error {
 	return deviceGetPlatformInfo(d, platformInfo)
 }
@@ -2140,7 +2451,9 @@ func (d Device) PlatformInfo(platformInfo *PlatformInfo) error {
 //
 //   - defaultLimit: Reference in which to return the default power management limit in milliwatts
 //
-// Wraps nvmlDeviceGetPowerManagementDefaultLimit.
+// Wraps [nvmlDeviceGetPowerManagementDefaultLimit].
+//
+// [nvmlDeviceGetPowerManagementDefaultLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv440nvmlDeviceGetPowerManagementDefaultLimit12nvmlDevice_tPj
 func (d Device) PowerManagementDefaultLimit() (uint32, error) {
 	return deviceGetPowerManagementDefaultLimit(d)
 }
@@ -2153,7 +2466,9 @@ func (d Device) PowerManagementDefaultLimit() (uint32, error) {
 //
 //   - limit: Reference in which to return the power management limit in milliwatts
 //
-// Wraps nvmlDeviceGetPowerManagementLimit.
+// Wraps [nvmlDeviceGetPowerManagementLimit].
+//
+// [nvmlDeviceGetPowerManagementLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetPowerManagementLimit12nvmlDevice_tPj
 func (d Device) PowerManagementLimit() (uint32, error) {
 	return deviceGetPowerManagementLimit(d)
 }
@@ -2166,7 +2481,9 @@ func (d Device) PowerManagementLimit() (uint32, error) {
 //   - minLimit: Reference in which to return the minimum power management limit in milliwatts
 //   - maxLimit: Reference in which to return the maximum power management limit in milliwatts
 //
-// Wraps nvmlDeviceGetPowerManagementLimitConstraints.
+// Wraps [nvmlDeviceGetPowerManagementLimitConstraints].
+//
+// [nvmlDeviceGetPowerManagementLimitConstraints]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv444nvmlDeviceGetPowerManagementLimitConstraints12nvmlDevice_tPjPj
 func (d Device) PowerManagementLimitConstraints(minLimit *uint32, maxLimit *uint32) error {
 	return deviceGetPowerManagementLimitConstraints(d, minLimit, maxLimit)
 }
@@ -2182,7 +2499,9 @@ func (d Device) PowerManagementLimitConstraints(minLimit *uint32, maxLimit *uint
 //
 // Deprecated: This API has been deprecated. Retrieves the power management mode associated with this device. For products from the Fermi family. - Requires [InforomPower] version 3.0 or higher. For from the Kepler or newer families. - Does not require [InforomPower] object. This flag indicates whether any power management algorithm is currently active on the device. An enabled state does not necessarily mean the device is being actively throttled -- only that that the driver will do so if the appropriate conditions are met. See [EnableState] for details on allowed modes.
 //
-// Wraps nvmlDeviceGetPowerManagementMode.
+// Wraps [nvmlDeviceGetPowerManagementMode].
+//
+// [nvmlDeviceGetPowerManagementMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetPowerManagementMode12nvmlDevice_tP17nvmlEnableState_t
 func (d Device) PowerManagementMode() (EnableState, error) {
 	return deviceGetPowerManagementMode(d)
 }
@@ -2194,7 +2513,9 @@ func (d Device) PowerManagementMode() (EnableState, error) {
 //
 //   - powerMizerMode: Reference in which to return the power mizer mode
 //
-// Wraps nvmlDeviceGetPowerMizerMode_v1.
+// Wraps [nvmlDeviceGetPowerMizerMode_v1].
+//
+// [nvmlDeviceGetPowerMizerMode_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetPowerMizerMode_v112nvmlDevice_tP30nvmlDevicePowerMizerModes_v1_t
 func (d Device) PowerMizerMode(powerMizerMode *DevicePowerMizerModesV1) error {
 	return deviceGetPowerMizerMode(d, powerMizerMode)
 }
@@ -2205,7 +2526,9 @@ func (d Device) PowerMizerMode(powerMizerMode *DevicePowerMizerModesV1) error {
 //
 //   - profile: Reference to [PowerSmoothingProfile] . Note that only profile->profileId is used and the rest of the structure is ignored
 //
-// Wraps nvmlDevicePowerSmoothingActivatePresetProfile.
+// Wraps [nvmlDevicePowerSmoothingActivatePresetProfile].
+//
+// [nvmlDevicePowerSmoothingActivatePresetProfile]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerSmoothing.html#_CPPv445nvmlDevicePowerSmoothingActivatePresetProfile12nvmlDevice_tP27nvmlPowerSmoothingProfile_t
 func (d Device) PowerSmoothingActivatePresetProfile(profile *PowerSmoothingProfile) error {
 	return devicePowerSmoothingActivatePresetProfile(d, profile)
 }
@@ -2217,7 +2540,9 @@ func (d Device) PowerSmoothingActivatePresetProfile(profile *PowerSmoothingProfi
 //
 //   - state: Reference to [PowerSmoothingState]
 //
-// Wraps nvmlDevicePowerSmoothingSetState.
+// Wraps [nvmlDevicePowerSmoothingSetState].
+//
+// [nvmlDevicePowerSmoothingSetState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerSmoothing.html#_CPPv432nvmlDevicePowerSmoothingSetState12nvmlDevice_tP25nvmlPowerSmoothingState_t
 func (d Device) PowerSmoothingSetState(state *PowerSmoothingState) error {
 	return devicePowerSmoothingSetState(d, state)
 }
@@ -2229,7 +2554,9 @@ func (d Device) PowerSmoothingSetState(state *PowerSmoothingState) error {
 //
 //   - profile: Reference to [PowerSmoothingProfile] struct
 //
-// Wraps nvmlDevicePowerSmoothingUpdatePresetProfileParam.
+// Wraps [nvmlDevicePowerSmoothingUpdatePresetProfileParam].
+//
+// [nvmlDevicePowerSmoothingUpdatePresetProfileParam]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerSmoothing.html#_CPPv448nvmlDevicePowerSmoothingUpdatePresetProfileParam12nvmlDevice_tP27nvmlPowerSmoothingProfile_t
 func (d Device) PowerSmoothingUpdatePresetProfileParam(profile *PowerSmoothingProfile) error {
 	return devicePowerSmoothingUpdatePresetProfileParam(d, profile)
 }
@@ -2238,7 +2565,9 @@ func (d Device) PowerSmoothingUpdatePresetProfileParam(profile *PowerSmoothingPr
 //
 //   - powerSource: The power source of the device
 //
-// Wraps nvmlDeviceGetPowerSource.
+// Wraps [nvmlDeviceGetPowerSource].
+//
+// [nvmlDeviceGetPowerSource]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetPowerSource12nvmlDevice_tP17nvmlPowerSource_t
 func (d Device) PowerSource() (PowerSource, error) {
 	return deviceGetPowerSource(d)
 }
@@ -2252,7 +2581,9 @@ func (d Device) PowerSource() (PowerSource, error) {
 //
 // Deprecated: Use [Device.PerformanceState]. This function exposes an incorrect generalization. Retrieve the current performance state for the device. For Fermi &tm; or newer fully supported devices. See [Pstates] for details on allowed performance states.
 //
-// Wraps nvmlDeviceGetPowerState.
+// Wraps [nvmlDeviceGetPowerState].
+//
+// [nvmlDeviceGetPowerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPowerState12nvmlDevice_tP13nvmlPstates_t
 func (d Device) PowerState() (Pstates, error) {
 	return deviceGetPowerState(d)
 }
@@ -2266,7 +2597,9 @@ func (d Device) PowerState() (Pstates, error) {
 //
 //   - power: Reference in which to return the power usage information
 //
-// Wraps nvmlDeviceGetPowerUsage.
+// Wraps [nvmlDeviceGetPowerUsage].
+//
+// [nvmlDeviceGetPowerUsage]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPowerUsage12nvmlDevice_tPj
 func (d Device) PowerUsage() (uint32, error) {
 	return deviceGetPowerUsage(d)
 }
@@ -2285,9 +2618,11 @@ func (d Device) PowerUsage() (uint32, error) {
 //   - processSamplesCount: Pointer to caller-supplied array size, and returns number of processes running
 //   - lastSeenTimeStamp: Return only samples with timestamp greater than lastSeenTimeStamp
 //
-// Wraps nvmlDeviceGetProcessUtilization.
+// Wraps [nvmlDeviceGetProcessUtilization].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetProcessUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetProcessUtilization12nvmlDevice_tP30nvmlProcessUtilizationSample_tPjy
 func (d Device) ProcessUtilization(lastSeenTimeStamp uint64, buf []ProcessUtilizationSample) ([]ProcessUtilizationSample, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -2323,21 +2658,27 @@ func (d Device) ProcessUtilization(lastSeenTimeStamp uint64, buf []ProcessUtiliz
 //
 //   - procesesUtilInfo: Pointer to the caller-provided structure of [ProcessesUtilizationInfo]
 //
-// Wraps nvmlDeviceGetProcessesUtilizationInfo.
+// Wraps [nvmlDeviceGetProcessesUtilizationInfo].
+//
+// [nvmlDeviceGetProcessesUtilizationInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetProcessesUtilizationInfo12nvmlDevice_tP30nvmlProcessesUtilizationInfo_t
 func (d Device) ProcessesUtilizationInfo(procesesUtilInfo *ProcessesUtilizationInfo) error {
 	return deviceGetProcessesUtilizationInfo(d, procesesUtilInfo)
 }
 
-// ReadPRMCounters wraps nvmlDeviceReadPRMCounters_v1.
+// ReadPRMCounters wraps [nvmlDeviceReadPRMCounters_v1].
 //
 //   - counterList: Structure holding the input parameters as well as the retrieved counter values
+//
+// [nvmlDeviceReadPRMCounters_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGPUPRMAccess.html#_CPPv428nvmlDeviceReadPRMCounters_v112nvmlDevice_tP23nvmlPRMCounterList_v1_t
 func (d Device) ReadPRMCounters(counterList *PRMCounterListV1) error {
 	return deviceReadPRMCounters(d, counterList)
 }
 
-// ReadWritePRM wraps nvmlDeviceReadWritePRM_v1.
+// ReadWritePRM wraps [nvmlDeviceReadWritePRM_v1].
 //
 //   - buffer: Structure holding the input data in TLV format as well as the PRM register contents in TLV format (in the case of a successful read operation). Note: the input data and any returned data shall be in network byte order
+//
+// [nvmlDeviceReadWritePRM_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGPUPRMAccess.html#_CPPv425nvmlDeviceReadWritePRM_v112nvmlDevice_tP15nvmlPRMTLV_v1_t
 func (d Device) ReadWritePRM(buffer *PRMTLVV1) error {
 	return deviceReadWritePRM(d, buffer)
 }
@@ -2357,7 +2698,9 @@ func (d Device) ReadWritePRM(buffer *PRMTLVV1) error {
 //   - eventTypes: Bitmask of Event Types to record
 //   - set: Set to which add new event types
 //
-// Wraps nvmlDeviceRegisterEvents.
+// Wraps [nvmlDeviceRegisterEvents].
+//
+// [nvmlDeviceRegisterEvents]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv424nvmlDeviceRegisterEvents12nvmlDevice_ty14nvmlEventSet_t
 func (d Device) RegisterEvents(eventTypes uint64, set EventSet) error {
 	return deviceRegisterEvents(d, eventTypes, set)
 }
@@ -2373,7 +2716,9 @@ func (d Device) RegisterEvents(eventTypes uint64, set EventSet) error {
 //   - isPending: Reference for whether or not remappings are pending
 //   - failureOccurred: Reference that is set when a remapping has failed in the past
 //
-// Wraps nvmlDeviceGetRemappedRows.
+// Wraps [nvmlDeviceGetRemappedRows].
+//
+// [nvmlDeviceGetRemappedRows]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetRemappedRows12nvmlDevice_tPjPjPjPj
 func (d Device) RemappedRows(uncRows *uint32, isPending *uint32, failureOccurred *uint32) (uint32, error) {
 	return deviceGetRemappedRows(d, uncRows, isPending, failureOccurred)
 }
@@ -2384,7 +2729,9 @@ func (d Device) RemappedRows(uncRows *uint32, isPending *uint32, failureOccurred
 //
 //   - repairStatus: Reference to [RepairStatus]
 //
-// Wraps nvmlDeviceGetRepairStatus.
+// Wraps [nvmlDeviceGetRepairStatus].
+//
+// [nvmlDeviceGetRepairStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv425nvmlDeviceGetRepairStatus12nvmlDevice_tP18nvmlRepairStatus_t
 func (d Device) RepairStatus() (RepairStatus, error) {
 	return deviceGetRepairStatus(d)
 }
@@ -2395,7 +2742,9 @@ func (d Device) RepairStatus() (RepairStatus, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceResetApplicationsClocks.
+// Wraps [nvmlDeviceResetApplicationsClocks].
+//
+// [nvmlDeviceResetApplicationsClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceResetApplicationsClocks12nvmlDevice_t
 func (d Device) ResetApplicationsClocks() error {
 	return deviceResetApplicationsClocks(d)
 }
@@ -2406,7 +2755,9 @@ func (d Device) ResetApplicationsClocks() error {
 // See also: [Device.SetGpuLockedClocks]
 // For Volta or newer fully supported devices.
 //
-// Wraps nvmlDeviceResetGpuLockedClocks.
+// Wraps [nvmlDeviceResetGpuLockedClocks].
+//
+// [nvmlDeviceResetGpuLockedClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv430nvmlDeviceResetGpuLockedClocks12nvmlDevice_t
 func (d Device) ResetGpuLockedClocks() error {
 	return deviceResetGpuLockedClocks(d)
 }
@@ -2417,7 +2768,9 @@ func (d Device) ResetGpuLockedClocks() error {
 // See also: [Device.SetMemoryLockedClocks]
 // For Ampere or newer fully supported devices.
 //
-// Wraps nvmlDeviceResetMemoryLockedClocks.
+// Wraps [nvmlDeviceResetMemoryLockedClocks].
+//
+// [nvmlDeviceResetMemoryLockedClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceResetMemoryLockedClocks12nvmlDevice_t
 func (d Device) ResetMemoryLockedClocks() error {
 	return deviceResetMemoryLockedClocks(d)
 }
@@ -2428,7 +2781,9 @@ func (d Device) ResetMemoryLockedClocks() error {
 //
 //   - link: Specifies the NvLink link to be queried
 //
-// Wraps nvmlDeviceResetNvLinkErrorCounters.
+// Wraps [nvmlDeviceResetNvLinkErrorCounters].
+//
+// [nvmlDeviceResetNvLinkErrorCounters]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv434nvmlDeviceResetNvLinkErrorCounters12nvmlDevice_tj
 func (d Device) ResetNvLinkErrorCounters(link uint32) error {
 	return deviceResetNvLinkErrorCounters(d, link)
 }
@@ -2442,7 +2797,9 @@ func (d Device) ResetNvLinkErrorCounters(link uint32) error {
 //
 // Deprecated: Resetting NVLINK utilization counters is no longer supported. Reset the NVLINK utilization counters Both the receive and transmit counters are operated on by this function For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceResetNvLinkUtilizationCounter.
+// Wraps [nvmlDeviceResetNvLinkUtilizationCounter].
+//
+// [nvmlDeviceResetNvLinkUtilizationCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv439nvmlDeviceResetNvLinkUtilizationCounter12nvmlDevice_tjj
 func (d Device) ResetNvLinkUtilizationCounter(link uint32, counter uint32) error {
 	return deviceResetNvLinkUtilizationCounter(d, link, counter)
 }
@@ -2458,9 +2815,11 @@ func (d Device) ResetNvLinkUtilizationCounter(link uint32, counter uint32) error
 //   - addresses: Buffer to write the page addresses into
 //   - timestamps: Buffer to write the timestamps of page retirement, additional for _v2
 //
-// Wraps nvmlDeviceGetRetiredPages_v2.
+// Wraps [nvmlDeviceGetRetiredPages_v2].
 //
 // The returned slices are grown together until they hold all retired pages.
+//
+// [nvmlDeviceGetRetiredPages_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetRetiredPages_v212nvmlDevice_t25nvmlPageRetirementCause_tPjPyPy
 func (d Device) RetiredPages(cause PageRetirementCause) (addresses, timestamps []uint64, err error) {
 	addresses, timestamps = nil, nil
 	var p1, p2 *uint64
@@ -2488,7 +2847,9 @@ func (d Device) RetiredPages(cause PageRetirementCause) (addresses, timestamps [
 //
 //   - isPending: Reference in which to return the pending status
 //
-// Wraps nvmlDeviceGetRetiredPagesPendingStatus.
+// Wraps [nvmlDeviceGetRetiredPagesPendingStatus].
+//
+// [nvmlDeviceGetRetiredPagesPendingStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlDeviceGetRetiredPagesPendingStatus12nvmlDevice_tP17nvmlEnableState_t
 func (d Device) RetiredPagesPendingStatus(isPending *EnableState) error {
 	return deviceGetRetiredPagesPendingStatus(d, isPending)
 }
@@ -2497,7 +2858,9 @@ func (d Device) RetiredPagesPendingStatus(isPending *EnableState) error {
 //
 //   - values: Histogram values
 //
-// Wraps nvmlDeviceGetRowRemapperHistogram.
+// Wraps [nvmlDeviceGetRowRemapperHistogram].
+//
+// [nvmlDeviceGetRowRemapperHistogram]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetRowRemapperHistogram12nvmlDevice_tP32nvmlRowRemapperHistogramValues_t
 func (d Device) RowRemapperHistogram(values *RowRemapperHistogramValues) error {
 	return deviceGetRowRemapperHistogram(d, values)
 }
@@ -2514,7 +2877,9 @@ func (d Device) RowRemapperHistogram(values *RowRemapperHistogramValues) error {
 //
 //   - plist: Reference in which to process detail list plist->version The api version plist->mode The process mode plist->procArray Reference in which to return the process information plist->numProcArrayEntries Proc array size of returned entries
 //
-// Wraps nvmlDeviceGetRunningProcessDetailList.
+// Wraps [nvmlDeviceGetRunningProcessDetailList].
+//
+// [nvmlDeviceGetRunningProcessDetailList]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetRunningProcessDetailList12nvmlDevice_tP23nvmlProcessDetailList_t
 func (d Device) RunningProcessDetailList(plist *ProcessDetailList) error {
 	return deviceGetRunningProcessDetailList(d, plist)
 }
@@ -2536,9 +2901,11 @@ func (d Device) RunningProcessDetailList(plist *ProcessDetailList) error {
 //   - sampleCount: Reference to provide the number of elements which can be queried in samples array
 //   - samples: Reference in which samples are returned
 //
-// Wraps nvmlDeviceGetSamples.
+// Wraps [nvmlDeviceGetSamples].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetSamples]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetSamples12nvmlDevice_t18nvmlSamplingType_tyP15nvmlValueType_tPjP12nvmlSample_t
 func (d Device) Samples(type_ SamplingType, lastSeenTimeStamp uint64, buf []Sample) ([]Sample, ValueType, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -2571,7 +2938,9 @@ func (d Device) Samples(type_ SamplingType, lastSeenTimeStamp uint64, buf []Samp
 //   - serial: Reference in which to return the board/module serial number
 //   - length: The maximum allowed length of the string returned in serial
 //
-// Wraps nvmlDeviceGetSerial.
+// Wraps [nvmlDeviceGetSerial].
+//
+// [nvmlDeviceGetSerial]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv419nvmlDeviceGetSerial12nvmlDevice_tPcj
 func (d Device) Serial() (string, error) {
 	return deviceGetSerial(d)
 }
@@ -2584,7 +2953,9 @@ func (d Device) Serial() (string, error) {
 //   - apiType: Target API type for this operation
 //   - isRestricted: The target restriction
 //
-// Wraps nvmlDeviceSetAPIRestriction.
+// Wraps [nvmlDeviceSetAPIRestriction].
+//
+// [nvmlDeviceSetAPIRestriction]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv427nvmlDeviceSetAPIRestriction12nvmlDevice_t19nvmlRestrictedAPI_t17nvmlEnableState_t
 func (d Device) SetAPIRestriction(apiType RestrictedAPI, isRestricted EnableState) error {
 	return deviceSetAPIRestriction(d, apiType, isRestricted)
 }
@@ -2597,7 +2968,9 @@ func (d Device) SetAPIRestriction(apiType RestrictedAPI, isRestricted EnableStat
 //
 //   - mode: The target accounting mode
 //
-// Wraps nvmlDeviceSetAccountingMode.
+// Wraps [nvmlDeviceSetAccountingMode].
+//
+// [nvmlDeviceSetAccountingMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv427nvmlDeviceSetAccountingMode12nvmlDevice_t17nvmlEnableState_t
 func (d Device) SetAccountingMode(mode EnableState) error {
 	return deviceSetAccountingMode(d, mode)
 }
@@ -2608,7 +2981,9 @@ func (d Device) SetAccountingMode(mode EnableState) error {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceSetApplicationsClocks.
+// Wraps [nvmlDeviceSetApplicationsClocks].
+//
+// [nvmlDeviceSetApplicationsClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv431nvmlDeviceSetApplicationsClocks12nvmlDevice_tjj
 func (d Device) SetApplicationsClocks(memClockMHz uint32, graphicsClockMHz uint32) error {
 	return deviceSetApplicationsClocks(d, memClockMHz, graphicsClockMHz)
 }
@@ -2622,7 +2997,9 @@ func (d Device) SetApplicationsClocks(memClockMHz uint32, graphicsClockMHz uint3
 //
 //   - enabled: What state to try to set Auto Boosted clocks of the target device to
 //
-// Wraps nvmlDeviceSetAutoBoostedClocksEnabled.
+// Wraps [nvmlDeviceSetAutoBoostedClocksEnabled].
+//
+// [nvmlDeviceSetAutoBoostedClocksEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv437nvmlDeviceSetAutoBoostedClocksEnabled12nvmlDevice_t17nvmlEnableState_t
 func (d Device) SetAutoBoostedClocksEnabled(enabled EnableState) error {
 	return deviceSetAutoBoostedClocksEnabled(d, enabled)
 }
@@ -2634,7 +3011,9 @@ func (d Device) SetAutoBoostedClocksEnabled(enabled EnableState) error {
 //
 //   - info: Structure specifying the clock type (input), the pstate (input) and clock offset value (input)
 //
-// Wraps nvmlDeviceSetClockOffsets.
+// Wraps [nvmlDeviceSetClockOffsets].
+//
+// [nvmlDeviceSetClockOffsets]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceSetClockOffsets12nvmlDevice_tP17nvmlClockOffset_t
 func (d Device) SetClockOffsets(info *ClockOffset) error {
 	return deviceSetClockOffsets(d, info)
 }
@@ -2652,7 +3031,9 @@ func (d Device) SetClockOffsets(info *ClockOffset) error {
 //
 //   - mode: The target compute mode
 //
-// Wraps nvmlDeviceSetComputeMode.
+// Wraps [nvmlDeviceSetComputeMode].
+//
+// [nvmlDeviceSetComputeMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv424nvmlDeviceSetComputeMode12nvmlDevice_t17nvmlComputeMode_t
 func (d Device) SetComputeMode(mode ComputeMode) error {
 	return deviceSetComputeMode(d, mode)
 }
@@ -2663,7 +3044,9 @@ func (d Device) SetComputeMode(mode ComputeMode) error {
 //
 //   - sizeKiB: Unprotected Memory size to be set in KiB
 //
-// Wraps nvmlDeviceSetConfComputeUnprotectedMemSize.
+// Wraps [nvmlDeviceSetConfComputeUnprotectedMemSize].
+//
+// [nvmlDeviceSetConfComputeUnprotectedMemSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv442nvmlDeviceSetConfComputeUnprotectedMemSize12nvmlDevice_ty
 func (d Device) SetConfComputeUnprotectedMemSize(sizeKiB uint64) error {
 	return deviceSetConfComputeUnprotectedMemSize(d, sizeKiB)
 }
@@ -2672,7 +3055,9 @@ func (d Device) SetConfComputeUnprotectedMemSize(sizeKiB uint64) error {
 //
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
-// Wraps nvmlDeviceSetCpuAffinity.
+// Wraps [nvmlDeviceSetCpuAffinity].
+//
+// [nvmlDeviceSetCpuAffinity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv424nvmlDeviceSetCpuAffinity12nvmlDevice_t
 func (d Device) SetCpuAffinity() error {
 	return deviceSetCpuAffinity(d)
 }
@@ -2686,7 +3071,9 @@ func (d Device) SetCpuAffinity() error {
 //   - enabled: What state to try to set default Auto Boosted clocks of the target device to
 //   - flags: Flags that change the default behavior. Currently Unused
 //
-// Wraps nvmlDeviceSetDefaultAutoBoostedClocksEnabled.
+// Wraps [nvmlDeviceSetDefaultAutoBoostedClocksEnabled].
+//
+// [nvmlDeviceSetDefaultAutoBoostedClocksEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv444nvmlDeviceSetDefaultAutoBoostedClocksEnabled12nvmlDevice_t17nvmlEnableState_tj
 func (d Device) SetDefaultAutoBoostedClocksEnabled(enabled EnableState, flags uint32) error {
 	return deviceSetDefaultAutoBoostedClocksEnabled(d, enabled, flags)
 }
@@ -2697,7 +3084,9 @@ func (d Device) SetDefaultAutoBoostedClocksEnabled(enabled EnableState, flags ui
 //
 //   - fan: The index of the fan, starting at zero
 //
-// Wraps nvmlDeviceSetDefaultFanSpeed_v2.
+// Wraps [nvmlDeviceSetDefaultFanSpeed_v2].
+//
+// [nvmlDeviceSetDefaultFanSpeed_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv431nvmlDeviceSetDefaultFanSpeed_v212nvmlDevice_tj
 func (d Device) SetDefaultFanSpeed(fan uint32) error {
 	return deviceSetDefaultFanSpeed(d, fan)
 }
@@ -2712,7 +3101,9 @@ func (d Device) SetDefaultFanSpeed(fan uint32) error {
 //
 //   - dramEncryption: The target DRAM Encryption mode
 //
-// Wraps nvmlDeviceSetDramEncryptionMode.
+// Wraps [nvmlDeviceSetDramEncryptionMode].
+//
+// [nvmlDeviceSetDramEncryptionMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceSetDramEncryptionMode12nvmlDevice_tPK24nvmlDramEncryptionInfo_t
 func (d Device) SetDramEncryptionMode(dramEncryption *DramEncryptionInfo) error {
 	return deviceSetDramEncryptionMode(d, dramEncryption)
 }
@@ -2721,17 +3112,21 @@ func (d Device) SetDramEncryptionMode(dramEncryption *DramEncryptionInfo) error 
 //
 // For Fermi or newer fully supported devices. For windows only. Requires root/admin permissions.
 // On Windows platforms the device driver can run in either WDDM or WDM (TCC) mode. If a display is attached to the device it must run in WDDM mode.
-// It is possible to force the change to WDM (TCC) while the display is still attached with a force flag (nvmlFlagForce). This should only be done if the host is subsequently powered down and the display is detached from the device before the next reboot.
+// It is possible to force the change to WDM (TCC) while the display is still attached with a force flag ([nvmlFlagForce]). This should only be done if the host is subsequently powered down and the display is detached from the device before the next reboot.
 // This operation takes effect after the next reboot.
 // Windows driver model may only be set to WDDM when running in DEFAULT compute mode.
 // Change driver model to WDDM is not supported when GPU doesn't support graphics acceleration or will not support it after reboot. See [Device.SetGpuOperationMode].
-// See [DriverModel] for details on available driver models. See nvmlFlagDefault and nvmlFlagForce
+// See [DriverModel] for details on available driver models. See [nvmlFlagDefault] and [nvmlFlagForce]
 // See also: [Device.DriverModel]
 //
 //   - driverModel: The target driver model
 //   - flags: Flags that change the default behavior
 //
-// Wraps nvmlDeviceSetDriverModel.
+// Wraps [nvmlDeviceSetDriverModel].
+//
+// [nvmlFlagForce]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceEnums.html#c.nvmlFlagForce
+// [nvmlFlagDefault]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceEnums.html#c.nvmlFlagDefault
+// [nvmlDeviceSetDriverModel]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv424nvmlDeviceSetDriverModel12nvmlDevice_t17nvmlDriverModel_tj
 func (d Device) SetDriverModel(driverModel DriverModel, flags uint32) error {
 	return deviceSetDriverModel(d, driverModel, flags)
 }
@@ -2746,7 +3141,9 @@ func (d Device) SetDriverModel(driverModel DriverModel, flags uint32) error {
 //
 //   - ecc: The target ECC mode
 //
-// Wraps nvmlDeviceSetEccMode.
+// Wraps [nvmlDeviceSetEccMode].
+//
+// [nvmlDeviceSetEccMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv420nvmlDeviceSetEccMode12nvmlDevice_t17nvmlEnableState_t
 func (d Device) SetEccMode(ecc EnableState) error {
 	return deviceSetEccMode(d, ecc)
 }
@@ -2760,7 +3157,9 @@ func (d Device) SetEccMode(ecc EnableState) error {
 //   - fan: The index of the fan, starting at zero
 //   - policy: The fan control policy to set
 //
-// Wraps nvmlDeviceSetFanControlPolicy.
+// Wraps [nvmlDeviceSetFanControlPolicy].
+//
+// [nvmlDeviceSetFanControlPolicy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv429nvmlDeviceSetFanControlPolicy12nvmlDevice_tj22nvmlFanControlPolicy_t
 func (d Device) SetFanControlPolicy(fan uint32, policy FanControlPolicy) error {
 	return deviceSetFanControlPolicy(d, fan, policy)
 }
@@ -2774,7 +3173,9 @@ func (d Device) SetFanControlPolicy(fan uint32, policy FanControlPolicy) error {
 //   - fan: The index of the fan, starting at zero
 //   - speed: The target speed of the fan [0-100] in % of max speed
 //
-// Wraps nvmlDeviceSetFanSpeed_v2.
+// Wraps [nvmlDeviceSetFanSpeed_v2].
+//
+// [nvmlDeviceSetFanSpeed_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv424nvmlDeviceSetFanSpeed_v212nvmlDevice_tjj
 func (d Device) SetFanSpeed(fan uint32, speed uint32) error {
 	return deviceSetFanSpeed(d, fan, speed)
 }
@@ -2785,7 +3186,9 @@ func (d Device) SetFanSpeed(fan uint32, speed uint32) error {
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.SetClockOffsets] instead. It works on Maxwell onwards GPU architectures. Set the GPCCLK VF offset value
 //
-// Wraps nvmlDeviceSetGpcClkVfOffset.
+// Wraps [nvmlDeviceSetGpcClkVfOffset].
+//
+// [nvmlDeviceSetGpcClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv427nvmlDeviceSetGpcClkVfOffset12nvmlDevice_ti
 func (d Device) SetGpcClkVfOffset(offset int32) error {
 	return deviceSetGpcClkVfOffset(d, offset)
 }
@@ -2804,7 +3207,9 @@ func (d Device) SetGpcClkVfOffset(offset int32) error {
 //   - minGpuClockMHz: Requested minimum gpu clock in MHz
 //   - maxGpuClockMHz: Requested maximum gpu clock in MHz
 //
-// Wraps nvmlDeviceSetGpuLockedClocks.
+// Wraps [nvmlDeviceSetGpuLockedClocks].
+//
+// [nvmlDeviceSetGpuLockedClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv428nvmlDeviceSetGpuLockedClocks12nvmlDevice_tjj
 func (d Device) SetGpuLockedClocks(minGpuClockMHz uint32, maxGpuClockMHz uint32) error {
 	return deviceSetGpuLockedClocks(d, minGpuClockMHz, maxGpuClockMHz)
 }
@@ -2819,7 +3224,9 @@ func (d Device) SetGpuLockedClocks(minGpuClockMHz uint32, maxGpuClockMHz uint32)
 //
 //   - mode: Target GOM
 //
-// Wraps nvmlDeviceSetGpuOperationMode.
+// Wraps [nvmlDeviceSetGpuOperationMode].
+//
+// [nvmlDeviceSetGpuOperationMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv429nvmlDeviceSetGpuOperationMode12nvmlDevice_t22nvmlGpuOperationMode_t
 func (d Device) SetGpuOperationMode(mode GpuOperationMode) error {
 	return deviceSetGpuOperationMode(d, mode)
 }
@@ -2833,7 +3240,9 @@ func (d Device) SetGpuOperationMode(mode GpuOperationMode) error {
 //
 //   - hostname: Reference to the caller-provided [HostnameV1] struct containing the hostname
 //
-// Wraps nvmlDeviceSetHostname_v1.
+// Wraps [nvmlDeviceSetHostname_v1].
+//
+// [nvmlDeviceSetHostname_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceSetHostname_v112nvmlDevice_tP17nvmlHostname_v1_t
 func (d Device) SetHostname(hostname *HostnameV1) error {
 	return deviceSetHostname(d, hostname)
 }
@@ -2844,7 +3253,9 @@ func (d Device) SetHostname(hostname *HostnameV1) error {
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.SetClockOffsets] instead. It works on Maxwell onwards GPU architectures. Set the MemClk (Memory Clock) VF offset value. It requires elevated privileges.
 //
-// Wraps nvmlDeviceSetMemClkVfOffset.
+// Wraps [nvmlDeviceSetMemClkVfOffset].
+//
+// [nvmlDeviceSetMemClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv427nvmlDeviceSetMemClkVfOffset12nvmlDevice_ti
 func (d Device) SetMemClkVfOffset(offset int32) error {
 	return deviceSetMemClkVfOffset(d, offset)
 }
@@ -2860,7 +3271,9 @@ func (d Device) SetMemClkVfOffset(offset int32) error {
 //   - minMemClockMHz: Requested minimum memory clock in MHz
 //   - maxMemClockMHz: Requested maximum memory clock in MHz
 //
-// Wraps nvmlDeviceSetMemoryLockedClocks.
+// Wraps [nvmlDeviceSetMemoryLockedClocks].
+//
+// [nvmlDeviceSetMemoryLockedClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv431nvmlDeviceSetMemoryLockedClocks12nvmlDevice_tjj
 func (d Device) SetMemoryLockedClocks(minMemClockMHz uint32, maxMemClockMHz uint32) error {
 	return deviceSetMemoryLockedClocks(d, minMemClockMHz, maxMemClockMHz)
 }
@@ -2878,7 +3291,9 @@ func (d Device) SetMemoryLockedClocks(minMemClockMHz uint32, maxMemClockMHz uint
 //   - mode: The mode to be set, [DeviceMigDisable] or [DeviceMigEnable]
 //   - activationStatus: The activationStatus status
 //
-// Wraps nvmlDeviceSetMigMode.
+// Wraps [nvmlDeviceSetMigMode].
+//
+// [nvmlDeviceSetMigMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv420nvmlDeviceSetMigMode12nvmlDevice_tjP12nvmlReturn_t
 func (d Device) SetMigMode(mode uint32, activationStatus *Result) error {
 	return deviceSetMigMode(d, mode, activationStatus)
 }
@@ -2889,7 +3304,9 @@ func (d Device) SetMigMode(mode uint32, activationStatus *Result) error {
 //
 //   - info: Reference to [NvLinkPowerThres] struct input parameters
 //
-// Wraps nvmlDeviceSetNvLinkDeviceLowPowerThreshold.
+// Wraps [nvmlDeviceSetNvLinkDeviceLowPowerThreshold].
+//
+// [nvmlDeviceSetNvLinkDeviceLowPowerThreshold]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv442nvmlDeviceSetNvLinkDeviceLowPowerThreshold12nvmlDevice_tP22nvmlNvLinkPowerThres_t
 func (d Device) SetNvLinkDeviceLowPowerThreshold(info *NvLinkPowerThres) error {
 	return deviceSetNvLinkDeviceLowPowerThreshold(d, info)
 }
@@ -2905,7 +3322,9 @@ func (d Device) SetNvLinkDeviceLowPowerThreshold(info *NvLinkPowerThres) error {
 //
 // Deprecated: Setting utilization counter control is no longer supported. Set the NVLINK utilization counter control information for the specified counter, 0 or 1. Please refer to [NvLinkUtilizationControl] for the structure definition. Performs a reset of the counters if the reset parameter is non-zero. For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceSetNvLinkUtilizationControl.
+// Wraps [nvmlDeviceSetNvLinkUtilizationControl].
+//
+// [nvmlDeviceSetNvLinkUtilizationControl]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv437nvmlDeviceSetNvLinkUtilizationControl12nvmlDevice_tjjP30nvmlNvLinkUtilizationControl_tj
 func (d Device) SetNvLinkUtilizationControl(link uint32, counter uint32, control *NvLinkUtilizationControl, reset uint32) error {
 	return deviceSetNvLinkUtilizationControl(d, link, counter, control, reset)
 }
@@ -2916,7 +3335,9 @@ func (d Device) SetNvLinkUtilizationControl(link uint32, counter uint32, control
 //
 //   - setBwMode: Reference to [NvlinkSetBwMode]
 //
-// Wraps nvmlDeviceSetNvlinkBwMode.
+// Wraps [nvmlDeviceSetNvlinkBwMode].
+//
+// [nvmlDeviceSetNvlinkBwMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv425nvmlDeviceSetNvlinkBwMode12nvmlDevice_tP21nvmlNvlinkSetBwMode_t
 func (d Device) SetNvlinkBwMode(setBwMode *NvlinkSetBwMode) error {
 	return deviceSetNvlinkBwMode(d, setBwMode)
 }
@@ -2932,7 +3353,9 @@ func (d Device) SetNvlinkBwMode(setBwMode *NvlinkSetBwMode) error {
 //
 //   - mode: The target persistence mode
 //
-// Wraps nvmlDeviceSetPersistenceMode.
+// Wraps [nvmlDeviceSetPersistenceMode].
+//
+// [nvmlDeviceSetPersistenceMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv428nvmlDeviceSetPersistenceMode12nvmlDevice_t17nvmlEnableState_t
 func (d Device) SetPersistenceMode(mode EnableState) error {
 	return deviceSetPersistenceMode(d, mode)
 }
@@ -2953,7 +3376,9 @@ func (d Device) SetPersistenceMode(mode EnableState) error {
 //
 //   - powerValue: Power management limit in milliwatts to set
 //
-// Wraps nvmlDeviceSetPowerManagementLimit_v2.
+// Wraps [nvmlDeviceSetPowerManagementLimit_v2].
+//
+// [nvmlDeviceSetPowerManagementLimit_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv436nvmlDeviceSetPowerManagementLimit_v212nvmlDevice_tP19nvmlPowerValue_v2_t
 func (d Device) SetPowerManagementLimit(powerValue *PowerValueV2) error {
 	return deviceSetPowerManagementLimit(d, powerValue)
 }
@@ -2964,14 +3389,18 @@ func (d Device) SetPowerManagementLimit(powerValue *PowerValueV2) error {
 //
 //   - powerMizerMode: Reference in which to set the power mizer mode
 //
-// Wraps nvmlDeviceSetPowerMizerMode_v1.
+// Wraps [nvmlDeviceSetPowerMizerMode_v1].
+//
+// [nvmlDeviceSetPowerMizerMode_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceSetPowerMizerMode_v112nvmlDevice_tP30nvmlDevicePowerMizerModes_v1_t
 func (d Device) SetPowerMizerMode(powerMizerMode *DevicePowerMizerModesV1) error {
 	return deviceSetPowerMizerMode(d, powerMizerMode)
 }
 
-// SetRusdSettings wraps nvmlDeviceSetRusdSettings_v1.
+// SetRusdSettings wraps [nvmlDeviceSetRusdSettings_v1].
 //
 //   - settings: Reference to [RusdSettingsV1] struct
+//
+// [nvmlDeviceSetRusdSettings_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv428nvmlDeviceSetRusdSettings_v112nvmlDevice_tP21nvmlRusdSettings_v1_t
 func (d Device) SetRusdSettings(settings *RusdSettingsV1) error {
 	return deviceSetRusdSettings(d, settings)
 }
@@ -2984,7 +3413,9 @@ func (d Device) SetRusdSettings(settings *RusdSettingsV1) error {
 //   - thresholdType: The type of threshold value to be set
 //   - temp: Reference which hold the value to be set
 //
-// Wraps nvmlDeviceSetTemperatureThreshold.
+// Wraps [nvmlDeviceSetTemperatureThreshold].
+//
+// [nvmlDeviceSetTemperatureThreshold]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceSetTemperatureThreshold12nvmlDevice_t27nvmlTemperatureThresholds_tPi
 func (d Device) SetTemperatureThreshold(thresholdType TemperatureThresholds, temp *int32) error {
 	return deviceSetTemperatureThreshold(d, thresholdType, temp)
 }
@@ -2996,7 +3427,9 @@ func (d Device) SetTemperatureThreshold(thresholdType TemperatureThresholds, tem
 //   - capability: Specifies the [DeviceVgpuCapability] to be set
 //   - state: The target capability mode
 //
-// Wraps nvmlDeviceSetVgpuCapabilities.
+// Wraps [nvmlDeviceSetVgpuCapabilities].
+//
+// [nvmlDeviceSetVgpuCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv429nvmlDeviceSetVgpuCapabilities12nvmlDevice_t26nvmlDeviceVgpuCapability_t17nvmlEnableState_t
 func (d Device) SetVgpuCapabilities(capability DeviceVgpuCapability, state EnableState) error {
 	return deviceSetVgpuCapabilities(d, capability, state)
 }
@@ -3008,14 +3441,18 @@ func (d Device) SetVgpuCapabilities(capability DeviceVgpuCapability, state Enabl
 //
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Wraps nvmlDeviceSetVgpuHeterogeneousMode.
+// Wraps [nvmlDeviceSetVgpuHeterogeneousMode].
+//
+// [nvmlDeviceSetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv434nvmlDeviceSetVgpuHeterogeneousMode12nvmlDevice_tPK27nvmlVgpuHeterogeneousMode_t
 func (d Device) SetVgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	return deviceSetVgpuHeterogeneousMode(d, pHeterogeneousMode)
 }
 
-// SetVgpuSchedulerState wraps nvmlDeviceSetVgpuSchedulerState_v2.
+// SetVgpuSchedulerState wraps [nvmlDeviceSetVgpuSchedulerState_v2].
 //
 //   - pSchedulerState: vGPU pSchedulerState to set
+//
+// [nvmlDeviceSetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlDeviceSetVgpuSchedulerState_v212nvmlDevice_tP27nvmlVgpuSchedulerState_v2_t
 func (d Device) SetVgpuSchedulerState(pSchedulerState *VgpuSchedulerStateV2) error {
 	return deviceSetVgpuSchedulerState(d, pSchedulerState)
 }
@@ -3026,7 +3463,9 @@ func (d Device) SetVgpuSchedulerState(pSchedulerState *VgpuSchedulerStateV2) err
 //
 //   - virtualMode: virtualization mode. One of NVML_GPU_VIRTUALIZATION_?
 //
-// Wraps nvmlDeviceSetVirtualizationMode.
+// Wraps [nvmlDeviceSetVirtualizationMode].
+//
+// [nvmlDeviceSetVirtualizationMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv431nvmlDeviceSetVirtualizationMode12nvmlDevice_t27nvmlGpuVirtualizationMode_t
 func (d Device) SetVirtualizationMode(virtualMode GpuVirtualizationMode) error {
 	return deviceSetVirtualizationMode(d, virtualMode)
 }
@@ -3038,14 +3477,18 @@ func (d Device) SetVirtualizationMode(virtualMode GpuVirtualizationMode) error {
 //
 //   - status: Returns SRAM ECC error status
 //
-// Wraps nvmlDeviceGetSramEccErrorStatus.
+// Wraps [nvmlDeviceGetSramEccErrorStatus].
+//
+// [nvmlDeviceGetSramEccErrorStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetSramEccErrorStatus12nvmlDevice_tP24nvmlEccSramErrorStatus_t
 func (d Device) SramEccErrorStatus(status *EccSramErrorStatus) error {
 	return deviceGetSramEccErrorStatus(d, status)
 }
 
-// SramUniqueUncorrectedEccErrorCounts wraps nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts.
+// SramUniqueUncorrectedEccErrorCounts wraps [nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts].
 //
 //   - errorCounts: Pointer to caller-supplied array which returns the unique error count entries
+//
+// [nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv448nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts12nvmlDevice_tP41nvmlEccSramUniqueUncorrectedErrorCounts_t
 func (d Device) SramUniqueUncorrectedEccErrorCounts(errorCounts *EccSramUniqueUncorrectedErrorCounts) error {
 	return deviceGetSramUniqueUncorrectedEccErrorCounts(d, errorCounts)
 }
@@ -3054,13 +3497,15 @@ func (d Device) SramUniqueUncorrectedEccErrorCounts(errorCounts *EccSramUniqueUn
 //
 // For all fully supported products.
 // This method is not supported in virtual machines running virtual GPU (vGPU).
-// See also:
-// NvmlClocksEventReasons
+// See also: [NvmlClocksEventReasons]
 // [Device.CurrentClocksEventReasons]
 //
 //   - supportedClocksEventReasons: Reference in which to return bitmask of supported clocks event reasons
 //
-// Wraps nvmlDeviceGetSupportedClocksEventReasons.
+// Wraps [nvmlDeviceGetSupportedClocksEventReasons].
+//
+// [NvmlClocksEventReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlClocksEventReasons.html
+// [nvmlDeviceGetSupportedClocksEventReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv440nvmlDeviceGetSupportedClocksEventReasons12nvmlDevice_tPy
 func (d Device) SupportedClocksEventReasons() (uint64, error) {
 	return deviceGetSupportedClocksEventReasons(d)
 }
@@ -3069,7 +3514,9 @@ func (d Device) SupportedClocksEventReasons() (uint64, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetSupportedClocksThrottleReasons.
+// Wraps [nvmlDeviceGetSupportedClocksThrottleReasons].
+//
+// [nvmlDeviceGetSupportedClocksThrottleReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv443nvmlDeviceGetSupportedClocksThrottleReasons12nvmlDevice_tPy
 func (d Device) SupportedClocksThrottleReasons(supportedClocksThrottleReasons *uint64) error {
 	return deviceGetSupportedClocksThrottleReasons(d, supportedClocksThrottleReasons)
 }
@@ -3084,7 +3531,9 @@ func (d Device) SupportedClocksThrottleReasons(supportedClocksThrottleReasons *u
 //
 //   - eventTypes: Reference in which to return bitmask of supported events
 //
-// Wraps nvmlDeviceGetSupportedEventTypes.
+// Wraps [nvmlDeviceGetSupportedEventTypes].
+//
+// [nvmlDeviceGetSupportedEventTypes]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv432nvmlDeviceGetSupportedEventTypes12nvmlDevice_tPy
 func (d Device) SupportedEventTypes() (uint64, error) {
 	return deviceGetSupportedEventTypes(d)
 }
@@ -3098,9 +3547,11 @@ func (d Device) SupportedEventTypes() (uint64, error) {
 //   - count: Reference in which to provide the clocksMHz array size, and to return the number of elements
 //   - clocksMHz: Reference in which to return the clocks in MHz
 //
-// Wraps nvmlDeviceGetSupportedGraphicsClocks.
+// Wraps [nvmlDeviceGetSupportedGraphicsClocks].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetSupportedGraphicsClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv436nvmlDeviceGetSupportedGraphicsClocks12nvmlDevice_tjPjPj
 func (d Device) SupportedGraphicsClocks(memoryClockMHz uint32, buf []uint32) ([]uint32, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -3131,9 +3582,11 @@ func (d Device) SupportedGraphicsClocks(memoryClockMHz uint32, buf []uint32) ([]
 //   - count: Reference in which to provide the clocksMHz array size, and to return the number of elements
 //   - clocksMHz: Reference in which to return the clock in MHz
 //
-// Wraps nvmlDeviceGetSupportedMemoryClocks.
+// Wraps [nvmlDeviceGetSupportedMemoryClocks].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetSupportedMemoryClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv434nvmlDeviceGetSupportedMemoryClocks12nvmlDevice_tPjPj
 func (d Device) SupportedMemoryClocks(buf []uint32) ([]uint32, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -3164,17 +3617,21 @@ func (d Device) SupportedMemoryClocks(buf []uint32) ([]uint32, error) {
 //   - pstates: Container to return the list of performance states supported by device
 //   - size: Size of the supplied pstates array in bytes
 //
-// Wraps nvmlDeviceGetSupportedPerformanceStates.
+// Wraps [nvmlDeviceGetSupportedPerformanceStates].
+//
+// [nvmlDeviceGetSupportedPerformanceStates]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv439nvmlDeviceGetSupportedPerformanceStates12nvmlDevice_tP13nvmlPstates_tj
 func (d Device) SupportedPerformanceStates(pstates *Pstates, size uint32) error {
 	return deviceGetSupportedPerformanceStates(d, pstates, size)
 }
 
-// SupportedVgpus wraps nvmlDeviceGetSupportedVgpus.
+// SupportedVgpus wraps [nvmlDeviceGetSupportedVgpus].
 //
 //   - vgpuCount: Pointer to caller-supplied array size, and returns number of vGPU types
 //   - vgpuTypeIds: Pointer to caller-supplied array in which to return list of vGPU types
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetSupportedVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlDeviceGetSupportedVgpus12nvmlDevice_tPjP16nvmlVgpuTypeId_t
 func (d Device) SupportedVgpus(buf []VgpuTypeId) ([]VgpuTypeId, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -3206,7 +3663,9 @@ func (d Device) SupportedVgpus(buf []VgpuTypeId) ([]VgpuTypeId, error) {
 //   - fan: The index of the target fan, zero indexed
 //   - targetSpeed: Reference in which to return the fan speed percentage
 //
-// Wraps nvmlDeviceGetTargetFanSpeed.
+// Wraps [nvmlDeviceGetTargetFanSpeed].
+//
+// [nvmlDeviceGetTargetFanSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetTargetFanSpeed12nvmlDevice_tjPj
 func (d Device) TargetFanSpeed(fan uint32) (uint32, error) {
 	return deviceGetTargetFanSpeed(d, fan)
 }
@@ -3215,7 +3674,9 @@ func (d Device) TargetFanSpeed(fan uint32) (uint32, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetTemperature.
+// Wraps [nvmlDeviceGetTemperature].
+//
+// [nvmlDeviceGetTemperature]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetTemperature12nvmlDevice_t24nvmlTemperatureSensors_tPj
 func (d Device) Temperature(sensorType TemperatureSensors) (uint32, error) {
 	return deviceGetTemperature(d, sensorType)
 }
@@ -3230,7 +3691,9 @@ func (d Device) Temperature(sensorType TemperatureSensors) (uint32, error) {
 //   - thresholdType: The type of threshold value queried
 //   - temp: Reference in which to return the temperature reading
 //
-// Wraps nvmlDeviceGetTemperatureThreshold.
+// Wraps [nvmlDeviceGetTemperatureThreshold].
+//
+// [nvmlDeviceGetTemperatureThreshold]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetTemperatureThreshold12nvmlDevice_t27nvmlTemperatureThresholds_tPj
 func (d Device) TemperatureThreshold(thresholdType TemperatureThresholds) (uint32, error) {
 	return deviceGetTemperatureThreshold(d, thresholdType)
 }
@@ -3241,7 +3704,9 @@ func (d Device) TemperatureThreshold(thresholdType TemperatureThresholds) (uint3
 //
 //   - temperature: Structure specifying the sensor type (input) and retrieved temperature value (output)
 //
-// Wraps nvmlDeviceGetTemperatureV.
+// Wraps [nvmlDeviceGetTemperatureV].
+//
+// [nvmlDeviceGetTemperatureV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetTemperatureV12nvmlDevice_tP17nvmlTemperature_t
 func (d Device) TemperatureV(temperature *Temperature) error {
 	return deviceGetTemperatureV(d, temperature)
 }
@@ -3251,7 +3716,9 @@ func (d Device) TemperatureV(temperature *Temperature) error {
 //   - sensorIndex: The index of the thermal sensor
 //   - pThermalSettings: Reference in which to return the thermal sensor information
 //
-// Wraps nvmlDeviceGetThermalSettings.
+// Wraps [nvmlDeviceGetThermalSettings].
+//
+// [nvmlDeviceGetThermalSettings]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetThermalSettings12nvmlDevice_tjP24nvmlGpuThermalSettings_t
 func (d Device) ThermalSettings(sensorIndex uint32, pThermalSettings *GpuThermalSettings) error {
 	return deviceGetThermalSettings(d, sensorIndex, pThermalSettings)
 }
@@ -3261,7 +3728,9 @@ func (d Device) ThermalSettings(sensorIndex uint32, pThermalSettings *GpuThermal
 //   - device2: The identifier of the second device
 //   - pathInfo: A [GpuTopologyLevel] that gives the path type
 //
-// Wraps nvmlDeviceGetTopologyCommonAncestor.
+// Wraps [nvmlDeviceGetTopologyCommonAncestor].
+//
+// [nvmlDeviceGetTopologyCommonAncestor]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv435nvmlDeviceGetTopologyCommonAncestor12nvmlDevice_t12nvmlDevice_tP22nvmlGpuTopologyLevel_t
 func (d Device) TopologyCommonAncestor(device2 Device, pathInfo *GpuTopologyLevel) error {
 	return deviceGetTopologyCommonAncestor(d, device2, pathInfo)
 }
@@ -3272,9 +3741,11 @@ func (d Device) TopologyCommonAncestor(device2 Device, pathInfo *GpuTopologyLeve
 //   - count: When zero, is set to the number of matching GPUs such that deviceArray can be malloc'd. When non-zero, deviceArray will be filled with count number of device handles
 //   - deviceArray: An array of device handles for GPUs found at level
 //
-// Wraps nvmlDeviceGetTopologyNearestGpus.
+// Wraps [nvmlDeviceGetTopologyNearestGpus].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetTopologyNearestGpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetTopologyNearestGpus12nvmlDevice_t22nvmlGpuTopologyLevel_tPjP12nvmlDevice_t
 func (d Device) TopologyNearestGpus(level GpuTopologyLevel, buf []Device) ([]Device, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -3308,7 +3779,9 @@ func (d Device) TopologyNearestGpus(level GpuTopologyLevel, buf []Device) ([]Dev
 //   - counterType: Flag that specifies the counter-type of the errors
 //   - eccCounts: Reference in which to return the specified ECC errors
 //
-// Wraps nvmlDeviceGetTotalEccErrors.
+// Wraps [nvmlDeviceGetTotalEccErrors].
+//
+// [nvmlDeviceGetTotalEccErrors]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetTotalEccErrors12nvmlDevice_t21nvmlMemoryErrorType_t20nvmlEccCounterType_tPy
 func (d Device) TotalEccErrors(errorType MemoryErrorType, counterType EccCounterType) (uint64, error) {
 	return deviceGetTotalEccErrors(d, errorType, counterType)
 }
@@ -3319,7 +3792,9 @@ func (d Device) TotalEccErrors(errorType MemoryErrorType, counterType EccCounter
 //
 //   - energy: Reference in which to return the energy consumption information
 //
-// Wraps nvmlDeviceGetTotalEnergyConsumption.
+// Wraps [nvmlDeviceGetTotalEnergyConsumption].
+//
+// [nvmlDeviceGetTotalEnergyConsumption]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv435nvmlDeviceGetTotalEnergyConsumption12nvmlDevice_tPy
 func (d Device) TotalEnergyConsumption() (uint64, error) {
 	return deviceGetTotalEnergyConsumption(d)
 }
@@ -3333,7 +3808,9 @@ func (d Device) TotalEnergyConsumption() (uint64, error) {
 //   - uuid: Reference in which to return the GPU UUID
 //   - length: The maximum allowed length of the string returned in uuid
 //
-// Wraps nvmlDeviceGetUUID.
+// Wraps [nvmlDeviceGetUUID].
+//
+// [nvmlDeviceGetUUID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv417nvmlDeviceGetUUID12nvmlDevice_tPcj
 func (d Device) UUID() (string, error) {
 	return deviceGetUUID(d)
 }
@@ -3344,7 +3821,9 @@ func (d Device) UUID() (string, error) {
 //
 //   - unrepairableMemoryStatus: Reference to [UnrepairableMemoryStatusV1]
 //
-// Wraps nvmlDeviceGetUnrepairableMemoryFlag_v1.
+// Wraps [nvmlDeviceGetUnrepairableMemoryFlag_v1].
+//
+// [nvmlDeviceGetUnrepairableMemoryFlag_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv438nvmlDeviceGetUnrepairableMemoryFlag_v112nvmlDevice_tP33nvmlUnrepairableMemoryStatus_v1_t
 func (d Device) UnrepairableMemoryFlag() (UnrepairableMemoryStatusV1, error) {
 	return deviceGetUnrepairableMemoryFlag(d)
 }
@@ -3357,7 +3836,9 @@ func (d Device) UnrepairableMemoryFlag() (UnrepairableMemoryStatusV1, error) {
 //
 //   - utilization: Reference in which to return the utilization information
 //
-// Wraps nvmlDeviceGetUtilizationRates.
+// Wraps [nvmlDeviceGetUtilizationRates].
+//
+// [nvmlDeviceGetUtilizationRates]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetUtilizationRates12nvmlDevice_tP17nvmlUtilization_t
 func (d Device) UtilizationRates() (Utilization, error) {
 	return deviceGetUtilizationRates(d)
 }
@@ -3366,7 +3847,9 @@ func (d Device) UtilizationRates() (Utilization, error) {
 //
 // For all products with an inforom.
 //
-// Wraps nvmlDeviceValidateInforom.
+// Wraps [nvmlDeviceValidateInforom].
+//
+// [nvmlDeviceValidateInforom]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceValidateInforom12nvmlDevice_t
 func (d Device) ValidateInforom() error {
 	return deviceValidateInforom(d)
 }
@@ -3379,15 +3862,19 @@ func (d Device) ValidateInforom() error {
 //   - version: Reference to which to return the VBIOS version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Wraps nvmlDeviceGetVbiosVersion.
+// Wraps [nvmlDeviceGetVbiosVersion].
+//
+// [nvmlDeviceGetVbiosVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetVbiosVersion12nvmlDevice_tPcj
 func (d Device) VbiosVersion() (string, error) {
 	return deviceGetVbiosVersion(d)
 }
 
-// VgpuCapabilities wraps nvmlDeviceGetVgpuCapabilities.
+// VgpuCapabilities wraps [nvmlDeviceGetVgpuCapabilities].
 //
 //   - capability: Specifies the [DeviceVgpuCapability] to be queried
 //   - capResult: Specifies that the queried capability is supported, and also returns capability's data
+//
+// [nvmlDeviceGetVgpuCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlDeviceGetVgpuCapabilities12nvmlDevice_t26nvmlDeviceVgpuCapability_tPj
 func (d Device) VgpuCapabilities(capability DeviceVgpuCapability) (uint32, error) {
 	return deviceGetVgpuCapabilities(d, capability)
 }
@@ -3398,7 +3885,9 @@ func (d Device) VgpuCapabilities(capability DeviceVgpuCapability) (uint32, error
 // Note:
 // This is a disruptive operation that will impact any active vGPU instances and should only be used when absolutely necessary, such as during error recovery or maintenance operations.
 //
-// Wraps nvmlDeviceVgpuForceGspUnload.
+// Wraps [nvmlDeviceVgpuForceGspUnload].
+//
+// [nvmlDeviceVgpuForceGspUnload]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv428nvmlDeviceVgpuForceGspUnload12nvmlDevice_t
 func (d Device) VgpuForceGspUnload() error {
 	return deviceVgpuForceGspUnload(d)
 }
@@ -3410,33 +3899,41 @@ func (d Device) VgpuForceGspUnload() error {
 //
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Wraps nvmlDeviceGetVgpuHeterogeneousMode.
+// Wraps [nvmlDeviceGetVgpuHeterogeneousMode].
+//
+// [nvmlDeviceGetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv434nvmlDeviceGetVgpuHeterogeneousMode12nvmlDevice_tP27nvmlVgpuHeterogeneousMode_t
 func (d Device) VgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	return deviceGetVgpuHeterogeneousMode(d, pHeterogeneousMode)
 }
 
-// VgpuInstancesUtilizationInfo wraps nvmlDeviceGetVgpuInstancesUtilizationInfo.
+// VgpuInstancesUtilizationInfo wraps [nvmlDeviceGetVgpuInstancesUtilizationInfo].
 //
 //   - vgpuUtilInfo: Pointer to the caller-provided structure of [VgpuInstancesUtilizationInfo]
+//
+// [nvmlDeviceGetVgpuInstancesUtilizationInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv441nvmlDeviceGetVgpuInstancesUtilizationInfo12nvmlDevice_tP34nvmlVgpuInstancesUtilizationInfo_t
 func (d Device) VgpuInstancesUtilizationInfo(vgpuUtilInfo *VgpuInstancesUtilizationInfo) error {
 	return deviceGetVgpuInstancesUtilizationInfo(d, vgpuUtilInfo)
 }
 
-// VgpuMetadata wraps nvmlDeviceGetVgpuMetadata.
+// VgpuMetadata wraps [nvmlDeviceGetVgpuMetadata].
 //
 //   - pgpuMetadata: Pointer to caller-supplied buffer into which pgpuMetadata is written
 //   - bufferSize: Pointer to size of pgpuMetadata buffer
+//
+// [nvmlDeviceGetVgpuMetadata]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv425nvmlDeviceGetVgpuMetadata12nvmlDevice_tP22nvmlVgpuPgpuMetadata_tPj
 func (d Device) VgpuMetadata(pgpuMetadata *VgpuPgpuMetadata, bufferSize *uint32) error {
 	return deviceGetVgpuMetadata(d, pgpuMetadata, bufferSize)
 }
 
-// VgpuProcessUtilization wraps nvmlDeviceGetVgpuProcessUtilization.
+// VgpuProcessUtilization wraps [nvmlDeviceGetVgpuProcessUtilization].
 //
 //   - lastSeenTimeStamp: Return only samples with timestamp greater than lastSeenTimeStamp
 //   - vgpuProcessSamplesCount: Pointer to caller-supplied array size, and returns number of processes running on vGPU instances
 //   - utilizationSamples: Pointer to caller-supplied buffer in which vGPU sub process utilization samples are returned
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetVgpuProcessUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv435nvmlDeviceGetVgpuProcessUtilization12nvmlDevice_tyPjP34nvmlVgpuProcessUtilizationSample_t
 func (d Device) VgpuProcessUtilization(lastSeenTimeStamp uint64, buf []VgpuProcessUtilizationSample) ([]VgpuProcessUtilizationSample, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -3459,30 +3956,38 @@ func (d Device) VgpuProcessUtilization(lastSeenTimeStamp uint64, buf []VgpuProce
 	}
 }
 
-// VgpuProcessesUtilizationInfo wraps nvmlDeviceGetVgpuProcessesUtilizationInfo.
+// VgpuProcessesUtilizationInfo wraps [nvmlDeviceGetVgpuProcessesUtilizationInfo].
 //
 //   - vgpuProcUtilInfo: Pointer to the caller-provided structure of [VgpuProcessesUtilizationInfo]
+//
+// [nvmlDeviceGetVgpuProcessesUtilizationInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv441nvmlDeviceGetVgpuProcessesUtilizationInfo12nvmlDevice_tP34nvmlVgpuProcessesUtilizationInfo_t
 func (d Device) VgpuProcessesUtilizationInfo(vgpuProcUtilInfo *VgpuProcessesUtilizationInfo) error {
 	return deviceGetVgpuProcessesUtilizationInfo(d, vgpuProcUtilInfo)
 }
 
-// VgpuSchedulerCapabilities wraps nvmlDeviceGetVgpuSchedulerCapabilities.
+// VgpuSchedulerCapabilities wraps [nvmlDeviceGetVgpuSchedulerCapabilities].
 //
 //   - pCapabilities: Reference in which pCapabilities is written
+//
+// [nvmlDeviceGetVgpuSchedulerCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv438nvmlDeviceGetVgpuSchedulerCapabilities12nvmlDevice_tP31nvmlVgpuSchedulerCapabilities_t
 func (d Device) VgpuSchedulerCapabilities(pCapabilities *VgpuSchedulerCapabilities) error {
 	return deviceGetVgpuSchedulerCapabilities(d, pCapabilities)
 }
 
-// VgpuSchedulerLog wraps nvmlDeviceGetVgpuSchedulerLog_v2.
+// VgpuSchedulerLog wraps [nvmlDeviceGetVgpuSchedulerLog_v2].
 //
 //   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
+//
+// [nvmlDeviceGetVgpuSchedulerLog_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlDeviceGetVgpuSchedulerLog_v212nvmlDevice_tP29nvmlVgpuSchedulerLogInfo_v2_t
 func (d Device) VgpuSchedulerLog(pSchedulerLogInfo *VgpuSchedulerLogInfoV2) error {
 	return deviceGetVgpuSchedulerLog(d, pSchedulerLogInfo)
 }
 
-// VgpuSchedulerState wraps nvmlDeviceGetVgpuSchedulerState_v2.
+// VgpuSchedulerState wraps [nvmlDeviceGetVgpuSchedulerState_v2].
 //
 //   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
+//
+// [nvmlDeviceGetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlDeviceGetVgpuSchedulerState_v212nvmlDevice_tP31nvmlVgpuSchedulerStateInfo_v2_t
 func (d Device) VgpuSchedulerState(pSchedulerStateInfo *VgpuSchedulerStateInfoV2) error {
 	return deviceGetVgpuSchedulerState(d, pSchedulerStateInfo)
 }
@@ -3495,7 +4000,9 @@ func (d Device) VgpuSchedulerState(pSchedulerStateInfo *VgpuSchedulerStateInfoV2
 //   - vgpuTypeId: Handle to vGPU type. The vGPU type ID
 //   - pPlacementList: Pointer to the list of vGPU placement structure [VgpuPlacementList]
 //
-// Wraps nvmlDeviceGetVgpuTypeCreatablePlacements.
+// Wraps [nvmlDeviceGetVgpuTypeCreatablePlacements].
+//
+// [nvmlDeviceGetVgpuTypeCreatablePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv440nvmlDeviceGetVgpuTypeCreatablePlacements12nvmlDevice_t16nvmlVgpuTypeId_tP23nvmlVgpuPlacementList_t
 func (d Device) VgpuTypeCreatablePlacements(vgpuTypeId VgpuTypeId, pPlacementList *VgpuPlacementList) error {
 	return deviceGetVgpuTypeCreatablePlacements(d, vgpuTypeId, pPlacementList)
 }
@@ -3508,12 +4015,14 @@ func (d Device) VgpuTypeCreatablePlacements(vgpuTypeId VgpuTypeId, pPlacementLis
 //   - vgpuTypeId: Handle to vGPU type. The vGPU type ID
 //   - pPlacementList: Pointer to the vGPU placement structure [VgpuPlacementList]
 //
-// Wraps nvmlDeviceGetVgpuTypeSupportedPlacements.
+// Wraps [nvmlDeviceGetVgpuTypeSupportedPlacements].
+//
+// [nvmlDeviceGetVgpuTypeSupportedPlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv440nvmlDeviceGetVgpuTypeSupportedPlacements12nvmlDevice_t16nvmlVgpuTypeId_tP23nvmlVgpuPlacementList_t
 func (d Device) VgpuTypeSupportedPlacements(vgpuTypeId VgpuTypeId, pPlacementList *VgpuPlacementList) error {
 	return deviceGetVgpuTypeSupportedPlacements(d, vgpuTypeId, pPlacementList)
 }
 
-// VgpuUtilization wraps nvmlDeviceGetVgpuUtilization.
+// VgpuUtilization wraps [nvmlDeviceGetVgpuUtilization].
 //
 //   - lastSeenTimeStamp: Return only samples with timestamp greater than lastSeenTimeStamp
 //   - sampleValType: Pointer to caller-supplied buffer to hold the type of returned sample values
@@ -3521,6 +4030,8 @@ func (d Device) VgpuTypeSupportedPlacements(vgpuTypeId VgpuTypeId, pPlacementLis
 //   - utilizationSamples: Pointer to caller-supplied buffer in which vGPU utilization samples are returned
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlDeviceGetVgpuUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv428nvmlDeviceGetVgpuUtilization12nvmlDevice_tyP15nvmlValueType_tPjP35nvmlVgpuInstanceUtilizationSample_t
 func (d Device) VgpuUtilization(lastSeenTimeStamp uint64, buf []VgpuInstanceUtilizationSample) ([]VgpuInstanceUtilizationSample, ValueType, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -3552,7 +4063,9 @@ func (d Device) VgpuUtilization(lastSeenTimeStamp uint64, buf []VgpuInstanceUtil
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetViolationStatus.
+// Wraps [nvmlDeviceGetViolationStatus].
+//
+// [nvmlDeviceGetViolationStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetViolationStatus12nvmlDevice_t20nvmlPerfPolicyType_tP19nvmlViolationTime_t
 func (d Device) ViolationStatus(perfPolicyType PerfPolicyType, violTime *ViolationTime) error {
 	return deviceGetViolationStatus(d, perfPolicyType, violTime)
 }
@@ -3563,46 +4076,58 @@ func (d Device) ViolationStatus(perfPolicyType PerfPolicyType, violTime *Violati
 //
 //   - pVirtualMode: Reference to virtualization mode. One of NVML_GPU_VIRTUALIZATION_?
 //
-// Wraps nvmlDeviceGetVirtualizationMode.
+// Wraps [nvmlDeviceGetVirtualizationMode].
+//
+// [nvmlDeviceGetVirtualizationMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv431nvmlDeviceGetVirtualizationMode12nvmlDevice_tP27nvmlGpuVirtualizationMode_t
 func (d Device) VirtualizationMode(pVirtualMode *GpuVirtualizationMode) error {
 	return deviceGetVirtualizationMode(d, pVirtualMode)
 }
 
-// WorkloadPowerProfileClearRequestedProfiles wraps nvmlDeviceWorkloadPowerProfileClearRequestedProfiles.
+// WorkloadPowerProfileClearRequestedProfiles wraps [nvmlDeviceWorkloadPowerProfileClearRequestedProfiles].
 //
 //   - requestedProfiles: Reference to struct [WorkloadPowerProfileRequestedProfiles]
 //
 // Deprecated: Use [Device.WorkloadPowerProfileUpdateProfiles] instead Clear Requested Performance Profiles For Blackwell &tm; or newer fully supported devices. See [WorkloadPowerProfileRequestedProfiles] for more information on the struct. Clear one or more performance profiles be using the input bitmask requestedProfilesMask, where each bit set corresponds to a supported bit from the perfProfilesMask. These profiles will be removed from the existing list of currently requested profiles. Requires root/admin permissions.
+//
+// [nvmlDeviceWorkloadPowerProfileClearRequestedProfiles]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv452nvmlDeviceWorkloadPowerProfileClearRequestedProfiles12nvmlDevice_tP43nvmlWorkloadPowerProfileRequestedProfiles_t
 func (d Device) WorkloadPowerProfileClearRequestedProfiles(requestedProfiles *WorkloadPowerProfileRequestedProfiles) error {
 	return deviceWorkloadPowerProfileClearRequestedProfiles(d, requestedProfiles)
 }
 
-// WorkloadPowerProfileGetCurrentProfiles wraps nvmlDeviceWorkloadPowerProfileGetCurrentProfiles.
+// WorkloadPowerProfileGetCurrentProfiles wraps [nvmlDeviceWorkloadPowerProfileGetCurrentProfiles].
 //
 //   - currentProfiles: Reference to struct [WorkloadPowerProfileCurrentProfiles]
+//
+// [nvmlDeviceWorkloadPowerProfileGetCurrentProfiles]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv448nvmlDeviceWorkloadPowerProfileGetCurrentProfiles12nvmlDevice_tP41nvmlWorkloadPowerProfileCurrentProfiles_t
 func (d Device) WorkloadPowerProfileGetCurrentProfiles(currentProfiles *WorkloadPowerProfileCurrentProfiles) error {
 	return deviceWorkloadPowerProfileGetCurrentProfiles(d, currentProfiles)
 }
 
-// WorkloadPowerProfileGetProfilesInfo wraps nvmlDeviceWorkloadPowerProfileGetProfilesInfo.
+// WorkloadPowerProfileGetProfilesInfo wraps [nvmlDeviceWorkloadPowerProfileGetProfilesInfo].
 //
 //   - profilesInfo: Reference to struct [WorkloadPowerProfileProfilesInfo]
+//
+// [nvmlDeviceWorkloadPowerProfileGetProfilesInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv445nvmlDeviceWorkloadPowerProfileGetProfilesInfo12nvmlDevice_tP38nvmlWorkloadPowerProfileProfilesInfo_t
 func (d Device) WorkloadPowerProfileGetProfilesInfo(profilesInfo *WorkloadPowerProfileProfilesInfo) error {
 	return deviceWorkloadPowerProfileGetProfilesInfo(d, profilesInfo)
 }
 
-// WorkloadPowerProfileSetRequestedProfiles wraps nvmlDeviceWorkloadPowerProfileSetRequestedProfiles.
+// WorkloadPowerProfileSetRequestedProfiles wraps [nvmlDeviceWorkloadPowerProfileSetRequestedProfiles].
 //
 //   - requestedProfiles: Reference to struct [WorkloadPowerProfileRequestedProfiles]
 //
 // Deprecated: Use [Device.WorkloadPowerProfileUpdateProfiles] instead Set Requested Performance Profiles For Blackwell &tm; or newer fully supported devices. See [WorkloadPowerProfileRequestedProfiles] for more information on the struct. Reuqest one or more performance profiles be activated using the input bitmask requestedProfilesMask, where each bit set corresponds to a supported bit from the perfProfilesMask. These profiles will be added to existing list of currently requested profiles. Requires root/admin permissions.
+//
+// [nvmlDeviceWorkloadPowerProfileSetRequestedProfiles]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv450nvmlDeviceWorkloadPowerProfileSetRequestedProfiles12nvmlDevice_tP43nvmlWorkloadPowerProfileRequestedProfiles_t
 func (d Device) WorkloadPowerProfileSetRequestedProfiles(requestedProfiles *WorkloadPowerProfileRequestedProfiles) error {
 	return deviceWorkloadPowerProfileSetRequestedProfiles(d, requestedProfiles)
 }
 
-// WorkloadPowerProfileUpdateProfiles wraps nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1.
+// WorkloadPowerProfileUpdateProfiles wraps [nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1].
 //
 //   - updateProfiles: Reference to struct [WorkloadPowerProfileUpdateProfilesV1]
+//
+// [nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv447nvmlDeviceWorkloadPowerProfileUpdateProfiles_v112nvmlDevice_tP43nvmlWorkloadPowerProfileUpdateProfiles_v1_t
 func (d Device) WorkloadPowerProfileUpdateProfiles(updateProfiles *WorkloadPowerProfileUpdateProfilesV1) error {
 	return deviceWorkloadPowerProfileUpdateProfiles(d, updateProfiles)
 }

@@ -4,8 +4,8 @@
 //
 // This package provides bindings generated from nvml.h using
 // [github.com/ebitengine/purego] for cgo-free dynamic loading of libnvidia-ml.
-// Functions returning a C status report errors wrapping nvmlReturn_t with descriptive messages
-// from nvmlErrorString.
+// Functions returning a C status report errors wrapping [Result], whose Error method
+// describes the status with nvmlErrorString.
 //
 // # MIG Management
 //

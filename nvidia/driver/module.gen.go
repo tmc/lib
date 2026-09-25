@@ -73,7 +73,7 @@ func (m Module) TexRef(name *byte) (TexRef, error) {
 
 // Unload Unloads a module.
 //
-// Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.Module] will return [ErrNotPermitted]. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary] Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.Module] will return [ErrNotPermitted]. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary]
 //
 // Wraps cuModuleUnload.
 func (m Module) Unload() error {

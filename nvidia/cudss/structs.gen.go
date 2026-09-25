@@ -5,6 +5,8 @@
 
 package cudss
 
+import "unsafe"
+
 // DeviceMemHandler represents cudssDeviceMemHandler_t.
 type DeviceMemHandler struct {
 	Ctx         uintptr
@@ -14,6 +16,12 @@ type DeviceMemHandler struct {
 }
 
 // CudssFp64mp2 represents cudss_fp64mp2_t.
+//
+// C declares cudss_fp64mp2_t with 16-byte alignment, which a Go type cannot
+// express: a CudssFp64mp2 declared as a variable or allocated with new is at
+// most 8-byte aligned. NewCudssFp64mp2 returns a zero CudssFp64mp2 at a
+// 16-byte-aligned address, for when its address is handed to something that
+// relies on the C alignment.
 type CudssFp64mp2 struct {
 	Hi float64
 	Lo float64
@@ -49,4 +57,13 @@ type ThreadingInterface struct {
 	CudssGetMaxThreads        uintptr
 	CudssParallelFor          uintptr
 	CudssThreadingGetProperty uintptr
+}
+
+// NewCudssFp64mp2 returns a pointer to a zero CudssFp64mp2 aligned to 16
+// bytes, as C aligns cudss_fp64mp2_t. The alignment belongs to the storage:
+// a copy of the value is aligned only as Go aligns a CudssFp64mp2.
+func NewCudssFp64mp2() *CudssFp64mp2 {
+	b := make([]byte, unsafe.Sizeof(CudssFp64mp2{})+15)
+	p := unsafe.Pointer(unsafe.SliceData(b))
+	return (*CudssFp64mp2)(unsafe.Add(p, -uintptr(p)&15))
 }

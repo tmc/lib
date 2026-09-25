@@ -234,7 +234,9 @@ func (e GpuTopologyLevel) String() string {
 	return fmt.Sprintf("GpuTopologyLevel(%d)", e)
 }
 
-// GpuP2PStatus represents nvmlGpuP2PStatus_t.
+// GpuP2PStatus represents [nvmlGpuP2PStatus_t].
+//
+// [nvmlGpuP2PStatus_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceStructs.html#_CPPv418nvmlGpuP2PStatus_t
 type GpuP2PStatus int32
 
 const (
@@ -269,7 +271,9 @@ func (e GpuP2PStatus) String() string {
 	return fmt.Sprintf("GpuP2PStatus(%d)", e)
 }
 
-// GpuP2PCapsIndex represents nvmlGpuP2PCapsIndex_t.
+// GpuP2PCapsIndex represents [nvmlGpuP2PCapsIndex_t].
+//
+// [nvmlGpuP2PCapsIndex_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceStructs.html#_CPPv421nvmlGpuP2PCapsIndex_t
 type GpuP2PCapsIndex int32
 
 const (
@@ -1152,7 +1156,9 @@ func (e GpuUtilizationDomainId) String() string {
 	return fmt.Sprintf("GpuUtilizationDomainId(%d)", e)
 }
 
-// GpuVirtualizationMode represents nvmlGpuVirtualizationMode_t.
+// GpuVirtualizationMode represents [nvmlGpuVirtualizationMode_t].
+//
+// [nvmlGpuVirtualizationMode_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuEnums.html#_CPPv427nvmlGpuVirtualizationMode_t
 type GpuVirtualizationMode int32
 
 const (
@@ -1199,7 +1205,9 @@ func (e HostVgpuMode) String() string {
 	return fmt.Sprintf("HostVgpuMode(%d)", e)
 }
 
-// VgpuVmIdType represents nvmlVgpuVmIdType_t.
+// VgpuVmIdType represents [nvmlVgpuVmIdType_t].
+//
+// [nvmlVgpuVmIdType_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuEnums.html#_CPPv418nvmlVgpuVmIdType_t
 type VgpuVmIdType int32
 
 const (
@@ -1528,7 +1536,9 @@ func (e PcieLinkState) String() string {
 	return fmt.Sprintf("PcieLinkState(%d)", e)
 }
 
-// ClockLimitId represents nvmlClockLimitId_t.
+// ClockLimitId represents [nvmlClockLimitId_t].
+//
+// [nvmlClockLimitId_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv418nvmlClockLimitId_t
 type ClockLimitId uint32
 
 const (
@@ -2404,7 +2414,9 @@ func (e GpmMetricId) String() string {
 	return fmt.Sprintf("GpmMetricId(%d)", e)
 }
 
-// PowerProfileType represents nvmlPowerProfileType_t.
+// PowerProfileType represents [nvmlPowerProfileType_t].
+//
+// [nvmlPowerProfileType_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv422nvmlPowerProfileType_t
 type PowerProfileType int32
 
 const (
@@ -2643,7 +2655,9 @@ func (e GpuFabricState) String() string {
 	return fmt.Sprintf("GpuFabricState(%d)", e)
 }
 
-// AffinityScope represents nvmlAffinityScope_t.
+// AffinityScope represents [nvmlAffinityScope_t].
+//
+// [nvmlAffinityScope_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv419nvmlAffinityScope_t
 type AffinityScope uint32
 
 const (

@@ -15,7 +15,7 @@ func (u UserObject) Release(count uint32) error {
 
 // Retain Retain a reference to a user object.
 //
-// Retains new references to a user object. The new references are owned by the caller. See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects. See also: [NewUserObject], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph] Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Retains new references to a user object. The new references are owned by the caller. See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects. See also: [NewUserObject], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
 //
 //   - count: The number of references to retain, typically 1. Must be nonzero and not larger than INT_MAX
 //

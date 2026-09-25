@@ -15,7 +15,9 @@ import (
 //   - index: The index of the target unit, >= 0 and < unitCount
 //   - unit: Reference in which to return the unit handle
 //
-// Wraps nvmlUnitGetHandleByIndex.
+// Wraps [nvmlUnitGetHandleByIndex].
+//
+// [nvmlUnitGetHandleByIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv424nvmlUnitGetHandleByIndexjP10nvmlUnit_t
 func NewUnitByIndex(index uint32) (Unit, error) {
 	return unitGetHandleByIndex(index)
 }
@@ -28,9 +30,11 @@ func NewUnitByIndex(index uint32) (Unit, error) {
 //   - deviceCount: Reference in which to provide the devices array size, and to return the number of attached GPU devices
 //   - devices: Reference in which to return the references to the attached GPU devices
 //
-// Wraps nvmlUnitGetDevices.
+// Wraps [nvmlUnitGetDevices].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+//
+// [nvmlUnitGetDevices]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv418nvmlUnitGetDevices10nvmlUnit_tPjP12nvmlDevice_t
 func (u Unit) Devices(buf []Device) ([]Device, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
@@ -60,7 +64,9 @@ func (u Unit) Devices(buf []Device) ([]Device, error) {
 //
 //   - fanSpeeds: Reference in which to return the fan speed information
 //
-// Wraps nvmlUnitGetFanSpeedInfo.
+// Wraps [nvmlUnitGetFanSpeedInfo].
+//
+// [nvmlUnitGetFanSpeedInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv423nvmlUnitGetFanSpeedInfo10nvmlUnit_tP19nvmlUnitFanSpeeds_t
 func (u Unit) FanSpeedInfo(fanSpeeds *UnitFanSpeeds) error {
 	return unitGetFanSpeedInfo(u, fanSpeeds)
 }
@@ -72,7 +78,9 @@ func (u Unit) FanSpeedInfo(fanSpeeds *UnitFanSpeeds) error {
 //
 //   - info: Reference in which to return the unit information
 //
-// Wraps nvmlUnitGetUnitInfo.
+// Wraps [nvmlUnitGetUnitInfo].
+//
+// [nvmlUnitGetUnitInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv419nvmlUnitGetUnitInfo10nvmlUnit_tP14nvmlUnitInfo_t
 func (u Unit) Info() (UnitInfo, error) {
 	return unitGetUnitInfo(u)
 }
@@ -85,7 +93,9 @@ func (u Unit) Info() (UnitInfo, error) {
 //
 //   - state: Reference in which to return the current LED state
 //
-// Wraps nvmlUnitGetLedState.
+// Wraps [nvmlUnitGetLedState].
+//
+// [nvmlUnitGetLedState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv419nvmlUnitGetLedState10nvmlUnit_tP14nvmlLedState_t
 func (u Unit) LedState() (LedState, error) {
 	return unitGetLedState(u)
 }
@@ -97,7 +107,9 @@ func (u Unit) LedState() (LedState, error) {
 //
 //   - psu: Reference in which to return the PSU information
 //
-// Wraps nvmlUnitGetPsuInfo.
+// Wraps [nvmlUnitGetPsuInfo].
+//
+// [nvmlUnitGetPsuInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv418nvmlUnitGetPsuInfo10nvmlUnit_tP13nvmlPSUInfo_t
 func (u Unit) PsuInfo(psu *PSUInfo) error {
 	return unitGetPsuInfo(u, psu)
 }
@@ -112,7 +124,9 @@ func (u Unit) PsuInfo(psu *PSUInfo) error {
 //
 //   - color: The target LED color
 //
-// Wraps nvmlUnitSetLedState.
+// Wraps [nvmlUnitSetLedState].
+//
+// [nvmlUnitSetLedState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitCommands.html#_CPPv419nvmlUnitSetLedState10nvmlUnit_t14nvmlLedColor_t
 func (u Unit) SetLedState(color LedColor) error {
 	return unitSetLedState(u, color)
 }
@@ -125,7 +139,9 @@ func (u Unit) SetLedState(color LedColor) error {
 //   - type_: The type of reading to take
 //   - temp: Reference in which to return the intake temperature
 //
-// Wraps nvmlUnitGetTemperature.
+// Wraps [nvmlUnitGetTemperature].
+//
+// [nvmlUnitGetTemperature]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv422nvmlUnitGetTemperature10nvmlUnit_tjPj
 func (u Unit) Temperature(type_ uint32) (uint32, error) {
 	return unitGetTemperature(u, type_)
 }

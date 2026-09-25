@@ -94,7 +94,9 @@ type ProcessDetailList struct {
 	ProcArray           uintptr
 }
 
-// DeviceAttributes represents nvmlDeviceAttributes_t.
+// DeviceAttributes represents [nvmlDeviceAttributes_t].
+//
+// [nvmlDeviceAttributes_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlDeviceAttributes__t.html#_CPPv422nvmlDeviceAttributes_t
 type DeviceAttributes struct {
 	MultiprocessorCount       uint32
 	SharedCopyEngineCount     uint32
@@ -181,7 +183,9 @@ type GpuThermalSettings struct {
 	Sensor [3][5]uint32
 }
 
-// CoolerInfo represents nvmlCoolerInfo_v1_t.
+// CoolerInfo represents [nvmlCoolerInfo_v1_t].
+//
+// [nvmlCoolerInfo_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlCoolerInfo__v1__t.html#_CPPv419nvmlCoolerInfo_v1_t
 type CoolerInfo struct {
 	Version    uint32
 	Index      uint32
@@ -262,7 +266,9 @@ type DeviceCurrentClockFreqs struct {
 	Str     [2048]byte
 }
 
-// DevicePowerMizerModesV1 represents nvmlDevicePowerMizerModes_v1_t.
+// DevicePowerMizerModesV1 represents [nvmlDevicePowerMizerModes_v1_t].
+//
+// [nvmlDevicePowerMizerModes_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlDevicePowerMizerModes__v1__t.html#_CPPv430nvmlDevicePowerMizerModes_v1_t
 type DevicePowerMizerModesV1 struct {
 	CurrentMode              uint32
 	Mode                     uint32
@@ -340,12 +346,16 @@ type PlatformInfo struct {
 	ModuleId            uint8
 }
 
-// HostnameV1 represents nvmlHostname_v1_t.
+// HostnameV1 represents [nvmlHostname_v1_t].
+//
+// [nvmlHostname_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlHostname__v1__t.html#_CPPv417nvmlHostname_v1_t
 type HostnameV1 struct {
 	Value [64]byte
 }
 
-// EccSramUniqueUncorrectedErrorEntryV1 represents nvmlEccSramUniqueUncorrectedErrorEntry_v1_t.
+// EccSramUniqueUncorrectedErrorEntryV1 represents [nvmlEccSramUniqueUncorrectedErrorEntry_v1_t].
+//
+// [nvmlEccSramUniqueUncorrectedErrorEntry_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlEccSramUniqueUncorrectedErrorEntry__v1__t.html#_CPPv443nvmlEccSramUniqueUncorrectedErrorEntry_v1_t
 type EccSramUniqueUncorrectedErrorEntryV1 struct {
 	Unit        uint32
 	Location    uint32
@@ -356,20 +366,26 @@ type EccSramUniqueUncorrectedErrorEntryV1 struct {
 	Count       uint32
 }
 
-// EccSramUniqueUncorrectedErrorCounts represents nvmlEccSramUniqueUncorrectedErrorCounts_v1_t.
+// EccSramUniqueUncorrectedErrorCounts represents [nvmlEccSramUniqueUncorrectedErrorCounts_v1_t].
+//
+// [nvmlEccSramUniqueUncorrectedErrorCounts_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlEccSramUniqueUncorrectedErrorCounts__v1__t.html#_CPPv444nvmlEccSramUniqueUncorrectedErrorCounts_v1_t
 type EccSramUniqueUncorrectedErrorCounts struct {
 	Version    uint32
 	EntryCount uint32
 	Entries    uintptr
 }
 
-// RusdSettingsV1 represents nvmlRusdSettings_v1_t.
+// RusdSettingsV1 represents [nvmlRusdSettings_v1_t].
+//
+// [nvmlRusdSettings_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlRusdSettings__v1__t.html#_CPPv421nvmlRusdSettings_v1_t
 type RusdSettingsV1 struct {
 	Version  uint32
 	PollMask uint64
 }
 
-// GpuDynamicPstatesInfo represents nvmlGpuDynamicPstatesInfo_t.
+// GpuDynamicPstatesInfo represents [nvmlGpuDynamicPstatesInfo_t].
+//
+// [nvmlGpuDynamicPstatesInfo_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlGpuDynamicPstatesInfo__t.html#_CPPv427nvmlGpuDynamicPstatesInfo_t
 type GpuDynamicPstatesInfo struct {
 	Flags       uint32
 	Utilization [8][4]uint32
@@ -557,7 +573,9 @@ type VgpuLicenseExpiry struct {
 	Status uint8
 }
 
-// VgpuLicenseInfo represents nvmlVgpuLicenseInfo_t.
+// VgpuLicenseInfo represents [nvmlVgpuLicenseInfo_t].
+//
+// [nvmlVgpuLicenseInfo_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlVgpuLicenseInfo__t.html#_CPPv421nvmlVgpuLicenseInfo_t
 type VgpuLicenseInfo struct {
 	IsLicensed    uint8
 	LicenseExpiry VgpuLicenseExpiry
@@ -834,13 +852,17 @@ type FBCSessionInfo struct {
 	AverageLatency uint32
 }
 
-// ConfComputeSystemCaps represents nvmlConfComputeSystemCaps_t.
+// ConfComputeSystemCaps represents [nvmlConfComputeSystemCaps_t].
+//
+// [nvmlConfComputeSystemCaps_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlConfComputeSystemCaps__t.html#_CPPv427nvmlConfComputeSystemCaps_t
 type ConfComputeSystemCaps struct {
 	CpuCaps  uint32
 	GpusCaps uint32
 }
 
-// ConfComputeSystemState represents nvmlConfComputeSystemState_t.
+// ConfComputeSystemState represents [nvmlConfComputeSystemState_t].
+//
+// [nvmlConfComputeSystemState_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlConfComputeSystemState__t.html#_CPPv428nvmlConfComputeSystemState_t
 type ConfComputeSystemState struct {
 	Environment  uint32
 	CcFeature    uint32
@@ -862,7 +884,9 @@ type ConfComputeMemSizeInfo struct {
 	UnprotectedMemSizeKib uint64
 }
 
-// ConfComputeGpuCertificate represents nvmlConfComputeGpuCertificate_t.
+// ConfComputeGpuCertificate represents [nvmlConfComputeGpuCertificate_t].
+//
+// [nvmlConfComputeGpuCertificate_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlConfComputeGpuCertificate__t.html#_CPPv431nvmlConfComputeGpuCertificate_t
 type ConfComputeGpuCertificate struct {
 	CertChainSize            uint32
 	AttestationCertChainSize uint32
@@ -870,7 +894,9 @@ type ConfComputeGpuCertificate struct {
 	AttestationCertChain     [5120]uint8
 }
 
-// ConfComputeGpuAttestationReport represents nvmlConfComputeGpuAttestationReport_t.
+// ConfComputeGpuAttestationReport represents [nvmlConfComputeGpuAttestationReport_t].
+//
+// [nvmlConfComputeGpuAttestationReport_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlConfComputeGpuAttestationReport__t.html#_CPPv437nvmlConfComputeGpuAttestationReport_t
 type ConfComputeGpuAttestationReport struct {
 	IsCecAttestationReportPresent uint32
 	AttestationReportSize         uint32
@@ -880,13 +906,17 @@ type ConfComputeGpuAttestationReport struct {
 	CecAttestationReport          [4096]uint8
 }
 
-// ConfComputeSetKeyRotationThresholdInfo represents nvmlConfComputeSetKeyRotationThresholdInfo_v1_t.
+// ConfComputeSetKeyRotationThresholdInfo represents [nvmlConfComputeSetKeyRotationThresholdInfo_v1_t].
+//
+// [nvmlConfComputeSetKeyRotationThresholdInfo_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlConfComputeSetKeyRotationThresholdInfo__v1__t.html#_CPPv447nvmlConfComputeSetKeyRotationThresholdInfo_v1_t
 type ConfComputeSetKeyRotationThresholdInfo struct {
 	Version              uint32
 	MaxAttackerAdvantage uint64
 }
 
-// ConfComputeGetKeyRotationThresholdInfo represents nvmlConfComputeGetKeyRotationThresholdInfo_v1_t.
+// ConfComputeGetKeyRotationThresholdInfo represents [nvmlConfComputeGetKeyRotationThresholdInfo_v1_t].
+//
+// [nvmlConfComputeGetKeyRotationThresholdInfo_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlConfComputeGetKeyRotationThresholdInfo__v1__t.html#_CPPv447nvmlConfComputeGetKeyRotationThresholdInfo_v1_t
 type ConfComputeGetKeyRotationThresholdInfo struct {
 	Version           uint32
 	AttackerAdvantage uint64
@@ -934,21 +964,27 @@ type Temperature struct {
 	Temperature int32
 }
 
-// NvlinkSupportedBwModes represents nvmlNvlinkSupportedBwModes_v1_t.
+// NvlinkSupportedBwModes represents [nvmlNvlinkSupportedBwModes_v1_t].
+//
+// [nvmlNvlinkSupportedBwModes_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlNvlinkSupportedBwModes__v1__t.html#_CPPv431nvmlNvlinkSupportedBwModes_v1_t
 type NvlinkSupportedBwModes struct {
 	Version      uint32
 	BwModes      [23]uint8
 	TotalBwModes uint8
 }
 
-// NvlinkGetBwMode represents nvmlNvlinkGetBwMode_v1_t.
+// NvlinkGetBwMode represents [nvmlNvlinkGetBwMode_v1_t].
+//
+// [nvmlNvlinkGetBwMode_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlNvlinkGetBwMode__v1__t.html#_CPPv424nvmlNvlinkGetBwMode_v1_t
 type NvlinkGetBwMode struct {
 	Version uint32
 	BIsBest uint32
 	BwMode  uint8
 }
 
-// NvlinkSetBwMode represents nvmlNvlinkSetBwMode_v1_t.
+// NvlinkSetBwMode represents [nvmlNvlinkSetBwMode_v1_t].
+//
+// [nvmlNvlinkSetBwMode_v1_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlNvlinkSetBwMode__v1__t.html#_CPPv424nvmlNvlinkSetBwMode_v1_t
 type NvlinkSetBwMode struct {
 	Version  uint32
 	BSetBest uint32
@@ -1058,7 +1094,9 @@ type PRMCounterListV1 struct {
 	Counters    uintptr
 }
 
-// GpuInstancePlacement represents nvmlGpuInstancePlacement_t.
+// GpuInstancePlacement represents [nvmlGpuInstancePlacement_t].
+//
+// [nvmlGpuInstancePlacement_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlGpuInstancePlacement__t.html#_CPPv426nvmlGpuInstancePlacement_t
 type GpuInstancePlacement struct {
 	Start uint32
 	Size  uint32
@@ -1113,7 +1151,9 @@ type GpuInstanceProfileInfoV3 struct {
 	Capabilities        uint32
 }
 
-// GpuInstanceInfo represents nvmlGpuInstanceInfo_t.
+// GpuInstanceInfo represents [nvmlGpuInstanceInfo_t].
+//
+// [nvmlGpuInstanceInfo_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlGpuInstanceInfo__t.html#_CPPv421nvmlGpuInstanceInfo_t
 type GpuInstanceInfo struct {
 	Device    Device
 	Id        uint32
@@ -1121,7 +1161,9 @@ type GpuInstanceInfo struct {
 	Placement GpuInstancePlacement
 }
 
-// ComputeInstancePlacement represents nvmlComputeInstancePlacement_t.
+// ComputeInstancePlacement represents [nvmlComputeInstancePlacement_t].
+//
+// [nvmlComputeInstancePlacement_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlComputeInstancePlacement__t.html#_CPPv430nvmlComputeInstancePlacement_t
 type ComputeInstancePlacement struct {
 	Start uint32
 	Size  uint32
@@ -1171,7 +1213,9 @@ type ComputeInstanceProfileInfoV3 struct {
 	Capabilities          uint32
 }
 
-// ComputeInstanceInfo represents nvmlComputeInstanceInfo_t.
+// ComputeInstanceInfo represents [nvmlComputeInstanceInfo_t].
+//
+// [nvmlComputeInstanceInfo_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlComputeInstanceInfo__t.html#_CPPv425nvmlComputeInstanceInfo_t
 type ComputeInstanceInfo struct {
 	Device      Device
 	GpuInstance GpuInstance
@@ -1209,7 +1253,9 @@ type DeviceCapabilities struct {
 	CapMask uint32
 }
 
-// Mask255 represents nvmlMask255_t.
+// Mask255 represents [nvmlMask255_t].
+//
+// [nvmlMask255_t]: https://docs.nvidia.com/deploy/nvml-api/latest/api/structnvmlMask255__t.html#_CPPv413nvmlMask255_t
 type Mask255 struct {
 	Mask [8]uint32
 }

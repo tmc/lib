@@ -386,7 +386,9 @@ var (
 //
 //   - computeInstance: The compute instance handle
 //
-// Wraps nvmlComputeInstanceDestroy.
+// Wraps [nvmlComputeInstanceDestroy].
+//
+// [nvmlComputeInstanceDestroy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv426nvmlComputeInstanceDestroy21nvmlComputeInstance_t
 func computeInstanceDestroy(computeInstance ComputeInstance) error {
 	if err := checkLibSym("nvmlComputeInstanceDestroy"); err != nil {
 		return err
@@ -401,7 +403,9 @@ func computeInstanceDestroy(computeInstance ComputeInstance) error {
 //   - computeInstance: The compute instance handle
 //   - info: Return compute instance information
 //
-// Wraps nvmlComputeInstanceGetInfo, bound as nvmlComputeInstanceGetInfo_v2.
+// Wraps [nvmlComputeInstanceGetInfo], bound as nvmlComputeInstanceGetInfo_v2.
+//
+// [nvmlComputeInstanceGetInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv429nvmlComputeInstanceGetInfo_v221nvmlComputeInstance_tP25nvmlComputeInstanceInfo_t
 func computeInstanceGetInfo(computeInstance ComputeInstance) (ComputeInstanceInfo, error) {
 	if err := checkLibSym("nvmlComputeInstanceGetInfo_v2"); err != nil {
 		var zero ComputeInstanceInfo
@@ -422,7 +426,9 @@ func computeInstanceGetInfo(computeInstance ComputeInstance) (ComputeInstanceInf
 //
 //   - device: The identifier of the target device
 //
-// Wraps nvmlDeviceClearAccountingPids.
+// Wraps [nvmlDeviceClearAccountingPids].
+//
+// [nvmlDeviceClearAccountingPids]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv429nvmlDeviceClearAccountingPids12nvmlDevice_t
 func deviceClearAccountingPids(device Device) error {
 	if err := checkLibSym("nvmlDeviceClearAccountingPids"); err != nil {
 		return err
@@ -436,7 +442,9 @@ func deviceClearAccountingPids(device Device) error {
 //
 //   - device: The identifier of the target device
 //
-// Wraps nvmlDeviceClearCpuAffinity.
+// Wraps [nvmlDeviceClearCpuAffinity].
+//
+// [nvmlDeviceClearCpuAffinity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv426nvmlDeviceClearCpuAffinity12nvmlDevice_t
 func deviceClearCpuAffinity(device Device) error {
 	if err := checkLibSym("nvmlDeviceClearCpuAffinity"); err != nil {
 		return err
@@ -450,12 +458,13 @@ func deviceClearCpuAffinity(device Device) error {
 // Sets all of the specified ECC counters to 0, including both detailed and total counts.
 // This operation takes effect immediately.
 // See [MemoryErrorType] for details on available counter types.
-// See also:
 //
 //   - device: The identifier of the target device
 //   - counterType: Flag that indicates which type of errors should be cleared
 //
-// Wraps nvmlDeviceClearEccErrorCounts.
+// Wraps [nvmlDeviceClearEccErrorCounts].
+//
+// [nvmlDeviceClearEccErrorCounts]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv429nvmlDeviceClearEccErrorCounts12nvmlDevice_t20nvmlEccCounterType_t
 func deviceClearEccErrorCounts(device Device, counterType EccCounterType) error {
 	if err := checkLibSym("nvmlDeviceClearEccErrorCounts"); err != nil {
 		return err
@@ -469,7 +478,9 @@ func deviceClearEccErrorCounts(device Device, counterType EccCounterType) error 
 //   - valuesCount: Number of entries in values that should be cleared
 //   - values: Array of valuesCount structures to hold field values. Each value's fieldId must be populated prior to this call
 //
-// Wraps nvmlDeviceClearFieldValues.
+// Wraps [nvmlDeviceClearFieldValues].
+//
+// [nvmlDeviceClearFieldValues]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlFieldValueQueries.html#_CPPv426nvmlDeviceClearFieldValues12nvmlDevice_tiP16nvmlFieldValue_t
 func deviceClearFieldValues(device Device, valuesCount int32, values *FieldValue) error {
 	if err := checkLibSym("nvmlDeviceClearFieldValues"); err != nil {
 		return err
@@ -486,7 +497,9 @@ func deviceClearFieldValues(device Device, valuesCount int32, values *FieldValue
 //   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - gpuInstance: Returns the GPU instance handle
 //
-// Wraps nvmlDeviceCreateGpuInstance.
+// Wraps [nvmlDeviceCreateGpuInstance].
+//
+// [nvmlDeviceCreateGpuInstance]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv427nvmlDeviceCreateGpuInstance12nvmlDevice_tjP17nvmlGpuInstance_t
 func deviceCreateGpuInstance(device Device, profileId uint32) (GpuInstance, error) {
 	if err := checkLibSym("nvmlDeviceCreateGpuInstance"); err != nil {
 		var zero GpuInstance
@@ -510,7 +523,9 @@ func deviceCreateGpuInstance(device Device, profileId uint32) (GpuInstance, erro
 //   - placement: The requested placement. See [Device.GpuInstancePossiblePlacements]
 //   - gpuInstance: Returns the GPU instance handle
 //
-// Wraps nvmlDeviceCreateGpuInstanceWithPlacement.
+// Wraps [nvmlDeviceCreateGpuInstanceWithPlacement].
+//
+// [nvmlDeviceCreateGpuInstanceWithPlacement]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv440nvmlDeviceCreateGpuInstanceWithPlacement12nvmlDevice_tjPK26nvmlGpuInstancePlacement_tP17nvmlGpuInstance_t
 func deviceCreateGpuInstanceWithPlacement(device Device, profileId uint32, placement *GpuInstancePlacement) (GpuInstance, error) {
 	if err := checkLibSym("nvmlDeviceCreateGpuInstanceWithPlacement"); err != nil {
 		var zero GpuInstance
@@ -524,9 +539,11 @@ func deviceCreateGpuInstanceWithPlacement(device Device, profileId uint32, place
 	return out, nil
 }
 
-// DeviceDiscoverGpus wraps nvmlDeviceDiscoverGpus.
+// DeviceDiscoverGpus wraps [nvmlDeviceDiscoverGpus].
 //
 //   - pciInfo: The PCI tree to be searched. Only the domain, bus, and device fields are used in this call
+//
+// [nvmlDeviceDiscoverGpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlZPI.html#_CPPv422nvmlDeviceDiscoverGpusP13nvmlPciInfo_t
 func DeviceDiscoverGpus(pciInfo *PciInfo) error {
 	if err := checkLibSym("nvmlDeviceDiscoverGpus"); err != nil {
 		return err
@@ -545,7 +562,9 @@ func DeviceDiscoverGpus(pciInfo *PciInfo) error {
 //
 // Deprecated: Freezing NVLINK utilization counters is no longer supported. Freeze the NVLINK utilization counters Both the receive and transmit counters are operated on by this function For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceFreezeNvLinkUtilizationCounter.
+// Wraps [nvmlDeviceFreezeNvLinkUtilizationCounter].
+//
+// [nvmlDeviceFreezeNvLinkUtilizationCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv440nvmlDeviceFreezeNvLinkUtilizationCounter12nvmlDevice_tjj17nvmlEnableState_t
 func deviceFreezeNvLinkUtilizationCounter(device Device, link uint32, counter uint32, freeze EnableState) error {
 	if err := checkLibSym("nvmlDeviceFreezeNvLinkUtilizationCounter"); err != nil {
 		return err
@@ -562,7 +581,9 @@ func deviceFreezeNvLinkUtilizationCounter(device Device, link uint32, counter ui
 //   - apiType: Target API type for this operation
 //   - isRestricted: Reference in which to return the current restriction [FeatureEnabled] indicates that the API is root-only [FeatureDisabled] indicates that the API is accessible to all users
 //
-// Wraps nvmlDeviceGetAPIRestriction.
+// Wraps [nvmlDeviceGetAPIRestriction].
+//
+// [nvmlDeviceGetAPIRestriction]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetAPIRestriction12nvmlDevice_t19nvmlRestrictedAPI_tP17nvmlEnableState_t
 func deviceGetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted *EnableState) error {
 	if err := checkLibSym("nvmlDeviceGetAPIRestriction"); err != nil {
 		return err
@@ -580,7 +601,9 @@ func deviceGetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted 
 //   - device: The identifier of the target device
 //   - bufferSize: Reference in which to provide the size (in number of elements) of the circular buffer for accounting stats
 //
-// Wraps nvmlDeviceGetAccountingBufferSize.
+// Wraps [nvmlDeviceGetAccountingBufferSize].
+//
+// [nvmlDeviceGetAccountingBufferSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv433nvmlDeviceGetAccountingBufferSize12nvmlDevice_tPj
 func deviceGetAccountingBufferSize(device Device, bufferSize *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetAccountingBufferSize"); err != nil {
 		return err
@@ -596,7 +619,9 @@ func deviceGetAccountingBufferSize(device Device, bufferSize *uint32) error {
 //   - device: The identifier of the target device
 //   - mode: Reference in which to return the current accounting mode
 //
-// Wraps nvmlDeviceGetAccountingMode.
+// Wraps [nvmlDeviceGetAccountingMode].
+//
+// [nvmlDeviceGetAccountingMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv427nvmlDeviceGetAccountingMode12nvmlDevice_tP17nvmlEnableState_t
 func deviceGetAccountingMode(device Device) (EnableState, error) {
 	if err := checkLibSym("nvmlDeviceGetAccountingMode"); err != nil {
 		var zero EnableState
@@ -623,7 +648,9 @@ func deviceGetAccountingMode(device Device) (EnableState, error) {
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
 //
-// Wraps nvmlDeviceGetAccountingPids.
+// Wraps [nvmlDeviceGetAccountingPids].
+//
+// [nvmlDeviceGetAccountingPids]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv427nvmlDeviceGetAccountingPids12nvmlDevice_tPjPj
 func deviceGetAccountingPids(device Device, count *uint32, pids *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetAccountingPids"); err != nil {
 		return err
@@ -642,7 +669,9 @@ func deviceGetAccountingPids(device Device, count *uint32, pids *uint32) error {
 //   - pid: Process Id of the target process to query stats for
 //   - stats: Reference in which to return the process's accounting stats
 //
-// Wraps nvmlDeviceGetAccountingStats.
+// Wraps [nvmlDeviceGetAccountingStats].
+//
+// [nvmlDeviceGetAccountingStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv428nvmlDeviceGetAccountingStats12nvmlDevice_tjP21nvmlAccountingStats_t
 func deviceGetAccountingStats(device Device, pid uint32, stats *AccountingStats) error {
 	if err := checkLibSym("nvmlDeviceGetAccountingStats"); err != nil {
 		return err
@@ -650,11 +679,13 @@ func deviceGetAccountingStats(device Device, pid uint32, stats *AccountingStats)
 	return toError(fndeviceGetAccountingStats(device, pid, stats))
 }
 
-// deviceGetActiveVgpus wraps nvmlDeviceGetActiveVgpus.
+// deviceGetActiveVgpus wraps [nvmlDeviceGetActiveVgpus].
 //
 //   - device: The identifier of the target device
 //   - vgpuCount: Pointer which passes in the array size as well as get back the number of types
 //   - vgpuInstances: Pointer to array in which to return list of vGPU instances
+//
+// [nvmlDeviceGetActiveVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv424nvmlDeviceGetActiveVgpus12nvmlDevice_tPjP18nvmlVgpuInstance_t
 func deviceGetActiveVgpus(device Device, vgpuCount *uint32, vgpuInstances *VgpuInstance) error {
 	if err := checkLibSym("nvmlDeviceGetActiveVgpus"); err != nil {
 		return err
@@ -667,7 +698,9 @@ func deviceGetActiveVgpus(device Device, vgpuCount *uint32, vgpuInstances *VgpuI
 //   - device: The identifier of the target device
 //   - adaptiveClockStatus: The current adaptive clocking status, either [AdaptiveClockingInfoStatusDisabled] or [AdaptiveClockingInfoStatusEnabled]
 //
-// Wraps nvmlDeviceGetAdaptiveClockInfoStatus.
+// Wraps [nvmlDeviceGetAdaptiveClockInfoStatus].
+//
+// [nvmlDeviceGetAdaptiveClockInfoStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv436nvmlDeviceGetAdaptiveClockInfoStatus12nvmlDevice_tPj
 func deviceGetAdaptiveClockInfoStatus(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetAdaptiveClockInfoStatus"); err != nil {
 		var zero uint32
@@ -688,7 +721,9 @@ func deviceGetAdaptiveClockInfoStatus(device Device) (uint32, error) {
 //   - device: The device handle
 //   - mode: Pointer to addressing mode of the device
 //
-// Wraps nvmlDeviceGetAddressingMode.
+// Wraps [nvmlDeviceGetAddressingMode].
+//
+// [nvmlDeviceGetAddressingMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv427nvmlDeviceGetAddressingMode12nvmlDevice_tP26nvmlDeviceAddressingMode_t
 func deviceGetAddressingMode(device Device) (DeviceAddressingMode, error) {
 	if err := checkLibSym("nvmlDeviceGetAddressingMode"); err != nil {
 		var zero DeviceAddressingMode
@@ -707,7 +742,9 @@ func deviceGetAddressingMode(device Device) (DeviceAddressingMode, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetApplicationsClock.
+// Wraps [nvmlDeviceGetApplicationsClock].
+//
+// [nvmlDeviceGetApplicationsClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetApplicationsClock12nvmlDevice_t15nvmlClockType_tPj
 func deviceGetApplicationsClock(device Device, clockType ClockType) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetApplicationsClock"); err != nil {
 		var zero uint32
@@ -724,9 +761,11 @@ func deviceGetApplicationsClock(device Device, clockType ClockType) (uint32, err
 // deviceGetArchitecture Get architecture for device
 //
 //   - device: The identifier of the target device
-//   - arch: Reference where architecture is returned, if call successful. Set to NVML_DEVICE_ARCH_* upon success
+//   - arch: Reference where architecture is returned, if call successful. Set to NVML_DEVICE_ARCH_* ([DeviceArchitecture]) upon success
 //
-// Wraps nvmlDeviceGetArchitecture.
+// Wraps [nvmlDeviceGetArchitecture].
+//
+// [nvmlDeviceGetArchitecture]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetArchitecture12nvmlDevice_tP24nvmlDeviceArchitecture_t
 func deviceGetArchitecture(device Device) (DeviceArchitecture, error) {
 	if err := checkLibSym("nvmlDeviceGetArchitecture"); err != nil {
 		var zero DeviceArchitecture
@@ -749,7 +788,9 @@ func deviceGetArchitecture(device Device) (DeviceArchitecture, error) {
 //   - device: NVML device handle
 //   - attributes: Device attributes
 //
-// Wraps nvmlDeviceGetAttributes, bound as nvmlDeviceGetAttributes_v2.
+// Wraps [nvmlDeviceGetAttributes], bound as nvmlDeviceGetAttributes_v2.
+//
+// [nvmlDeviceGetAttributes]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetAttributes_v212nvmlDevice_tP22nvmlDeviceAttributes_t
 func deviceGetAttributes(device Device, attributes *DeviceAttributes) error {
 	if err := checkLibSym("nvmlDeviceGetAttributes_v2"); err != nil {
 		return err
@@ -767,7 +808,9 @@ func deviceGetAttributes(device Device, attributes *DeviceAttributes) error {
 //   - isEnabled: Where to store the current state of Auto Boosted clocks of the target device
 //   - defaultIsEnabled: Where to store the default Auto Boosted clocks behavior of the target device that the device will revert to when no applications are using the GPU
 //
-// Wraps nvmlDeviceGetAutoBoostedClocksEnabled.
+// Wraps [nvmlDeviceGetAutoBoostedClocksEnabled].
+//
+// [nvmlDeviceGetAutoBoostedClocksEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetAutoBoostedClocksEnabled12nvmlDevice_tP17nvmlEnableState_tP17nvmlEnableState_t
 func deviceGetAutoBoostedClocksEnabled(device Device, isEnabled *EnableState, defaultIsEnabled *EnableState) error {
 	if err := checkLibSym("nvmlDeviceGetAutoBoostedClocksEnabled"); err != nil {
 		return err
@@ -785,7 +828,9 @@ func deviceGetAutoBoostedClocksEnabled(device Device, isEnabled *EnableState, de
 //   - device: The identifier of the target device
 //   - bar1Memory: Reference in which BAR1 memory information is returned
 //
-// Wraps nvmlDeviceGetBAR1MemoryInfo.
+// Wraps [nvmlDeviceGetBAR1MemoryInfo].
+//
+// [nvmlDeviceGetBAR1MemoryInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetBAR1MemoryInfo12nvmlDevice_tP16nvmlBAR1Memory_t
 func deviceGetBAR1MemoryInfo(device Device) (BAR1Memory, error) {
 	if err := checkLibSym("nvmlDeviceGetBAR1MemoryInfo"); err != nil {
 		var zero BAR1Memory
@@ -806,7 +851,9 @@ func deviceGetBAR1MemoryInfo(device Device) (BAR1Memory, error) {
 //   - device: The identifier of the target device
 //   - boardId: Reference in which to return the device's board ID
 //
-// Wraps nvmlDeviceGetBoardId.
+// Wraps [nvmlDeviceGetBoardId].
+//
+// [nvmlDeviceGetBoardId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetBoardId12nvmlDevice_tPj
 func deviceGetBoardId(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetBoardId"); err != nil {
 		var zero uint32
@@ -828,7 +875,9 @@ func deviceGetBoardId(device Device) (uint32, error) {
 //   - partNumber: Reference to the buffer to return
 //   - length: Length of the buffer reference
 //
-// Wraps nvmlDeviceGetBoardPartNumber.
+// Wraps [nvmlDeviceGetBoardPartNumber].
+//
+// [nvmlDeviceGetBoardPartNumber]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetBoardPartNumber12nvmlDevice_tPcj
 func deviceGetBoardPartNumber(device Device) (string, error) {
 	if err := checkLibSym("nvmlDeviceGetBoardPartNumber"); err != nil {
 		return "", err
@@ -852,7 +901,9 @@ func deviceGetBoardPartNumber(device Device) (string, error) {
 //   - device: The identifier of the target device
 //   - type_: Reference in which to return the product brand type
 //
-// Wraps nvmlDeviceGetBrand.
+// Wraps [nvmlDeviceGetBrand].
+//
+// [nvmlDeviceGetBrand]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv418nvmlDeviceGetBrand12nvmlDevice_tP15nvmlBrandType_t
 func deviceGetBrand(device Device) (BrandType, error) {
 	if err := checkLibSym("nvmlDeviceGetBrand"); err != nil {
 		var zero BrandType
@@ -873,7 +924,9 @@ func deviceGetBrand(device Device) (BrandType, error) {
 //   - device: The identifier of the target device
 //   - bridgeHierarchy: Reference to the returned bridge chip Hierarchy
 //
-// Wraps nvmlDeviceGetBridgeChipInfo.
+// Wraps [nvmlDeviceGetBridgeChipInfo].
+//
+// [nvmlDeviceGetBridgeChipInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetBridgeChipInfo12nvmlDevice_tP25nvmlBridgeChipHierarchy_t
 func deviceGetBridgeChipInfo(device Device, bridgeHierarchy *BridgeChipHierarchy) error {
 	if err := checkLibSym("nvmlDeviceGetBridgeChipInfo"); err != nil {
 		return err
@@ -888,7 +941,9 @@ func deviceGetBridgeChipInfo(device Device, bridgeHierarchy *BridgeChipHierarchy
 //   - device: The identifier of the target device
 //   - type_: The PCI Bus type
 //
-// Wraps nvmlDeviceGetBusType.
+// Wraps [nvmlDeviceGetBusType].
+//
+// [nvmlDeviceGetBusType]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetBusType12nvmlDevice_tP13nvmlBusType_t
 func deviceGetBusType(device Device) (BusType, error) {
 	if err := checkLibSym("nvmlDeviceGetBusType"); err != nil {
 		var zero BusType
@@ -907,7 +962,9 @@ func deviceGetBusType(device Device) (BusType, error) {
 //   - device: The identifier of the target device
 //   - c2cModeInfo: Output struct containing the device's C2C Mode info
 //
-// Wraps nvmlDeviceGetC2cModeInfoV.
+// Wraps [nvmlDeviceGetC2cModeInfoV].
+//
+// [nvmlDeviceGetC2cModeInfoV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetC2cModeInfoV12nvmlDevice_tP20nvmlC2cModeInfo_v1_t
 func deviceGetC2cModeInfoV(device Device, c2cModeInfo *C2cModeInfoV1) error {
 	if err := checkLibSym("nvmlDeviceGetC2cModeInfoV"); err != nil {
 		return err
@@ -942,7 +999,9 @@ func deviceGetCapabilities(device Device) (DeviceCapabilities, error) {
 //   - device: The identifier of the target device
 //   - status: Reference in which to return the clkmon fault status
 //
-// Wraps nvmlDeviceGetClkMonStatus.
+// Wraps [nvmlDeviceGetClkMonStatus].
+//
+// [nvmlDeviceGetClkMonStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetClkMonStatus12nvmlDevice_tP18nvmlClkMonStatus_t
 func deviceGetClkMonStatus(device Device, status *ClkMonStatus) error {
 	if err := checkLibSym("nvmlDeviceGetClkMonStatus"); err != nil {
 		return err
@@ -959,7 +1018,9 @@ func deviceGetClkMonStatus(device Device, status *ClkMonStatus) error {
 //   - clockId: Identify which clock in the domain to query
 //   - clockMHz: Reference in which to return the clock in MHz
 //
-// Wraps nvmlDeviceGetClock.
+// Wraps [nvmlDeviceGetClock].
+//
+// [nvmlDeviceGetClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv418nvmlDeviceGetClock12nvmlDevice_t15nvmlClockType_t13nvmlClockId_tPj
 func deviceGetClock(device Device, clockType ClockType, clockId ClockId) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetClock"); err != nil {
 		var zero uint32
@@ -982,7 +1043,9 @@ func deviceGetClock(device Device, clockType ClockType, clockId ClockId) (uint32
 //   - type_: Identify which clock domain to query
 //   - clock: Reference in which to return the clock speed in MHz
 //
-// Wraps nvmlDeviceGetClockInfo.
+// Wraps [nvmlDeviceGetClockInfo].
+//
+// [nvmlDeviceGetClockInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv422nvmlDeviceGetClockInfo12nvmlDevice_t15nvmlClockType_tPj
 func deviceGetClockInfo(device Device, type_ ClockType) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetClockInfo"); err != nil {
 		var zero uint32
@@ -1004,7 +1067,9 @@ func deviceGetClockInfo(device Device, type_ ClockType) (uint32, error) {
 //   - device: The identifier of the target device
 //   - info: Structure specifying the clock type (input) and the pstate (input) retrieved clock offset value (output), min clock offset (output) and max clock offset (output)
 //
-// Wraps nvmlDeviceGetClockOffsets.
+// Wraps [nvmlDeviceGetClockOffsets].
+//
+// [nvmlDeviceGetClockOffsets]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetClockOffsets12nvmlDevice_tP17nvmlClockOffset_t
 func deviceGetClockOffsets(device Device, info *ClockOffset) error {
 	if err := checkLibSym("nvmlDeviceGetClockOffsets"); err != nil {
 		return err
@@ -1020,7 +1085,9 @@ func deviceGetClockOffsets(device Device, info *ClockOffset) error {
 //   - device: Target MIG device handle
 //   - id: Compute instance ID
 //
-// Wraps nvmlDeviceGetComputeInstanceId.
+// Wraps [nvmlDeviceGetComputeInstanceId].
+//
+// [nvmlDeviceGetComputeInstanceId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv430nvmlDeviceGetComputeInstanceId12nvmlDevice_tPj
 func deviceGetComputeInstanceId(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetComputeInstanceId"); err != nil {
 		var zero uint32
@@ -1045,7 +1112,9 @@ func deviceGetComputeInstanceId(device Device) (uint32, error) {
 //   - device: The identifier of the target device handle or MIG device handle
 //   - mode: Reference in which to return the current compute mode
 //
-// Wraps nvmlDeviceGetComputeMode.
+// Wraps [nvmlDeviceGetComputeMode].
+//
+// [nvmlDeviceGetComputeMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetComputeMode12nvmlDevice_tP17nvmlComputeMode_t
 func deviceGetComputeMode(device Device) (ComputeMode, error) {
 	if err := checkLibSym("nvmlDeviceGetComputeMode"); err != nil {
 		var zero ComputeMode
@@ -1074,7 +1143,9 @@ func deviceGetComputeMode(device Device) (ComputeMode, error) {
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Wraps nvmlDeviceGetComputeRunningProcesses, bound as nvmlDeviceGetComputeRunningProcesses_v3.
+// Wraps [nvmlDeviceGetComputeRunningProcesses], bound as nvmlDeviceGetComputeRunningProcesses_v3.
+//
+// [nvmlDeviceGetComputeRunningProcesses]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv439nvmlDeviceGetComputeRunningProcesses_v312nvmlDevice_tPjP17nvmlProcessInfo_t
 func deviceGetComputeRunningProcesses(device Device, infoCount *uint32, infos *ProcessInfo) error {
 	if err := checkLibSym("nvmlDeviceGetComputeRunningProcesses_v3"); err != nil {
 		return err
@@ -1089,7 +1160,9 @@ func deviceGetComputeRunningProcesses(device Device, infoCount *uint32, infos *P
 //   - device: The identifier of the target device
 //   - gpuAtstReport: Reference in which to return the gpu attestation report
 //
-// Wraps nvmlDeviceGetConfComputeGpuAttestationReport.
+// Wraps [nvmlDeviceGetConfComputeGpuAttestationReport].
+//
+// [nvmlDeviceGetConfComputeGpuAttestationReport]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv444nvmlDeviceGetConfComputeGpuAttestationReport12nvmlDevice_tP37nvmlConfComputeGpuAttestationReport_t
 func deviceGetConfComputeGpuAttestationReport(device Device, gpuAtstReport *ConfComputeGpuAttestationReport) error {
 	if err := checkLibSym("nvmlDeviceGetConfComputeGpuAttestationReport"); err != nil {
 		return err
@@ -1104,7 +1177,9 @@ func deviceGetConfComputeGpuAttestationReport(device Device, gpuAtstReport *Conf
 //   - device: The identifier of the target device
 //   - gpuCert: Reference in which to return the gpu certificate information
 //
-// Wraps nvmlDeviceGetConfComputeGpuCertificate.
+// Wraps [nvmlDeviceGetConfComputeGpuCertificate].
+//
+// [nvmlDeviceGetConfComputeGpuCertificate]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlDeviceGetConfComputeGpuCertificate12nvmlDevice_tP31nvmlConfComputeGpuCertificate_t
 func deviceGetConfComputeGpuCertificate(device Device, gpuCert *ConfComputeGpuCertificate) error {
 	if err := checkLibSym("nvmlDeviceGetConfComputeGpuCertificate"); err != nil {
 		return err
@@ -1119,7 +1194,9 @@ func deviceGetConfComputeGpuCertificate(device Device, gpuCert *ConfComputeGpuCe
 //   - device: Device handle
 //   - memInfo: Protected/Unprotected Memory sizes
 //
-// Wraps nvmlDeviceGetConfComputeMemSizeInfo.
+// Wraps [nvmlDeviceGetConfComputeMemSizeInfo].
+//
+// [nvmlDeviceGetConfComputeMemSizeInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv435nvmlDeviceGetConfComputeMemSizeInfo12nvmlDevice_tP28nvmlConfComputeMemSizeInfo_t
 func deviceGetConfComputeMemSizeInfo(device Device, memInfo *ConfComputeMemSizeInfo) error {
 	if err := checkLibSym("nvmlDeviceGetConfComputeMemSizeInfo"); err != nil {
 		return err
@@ -1134,7 +1211,9 @@ func deviceGetConfComputeMemSizeInfo(device Device, memInfo *ConfComputeMemSizeI
 //   - device: The identifier of the target device
 //   - memory: Reference in which to return the memory information
 //
-// Wraps nvmlDeviceGetConfComputeProtectedMemoryUsage.
+// Wraps [nvmlDeviceGetConfComputeProtectedMemoryUsage].
+//
+// [nvmlDeviceGetConfComputeProtectedMemoryUsage]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv444nvmlDeviceGetConfComputeProtectedMemoryUsage12nvmlDevice_tP12nvmlMemory_t
 func deviceGetConfComputeProtectedMemoryUsage(device Device) (Memory, error) {
 	if err := checkLibSym("nvmlDeviceGetConfComputeProtectedMemoryUsage"); err != nil {
 		var zero Memory
@@ -1156,7 +1235,9 @@ func deviceGetConfComputeProtectedMemoryUsage(device Device) (Memory, error) {
 //   - device: The identifier of the target device
 //   - coolerInfo: Structure specifying the cooler's control signal characteristics (out) and the target that cooler cools (out)
 //
-// Wraps nvmlDeviceGetCoolerInfo.
+// Wraps [nvmlDeviceGetCoolerInfo].
+//
+// [nvmlDeviceGetCoolerInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetCoolerInfo12nvmlDevice_tP16nvmlCoolerInfo_t
 func deviceGetCoolerInfo(device Device, coolerInfo *CoolerInfo) error {
 	if err := checkLibSym("nvmlDeviceGetCoolerInfo"); err != nil {
 		return err
@@ -1171,7 +1252,9 @@ func deviceGetCoolerInfo(device Device, coolerInfo *CoolerInfo) error {
 //
 //   - deviceCount: Reference in which to return the number of accessible devices
 //
-// Wraps nvmlDeviceGetCount, bound as nvmlDeviceGetCount_v2.
+// Wraps [nvmlDeviceGetCount], bound as nvmlDeviceGetCount_v2.
+//
+// [nvmlDeviceGetCount]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceGetCount_v2Pj
 func DeviceGetCount() (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetCount_v2"); err != nil {
 		var zero uint32
@@ -1193,7 +1276,9 @@ func DeviceGetCount() (uint32, error) {
 //   - cpuSetSize: The size of the cpuSet array that is safe to access
 //   - cpuSet: Array reference in which to return a bitmask of CPUs, 64 CPUs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //
-// Wraps nvmlDeviceGetCpuAffinity.
+// Wraps [nvmlDeviceGetCpuAffinity].
+//
+// [nvmlDeviceGetCpuAffinity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv424nvmlDeviceGetCpuAffinity12nvmlDevice_tjPm
 func deviceGetCpuAffinity(device Device, cpuSetSize uint32, cpuSet *uint) error {
 	if err := checkLibSym("nvmlDeviceGetCpuAffinity"); err != nil {
 		return err
@@ -1212,7 +1297,9 @@ func deviceGetCpuAffinity(device Device, cpuSetSize uint32, cpuSet *uint) error 
 //   - cpuSet: Array reference in which to return a bitmask of CPUs, 64 CPUs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //   - scope: Scope that change the default behavior
 //
-// Wraps nvmlDeviceGetCpuAffinityWithinScope.
+// Wraps [nvmlDeviceGetCpuAffinityWithinScope].
+//
+// [nvmlDeviceGetCpuAffinityWithinScope]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv435nvmlDeviceGetCpuAffinityWithinScope12nvmlDevice_tjPm19nvmlAffinityScope_t
 func deviceGetCpuAffinityWithinScope(device Device, cpuSetSize uint32, cpuSet *uint, scope AffinityScope) error {
 	if err := checkLibSym("nvmlDeviceGetCpuAffinityWithinScope"); err != nil {
 		return err
@@ -1220,11 +1307,13 @@ func deviceGetCpuAffinityWithinScope(device Device, cpuSetSize uint32, cpuSet *u
 	return toError(fndeviceGetCpuAffinityWithinScope(device, cpuSetSize, cpuSet, scope))
 }
 
-// deviceGetCreatableVgpus wraps nvmlDeviceGetCreatableVgpus.
+// deviceGetCreatableVgpus wraps [nvmlDeviceGetCreatableVgpus].
 //
 //   - device: The identifier of the target device
 //   - vgpuCount: Pointer to caller-supplied array size, and returns number of vGPU types
 //   - vgpuTypeIds: Pointer to caller-supplied array in which to return list of vGPU types
+//
+// [nvmlDeviceGetCreatableVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlDeviceGetCreatableVgpus12nvmlDevice_tPjP16nvmlVgpuTypeId_t
 func deviceGetCreatableVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *VgpuTypeId) error {
 	if err := checkLibSym("nvmlDeviceGetCreatableVgpus"); err != nil {
 		return err
@@ -1241,7 +1330,9 @@ func deviceGetCreatableVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *Vgpu
 //   - major: Reference in which to return the major CUDA compute capability
 //   - minor: Reference in which to return the minor CUDA compute capability
 //
-// Wraps nvmlDeviceGetCudaComputeCapability.
+// Wraps [nvmlDeviceGetCudaComputeCapability].
+//
+// [nvmlDeviceGetCudaComputeCapability]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv434nvmlDeviceGetCudaComputeCapability12nvmlDevice_tPiPi
 func deviceGetCudaComputeCapability(device Device, minor *int32) (int32, error) {
 	if err := checkLibSym("nvmlDeviceGetCudaComputeCapability"); err != nil {
 		var zero int32
@@ -1262,7 +1353,9 @@ func deviceGetCudaComputeCapability(device Device, minor *int32) (int32, error) 
 //   - device: The identifier of the target device
 //   - currLinkGen: Reference in which to return the current PCIe link generation
 //
-// Wraps nvmlDeviceGetCurrPcieLinkGeneration.
+// Wraps [nvmlDeviceGetCurrPcieLinkGeneration].
+//
+// [nvmlDeviceGetCurrPcieLinkGeneration]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv435nvmlDeviceGetCurrPcieLinkGeneration12nvmlDevice_tPj
 func deviceGetCurrPcieLinkGeneration(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetCurrPcieLinkGeneration"); err != nil {
 		var zero uint32
@@ -1283,7 +1376,9 @@ func deviceGetCurrPcieLinkGeneration(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - currLinkWidth: Reference in which to return the current PCIe link generation
 //
-// Wraps nvmlDeviceGetCurrPcieLinkWidth.
+// Wraps [nvmlDeviceGetCurrPcieLinkWidth].
+//
+// [nvmlDeviceGetCurrPcieLinkWidth]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetCurrPcieLinkWidth12nvmlDevice_tPj
 func deviceGetCurrPcieLinkWidth(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetCurrPcieLinkWidth"); err != nil {
 		var zero uint32
@@ -1309,7 +1404,9 @@ func deviceGetCurrPcieLinkWidth(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - currentClockFreqs: Reference in which to return the performance level string
 //
-// Wraps nvmlDeviceGetCurrentClockFreqs.
+// Wraps [nvmlDeviceGetCurrentClockFreqs].
+//
+// [nvmlDeviceGetCurrentClockFreqs]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetCurrentClockFreqs12nvmlDevice_tP29nvmlDeviceCurrentClockFreqs_t
 func deviceGetCurrentClockFreqs(device Device, currentClockFreqs *DeviceCurrentClockFreqs) error {
 	if err := checkLibSym("nvmlDeviceGetCurrentClockFreqs"); err != nil {
 		return err
@@ -1322,14 +1419,16 @@ func deviceGetCurrentClockFreqs(device Device, currentClockFreqs *DeviceCurrentC
 // For all fully supported products.
 // Note:
 // More than one bit can be enabled at the same time. Multiple reasons can be affecting clocks at once.
-// See also:
-// NvmlClocksEventReasons
+// See also: [NvmlClocksEventReasons]
 // [Device.SupportedClocksEventReasons]
 //
 //   - device: The identifier of the target device
 //   - clocksEventReasons: Reference in which to return bitmask of active clocks event reasons
 //
-// Wraps nvmlDeviceGetCurrentClocksEventReasons.
+// Wraps [nvmlDeviceGetCurrentClocksEventReasons].
+//
+// [NvmlClocksEventReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlClocksEventReasons.html
+// [nvmlDeviceGetCurrentClocksEventReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlDeviceGetCurrentClocksEventReasons12nvmlDevice_tPy
 func deviceGetCurrentClocksEventReasons(device Device) (uint64, error) {
 	if err := checkLibSym("nvmlDeviceGetCurrentClocksEventReasons"); err != nil {
 		var zero uint64
@@ -1347,7 +1446,9 @@ func deviceGetCurrentClocksEventReasons(device Device) (uint64, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetCurrentClocksThrottleReasons.
+// Wraps [nvmlDeviceGetCurrentClocksThrottleReasons].
+//
+// [nvmlDeviceGetCurrentClocksThrottleReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv441nvmlDeviceGetCurrentClocksThrottleReasons12nvmlDevice_tPy
 func deviceGetCurrentClocksThrottleReasons(device Device, clocksThrottleReasons *uint64) error {
 	if err := checkLibSym("nvmlDeviceGetCurrentClocksThrottleReasons"); err != nil {
 		return err
@@ -1365,7 +1466,9 @@ func deviceGetCurrentClocksThrottleReasons(device Device, clocksThrottleReasons 
 //   - utilization: Reference to an unsigned int for decoder utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Wraps nvmlDeviceGetDecoderUtilization.
+// Wraps [nvmlDeviceGetDecoderUtilization].
+//
+// [nvmlDeviceGetDecoderUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetDecoderUtilization12nvmlDevice_tPjPj
 func deviceGetDecoderUtilization(device Device, samplingPeriodUs *uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetDecoderUtilization"); err != nil {
 		var zero uint32
@@ -1383,7 +1486,9 @@ func deviceGetDecoderUtilization(device Device, samplingPeriodUs *uint32) (uint3
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetDefaultApplicationsClock.
+// Wraps [nvmlDeviceGetDefaultApplicationsClock].
+//
+// [nvmlDeviceGetDefaultApplicationsClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetDefaultApplicationsClock12nvmlDevice_t15nvmlClockType_tPj
 func deviceGetDefaultApplicationsClock(device Device, clockType ClockType) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetDefaultApplicationsClock"); err != nil {
 		var zero uint32
@@ -1406,7 +1511,9 @@ func deviceGetDefaultApplicationsClock(device Device, clockType ClockType) (uint
 //   - device: The identifier of the target device
 //   - defaultMode: Reference in which to return the default ECC mode
 //
-// Wraps nvmlDeviceGetDefaultEccMode.
+// Wraps [nvmlDeviceGetDefaultEccMode].
+//
+// [nvmlDeviceGetDefaultEccMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetDefaultEccMode12nvmlDevice_tP17nvmlEnableState_t
 func deviceGetDefaultEccMode(device Device, defaultMode *EnableState) error {
 	if err := checkLibSym("nvmlDeviceGetDefaultEccMode"); err != nil {
 		return err
@@ -1429,7 +1536,9 @@ func deviceGetDefaultEccMode(device Device, defaultMode *EnableState) error {
 //
 // Deprecated: This API supports only a fixed set of ECC error locations On different GPU architectures different locations are supported See [Device.MemoryErrorCounter] For Fermi &tm; or newer fully supported devices. Only applicable to devices with ECC. Requires [InforomEcc] version 2.0 or higher to report aggregate location-based ECC counts. Requires [InforomEcc] version 1.0 or higher to report all other ECC counts. Requires ECC Mode to be enabled. Detailed errors provide separate ECC counts for specific parts of the memory system. Reports zero for unsupported ECC error counters when a subset of ECC error counters are supported. See [MemoryErrorType] for a description of available bit types.\n See [EccCounterType] for a description of available counter types.\n See [EccErrorCounts] for a description of provided detailed ECC counts.
 //
-// Wraps nvmlDeviceGetDetailedEccErrors.
+// Wraps [nvmlDeviceGetDetailedEccErrors].
+//
+// [nvmlDeviceGetDetailedEccErrors]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetDetailedEccErrors12nvmlDevice_t21nvmlMemoryErrorType_t20nvmlEccCounterType_tP20nvmlEccErrorCounts_t
 func deviceGetDetailedEccErrors(device Device, errorType MemoryErrorType, counterType EccCounterType) (EccErrorCounts, error) {
 	if err := checkLibSym("nvmlDeviceGetDetailedEccErrors"); err != nil {
 		var zero EccErrorCounts
@@ -1450,7 +1559,9 @@ func deviceGetDetailedEccErrors(device Device, errorType MemoryErrorType, counte
 //   - migDevice: MIG device handle
 //   - device: Device handle
 //
-// Wraps nvmlDeviceGetDeviceHandleFromMigDeviceHandle.
+// Wraps [nvmlDeviceGetDeviceHandleFromMigDeviceHandle].
+//
+// [nvmlDeviceGetDeviceHandleFromMigDeviceHandle]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv444nvmlDeviceGetDeviceHandleFromMigDeviceHandle12nvmlDevice_tP12nvmlDevice_t
 func deviceGetDeviceHandleFromMigDeviceHandle(migDevice Device) (Device, error) {
 	if err := checkLibSym("nvmlDeviceGetDeviceHandleFromMigDeviceHandle"); err != nil {
 		var zero Device
@@ -1474,7 +1585,9 @@ func deviceGetDeviceHandleFromMigDeviceHandle(migDevice Device) (Device, error) 
 //   - device: The identifier of the target device
 //   - isActive: Reference in which to return the display active state
 //
-// Wraps nvmlDeviceGetDisplayActive.
+// Wraps [nvmlDeviceGetDisplayActive].
+//
+// [nvmlDeviceGetDisplayActive]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetDisplayActive12nvmlDevice_tP17nvmlEnableState_t
 func deviceGetDisplayActive(device Device) (EnableState, error) {
 	if err := checkLibSym("nvmlDeviceGetDisplayActive"); err != nil {
 		var zero EnableState
@@ -1497,7 +1610,9 @@ func deviceGetDisplayActive(device Device) (EnableState, error) {
 //   - device: The identifier of the target device
 //   - display: Reference in which to return the display mode
 //
-// Wraps nvmlDeviceGetDisplayMode.
+// Wraps [nvmlDeviceGetDisplayMode].
+//
+// [nvmlDeviceGetDisplayMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetDisplayMode12nvmlDevice_tP17nvmlEnableState_t
 func deviceGetDisplayMode(device Device) (EnableState, error) {
 	if err := checkLibSym("nvmlDeviceGetDisplayMode"); err != nil {
 		var zero EnableState
@@ -1522,7 +1637,9 @@ func deviceGetDisplayMode(device Device) (EnableState, error) {
 //   - current: Reference in which to return the current DRAM Encryption mode
 //   - pending: Reference in which to return the pending DRAM Encryption mode
 //
-// Wraps nvmlDeviceGetDramEncryptionMode.
+// Wraps [nvmlDeviceGetDramEncryptionMode].
+//
+// [nvmlDeviceGetDramEncryptionMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetDramEncryptionMode12nvmlDevice_tP24nvmlDramEncryptionInfo_tP24nvmlDramEncryptionInfo_t
 func deviceGetDramEncryptionMode(device Device, current *DramEncryptionInfo, pending *DramEncryptionInfo) error {
 	if err := checkLibSym("nvmlDeviceGetDramEncryptionMode"); err != nil {
 		return err
@@ -1542,7 +1659,9 @@ func deviceGetDramEncryptionMode(device Device, current *DramEncryptionInfo, pen
 //   - current: Reference in which to return the current driver model
 //   - pending: Reference in which to return the pending driver model
 //
-// Wraps nvmlDeviceGetDriverModel, bound as nvmlDeviceGetDriverModel_v2.
+// Wraps [nvmlDeviceGetDriverModel], bound as nvmlDeviceGetDriverModel_v2.
+//
+// [nvmlDeviceGetDriverModel]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetDriverModel_v212nvmlDevice_tP17nvmlDriverModel_tP17nvmlDriverModel_t
 func deviceGetDriverModel(device Device, current *DriverModel, pending *DriverModel) error {
 	if err := checkLibSym("nvmlDeviceGetDriverModel_v2"); err != nil {
 		return err
@@ -1552,7 +1671,9 @@ func deviceGetDriverModel(device Device, current *DriverModel, pending *DriverMo
 
 // deviceGetDynamicPstatesInfo Retrieve performance monitor samples from the associated subdevice.
 //
-// Wraps nvmlDeviceGetDynamicPstatesInfo.
+// Wraps [nvmlDeviceGetDynamicPstatesInfo].
+//
+// [nvmlDeviceGetDynamicPstatesInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetDynamicPstatesInfo12nvmlDevice_tP27nvmlGpuDynamicPstatesInfo_t
 func deviceGetDynamicPstatesInfo(device Device, pDynamicPstatesInfo *GpuDynamicPstatesInfo) error {
 	if err := checkLibSym("nvmlDeviceGetDynamicPstatesInfo"); err != nil {
 		return err
@@ -1571,7 +1692,9 @@ func deviceGetDynamicPstatesInfo(device Device, pDynamicPstatesInfo *GpuDynamicP
 //   - current: Reference in which to return the current ECC mode
 //   - pending: Reference in which to return the pending ECC mode
 //
-// Wraps nvmlDeviceGetEccMode.
+// Wraps [nvmlDeviceGetEccMode].
+//
+// [nvmlDeviceGetEccMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetEccMode12nvmlDevice_tP17nvmlEnableState_tP17nvmlEnableState_t
 func deviceGetEccMode(device Device, current *EnableState, pending *EnableState) error {
 	if err := checkLibSym("nvmlDeviceGetEccMode"); err != nil {
 		return err
@@ -1587,7 +1710,9 @@ func deviceGetEccMode(device Device, current *EnableState, pending *EnableState)
 //   - encoderQueryType: Type of encoder to query
 //   - encoderCapacity: Reference to an unsigned int for the encoder capacity
 //
-// Wraps nvmlDeviceGetEncoderCapacity.
+// Wraps [nvmlDeviceGetEncoderCapacity].
+//
+// [nvmlDeviceGetEncoderCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetEncoderCapacity12nvmlDevice_t17nvmlEncoderType_tPj
 func deviceGetEncoderCapacity(device Device, encoderQueryType EncoderType) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetEncoderCapacity"); err != nil {
 		var zero uint32
@@ -1611,7 +1736,9 @@ func deviceGetEncoderCapacity(device Device, encoderQueryType EncoderType) (uint
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfos: Reference in which to return the session information
 //
-// Wraps nvmlDeviceGetEncoderSessions.
+// Wraps [nvmlDeviceGetEncoderSessions].
+//
+// [nvmlDeviceGetEncoderSessions]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetEncoderSessions12nvmlDevice_tPjP24nvmlEncoderSessionInfo_t
 func deviceGetEncoderSessions(device Device, sessionCount *uint32, sessionInfos *EncoderSessionInfo) error {
 	if err := checkLibSym("nvmlDeviceGetEncoderSessions"); err != nil {
 		return err
@@ -1628,7 +1755,9 @@ func deviceGetEncoderSessions(device Device, sessionCount *uint32, sessionInfos 
 //   - averageFps: Reference to an unsigned int for trailing average FPS of all active sessions
 //   - averageLatency: Reference to an unsigned int for encode latency in microseconds
 //
-// Wraps nvmlDeviceGetEncoderStats.
+// Wraps [nvmlDeviceGetEncoderStats].
+//
+// [nvmlDeviceGetEncoderStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetEncoderStats12nvmlDevice_tPjPjPj
 func deviceGetEncoderStats(device Device, sessionCount *uint32, averageFps *uint32, averageLatency *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetEncoderStats"); err != nil {
 		return err
@@ -1646,7 +1775,9 @@ func deviceGetEncoderStats(device Device, sessionCount *uint32, averageFps *uint
 //   - utilization: Reference to an unsigned int for encoder utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Wraps nvmlDeviceGetEncoderUtilization.
+// Wraps [nvmlDeviceGetEncoderUtilization].
+//
+// [nvmlDeviceGetEncoderUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetEncoderUtilization12nvmlDevice_tPjPj
 func deviceGetEncoderUtilization(device Device, samplingPeriodUs *uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetEncoderUtilization"); err != nil {
 		var zero uint32
@@ -1668,7 +1799,9 @@ func deviceGetEncoderUtilization(device Device, samplingPeriodUs *uint32) (uint3
 //   - device: The device to communicate with
 //   - limit: Reference in which to return the power management limit in milliwatts
 //
-// Wraps nvmlDeviceGetEnforcedPowerLimit.
+// Wraps [nvmlDeviceGetEnforcedPowerLimit].
+//
+// [nvmlDeviceGetEnforcedPowerLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetEnforcedPowerLimit12nvmlDevice_tPj
 func deviceGetEnforcedPowerLimit(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetEnforcedPowerLimit"); err != nil {
 		var zero uint32
@@ -1694,7 +1827,9 @@ func deviceGetEnforcedPowerLimit(device Device) (uint32, error) {
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information
 //
-// Wraps nvmlDeviceGetFBCSessions.
+// Wraps [nvmlDeviceGetFBCSessions].
+//
+// [nvmlDeviceGetFBCSessions]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetFBCSessions12nvmlDevice_tPjP20nvmlFBCSessionInfo_t
 func deviceGetFBCSessions(device Device, sessionCount *uint32, sessionInfo *FBCSessionInfo) error {
 	if err := checkLibSym("nvmlDeviceGetFBCSessions"); err != nil {
 		return err
@@ -1709,7 +1844,9 @@ func deviceGetFBCSessions(device Device, sessionCount *uint32, sessionInfo *FBCS
 //   - device: The identifier of the target device
 //   - fbcStats: Reference to [FBCStats] structure containing NvFBC stats
 //
-// Wraps nvmlDeviceGetFBCStats.
+// Wraps [nvmlDeviceGetFBCStats].
+//
+// [nvmlDeviceGetFBCStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceGetFBCStats12nvmlDevice_tP14nvmlFBCStats_t
 func deviceGetFBCStats(device Device, fbcStats *FBCStats) error {
 	if err := checkLibSym("nvmlDeviceGetFBCStats"); err != nil {
 		return err
@@ -1726,7 +1863,9 @@ func deviceGetFBCStats(device Device, fbcStats *FBCStats) error {
 //   - fan: The index of the target fan, zero indexed
 //   - policy: Reference in which to return the fan control policy
 //
-// Wraps nvmlDeviceGetFanControlPolicy_v2.
+// Wraps [nvmlDeviceGetFanControlPolicy_v2].
+//
+// [nvmlDeviceGetFanControlPolicy_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetFanControlPolicy_v212nvmlDevice_tjP22nvmlFanControlPolicy_t
 func deviceGetFanControlPolicy(device Device, fan uint32) (FanControlPolicy, error) {
 	if err := checkLibSym("nvmlDeviceGetFanControlPolicy_v2"); err != nil {
 		var zero FanControlPolicy
@@ -1749,7 +1888,9 @@ func deviceGetFanControlPolicy(device Device, fan uint32) (FanControlPolicy, err
 //   - device: The identifier of the target device
 //   - fanSpeed: Structure specifying the index of the target fan (input) and retrieved fan speed value (output)
 //
-// Wraps nvmlDeviceGetFanSpeedRPM.
+// Wraps [nvmlDeviceGetFanSpeedRPM].
+//
+// [nvmlDeviceGetFanSpeedRPM]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetFanSpeedRPM12nvmlDevice_tP18nvmlFanSpeedInfo_t
 func deviceGetFanSpeedRPM(device Device, fanSpeed *FanSpeedInfo) error {
 	if err := checkLibSym("nvmlDeviceGetFanSpeedRPM"); err != nil {
 		return err
@@ -1767,7 +1908,9 @@ func deviceGetFanSpeedRPM(device Device, fanSpeed *FanSpeedInfo) error {
 //   - fan: The index of the target fan, zero indexed
 //   - speed: Reference in which to return the fan speed percentage
 //
-// Wraps nvmlDeviceGetFanSpeed_v2.
+// Wraps [nvmlDeviceGetFanSpeed_v2].
+//
+// [nvmlDeviceGetFanSpeed_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetFanSpeed_v212nvmlDevice_tjPj
 func deviceGetFanSpeed(device Device, fan uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetFanSpeed_v2"); err != nil {
 		var zero uint32
@@ -1787,7 +1930,9 @@ func deviceGetFanSpeed(device Device, fan uint32) (uint32, error) {
 //   - valuesCount: Number of entries in values that should be retrieved
 //   - values: Array of valuesCount structures to hold field values. Each value's fieldId must be populated prior to this call
 //
-// Wraps nvmlDeviceGetFieldValues.
+// Wraps [nvmlDeviceGetFieldValues].
+//
+// [nvmlDeviceGetFieldValues]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlFieldValueQueries.html#_CPPv424nvmlDeviceGetFieldValues12nvmlDevice_tiP16nvmlFieldValue_t
 func deviceGetFieldValues(device Device, valuesCount int32, values *FieldValue) error {
 	if err := checkLibSym("nvmlDeviceGetFieldValues"); err != nil {
 		return err
@@ -1801,7 +1946,9 @@ func deviceGetFieldValues(device Device, valuesCount int32, values *FieldValue) 
 //   - minOffset: The retrieved GPCCLK VF min offset value
 //   - maxOffset: The retrieved GPCCLK VF max offset value
 //
-// Wraps nvmlDeviceGetGpcClkMinMaxVfOffset.
+// Wraps [nvmlDeviceGetGpcClkMinMaxVfOffset].
+//
+// [nvmlDeviceGetGpcClkMinMaxVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetGpcClkMinMaxVfOffset12nvmlDevice_tPiPi
 func deviceGetGpcClkMinMaxVfOffset(device Device) (int32, int32, error) {
 	if err := checkLibSym("nvmlDeviceGetGpcClkMinMaxVfOffset"); err != nil {
 		return 0, 0, err
@@ -1819,7 +1966,9 @@ func deviceGetGpcClkMinMaxVfOffset(device Device) (int32, int32, error) {
 //   - device: The identifier of the target device
 //   - offset: The retrieved GPCCLK VF offset value
 //
-// Wraps nvmlDeviceGetGpcClkVfOffset.
+// Wraps [nvmlDeviceGetGpcClkVfOffset].
+//
+// [nvmlDeviceGetGpcClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetGpcClkVfOffset12nvmlDevice_tPi
 func deviceGetGpcClkVfOffset(device Device) (int32, error) {
 	if err := checkLibSym("nvmlDeviceGetGpcClkVfOffset"); err != nil {
 		var zero int32
@@ -1843,7 +1992,9 @@ func deviceGetGpcClkVfOffset(device Device) (int32, error) {
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.GpuFabricInfoV] instead Get fabric information associated with the device. For Hopper &tm; or newer fully supported devices. On Hopper + NVSwitch systems, GPU is registered with the NVIDIA Fabric Manager Upon successful registration, the GPU is added to the NVLink fabric to enable peer-to-peer communication. This API reports the current state of the GPU in the NVLink fabric along with other useful information.
 //
-// Wraps nvmlDeviceGetGpuFabricInfo.
+// Wraps [nvmlDeviceGetGpuFabricInfo].
+//
+// [nvmlDeviceGetGpuFabricInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetGpuFabricInfo12nvmlDevice_tP19nvmlGpuFabricInfo_t
 func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
 	if err := checkLibSym("nvmlDeviceGetGpuFabricInfo"); err != nil {
 		return err
@@ -1860,7 +2011,9 @@ func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
 //   - device: The identifier of the target device
 //   - gpuFabricInfo: Information about GPU fabric state
 //
-// Wraps nvmlDeviceGetGpuFabricInfoV.
+// Wraps [nvmlDeviceGetGpuFabricInfoV].
+//
+// [nvmlDeviceGetGpuFabricInfoV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetGpuFabricInfoV12nvmlDevice_tP20nvmlGpuFabricInfoV_t
 func deviceGetGpuFabricInfoV(device Device, gpuFabricInfo *GpuFabricInfoV) error {
 	if err := checkLibSym("nvmlDeviceGetGpuFabricInfoV"); err != nil {
 		return err
@@ -1876,7 +2029,9 @@ func deviceGetGpuFabricInfoV(device Device, gpuFabricInfo *GpuFabricInfoV) error
 //   - id: The GPU instance ID
 //   - gpuInstance: Returns GPU instance
 //
-// Wraps nvmlDeviceGetGpuInstanceById.
+// Wraps [nvmlDeviceGetGpuInstanceById].
+//
+// [nvmlDeviceGetGpuInstanceById]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv428nvmlDeviceGetGpuInstanceById12nvmlDevice_tjP17nvmlGpuInstance_t
 func deviceGetGpuInstanceById(device Device, id uint32) (GpuInstance, error) {
 	if err := checkLibSym("nvmlDeviceGetGpuInstanceById"); err != nil {
 		var zero GpuInstance
@@ -1898,7 +2053,9 @@ func deviceGetGpuInstanceById(device Device, id uint32) (GpuInstance, error) {
 //   - device: Target MIG device handle
 //   - id: GPU instance ID
 //
-// Wraps nvmlDeviceGetGpuInstanceId.
+// Wraps [nvmlDeviceGetGpuInstanceId].
+//
+// [nvmlDeviceGetGpuInstanceId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv426nvmlDeviceGetGpuInstanceId12nvmlDevice_tPj
 func deviceGetGpuInstanceId(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetGpuInstanceId"); err != nil {
 		var zero uint32
@@ -1922,7 +2079,9 @@ func deviceGetGpuInstanceId(device Device) (uint32, error) {
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 //
-// Wraps nvmlDeviceGetGpuInstancePossiblePlacements, bound as nvmlDeviceGetGpuInstancePossiblePlacements_v2.
+// Wraps [nvmlDeviceGetGpuInstancePossiblePlacements], bound as nvmlDeviceGetGpuInstancePossiblePlacements_v2.
+//
+// [nvmlDeviceGetGpuInstancePossiblePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv445nvmlDeviceGetGpuInstancePossiblePlacements_v212nvmlDevice_tjP26nvmlGpuInstancePlacement_tPj
 func deviceGetGpuInstancePossiblePlacements(device Device, profileId uint32, placements *GpuInstancePlacement, count *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetGpuInstancePossiblePlacements_v2"); err != nil {
 		return err
@@ -1941,7 +2100,9 @@ func deviceGetGpuInstancePossiblePlacements(device Device, profileId uint32, pla
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlDeviceGetGpuInstanceProfileInfo.
+// Wraps [nvmlDeviceGetGpuInstanceProfileInfo].
+//
+// [nvmlDeviceGetGpuInstanceProfileInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv435nvmlDeviceGetGpuInstanceProfileInfo12nvmlDevice_tjP28nvmlGpuInstanceProfileInfo_t
 func deviceGetGpuInstanceProfileInfo(device Device, profile uint32) (GpuInstanceProfileInfo, error) {
 	if err := checkLibSym("nvmlDeviceGetGpuInstanceProfileInfo"); err != nil {
 		var zero GpuInstanceProfileInfo
@@ -1965,7 +2126,9 @@ func deviceGetGpuInstanceProfileInfo(device Device, profile uint32) (GpuInstance
 //   - profileId: One of the profile IDs
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlDeviceGetGpuInstanceProfileInfoByIdV.
+// Wraps [nvmlDeviceGetGpuInstanceProfileInfoByIdV].
+//
+// [nvmlDeviceGetGpuInstanceProfileInfoByIdV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv440nvmlDeviceGetGpuInstanceProfileInfoByIdV12nvmlDevice_tjP31nvmlGpuInstanceProfileInfo_v2_t
 func deviceGetGpuInstanceProfileInfoByIdV(device Device, profileId uint32) (GpuInstanceProfileInfoV2, error) {
 	if err := checkLibSym("nvmlDeviceGetGpuInstanceProfileInfoByIdV"); err != nil {
 		var zero GpuInstanceProfileInfoV2
@@ -1990,7 +2153,9 @@ func deviceGetGpuInstanceProfileInfoByIdV(device Device, profileId uint32) (GpuI
 //   - profile: One of the NVML_GPU_INSTANCE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlDeviceGetGpuInstanceProfileInfoV.
+// Wraps [nvmlDeviceGetGpuInstanceProfileInfoV].
+//
+// [nvmlDeviceGetGpuInstanceProfileInfoV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv436nvmlDeviceGetGpuInstanceProfileInfoV12nvmlDevice_tjP31nvmlGpuInstanceProfileInfo_v2_t
 func deviceGetGpuInstanceProfileInfoV(device Device, profile uint32) (GpuInstanceProfileInfoV2, error) {
 	if err := checkLibSym("nvmlDeviceGetGpuInstanceProfileInfoV"); err != nil {
 		var zero GpuInstanceProfileInfoV2
@@ -2013,7 +2178,9 @@ func deviceGetGpuInstanceProfileInfoV(device Device, profile uint32) (GpuInstanc
 //   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
-// Wraps nvmlDeviceGetGpuInstanceRemainingCapacity.
+// Wraps [nvmlDeviceGetGpuInstanceRemainingCapacity].
+//
+// [nvmlDeviceGetGpuInstanceRemainingCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv441nvmlDeviceGetGpuInstanceRemainingCapacity12nvmlDevice_tjPj
 func deviceGetGpuInstanceRemainingCapacity(device Device, profileId uint32, count *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetGpuInstanceRemainingCapacity"); err != nil {
 		return err
@@ -2030,7 +2197,9 @@ func deviceGetGpuInstanceRemainingCapacity(device Device, profileId uint32, coun
 //   - gpuInstances: Returns pre-exiting GPU instances, the buffer must be large enough to accommodate the instances supported by the profile. See [Device.GpuInstanceProfileInfo]
 //   - count: The count of returned GPU instances
 //
-// Wraps nvmlDeviceGetGpuInstances.
+// Wraps [nvmlDeviceGetGpuInstances].
+//
+// [nvmlDeviceGetGpuInstances]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv425nvmlDeviceGetGpuInstances12nvmlDevice_tjP17nvmlGpuInstance_tPj
 func deviceGetGpuInstances(device Device, profileId uint32, gpuInstances *GpuInstance, count *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetGpuInstances"); err != nil {
 		return err
@@ -2045,7 +2214,9 @@ func deviceGetGpuInstances(device Device, profileId uint32, gpuInstances *GpuIns
 //   - device: The identifier of the target device
 //   - maxLinkGenDevice: Reference in which to return the max PCIe link generation
 //
-// Wraps nvmlDeviceGetGpuMaxPcieLinkGeneration.
+// Wraps [nvmlDeviceGetGpuMaxPcieLinkGeneration].
+//
+// [nvmlDeviceGetGpuMaxPcieLinkGeneration]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetGpuMaxPcieLinkGeneration12nvmlDevice_tPj
 func deviceGetGpuMaxPcieLinkGeneration(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetGpuMaxPcieLinkGeneration"); err != nil {
 		var zero uint32
@@ -2069,7 +2240,9 @@ func deviceGetGpuMaxPcieLinkGeneration(device Device) (uint32, error) {
 //   - current: Reference in which to return the current GOM
 //   - pending: Reference in which to return the pending GOM
 //
-// Wraps nvmlDeviceGetGpuOperationMode.
+// Wraps [nvmlDeviceGetGpuOperationMode].
+//
+// [nvmlDeviceGetGpuOperationMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetGpuOperationMode12nvmlDevice_tP22nvmlGpuOperationMode_tP22nvmlGpuOperationMode_t
 func deviceGetGpuOperationMode(device Device, current *GpuOperationMode, pending *GpuOperationMode) error {
 	if err := checkLibSym("nvmlDeviceGetGpuOperationMode"); err != nil {
 		return err
@@ -2092,7 +2265,9 @@ func deviceGetGpuOperationMode(device Device, current *GpuOperationMode, pending
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Wraps nvmlDeviceGetGraphicsRunningProcesses, bound as nvmlDeviceGetGraphicsRunningProcesses_v3.
+// Wraps [nvmlDeviceGetGraphicsRunningProcesses], bound as nvmlDeviceGetGraphicsRunningProcesses_v3.
+//
+// [nvmlDeviceGetGraphicsRunningProcesses]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv440nvmlDeviceGetGraphicsRunningProcesses_v312nvmlDevice_tPjP17nvmlProcessInfo_t
 func deviceGetGraphicsRunningProcesses(device Device, infoCount *uint32, infos *ProcessInfo) error {
 	if err := checkLibSym("nvmlDeviceGetGraphicsRunningProcesses_v3"); err != nil {
 		return err
@@ -2107,7 +2282,9 @@ func deviceGetGraphicsRunningProcesses(device Device, infoCount *uint32, infos *
 //   - device: Identifier of the target device
 //   - pGridLicensableFeatures: Pointer to structure in which vGPU software licensable features are returned
 //
-// Wraps nvmlDeviceGetGridLicensableFeatures, bound as nvmlDeviceGetGridLicensableFeatures_v4.
+// Wraps [nvmlDeviceGetGridLicensableFeatures], bound as nvmlDeviceGetGridLicensableFeatures_v4.
+//
+// [nvmlDeviceGetGridLicensableFeatures]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv438nvmlDeviceGetGridLicensableFeatures_v412nvmlDevice_tP28nvmlGridLicensableFeatures_t
 func deviceGetGridLicensableFeatures(device Device, pGridLicensableFeatures *GridLicensableFeatures) error {
 	if err := checkLibSym("nvmlDeviceGetGridLicensableFeatures_v4"); err != nil {
 		return err
@@ -2123,7 +2300,9 @@ func deviceGetGridLicensableFeatures(device Device, pGridLicensableFeatures *Gri
 //   - isEnabled: Pointer to specify if GSP firmware is enabled
 //   - defaultMode: Pointer to specify if GSP firmware is supported by default on device
 //
-// Wraps nvmlDeviceGetGspFirmwareMode.
+// Wraps [nvmlDeviceGetGspFirmwareMode].
+//
+// [nvmlDeviceGetGspFirmwareMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetGspFirmwareMode12nvmlDevice_tPjPj
 func deviceGetGspFirmwareMode(device Device, isEnabled *uint32, defaultMode *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetGspFirmwareMode"); err != nil {
 		return err
@@ -2138,7 +2317,9 @@ func deviceGetGspFirmwareMode(device Device, isEnabled *uint32, defaultMode *uin
 //   - device: Device handle
 //   - version: The retrieved GSP firmware version
 //
-// Wraps nvmlDeviceGetGspFirmwareVersion.
+// Wraps [nvmlDeviceGetGspFirmwareVersion].
+//
+// [nvmlDeviceGetGspFirmwareVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetGspFirmwareVersion12nvmlDevice_tPc
 func deviceGetGspFirmwareVersion(device Device, version *byte) error {
 	if err := checkLibSym("nvmlDeviceGetGspFirmwareVersion"); err != nil {
 		return err
@@ -2161,7 +2342,9 @@ func deviceGetGspFirmwareVersion(device Device, version *byte) error {
 //   - index: The index of the target GPU, >= 0 and < accessibleDevices
 //   - device: Reference in which to return the device handle
 //
-// Wraps nvmlDeviceGetHandleByIndex, bound as nvmlDeviceGetHandleByIndex_v2.
+// Wraps [nvmlDeviceGetHandleByIndex], bound as nvmlDeviceGetHandleByIndex_v2.
+//
+// [nvmlDeviceGetHandleByIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetHandleByIndex_v2jP12nvmlDevice_t
 func deviceGetHandleByIndex(index uint32) (Device, error) {
 	if err := checkLibSym("nvmlDeviceGetHandleByIndex_v2"); err != nil {
 		var zero Device
@@ -2186,7 +2369,9 @@ func deviceGetHandleByIndex(index uint32) (Device, error) {
 //   - pciBusId: The PCI bus id of the target GPU Accept the following formats (all numbers in hexadecimal): domain:bus:device.function in format x:x:x.x domain:bus:device in format x:x:x bus:device.function in format x:x.x
 //   - device: Reference in which to return the device handle
 //
-// Wraps nvmlDeviceGetHandleByPciBusId, bound as nvmlDeviceGetHandleByPciBusId_v2.
+// Wraps [nvmlDeviceGetHandleByPciBusId], bound as nvmlDeviceGetHandleByPciBusId_v2.
+//
+// [nvmlDeviceGetHandleByPciBusId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetHandleByPciBusId_v2PKcP12nvmlDevice_t
 func deviceGetHandleByPciBusId(pciBusId string) (Device, error) {
 	if err := checkLibSym("nvmlDeviceGetHandleByPciBusId_v2"); err != nil {
 		var zero Device
@@ -2214,7 +2399,9 @@ func deviceGetHandleByPciBusId(pciBusId string) (Device, error) {
 //
 // Deprecated: Since more than one GPU can exist on a single board this function is deprecated in favor of [NewDeviceByUUID]. For dual GPU boards this function will return [ErrInvalidArgument]. Starting from NVML 5, this API causes NVML to initialize the target GPU NVML may initialize additional GPUs as it searches for the target GPU
 //
-// Wraps nvmlDeviceGetHandleBySerial.
+// Wraps [nvmlDeviceGetHandleBySerial].
+//
+// [nvmlDeviceGetHandleBySerial]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetHandleBySerialPKcP12nvmlDevice_t
 func deviceGetHandleBySerial(serial *byte) (Device, error) {
 	if err := checkLibSym("nvmlDeviceGetHandleBySerial"); err != nil {
 		var zero Device
@@ -2237,7 +2424,9 @@ func deviceGetHandleBySerial(serial *byte) (Device, error) {
 //   - uuid: The UUID of the target GPU or MIG instance
 //   - device: Reference in which to return the device handle or MIG device handle
 //
-// Wraps nvmlDeviceGetHandleByUUID.
+// Wraps [nvmlDeviceGetHandleByUUID].
+//
+// [nvmlDeviceGetHandleByUUID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetHandleByUUIDPKcP12nvmlDevice_t
 func deviceGetHandleByUUID(uuid string) (Device, error) {
 	if err := checkLibSym("nvmlDeviceGetHandleByUUID"); err != nil {
 		var zero Device
@@ -2260,7 +2449,9 @@ func deviceGetHandleByUUID(uuid string) (Device, error) {
 //   - uuid: The UUID of the target GPU or MIG instance
 //   - device: Reference in which to return the device handle or MIG device handle
 //
-// Wraps nvmlDeviceGetHandleByUUIDV.
+// Wraps [nvmlDeviceGetHandleByUUIDV].
+//
+// [nvmlDeviceGetHandleByUUIDV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetHandleByUUIDVPK10nvmlUUID_tP12nvmlDevice_t
 func deviceGetHandleByUUIDV(uuid *UUID) (Device, error) {
 	if err := checkLibSym("nvmlDeviceGetHandleByUUIDV"); err != nil {
 		var zero Device
@@ -2281,7 +2472,9 @@ func deviceGetHandleByUUIDV(uuid *UUID) (Device, error) {
 //   - device: The identifier of the target device
 //   - pHostVgpuMode: Reference in which to return the current vGPU mode
 //
-// Wraps nvmlDeviceGetHostVgpuMode.
+// Wraps [nvmlDeviceGetHostVgpuMode].
+//
+// [nvmlDeviceGetHostVgpuMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv425nvmlDeviceGetHostVgpuMode12nvmlDevice_tP18nvmlHostVgpuMode_t
 func deviceGetHostVgpuMode(device Device, pHostVgpuMode *HostVgpuMode) error {
 	if err := checkLibSym("nvmlDeviceGetHostVgpuMode"); err != nil {
 		return err
@@ -2298,7 +2491,9 @@ func deviceGetHostVgpuMode(device Device, pHostVgpuMode *HostVgpuMode) error {
 //   - device: The identifier of the target device
 //   - hostname: Reference to the caller-provided [HostnameV1] struct to return the hostname
 //
-// Wraps nvmlDeviceGetHostname_v1.
+// Wraps [nvmlDeviceGetHostname_v1].
+//
+// [nvmlDeviceGetHostname_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetHostname_v112nvmlDevice_tP17nvmlHostname_v1_t
 func deviceGetHostname(device Device, hostname *HostnameV1) error {
 	if err := checkLibSym("nvmlDeviceGetHostname_v1"); err != nil {
 		return err
@@ -2319,7 +2514,9 @@ func deviceGetHostname(device Device, hostname *HostnameV1) error {
 //   - device: The identifier of the target device
 //   - index: Reference in which to return the NVML index of the device
 //
-// Wraps nvmlDeviceGetIndex.
+// Wraps [nvmlDeviceGetIndex].
+//
+// [nvmlDeviceGetIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv418nvmlDeviceGetIndex12nvmlDevice_tPj
 func deviceGetIndex(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetIndex"); err != nil {
 		var zero uint32
@@ -2341,7 +2538,9 @@ func deviceGetIndex(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - checksum: Reference in which to return the infoROM configuration checksum
 //
-// Wraps nvmlDeviceGetInforomConfigurationChecksum.
+// Wraps [nvmlDeviceGetInforomConfigurationChecksum].
+//
+// [nvmlDeviceGetInforomConfigurationChecksum]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv441nvmlDeviceGetInforomConfigurationChecksum12nvmlDevice_tPj
 func deviceGetInforomConfigurationChecksum(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetInforomConfigurationChecksum"); err != nil {
 		var zero uint32
@@ -2365,7 +2564,9 @@ func deviceGetInforomConfigurationChecksum(device Device) (uint32, error) {
 //   - version: Reference in which to return the infoROM image version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Wraps nvmlDeviceGetInforomImageVersion.
+// Wraps [nvmlDeviceGetInforomImageVersion].
+//
+// [nvmlDeviceGetInforomImageVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetInforomImageVersion12nvmlDevice_tPcj
 func deviceGetInforomImageVersion(device Device) (string, error) {
 	if err := checkLibSym("nvmlDeviceGetInforomImageVersion"); err != nil {
 		return "", err
@@ -2393,7 +2594,9 @@ func deviceGetInforomImageVersion(device Device) (string, error) {
 //   - version: Reference in which to return the infoROM version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Wraps nvmlDeviceGetInforomVersion.
+// Wraps [nvmlDeviceGetInforomVersion].
+//
+// [nvmlDeviceGetInforomVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetInforomVersion12nvmlDevice_t19nvmlInforomObject_tPcj
 func deviceGetInforomVersion(device Device, object InforomObject) (string, error) {
 	if err := checkLibSym("nvmlDeviceGetInforomVersion"); err != nil {
 		return "", err
@@ -2414,7 +2617,9 @@ func deviceGetInforomVersion(device Device, object InforomObject) (string, error
 //   - device: The identifier of the target device
 //   - irqNum: The interrupt number associated with the specified device
 //
-// Wraps nvmlDeviceGetIrqNum.
+// Wraps [nvmlDeviceGetIrqNum].
+//
+// [nvmlDeviceGetIrqNum]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv419nvmlDeviceGetIrqNum12nvmlDevice_tPj
 func deviceGetIrqNum(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetIrqNum"); err != nil {
 		var zero uint32
@@ -2438,7 +2643,9 @@ func deviceGetIrqNum(device Device) (uint32, error) {
 //   - utilization: Reference to an unsigned int for jpg utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Wraps nvmlDeviceGetJpgUtilization.
+// Wraps [nvmlDeviceGetJpgUtilization].
+//
+// [nvmlDeviceGetJpgUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetJpgUtilization12nvmlDevice_tPjPj
 func deviceGetJpgUtilization(device Device, samplingPeriodUs *uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetJpgUtilization"); err != nil {
 		var zero uint32
@@ -2461,7 +2668,9 @@ func deviceGetJpgUtilization(device Device, samplingPeriodUs *uint32) (uint32, e
 //   - timestamp: The start timestamp of the last BBX Flush
 //   - durationUs: The duration (us) of the last BBX Flush
 //
-// Wraps nvmlDeviceGetLastBBXFlushTime.
+// Wraps [nvmlDeviceGetLastBBXFlushTime].
+//
+// [nvmlDeviceGetLastBBXFlushTime]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetLastBBXFlushTime12nvmlDevice_tPyPm
 func deviceGetLastBBXFlushTime(device Device, timestamp *uint64, durationUs *uint) error {
 	if err := checkLibSym("nvmlDeviceGetLastBBXFlushTime"); err != nil {
 		return err
@@ -2484,7 +2693,9 @@ func deviceGetLastBBXFlushTime(device Device, timestamp *uint64, durationUs *uin
 //   - infoCount: Reference in which to provide the infos array size, and to return the number of returned elements
 //   - infos: Reference in which to return the process information
 //
-// Wraps nvmlDeviceGetMPSComputeRunningProcesses, bound as nvmlDeviceGetMPSComputeRunningProcesses_v3.
+// Wraps [nvmlDeviceGetMPSComputeRunningProcesses], bound as nvmlDeviceGetMPSComputeRunningProcesses_v3.
+//
+// [nvmlDeviceGetMPSComputeRunningProcesses]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv442nvmlDeviceGetMPSComputeRunningProcesses_v312nvmlDevice_tPjP17nvmlProcessInfo_t
 func deviceGetMPSComputeRunningProcesses(device Device, infoCount *uint32, infos *ProcessInfo) error {
 	if err := checkLibSym("nvmlDeviceGetMPSComputeRunningProcesses_v3"); err != nil {
 		return err
@@ -2497,7 +2708,9 @@ func deviceGetMPSComputeRunningProcesses(device Device, infoCount *uint32, infos
 //   - device: The identifier of the target device
 //   - marginTempInfo: Versioned structure in which to return the temperature reading
 //
-// Wraps nvmlDeviceGetMarginTemperature.
+// Wraps [nvmlDeviceGetMarginTemperature].
+//
+// [nvmlDeviceGetMarginTemperature]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetMarginTemperature12nvmlDevice_tP23nvmlMarginTemperature_t
 func deviceGetMarginTemperature(device Device) (MarginTemperature, error) {
 	if err := checkLibSym("nvmlDeviceGetMarginTemperature"); err != nil {
 		var zero MarginTemperature
@@ -2523,7 +2736,9 @@ func deviceGetMarginTemperature(device Device) (MarginTemperature, error) {
 //   - type_: Identify which clock domain to query
 //   - clock: Reference in which to return the clock speed in MHz
 //
-// Wraps nvmlDeviceGetMaxClockInfo.
+// Wraps [nvmlDeviceGetMaxClockInfo].
+//
+// [nvmlDeviceGetMaxClockInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetMaxClockInfo12nvmlDevice_t15nvmlClockType_tPj
 func deviceGetMaxClockInfo(device Device, type_ ClockType) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMaxClockInfo"); err != nil {
 		var zero uint32
@@ -2545,7 +2760,9 @@ func deviceGetMaxClockInfo(device Device, type_ ClockType) (uint32, error) {
 //   - clockType: Identify which clock domain to query
 //   - clockMHz: Reference in which to return the clock in MHz
 //
-// Wraps nvmlDeviceGetMaxCustomerBoostClock.
+// Wraps [nvmlDeviceGetMaxCustomerBoostClock].
+//
+// [nvmlDeviceGetMaxCustomerBoostClock]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv434nvmlDeviceGetMaxCustomerBoostClock12nvmlDevice_t15nvmlClockType_tPj
 func deviceGetMaxCustomerBoostClock(device Device, clockType ClockType) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMaxCustomerBoostClock"); err != nil {
 		var zero uint32
@@ -2567,7 +2784,9 @@ func deviceGetMaxCustomerBoostClock(device Device, clockType ClockType) (uint32,
 //   - device: Target device handle
 //   - count: Count of MIG devices
 //
-// Wraps nvmlDeviceGetMaxMigDeviceCount.
+// Wraps [nvmlDeviceGetMaxMigDeviceCount].
+//
+// [nvmlDeviceGetMaxMigDeviceCount]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv430nvmlDeviceGetMaxMigDeviceCount12nvmlDevice_tPj
 func deviceGetMaxMigDeviceCount(device Device, count *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetMaxMigDeviceCount"); err != nil {
 		return err
@@ -2583,7 +2802,9 @@ func deviceGetMaxMigDeviceCount(device Device, count *uint32) error {
 //   - device: The identifier of the target device
 //   - maxLinkGen: Reference in which to return the max PCIe link generation
 //
-// Wraps nvmlDeviceGetMaxPcieLinkGeneration.
+// Wraps [nvmlDeviceGetMaxPcieLinkGeneration].
+//
+// [nvmlDeviceGetMaxPcieLinkGeneration]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv434nvmlDeviceGetMaxPcieLinkGeneration12nvmlDevice_tPj
 func deviceGetMaxPcieLinkGeneration(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMaxPcieLinkGeneration"); err != nil {
 		var zero uint32
@@ -2605,7 +2826,9 @@ func deviceGetMaxPcieLinkGeneration(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - maxLinkWidth: Reference in which to return the max PCIe link generation
 //
-// Wraps nvmlDeviceGetMaxPcieLinkWidth.
+// Wraps [nvmlDeviceGetMaxPcieLinkWidth].
+//
+// [nvmlDeviceGetMaxPcieLinkWidth]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetMaxPcieLinkWidth12nvmlDevice_tPj
 func deviceGetMaxPcieLinkWidth(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMaxPcieLinkWidth"); err != nil {
 		var zero uint32
@@ -2625,7 +2848,9 @@ func deviceGetMaxPcieLinkWidth(device Device) (uint32, error) {
 //   - minOffset: The retrieved MemClk VF min offset value
 //   - maxOffset: The retrieved MemClk VF max offset value
 //
-// Wraps nvmlDeviceGetMemClkMinMaxVfOffset.
+// Wraps [nvmlDeviceGetMemClkMinMaxVfOffset].
+//
+// [nvmlDeviceGetMemClkMinMaxVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetMemClkMinMaxVfOffset12nvmlDevice_tPiPi
 func deviceGetMemClkMinMaxVfOffset(device Device) (int32, int32, error) {
 	if err := checkLibSym("nvmlDeviceGetMemClkMinMaxVfOffset"); err != nil {
 		return 0, 0, err
@@ -2643,7 +2868,9 @@ func deviceGetMemClkMinMaxVfOffset(device Device) (int32, int32, error) {
 //   - device: The identifier of the target device
 //   - offset: The retrieved MemClk VF offset value
 //
-// Wraps nvmlDeviceGetMemClkVfOffset.
+// Wraps [nvmlDeviceGetMemClkVfOffset].
+//
+// [nvmlDeviceGetMemClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetMemClkVfOffset12nvmlDevice_tPi
 func deviceGetMemClkVfOffset(device Device) (int32, error) {
 	if err := checkLibSym("nvmlDeviceGetMemClkVfOffset"); err != nil {
 		var zero int32
@@ -2668,7 +2895,9 @@ func deviceGetMemClkVfOffset(device Device) (int32, error) {
 //   - nodeSet: Array reference in which to return a bitmask of NODEs, 64 NODEs per unsigned long on 64-bit machines, 32 on 32-bit machines
 //   - scope: Scope that change the default behavior
 //
-// Wraps nvmlDeviceGetMemoryAffinity.
+// Wraps [nvmlDeviceGetMemoryAffinity].
+//
+// [nvmlDeviceGetMemoryAffinity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv427nvmlDeviceGetMemoryAffinity12nvmlDevice_tjPm19nvmlAffinityScope_t
 func deviceGetMemoryAffinity(device Device, nodeSetSize uint32, nodeSet *uint, scope AffinityScope) error {
 	if err := checkLibSym("nvmlDeviceGetMemoryAffinity"); err != nil {
 		return err
@@ -2681,7 +2910,9 @@ func deviceGetMemoryAffinity(device Device, nodeSetSize uint32, nodeSet *uint, s
 //   - device: The identifier of the target device
 //   - busWidth: The devices's memory bus width
 //
-// Wraps nvmlDeviceGetMemoryBusWidth.
+// Wraps [nvmlDeviceGetMemoryBusWidth].
+//
+// [nvmlDeviceGetMemoryBusWidth]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetMemoryBusWidth12nvmlDevice_tPj
 func deviceGetMemoryBusWidth(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMemoryBusWidth"); err != nil {
 		var zero uint32
@@ -2710,7 +2941,9 @@ func deviceGetMemoryBusWidth(device Device) (uint32, error) {
 //   - locationType: Specifies the location of the counter
 //   - count: Reference in which to return the ECC counter
 //
-// Wraps nvmlDeviceGetMemoryErrorCounter.
+// Wraps [nvmlDeviceGetMemoryErrorCounter].
+//
+// [nvmlDeviceGetMemoryErrorCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetMemoryErrorCounter12nvmlDevice_t21nvmlMemoryErrorType_t20nvmlEccCounterType_t20nvmlMemoryLocation_tPy
 func deviceGetMemoryErrorCounter(device Device, errorType MemoryErrorType, counterType EccCounterType, locationType MemoryLocation, count *uint64) error {
 	if err := checkLibSym("nvmlDeviceGetMemoryErrorCounter"); err != nil {
 		return err
@@ -2728,7 +2961,9 @@ func deviceGetMemoryErrorCounter(device Device, errorType MemoryErrorType, count
 //   - device: The identifier of the target device
 //   - memory: Reference in which to return the memory information
 //
-// Wraps nvmlDeviceGetMemoryInfo_v2.
+// Wraps [nvmlDeviceGetMemoryInfo_v2].
+//
+// [nvmlDeviceGetMemoryInfo_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetMemoryInfo_v212nvmlDevice_tP15nvmlMemory_v2_t
 func deviceGetMemoryInfo(device Device) (MemoryV2, error) {
 	if err := checkLibSym("nvmlDeviceGetMemoryInfo_v2"); err != nil {
 		var zero MemoryV2
@@ -2752,7 +2987,9 @@ func deviceGetMemoryInfo(device Device) (MemoryV2, error) {
 //   - index: Index of the MIG device
 //   - migDevice: Reference to the MIG device handle
 //
-// Wraps nvmlDeviceGetMigDeviceHandleByIndex.
+// Wraps [nvmlDeviceGetMigDeviceHandleByIndex].
+//
+// [nvmlDeviceGetMigDeviceHandleByIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv435nvmlDeviceGetMigDeviceHandleByIndex12nvmlDevice_tjP12nvmlDevice_t
 func deviceGetMigDeviceHandleByIndex(device Device, index uint32) (Device, error) {
 	if err := checkLibSym("nvmlDeviceGetMigDeviceHandleByIndex"); err != nil {
 		var zero Device
@@ -2775,7 +3012,9 @@ func deviceGetMigDeviceHandleByIndex(device Device, index uint32) (Device, error
 //   - currentMode: Returns the current mode, [DeviceMigDisable] or [DeviceMigEnable]
 //   - pendingMode: Returns the pending mode, [DeviceMigDisable] or [DeviceMigEnable]
 //
-// Wraps nvmlDeviceGetMigMode.
+// Wraps [nvmlDeviceGetMigMode].
+//
+// [nvmlDeviceGetMigMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv420nvmlDeviceGetMigMode12nvmlDevice_tPjPj
 func deviceGetMigMode(device Device, pendingMode *uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMigMode"); err != nil {
 		var zero uint32
@@ -2797,7 +3036,9 @@ func deviceGetMigMode(device Device, pendingMode *uint32) (uint32, error) {
 //   - minClockMHz: Reference in which to return min clock frequency
 //   - maxClockMHz: Reference in which to return max clock frequency
 //
-// Wraps nvmlDeviceGetMinMaxClockOfPState.
+// Wraps [nvmlDeviceGetMinMaxClockOfPState].
+//
+// [nvmlDeviceGetMinMaxClockOfPState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetMinMaxClockOfPState12nvmlDevice_t15nvmlClockType_t13nvmlPstates_tPjPj
 func deviceGetMinMaxClockOfPState(device Device, type_ ClockType, pstate Pstates, minClockMHz *uint32, maxClockMHz *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetMinMaxClockOfPState"); err != nil {
 		return err
@@ -2813,7 +3054,9 @@ func deviceGetMinMaxClockOfPState(device Device, type_ ClockType, pstate Pstates
 //   - minSpeed: The minimum speed allowed to set
 //   - maxSpeed: The maximum speed allowed to set
 //
-// Wraps nvmlDeviceGetMinMaxFanSpeed.
+// Wraps [nvmlDeviceGetMinMaxFanSpeed].
+//
+// [nvmlDeviceGetMinMaxFanSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetMinMaxFanSpeed12nvmlDevice_tPjPj
 func deviceGetMinMaxFanSpeed(device Device) (uint32, uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMinMaxFanSpeed"); err != nil {
 		return 0, 0, err
@@ -2833,7 +3076,9 @@ func deviceGetMinMaxFanSpeed(device Device) (uint32, uint32, error) {
 //   - device: The identifier of the target device
 //   - minorNumber: Reference in which to return the minor number for the device
 //
-// Wraps nvmlDeviceGetMinorNumber.
+// Wraps [nvmlDeviceGetMinorNumber].
+//
+// [nvmlDeviceGetMinorNumber]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetMinorNumber12nvmlDevice_tPj
 func deviceGetMinorNumber(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMinorNumber"); err != nil {
 		var zero uint32
@@ -2854,7 +3099,9 @@ func deviceGetMinorNumber(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - moduleId: Unique identifier for the GPU module
 //
-// Wraps nvmlDeviceGetModuleId.
+// Wraps [nvmlDeviceGetModuleId].
+//
+// [nvmlDeviceGetModuleId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceGetModuleId12nvmlDevice_tPj
 func deviceGetModuleId(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetModuleId"); err != nil {
 		var zero uint32
@@ -2875,7 +3122,9 @@ func deviceGetModuleId(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - multiGpuBool: Reference in which to return a zero or non-zero value to indicate whether the device is on a multi GPU board
 //
-// Wraps nvmlDeviceGetMultiGpuBoard.
+// Wraps [nvmlDeviceGetMultiGpuBoard].
+//
+// [nvmlDeviceGetMultiGpuBoard]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv426nvmlDeviceGetMultiGpuBoard12nvmlDevice_tPj
 func deviceGetMultiGpuBoard(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetMultiGpuBoard"); err != nil {
 		var zero uint32
@@ -2899,7 +3148,9 @@ func deviceGetMultiGpuBoard(device Device) (uint32, error) {
 //   - name: Reference in which to return the product name
 //   - length: The maximum allowed length of the string returned in name
 //
-// Wraps nvmlDeviceGetName.
+// Wraps [nvmlDeviceGetName].
+//
+// [nvmlDeviceGetName]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv417nvmlDeviceGetName12nvmlDevice_tPcj
 func deviceGetName(device Device) (string, error) {
 	if err := checkLibSym("nvmlDeviceGetName"); err != nil {
 		return "", err
@@ -2922,7 +3173,9 @@ func deviceGetName(device Device) (string, error) {
 //   - device: The identifier of the target device
 //   - numFans: The number of fans
 //
-// Wraps nvmlDeviceGetNumFans.
+// Wraps [nvmlDeviceGetNumFans].
+//
+// [nvmlDeviceGetNumFans]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetNumFans12nvmlDevice_tPj
 func deviceGetNumFans(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetNumFans"); err != nil {
 		var zero uint32
@@ -2944,7 +3197,9 @@ func deviceGetNumFans(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - numCores: The number of cores for the specified device
 //
-// Wraps nvmlDeviceGetNumGpuCores.
+// Wraps [nvmlDeviceGetNumGpuCores].
+//
+// [nvmlDeviceGetNumGpuCores]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetNumGpuCores12nvmlDevice_tPj
 func deviceGetNumGpuCores(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetNumGpuCores"); err != nil {
 		var zero uint32
@@ -2963,7 +3218,9 @@ func deviceGetNumGpuCores(device Device) (uint32, error) {
 //   - device: The device handle
 //   - node: NUMA node ID of the device
 //
-// Wraps nvmlDeviceGetNumaNodeId.
+// Wraps [nvmlDeviceGetNumaNodeId].
+//
+// [nvmlDeviceGetNumaNodeId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv423nvmlDeviceGetNumaNodeId12nvmlDevice_tPj
 func deviceGetNumaNodeId(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetNumaNodeId"); err != nil {
 		var zero uint32
@@ -2986,7 +3243,9 @@ func deviceGetNumaNodeId(device Device) (uint32, error) {
 //   - capability: Specifies the [NvLinkCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is available
 //
-// Wraps nvmlDeviceGetNvLinkCapability.
+// Wraps [nvmlDeviceGetNvLinkCapability].
+//
+// [nvmlDeviceGetNvLinkCapability]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv429nvmlDeviceGetNvLinkCapability12nvmlDevice_tj22nvmlNvLinkCapability_tPj
 func deviceGetNvLinkCapability(device Device, link uint32, capability NvLinkCapability) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetNvLinkCapability"); err != nil {
 		var zero uint32
@@ -3009,7 +3268,9 @@ func deviceGetNvLinkCapability(device Device, link uint32, capability NvLinkCapa
 //   - counter: Specifies the NvLink counter to be queried
 //   - counterValue: Returned counter value
 //
-// Wraps nvmlDeviceGetNvLinkErrorCounter.
+// Wraps [nvmlDeviceGetNvLinkErrorCounter].
+//
+// [nvmlDeviceGetNvLinkErrorCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv431nvmlDeviceGetNvLinkErrorCounter12nvmlDevice_tj24nvmlNvLinkErrorCounter_tPy
 func deviceGetNvLinkErrorCounter(device Device, link uint32, counter NvLinkErrorCounter) (uint64, error) {
 	if err := checkLibSym("nvmlDeviceGetNvLinkErrorCounter"); err != nil {
 		var zero uint64
@@ -3028,7 +3289,9 @@ func deviceGetNvLinkErrorCounter(device Device, link uint32, counter NvLinkError
 //   - device: The identifier of the target device
 //   - info: Reference to [NvLinkInfo]
 //
-// Wraps nvmlDeviceGetNvLinkInfo.
+// Wraps [nvmlDeviceGetNvLinkInfo].
+//
+// [nvmlDeviceGetNvLinkInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv423nvmlDeviceGetNvLinkInfo12nvmlDevice_tP16nvmlNvLinkInfo_t
 func deviceGetNvLinkInfo(device Device) (NvLinkInfo, error) {
 	if err := checkLibSym("nvmlDeviceGetNvLinkInfo"); err != nil {
 		var zero NvLinkInfo
@@ -3049,7 +3312,9 @@ func deviceGetNvLinkInfo(device Device) (NvLinkInfo, error) {
 //   - link: The NVLink link index on the target GPU
 //   - pNvLinkDeviceType: Pointer in which the output remote device type is returned
 //
-// Wraps nvmlDeviceGetNvLinkRemoteDeviceType.
+// Wraps [nvmlDeviceGetNvLinkRemoteDeviceType].
+//
+// [nvmlDeviceGetNvLinkRemoteDeviceType]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv435nvmlDeviceGetNvLinkRemoteDeviceType12nvmlDevice_tjP25nvmlIntNvLinkDeviceType_t
 func deviceGetNvLinkRemoteDeviceType(device Device, link uint32, pNvLinkDeviceType *IntNvLinkDeviceType) error {
 	if err := checkLibSym("nvmlDeviceGetNvLinkRemoteDeviceType"); err != nil {
 		return err
@@ -3065,7 +3330,9 @@ func deviceGetNvLinkRemoteDeviceType(device Device, link uint32, pNvLinkDeviceTy
 //   - link: Specifies the NvLink link to be queried
 //   - pci: [PciInfo] of the remote node for the specified link
 //
-// Wraps nvmlDeviceGetNvLinkRemotePciInfo, bound as nvmlDeviceGetNvLinkRemotePciInfo_v2.
+// Wraps [nvmlDeviceGetNvLinkRemotePciInfo], bound as nvmlDeviceGetNvLinkRemotePciInfo_v2.
+//
+// [nvmlDeviceGetNvLinkRemotePciInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv435nvmlDeviceGetNvLinkRemotePciInfo_v212nvmlDevice_tjP13nvmlPciInfo_t
 func deviceGetNvLinkRemotePciInfo(device Device, link uint32) (PciInfo, error) {
 	if err := checkLibSym("nvmlDeviceGetNvLinkRemotePciInfo_v2"); err != nil {
 		var zero PciInfo
@@ -3087,7 +3354,9 @@ func deviceGetNvLinkRemotePciInfo(device Device, link uint32) (PciInfo, error) {
 //   - link: Specifies the NvLink link to be queried
 //   - isActive: [EnableState] where [FeatureEnabled] indicates that the link is active and [FeatureDisabled] indicates it is inactive
 //
-// Wraps nvmlDeviceGetNvLinkState.
+// Wraps [nvmlDeviceGetNvLinkState].
+//
+// [nvmlDeviceGetNvLinkState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv424nvmlDeviceGetNvLinkState12nvmlDevice_tjP17nvmlEnableState_t
 func deviceGetNvLinkState(device Device, link uint32) (EnableState, error) {
 	if err := checkLibSym("nvmlDeviceGetNvLinkState"); err != nil {
 		var zero EnableState
@@ -3112,7 +3381,9 @@ func deviceGetNvLinkState(device Device, link uint32) (EnableState, error) {
 //
 // Deprecated: Getting utilization counter control is no longer supported. Get the NVLINK utilization counter control information for the specified counter, 0 or 1. Please refer to [NvLinkUtilizationControl] for the structure definition For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceGetNvLinkUtilizationControl.
+// Wraps [nvmlDeviceGetNvLinkUtilizationControl].
+//
+// [nvmlDeviceGetNvLinkUtilizationControl]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv437nvmlDeviceGetNvLinkUtilizationControl12nvmlDevice_tjjP30nvmlNvLinkUtilizationControl_t
 func deviceGetNvLinkUtilizationControl(device Device, link uint32, counter uint32, control *NvLinkUtilizationControl) error {
 	if err := checkLibSym("nvmlDeviceGetNvLinkUtilizationControl"); err != nil {
 		return err
@@ -3132,7 +3403,9 @@ func deviceGetNvLinkUtilizationControl(device Device, link uint32, counter uint3
 //
 // Deprecated: Use [Device.FieldValues] with NVML_FI_DEV_NVLINK_THROUGHPUT_* as field values instead. Retrieve the NVLINK utilization counter based on the current control for a specified counter. In general it is good practice to use [Device.SetNvLinkUtilizationControl] before reading the utilization counters as they have no default state For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceGetNvLinkUtilizationCounter.
+// Wraps [nvmlDeviceGetNvLinkUtilizationCounter].
+//
+// [nvmlDeviceGetNvLinkUtilizationCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv437nvmlDeviceGetNvLinkUtilizationCounter12nvmlDevice_tjjPyPy
 func deviceGetNvLinkUtilizationCounter(device Device, link uint32, counter uint32, rxcounter *uint64, txcounter *uint64) error {
 	if err := checkLibSym("nvmlDeviceGetNvLinkUtilizationCounter"); err != nil {
 		return err
@@ -3148,7 +3421,9 @@ func deviceGetNvLinkUtilizationCounter(device Device, link uint32, counter uint3
 //   - link: Specifies the NvLink link to be queried
 //   - version: Requested NvLink version from [NvlinkVersion]
 //
-// Wraps nvmlDeviceGetNvLinkVersion.
+// Wraps [nvmlDeviceGetNvLinkVersion].
+//
+// [nvmlDeviceGetNvLinkVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv426nvmlDeviceGetNvLinkVersion12nvmlDevice_tjPj
 func deviceGetNvLinkVersion(device Device, link uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetNvLinkVersion"); err != nil {
 		var zero uint32
@@ -3169,7 +3444,9 @@ func deviceGetNvLinkVersion(device Device, link uint32) (uint32, error) {
 //   - device: The identifier of the target device
 //   - getBwMode: Reference to [NvlinkGetBwMode]
 //
-// Wraps nvmlDeviceGetNvlinkBwMode.
+// Wraps [nvmlDeviceGetNvlinkBwMode].
+//
+// [nvmlDeviceGetNvlinkBwMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv425nvmlDeviceGetNvlinkBwMode12nvmlDevice_tP21nvmlNvlinkGetBwMode_t
 func deviceGetNvlinkBwMode(device Device, getBwMode *NvlinkGetBwMode) error {
 	if err := checkLibSym("nvmlDeviceGetNvlinkBwMode"); err != nil {
 		return err
@@ -3184,7 +3461,9 @@ func deviceGetNvlinkBwMode(device Device, getBwMode *NvlinkGetBwMode) error {
 //   - device: The identifier of the target device
 //   - supportedBwMode: Reference to [NvlinkSupportedBwModes]
 //
-// Wraps nvmlDeviceGetNvlinkSupportedBwModes.
+// Wraps [nvmlDeviceGetNvlinkSupportedBwModes].
+//
+// [nvmlDeviceGetNvlinkSupportedBwModes]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv435nvmlDeviceGetNvlinkSupportedBwModes12nvmlDevice_tP28nvmlNvlinkSupportedBwModes_t
 func deviceGetNvlinkSupportedBwModes(device Device, supportedBwMode *NvlinkSupportedBwModes) error {
 	if err := checkLibSym("nvmlDeviceGetNvlinkSupportedBwModes"); err != nil {
 		return err
@@ -3202,7 +3481,9 @@ func deviceGetNvlinkSupportedBwModes(device Device, supportedBwMode *NvlinkSuppo
 //   - utilization: Reference to an unsigned int for ofa utilization info
 //   - samplingPeriodUs: Reference to an unsigned int for the sampling period in US
 //
-// Wraps nvmlDeviceGetOfaUtilization.
+// Wraps [nvmlDeviceGetOfaUtilization].
+//
+// [nvmlDeviceGetOfaUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetOfaUtilization12nvmlDevice_tPjPj
 func deviceGetOfaUtilization(device Device, samplingPeriodUs *uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetOfaUtilization"); err != nil {
 		var zero uint32
@@ -3223,7 +3504,9 @@ func deviceGetOfaUtilization(device Device, samplingPeriodUs *uint32) (uint32, e
 //   - p2pIndex: p2p Capability Index being looked for between device1 and device2
 //   - p2pStatus: Reference in which to return the status of the p2pIndex between device1 and device2
 //
-// Wraps nvmlDeviceGetP2PStatus.
+// Wraps [nvmlDeviceGetP2PStatus].
+//
+// [nvmlDeviceGetP2PStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv422nvmlDeviceGetP2PStatus12nvmlDevice_t12nvmlDevice_t21nvmlGpuP2PCapsIndex_tP18nvmlGpuP2PStatus_t
 func deviceGetP2PStatus(device1 Device, device2 Device, p2pIndex GpuP2PCapsIndex, p2pStatus *GpuP2PStatus) error {
 	if err := checkLibSym("nvmlDeviceGetP2PStatus"); err != nil {
 		return err
@@ -3239,7 +3522,9 @@ func deviceGetP2PStatus(device1 Device, device2 Device, p2pIndex GpuP2PCapsIndex
 //   - device: The identifier of the target device
 //   - pci: Reference in which to return the PCI info
 //
-// Wraps nvmlDeviceGetPciInfo, bound as nvmlDeviceGetPciInfo_v3.
+// Wraps [nvmlDeviceGetPciInfo], bound as nvmlDeviceGetPciInfo_v3.
+//
+// [nvmlDeviceGetPciInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPciInfo_v312nvmlDevice_tP13nvmlPciInfo_t
 func deviceGetPciInfo(device Device) (PciInfo, error) {
 	if err := checkLibSym("nvmlDeviceGetPciInfo_v3"); err != nil {
 		var zero PciInfo
@@ -3261,7 +3546,9 @@ func deviceGetPciInfo(device Device) (PciInfo, error) {
 //   - device: The identifier of the target device
 //   - pci: Reference in which to return the PCI info
 //
-// Wraps nvmlDeviceGetPciInfoExt.
+// Wraps [nvmlDeviceGetPciInfoExt].
+//
+// [nvmlDeviceGetPciInfoExt]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPciInfoExt12nvmlDevice_tP16nvmlPciInfoExt_t
 func deviceGetPciInfoExt(device Device) (PciInfoExt, error) {
 	if err := checkLibSym("nvmlDeviceGetPciInfoExt"); err != nil {
 		var zero PciInfoExt
@@ -3281,7 +3568,9 @@ func deviceGetPciInfoExt(device Device) (PciInfoExt, error) {
 //   - device: The identifier of the target device
 //   - maxSpeed: The devices's PCIE Max Link speed in MBPS
 //
-// Wraps nvmlDeviceGetPcieLinkMaxSpeed.
+// Wraps [nvmlDeviceGetPcieLinkMaxSpeed].
+//
+// [nvmlDeviceGetPcieLinkMaxSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetPcieLinkMaxSpeed12nvmlDevice_tPj
 func deviceGetPcieLinkMaxSpeed(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetPcieLinkMaxSpeed"); err != nil {
 		var zero uint32
@@ -3302,7 +3591,9 @@ func deviceGetPcieLinkMaxSpeed(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - value: Reference in which to return the counter's value
 //
-// Wraps nvmlDeviceGetPcieReplayCounter.
+// Wraps [nvmlDeviceGetPcieReplayCounter].
+//
+// [nvmlDeviceGetPcieReplayCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetPcieReplayCounter12nvmlDevice_tPj
 func deviceGetPcieReplayCounter(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetPcieReplayCounter"); err != nil {
 		var zero uint32
@@ -3321,7 +3612,9 @@ func deviceGetPcieReplayCounter(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - pcieSpeed: The devices's PCIe Max Link speed in Mbps
 //
-// Wraps nvmlDeviceGetPcieSpeed.
+// Wraps [nvmlDeviceGetPcieSpeed].
+//
+// [nvmlDeviceGetPcieSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv422nvmlDeviceGetPcieSpeed12nvmlDevice_tPj
 func deviceGetPcieSpeed(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetPcieSpeed"); err != nil {
 		var zero uint32
@@ -3344,7 +3637,9 @@ func deviceGetPcieSpeed(device Device) (uint32, error) {
 //   - counter: The specific counter that should be queried [PcieUtilCounter]
 //   - value: Reference in which to return throughput in KB/s
 //
-// Wraps nvmlDeviceGetPcieThroughput.
+// Wraps [nvmlDeviceGetPcieThroughput].
+//
+// [nvmlDeviceGetPcieThroughput]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetPcieThroughput12nvmlDevice_t21nvmlPcieUtilCounter_tPj
 func deviceGetPcieThroughput(device Device, counter PcieUtilCounter) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetPcieThroughput"); err != nil {
 		var zero uint32
@@ -3366,7 +3661,9 @@ func deviceGetPcieThroughput(device Device, counter PcieUtilCounter) (uint32, er
 //   - device: The identifier of the target device
 //   - pdi: Reference to the caller-provided structure to return the GPU PDI
 //
-// Wraps nvmlDeviceGetPdi.
+// Wraps [nvmlDeviceGetPdi].
+//
+// [nvmlDeviceGetPdi]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv416nvmlDeviceGetPdi12nvmlDevice_tP9nvmlPdi_t
 func deviceGetPdi(device Device) (Pdi, error) {
 	if err := checkLibSym("nvmlDeviceGetPdi"); err != nil {
 		var zero Pdi
@@ -3393,7 +3690,9 @@ func deviceGetPdi(device Device) (Pdi, error) {
 //   - device: The identifier of the target device
 //   - perfModes: Reference in which to return the performance level string
 //
-// Wraps nvmlDeviceGetPerformanceModes.
+// Wraps [nvmlDeviceGetPerformanceModes].
+//
+// [nvmlDeviceGetPerformanceModes]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetPerformanceModes12nvmlDevice_tP21nvmlDevicePerfModes_t
 func deviceGetPerformanceModes(device Device, perfModes *DevicePerfModes) error {
 	if err := checkLibSym("nvmlDeviceGetPerformanceModes"); err != nil {
 		return err
@@ -3409,7 +3708,9 @@ func deviceGetPerformanceModes(device Device, perfModes *DevicePerfModes) error 
 //   - device: The identifier of the target device
 //   - pState: Reference in which to return the performance state reading
 //
-// Wraps nvmlDeviceGetPerformanceState.
+// Wraps [nvmlDeviceGetPerformanceState].
+//
+// [nvmlDeviceGetPerformanceState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetPerformanceState12nvmlDevice_tP13nvmlPstates_t
 func deviceGetPerformanceState(device Device) (Pstates, error) {
 	if err := checkLibSym("nvmlDeviceGetPerformanceState"); err != nil {
 		var zero Pstates
@@ -3433,7 +3734,9 @@ func deviceGetPerformanceState(device Device) (Pstates, error) {
 //   - device: The identifier of the target device
 //   - mode: Reference in which to return the current driver persistence mode
 //
-// Wraps nvmlDeviceGetPersistenceMode.
+// Wraps [nvmlDeviceGetPersistenceMode].
+//
+// [nvmlDeviceGetPersistenceMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetPersistenceMode12nvmlDevice_tP17nvmlEnableState_t
 func deviceGetPersistenceMode(device Device) (EnableState, error) {
 	if err := checkLibSym("nvmlDeviceGetPersistenceMode"); err != nil {
 		var zero EnableState
@@ -3447,11 +3750,13 @@ func deviceGetPersistenceMode(device Device) (EnableState, error) {
 	return out, nil
 }
 
-// deviceGetPgpuMetadataString wraps nvmlDeviceGetPgpuMetadataString.
+// deviceGetPgpuMetadataString wraps [nvmlDeviceGetPgpuMetadataString].
 //
 //   - device: The identifier of the target device
 //   - pgpuMetadata: Pointer to caller-supplied buffer into which pgpuMetadata is written
 //   - bufferSize: Pointer to size of pgpuMetadata buffer
+//
+// [nvmlDeviceGetPgpuMetadataString]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv431nvmlDeviceGetPgpuMetadataString12nvmlDevice_tPcPj
 func deviceGetPgpuMetadataString(device Device, pgpuMetadata *byte, bufferSize *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetPgpuMetadataString"); err != nil {
 		return err
@@ -3467,7 +3772,9 @@ func deviceGetPgpuMetadataString(device Device, pgpuMetadata *byte, bufferSize *
 //   - device: The identifier of the target device
 //   - platformInfo: Pointer to the caller-provided structure of [PlatformInfo]
 //
-// Wraps nvmlDeviceGetPlatformInfo.
+// Wraps [nvmlDeviceGetPlatformInfo].
+//
+// [nvmlDeviceGetPlatformInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetPlatformInfo12nvmlDevice_tP18nvmlPlatformInfo_t
 func deviceGetPlatformInfo(device Device, platformInfo *PlatformInfo) error {
 	if err := checkLibSym("nvmlDeviceGetPlatformInfo"); err != nil {
 		return err
@@ -3482,7 +3789,9 @@ func deviceGetPlatformInfo(device Device, platformInfo *PlatformInfo) error {
 //   - device: The identifier of the target device
 //   - defaultLimit: Reference in which to return the default power management limit in milliwatts
 //
-// Wraps nvmlDeviceGetPowerManagementDefaultLimit.
+// Wraps [nvmlDeviceGetPowerManagementDefaultLimit].
+//
+// [nvmlDeviceGetPowerManagementDefaultLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv440nvmlDeviceGetPowerManagementDefaultLimit12nvmlDevice_tPj
 func deviceGetPowerManagementDefaultLimit(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetPowerManagementDefaultLimit"); err != nil {
 		var zero uint32
@@ -3505,7 +3814,9 @@ func deviceGetPowerManagementDefaultLimit(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - limit: Reference in which to return the power management limit in milliwatts
 //
-// Wraps nvmlDeviceGetPowerManagementLimit.
+// Wraps [nvmlDeviceGetPowerManagementLimit].
+//
+// [nvmlDeviceGetPowerManagementLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetPowerManagementLimit12nvmlDevice_tPj
 func deviceGetPowerManagementLimit(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetPowerManagementLimit"); err != nil {
 		var zero uint32
@@ -3528,7 +3839,9 @@ func deviceGetPowerManagementLimit(device Device) (uint32, error) {
 //   - minLimit: Reference in which to return the minimum power management limit in milliwatts
 //   - maxLimit: Reference in which to return the maximum power management limit in milliwatts
 //
-// Wraps nvmlDeviceGetPowerManagementLimitConstraints.
+// Wraps [nvmlDeviceGetPowerManagementLimitConstraints].
+//
+// [nvmlDeviceGetPowerManagementLimitConstraints]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv444nvmlDeviceGetPowerManagementLimitConstraints12nvmlDevice_tPjPj
 func deviceGetPowerManagementLimitConstraints(device Device, minLimit *uint32, maxLimit *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetPowerManagementLimitConstraints"); err != nil {
 		return err
@@ -3548,7 +3861,9 @@ func deviceGetPowerManagementLimitConstraints(device Device, minLimit *uint32, m
 //
 // Deprecated: This API has been deprecated. Retrieves the power management mode associated with this device. For products from the Fermi family. - Requires [InforomPower] version 3.0 or higher. For from the Kepler or newer families. - Does not require [InforomPower] object. This flag indicates whether any power management algorithm is currently active on the device. An enabled state does not necessarily mean the device is being actively throttled -- only that that the driver will do so if the appropriate conditions are met. See [EnableState] for details on allowed modes.
 //
-// Wraps nvmlDeviceGetPowerManagementMode.
+// Wraps [nvmlDeviceGetPowerManagementMode].
+//
+// [nvmlDeviceGetPowerManagementMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetPowerManagementMode12nvmlDevice_tP17nvmlEnableState_t
 func deviceGetPowerManagementMode(device Device) (EnableState, error) {
 	if err := checkLibSym("nvmlDeviceGetPowerManagementMode"); err != nil {
 		var zero EnableState
@@ -3570,7 +3885,9 @@ func deviceGetPowerManagementMode(device Device) (EnableState, error) {
 //   - device: The identifier of the target device
 //   - powerMizerMode: Reference in which to return the power mizer mode
 //
-// Wraps nvmlDeviceGetPowerMizerMode_v1.
+// Wraps [nvmlDeviceGetPowerMizerMode_v1].
+//
+// [nvmlDeviceGetPowerMizerMode_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceGetPowerMizerMode_v112nvmlDevice_tP30nvmlDevicePowerMizerModes_v1_t
 func deviceGetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerModesV1) error {
 	if err := checkLibSym("nvmlDeviceGetPowerMizerMode_v1"); err != nil {
 		return err
@@ -3583,7 +3900,9 @@ func deviceGetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerMode
 //   - device: The identifier of the target device
 //   - powerSource: The power source of the device
 //
-// Wraps nvmlDeviceGetPowerSource.
+// Wraps [nvmlDeviceGetPowerSource].
+//
+// [nvmlDeviceGetPowerSource]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetPowerSource12nvmlDevice_tP17nvmlPowerSource_t
 func deviceGetPowerSource(device Device) (PowerSource, error) {
 	if err := checkLibSym("nvmlDeviceGetPowerSource"); err != nil {
 		var zero PowerSource
@@ -3607,7 +3926,9 @@ func deviceGetPowerSource(device Device) (PowerSource, error) {
 //
 // Deprecated: Use [Device.PerformanceState]. This function exposes an incorrect generalization. Retrieve the current performance state for the device. For Fermi &tm; or newer fully supported devices. See [Pstates] for details on allowed performance states.
 //
-// Wraps nvmlDeviceGetPowerState.
+// Wraps [nvmlDeviceGetPowerState].
+//
+// [nvmlDeviceGetPowerState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPowerState12nvmlDevice_tP13nvmlPstates_t
 func deviceGetPowerState(device Device) (Pstates, error) {
 	if err := checkLibSym("nvmlDeviceGetPowerState"); err != nil {
 		var zero Pstates
@@ -3631,7 +3952,9 @@ func deviceGetPowerState(device Device) (Pstates, error) {
 //   - device: The identifier of the target device
 //   - power: Reference in which to return the power usage information
 //
-// Wraps nvmlDeviceGetPowerUsage.
+// Wraps [nvmlDeviceGetPowerUsage].
+//
+// [nvmlDeviceGetPowerUsage]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv423nvmlDeviceGetPowerUsage12nvmlDevice_tPj
 func deviceGetPowerUsage(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetPowerUsage"); err != nil {
 		var zero uint32
@@ -3660,7 +3983,9 @@ func deviceGetPowerUsage(device Device) (uint32, error) {
 //   - processSamplesCount: Pointer to caller-supplied array size, and returns number of processes running
 //   - lastSeenTimeStamp: Return only samples with timestamp greater than lastSeenTimeStamp
 //
-// Wraps nvmlDeviceGetProcessUtilization.
+// Wraps [nvmlDeviceGetProcessUtilization].
+//
+// [nvmlDeviceGetProcessUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetProcessUtilization12nvmlDevice_tP30nvmlProcessUtilizationSample_tPjy
 func deviceGetProcessUtilization(device Device, utilization *ProcessUtilizationSample, processSamplesCount *uint32, lastSeenTimeStamp uint64) error {
 	if err := checkLibSym("nvmlDeviceGetProcessUtilization"); err != nil {
 		return err
@@ -3682,7 +4007,9 @@ func deviceGetProcessUtilization(device Device, utilization *ProcessUtilizationS
 //   - device: The identifier of the target device
 //   - procesesUtilInfo: Pointer to the caller-provided structure of [ProcessesUtilizationInfo]
 //
-// Wraps nvmlDeviceGetProcessesUtilizationInfo.
+// Wraps [nvmlDeviceGetProcessesUtilizationInfo].
+//
+// [nvmlDeviceGetProcessesUtilizationInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetProcessesUtilizationInfo12nvmlDevice_tP30nvmlProcessesUtilizationInfo_t
 func deviceGetProcessesUtilizationInfo(device Device, procesesUtilInfo *ProcessesUtilizationInfo) error {
 	if err := checkLibSym("nvmlDeviceGetProcessesUtilizationInfo"); err != nil {
 		return err
@@ -3702,7 +4029,9 @@ func deviceGetProcessesUtilizationInfo(device Device, procesesUtilInfo *Processe
 //   - isPending: Reference for whether or not remappings are pending
 //   - failureOccurred: Reference that is set when a remapping has failed in the past
 //
-// Wraps nvmlDeviceGetRemappedRows.
+// Wraps [nvmlDeviceGetRemappedRows].
+//
+// [nvmlDeviceGetRemappedRows]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetRemappedRows12nvmlDevice_tPjPjPjPj
 func deviceGetRemappedRows(device Device, uncRows *uint32, isPending *uint32, failureOccurred *uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetRemappedRows"); err != nil {
 		var zero uint32
@@ -3723,7 +4052,9 @@ func deviceGetRemappedRows(device Device, uncRows *uint32, isPending *uint32, fa
 //   - device: The identifier of the target device
 //   - repairStatus: Reference to [RepairStatus]
 //
-// Wraps nvmlDeviceGetRepairStatus.
+// Wraps [nvmlDeviceGetRepairStatus].
+//
+// [nvmlDeviceGetRepairStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv425nvmlDeviceGetRepairStatus12nvmlDevice_tP18nvmlRepairStatus_t
 func deviceGetRepairStatus(device Device) (RepairStatus, error) {
 	if err := checkLibSym("nvmlDeviceGetRepairStatus"); err != nil {
 		var zero RepairStatus
@@ -3745,7 +4076,9 @@ func deviceGetRepairStatus(device Device) (RepairStatus, error) {
 //   - device: The identifier of the target device
 //   - isPending: Reference in which to return the pending status
 //
-// Wraps nvmlDeviceGetRetiredPagesPendingStatus.
+// Wraps [nvmlDeviceGetRetiredPagesPendingStatus].
+//
+// [nvmlDeviceGetRetiredPagesPendingStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlDeviceGetRetiredPagesPendingStatus12nvmlDevice_tP17nvmlEnableState_t
 func deviceGetRetiredPagesPendingStatus(device Device, isPending *EnableState) error {
 	if err := checkLibSym("nvmlDeviceGetRetiredPagesPendingStatus"); err != nil {
 		return err
@@ -3765,7 +4098,9 @@ func deviceGetRetiredPagesPendingStatus(device Device, isPending *EnableState) e
 //   - addresses: Buffer to write the page addresses into
 //   - timestamps: Buffer to write the timestamps of page retirement, additional for _v2
 //
-// Wraps nvmlDeviceGetRetiredPages_v2.
+// Wraps [nvmlDeviceGetRetiredPages_v2].
+//
+// [nvmlDeviceGetRetiredPages_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetRetiredPages_v212nvmlDevice_t25nvmlPageRetirementCause_tPjPyPy
 func deviceGetRetiredPages(device Device, cause PageRetirementCause, pageCount *uint32, addresses *uint64, timestamps *uint64) error {
 	if err := checkLibSym("nvmlDeviceGetRetiredPages_v2"); err != nil {
 		return err
@@ -3778,7 +4113,9 @@ func deviceGetRetiredPages(device Device, cause PageRetirementCause, pageCount *
 //   - device: Device handle
 //   - values: Histogram values
 //
-// Wraps nvmlDeviceGetRowRemapperHistogram.
+// Wraps [nvmlDeviceGetRowRemapperHistogram].
+//
+// [nvmlDeviceGetRowRemapperHistogram]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetRowRemapperHistogram12nvmlDevice_tP32nvmlRowRemapperHistogramValues_t
 func deviceGetRowRemapperHistogram(device Device, values *RowRemapperHistogramValues) error {
 	if err := checkLibSym("nvmlDeviceGetRowRemapperHistogram"); err != nil {
 		return err
@@ -3799,7 +4136,9 @@ func deviceGetRowRemapperHistogram(device Device, values *RowRemapperHistogramVa
 //   - device: The device handle or MIG device handle
 //   - plist: Reference in which to process detail list plist->version The api version plist->mode The process mode plist->procArray Reference in which to return the process information plist->numProcArrayEntries Proc array size of returned entries
 //
-// Wraps nvmlDeviceGetRunningProcessDetailList.
+// Wraps [nvmlDeviceGetRunningProcessDetailList].
+//
+// [nvmlDeviceGetRunningProcessDetailList]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv437nvmlDeviceGetRunningProcessDetailList12nvmlDevice_tP23nvmlProcessDetailList_t
 func deviceGetRunningProcessDetailList(device Device, plist *ProcessDetailList) error {
 	if err := checkLibSym("nvmlDeviceGetRunningProcessDetailList"); err != nil {
 		return err
@@ -3825,7 +4164,9 @@ func deviceGetRunningProcessDetailList(device Device, plist *ProcessDetailList) 
 //   - sampleCount: Reference to provide the number of elements which can be queried in samples array
 //   - samples: Reference in which samples are returned
 //
-// Wraps nvmlDeviceGetSamples.
+// Wraps [nvmlDeviceGetSamples].
+//
+// [nvmlDeviceGetSamples]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv420nvmlDeviceGetSamples12nvmlDevice_t18nvmlSamplingType_tyP15nvmlValueType_tPjP12nvmlSample_t
 func deviceGetSamples(device Device, type_ SamplingType, lastSeenTimeStamp uint64, sampleValType *ValueType, sampleCount *uint32, samples *Sample) error {
 	if err := checkLibSym("nvmlDeviceGetSamples"); err != nil {
 		return err
@@ -3842,7 +4183,9 @@ func deviceGetSamples(device Device, type_ SamplingType, lastSeenTimeStamp uint6
 //   - serial: Reference in which to return the board/module serial number
 //   - length: The maximum allowed length of the string returned in serial
 //
-// Wraps nvmlDeviceGetSerial.
+// Wraps [nvmlDeviceGetSerial].
+//
+// [nvmlDeviceGetSerial]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv419nvmlDeviceGetSerial12nvmlDevice_tPcj
 func deviceGetSerial(device Device) (string, error) {
 	if err := checkLibSym("nvmlDeviceGetSerial"); err != nil {
 		return "", err
@@ -3866,7 +4209,9 @@ func deviceGetSerial(device Device) (string, error) {
 //   - device: The identifier of the target device
 //   - status: Returns SRAM ECC error status
 //
-// Wraps nvmlDeviceGetSramEccErrorStatus.
+// Wraps [nvmlDeviceGetSramEccErrorStatus].
+//
+// [nvmlDeviceGetSramEccErrorStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceGetSramEccErrorStatus12nvmlDevice_tP24nvmlEccSramErrorStatus_t
 func deviceGetSramEccErrorStatus(device Device, status *EccSramErrorStatus) error {
 	if err := checkLibSym("nvmlDeviceGetSramEccErrorStatus"); err != nil {
 		return err
@@ -3874,10 +4219,12 @@ func deviceGetSramEccErrorStatus(device Device, status *EccSramErrorStatus) erro
 	return toError(fndeviceGetSramEccErrorStatus(device, status))
 }
 
-// deviceGetSramUniqueUncorrectedEccErrorCounts wraps nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts.
+// deviceGetSramUniqueUncorrectedEccErrorCounts wraps [nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts].
 //
 //   - device: The identifier of the target device
 //   - errorCounts: Pointer to caller-supplied array which returns the unique error count entries
+//
+// [nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv448nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts12nvmlDevice_tP41nvmlEccSramUniqueUncorrectedErrorCounts_t
 func deviceGetSramUniqueUncorrectedEccErrorCounts(device Device, errorCounts *EccSramUniqueUncorrectedErrorCounts) error {
 	if err := checkLibSym("nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts"); err != nil {
 		return err
@@ -3889,14 +4236,16 @@ func deviceGetSramUniqueUncorrectedEccErrorCounts(device Device, errorCounts *Ec
 //
 // For all fully supported products.
 // This method is not supported in virtual machines running virtual GPU (vGPU).
-// See also:
-// NvmlClocksEventReasons
+// See also: [NvmlClocksEventReasons]
 // [Device.CurrentClocksEventReasons]
 //
 //   - device: The identifier of the target device
 //   - supportedClocksEventReasons: Reference in which to return bitmask of supported clocks event reasons
 //
-// Wraps nvmlDeviceGetSupportedClocksEventReasons.
+// Wraps [nvmlDeviceGetSupportedClocksEventReasons].
+//
+// [NvmlClocksEventReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlClocksEventReasons.html
+// [nvmlDeviceGetSupportedClocksEventReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv440nvmlDeviceGetSupportedClocksEventReasons12nvmlDevice_tPy
 func deviceGetSupportedClocksEventReasons(device Device) (uint64, error) {
 	if err := checkLibSym("nvmlDeviceGetSupportedClocksEventReasons"); err != nil {
 		var zero uint64
@@ -3914,7 +4263,9 @@ func deviceGetSupportedClocksEventReasons(device Device) (uint64, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetSupportedClocksThrottleReasons.
+// Wraps [nvmlDeviceGetSupportedClocksThrottleReasons].
+//
+// [nvmlDeviceGetSupportedClocksThrottleReasons]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv443nvmlDeviceGetSupportedClocksThrottleReasons12nvmlDevice_tPy
 func deviceGetSupportedClocksThrottleReasons(device Device, supportedClocksThrottleReasons *uint64) error {
 	if err := checkLibSym("nvmlDeviceGetSupportedClocksThrottleReasons"); err != nil {
 		return err
@@ -3933,7 +4284,9 @@ func deviceGetSupportedClocksThrottleReasons(device Device, supportedClocksThrot
 //   - device: The identifier of the target device
 //   - eventTypes: Reference in which to return bitmask of supported events
 //
-// Wraps nvmlDeviceGetSupportedEventTypes.
+// Wraps [nvmlDeviceGetSupportedEventTypes].
+//
+// [nvmlDeviceGetSupportedEventTypes]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv432nvmlDeviceGetSupportedEventTypes12nvmlDevice_tPy
 func deviceGetSupportedEventTypes(device Device) (uint64, error) {
 	if err := checkLibSym("nvmlDeviceGetSupportedEventTypes"); err != nil {
 		var zero uint64
@@ -3957,7 +4310,9 @@ func deviceGetSupportedEventTypes(device Device) (uint64, error) {
 //   - count: Reference in which to provide the clocksMHz array size, and to return the number of elements
 //   - clocksMHz: Reference in which to return the clocks in MHz
 //
-// Wraps nvmlDeviceGetSupportedGraphicsClocks.
+// Wraps [nvmlDeviceGetSupportedGraphicsClocks].
+//
+// [nvmlDeviceGetSupportedGraphicsClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv436nvmlDeviceGetSupportedGraphicsClocks12nvmlDevice_tjPjPj
 func deviceGetSupportedGraphicsClocks(device Device, memoryClockMHz uint32, count *uint32, clocksMHz *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetSupportedGraphicsClocks"); err != nil {
 		return err
@@ -3974,7 +4329,9 @@ func deviceGetSupportedGraphicsClocks(device Device, memoryClockMHz uint32, coun
 //   - count: Reference in which to provide the clocksMHz array size, and to return the number of elements
 //   - clocksMHz: Reference in which to return the clock in MHz
 //
-// Wraps nvmlDeviceGetSupportedMemoryClocks.
+// Wraps [nvmlDeviceGetSupportedMemoryClocks].
+//
+// [nvmlDeviceGetSupportedMemoryClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv434nvmlDeviceGetSupportedMemoryClocks12nvmlDevice_tPjPj
 func deviceGetSupportedMemoryClocks(device Device, count *uint32, clocksMHz *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetSupportedMemoryClocks"); err != nil {
 		return err
@@ -3991,7 +4348,9 @@ func deviceGetSupportedMemoryClocks(device Device, count *uint32, clocksMHz *uin
 //   - pstates: Container to return the list of performance states supported by device
 //   - size: Size of the supplied pstates array in bytes
 //
-// Wraps nvmlDeviceGetSupportedPerformanceStates.
+// Wraps [nvmlDeviceGetSupportedPerformanceStates].
+//
+// [nvmlDeviceGetSupportedPerformanceStates]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv439nvmlDeviceGetSupportedPerformanceStates12nvmlDevice_tP13nvmlPstates_tj
 func deviceGetSupportedPerformanceStates(device Device, pstates *Pstates, size uint32) error {
 	if err := checkLibSym("nvmlDeviceGetSupportedPerformanceStates"); err != nil {
 		return err
@@ -3999,11 +4358,13 @@ func deviceGetSupportedPerformanceStates(device Device, pstates *Pstates, size u
 	return toError(fndeviceGetSupportedPerformanceStates(device, pstates, size))
 }
 
-// deviceGetSupportedVgpus wraps nvmlDeviceGetSupportedVgpus.
+// deviceGetSupportedVgpus wraps [nvmlDeviceGetSupportedVgpus].
 //
 //   - device: The identifier of the target device
 //   - vgpuCount: Pointer to caller-supplied array size, and returns number of vGPU types
 //   - vgpuTypeIds: Pointer to caller-supplied array in which to return list of vGPU types
+//
+// [nvmlDeviceGetSupportedVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlDeviceGetSupportedVgpus12nvmlDevice_tPjP16nvmlVgpuTypeId_t
 func deviceGetSupportedVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *VgpuTypeId) error {
 	if err := checkLibSym("nvmlDeviceGetSupportedVgpus"); err != nil {
 		return err
@@ -4021,7 +4382,9 @@ func deviceGetSupportedVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *Vgpu
 //   - fan: The index of the target fan, zero indexed
 //   - targetSpeed: Reference in which to return the fan speed percentage
 //
-// Wraps nvmlDeviceGetTargetFanSpeed.
+// Wraps [nvmlDeviceGetTargetFanSpeed].
+//
+// [nvmlDeviceGetTargetFanSpeed]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetTargetFanSpeed12nvmlDevice_tjPj
 func deviceGetTargetFanSpeed(device Device, fan uint32) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetTargetFanSpeed"); err != nil {
 		var zero uint32
@@ -4039,7 +4402,9 @@ func deviceGetTargetFanSpeed(device Device, fan uint32) (uint32, error) {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetTemperature.
+// Wraps [nvmlDeviceGetTemperature].
+//
+// [nvmlDeviceGetTemperature]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceGetTemperature12nvmlDevice_t24nvmlTemperatureSensors_tPj
 func deviceGetTemperature(device Device, sensorType TemperatureSensors) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetTemperature"); err != nil {
 		var zero uint32
@@ -4064,7 +4429,9 @@ func deviceGetTemperature(device Device, sensorType TemperatureSensors) (uint32,
 //   - thresholdType: The type of threshold value queried
 //   - temp: Reference in which to return the temperature reading
 //
-// Wraps nvmlDeviceGetTemperatureThreshold.
+// Wraps [nvmlDeviceGetTemperatureThreshold].
+//
+// [nvmlDeviceGetTemperatureThreshold]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv433nvmlDeviceGetTemperatureThreshold12nvmlDevice_t27nvmlTemperatureThresholds_tPj
 func deviceGetTemperatureThreshold(device Device, thresholdType TemperatureThresholds) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetTemperatureThreshold"); err != nil {
 		var zero uint32
@@ -4085,7 +4452,9 @@ func deviceGetTemperatureThreshold(device Device, thresholdType TemperatureThres
 //   - device: Target device identifier
 //   - temperature: Structure specifying the sensor type (input) and retrieved temperature value (output)
 //
-// Wraps nvmlDeviceGetTemperatureV.
+// Wraps [nvmlDeviceGetTemperatureV].
+//
+// [nvmlDeviceGetTemperatureV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetTemperatureV12nvmlDevice_tP17nvmlTemperature_t
 func deviceGetTemperatureV(device Device, temperature *Temperature) error {
 	if err := checkLibSym("nvmlDeviceGetTemperatureV"); err != nil {
 		return err
@@ -4099,7 +4468,9 @@ func deviceGetTemperatureV(device Device, temperature *Temperature) error {
 //   - sensorIndex: The index of the thermal sensor
 //   - pThermalSettings: Reference in which to return the thermal sensor information
 //
-// Wraps nvmlDeviceGetThermalSettings.
+// Wraps [nvmlDeviceGetThermalSettings].
+//
+// [nvmlDeviceGetThermalSettings]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetThermalSettings12nvmlDevice_tjP24nvmlGpuThermalSettings_t
 func deviceGetThermalSettings(device Device, sensorIndex uint32, pThermalSettings *GpuThermalSettings) error {
 	if err := checkLibSym("nvmlDeviceGetThermalSettings"); err != nil {
 		return err
@@ -4113,7 +4484,9 @@ func deviceGetThermalSettings(device Device, sensorIndex uint32, pThermalSetting
 //   - device2: The identifier of the second device
 //   - pathInfo: A [GpuTopologyLevel] that gives the path type
 //
-// Wraps nvmlDeviceGetTopologyCommonAncestor.
+// Wraps [nvmlDeviceGetTopologyCommonAncestor].
+//
+// [nvmlDeviceGetTopologyCommonAncestor]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv435nvmlDeviceGetTopologyCommonAncestor12nvmlDevice_t12nvmlDevice_tP22nvmlGpuTopologyLevel_t
 func deviceGetTopologyCommonAncestor(device1 Device, device2 Device, pathInfo *GpuTopologyLevel) error {
 	if err := checkLibSym("nvmlDeviceGetTopologyCommonAncestor"); err != nil {
 		return err
@@ -4128,7 +4501,9 @@ func deviceGetTopologyCommonAncestor(device1 Device, device2 Device, pathInfo *G
 //   - count: When zero, is set to the number of matching GPUs such that deviceArray can be malloc'd. When non-zero, deviceArray will be filled with count number of device handles
 //   - deviceArray: An array of device handles for GPUs found at level
 //
-// Wraps nvmlDeviceGetTopologyNearestGpus.
+// Wraps [nvmlDeviceGetTopologyNearestGpus].
+//
+// [nvmlDeviceGetTopologyNearestGpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlDeviceGetTopologyNearestGpus12nvmlDevice_t22nvmlGpuTopologyLevel_tPjP12nvmlDevice_t
 func deviceGetTopologyNearestGpus(device Device, level GpuTopologyLevel, count *uint32, deviceArray *Device) error {
 	if err := checkLibSym("nvmlDeviceGetTopologyNearestGpus"); err != nil {
 		return err
@@ -4148,7 +4523,9 @@ func deviceGetTopologyNearestGpus(device Device, level GpuTopologyLevel, count *
 //   - counterType: Flag that specifies the counter-type of the errors
 //   - eccCounts: Reference in which to return the specified ECC errors
 //
-// Wraps nvmlDeviceGetTotalEccErrors.
+// Wraps [nvmlDeviceGetTotalEccErrors].
+//
+// [nvmlDeviceGetTotalEccErrors]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv427nvmlDeviceGetTotalEccErrors12nvmlDevice_t21nvmlMemoryErrorType_t20nvmlEccCounterType_tPy
 func deviceGetTotalEccErrors(device Device, errorType MemoryErrorType, counterType EccCounterType) (uint64, error) {
 	if err := checkLibSym("nvmlDeviceGetTotalEccErrors"); err != nil {
 		var zero uint64
@@ -4169,7 +4546,9 @@ func deviceGetTotalEccErrors(device Device, errorType MemoryErrorType, counterTy
 //   - device: The identifier of the target device
 //   - energy: Reference in which to return the energy consumption information
 //
-// Wraps nvmlDeviceGetTotalEnergyConsumption.
+// Wraps [nvmlDeviceGetTotalEnergyConsumption].
+//
+// [nvmlDeviceGetTotalEnergyConsumption]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv435nvmlDeviceGetTotalEnergyConsumption12nvmlDevice_tPy
 func deviceGetTotalEnergyConsumption(device Device) (uint64, error) {
 	if err := checkLibSym("nvmlDeviceGetTotalEnergyConsumption"); err != nil {
 		var zero uint64
@@ -4193,7 +4572,9 @@ func deviceGetTotalEnergyConsumption(device Device) (uint64, error) {
 //   - uuid: Reference in which to return the GPU UUID
 //   - length: The maximum allowed length of the string returned in uuid
 //
-// Wraps nvmlDeviceGetUUID.
+// Wraps [nvmlDeviceGetUUID].
+//
+// [nvmlDeviceGetUUID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv417nvmlDeviceGetUUID12nvmlDevice_tPcj
 func deviceGetUUID(device Device) (string, error) {
 	if err := checkLibSym("nvmlDeviceGetUUID"); err != nil {
 		return "", err
@@ -4216,7 +4597,9 @@ func deviceGetUUID(device Device) (string, error) {
 //   - device: The identifier of the target device
 //   - unrepairableMemoryStatus: Reference to [UnrepairableMemoryStatusV1]
 //
-// Wraps nvmlDeviceGetUnrepairableMemoryFlag_v1.
+// Wraps [nvmlDeviceGetUnrepairableMemoryFlag_v1].
+//
+// [nvmlDeviceGetUnrepairableMemoryFlag_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv438nvmlDeviceGetUnrepairableMemoryFlag_v112nvmlDevice_tP33nvmlUnrepairableMemoryStatus_v1_t
 func deviceGetUnrepairableMemoryFlag(device Device) (UnrepairableMemoryStatusV1, error) {
 	if err := checkLibSym("nvmlDeviceGetUnrepairableMemoryFlag_v1"); err != nil {
 		var zero UnrepairableMemoryStatusV1
@@ -4239,7 +4622,9 @@ func deviceGetUnrepairableMemoryFlag(device Device) (UnrepairableMemoryStatusV1,
 //   - device: The identifier of the target device
 //   - utilization: Reference in which to return the utilization information
 //
-// Wraps nvmlDeviceGetUtilizationRates.
+// Wraps [nvmlDeviceGetUtilizationRates].
+//
+// [nvmlDeviceGetUtilizationRates]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlDeviceGetUtilizationRates12nvmlDevice_tP17nvmlUtilization_t
 func deviceGetUtilizationRates(device Device) (Utilization, error) {
 	if err := checkLibSym("nvmlDeviceGetUtilizationRates"); err != nil {
 		var zero Utilization
@@ -4262,7 +4647,9 @@ func deviceGetUtilizationRates(device Device) (Utilization, error) {
 //   - version: Reference to which to return the VBIOS version
 //   - length: The maximum allowed length of the string returned in version
 //
-// Wraps nvmlDeviceGetVbiosVersion.
+// Wraps [nvmlDeviceGetVbiosVersion].
+//
+// [nvmlDeviceGetVbiosVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceGetVbiosVersion12nvmlDevice_tPcj
 func deviceGetVbiosVersion(device Device) (string, error) {
 	if err := checkLibSym("nvmlDeviceGetVbiosVersion"); err != nil {
 		return "", err
@@ -4278,11 +4665,13 @@ func deviceGetVbiosVersion(device Device) (string, error) {
 	return string(buf_[:n]), nil
 }
 
-// deviceGetVgpuCapabilities wraps nvmlDeviceGetVgpuCapabilities.
+// deviceGetVgpuCapabilities wraps [nvmlDeviceGetVgpuCapabilities].
 //
 //   - device: The identifier of the target device
 //   - capability: Specifies the [DeviceVgpuCapability] to be queried
 //   - capResult: Specifies that the queried capability is supported, and also returns capability's data
+//
+// [nvmlDeviceGetVgpuCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlDeviceGetVgpuCapabilities12nvmlDevice_t26nvmlDeviceVgpuCapability_tPj
 func deviceGetVgpuCapabilities(device Device, capability DeviceVgpuCapability) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceGetVgpuCapabilities"); err != nil {
 		var zero uint32
@@ -4304,7 +4693,9 @@ func deviceGetVgpuCapabilities(device Device, capability DeviceVgpuCapability) (
 //   - device: The identifier of the target device
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Wraps nvmlDeviceGetVgpuHeterogeneousMode.
+// Wraps [nvmlDeviceGetVgpuHeterogeneousMode].
+//
+// [nvmlDeviceGetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv434nvmlDeviceGetVgpuHeterogeneousMode12nvmlDevice_tP27nvmlVgpuHeterogeneousMode_t
 func deviceGetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuHeterogeneousMode"); err != nil {
 		return err
@@ -4312,10 +4703,12 @@ func deviceGetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeter
 	return toError(fndeviceGetVgpuHeterogeneousMode(device, pHeterogeneousMode))
 }
 
-// deviceGetVgpuInstancesUtilizationInfo wraps nvmlDeviceGetVgpuInstancesUtilizationInfo.
+// deviceGetVgpuInstancesUtilizationInfo wraps [nvmlDeviceGetVgpuInstancesUtilizationInfo].
 //
 //   - device: The identifier for the target device
 //   - vgpuUtilInfo: Pointer to the caller-provided structure of [VgpuInstancesUtilizationInfo]
+//
+// [nvmlDeviceGetVgpuInstancesUtilizationInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv441nvmlDeviceGetVgpuInstancesUtilizationInfo12nvmlDevice_tP34nvmlVgpuInstancesUtilizationInfo_t
 func deviceGetVgpuInstancesUtilizationInfo(device Device, vgpuUtilInfo *VgpuInstancesUtilizationInfo) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuInstancesUtilizationInfo"); err != nil {
 		return err
@@ -4323,11 +4716,13 @@ func deviceGetVgpuInstancesUtilizationInfo(device Device, vgpuUtilInfo *VgpuInst
 	return toError(fndeviceGetVgpuInstancesUtilizationInfo(device, vgpuUtilInfo))
 }
 
-// deviceGetVgpuMetadata wraps nvmlDeviceGetVgpuMetadata.
+// deviceGetVgpuMetadata wraps [nvmlDeviceGetVgpuMetadata].
 //
 //   - device: The identifier of the target device
 //   - pgpuMetadata: Pointer to caller-supplied buffer into which pgpuMetadata is written
 //   - bufferSize: Pointer to size of pgpuMetadata buffer
+//
+// [nvmlDeviceGetVgpuMetadata]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv425nvmlDeviceGetVgpuMetadata12nvmlDevice_tP22nvmlVgpuPgpuMetadata_tPj
 func deviceGetVgpuMetadata(device Device, pgpuMetadata *VgpuPgpuMetadata, bufferSize *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuMetadata"); err != nil {
 		return err
@@ -4335,12 +4730,14 @@ func deviceGetVgpuMetadata(device Device, pgpuMetadata *VgpuPgpuMetadata, buffer
 	return toError(fndeviceGetVgpuMetadata(device, pgpuMetadata, bufferSize))
 }
 
-// deviceGetVgpuProcessUtilization wraps nvmlDeviceGetVgpuProcessUtilization.
+// deviceGetVgpuProcessUtilization wraps [nvmlDeviceGetVgpuProcessUtilization].
 //
 //   - device: The identifier for the target device
 //   - lastSeenTimeStamp: Return only samples with timestamp greater than lastSeenTimeStamp
 //   - vgpuProcessSamplesCount: Pointer to caller-supplied array size, and returns number of processes running on vGPU instances
 //   - utilizationSamples: Pointer to caller-supplied buffer in which vGPU sub process utilization samples are returned
+//
+// [nvmlDeviceGetVgpuProcessUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv435nvmlDeviceGetVgpuProcessUtilization12nvmlDevice_tyPjP34nvmlVgpuProcessUtilizationSample_t
 func deviceGetVgpuProcessUtilization(device Device, lastSeenTimeStamp uint64, vgpuProcessSamplesCount *uint32, utilizationSamples *VgpuProcessUtilizationSample) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuProcessUtilization"); err != nil {
 		return err
@@ -4348,10 +4745,12 @@ func deviceGetVgpuProcessUtilization(device Device, lastSeenTimeStamp uint64, vg
 	return toError(fndeviceGetVgpuProcessUtilization(device, lastSeenTimeStamp, vgpuProcessSamplesCount, utilizationSamples))
 }
 
-// deviceGetVgpuProcessesUtilizationInfo wraps nvmlDeviceGetVgpuProcessesUtilizationInfo.
+// deviceGetVgpuProcessesUtilizationInfo wraps [nvmlDeviceGetVgpuProcessesUtilizationInfo].
 //
 //   - device: The identifier for the target device
 //   - vgpuProcUtilInfo: Pointer to the caller-provided structure of [VgpuProcessesUtilizationInfo]
+//
+// [nvmlDeviceGetVgpuProcessesUtilizationInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv441nvmlDeviceGetVgpuProcessesUtilizationInfo12nvmlDevice_tP34nvmlVgpuProcessesUtilizationInfo_t
 func deviceGetVgpuProcessesUtilizationInfo(device Device, vgpuProcUtilInfo *VgpuProcessesUtilizationInfo) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuProcessesUtilizationInfo"); err != nil {
 		return err
@@ -4359,10 +4758,12 @@ func deviceGetVgpuProcessesUtilizationInfo(device Device, vgpuProcUtilInfo *Vgpu
 	return toError(fndeviceGetVgpuProcessesUtilizationInfo(device, vgpuProcUtilInfo))
 }
 
-// deviceGetVgpuSchedulerCapabilities wraps nvmlDeviceGetVgpuSchedulerCapabilities.
+// deviceGetVgpuSchedulerCapabilities wraps [nvmlDeviceGetVgpuSchedulerCapabilities].
 //
 //   - device: The identifier of the target device
 //   - pCapabilities: Reference in which pCapabilities is written
+//
+// [nvmlDeviceGetVgpuSchedulerCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv438nvmlDeviceGetVgpuSchedulerCapabilities12nvmlDevice_tP31nvmlVgpuSchedulerCapabilities_t
 func deviceGetVgpuSchedulerCapabilities(device Device, pCapabilities *VgpuSchedulerCapabilities) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuSchedulerCapabilities"); err != nil {
 		return err
@@ -4370,10 +4771,12 @@ func deviceGetVgpuSchedulerCapabilities(device Device, pCapabilities *VgpuSchedu
 	return toError(fndeviceGetVgpuSchedulerCapabilities(device, pCapabilities))
 }
 
-// deviceGetVgpuSchedulerLog wraps nvmlDeviceGetVgpuSchedulerLog_v2.
+// deviceGetVgpuSchedulerLog wraps [nvmlDeviceGetVgpuSchedulerLog_v2].
 //
 //   - device: The identifier of the target device
 //   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
+//
+// [nvmlDeviceGetVgpuSchedulerLog_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlDeviceGetVgpuSchedulerLog_v212nvmlDevice_tP29nvmlVgpuSchedulerLogInfo_v2_t
 func deviceGetVgpuSchedulerLog(device Device, pSchedulerLogInfo *VgpuSchedulerLogInfoV2) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuSchedulerLog_v2"); err != nil {
 		return err
@@ -4381,10 +4784,12 @@ func deviceGetVgpuSchedulerLog(device Device, pSchedulerLogInfo *VgpuSchedulerLo
 	return toError(fndeviceGetVgpuSchedulerLog(device, pSchedulerLogInfo))
 }
 
-// deviceGetVgpuSchedulerState wraps nvmlDeviceGetVgpuSchedulerState_v2.
+// deviceGetVgpuSchedulerState wraps [nvmlDeviceGetVgpuSchedulerState_v2].
 //
 //   - device: The identifier of the target device
 //   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
+//
+// [nvmlDeviceGetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlDeviceGetVgpuSchedulerState_v212nvmlDevice_tP31nvmlVgpuSchedulerStateInfo_v2_t
 func deviceGetVgpuSchedulerState(device Device, pSchedulerStateInfo *VgpuSchedulerStateInfoV2) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuSchedulerState_v2"); err != nil {
 		return err
@@ -4401,7 +4806,9 @@ func deviceGetVgpuSchedulerState(device Device, pSchedulerStateInfo *VgpuSchedul
 //   - vgpuTypeId: Handle to vGPU type. The vGPU type ID
 //   - pPlacementList: Pointer to the list of vGPU placement structure [VgpuPlacementList]
 //
-// Wraps nvmlDeviceGetVgpuTypeCreatablePlacements.
+// Wraps [nvmlDeviceGetVgpuTypeCreatablePlacements].
+//
+// [nvmlDeviceGetVgpuTypeCreatablePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv440nvmlDeviceGetVgpuTypeCreatablePlacements12nvmlDevice_t16nvmlVgpuTypeId_tP23nvmlVgpuPlacementList_t
 func deviceGetVgpuTypeCreatablePlacements(device Device, vgpuTypeId VgpuTypeId, pPlacementList *VgpuPlacementList) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuTypeCreatablePlacements"); err != nil {
 		return err
@@ -4418,7 +4825,9 @@ func deviceGetVgpuTypeCreatablePlacements(device Device, vgpuTypeId VgpuTypeId, 
 //   - vgpuTypeId: Handle to vGPU type. The vGPU type ID
 //   - pPlacementList: Pointer to the vGPU placement structure [VgpuPlacementList]
 //
-// Wraps nvmlDeviceGetVgpuTypeSupportedPlacements.
+// Wraps [nvmlDeviceGetVgpuTypeSupportedPlacements].
+//
+// [nvmlDeviceGetVgpuTypeSupportedPlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv440nvmlDeviceGetVgpuTypeSupportedPlacements12nvmlDevice_t16nvmlVgpuTypeId_tP23nvmlVgpuPlacementList_t
 func deviceGetVgpuTypeSupportedPlacements(device Device, vgpuTypeId VgpuTypeId, pPlacementList *VgpuPlacementList) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuTypeSupportedPlacements"); err != nil {
 		return err
@@ -4426,13 +4835,15 @@ func deviceGetVgpuTypeSupportedPlacements(device Device, vgpuTypeId VgpuTypeId, 
 	return toError(fndeviceGetVgpuTypeSupportedPlacements(device, vgpuTypeId, pPlacementList))
 }
 
-// deviceGetVgpuUtilization wraps nvmlDeviceGetVgpuUtilization.
+// deviceGetVgpuUtilization wraps [nvmlDeviceGetVgpuUtilization].
 //
 //   - device: The identifier for the target device
 //   - lastSeenTimeStamp: Return only samples with timestamp greater than lastSeenTimeStamp
 //   - sampleValType: Pointer to caller-supplied buffer to hold the type of returned sample values
 //   - vgpuInstanceSamplesCount: Pointer to caller-supplied array size, and returns number of vGPU instances
 //   - utilizationSamples: Pointer to caller-supplied buffer in which vGPU utilization samples are returned
+//
+// [nvmlDeviceGetVgpuUtilization]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv428nvmlDeviceGetVgpuUtilization12nvmlDevice_tyP15nvmlValueType_tPjP35nvmlVgpuInstanceUtilizationSample_t
 func deviceGetVgpuUtilization(device Device, lastSeenTimeStamp uint64, sampleValType *ValueType, vgpuInstanceSamplesCount *uint32, utilizationSamples *VgpuInstanceUtilizationSample) error {
 	if err := checkLibSym("nvmlDeviceGetVgpuUtilization"); err != nil {
 		return err
@@ -4447,7 +4858,9 @@ func deviceGetVgpuUtilization(device Device, lastSeenTimeStamp uint64, sampleVal
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceGetViolationStatus.
+// Wraps [nvmlDeviceGetViolationStatus].
+//
+// [nvmlDeviceGetViolationStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv428nvmlDeviceGetViolationStatus12nvmlDevice_t20nvmlPerfPolicyType_tP19nvmlViolationTime_t
 func deviceGetViolationStatus(device Device, perfPolicyType PerfPolicyType, violTime *ViolationTime) error {
 	if err := checkLibSym("nvmlDeviceGetViolationStatus"); err != nil {
 		return err
@@ -4462,7 +4875,9 @@ func deviceGetViolationStatus(device Device, perfPolicyType PerfPolicyType, viol
 //   - device: Identifier of the target device
 //   - pVirtualMode: Reference to virtualization mode. One of NVML_GPU_VIRTUALIZATION_?
 //
-// Wraps nvmlDeviceGetVirtualizationMode.
+// Wraps [nvmlDeviceGetVirtualizationMode].
+//
+// [nvmlDeviceGetVirtualizationMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv431nvmlDeviceGetVirtualizationMode12nvmlDevice_tP27nvmlGpuVirtualizationMode_t
 func deviceGetVirtualizationMode(device Device, pVirtualMode *GpuVirtualizationMode) error {
 	if err := checkLibSym("nvmlDeviceGetVirtualizationMode"); err != nil {
 		return err
@@ -4478,7 +4893,9 @@ func deviceGetVirtualizationMode(device Device, pVirtualMode *GpuVirtualizationM
 //   - device: NVML handle to test
 //   - isMigDevice: True when handle refers to a MIG device
 //
-// Wraps nvmlDeviceIsMigDeviceHandle.
+// Wraps [nvmlDeviceIsMigDeviceHandle].
+//
+// [nvmlDeviceIsMigDeviceHandle]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv427nvmlDeviceIsMigDeviceHandle12nvmlDevice_tPj
 func deviceIsMigDeviceHandle(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlDeviceIsMigDeviceHandle"); err != nil {
 		var zero uint32
@@ -4492,10 +4909,12 @@ func deviceIsMigDeviceHandle(device Device) (uint32, error) {
 	return out, nil
 }
 
-// DeviceModifyDrainState wraps nvmlDeviceModifyDrainState.
+// DeviceModifyDrainState wraps [nvmlDeviceModifyDrainState].
 //
 //   - pciInfo: The PCI address of the GPU drain state to be modified
 //   - newState: The drain state that should be entered, see [EnableState]
+//
+// [nvmlDeviceModifyDrainState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlZPI.html#_CPPv426nvmlDeviceModifyDrainStateP13nvmlPciInfo_t17nvmlEnableState_t
 func DeviceModifyDrainState(pciInfo *PciInfo, newState EnableState) error {
 	if err := checkLibSym("nvmlDeviceModifyDrainState"); err != nil {
 		return err
@@ -4511,7 +4930,9 @@ func DeviceModifyDrainState(pciInfo *PciInfo, newState EnableState) error {
 //   - device2: The second GPU device
 //   - onSameBoard: Reference in which to return the status. Non-zero indicates that the GPUs are on the same board
 //
-// Wraps nvmlDeviceOnSameBoard.
+// Wraps [nvmlDeviceOnSameBoard].
+//
+// [nvmlDeviceOnSameBoard]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv421nvmlDeviceOnSameBoard12nvmlDevice_t12nvmlDevice_tPi
 func deviceOnSameBoard(device1 Device, device2 Device) (int32, error) {
 	if err := checkLibSym("nvmlDeviceOnSameBoard"); err != nil {
 		var zero int32
@@ -4532,7 +4953,9 @@ func deviceOnSameBoard(device1 Device, device2 Device) (int32, error) {
 //   - device: The identifier of the target device
 //   - profile: Reference to [PowerSmoothingProfile] . Note that only profile->profileId is used and the rest of the structure is ignored
 //
-// Wraps nvmlDevicePowerSmoothingActivatePresetProfile.
+// Wraps [nvmlDevicePowerSmoothingActivatePresetProfile].
+//
+// [nvmlDevicePowerSmoothingActivatePresetProfile]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerSmoothing.html#_CPPv445nvmlDevicePowerSmoothingActivatePresetProfile12nvmlDevice_tP27nvmlPowerSmoothingProfile_t
 func devicePowerSmoothingActivatePresetProfile(device Device, profile *PowerSmoothingProfile) error {
 	if err := checkLibSym("nvmlDevicePowerSmoothingActivatePresetProfile"); err != nil {
 		return err
@@ -4548,7 +4971,9 @@ func devicePowerSmoothingActivatePresetProfile(device Device, profile *PowerSmoo
 //   - device: The identifier of the target device
 //   - state: Reference to [PowerSmoothingState]
 //
-// Wraps nvmlDevicePowerSmoothingSetState.
+// Wraps [nvmlDevicePowerSmoothingSetState].
+//
+// [nvmlDevicePowerSmoothingSetState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerSmoothing.html#_CPPv432nvmlDevicePowerSmoothingSetState12nvmlDevice_tP25nvmlPowerSmoothingState_t
 func devicePowerSmoothingSetState(device Device, state *PowerSmoothingState) error {
 	if err := checkLibSym("nvmlDevicePowerSmoothingSetState"); err != nil {
 		return err
@@ -4564,7 +4989,9 @@ func devicePowerSmoothingSetState(device Device, state *PowerSmoothingState) err
 //   - device: The identifier of the target device
 //   - profile: Reference to [PowerSmoothingProfile] struct
 //
-// Wraps nvmlDevicePowerSmoothingUpdatePresetProfileParam.
+// Wraps [nvmlDevicePowerSmoothingUpdatePresetProfileParam].
+//
+// [nvmlDevicePowerSmoothingUpdatePresetProfileParam]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerSmoothing.html#_CPPv448nvmlDevicePowerSmoothingUpdatePresetProfileParam12nvmlDevice_tP27nvmlPowerSmoothingProfile_t
 func devicePowerSmoothingUpdatePresetProfileParam(device Device, profile *PowerSmoothingProfile) error {
 	if err := checkLibSym("nvmlDevicePowerSmoothingUpdatePresetProfileParam"); err != nil {
 		return err
@@ -4572,10 +4999,12 @@ func devicePowerSmoothingUpdatePresetProfileParam(device Device, profile *PowerS
 	return toError(fndevicePowerSmoothingUpdatePresetProfileParam(device, profile))
 }
 
-// DeviceQueryDrainState wraps nvmlDeviceQueryDrainState.
+// DeviceQueryDrainState wraps [nvmlDeviceQueryDrainState].
 //
 //   - pciInfo: The PCI address of the GPU drain state to be queried
 //   - currentState: The current drain state for this GPU, see [EnableState]
+//
+// [nvmlDeviceQueryDrainState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlZPI.html#_CPPv425nvmlDeviceQueryDrainStateP13nvmlPciInfo_tP17nvmlEnableState_t
 func DeviceQueryDrainState(pciInfo *PciInfo, currentState *EnableState) error {
 	if err := checkLibSym("nvmlDeviceQueryDrainState"); err != nil {
 		return err
@@ -4583,10 +5012,12 @@ func DeviceQueryDrainState(pciInfo *PciInfo, currentState *EnableState) error {
 	return toError(fnDeviceQueryDrainState(pciInfo, currentState))
 }
 
-// deviceReadPRMCounters wraps nvmlDeviceReadPRMCounters_v1.
+// deviceReadPRMCounters wraps [nvmlDeviceReadPRMCounters_v1].
 //
 //   - device: Identifer of target GPU device
 //   - counterList: Structure holding the input parameters as well as the retrieved counter values
+//
+// [nvmlDeviceReadPRMCounters_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGPUPRMAccess.html#_CPPv428nvmlDeviceReadPRMCounters_v112nvmlDevice_tP23nvmlPRMCounterList_v1_t
 func deviceReadPRMCounters(device Device, counterList *PRMCounterListV1) error {
 	if err := checkLibSym("nvmlDeviceReadPRMCounters_v1"); err != nil {
 		return err
@@ -4594,10 +5025,12 @@ func deviceReadPRMCounters(device Device, counterList *PRMCounterListV1) error {
 	return toError(fndeviceReadPRMCounters(device, counterList))
 }
 
-// deviceReadWritePRM wraps nvmlDeviceReadWritePRM_v1.
+// deviceReadWritePRM wraps [nvmlDeviceReadWritePRM_v1].
 //
 //   - device: Identifer of target GPU device
 //   - buffer: Structure holding the input data in TLV format as well as the PRM register contents in TLV format (in the case of a successful read operation). Note: the input data and any returned data shall be in network byte order
+//
+// [nvmlDeviceReadWritePRM_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGPUPRMAccess.html#_CPPv425nvmlDeviceReadWritePRM_v112nvmlDevice_tP15nvmlPRMTLV_v1_t
 func deviceReadWritePRM(device Device, buffer *PRMTLVV1) error {
 	if err := checkLibSym("nvmlDeviceReadWritePRM_v1"); err != nil {
 		return err
@@ -4621,7 +5054,9 @@ func deviceReadWritePRM(device Device, buffer *PRMTLVV1) error {
 //   - eventTypes: Bitmask of Event Types to record
 //   - set: Set to which add new event types
 //
-// Wraps nvmlDeviceRegisterEvents.
+// Wraps [nvmlDeviceRegisterEvents].
+//
+// [nvmlDeviceRegisterEvents]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv424nvmlDeviceRegisterEvents12nvmlDevice_ty14nvmlEventSet_t
 func deviceRegisterEvents(device Device, eventTypes uint64, set EventSet) error {
 	if err := checkLibSym("nvmlDeviceRegisterEvents"); err != nil {
 		return err
@@ -4629,11 +5064,13 @@ func deviceRegisterEvents(device Device, eventTypes uint64, set EventSet) error 
 	return toError(fndeviceRegisterEvents(device, eventTypes, set))
 }
 
-// DeviceRemoveGpu wraps nvmlDeviceRemoveGpu, bound as nvmlDeviceRemoveGpu_v2.
+// DeviceRemoveGpu wraps [nvmlDeviceRemoveGpu], bound as nvmlDeviceRemoveGpu_v2.
 //
 //   - pciInfo: The PCI address of the GPU to be removed
 //   - gpuState: Whether the GPU is to be removed, from the OS see [DetachGpuState]
 //   - linkState: Requested upstream PCIe link state, see [PcieLinkState]
+//
+// [nvmlDeviceRemoveGpu]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlZPI.html#_CPPv422nvmlDeviceRemoveGpu_v2P13nvmlPciInfo_t20nvmlDetachGpuState_t19nvmlPcieLinkState_t
 func DeviceRemoveGpu(pciInfo *PciInfo, gpuState DetachGpuState, linkState PcieLinkState) error {
 	if err := checkLibSym("nvmlDeviceRemoveGpu_v2"); err != nil {
 		return err
@@ -4647,7 +5084,9 @@ func DeviceRemoveGpu(pciInfo *PciInfo, gpuState DetachGpuState, linkState PcieLi
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceResetApplicationsClocks.
+// Wraps [nvmlDeviceResetApplicationsClocks].
+//
+// [nvmlDeviceResetApplicationsClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceResetApplicationsClocks12nvmlDevice_t
 func deviceResetApplicationsClocks(device Device) error {
 	if err := checkLibSym("nvmlDeviceResetApplicationsClocks"); err != nil {
 		return err
@@ -4663,7 +5102,9 @@ func deviceResetApplicationsClocks(device Device) error {
 //
 //   - device: The identifier of the target device
 //
-// Wraps nvmlDeviceResetGpuLockedClocks.
+// Wraps [nvmlDeviceResetGpuLockedClocks].
+//
+// [nvmlDeviceResetGpuLockedClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv430nvmlDeviceResetGpuLockedClocks12nvmlDevice_t
 func deviceResetGpuLockedClocks(device Device) error {
 	if err := checkLibSym("nvmlDeviceResetGpuLockedClocks"); err != nil {
 		return err
@@ -4679,7 +5120,9 @@ func deviceResetGpuLockedClocks(device Device) error {
 //
 //   - device: The identifier of the target device
 //
-// Wraps nvmlDeviceResetMemoryLockedClocks.
+// Wraps [nvmlDeviceResetMemoryLockedClocks].
+//
+// [nvmlDeviceResetMemoryLockedClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceResetMemoryLockedClocks12nvmlDevice_t
 func deviceResetMemoryLockedClocks(device Device) error {
 	if err := checkLibSym("nvmlDeviceResetMemoryLockedClocks"); err != nil {
 		return err
@@ -4694,7 +5137,9 @@ func deviceResetMemoryLockedClocks(device Device) error {
 //   - device: The identifier of the target device
 //   - link: Specifies the NvLink link to be queried
 //
-// Wraps nvmlDeviceResetNvLinkErrorCounters.
+// Wraps [nvmlDeviceResetNvLinkErrorCounters].
+//
+// [nvmlDeviceResetNvLinkErrorCounters]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv434nvmlDeviceResetNvLinkErrorCounters12nvmlDevice_tj
 func deviceResetNvLinkErrorCounters(device Device, link uint32) error {
 	if err := checkLibSym("nvmlDeviceResetNvLinkErrorCounters"); err != nil {
 		return err
@@ -4712,7 +5157,9 @@ func deviceResetNvLinkErrorCounters(device Device, link uint32) error {
 //
 // Deprecated: Resetting NVLINK utilization counters is no longer supported. Reset the NVLINK utilization counters Both the receive and transmit counters are operated on by this function For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceResetNvLinkUtilizationCounter.
+// Wraps [nvmlDeviceResetNvLinkUtilizationCounter].
+//
+// [nvmlDeviceResetNvLinkUtilizationCounter]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv439nvmlDeviceResetNvLinkUtilizationCounter12nvmlDevice_tjj
 func deviceResetNvLinkUtilizationCounter(device Device, link uint32, counter uint32) error {
 	if err := checkLibSym("nvmlDeviceResetNvLinkUtilizationCounter"); err != nil {
 		return err
@@ -4729,7 +5176,9 @@ func deviceResetNvLinkUtilizationCounter(device Device, link uint32, counter uin
 //   - apiType: Target API type for this operation
 //   - isRestricted: The target restriction
 //
-// Wraps nvmlDeviceSetAPIRestriction.
+// Wraps [nvmlDeviceSetAPIRestriction].
+//
+// [nvmlDeviceSetAPIRestriction]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv427nvmlDeviceSetAPIRestriction12nvmlDevice_t19nvmlRestrictedAPI_t17nvmlEnableState_t
 func deviceSetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetAPIRestriction"); err != nil {
 		return err
@@ -4746,7 +5195,9 @@ func deviceSetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted 
 //   - device: The identifier of the target device
 //   - mode: The target accounting mode
 //
-// Wraps nvmlDeviceSetAccountingMode.
+// Wraps [nvmlDeviceSetAccountingMode].
+//
+// [nvmlDeviceSetAccountingMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAccountingStats.html#_CPPv427nvmlDeviceSetAccountingMode12nvmlDevice_t17nvmlEnableState_t
 func deviceSetAccountingMode(device Device, mode EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetAccountingMode"); err != nil {
 		return err
@@ -4760,7 +5211,9 @@ func deviceSetAccountingMode(device Device, mode EnableState) error {
 //
 // Deprecated: This function is deprecated.
 //
-// Wraps nvmlDeviceSetApplicationsClocks.
+// Wraps [nvmlDeviceSetApplicationsClocks].
+//
+// [nvmlDeviceSetApplicationsClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv431nvmlDeviceSetApplicationsClocks12nvmlDevice_tjj
 func deviceSetApplicationsClocks(device Device, memClockMHz uint32, graphicsClockMHz uint32) error {
 	if err := checkLibSym("nvmlDeviceSetApplicationsClocks"); err != nil {
 		return err
@@ -4778,7 +5231,9 @@ func deviceSetApplicationsClocks(device Device, memClockMHz uint32, graphicsCloc
 //   - device: The identifier of the target device
 //   - enabled: What state to try to set Auto Boosted clocks of the target device to
 //
-// Wraps nvmlDeviceSetAutoBoostedClocksEnabled.
+// Wraps [nvmlDeviceSetAutoBoostedClocksEnabled].
+//
+// [nvmlDeviceSetAutoBoostedClocksEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv437nvmlDeviceSetAutoBoostedClocksEnabled12nvmlDevice_t17nvmlEnableState_t
 func deviceSetAutoBoostedClocksEnabled(device Device, enabled EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetAutoBoostedClocksEnabled"); err != nil {
 		return err
@@ -4794,7 +5249,9 @@ func deviceSetAutoBoostedClocksEnabled(device Device, enabled EnableState) error
 //   - device: The identifier of the target device
 //   - info: Structure specifying the clock type (input), the pstate (input) and clock offset value (input)
 //
-// Wraps nvmlDeviceSetClockOffsets.
+// Wraps [nvmlDeviceSetClockOffsets].
+//
+// [nvmlDeviceSetClockOffsets]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceSetClockOffsets12nvmlDevice_tP17nvmlClockOffset_t
 func deviceSetClockOffsets(device Device, info *ClockOffset) error {
 	if err := checkLibSym("nvmlDeviceSetClockOffsets"); err != nil {
 		return err
@@ -4816,7 +5273,9 @@ func deviceSetClockOffsets(device Device, info *ClockOffset) error {
 //   - device: The identifier of the target device handle or MIG device handle
 //   - mode: The target compute mode
 //
-// Wraps nvmlDeviceSetComputeMode.
+// Wraps [nvmlDeviceSetComputeMode].
+//
+// [nvmlDeviceSetComputeMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv424nvmlDeviceSetComputeMode12nvmlDevice_t17nvmlComputeMode_t
 func deviceSetComputeMode(device Device, mode ComputeMode) error {
 	if err := checkLibSym("nvmlDeviceSetComputeMode"); err != nil {
 		return err
@@ -4831,7 +5290,9 @@ func deviceSetComputeMode(device Device, mode ComputeMode) error {
 //   - device: Device Handle
 //   - sizeKiB: Unprotected Memory size to be set in KiB
 //
-// Wraps nvmlDeviceSetConfComputeUnprotectedMemSize.
+// Wraps [nvmlDeviceSetConfComputeUnprotectedMemSize].
+//
+// [nvmlDeviceSetConfComputeUnprotectedMemSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv442nvmlDeviceSetConfComputeUnprotectedMemSize12nvmlDevice_ty
 func deviceSetConfComputeUnprotectedMemSize(device Device, sizeKiB uint64) error {
 	if err := checkLibSym("nvmlDeviceSetConfComputeUnprotectedMemSize"); err != nil {
 		return err
@@ -4845,7 +5306,9 @@ func deviceSetConfComputeUnprotectedMemSize(device Device, sizeKiB uint64) error
 //
 //   - device: The identifier of the target device
 //
-// Wraps nvmlDeviceSetCpuAffinity.
+// Wraps [nvmlDeviceSetCpuAffinity].
+//
+// [nvmlDeviceSetCpuAffinity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlAffinity.html#_CPPv424nvmlDeviceSetCpuAffinity12nvmlDevice_t
 func deviceSetCpuAffinity(device Device) error {
 	if err := checkLibSym("nvmlDeviceSetCpuAffinity"); err != nil {
 		return err
@@ -4863,7 +5326,9 @@ func deviceSetCpuAffinity(device Device) error {
 //   - enabled: What state to try to set default Auto Boosted clocks of the target device to
 //   - flags: Flags that change the default behavior. Currently Unused
 //
-// Wraps nvmlDeviceSetDefaultAutoBoostedClocksEnabled.
+// Wraps [nvmlDeviceSetDefaultAutoBoostedClocksEnabled].
+//
+// [nvmlDeviceSetDefaultAutoBoostedClocksEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv444nvmlDeviceSetDefaultAutoBoostedClocksEnabled12nvmlDevice_t17nvmlEnableState_tj
 func deviceSetDefaultAutoBoostedClocksEnabled(device Device, enabled EnableState, flags uint32) error {
 	if err := checkLibSym("nvmlDeviceSetDefaultAutoBoostedClocksEnabled"); err != nil {
 		return err
@@ -4878,7 +5343,9 @@ func deviceSetDefaultAutoBoostedClocksEnabled(device Device, enabled EnableState
 //   - device: The identifier of the target device
 //   - fan: The index of the fan, starting at zero
 //
-// Wraps nvmlDeviceSetDefaultFanSpeed_v2.
+// Wraps [nvmlDeviceSetDefaultFanSpeed_v2].
+//
+// [nvmlDeviceSetDefaultFanSpeed_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv431nvmlDeviceSetDefaultFanSpeed_v212nvmlDevice_tj
 func deviceSetDefaultFanSpeed(device Device, fan uint32) error {
 	if err := checkLibSym("nvmlDeviceSetDefaultFanSpeed_v2"); err != nil {
 		return err
@@ -4897,7 +5364,9 @@ func deviceSetDefaultFanSpeed(device Device, fan uint32) error {
 //   - device: The identifier of the target device
 //   - dramEncryption: The target DRAM Encryption mode
 //
-// Wraps nvmlDeviceSetDramEncryptionMode.
+// Wraps [nvmlDeviceSetDramEncryptionMode].
+//
+// [nvmlDeviceSetDramEncryptionMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv431nvmlDeviceSetDramEncryptionMode12nvmlDevice_tPK24nvmlDramEncryptionInfo_t
 func deviceSetDramEncryptionMode(device Device, dramEncryption *DramEncryptionInfo) error {
 	if err := checkLibSym("nvmlDeviceSetDramEncryptionMode"); err != nil {
 		return err
@@ -4909,18 +5378,22 @@ func deviceSetDramEncryptionMode(device Device, dramEncryption *DramEncryptionIn
 //
 // For Fermi or newer fully supported devices. For windows only. Requires root/admin permissions.
 // On Windows platforms the device driver can run in either WDDM or WDM (TCC) mode. If a display is attached to the device it must run in WDDM mode.
-// It is possible to force the change to WDM (TCC) while the display is still attached with a force flag (nvmlFlagForce). This should only be done if the host is subsequently powered down and the display is detached from the device before the next reboot.
+// It is possible to force the change to WDM (TCC) while the display is still attached with a force flag ([nvmlFlagForce]). This should only be done if the host is subsequently powered down and the display is detached from the device before the next reboot.
 // This operation takes effect after the next reboot.
 // Windows driver model may only be set to WDDM when running in DEFAULT compute mode.
 // Change driver model to WDDM is not supported when GPU doesn't support graphics acceleration or will not support it after reboot. See [Device.SetGpuOperationMode].
-// See [DriverModel] for details on available driver models. See nvmlFlagDefault and nvmlFlagForce
+// See [DriverModel] for details on available driver models. See [nvmlFlagDefault] and [nvmlFlagForce]
 // See also: [Device.DriverModel]
 //
 //   - device: The identifier of the target device
 //   - driverModel: The target driver model
 //   - flags: Flags that change the default behavior
 //
-// Wraps nvmlDeviceSetDriverModel.
+// Wraps [nvmlDeviceSetDriverModel].
+//
+// [nvmlFlagForce]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceEnums.html#c.nvmlFlagForce
+// [nvmlFlagDefault]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceEnums.html#c.nvmlFlagDefault
+// [nvmlDeviceSetDriverModel]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv424nvmlDeviceSetDriverModel12nvmlDevice_t17nvmlDriverModel_tj
 func deviceSetDriverModel(device Device, driverModel DriverModel, flags uint32) error {
 	if err := checkLibSym("nvmlDeviceSetDriverModel"); err != nil {
 		return err
@@ -4939,7 +5412,9 @@ func deviceSetDriverModel(device Device, driverModel DriverModel, flags uint32) 
 //   - device: The identifier of the target device
 //   - ecc: The target ECC mode
 //
-// Wraps nvmlDeviceSetEccMode.
+// Wraps [nvmlDeviceSetEccMode].
+//
+// [nvmlDeviceSetEccMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv420nvmlDeviceSetEccMode12nvmlDevice_t17nvmlEnableState_t
 func deviceSetEccMode(device Device, ecc EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetEccMode"); err != nil {
 		return err
@@ -4957,7 +5432,9 @@ func deviceSetEccMode(device Device, ecc EnableState) error {
 //   - fan: The index of the fan, starting at zero
 //   - policy: The fan control policy to set
 //
-// Wraps nvmlDeviceSetFanControlPolicy.
+// Wraps [nvmlDeviceSetFanControlPolicy].
+//
+// [nvmlDeviceSetFanControlPolicy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv429nvmlDeviceSetFanControlPolicy12nvmlDevice_tj22nvmlFanControlPolicy_t
 func deviceSetFanControlPolicy(device Device, fan uint32, policy FanControlPolicy) error {
 	if err := checkLibSym("nvmlDeviceSetFanControlPolicy"); err != nil {
 		return err
@@ -4975,7 +5452,9 @@ func deviceSetFanControlPolicy(device Device, fan uint32, policy FanControlPolic
 //   - fan: The index of the fan, starting at zero
 //   - speed: The target speed of the fan [0-100] in % of max speed
 //
-// Wraps nvmlDeviceSetFanSpeed_v2.
+// Wraps [nvmlDeviceSetFanSpeed_v2].
+//
+// [nvmlDeviceSetFanSpeed_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv424nvmlDeviceSetFanSpeed_v212nvmlDevice_tjj
 func deviceSetFanSpeed(device Device, fan uint32, speed uint32) error {
 	if err := checkLibSym("nvmlDeviceSetFanSpeed_v2"); err != nil {
 		return err
@@ -4990,7 +5469,9 @@ func deviceSetFanSpeed(device Device, fan uint32, speed uint32) error {
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.SetClockOffsets] instead. It works on Maxwell onwards GPU architectures. Set the GPCCLK VF offset value
 //
-// Wraps nvmlDeviceSetGpcClkVfOffset.
+// Wraps [nvmlDeviceSetGpcClkVfOffset].
+//
+// [nvmlDeviceSetGpcClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv427nvmlDeviceSetGpcClkVfOffset12nvmlDevice_ti
 func deviceSetGpcClkVfOffset(device Device, offset int32) error {
 	if err := checkLibSym("nvmlDeviceSetGpcClkVfOffset"); err != nil {
 		return err
@@ -5013,7 +5494,9 @@ func deviceSetGpcClkVfOffset(device Device, offset int32) error {
 //   - minGpuClockMHz: Requested minimum gpu clock in MHz
 //   - maxGpuClockMHz: Requested maximum gpu clock in MHz
 //
-// Wraps nvmlDeviceSetGpuLockedClocks.
+// Wraps [nvmlDeviceSetGpuLockedClocks].
+//
+// [nvmlDeviceSetGpuLockedClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv428nvmlDeviceSetGpuLockedClocks12nvmlDevice_tjj
 func deviceSetGpuLockedClocks(device Device, minGpuClockMHz uint32, maxGpuClockMHz uint32) error {
 	if err := checkLibSym("nvmlDeviceSetGpuLockedClocks"); err != nil {
 		return err
@@ -5032,7 +5515,9 @@ func deviceSetGpuLockedClocks(device Device, minGpuClockMHz uint32, maxGpuClockM
 //   - device: The identifier of the target device
 //   - mode: Target GOM
 //
-// Wraps nvmlDeviceSetGpuOperationMode.
+// Wraps [nvmlDeviceSetGpuOperationMode].
+//
+// [nvmlDeviceSetGpuOperationMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv429nvmlDeviceSetGpuOperationMode12nvmlDevice_t22nvmlGpuOperationMode_t
 func deviceSetGpuOperationMode(device Device, mode GpuOperationMode) error {
 	if err := checkLibSym("nvmlDeviceSetGpuOperationMode"); err != nil {
 		return err
@@ -5050,7 +5535,9 @@ func deviceSetGpuOperationMode(device Device, mode GpuOperationMode) error {
 //   - device: The identifier of the target device
 //   - hostname: Reference to the caller-provided [HostnameV1] struct containing the hostname
 //
-// Wraps nvmlDeviceSetHostname_v1.
+// Wraps [nvmlDeviceSetHostname_v1].
+//
+// [nvmlDeviceSetHostname_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv424nvmlDeviceSetHostname_v112nvmlDevice_tP17nvmlHostname_v1_t
 func deviceSetHostname(device Device, hostname *HostnameV1) error {
 	if err := checkLibSym("nvmlDeviceSetHostname_v1"); err != nil {
 		return err
@@ -5065,7 +5552,9 @@ func deviceSetHostname(device Device, hostname *HostnameV1) error {
 //
 // Deprecated: Will be deprecated in a future release. Use [Device.SetClockOffsets] instead. It works on Maxwell onwards GPU architectures. Set the MemClk (Memory Clock) VF offset value. It requires elevated privileges.
 //
-// Wraps nvmlDeviceSetMemClkVfOffset.
+// Wraps [nvmlDeviceSetMemClkVfOffset].
+//
+// [nvmlDeviceSetMemClkVfOffset]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv427nvmlDeviceSetMemClkVfOffset12nvmlDevice_ti
 func deviceSetMemClkVfOffset(device Device, offset int32) error {
 	if err := checkLibSym("nvmlDeviceSetMemClkVfOffset"); err != nil {
 		return err
@@ -5085,7 +5574,9 @@ func deviceSetMemClkVfOffset(device Device, offset int32) error {
 //   - minMemClockMHz: Requested minimum memory clock in MHz
 //   - maxMemClockMHz: Requested maximum memory clock in MHz
 //
-// Wraps nvmlDeviceSetMemoryLockedClocks.
+// Wraps [nvmlDeviceSetMemoryLockedClocks].
+//
+// [nvmlDeviceSetMemoryLockedClocks]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv431nvmlDeviceSetMemoryLockedClocks12nvmlDevice_tjj
 func deviceSetMemoryLockedClocks(device Device, minMemClockMHz uint32, maxMemClockMHz uint32) error {
 	if err := checkLibSym("nvmlDeviceSetMemoryLockedClocks"); err != nil {
 		return err
@@ -5107,7 +5598,9 @@ func deviceSetMemoryLockedClocks(device Device, minMemClockMHz uint32, maxMemClo
 //   - mode: The mode to be set, [DeviceMigDisable] or [DeviceMigEnable]
 //   - activationStatus: The activationStatus status
 //
-// Wraps nvmlDeviceSetMigMode.
+// Wraps [nvmlDeviceSetMigMode].
+//
+// [nvmlDeviceSetMigMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv420nvmlDeviceSetMigMode12nvmlDevice_tjP12nvmlReturn_t
 func deviceSetMigMode(device Device, mode uint32, activationStatus *Result) error {
 	if err := checkLibSym("nvmlDeviceSetMigMode"); err != nil {
 		return err
@@ -5122,7 +5615,9 @@ func deviceSetMigMode(device Device, mode uint32, activationStatus *Result) erro
 //   - device: The identifier of the target device
 //   - info: Reference to [NvLinkPowerThres] struct input parameters
 //
-// Wraps nvmlDeviceSetNvLinkDeviceLowPowerThreshold.
+// Wraps [nvmlDeviceSetNvLinkDeviceLowPowerThreshold].
+//
+// [nvmlDeviceSetNvLinkDeviceLowPowerThreshold]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv442nvmlDeviceSetNvLinkDeviceLowPowerThreshold12nvmlDevice_tP22nvmlNvLinkPowerThres_t
 func deviceSetNvLinkDeviceLowPowerThreshold(device Device, info *NvLinkPowerThres) error {
 	if err := checkLibSym("nvmlDeviceSetNvLinkDeviceLowPowerThreshold"); err != nil {
 		return err
@@ -5142,7 +5637,9 @@ func deviceSetNvLinkDeviceLowPowerThreshold(device Device, info *NvLinkPowerThre
 //
 // Deprecated: Setting utilization counter control is no longer supported. Set the NVLINK utilization counter control information for the specified counter, 0 or 1. Please refer to [NvLinkUtilizationControl] for the structure definition. Performs a reset of the counters if the reset parameter is non-zero. For Pascal &tm; or newer fully supported devices.
 //
-// Wraps nvmlDeviceSetNvLinkUtilizationControl.
+// Wraps [nvmlDeviceSetNvLinkUtilizationControl].
+//
+// [nvmlDeviceSetNvLinkUtilizationControl]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv437nvmlDeviceSetNvLinkUtilizationControl12nvmlDevice_tjjP30nvmlNvLinkUtilizationControl_tj
 func deviceSetNvLinkUtilizationControl(device Device, link uint32, counter uint32, control *NvLinkUtilizationControl, reset uint32) error {
 	if err := checkLibSym("nvmlDeviceSetNvLinkUtilizationControl"); err != nil {
 		return err
@@ -5157,7 +5654,9 @@ func deviceSetNvLinkUtilizationControl(device Device, link uint32, counter uint3
 //   - device: The identifier of the target device
 //   - setBwMode: Reference to [NvlinkSetBwMode]
 //
-// Wraps nvmlDeviceSetNvlinkBwMode.
+// Wraps [nvmlDeviceSetNvlinkBwMode].
+//
+// [nvmlDeviceSetNvlinkBwMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv425nvmlDeviceSetNvlinkBwMode12nvmlDevice_tP21nvmlNvlinkSetBwMode_t
 func deviceSetNvlinkBwMode(device Device, setBwMode *NvlinkSetBwMode) error {
 	if err := checkLibSym("nvmlDeviceSetNvlinkBwMode"); err != nil {
 		return err
@@ -5177,7 +5676,9 @@ func deviceSetNvlinkBwMode(device Device, setBwMode *NvlinkSetBwMode) error {
 //   - device: The identifier of the target device
 //   - mode: The target persistence mode
 //
-// Wraps nvmlDeviceSetPersistenceMode.
+// Wraps [nvmlDeviceSetPersistenceMode].
+//
+// [nvmlDeviceSetPersistenceMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv428nvmlDeviceSetPersistenceMode12nvmlDevice_t17nvmlEnableState_t
 func deviceSetPersistenceMode(device Device, mode EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetPersistenceMode"); err != nil {
 		return err
@@ -5202,7 +5703,9 @@ func deviceSetPersistenceMode(device Device, mode EnableState) error {
 //   - device: The identifier of the target device
 //   - powerValue: Power management limit in milliwatts to set
 //
-// Wraps nvmlDeviceSetPowerManagementLimit_v2.
+// Wraps [nvmlDeviceSetPowerManagementLimit_v2].
+//
+// [nvmlDeviceSetPowerManagementLimit_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv436nvmlDeviceSetPowerManagementLimit_v212nvmlDevice_tP19nvmlPowerValue_v2_t
 func deviceSetPowerManagementLimit(device Device, powerValue *PowerValueV2) error {
 	if err := checkLibSym("nvmlDeviceSetPowerManagementLimit_v2"); err != nil {
 		return err
@@ -5217,7 +5720,9 @@ func deviceSetPowerManagementLimit(device Device, powerValue *PowerValueV2) erro
 //   - device: The identifier of the target device
 //   - powerMizerMode: Reference in which to set the power mizer mode
 //
-// Wraps nvmlDeviceSetPowerMizerMode_v1.
+// Wraps [nvmlDeviceSetPowerMizerMode_v1].
+//
+// [nvmlDeviceSetPowerMizerMode_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv430nvmlDeviceSetPowerMizerMode_v112nvmlDevice_tP30nvmlDevicePowerMizerModes_v1_t
 func deviceSetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerModesV1) error {
 	if err := checkLibSym("nvmlDeviceSetPowerMizerMode_v1"); err != nil {
 		return err
@@ -5225,10 +5730,12 @@ func deviceSetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerMode
 	return toError(fndeviceSetPowerMizerMode(device, powerMizerMode))
 }
 
-// deviceSetRusdSettings wraps nvmlDeviceSetRusdSettings_v1.
+// deviceSetRusdSettings wraps [nvmlDeviceSetRusdSettings_v1].
 //
 //   - device: The identifier of the target device
 //   - settings: Reference to [RusdSettingsV1] struct
+//
+// [nvmlDeviceSetRusdSettings_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv428nvmlDeviceSetRusdSettings_v112nvmlDevice_tP21nvmlRusdSettings_v1_t
 func deviceSetRusdSettings(device Device, settings *RusdSettingsV1) error {
 	if err := checkLibSym("nvmlDeviceSetRusdSettings_v1"); err != nil {
 		return err
@@ -5245,7 +5752,9 @@ func deviceSetRusdSettings(device Device, settings *RusdSettingsV1) error {
 //   - thresholdType: The type of threshold value to be set
 //   - temp: Reference which hold the value to be set
 //
-// Wraps nvmlDeviceSetTemperatureThreshold.
+// Wraps [nvmlDeviceSetTemperatureThreshold].
+//
+// [nvmlDeviceSetTemperatureThreshold]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceCommands.html#_CPPv433nvmlDeviceSetTemperatureThreshold12nvmlDevice_t27nvmlTemperatureThresholds_tPi
 func deviceSetTemperatureThreshold(device Device, thresholdType TemperatureThresholds, temp *int32) error {
 	if err := checkLibSym("nvmlDeviceSetTemperatureThreshold"); err != nil {
 		return err
@@ -5261,7 +5770,9 @@ func deviceSetTemperatureThreshold(device Device, thresholdType TemperatureThres
 //   - capability: Specifies the [DeviceVgpuCapability] to be set
 //   - state: The target capability mode
 //
-// Wraps nvmlDeviceSetVgpuCapabilities.
+// Wraps [nvmlDeviceSetVgpuCapabilities].
+//
+// [nvmlDeviceSetVgpuCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv429nvmlDeviceSetVgpuCapabilities12nvmlDevice_t26nvmlDeviceVgpuCapability_t17nvmlEnableState_t
 func deviceSetVgpuCapabilities(device Device, capability DeviceVgpuCapability, state EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetVgpuCapabilities"); err != nil {
 		return err
@@ -5277,7 +5788,9 @@ func deviceSetVgpuCapabilities(device Device, capability DeviceVgpuCapability, s
 //   - device: Identifier of the target device
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
 //
-// Wraps nvmlDeviceSetVgpuHeterogeneousMode.
+// Wraps [nvmlDeviceSetVgpuHeterogeneousMode].
+//
+// [nvmlDeviceSetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv434nvmlDeviceSetVgpuHeterogeneousMode12nvmlDevice_tPK27nvmlVgpuHeterogeneousMode_t
 func deviceSetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	if err := checkLibSym("nvmlDeviceSetVgpuHeterogeneousMode"); err != nil {
 		return err
@@ -5285,10 +5798,12 @@ func deviceSetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeter
 	return toError(fndeviceSetVgpuHeterogeneousMode(device, pHeterogeneousMode))
 }
 
-// deviceSetVgpuSchedulerState wraps nvmlDeviceSetVgpuSchedulerState_v2.
+// deviceSetVgpuSchedulerState wraps [nvmlDeviceSetVgpuSchedulerState_v2].
 //
 //   - device: The identifier of the target device
 //   - pSchedulerState: vGPU pSchedulerState to set
+//
+// [nvmlDeviceSetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlDeviceSetVgpuSchedulerState_v212nvmlDevice_tP27nvmlVgpuSchedulerState_v2_t
 func deviceSetVgpuSchedulerState(device Device, pSchedulerState *VgpuSchedulerStateV2) error {
 	if err := checkLibSym("nvmlDeviceSetVgpuSchedulerState_v2"); err != nil {
 		return err
@@ -5303,7 +5818,9 @@ func deviceSetVgpuSchedulerState(device Device, pSchedulerState *VgpuSchedulerSt
 //   - device: Identifier of the target device
 //   - virtualMode: virtualization mode. One of NVML_GPU_VIRTUALIZATION_?
 //
-// Wraps nvmlDeviceSetVirtualizationMode.
+// Wraps [nvmlDeviceSetVirtualizationMode].
+//
+// [nvmlDeviceSetVirtualizationMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv431nvmlDeviceSetVirtualizationMode12nvmlDevice_t27nvmlGpuVirtualizationMode_t
 func deviceSetVirtualizationMode(device Device, virtualMode GpuVirtualizationMode) error {
 	if err := checkLibSym("nvmlDeviceSetVirtualizationMode"); err != nil {
 		return err
@@ -5317,7 +5834,9 @@ func deviceSetVirtualizationMode(device Device, virtualMode GpuVirtualizationMod
 //
 //   - device: The identifier of the target device
 //
-// Wraps nvmlDeviceValidateInforom.
+// Wraps [nvmlDeviceValidateInforom].
+//
+// [nvmlDeviceValidateInforom]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv425nvmlDeviceValidateInforom12nvmlDevice_t
 func deviceValidateInforom(device Device) error {
 	if err := checkLibSym("nvmlDeviceValidateInforom"); err != nil {
 		return err
@@ -5333,7 +5852,9 @@ func deviceValidateInforom(device Device) error {
 //
 //   - device: The identifier of the target device
 //
-// Wraps nvmlDeviceVgpuForceGspUnload.
+// Wraps [nvmlDeviceVgpuForceGspUnload].
+//
+// [nvmlDeviceVgpuForceGspUnload]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv428nvmlDeviceVgpuForceGspUnload12nvmlDevice_t
 func deviceVgpuForceGspUnload(device Device) error {
 	if err := checkLibSym("nvmlDeviceVgpuForceGspUnload"); err != nil {
 		return err
@@ -5341,12 +5862,14 @@ func deviceVgpuForceGspUnload(device Device) error {
 	return toError(fndeviceVgpuForceGspUnload(device))
 }
 
-// deviceWorkloadPowerProfileClearRequestedProfiles wraps nvmlDeviceWorkloadPowerProfileClearRequestedProfiles.
+// deviceWorkloadPowerProfileClearRequestedProfiles wraps [nvmlDeviceWorkloadPowerProfileClearRequestedProfiles].
 //
 //   - device: The identifier of the target device
 //   - requestedProfiles: Reference to struct [WorkloadPowerProfileRequestedProfiles]
 //
 // Deprecated: Use [Device.WorkloadPowerProfileUpdateProfiles] instead Clear Requested Performance Profiles For Blackwell &tm; or newer fully supported devices. See [WorkloadPowerProfileRequestedProfiles] for more information on the struct. Clear one or more performance profiles be using the input bitmask requestedProfilesMask, where each bit set corresponds to a supported bit from the perfProfilesMask. These profiles will be removed from the existing list of currently requested profiles. Requires root/admin permissions.
+//
+// [nvmlDeviceWorkloadPowerProfileClearRequestedProfiles]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv452nvmlDeviceWorkloadPowerProfileClearRequestedProfiles12nvmlDevice_tP43nvmlWorkloadPowerProfileRequestedProfiles_t
 func deviceWorkloadPowerProfileClearRequestedProfiles(device Device, requestedProfiles *WorkloadPowerProfileRequestedProfiles) error {
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileClearRequestedProfiles"); err != nil {
 		return err
@@ -5354,10 +5877,12 @@ func deviceWorkloadPowerProfileClearRequestedProfiles(device Device, requestedPr
 	return toError(fndeviceWorkloadPowerProfileClearRequestedProfiles(device, requestedProfiles))
 }
 
-// deviceWorkloadPowerProfileGetCurrentProfiles wraps nvmlDeviceWorkloadPowerProfileGetCurrentProfiles.
+// deviceWorkloadPowerProfileGetCurrentProfiles wraps [nvmlDeviceWorkloadPowerProfileGetCurrentProfiles].
 //
 //   - device: The identifier of the target device
 //   - currentProfiles: Reference to struct [WorkloadPowerProfileCurrentProfiles]
+//
+// [nvmlDeviceWorkloadPowerProfileGetCurrentProfiles]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv448nvmlDeviceWorkloadPowerProfileGetCurrentProfiles12nvmlDevice_tP41nvmlWorkloadPowerProfileCurrentProfiles_t
 func deviceWorkloadPowerProfileGetCurrentProfiles(device Device, currentProfiles *WorkloadPowerProfileCurrentProfiles) error {
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileGetCurrentProfiles"); err != nil {
 		return err
@@ -5365,10 +5890,12 @@ func deviceWorkloadPowerProfileGetCurrentProfiles(device Device, currentProfiles
 	return toError(fndeviceWorkloadPowerProfileGetCurrentProfiles(device, currentProfiles))
 }
 
-// deviceWorkloadPowerProfileGetProfilesInfo wraps nvmlDeviceWorkloadPowerProfileGetProfilesInfo.
+// deviceWorkloadPowerProfileGetProfilesInfo wraps [nvmlDeviceWorkloadPowerProfileGetProfilesInfo].
 //
 //   - device: The identifier of the target device
 //   - profilesInfo: Reference to struct [WorkloadPowerProfileProfilesInfo]
+//
+// [nvmlDeviceWorkloadPowerProfileGetProfilesInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv445nvmlDeviceWorkloadPowerProfileGetProfilesInfo12nvmlDevice_tP38nvmlWorkloadPowerProfileProfilesInfo_t
 func deviceWorkloadPowerProfileGetProfilesInfo(device Device, profilesInfo *WorkloadPowerProfileProfilesInfo) error {
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileGetProfilesInfo"); err != nil {
 		return err
@@ -5376,12 +5903,14 @@ func deviceWorkloadPowerProfileGetProfilesInfo(device Device, profilesInfo *Work
 	return toError(fndeviceWorkloadPowerProfileGetProfilesInfo(device, profilesInfo))
 }
 
-// deviceWorkloadPowerProfileSetRequestedProfiles wraps nvmlDeviceWorkloadPowerProfileSetRequestedProfiles.
+// deviceWorkloadPowerProfileSetRequestedProfiles wraps [nvmlDeviceWorkloadPowerProfileSetRequestedProfiles].
 //
 //   - device: The identifier of the target device
 //   - requestedProfiles: Reference to struct [WorkloadPowerProfileRequestedProfiles]
 //
 // Deprecated: Use [Device.WorkloadPowerProfileUpdateProfiles] instead Set Requested Performance Profiles For Blackwell &tm; or newer fully supported devices. See [WorkloadPowerProfileRequestedProfiles] for more information on the struct. Reuqest one or more performance profiles be activated using the input bitmask requestedProfilesMask, where each bit set corresponds to a supported bit from the perfProfilesMask. These profiles will be added to existing list of currently requested profiles. Requires root/admin permissions.
+//
+// [nvmlDeviceWorkloadPowerProfileSetRequestedProfiles]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv450nvmlDeviceWorkloadPowerProfileSetRequestedProfiles12nvmlDevice_tP43nvmlWorkloadPowerProfileRequestedProfiles_t
 func deviceWorkloadPowerProfileSetRequestedProfiles(device Device, requestedProfiles *WorkloadPowerProfileRequestedProfiles) error {
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileSetRequestedProfiles"); err != nil {
 		return err
@@ -5389,10 +5918,12 @@ func deviceWorkloadPowerProfileSetRequestedProfiles(device Device, requestedProf
 	return toError(fndeviceWorkloadPowerProfileSetRequestedProfiles(device, requestedProfiles))
 }
 
-// deviceWorkloadPowerProfileUpdateProfiles wraps nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1.
+// deviceWorkloadPowerProfileUpdateProfiles wraps [nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1].
 //
 //   - device: The identifier of the target device
 //   - updateProfiles: Reference to struct [WorkloadPowerProfileUpdateProfilesV1]
+//
+// [nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlPowerProfiles.html#_CPPv447nvmlDeviceWorkloadPowerProfileUpdateProfiles_v112nvmlDevice_tP43nvmlWorkloadPowerProfileUpdateProfiles_v1_t
 func deviceWorkloadPowerProfileUpdateProfiles(device Device, updateProfiles *WorkloadPowerProfileUpdateProfilesV1) error {
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1"); err != nil {
 		return err
@@ -5407,7 +5938,9 @@ func deviceWorkloadPowerProfileUpdateProfiles(device Device, updateProfiles *Wor
 //
 //   - set: Reference in which to return the event handle
 //
-// Wraps nvmlEventSetCreate.
+// Wraps [nvmlEventSetCreate].
+//
+// [nvmlEventSetCreate]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv418nvmlEventSetCreateP14nvmlEventSet_t
 func eventSetCreate() (EventSet, error) {
 	if err := checkLibSym("nvmlEventSetCreate"); err != nil {
 		var zero EventSet
@@ -5428,7 +5961,9 @@ func eventSetCreate() (EventSet, error) {
 //
 //   - set: Reference to events to be released
 //
-// Wraps nvmlEventSetFree.
+// Wraps [nvmlEventSetFree].
+//
+// [nvmlEventSetFree]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv416nvmlEventSetFree14nvmlEventSet_t
 func eventSetFree(set EventSet) error {
 	if err := checkLibSym("nvmlEventSetFree"); err != nil {
 		return err
@@ -5452,7 +5987,9 @@ func eventSetFree(set EventSet) error {
 //   - data: Reference in which to return event data
 //   - timeoutms: Maximum amount of wait time in milliseconds for registered event
 //
-// Wraps nvmlEventSetWait, bound as nvmlEventSetWait_v2.
+// Wraps [nvmlEventSetWait], bound as nvmlEventSetWait_v2.
+//
+// [nvmlEventSetWait]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv419nvmlEventSetWait_v214nvmlEventSet_tP15nvmlEventData_tj
 func eventSetWait(set EventSet, data *EventData, timeoutms uint32) error {
 	if err := checkLibSym("nvmlEventSetWait_v2"); err != nil {
 		return err
@@ -5466,7 +6003,9 @@ func eventSetWait(set EventSet, data *EventData, timeoutms uint32) error {
 //
 //   - deviceCount: Reference in which to return the number of excluded devices
 //
-// Wraps nvmlGetExcludedDeviceCount.
+// Wraps [nvmlGetExcludedDeviceCount].
+//
+// [nvmlGetExcludedDeviceCount]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlExcludedGpuQueries.html#_CPPv426nvmlGetExcludedDeviceCountPj
 func GetExcludedDeviceCount() (uint32, error) {
 	if err := checkLibSym("nvmlGetExcludedDeviceCount"); err != nil {
 		var zero uint32
@@ -5489,7 +6028,9 @@ func GetExcludedDeviceCount() (uint32, error) {
 //   - index: The index of the target GPU, >= 0 and < deviceCount
 //   - info: Reference in which to return the device information
 //
-// Wraps nvmlGetExcludedDeviceInfoByIndex.
+// Wraps [nvmlGetExcludedDeviceInfoByIndex].
+//
+// [nvmlGetExcludedDeviceInfoByIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlExcludedGpuQueries.html#_CPPv432nvmlGetExcludedDeviceInfoByIndexjP24nvmlExcludedDeviceInfo_t
 func GetExcludedDeviceInfoByIndex(index uint32) (ExcludedDeviceInfo, error) {
 	if err := checkLibSym("nvmlGetExcludedDeviceInfoByIndex"); err != nil {
 		var zero ExcludedDeviceInfo
@@ -5503,11 +6044,13 @@ func GetExcludedDeviceInfoByIndex(index uint32) (ExcludedDeviceInfo, error) {
 	return out, nil
 }
 
-// GetVgpuCompatibility wraps nvmlGetVgpuCompatibility.
+// GetVgpuCompatibility wraps [nvmlGetVgpuCompatibility].
 //
 //   - vgpuMetadata: Pointer to caller-supplied vGPU metadata structure
 //   - pgpuMetadata: Pointer to caller-supplied GPU metadata structure
 //   - compatibilityInfo: Pointer to caller-supplied buffer to hold compatibility info
+//
+// [nvmlGetVgpuCompatibility]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv424nvmlGetVgpuCompatibilityP18nvmlVgpuMetadata_tP22nvmlVgpuPgpuMetadata_tP27nvmlVgpuPgpuCompatibility_t
 func GetVgpuCompatibility(vgpuMetadata *VgpuMetadata, pgpuMetadata *VgpuPgpuMetadata, compatibilityInfo *VgpuPgpuCompatibility) error {
 	if err := checkLibSym("nvmlGetVgpuCompatibility"); err != nil {
 		return err
@@ -5515,10 +6058,12 @@ func GetVgpuCompatibility(vgpuMetadata *VgpuMetadata, pgpuMetadata *VgpuPgpuMeta
 	return toError(fnGetVgpuCompatibility(vgpuMetadata, pgpuMetadata, compatibilityInfo))
 }
 
-// GetVgpuDriverCapabilities wraps nvmlGetVgpuDriverCapabilities.
+// GetVgpuDriverCapabilities wraps [nvmlGetVgpuDriverCapabilities].
 //
 //   - capability: Specifies the [VgpuDriverCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is supported
+//
+// [nvmlGetVgpuDriverCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlGetVgpuDriverCapabilities26nvmlVgpuDriverCapability_tPj
 func GetVgpuDriverCapabilities(capability VgpuDriverCapability) (uint32, error) {
 	if err := checkLibSym("nvmlGetVgpuDriverCapabilities"); err != nil {
 		var zero uint32
@@ -5532,10 +6077,12 @@ func GetVgpuDriverCapabilities(capability VgpuDriverCapability) (uint32, error) 
 	return out, nil
 }
 
-// GetVgpuVersion wraps nvmlGetVgpuVersion.
+// GetVgpuVersion wraps [nvmlGetVgpuVersion].
 //
 //   - supported: Pointer to the structure in which the preset range of vGPU versions supported by the NVIDIA vGPU Manager is written
 //   - current: Pointer to the structure in which the range of supported vGPU versions set by an administrator is written
+//
+// [nvmlGetVgpuVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv418nvmlGetVgpuVersionP17nvmlVgpuVersion_tP17nvmlVgpuVersion_t
 func GetVgpuVersion(supported *VgpuVersion, current *VgpuVersion) error {
 	if err := checkLibSym("nvmlGetVgpuVersion"); err != nil {
 		return err
@@ -5552,7 +6099,9 @@ func GetVgpuVersion(supported *VgpuVersion, current *VgpuVersion) error {
 //
 //   - metricsGet: IN/OUT: populated [GpmMetricsGetParams] struct
 //
-// Wraps nvmlGpmMetricsGet.
+// Wraps [nvmlGpmMetricsGet].
+//
+// [nvmlGpmMetricsGet]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv417nvmlGpmMetricsGetP19nvmlGpmMetricsGet_t
 func GpmMetricsGet(metricsGet *GpmMetricsGetParams) error {
 	if err := checkLibSym("nvmlGpmMetricsGet"); err != nil {
 		return err
@@ -5571,7 +6120,9 @@ func GpmMetricsGet(metricsGet *GpmMetricsGetParams) error {
 //   - gpuInstanceId: MIG GPU Instance ID
 //   - gpmSample: Buffer to read samples into
 //
-// Wraps nvmlGpmMigSampleGet.
+// Wraps [nvmlGpmMigSampleGet].
+//
+// [nvmlGpmMigSampleGet]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv419nvmlGpmMigSampleGet12nvmlDevice_tj15nvmlGpmSample_t
 func gpmMigSampleGet(device Device, gpuInstanceId uint32, gpmSample GpmSample) error {
 	if err := checkLibSym("nvmlGpmMigSampleGet"); err != nil {
 		return err
@@ -5588,7 +6139,9 @@ func gpmMigSampleGet(device Device, gpuInstanceId uint32, gpmSample GpmSample) e
 //   - device: The device handle or MIG device handle to query for
 //   - gpmSupport: Structure to indicate GPM support [GpmSupport] . Indicates GPM support per system for the supplied device
 //
-// Wraps nvmlGpmQueryDeviceSupport.
+// Wraps [nvmlGpmQueryDeviceSupport].
+//
+// [nvmlGpmQueryDeviceSupport]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv425nvmlGpmQueryDeviceSupport12nvmlDevice_tP16nvmlGpmSupport_t
 func gpmQueryDeviceSupport(device Device, gpmSupport *GpmSupport) error {
 	if err := checkLibSym("nvmlGpmQueryDeviceSupport"); err != nil {
 		return err
@@ -5603,7 +6156,9 @@ func gpmQueryDeviceSupport(device Device, gpmSupport *GpmSupport) error {
 //   - device: The identifier of the target device
 //   - state: Returns GPM stream state [FeatureDisabled] or [FeatureEnabled]
 //
-// Wraps nvmlGpmQueryIfStreamingEnabled.
+// Wraps [nvmlGpmQueryIfStreamingEnabled].
+//
+// [nvmlGpmQueryIfStreamingEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv430nvmlGpmQueryIfStreamingEnabled12nvmlDevice_tPj
 func gpmQueryIfStreamingEnabled(device Device) (uint32, error) {
 	if err := checkLibSym("nvmlGpmQueryIfStreamingEnabled"); err != nil {
 		var zero uint32
@@ -5623,7 +6178,9 @@ func gpmQueryIfStreamingEnabled(device Device) (uint32, error) {
 //
 //   - gpmSample: Where the allocated sample will be stored
 //
-// Wraps nvmlGpmSampleAlloc.
+// Wraps [nvmlGpmSampleAlloc].
+//
+// [nvmlGpmSampleAlloc]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv418nvmlGpmSampleAllocP15nvmlGpmSample_t
 func gpmSampleAlloc() (GpmSample, error) {
 	if err := checkLibSym("nvmlGpmSampleAlloc"); err != nil {
 		var zero GpmSample
@@ -5643,7 +6200,9 @@ func gpmSampleAlloc() (GpmSample, error) {
 //
 //   - gpmSample: Sample to free
 //
-// Wraps nvmlGpmSampleFree.
+// Wraps [nvmlGpmSampleFree].
+//
+// [nvmlGpmSampleFree]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv417nvmlGpmSampleFree15nvmlGpmSample_t
 func gpmSampleFree(gpmSample GpmSample) error {
 	if err := checkLibSym("nvmlGpmSampleFree"); err != nil {
 		return err
@@ -5659,7 +6218,9 @@ func gpmSampleFree(gpmSample GpmSample) error {
 //   - device: The device handle or MIG device handle to get samples for
 //   - gpmSample: Buffer to read samples into
 //
-// Wraps nvmlGpmSampleGet.
+// Wraps [nvmlGpmSampleGet].
+//
+// [nvmlGpmSampleGet]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv416nvmlGpmSampleGet12nvmlDevice_t15nvmlGpmSample_t
 func gpmSampleGet(device Device, gpmSample GpmSample) error {
 	if err := checkLibSym("nvmlGpmSampleGet"); err != nil {
 		return err
@@ -5674,7 +6235,9 @@ func gpmSampleGet(device Device, gpmSample GpmSample) error {
 //   - device: The identifier of the target device
 //   - state: GPM stream state, [FeatureDisabled] or [FeatureEnabled]
 //
-// Wraps nvmlGpmSetStreamingEnabled.
+// Wraps [nvmlGpmSetStreamingEnabled].
+//
+// [nvmlGpmSetStreamingEnabled]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlGpmFunctions.html#_CPPv426nvmlGpmSetStreamingEnabled12nvmlDevice_tj
 func gpmSetStreamingEnabled(device Device, state uint32) error {
 	if err := checkLibSym("nvmlGpmSetStreamingEnabled"); err != nil {
 		return err
@@ -5691,7 +6254,9 @@ func gpmSetStreamingEnabled(device Device, state uint32) error {
 //   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - computeInstance: Returns the compute instance handle
 //
-// Wraps nvmlGpuInstanceCreateComputeInstance.
+// Wraps [nvmlGpuInstanceCreateComputeInstance].
+//
+// [nvmlGpuInstanceCreateComputeInstance]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv436nvmlGpuInstanceCreateComputeInstance17nvmlGpuInstance_tjP21nvmlComputeInstance_t
 func gpuInstanceCreateComputeInstance(gpuInstance GpuInstance, profileId uint32) (ComputeInstance, error) {
 	if err := checkLibSym("nvmlGpuInstanceCreateComputeInstance"); err != nil {
 		var zero ComputeInstance
@@ -5715,7 +6280,9 @@ func gpuInstanceCreateComputeInstance(gpuInstance GpuInstance, profileId uint32)
 //   - placement: The requested placement. See [GpuInstance.ComputeInstancePossiblePlacements]
 //   - computeInstance: Returns the compute instance handle
 //
-// Wraps nvmlGpuInstanceCreateComputeInstanceWithPlacement.
+// Wraps [nvmlGpuInstanceCreateComputeInstanceWithPlacement].
+//
+// [nvmlGpuInstanceCreateComputeInstanceWithPlacement]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv449nvmlGpuInstanceCreateComputeInstanceWithPlacement17nvmlGpuInstance_tjPK30nvmlComputeInstancePlacement_tP21nvmlComputeInstance_t
 func gpuInstanceCreateComputeInstanceWithPlacement(gpuInstance GpuInstance, profileId uint32, placement *ComputeInstancePlacement) (ComputeInstance, error) {
 	if err := checkLibSym("nvmlGpuInstanceCreateComputeInstanceWithPlacement"); err != nil {
 		var zero ComputeInstance
@@ -5735,7 +6302,9 @@ func gpuInstanceCreateComputeInstanceWithPlacement(gpuInstance GpuInstance, prof
 //
 //   - gpuInstance: The GPU instance handle
 //
-// Wraps nvmlGpuInstanceDestroy.
+// Wraps [nvmlGpuInstanceDestroy].
+//
+// [nvmlGpuInstanceDestroy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv422nvmlGpuInstanceDestroy17nvmlGpuInstance_t
 func gpuInstanceDestroy(gpuInstance GpuInstance) error {
 	if err := checkLibSym("nvmlGpuInstanceDestroy"); err != nil {
 		return err
@@ -5743,10 +6312,12 @@ func gpuInstanceDestroy(gpuInstance GpuInstance) error {
 	return toError(fngpuInstanceDestroy(gpuInstance))
 }
 
-// gpuInstanceGetActiveVgpus wraps nvmlGpuInstanceGetActiveVgpus.
+// gpuInstanceGetActiveVgpus wraps [nvmlGpuInstanceGetActiveVgpus].
 //
 //   - gpuInstance: The GPU instance handle
 //   - pVgpuInstanceInfo: Pointer to the vGPU instance information structure [ActiveVgpuInstanceInfo]
+//
+// [nvmlGpuInstanceGetActiveVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlGpuInstanceGetActiveVgpus17nvmlGpuInstance_tP28nvmlActiveVgpuInstanceInfo_t
 func gpuInstanceGetActiveVgpus(gpuInstance GpuInstance, pVgpuInstanceInfo *ActiveVgpuInstanceInfo) error {
 	if err := checkLibSym("nvmlGpuInstanceGetActiveVgpus"); err != nil {
 		return err
@@ -5762,7 +6333,9 @@ func gpuInstanceGetActiveVgpus(gpuInstance GpuInstance, pVgpuInstanceInfo *Activ
 //   - id: The compute instance ID
 //   - computeInstance: Returns compute instance
 //
-// Wraps nvmlGpuInstanceGetComputeInstanceById.
+// Wraps [nvmlGpuInstanceGetComputeInstanceById].
+//
+// [nvmlGpuInstanceGetComputeInstanceById]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv437nvmlGpuInstanceGetComputeInstanceById17nvmlGpuInstance_tjP21nvmlComputeInstance_t
 func gpuInstanceGetComputeInstanceById(gpuInstance GpuInstance, id uint32) (ComputeInstance, error) {
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstanceById"); err != nil {
 		var zero ComputeInstance
@@ -5786,7 +6359,9 @@ func gpuInstanceGetComputeInstanceById(gpuInstance GpuInstance, id uint32) (Comp
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 //
-// Wraps nvmlGpuInstanceGetComputeInstancePossiblePlacements.
+// Wraps [nvmlGpuInstanceGetComputeInstancePossiblePlacements].
+//
+// [nvmlGpuInstanceGetComputeInstancePossiblePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv451nvmlGpuInstanceGetComputeInstancePossiblePlacements17nvmlGpuInstance_tjP30nvmlComputeInstancePlacement_tPj
 func gpuInstanceGetComputeInstancePossiblePlacements(gpuInstance GpuInstance, profileId uint32, placements *ComputeInstancePlacement, count *uint32) error {
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstancePossiblePlacements"); err != nil {
 		return err
@@ -5806,7 +6381,9 @@ func gpuInstanceGetComputeInstancePossiblePlacements(gpuInstance GpuInstance, pr
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlGpuInstanceGetComputeInstanceProfileInfo.
+// Wraps [nvmlGpuInstanceGetComputeInstanceProfileInfo].
+//
+// [nvmlGpuInstanceGetComputeInstanceProfileInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv444nvmlGpuInstanceGetComputeInstanceProfileInfo17nvmlGpuInstance_tjjP32nvmlComputeInstanceProfileInfo_t
 func gpuInstanceGetComputeInstanceProfileInfo(gpuInstance GpuInstance, profile uint32, engProfile uint32) (ComputeInstanceProfileInfo, error) {
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstanceProfileInfo"); err != nil {
 		var zero ComputeInstanceProfileInfo
@@ -5831,7 +6408,9 @@ func gpuInstanceGetComputeInstanceProfileInfo(gpuInstance GpuInstance, profile u
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
 //   - info: Returns detailed profile information
 //
-// Wraps nvmlGpuInstanceGetComputeInstanceProfileInfoV.
+// Wraps [nvmlGpuInstanceGetComputeInstanceProfileInfoV].
+//
+// [nvmlGpuInstanceGetComputeInstanceProfileInfoV]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv445nvmlGpuInstanceGetComputeInstanceProfileInfoV17nvmlGpuInstance_tjjP35nvmlComputeInstanceProfileInfo_v2_t
 func gpuInstanceGetComputeInstanceProfileInfoV(gpuInstance GpuInstance, profile uint32, engProfile uint32) (ComputeInstanceProfileInfoV2, error) {
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstanceProfileInfoV"); err != nil {
 		var zero ComputeInstanceProfileInfoV2
@@ -5854,7 +6433,9 @@ func gpuInstanceGetComputeInstanceProfileInfoV(gpuInstance GpuInstance, profile 
 //   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
-// Wraps nvmlGpuInstanceGetComputeInstanceRemainingCapacity.
+// Wraps [nvmlGpuInstanceGetComputeInstanceRemainingCapacity].
+//
+// [nvmlGpuInstanceGetComputeInstanceRemainingCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv450nvmlGpuInstanceGetComputeInstanceRemainingCapacity17nvmlGpuInstance_tjPj
 func gpuInstanceGetComputeInstanceRemainingCapacity(gpuInstance GpuInstance, profileId uint32, count *uint32) error {
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstanceRemainingCapacity"); err != nil {
 		return err
@@ -5871,7 +6452,9 @@ func gpuInstanceGetComputeInstanceRemainingCapacity(gpuInstance GpuInstance, pro
 //   - computeInstances: Returns pre-exiting compute instances, the buffer must be large enough to accommodate the instances supported by the profile. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: The count of returned compute instances
 //
-// Wraps nvmlGpuInstanceGetComputeInstances.
+// Wraps [nvmlGpuInstanceGetComputeInstances].
+//
+// [nvmlGpuInstanceGetComputeInstances]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv434nvmlGpuInstanceGetComputeInstances17nvmlGpuInstance_tjP21nvmlComputeInstance_tPj
 func gpuInstanceGetComputeInstances(gpuInstance GpuInstance, profileId uint32, computeInstances *ComputeInstance, count *uint32) error {
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstances"); err != nil {
 		return err
@@ -5879,10 +6462,12 @@ func gpuInstanceGetComputeInstances(gpuInstance GpuInstance, profileId uint32, c
 	return toError(fngpuInstanceGetComputeInstances(gpuInstance, profileId, computeInstances, count))
 }
 
-// gpuInstanceGetCreatableVgpus wraps nvmlGpuInstanceGetCreatableVgpus.
+// gpuInstanceGetCreatableVgpus wraps [nvmlGpuInstanceGetCreatableVgpus].
 //
 //   - gpuInstance: The GPU instance handle
 //   - pVgpus: Pointer to the caller-provided structure of [VgpuTypeIdInfo]
+//
+// [nvmlGpuInstanceGetCreatableVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlGpuInstanceGetCreatableVgpus17nvmlGpuInstance_tP20nvmlVgpuTypeIdInfo_t
 func gpuInstanceGetCreatableVgpus(gpuInstance GpuInstance, pVgpus *VgpuTypeIdInfo) error {
 	if err := checkLibSym("nvmlGpuInstanceGetCreatableVgpus"); err != nil {
 		return err
@@ -5897,7 +6482,9 @@ func gpuInstanceGetCreatableVgpus(gpuInstance GpuInstance, pVgpus *VgpuTypeIdInf
 //   - gpuInstance: The GPU instance handle
 //   - info: Return GPU instance information
 //
-// Wraps nvmlGpuInstanceGetInfo.
+// Wraps [nvmlGpuInstanceGetInfo].
+//
+// [nvmlGpuInstanceGetInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv422nvmlGpuInstanceGetInfo17nvmlGpuInstance_tP21nvmlGpuInstanceInfo_t
 func gpuInstanceGetInfo(gpuInstance GpuInstance) (GpuInstanceInfo, error) {
 	if err := checkLibSym("nvmlGpuInstanceGetInfo"); err != nil {
 		var zero GpuInstanceInfo
@@ -5911,10 +6498,12 @@ func gpuInstanceGetInfo(gpuInstance GpuInstance) (GpuInstanceInfo, error) {
 	return out, nil
 }
 
-// gpuInstanceGetVgpuHeterogeneousMode wraps nvmlGpuInstanceGetVgpuHeterogeneousMode.
+// gpuInstanceGetVgpuHeterogeneousMode wraps [nvmlGpuInstanceGetVgpuHeterogeneousMode].
 //
 //   - gpuInstance: The GPU instance handle
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
+//
+// [nvmlGpuInstanceGetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceGetVgpuHeterogeneousMode17nvmlGpuInstance_tP27nvmlVgpuHeterogeneousMode_t
 func gpuInstanceGetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	if err := checkLibSym("nvmlGpuInstanceGetVgpuHeterogeneousMode"); err != nil {
 		return err
@@ -5922,10 +6511,12 @@ func gpuInstanceGetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneous
 	return toError(fngpuInstanceGetVgpuHeterogeneousMode(gpuInstance, pHeterogeneousMode))
 }
 
-// gpuInstanceGetVgpuSchedulerLog wraps nvmlGpuInstanceGetVgpuSchedulerLog_v2.
+// gpuInstanceGetVgpuSchedulerLog wraps [nvmlGpuInstanceGetVgpuSchedulerLog_v2].
 //
 //   - gpuInstance: The GPU instance handle
 //   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
+//
+// [nvmlGpuInstanceGetVgpuSchedulerLog_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv437nvmlGpuInstanceGetVgpuSchedulerLog_v217nvmlGpuInstance_tP29nvmlVgpuSchedulerLogInfo_v2_t
 func gpuInstanceGetVgpuSchedulerLog(gpuInstance GpuInstance, pSchedulerLogInfo *VgpuSchedulerLogInfoV2) error {
 	if err := checkLibSym("nvmlGpuInstanceGetVgpuSchedulerLog_v2"); err != nil {
 		return err
@@ -5933,10 +6524,12 @@ func gpuInstanceGetVgpuSchedulerLog(gpuInstance GpuInstance, pSchedulerLogInfo *
 	return toError(fngpuInstanceGetVgpuSchedulerLog(gpuInstance, pSchedulerLogInfo))
 }
 
-// gpuInstanceGetVgpuSchedulerState wraps nvmlGpuInstanceGetVgpuSchedulerState_v2.
+// gpuInstanceGetVgpuSchedulerState wraps [nvmlGpuInstanceGetVgpuSchedulerState_v2].
 //
 //   - gpuInstance: The GPU instance handle
 //   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
+//
+// [nvmlGpuInstanceGetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceGetVgpuSchedulerState_v217nvmlGpuInstance_tP31nvmlVgpuSchedulerStateInfo_v2_t
 func gpuInstanceGetVgpuSchedulerState(gpuInstance GpuInstance, pSchedulerStateInfo *VgpuSchedulerStateInfoV2) error {
 	if err := checkLibSym("nvmlGpuInstanceGetVgpuSchedulerState_v2"); err != nil {
 		return err
@@ -5944,10 +6537,12 @@ func gpuInstanceGetVgpuSchedulerState(gpuInstance GpuInstance, pSchedulerStateIn
 	return toError(fngpuInstanceGetVgpuSchedulerState(gpuInstance, pSchedulerStateInfo))
 }
 
-// gpuInstanceGetVgpuTypeCreatablePlacements wraps nvmlGpuInstanceGetVgpuTypeCreatablePlacements.
+// gpuInstanceGetVgpuTypeCreatablePlacements wraps [nvmlGpuInstanceGetVgpuTypeCreatablePlacements].
 //
 //   - gpuInstance: The GPU instance handle
 //   - pCreatablePlacementInfo: Pointer to the list of vGPU creatable placement structure [VgpuCreatablePlacementInfo]
+//
+// [nvmlGpuInstanceGetVgpuTypeCreatablePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv445nvmlGpuInstanceGetVgpuTypeCreatablePlacements17nvmlGpuInstance_tP32nvmlVgpuCreatablePlacementInfo_t
 func gpuInstanceGetVgpuTypeCreatablePlacements(gpuInstance GpuInstance, pCreatablePlacementInfo *VgpuCreatablePlacementInfo) error {
 	if err := checkLibSym("nvmlGpuInstanceGetVgpuTypeCreatablePlacements"); err != nil {
 		return err
@@ -5955,10 +6550,12 @@ func gpuInstanceGetVgpuTypeCreatablePlacements(gpuInstance GpuInstance, pCreatab
 	return toError(fngpuInstanceGetVgpuTypeCreatablePlacements(gpuInstance, pCreatablePlacementInfo))
 }
 
-// gpuInstanceSetVgpuHeterogeneousMode wraps nvmlGpuInstanceSetVgpuHeterogeneousMode.
+// gpuInstanceSetVgpuHeterogeneousMode wraps [nvmlGpuInstanceSetVgpuHeterogeneousMode].
 //
 //   - gpuInstance: The GPU instance handle
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
+//
+// [nvmlGpuInstanceSetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceSetVgpuHeterogeneousMode17nvmlGpuInstance_tPK27nvmlVgpuHeterogeneousMode_t
 func gpuInstanceSetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	if err := checkLibSym("nvmlGpuInstanceSetVgpuHeterogeneousMode"); err != nil {
 		return err
@@ -5966,10 +6563,12 @@ func gpuInstanceSetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneous
 	return toError(fngpuInstanceSetVgpuHeterogeneousMode(gpuInstance, pHeterogeneousMode))
 }
 
-// gpuInstanceSetVgpuSchedulerState wraps nvmlGpuInstanceSetVgpuSchedulerState_v2.
+// gpuInstanceSetVgpuSchedulerState wraps [nvmlGpuInstanceSetVgpuSchedulerState_v2].
 //
 //   - gpuInstance: The GPU instance handle
 //   - pSchedulerState: Pointer to the caller-provided structure of [VgpuSchedulerStateV2]
+//
+// [nvmlGpuInstanceSetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceSetVgpuSchedulerState_v217nvmlGpuInstance_tP27nvmlVgpuSchedulerState_v2_t
 func gpuInstanceSetVgpuSchedulerState(gpuInstance GpuInstance, pSchedulerState *VgpuSchedulerStateV2) error {
 	if err := checkLibSym("nvmlGpuInstanceSetVgpuSchedulerState_v2"); err != nil {
 		return err
@@ -5986,7 +6585,9 @@ func gpuInstanceSetVgpuSchedulerState(gpuInstance GpuInstance, pSchedulerState *
 // For all products.
 // This method, should be called once before invoking any other methods in the library. A reference count of the number of initializations is maintained. Shutdown only occurs when the reference count reaches zero.
 //
-// Wraps nvmlInit, bound as nvmlInit_v2.
+// Wraps [nvmlInit], bound as nvmlInit_v2.
+//
+// [nvmlInit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlInitializationAndCleanup.html#_CPPv411nvmlInit_v2v
 func Init() error {
 	if err := checkLibSym("nvmlInit_v2"); err != nil {
 		return err
@@ -6000,7 +6601,9 @@ func Init() error {
 //
 //   - flags: behaviour modifier flags
 //
-// Wraps nvmlInitWithFlags.
+// Wraps [nvmlInitWithFlags].
+//
+// [nvmlInitWithFlags]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlInitializationAndCleanup.html#_CPPv417nvmlInitWithFlagsj
 func InitWithFlags(flags uint32) error {
 	if err := checkLibSym("nvmlInitWithFlags"); err != nil {
 		return err
@@ -6008,9 +6611,11 @@ func InitWithFlags(flags uint32) error {
 	return toError(fnInitWithFlags(flags))
 }
 
-// SetVgpuVersion wraps nvmlSetVgpuVersion.
+// SetVgpuVersion wraps [nvmlSetVgpuVersion].
 //
 //   - vgpuVersion: Pointer to a caller-supplied range of supported vGPU versions
+//
+// [nvmlSetVgpuVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv418nvmlSetVgpuVersionP17nvmlVgpuVersion_t
 func SetVgpuVersion(vgpuVersion *VgpuVersion) error {
 	if err := checkLibSym("nvmlSetVgpuVersion"); err != nil {
 		return err
@@ -6023,7 +6628,9 @@ func SetVgpuVersion(vgpuVersion *VgpuVersion) error {
 // For all products.
 // This method should be called after NVML work is done, once for each call to [Init] A reference count of the number of initializations is maintained. Shutdown only occurs when the reference count reaches zero. For backwards compatibility, no error is reported if [Shutdown] is called more times than [Init].
 //
-// Wraps nvmlShutdown.
+// Wraps [nvmlShutdown].
+//
+// [nvmlShutdown]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlInitializationAndCleanup.html#_CPPv412nvmlShutdownv
 func Shutdown() error {
 	if err := checkLibSym("nvmlShutdown"); err != nil {
 		return err
@@ -6038,7 +6645,9 @@ func Shutdown() error {
 //
 //   - request: Reference to [SystemEventSetCreateRequest]
 //
-// Wraps nvmlSystemEventSetCreate.
+// Wraps [nvmlSystemEventSetCreate].
+//
+// [nvmlSystemEventSetCreate]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv424nvmlSystemEventSetCreateP33nvmlSystemEventSetCreateRequest_t
 func SystemEventSetCreate(request *SystemEventSetCreateRequest) error {
 	if err := checkLibSym("nvmlSystemEventSetCreate"); err != nil {
 		return err
@@ -6053,7 +6662,9 @@ func SystemEventSetCreate(request *SystemEventSetCreateRequest) error {
 //
 //   - request: Reference to [SystemEventSetFreeRequest]
 //
-// Wraps nvmlSystemEventSetFree.
+// Wraps [nvmlSystemEventSetFree].
+//
+// [nvmlSystemEventSetFree]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv422nvmlSystemEventSetFreeP31nvmlSystemEventSetFreeRequest_t
 func SystemEventSetFree(request *SystemEventSetFreeRequest) error {
 	if err := checkLibSym("nvmlSystemEventSetFree"); err != nil {
 		return err
@@ -6072,7 +6683,9 @@ func SystemEventSetFree(request *SystemEventSetFreeRequest) error {
 //
 //   - request: Reference in which to [SystemEventSetWaitRequest]
 //
-// Wraps nvmlSystemEventSetWait.
+// Wraps [nvmlSystemEventSetWait].
+//
+// [nvmlSystemEventSetWait]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv422nvmlSystemEventSetWaitP31nvmlSystemEventSetWaitRequest_t
 func SystemEventSetWait(request *SystemEventSetWaitRequest) error {
 	if err := checkLibSym("nvmlSystemEventSetWait"); err != nil {
 		return err
@@ -6086,7 +6699,9 @@ func SystemEventSetWait(request *SystemEventSetWaitRequest) error {
 //
 //   - capabilities: System CC capabilities
 //
-// Wraps nvmlSystemGetConfComputeCapabilities.
+// Wraps [nvmlSystemGetConfComputeCapabilities].
+//
+// [nvmlSystemGetConfComputeCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv436nvmlSystemGetConfComputeCapabilitiesP27nvmlConfComputeSystemCaps_t
 func SystemGetConfComputeCapabilities(capabilities *ConfComputeSystemCaps) error {
 	if err := checkLibSym("nvmlSystemGetConfComputeCapabilities"); err != nil {
 		return err
@@ -6101,7 +6716,9 @@ func SystemGetConfComputeCapabilities(capabilities *ConfComputeSystemCaps) error
 //
 //   - isAcceptingWork: Returns GPU current work accepting state, [CcAcceptingClientRequestsTrue] or [CcAcceptingClientRequestsFalse]
 //
-// Wraps nvmlSystemGetConfComputeGpusReadyState.
+// Wraps [nvmlSystemGetConfComputeGpusReadyState].
+//
+// [nvmlSystemGetConfComputeGpusReadyState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlSystemGetConfComputeGpusReadyStatePj
 func SystemGetConfComputeGpusReadyState() (uint32, error) {
 	if err := checkLibSym("nvmlSystemGetConfComputeGpusReadyState"); err != nil {
 		var zero uint32
@@ -6121,7 +6738,9 @@ func SystemGetConfComputeGpusReadyState() (uint32, error) {
 //
 //   - pKeyRotationThrInfo: Reference in which to return the key rotation threshold data
 //
-// Wraps nvmlSystemGetConfComputeKeyRotationThresholdInfo.
+// Wraps [nvmlSystemGetConfComputeKeyRotationThresholdInfo].
+//
+// [nvmlSystemGetConfComputeKeyRotationThresholdInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv448nvmlSystemGetConfComputeKeyRotationThresholdInfoP44nvmlConfComputeGetKeyRotationThresholdInfo_t
 func SystemGetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo *ConfComputeGetKeyRotationThresholdInfo) error {
 	if err := checkLibSym("nvmlSystemGetConfComputeKeyRotationThresholdInfo"); err != nil {
 		return err
@@ -6135,7 +6754,9 @@ func SystemGetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo *ConfCompu
 //
 //   - settings: System CC settings
 //
-// Wraps nvmlSystemGetConfComputeSettings.
+// Wraps [nvmlSystemGetConfComputeSettings].
+//
+// [nvmlSystemGetConfComputeSettings]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv432nvmlSystemGetConfComputeSettingsP31nvmlSystemConfComputeSettings_t
 func SystemGetConfComputeSettings(settings *SystemConfComputeSettings) error {
 	if err := checkLibSym("nvmlSystemGetConfComputeSettings"); err != nil {
 		return err
@@ -6149,7 +6770,9 @@ func SystemGetConfComputeSettings(settings *SystemConfComputeSettings) error {
 //
 //   - state: System CC State
 //
-// Wraps nvmlSystemGetConfComputeState.
+// Wraps [nvmlSystemGetConfComputeState].
+//
+// [nvmlSystemGetConfComputeState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv429nvmlSystemGetConfComputeStateP28nvmlConfComputeSystemState_t
 func SystemGetConfComputeState() (ConfComputeSystemState, error) {
 	if err := checkLibSym("nvmlSystemGetConfComputeState"); err != nil {
 		var zero ConfComputeSystemState
@@ -6170,7 +6793,9 @@ func SystemGetConfComputeState() (ConfComputeSystemState, error) {
 //
 //   - cudaDriverVersion: Reference in which to return the version identifier
 //
-// Wraps nvmlSystemGetCudaDriverVersion_v2.
+// Wraps [nvmlSystemGetCudaDriverVersion_v2].
+//
+// [nvmlSystemGetCudaDriverVersion_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv433nvmlSystemGetCudaDriverVersion_v2Pi
 func SystemGetCudaDriverVersion() (int32, error) {
 	if err := checkLibSym("nvmlSystemGetCudaDriverVersion_v2"); err != nil {
 		var zero int32
@@ -6192,7 +6817,9 @@ func SystemGetCudaDriverVersion() (int32, error) {
 //   - branchInfo: Pointer to the driver branch information structure [SystemDriverBranchInfo]
 //   - length: The maximum allowed length of the driver branch string
 //
-// Wraps nvmlSystemGetDriverBranch.
+// Wraps [nvmlSystemGetDriverBranch].
+//
+// [nvmlSystemGetDriverBranch]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv425nvmlSystemGetDriverBranchP28nvmlSystemDriverBranchInfo_tj
 func SystemGetDriverBranch(branchInfo *SystemDriverBranchInfo, length uint32) error {
 	if err := checkLibSym("nvmlSystemGetDriverBranch"); err != nil {
 		return err
@@ -6208,7 +6835,9 @@ func SystemGetDriverBranch(branchInfo *SystemDriverBranchInfo, length uint32) er
 //   - version: Reference in which to return the version identifier
 //   - length: The maximum allowed length of the string returned in version
 //
-// Wraps nvmlSystemGetDriverVersion.
+// Wraps [nvmlSystemGetDriverVersion].
+//
+// [nvmlSystemGetDriverVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv426nvmlSystemGetDriverVersionPcj
 func SystemGetDriverVersion() (string, error) {
 	if err := checkLibSym("nvmlSystemGetDriverVersion"); err != nil {
 		return "", err
@@ -6232,7 +6861,9 @@ func SystemGetDriverVersion() (string, error) {
 //   - hwbcCount: Size of hwbcEntries array
 //   - hwbcEntries: Array holding information about hwbc
 //
-// Wraps nvmlSystemGetHicVersion.
+// Wraps [nvmlSystemGetHicVersion].
+//
+// [nvmlSystemGetHicVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv423nvmlSystemGetHicVersionPjP15nvmlHwbcEntry_t
 func SystemGetHicVersion(hwbcCount *uint32, hwbcEntries *HwbcEntry) error {
 	if err := checkLibSym("nvmlSystemGetHicVersion"); err != nil {
 		return err
@@ -6248,7 +6879,9 @@ func SystemGetHicVersion(hwbcCount *uint32, hwbcEntries *HwbcEntry) error {
 //   - version: Reference in which to return the version identifier
 //   - length: The maximum allowed length of the string returned in version
 //
-// Wraps nvmlSystemGetNVMLVersion.
+// Wraps [nvmlSystemGetNVMLVersion].
+//
+// [nvmlSystemGetNVMLVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv424nvmlSystemGetNVMLVersionPcj
 func SystemGetNVMLVersion() (string, error) {
 	if err := checkLibSym("nvmlSystemGetNVMLVersion"); err != nil {
 		return "", err
@@ -6268,7 +6901,9 @@ func SystemGetNVMLVersion() (string, error) {
 //
 //   - nvlinkBwMode: reference of nvlink bandwidth mode
 //
-// Wraps nvmlSystemGetNvlinkBwMode.
+// Wraps [nvmlSystemGetNvlinkBwMode].
+//
+// [nvmlSystemGetNvlinkBwMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv425nvmlSystemGetNvlinkBwModePj
 func SystemGetNvlinkBwMode() (uint32, error) {
 	if err := checkLibSym("nvmlSystemGetNvlinkBwMode"); err != nil {
 		var zero uint32
@@ -6291,7 +6926,9 @@ func SystemGetNvlinkBwMode() (uint32, error) {
 //   - name: Reference in which to return the process name
 //   - length: The maximum allowed length of the string returned in name
 //
-// Wraps nvmlSystemGetProcessName.
+// Wraps [nvmlSystemGetProcessName].
+//
+// [nvmlSystemGetProcessName]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv424nvmlSystemGetProcessNamejPcj
 func SystemGetProcessName(pid uint32) (string, error) {
 	if err := checkLibSym("nvmlSystemGetProcessName"); err != nil {
 		return "", err
@@ -6313,7 +6950,9 @@ func SystemGetProcessName(pid uint32) (string, error) {
 //   - count: When zero, is set to the number of matching GPUs such that deviceArray can be malloc'd. When non-zero, deviceArray will be filled with count number of device handles
 //   - deviceArray: An array of device handles for GPUs found with affinity to cpuNumber
 //
-// Wraps nvmlSystemGetTopologyGpuSet.
+// Wraps [nvmlSystemGetTopologyGpuSet].
+//
+// [nvmlSystemGetTopologyGpuSet]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html#_CPPv427nvmlSystemGetTopologyGpuSetjPjP12nvmlDevice_t
 func SystemGetTopologyGpuSet(cpuNumber uint32, count *uint32, deviceArray *Device) error {
 	if err := checkLibSym("nvmlSystemGetTopologyGpuSet"); err != nil {
 		return err
@@ -6333,7 +6972,9 @@ func SystemGetTopologyGpuSet(cpuNumber uint32, count *uint32, deviceArray *Devic
 //
 //   - request: Reference to the struct [SystemRegisterEventRequest]
 //
-// Wraps nvmlSystemRegisterEvents.
+// Wraps [nvmlSystemRegisterEvents].
+//
+// [nvmlSystemRegisterEvents]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlEvents.html#_CPPv424nvmlSystemRegisterEventsP32nvmlSystemRegisterEventRequest_t
 func SystemRegisterEvents(request *SystemRegisterEventRequest) error {
 	if err := checkLibSym("nvmlSystemRegisterEvents"); err != nil {
 		return err
@@ -6348,7 +6989,9 @@ func SystemRegisterEvents(request *SystemRegisterEventRequest) error {
 //
 //   - isAcceptingWork: GPU accepting new work, [CcAcceptingClientRequestsTrue] or [CcAcceptingClientRequestsFalse]
 //
-// Wraps nvmlSystemSetConfComputeGpusReadyState.
+// Wraps [nvmlSystemSetConfComputeGpusReadyState].
+//
+// [nvmlSystemSetConfComputeGpusReadyState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv438nvmlSystemSetConfComputeGpusReadyStatej
 func SystemSetConfComputeGpusReadyState(isAcceptingWork uint32) error {
 	if err := checkLibSym("nvmlSystemSetConfComputeGpusReadyState"); err != nil {
 		return err
@@ -6363,7 +7006,9 @@ func SystemSetConfComputeGpusReadyState(isAcceptingWork uint32) error {
 //
 //   - pKeyRotationThrInfo: Reference to the key rotation threshold data
 //
-// Wraps nvmlSystemSetConfComputeKeyRotationThresholdInfo.
+// Wraps [nvmlSystemSetConfComputeKeyRotationThresholdInfo].
+//
+// [nvmlSystemSetConfComputeKeyRotationThresholdInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlDeviceQueries.html#_CPPv448nvmlSystemSetConfComputeKeyRotationThresholdInfoP44nvmlConfComputeSetKeyRotationThresholdInfo_t
 func SystemSetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo *ConfComputeSetKeyRotationThresholdInfo) error {
 	if err := checkLibSym("nvmlSystemSetConfComputeKeyRotationThresholdInfo"); err != nil {
 		return err
@@ -6375,7 +7020,9 @@ func SystemSetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo *ConfCompu
 //
 //   - nvlinkBwMode: nvlink bandwidth mode
 //
-// Wraps nvmlSystemSetNvlinkBwMode.
+// Wraps [nvmlSystemSetNvlinkBwMode].
+//
+// [nvmlSystemSetNvlinkBwMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__NvLink.html#_CPPv425nvmlSystemSetNvlinkBwModej
 func SystemSetNvlinkBwMode(nvlinkBwMode uint32) error {
 	if err := checkLibSym("nvmlSystemSetNvlinkBwMode"); err != nil {
 		return err
@@ -6389,7 +7036,9 @@ func SystemSetNvlinkBwMode(nvlinkBwMode uint32) error {
 //
 //   - unitCount: Reference in which to return the number of units
 //
-// Wraps nvmlUnitGetCount.
+// Wraps [nvmlUnitGetCount].
+//
+// [nvmlUnitGetCount]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv416nvmlUnitGetCountPj
 func UnitGetCount() (uint32, error) {
 	if err := checkLibSym("nvmlUnitGetCount"); err != nil {
 		var zero uint32
@@ -6412,7 +7061,9 @@ func UnitGetCount() (uint32, error) {
 //   - deviceCount: Reference in which to provide the devices array size, and to return the number of attached GPU devices
 //   - devices: Reference in which to return the references to the attached GPU devices
 //
-// Wraps nvmlUnitGetDevices.
+// Wraps [nvmlUnitGetDevices].
+//
+// [nvmlUnitGetDevices]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv418nvmlUnitGetDevices10nvmlUnit_tPjP12nvmlDevice_t
 func unitGetDevices(unit Unit, deviceCount *uint32, devices *Device) error {
 	if err := checkLibSym("nvmlUnitGetDevices"); err != nil {
 		return err
@@ -6428,7 +7079,9 @@ func unitGetDevices(unit Unit, deviceCount *uint32, devices *Device) error {
 //   - unit: The identifier of the target unit
 //   - fanSpeeds: Reference in which to return the fan speed information
 //
-// Wraps nvmlUnitGetFanSpeedInfo.
+// Wraps [nvmlUnitGetFanSpeedInfo].
+//
+// [nvmlUnitGetFanSpeedInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv423nvmlUnitGetFanSpeedInfo10nvmlUnit_tP19nvmlUnitFanSpeeds_t
 func unitGetFanSpeedInfo(unit Unit, fanSpeeds *UnitFanSpeeds) error {
 	if err := checkLibSym("nvmlUnitGetFanSpeedInfo"); err != nil {
 		return err
@@ -6445,7 +7098,9 @@ func unitGetFanSpeedInfo(unit Unit, fanSpeeds *UnitFanSpeeds) error {
 //   - index: The index of the target unit, >= 0 and < unitCount
 //   - unit: Reference in which to return the unit handle
 //
-// Wraps nvmlUnitGetHandleByIndex.
+// Wraps [nvmlUnitGetHandleByIndex].
+//
+// [nvmlUnitGetHandleByIndex]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv424nvmlUnitGetHandleByIndexjP10nvmlUnit_t
 func unitGetHandleByIndex(index uint32) (Unit, error) {
 	if err := checkLibSym("nvmlUnitGetHandleByIndex"); err != nil {
 		var zero Unit
@@ -6468,7 +7123,9 @@ func unitGetHandleByIndex(index uint32) (Unit, error) {
 //   - unit: The identifier of the target unit
 //   - state: Reference in which to return the current LED state
 //
-// Wraps nvmlUnitGetLedState.
+// Wraps [nvmlUnitGetLedState].
+//
+// [nvmlUnitGetLedState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv419nvmlUnitGetLedState10nvmlUnit_tP14nvmlLedState_t
 func unitGetLedState(unit Unit) (LedState, error) {
 	if err := checkLibSym("nvmlUnitGetLedState"); err != nil {
 		var zero LedState
@@ -6490,7 +7147,9 @@ func unitGetLedState(unit Unit) (LedState, error) {
 //   - unit: The identifier of the target unit
 //   - psu: Reference in which to return the PSU information
 //
-// Wraps nvmlUnitGetPsuInfo.
+// Wraps [nvmlUnitGetPsuInfo].
+//
+// [nvmlUnitGetPsuInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv418nvmlUnitGetPsuInfo10nvmlUnit_tP13nvmlPSUInfo_t
 func unitGetPsuInfo(unit Unit, psu *PSUInfo) error {
 	if err := checkLibSym("nvmlUnitGetPsuInfo"); err != nil {
 		return err
@@ -6507,7 +7166,9 @@ func unitGetPsuInfo(unit Unit, psu *PSUInfo) error {
 //   - type_: The type of reading to take
 //   - temp: Reference in which to return the intake temperature
 //
-// Wraps nvmlUnitGetTemperature.
+// Wraps [nvmlUnitGetTemperature].
+//
+// [nvmlUnitGetTemperature]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv422nvmlUnitGetTemperature10nvmlUnit_tjPj
 func unitGetTemperature(unit Unit, type_ uint32) (uint32, error) {
 	if err := checkLibSym("nvmlUnitGetTemperature"); err != nil {
 		var zero uint32
@@ -6529,7 +7190,9 @@ func unitGetTemperature(unit Unit, type_ uint32) (uint32, error) {
 //   - unit: The identifier of the target unit
 //   - info: Reference in which to return the unit information
 //
-// Wraps nvmlUnitGetUnitInfo.
+// Wraps [nvmlUnitGetUnitInfo].
+//
+// [nvmlUnitGetUnitInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitQueries.html#_CPPv419nvmlUnitGetUnitInfo10nvmlUnit_tP14nvmlUnitInfo_t
 func unitGetUnitInfo(unit Unit) (UnitInfo, error) {
 	if err := checkLibSym("nvmlUnitGetUnitInfo"); err != nil {
 		var zero UnitInfo
@@ -6554,7 +7217,9 @@ func unitGetUnitInfo(unit Unit) (UnitInfo, error) {
 //   - unit: The identifier of the target unit
 //   - color: The target LED color
 //
-// Wraps nvmlUnitSetLedState.
+// Wraps [nvmlUnitSetLedState].
+//
+// [nvmlUnitSetLedState]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUnitCommands.html#_CPPv419nvmlUnitSetLedState10nvmlUnit_t14nvmlLedColor_t
 func unitSetLedState(unit Unit, color LedColor) error {
 	if err := checkLibSym("nvmlUnitSetLedState"); err != nil {
 		return err
@@ -6562,9 +7227,11 @@ func unitSetLedState(unit Unit, color LedColor) error {
 	return toError(fnunitSetLedState(unit, color))
 }
 
-// vgpuInstanceClearAccountingPids wraps nvmlVgpuInstanceClearAccountingPids.
+// vgpuInstanceClearAccountingPids wraps [nvmlVgpuInstanceClearAccountingPids].
 //
 //   - vgpuInstance: The identifier of the target vGPU instance
+//
+// [nvmlVgpuInstanceClearAccountingPids]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv435nvmlVgpuInstanceClearAccountingPids18nvmlVgpuInstance_t
 func vgpuInstanceClearAccountingPids(vgpuInstance VgpuInstance) error {
 	if err := checkLibSym("nvmlVgpuInstanceClearAccountingPids"); err != nil {
 		return err
@@ -6572,10 +7239,12 @@ func vgpuInstanceClearAccountingPids(vgpuInstance VgpuInstance) error {
 	return toError(fnvgpuInstanceClearAccountingPids(vgpuInstance))
 }
 
-// vgpuInstanceGetAccountingMode wraps nvmlVgpuInstanceGetAccountingMode.
+// vgpuInstanceGetAccountingMode wraps [nvmlVgpuInstanceGetAccountingMode].
 //
 //   - vgpuInstance: The identifier of the target vGPU instance
 //   - mode: Reference in which to return the current accounting mode
+//
+// [nvmlVgpuInstanceGetAccountingMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv433nvmlVgpuInstanceGetAccountingMode18nvmlVgpuInstance_tP17nvmlEnableState_t
 func vgpuInstanceGetAccountingMode(vgpuInstance VgpuInstance) (EnableState, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetAccountingMode"); err != nil {
 		var zero EnableState
@@ -6589,11 +7258,13 @@ func vgpuInstanceGetAccountingMode(vgpuInstance VgpuInstance) (EnableState, erro
 	return out, nil
 }
 
-// vgpuInstanceGetAccountingPids wraps nvmlVgpuInstanceGetAccountingPids.
+// vgpuInstanceGetAccountingPids wraps [nvmlVgpuInstanceGetAccountingPids].
 //
 //   - vgpuInstance: The identifier of the target vGPU instance
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
+//
+// [nvmlVgpuInstanceGetAccountingPids]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv433nvmlVgpuInstanceGetAccountingPids18nvmlVgpuInstance_tPjPj
 func vgpuInstanceGetAccountingPids(vgpuInstance VgpuInstance, count *uint32, pids *uint32) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetAccountingPids"); err != nil {
 		return err
@@ -6601,11 +7272,13 @@ func vgpuInstanceGetAccountingPids(vgpuInstance VgpuInstance, count *uint32, pid
 	return toError(fnvgpuInstanceGetAccountingPids(vgpuInstance, count, pids))
 }
 
-// vgpuInstanceGetAccountingStats wraps nvmlVgpuInstanceGetAccountingStats.
+// vgpuInstanceGetAccountingStats wraps [nvmlVgpuInstanceGetAccountingStats].
 //
 //   - vgpuInstance: The identifier of the target vGPU instance
 //   - pid: Process Id of the target process to query stats for
 //   - stats: Reference in which to return the process's accounting stats
+//
+// [nvmlVgpuInstanceGetAccountingStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv434nvmlVgpuInstanceGetAccountingStats18nvmlVgpuInstance_tjP21nvmlAccountingStats_t
 func vgpuInstanceGetAccountingStats(vgpuInstance VgpuInstance, pid uint32, stats *AccountingStats) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetAccountingStats"); err != nil {
 		return err
@@ -6613,10 +7286,12 @@ func vgpuInstanceGetAccountingStats(vgpuInstance VgpuInstance, pid uint32, stats
 	return toError(fnvgpuInstanceGetAccountingStats(vgpuInstance, pid, stats))
 }
 
-// vgpuInstanceGetEccMode wraps nvmlVgpuInstanceGetEccMode.
+// vgpuInstanceGetEccMode wraps [nvmlVgpuInstanceGetEccMode].
 //
 //   - vgpuInstance: The identifier of the target vGPU instance
 //   - eccMode: Reference in which to return the current ECC mode
+//
+// [nvmlVgpuInstanceGetEccMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv426nvmlVgpuInstanceGetEccMode18nvmlVgpuInstance_tP17nvmlEnableState_t
 func vgpuInstanceGetEccMode(vgpuInstance VgpuInstance, eccMode *EnableState) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetEccMode"); err != nil {
 		return err
@@ -6624,10 +7299,12 @@ func vgpuInstanceGetEccMode(vgpuInstance VgpuInstance, eccMode *EnableState) err
 	return toError(fnvgpuInstanceGetEccMode(vgpuInstance, eccMode))
 }
 
-// vgpuInstanceGetEncoderCapacity wraps nvmlVgpuInstanceGetEncoderCapacity.
+// vgpuInstanceGetEncoderCapacity wraps [nvmlVgpuInstanceGetEncoderCapacity].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - encoderCapacity: Reference to an unsigned int for the encoder capacity
+//
+// [nvmlVgpuInstanceGetEncoderCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlVgpuInstanceGetEncoderCapacity18nvmlVgpuInstance_tPj
 func vgpuInstanceGetEncoderCapacity(vgpuInstance VgpuInstance) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetEncoderCapacity"); err != nil {
 		var zero uint32
@@ -6641,11 +7318,13 @@ func vgpuInstanceGetEncoderCapacity(vgpuInstance VgpuInstance) (uint32, error) {
 	return out, nil
 }
 
-// vgpuInstanceGetEncoderSessions wraps nvmlVgpuInstanceGetEncoderSessions.
+// vgpuInstanceGetEncoderSessions wraps [nvmlVgpuInstanceGetEncoderSessions].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference to caller supplied array in which the list of session information us returned
+//
+// [nvmlVgpuInstanceGetEncoderSessions]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlVgpuInstanceGetEncoderSessions18nvmlVgpuInstance_tPjP24nvmlEncoderSessionInfo_t
 func vgpuInstanceGetEncoderSessions(vgpuInstance VgpuInstance, sessionCount *uint32, sessionInfo *EncoderSessionInfo) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetEncoderSessions"); err != nil {
 		return err
@@ -6653,12 +7332,14 @@ func vgpuInstanceGetEncoderSessions(vgpuInstance VgpuInstance, sessionCount *uin
 	return toError(fnvgpuInstanceGetEncoderSessions(vgpuInstance, sessionCount, sessionInfo))
 }
 
-// vgpuInstanceGetEncoderStats wraps nvmlVgpuInstanceGetEncoderStats.
+// vgpuInstanceGetEncoderStats wraps [nvmlVgpuInstanceGetEncoderStats].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - sessionCount: Reference to an unsigned int for count of active encoder sessions
 //   - averageFps: Reference to an unsigned int for trailing average FPS of all active sessions
 //   - averageLatency: Reference to an unsigned int for encode latency in microseconds
+//
+// [nvmlVgpuInstanceGetEncoderStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv431nvmlVgpuInstanceGetEncoderStats18nvmlVgpuInstance_tPjPjPj
 func vgpuInstanceGetEncoderStats(vgpuInstance VgpuInstance, sessionCount *uint32, averageFps *uint32, averageLatency *uint32) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetEncoderStats"); err != nil {
 		return err
@@ -6666,11 +7347,13 @@ func vgpuInstanceGetEncoderStats(vgpuInstance VgpuInstance, sessionCount *uint32
 	return toError(fnvgpuInstanceGetEncoderStats(vgpuInstance, sessionCount, averageFps, averageLatency))
 }
 
-// vgpuInstanceGetFBCSessions wraps nvmlVgpuInstanceGetFBCSessions.
+// vgpuInstanceGetFBCSessions wraps [nvmlVgpuInstanceGetFBCSessions].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information
+//
+// [nvmlVgpuInstanceGetFBCSessions]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv430nvmlVgpuInstanceGetFBCSessions18nvmlVgpuInstance_tPjP20nvmlFBCSessionInfo_t
 func vgpuInstanceGetFBCSessions(vgpuInstance VgpuInstance, sessionCount *uint32, sessionInfo *FBCSessionInfo) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetFBCSessions"); err != nil {
 		return err
@@ -6678,10 +7361,12 @@ func vgpuInstanceGetFBCSessions(vgpuInstance VgpuInstance, sessionCount *uint32,
 	return toError(fnvgpuInstanceGetFBCSessions(vgpuInstance, sessionCount, sessionInfo))
 }
 
-// vgpuInstanceGetFBCStats wraps nvmlVgpuInstanceGetFBCStats.
+// vgpuInstanceGetFBCStats wraps [nvmlVgpuInstanceGetFBCStats].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - fbcStats: Reference to [FBCStats] structure containing NvFBC stats
+//
+// [nvmlVgpuInstanceGetFBCStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuInstanceGetFBCStats18nvmlVgpuInstance_tP14nvmlFBCStats_t
 func vgpuInstanceGetFBCStats(vgpuInstance VgpuInstance, fbcStats *FBCStats) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetFBCStats"); err != nil {
 		return err
@@ -6689,10 +7374,12 @@ func vgpuInstanceGetFBCStats(vgpuInstance VgpuInstance, fbcStats *FBCStats) erro
 	return toError(fnvgpuInstanceGetFBCStats(vgpuInstance, fbcStats))
 }
 
-// vgpuInstanceGetFbUsage wraps nvmlVgpuInstanceGetFbUsage.
+// vgpuInstanceGetFbUsage wraps [nvmlVgpuInstanceGetFbUsage].
 //
 //   - vgpuInstance: The identifier of the target instance
 //   - fbUsage: Pointer to framebuffer usage in bytes
+//
+// [nvmlVgpuInstanceGetFbUsage]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv426nvmlVgpuInstanceGetFbUsage18nvmlVgpuInstance_tPy
 func vgpuInstanceGetFbUsage(vgpuInstance VgpuInstance) (uint64, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetFbUsage"); err != nil {
 		var zero uint64
@@ -6706,10 +7393,12 @@ func vgpuInstanceGetFbUsage(vgpuInstance VgpuInstance) (uint64, error) {
 	return out, nil
 }
 
-// vgpuInstanceGetFrameRateLimit wraps nvmlVgpuInstanceGetFrameRateLimit.
+// vgpuInstanceGetFrameRateLimit wraps [nvmlVgpuInstanceGetFrameRateLimit].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - frameRateLimit: Reference to return the frame rate limit
+//
+// [nvmlVgpuInstanceGetFrameRateLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv433nvmlVgpuInstanceGetFrameRateLimit18nvmlVgpuInstance_tPj
 func vgpuInstanceGetFrameRateLimit(vgpuInstance VgpuInstance) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetFrameRateLimit"); err != nil {
 		var zero uint32
@@ -6723,10 +7412,12 @@ func vgpuInstanceGetFrameRateLimit(vgpuInstance VgpuInstance) (uint32, error) {
 	return out, nil
 }
 
-// vgpuInstanceGetGpuInstanceId wraps nvmlVgpuInstanceGetGpuInstanceId.
+// vgpuInstanceGetGpuInstanceId wraps [nvmlVgpuInstanceGetGpuInstanceId].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - gpuInstanceId: GPU Instance ID
+//
+// [nvmlVgpuInstanceGetGpuInstanceId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlVgpuInstanceGetGpuInstanceId18nvmlVgpuInstance_tPj
 func vgpuInstanceGetGpuInstanceId(vgpuInstance VgpuInstance) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetGpuInstanceId"); err != nil {
 		var zero uint32
@@ -6740,11 +7431,13 @@ func vgpuInstanceGetGpuInstanceId(vgpuInstance VgpuInstance) (uint32, error) {
 	return out, nil
 }
 
-// vgpuInstanceGetGpuPciId wraps nvmlVgpuInstanceGetGpuPciId.
+// vgpuInstanceGetGpuPciId wraps [nvmlVgpuInstanceGetGpuPciId].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - vgpuPciId: Caller-supplied buffer to return vGPU PCI Id string
 //   - length: Size of the vgpuPciId buffer
+//
+// [nvmlVgpuInstanceGetGpuPciId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuInstanceGetGpuPciId18nvmlVgpuInstance_tPcPj
 func vgpuInstanceGetGpuPciId(vgpuInstance VgpuInstance, vgpuPciId *byte, length *uint32) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetGpuPciId"); err != nil {
 		return err
@@ -6752,10 +7445,12 @@ func vgpuInstanceGetGpuPciId(vgpuInstance VgpuInstance, vgpuPciId *byte, length 
 	return toError(fnvgpuInstanceGetGpuPciId(vgpuInstance, vgpuPciId, length))
 }
 
-// vgpuInstanceGetLicenseInfo wraps nvmlVgpuInstanceGetLicenseInfo, bound as nvmlVgpuInstanceGetLicenseInfo_v2.
+// vgpuInstanceGetLicenseInfo wraps [nvmlVgpuInstanceGetLicenseInfo], bound as nvmlVgpuInstanceGetLicenseInfo_v2.
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - licenseInfo: Pointer to vGPU license information structure
+//
+// [nvmlVgpuInstanceGetLicenseInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv433nvmlVgpuInstanceGetLicenseInfo_v218nvmlVgpuInstance_tP21nvmlVgpuLicenseInfo_t
 func vgpuInstanceGetLicenseInfo(vgpuInstance VgpuInstance, licenseInfo *VgpuLicenseInfo) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetLicenseInfo_v2"); err != nil {
 		return err
@@ -6763,12 +7458,14 @@ func vgpuInstanceGetLicenseInfo(vgpuInstance VgpuInstance, licenseInfo *VgpuLice
 	return toError(fnvgpuInstanceGetLicenseInfo(vgpuInstance, licenseInfo))
 }
 
-// vgpuInstanceGetLicenseStatus wraps nvmlVgpuInstanceGetLicenseStatus.
+// vgpuInstanceGetLicenseStatus wraps [nvmlVgpuInstanceGetLicenseStatus].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - licensed: Reference to return the licensing status
 //
 // Deprecated: Use [VgpuInstance.LicenseInfo]. Retrieve the current licensing state of the vGPU instance. If the vGPU is currently licensed, licensed is set to 1, otherwise it is set to 0. For Kepler &tm; or newer fully supported devices.
+//
+// [nvmlVgpuInstanceGetLicenseStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlVgpuInstanceGetLicenseStatus18nvmlVgpuInstance_tPj
 func vgpuInstanceGetLicenseStatus(vgpuInstance VgpuInstance, licensed *uint32) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetLicenseStatus"); err != nil {
 		return err
@@ -6776,11 +7473,13 @@ func vgpuInstanceGetLicenseStatus(vgpuInstance VgpuInstance, licensed *uint32) e
 	return toError(fnvgpuInstanceGetLicenseStatus(vgpuInstance, licensed))
 }
 
-// vgpuInstanceGetMdevUUID wraps nvmlVgpuInstanceGetMdevUUID.
+// vgpuInstanceGetMdevUUID wraps [nvmlVgpuInstanceGetMdevUUID].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - mdevUuid: Pointer to caller-supplied buffer to hold MDEV UUID
 //   - size: Size of buffer in bytes
+//
+// [nvmlVgpuInstanceGetMdevUUID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuInstanceGetMdevUUID18nvmlVgpuInstance_tPcj
 func vgpuInstanceGetMdevUUID(vgpuInstance VgpuInstance) (string, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetMdevUUID"); err != nil {
 		return "", err
@@ -6796,11 +7495,13 @@ func vgpuInstanceGetMdevUUID(vgpuInstance VgpuInstance) (string, error) {
 	return string(buf_[:n]), nil
 }
 
-// vgpuInstanceGetMetadata wraps nvmlVgpuInstanceGetMetadata.
+// vgpuInstanceGetMetadata wraps [nvmlVgpuInstanceGetMetadata].
 //
 //   - vgpuInstance: vGPU instance handle
 //   - vgpuMetadata: Pointer to caller-supplied buffer into which vGPU metadata is written
 //   - bufferSize: Size of vgpuMetadata buffer
+//
+// [nvmlVgpuInstanceGetMetadata]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv427nvmlVgpuInstanceGetMetadata18nvmlVgpuInstance_tP18nvmlVgpuMetadata_tPj
 func vgpuInstanceGetMetadata(vgpuInstance VgpuInstance, vgpuMetadata *VgpuMetadata, bufferSize *uint32) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetMetadata"); err != nil {
 		return err
@@ -6815,7 +7516,9 @@ func vgpuInstanceGetMetadata(vgpuInstance VgpuInstance, vgpuMetadata *VgpuMetada
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - pPlacement: Pointer to vGPU placement ID structure [VgpuPlacementId]
 //
-// Wraps nvmlVgpuInstanceGetPlacementId.
+// Wraps [nvmlVgpuInstanceGetPlacementId].
+//
+// [nvmlVgpuInstanceGetPlacementId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv430nvmlVgpuInstanceGetPlacementId18nvmlVgpuInstance_tP21nvmlVgpuPlacementId_t
 func vgpuInstanceGetPlacementId(vgpuInstance VgpuInstance, pPlacement *VgpuPlacementId) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetPlacementId"); err != nil {
 		return err
@@ -6831,7 +7534,9 @@ func vgpuInstanceGetPlacementId(vgpuInstance VgpuInstance, pPlacement *VgpuPlace
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - pState: Pointer to the vGPU runtime state's structure [VgpuRuntimeState]
 //
-// Wraps nvmlVgpuInstanceGetRuntimeStateSize.
+// Wraps [nvmlVgpuInstanceGetRuntimeStateSize].
+//
+// [nvmlVgpuInstanceGetRuntimeStateSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv435nvmlVgpuInstanceGetRuntimeStateSize18nvmlVgpuInstance_tP22nvmlVgpuRuntimeState_t
 func vgpuInstanceGetRuntimeStateSize(vgpuInstance VgpuInstance) (VgpuRuntimeState, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetRuntimeStateSize"); err != nil {
 		var zero VgpuRuntimeState
@@ -6846,10 +7551,12 @@ func vgpuInstanceGetRuntimeStateSize(vgpuInstance VgpuInstance) (VgpuRuntimeStat
 	return out, nil
 }
 
-// vgpuInstanceGetType wraps nvmlVgpuInstanceGetType.
+// vgpuInstanceGetType wraps [nvmlVgpuInstanceGetType].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - vgpuTypeId: Reference to return the vgpuTypeId
+//
+// [nvmlVgpuInstanceGetType]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuInstanceGetType18nvmlVgpuInstance_tP16nvmlVgpuTypeId_t
 func vgpuInstanceGetType(vgpuInstance VgpuInstance) (VgpuTypeId, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetType"); err != nil {
 		var zero VgpuTypeId
@@ -6863,11 +7570,13 @@ func vgpuInstanceGetType(vgpuInstance VgpuInstance) (VgpuTypeId, error) {
 	return out, nil
 }
 
-// vgpuInstanceGetUUID wraps nvmlVgpuInstanceGetUUID.
+// vgpuInstanceGetUUID wraps [nvmlVgpuInstanceGetUUID].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - uuid: Pointer to caller-supplied buffer to hold vGPU UUID
 //   - size: Size of buffer in bytes
+//
+// [nvmlVgpuInstanceGetUUID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuInstanceGetUUID18nvmlVgpuInstance_tPcj
 func vgpuInstanceGetUUID(vgpuInstance VgpuInstance) (string, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetUUID"); err != nil {
 		return "", err
@@ -6883,11 +7592,13 @@ func vgpuInstanceGetUUID(vgpuInstance VgpuInstance) (string, error) {
 	return string(buf_[:n]), nil
 }
 
-// vgpuInstanceGetVmDriverVersion wraps nvmlVgpuInstanceGetVmDriverVersion.
+// vgpuInstanceGetVmDriverVersion wraps [nvmlVgpuInstanceGetVmDriverVersion].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - version: Caller-supplied buffer to return driver version string
 //   - length: Size of version buffer
+//
+// [nvmlVgpuInstanceGetVmDriverVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlVgpuInstanceGetVmDriverVersion18nvmlVgpuInstance_tPcj
 func vgpuInstanceGetVmDriverVersion(vgpuInstance VgpuInstance) (string, error) {
 	if err := checkLibSym("nvmlVgpuInstanceGetVmDriverVersion"); err != nil {
 		return "", err
@@ -6903,12 +7614,14 @@ func vgpuInstanceGetVmDriverVersion(vgpuInstance VgpuInstance) (string, error) {
 	return string(buf_[:n]), nil
 }
 
-// vgpuInstanceGetVmID wraps nvmlVgpuInstanceGetVmID.
+// vgpuInstanceGetVmID wraps [nvmlVgpuInstanceGetVmID].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - vmId: Pointer to caller-supplied buffer to hold VM ID
 //   - size: Size of buffer in bytes
 //   - vmIdType: Pointer to hold VM ID type
+//
+// [nvmlVgpuInstanceGetVmID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuInstanceGetVmID18nvmlVgpuInstance_tPcjP18nvmlVgpuVmIdType_t
 func vgpuInstanceGetVmID(vgpuInstance VgpuInstance, vmId *byte, size uint32, vmIdType *VgpuVmIdType) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetVmID"); err != nil {
 		return err
@@ -6916,10 +7629,12 @@ func vgpuInstanceGetVmID(vgpuInstance VgpuInstance, vmId *byte, size uint32, vmI
 	return toError(fnvgpuInstanceGetVmID(vgpuInstance, vmId, size, vmIdType))
 }
 
-// vgpuInstanceSetEncoderCapacity wraps nvmlVgpuInstanceSetEncoderCapacity.
+// vgpuInstanceSetEncoderCapacity wraps [nvmlVgpuInstanceSetEncoderCapacity].
 //
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - encoderCapacity: Unsigned int for the encoder capacity value
+//
+// [nvmlVgpuInstanceSetEncoderCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlVgpuInstanceSetEncoderCapacity18nvmlVgpuInstance_tj
 func vgpuInstanceSetEncoderCapacity(vgpuInstance VgpuInstance, encoderCapacity uint32) error {
 	if err := checkLibSym("nvmlVgpuInstanceSetEncoderCapacity"); err != nil {
 		return err
@@ -6927,10 +7642,12 @@ func vgpuInstanceSetEncoderCapacity(vgpuInstance VgpuInstance, encoderCapacity u
 	return toError(fnvgpuInstanceSetEncoderCapacity(vgpuInstance, encoderCapacity))
 }
 
-// vgpuTypeGetBAR1Info wraps nvmlVgpuTypeGetBAR1Info.
+// vgpuTypeGetBAR1Info wraps [nvmlVgpuTypeGetBAR1Info].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - bar1Info: Pointer to the vGPU type BAR1 information structure [VgpuTypeBar1Info]
+//
+// [nvmlVgpuTypeGetBAR1Info]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuTypeGetBAR1Info16nvmlVgpuTypeId_tP22nvmlVgpuTypeBar1Info_t
 func vgpuTypeGetBAR1Info(vgpuTypeId VgpuTypeId, bar1Info *VgpuTypeBar1Info) error {
 	if err := checkLibSym("nvmlVgpuTypeGetBAR1Info"); err != nil {
 		return err
@@ -6938,11 +7655,13 @@ func vgpuTypeGetBAR1Info(vgpuTypeId VgpuTypeId, bar1Info *VgpuTypeBar1Info) erro
 	return toError(fnvgpuTypeGetBAR1Info(vgpuTypeId, bar1Info))
 }
 
-// vgpuTypeGetCapabilities wraps nvmlVgpuTypeGetCapabilities.
+// vgpuTypeGetCapabilities wraps [nvmlVgpuTypeGetCapabilities].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - capability: Specifies the [VgpuCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is supported
+//
+// [nvmlVgpuTypeGetCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuTypeGetCapabilities16nvmlVgpuTypeId_t20nvmlVgpuCapability_tPj
 func vgpuTypeGetCapabilities(vgpuTypeId VgpuTypeId, capability VgpuCapability) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetCapabilities"); err != nil {
 		var zero uint32
@@ -6956,11 +7675,13 @@ func vgpuTypeGetCapabilities(vgpuTypeId VgpuTypeId, capability VgpuCapability) (
 	return out, nil
 }
 
-// vgpuTypeGetClass wraps nvmlVgpuTypeGetClass.
+// vgpuTypeGetClass wraps [nvmlVgpuTypeGetClass].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - vgpuTypeClass: Pointer to string array to return class in
 //   - size: Size of string
+//
+// [nvmlVgpuTypeGetClass]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv420nvmlVgpuTypeGetClass16nvmlVgpuTypeId_tPcPj
 func vgpuTypeGetClass(vgpuTypeId VgpuTypeId, vgpuTypeClass *byte, size *uint32) error {
 	if err := checkLibSym("nvmlVgpuTypeGetClass"); err != nil {
 		return err
@@ -6968,11 +7689,13 @@ func vgpuTypeGetClass(vgpuTypeId VgpuTypeId, vgpuTypeClass *byte, size *uint32) 
 	return toError(fnvgpuTypeGetClass(vgpuTypeId, vgpuTypeClass, size))
 }
 
-// vgpuTypeGetDeviceID wraps nvmlVgpuTypeGetDeviceID.
+// vgpuTypeGetDeviceID wraps [nvmlVgpuTypeGetDeviceID].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - deviceID: Device ID and vendor ID of the device contained in single 32 bit value
 //   - subsystemID: Subsystem ID and subsystem vendor ID of the device contained in single 32 bit value
+//
+// [nvmlVgpuTypeGetDeviceID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuTypeGetDeviceID16nvmlVgpuTypeId_tPyPy
 func vgpuTypeGetDeviceID(vgpuTypeId VgpuTypeId, deviceID *uint64, subsystemID *uint64) error {
 	if err := checkLibSym("nvmlVgpuTypeGetDeviceID"); err != nil {
 		return err
@@ -6985,7 +7708,9 @@ func vgpuTypeGetDeviceID(vgpuTypeId VgpuTypeId, deviceID *uint64, subsystemID *u
 //   - vgpuTypeId: Handle to vGPU type
 //   - fbReservation: Reference to return the framebuffer reservation
 //
-// Wraps nvmlVgpuTypeGetFbReservation.
+// Wraps [nvmlVgpuTypeGetFbReservation].
+//
+// [nvmlVgpuTypeGetFbReservation]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv428nvmlVgpuTypeGetFbReservation16nvmlVgpuTypeId_tPy
 func vgpuTypeGetFbReservation(vgpuTypeId VgpuTypeId) (uint64, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetFbReservation"); err != nil {
 		var zero uint64
@@ -6999,10 +7724,12 @@ func vgpuTypeGetFbReservation(vgpuTypeId VgpuTypeId) (uint64, error) {
 	return out, nil
 }
 
-// vgpuTypeGetFrameRateLimit wraps nvmlVgpuTypeGetFrameRateLimit.
+// vgpuTypeGetFrameRateLimit wraps [nvmlVgpuTypeGetFrameRateLimit].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - frameRateLimit: Reference to return the frame rate limit value
+//
+// [nvmlVgpuTypeGetFrameRateLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlVgpuTypeGetFrameRateLimit16nvmlVgpuTypeId_tPj
 func vgpuTypeGetFrameRateLimit(vgpuTypeId VgpuTypeId) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetFrameRateLimit"); err != nil {
 		var zero uint32
@@ -7016,10 +7743,12 @@ func vgpuTypeGetFrameRateLimit(vgpuTypeId VgpuTypeId) (uint32, error) {
 	return out, nil
 }
 
-// vgpuTypeGetFramebufferSize wraps nvmlVgpuTypeGetFramebufferSize.
+// vgpuTypeGetFramebufferSize wraps [nvmlVgpuTypeGetFramebufferSize].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - fbSize: Pointer to framebuffer size in bytes
+//
+// [nvmlVgpuTypeGetFramebufferSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv430nvmlVgpuTypeGetFramebufferSize16nvmlVgpuTypeId_tPy
 func vgpuTypeGetFramebufferSize(vgpuTypeId VgpuTypeId) (uint64, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetFramebufferSize"); err != nil {
 		var zero uint64
@@ -7033,10 +7762,12 @@ func vgpuTypeGetFramebufferSize(vgpuTypeId VgpuTypeId) (uint64, error) {
 	return out, nil
 }
 
-// vgpuTypeGetGpuInstanceProfileId wraps nvmlVgpuTypeGetGpuInstanceProfileId.
+// vgpuTypeGetGpuInstanceProfileId wraps [nvmlVgpuTypeGetGpuInstanceProfileId].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - gpuInstanceProfileId: GPU Instance Profile ID
+//
+// [nvmlVgpuTypeGetGpuInstanceProfileId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv435nvmlVgpuTypeGetGpuInstanceProfileId16nvmlVgpuTypeId_tPj
 func vgpuTypeGetGpuInstanceProfileId(vgpuTypeId VgpuTypeId) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetGpuInstanceProfileId"); err != nil {
 		var zero uint32
@@ -7055,7 +7786,9 @@ func vgpuTypeGetGpuInstanceProfileId(vgpuTypeId VgpuTypeId) (uint32, error) {
 //   - vgpuTypeId: Handle to vGPU type
 //   - gspHeapSize: Reference to return the GSP heap size value
 //
-// Wraps nvmlVgpuTypeGetGspHeapSize.
+// Wraps [nvmlVgpuTypeGetGspHeapSize].
+//
+// [nvmlVgpuTypeGetGspHeapSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv426nvmlVgpuTypeGetGspHeapSize16nvmlVgpuTypeId_tPy
 func vgpuTypeGetGspHeapSize(vgpuTypeId VgpuTypeId) (uint64, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetGspHeapSize"); err != nil {
 		var zero uint64
@@ -7069,11 +7802,13 @@ func vgpuTypeGetGspHeapSize(vgpuTypeId VgpuTypeId) (uint64, error) {
 	return out, nil
 }
 
-// vgpuTypeGetLicense wraps nvmlVgpuTypeGetLicense.
+// vgpuTypeGetLicense wraps [nvmlVgpuTypeGetLicense].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - vgpuTypeLicenseString: Pointer to buffer to return license info
 //   - size: Size of vgpuTypeLicenseString buffer
+//
+// [nvmlVgpuTypeGetLicense]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv422nvmlVgpuTypeGetLicense16nvmlVgpuTypeId_tPcj
 func vgpuTypeGetLicense(vgpuTypeId VgpuTypeId) (string, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetLicense"); err != nil {
 		return "", err
@@ -7089,11 +7824,13 @@ func vgpuTypeGetLicense(vgpuTypeId VgpuTypeId) (string, error) {
 	return string(buf_[:n]), nil
 }
 
-// vgpuTypeGetMaxInstances wraps nvmlVgpuTypeGetMaxInstances.
+// vgpuTypeGetMaxInstances wraps [nvmlVgpuTypeGetMaxInstances].
 //
 //   - device: The identifier of the target device
 //   - vgpuTypeId: Handle to vGPU type
 //   - vgpuInstanceCount: Pointer to get the max number of vGPU instances that can be created on a deicve for given vgpuTypeId
+//
+// [nvmlVgpuTypeGetMaxInstances]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuTypeGetMaxInstances12nvmlDevice_t16nvmlVgpuTypeId_tPj
 func vgpuTypeGetMaxInstances(device Device, vgpuTypeId VgpuTypeId) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetMaxInstances"); err != nil {
 		var zero uint32
@@ -7107,9 +7844,11 @@ func vgpuTypeGetMaxInstances(device Device, vgpuTypeId VgpuTypeId) (uint32, erro
 	return out, nil
 }
 
-// VgpuTypeGetMaxInstancesPerGpuInstance wraps nvmlVgpuTypeGetMaxInstancesPerGpuInstance.
+// VgpuTypeGetMaxInstancesPerGpuInstance wraps [nvmlVgpuTypeGetMaxInstancesPerGpuInstance].
 //
 //   - pMaxInstance: Pointer to the caller-provided structure of [VgpuTypeMaxInstance]
+//
+// [nvmlVgpuTypeGetMaxInstancesPerGpuInstance]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv441nvmlVgpuTypeGetMaxInstancesPerGpuInstanceP25nvmlVgpuTypeMaxInstance_t
 func VgpuTypeGetMaxInstancesPerGpuInstance(pMaxInstance *VgpuTypeMaxInstance) error {
 	if err := checkLibSym("nvmlVgpuTypeGetMaxInstancesPerGpuInstance"); err != nil {
 		return err
@@ -7117,10 +7856,12 @@ func VgpuTypeGetMaxInstancesPerGpuInstance(pMaxInstance *VgpuTypeMaxInstance) er
 	return toError(fnVgpuTypeGetMaxInstancesPerGpuInstance(pMaxInstance))
 }
 
-// vgpuTypeGetMaxInstancesPerVm wraps nvmlVgpuTypeGetMaxInstancesPerVm.
+// vgpuTypeGetMaxInstancesPerVm wraps [nvmlVgpuTypeGetMaxInstancesPerVm].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - vgpuInstanceCountPerVm: Pointer to get the max number of vGPU instances supported per VM for given vgpuTypeId
+//
+// [nvmlVgpuTypeGetMaxInstancesPerVm]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlVgpuTypeGetMaxInstancesPerVm16nvmlVgpuTypeId_tPj
 func vgpuTypeGetMaxInstancesPerVm(vgpuTypeId VgpuTypeId) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetMaxInstancesPerVm"); err != nil {
 		var zero uint32
@@ -7134,11 +7875,13 @@ func vgpuTypeGetMaxInstancesPerVm(vgpuTypeId VgpuTypeId) (uint32, error) {
 	return out, nil
 }
 
-// vgpuTypeGetName wraps nvmlVgpuTypeGetName.
+// vgpuTypeGetName wraps [nvmlVgpuTypeGetName].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - vgpuTypeName: Pointer to buffer to return name
 //   - size: Size of buffer
+//
+// [nvmlVgpuTypeGetName]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv419nvmlVgpuTypeGetName16nvmlVgpuTypeId_tPcPj
 func vgpuTypeGetName(vgpuTypeId VgpuTypeId, vgpuTypeName *byte, size *uint32) error {
 	if err := checkLibSym("nvmlVgpuTypeGetName"); err != nil {
 		return err
@@ -7146,10 +7889,12 @@ func vgpuTypeGetName(vgpuTypeId VgpuTypeId, vgpuTypeName *byte, size *uint32) er
 	return toError(fnvgpuTypeGetName(vgpuTypeId, vgpuTypeName, size))
 }
 
-// vgpuTypeGetNumDisplayHeads wraps nvmlVgpuTypeGetNumDisplayHeads.
+// vgpuTypeGetNumDisplayHeads wraps [nvmlVgpuTypeGetNumDisplayHeads].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - numDisplayHeads: Pointer to number of display heads
+//
+// [nvmlVgpuTypeGetNumDisplayHeads]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv430nvmlVgpuTypeGetNumDisplayHeads16nvmlVgpuTypeId_tPj
 func vgpuTypeGetNumDisplayHeads(vgpuTypeId VgpuTypeId) (uint32, error) {
 	if err := checkLibSym("nvmlVgpuTypeGetNumDisplayHeads"); err != nil {
 		var zero uint32
@@ -7163,12 +7908,14 @@ func vgpuTypeGetNumDisplayHeads(vgpuTypeId VgpuTypeId) (uint32, error) {
 	return out, nil
 }
 
-// vgpuTypeGetResolution wraps nvmlVgpuTypeGetResolution.
+// vgpuTypeGetResolution wraps [nvmlVgpuTypeGetResolution].
 //
 //   - vgpuTypeId: Handle to vGPU type
 //   - displayIndex: Zero-based index of display head
 //   - xdim: Pointer to maximum number of pixels in X dimension
 //   - ydim: Pointer to maximum number of pixels in Y dimension
+//
+// [nvmlVgpuTypeGetResolution]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv425nvmlVgpuTypeGetResolution16nvmlVgpuTypeId_tjPjPj
 func vgpuTypeGetResolution(vgpuTypeId VgpuTypeId, displayIndex uint32, xdim *uint32, ydim *uint32) error {
 	if err := checkLibSym("nvmlVgpuTypeGetResolution"); err != nil {
 		return err

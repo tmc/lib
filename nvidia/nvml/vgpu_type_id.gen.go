@@ -2,33 +2,41 @@
 
 package nvml
 
-// BAR1Info wraps nvmlVgpuTypeGetBAR1Info.
+// BAR1Info wraps [nvmlVgpuTypeGetBAR1Info].
 //
 //   - bar1Info: Pointer to the vGPU type BAR1 information structure [VgpuTypeBar1Info]
+//
+// [nvmlVgpuTypeGetBAR1Info]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuTypeGetBAR1Info16nvmlVgpuTypeId_tP22nvmlVgpuTypeBar1Info_t
 func (v VgpuTypeId) BAR1Info(bar1Info *VgpuTypeBar1Info) error {
 	return vgpuTypeGetBAR1Info(v, bar1Info)
 }
 
-// Capabilities wraps nvmlVgpuTypeGetCapabilities.
+// Capabilities wraps [nvmlVgpuTypeGetCapabilities].
 //
 //   - capability: Specifies the [VgpuCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is supported
+//
+// [nvmlVgpuTypeGetCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuTypeGetCapabilities16nvmlVgpuTypeId_t20nvmlVgpuCapability_tPj
 func (v VgpuTypeId) Capabilities(capability VgpuCapability) (uint32, error) {
 	return vgpuTypeGetCapabilities(v, capability)
 }
 
-// Class wraps nvmlVgpuTypeGetClass.
+// Class wraps [nvmlVgpuTypeGetClass].
 //
 //   - vgpuTypeClass: Pointer to string array to return class in
 //   - size: Size of string
+//
+// [nvmlVgpuTypeGetClass]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv420nvmlVgpuTypeGetClass16nvmlVgpuTypeId_tPcPj
 func (v VgpuTypeId) Class(vgpuTypeClass *byte, size *uint32) error {
 	return vgpuTypeGetClass(v, vgpuTypeClass, size)
 }
 
-// DeviceID wraps nvmlVgpuTypeGetDeviceID.
+// DeviceID wraps [nvmlVgpuTypeGetDeviceID].
 //
 //   - deviceID: Device ID and vendor ID of the device contained in single 32 bit value
 //   - subsystemID: Subsystem ID and subsystem vendor ID of the device contained in single 32 bit value
+//
+// [nvmlVgpuTypeGetDeviceID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuTypeGetDeviceID16nvmlVgpuTypeId_tPyPy
 func (v VgpuTypeId) DeviceID(deviceID *uint64, subsystemID *uint64) error {
 	return vgpuTypeGetDeviceID(v, deviceID, subsystemID)
 }
@@ -37,28 +45,36 @@ func (v VgpuTypeId) DeviceID(deviceID *uint64, subsystemID *uint64) error {
 //
 //   - fbReservation: Reference to return the framebuffer reservation
 //
-// Wraps nvmlVgpuTypeGetFbReservation.
+// Wraps [nvmlVgpuTypeGetFbReservation].
+//
+// [nvmlVgpuTypeGetFbReservation]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv428nvmlVgpuTypeGetFbReservation16nvmlVgpuTypeId_tPy
 func (v VgpuTypeId) FbReservation() (uint64, error) {
 	return vgpuTypeGetFbReservation(v)
 }
 
-// FrameRateLimit wraps nvmlVgpuTypeGetFrameRateLimit.
+// FrameRateLimit wraps [nvmlVgpuTypeGetFrameRateLimit].
 //
 //   - frameRateLimit: Reference to return the frame rate limit value
+//
+// [nvmlVgpuTypeGetFrameRateLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlVgpuTypeGetFrameRateLimit16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) FrameRateLimit() (uint32, error) {
 	return vgpuTypeGetFrameRateLimit(v)
 }
 
-// FramebufferSize wraps nvmlVgpuTypeGetFramebufferSize.
+// FramebufferSize wraps [nvmlVgpuTypeGetFramebufferSize].
 //
 //   - fbSize: Pointer to framebuffer size in bytes
+//
+// [nvmlVgpuTypeGetFramebufferSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv430nvmlVgpuTypeGetFramebufferSize16nvmlVgpuTypeId_tPy
 func (v VgpuTypeId) FramebufferSize() (uint64, error) {
 	return vgpuTypeGetFramebufferSize(v)
 }
 
-// GpuInstanceProfileId wraps nvmlVgpuTypeGetGpuInstanceProfileId.
+// GpuInstanceProfileId wraps [nvmlVgpuTypeGetGpuInstanceProfileId].
 //
 //   - gpuInstanceProfileId: GPU Instance Profile ID
+//
+// [nvmlVgpuTypeGetGpuInstanceProfileId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv435nvmlVgpuTypeGetGpuInstanceProfileId16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) GpuInstanceProfileId() (uint32, error) {
 	return vgpuTypeGetGpuInstanceProfileId(v)
 }
@@ -67,54 +83,68 @@ func (v VgpuTypeId) GpuInstanceProfileId() (uint32, error) {
 //
 //   - gspHeapSize: Reference to return the GSP heap size value
 //
-// Wraps nvmlVgpuTypeGetGspHeapSize.
+// Wraps [nvmlVgpuTypeGetGspHeapSize].
+//
+// [nvmlVgpuTypeGetGspHeapSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVirtualGpuQueries.html#_CPPv426nvmlVgpuTypeGetGspHeapSize16nvmlVgpuTypeId_tPy
 func (v VgpuTypeId) GspHeapSize() (uint64, error) {
 	return vgpuTypeGetGspHeapSize(v)
 }
 
-// License wraps nvmlVgpuTypeGetLicense.
+// License wraps [nvmlVgpuTypeGetLicense].
 //
 //   - vgpuTypeLicenseString: Pointer to buffer to return license info
 //   - size: Size of vgpuTypeLicenseString buffer
+//
+// [nvmlVgpuTypeGetLicense]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv422nvmlVgpuTypeGetLicense16nvmlVgpuTypeId_tPcj
 func (v VgpuTypeId) License() (string, error) {
 	return vgpuTypeGetLicense(v)
 }
 
-// MaxInstances wraps nvmlVgpuTypeGetMaxInstances.
+// MaxInstances wraps [nvmlVgpuTypeGetMaxInstances].
 //
 //   - device: The identifier of the target device
 //   - vgpuInstanceCount: Pointer to get the max number of vGPU instances that can be created on a deicve for given vgpuTypeId
+//
+// [nvmlVgpuTypeGetMaxInstances]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuTypeGetMaxInstances12nvmlDevice_t16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) MaxInstances(device Device) (uint32, error) {
 	return vgpuTypeGetMaxInstances(device, v)
 }
 
-// MaxInstancesPerVm wraps nvmlVgpuTypeGetMaxInstancesPerVm.
+// MaxInstancesPerVm wraps [nvmlVgpuTypeGetMaxInstancesPerVm].
 //
 //   - vgpuInstanceCountPerVm: Pointer to get the max number of vGPU instances supported per VM for given vgpuTypeId
+//
+// [nvmlVgpuTypeGetMaxInstancesPerVm]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlVgpuTypeGetMaxInstancesPerVm16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) MaxInstancesPerVm() (uint32, error) {
 	return vgpuTypeGetMaxInstancesPerVm(v)
 }
 
-// Name wraps nvmlVgpuTypeGetName.
+// Name wraps [nvmlVgpuTypeGetName].
 //
 //   - vgpuTypeName: Pointer to buffer to return name
 //   - size: Size of buffer
+//
+// [nvmlVgpuTypeGetName]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv419nvmlVgpuTypeGetName16nvmlVgpuTypeId_tPcPj
 func (v VgpuTypeId) Name(vgpuTypeName *byte, size *uint32) error {
 	return vgpuTypeGetName(v, vgpuTypeName, size)
 }
 
-// NumDisplayHeads wraps nvmlVgpuTypeGetNumDisplayHeads.
+// NumDisplayHeads wraps [nvmlVgpuTypeGetNumDisplayHeads].
 //
 //   - numDisplayHeads: Pointer to number of display heads
+//
+// [nvmlVgpuTypeGetNumDisplayHeads]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv430nvmlVgpuTypeGetNumDisplayHeads16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) NumDisplayHeads() (uint32, error) {
 	return vgpuTypeGetNumDisplayHeads(v)
 }
 
-// Resolution wraps nvmlVgpuTypeGetResolution.
+// Resolution wraps [nvmlVgpuTypeGetResolution].
 //
 //   - displayIndex: Zero-based index of display head
 //   - xdim: Pointer to maximum number of pixels in X dimension
 //   - ydim: Pointer to maximum number of pixels in Y dimension
+//
+// [nvmlVgpuTypeGetResolution]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv425nvmlVgpuTypeGetResolution16nvmlVgpuTypeId_tjPjPj
 func (v VgpuTypeId) Resolution(displayIndex uint32, xdim *uint32, ydim *uint32) error {
 	return vgpuTypeGetResolution(v, displayIndex, xdim, ydim)
 }

@@ -6,7 +6,9 @@ package nvml
 //
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
-// Wraps nvmlComputeInstanceDestroy.
+// Wraps [nvmlComputeInstanceDestroy].
+//
+// [nvmlComputeInstanceDestroy]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv426nvmlComputeInstanceDestroy21nvmlComputeInstance_t
 func (c ComputeInstance) Destroy() error {
 	return computeInstanceDestroy(c)
 }
@@ -17,7 +19,9 @@ func (c ComputeInstance) Destroy() error {
 //
 //   - info: Return compute instance information
 //
-// Wraps nvmlComputeInstanceGetInfo, bound as nvmlComputeInstanceGetInfo_v2.
+// Wraps [nvmlComputeInstanceGetInfo], bound as nvmlComputeInstanceGetInfo_v2.
+//
+// [nvmlComputeInstanceGetInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlMultiInstanceGPU.html#_CPPv429nvmlComputeInstanceGetInfo_v221nvmlComputeInstance_tP25nvmlComputeInstanceInfo_t
 func (c ComputeInstance) Info() (ComputeInstanceInfo, error) {
 	return computeInstanceGetInfo(c)
 }
