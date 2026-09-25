@@ -113,8 +113,8 @@ func TestAddLaunchZeroDimension(t *testing.T) {
 		name string
 		desc cudalaunch.Description
 	}{
-		{"grid", cudalaunch.Description{Function: base.Function, Grid: cudalaunch.Dim3{}, Block: base.Block}},
-		{"block", cudalaunch.Description{Function: base.Function, Grid: base.Grid, Block: cudalaunch.Dim3{X: 1}}},
+		{"grid", cudalaunch.Description{Function: base.Function, Grid: driver.Dim3{}, Block: base.Block}},
+		{"block", cudalaunch.Description{Function: base.Function, Grid: base.Grid, Block: driver.Dim3{X: 1}}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			g := &Graph{raw: 1}

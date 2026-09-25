@@ -329,7 +329,7 @@ func TestDeviceUpdateErrorHandling(t *testing.T) {
 			name: "node SetGrid zero dim",
 			fn: func() error {
 				n := &cudagraph.Node{}
-				return n.SetGrid(cudalaunch.Dim3{X: 0, Y: 1, Z: 1})
+				return n.SetGrid(driver.Dim3{X: 0, Y: 1, Z: 1})
 			},
 		},
 		{

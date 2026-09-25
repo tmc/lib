@@ -25,8 +25,8 @@ type Description struct {
 	Function driver.Function
 
 	// Grid and Block are the execution configuration in blocks and threads.
-	Grid  Dim3
-	Block Dim3
+	Grid  driver.Dim3
+	Block driver.Dim3
 
 	// SharedMem is dynamic shared memory per block, in bytes.
 	SharedMem uint32

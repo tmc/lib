@@ -18,10 +18,10 @@ func TestDescribe(t *testing.T) {
 	if desc.Function != fn {
 		t.Errorf("Function = %#x, want %#x", desc.Function, fn)
 	}
-	if want := (cudalaunch.Dim3{X: 4, Y: 2, Z: 3}); desc.Grid != want {
+	if want := (driver.Dim3{X: 4, Y: 2, Z: 3}); desc.Grid != want {
 		t.Errorf("Grid = %+v, want %+v", desc.Grid, want)
 	}
-	if want := (cudalaunch.Dim3{X: 128, Y: 2, Z: 1}); desc.Block != want {
+	if want := (driver.Dim3{X: 128, Y: 2, Z: 1}); desc.Block != want {
 		t.Errorf("Block = %+v, want %+v", desc.Block, want)
 	}
 	if desc.SharedMem != 2048 {

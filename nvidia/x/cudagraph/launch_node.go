@@ -100,7 +100,7 @@ func (g *Graph) AddLaunch(desc cudalaunch.Description, args []any, dependencies 
 // checkDim rejects a zero extent. A Launcher starts at one block of one
 // thread, so a zero here is an explicit configuration, not an unset field, and
 // substituting one for it would run a launch nobody asked for.
-func checkDim(what string, d cudalaunch.Dim3) error {
+func checkDim(what string, d driver.Dim3) error {
 	if d.X == 0 || d.Y == 0 || d.Z == 0 {
 		return fmt.Errorf("cudagraph: %s dimension %dx%dx%d has a zero extent", what, d.X, d.Y, d.Z)
 	}

@@ -39,13 +39,13 @@ func (m *mockShadowExecutor) ExecuteShadow(ctx context.Context, s *cuda.Stream, 
 
 type mockGraphUpdater struct {
 	mu           sync.Mutex
-	gridUpdates  []cudalaunch.Dim3
+	gridUpdates  []driver.Dim3
 	paramUpdates []driver.KernelNodeParams
 	argUpdates   [][]any
 	nodeUpdates  []cudagraph.KernelNodeUpdate
 }
 
-func (m *mockGraphUpdater) SetKernelNodeGrid(node *cudagraph.Node, grid cudalaunch.Dim3) error {
+func (m *mockGraphUpdater) SetKernelNodeGrid(node *cudagraph.Node, grid driver.Dim3) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.gridUpdates = append(m.gridUpdates, grid)
@@ -61,7 +61,7 @@ func (m *mockGraphUpdater) SetKernelNodeParams(node *cudagraph.Node, params *dri
 	return nil
 }
 
-func (m *mockGraphUpdater) UpdateKernelNode(node *cudagraph.Node, grid cudalaunch.Dim3, args ...any) error {
+func (m *mockGraphUpdater) UpdateKernelNode(node *cudagraph.Node, grid driver.Dim3, args ...any) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.gridUpdates = append(m.gridUpdates, grid)

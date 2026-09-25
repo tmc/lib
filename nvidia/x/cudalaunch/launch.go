@@ -12,16 +12,9 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
-// Dim3 specifies 3-dimensional execution configurations for grids and blocks.
-type Dim3 struct {
-	X uint32
-	Y uint32
-	Z uint32
-}
-
-// Dims creates a Dim3 configuration. Unspecified Y or Z dimensions default to 1.
-func Dims(x uint32, yz ...uint32) Dim3 {
-	d := Dim3{X: x, Y: 1, Z: 1}
+// Dims returns a [driver.Dim3]. Unspecified Y or Z dimensions default to 1.
+func Dims(x uint32, yz ...uint32) driver.Dim3 {
+	d := driver.Dim3{X: x, Y: 1, Z: 1}
 	if len(yz) > 0 {
 		d.Y = yz[0]
 	}
@@ -48,8 +41,8 @@ type DeviceSlice interface {
 type Launcher struct {
 	fn      driver.Function
 	owned   *cuda.Kernel
-	grid    Dim3
-	block   Dim3
+	grid    driver.Dim3
+	block   driver.Dim3
 	shmem   uint32
 	stream  *cuda.Stream
 	counter *Counter
@@ -85,8 +78,8 @@ func (c *Counter) Value() uint64 {
 func Kernel(fn driver.Function) *Launcher {
 	return &Launcher{
 		fn:    fn,
-		grid:  Dim3{X: 1, Y: 1, Z: 1},
-		block: Dim3{X: 1, Y: 1, Z: 1},
+		grid:  driver.Dim3{X: 1, Y: 1, Z: 1},
+		block: driver.Dim3{X: 1, Y: 1, Z: 1},
 	}
 }
 
@@ -319,7 +312,7 @@ func ProgrammaticStreamSerializationAttr(enable bool) driver.LaunchAttribute {
 
 // ClusterDimAttr returns a LaunchAttribute setting the cluster dimensions
 // for cuLaunchKernelEx or kernel graph nodes.
-func ClusterDimAttr(dim Dim3) driver.LaunchAttribute {
+func ClusterDimAttr(dim driver.Dim3) driver.LaunchAttribute {
 	var attr driver.LaunchAttribute
 	attr.Id = driver.LaunchAttributeClusterDimension
 	// CUlaunchAttributeValue.clusterDim is struct { unsigned int x, y, z; }.
@@ -332,7 +325,7 @@ func ClusterDimAttr(dim Dim3) driver.LaunchAttribute {
 }
 
 // WithClusterDim configures cluster dimensions for this launch.
-func (l *Launcher) WithClusterDim(dim Dim3) *Launcher {
+func (l *Launcher) WithClusterDim(dim driver.Dim3) *Launcher {
 	return l.WithAttrs(ClusterDimAttr(dim))
 }
 
@@ -423,8 +416,8 @@ func (l *Launcher) Launch(args ...any) error {
 	launch := func(stream driver.Stream) error {
 		if len(l.attrs) > 0 {
 			cfg := driver.LaunchConfig{
-				GridDim:        driver.Dim3(l.grid),
-				BlockDim:       driver.Dim3(l.block),
+				GridDim:        l.grid,
+				BlockDim:       l.block,
 				SharedMemBytes: l.shmem,
 				HStream:        stream,
 				Attrs:          uintptr(unsafe.Pointer(&l.attrs[0])),
@@ -440,8 +433,8 @@ func (l *Launcher) Launch(args ...any) error {
 			return l.owned.Launch([3]uint32{l.grid.X, l.grid.Y, l.grid.Z}, [3]uint32{l.block.X, l.block.Y, l.block.Z}, l.shmem, stream, kernelParams)
 		}
 		return l.fn.LaunchKernel(
-			driver.Dim3(l.grid),
-			driver.Dim3(l.block),
+			l.grid,
+			l.block,
 			l.shmem,
 			stream,
 			kernelParams,

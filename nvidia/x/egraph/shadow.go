@@ -451,9 +451,9 @@ func (st *ShadowTuner) ShouldPromote(current, candidate TuningCandidate, policy 
 // GraphNodeUpdater is the minimal interface for updating a kernel node in an instantiated CUDA graph in-place.
 // *cudagraph.Exec implements this interface directly.
 type GraphNodeUpdater interface {
-	SetKernelNodeGrid(node *cudagraph.Node, grid cudalaunch.Dim3) error
+	SetKernelNodeGrid(node *cudagraph.Node, grid driver.Dim3) error
 	SetKernelNodeParams(node *cudagraph.Node, params *driver.KernelNodeParams) error
-	UpdateKernelNode(node *cudagraph.Node, grid cudalaunch.Dim3, args ...any) error
+	UpdateKernelNode(node *cudagraph.Node, grid driver.Dim3, args ...any) error
 	ApplyKernelNodeUpdate(node *cudagraph.Node, update cudagraph.KernelNodeUpdate) error
 }
 
@@ -467,7 +467,7 @@ func HotSwapNode(exec GraphNodeUpdater, node *cudagraph.Node, cand TuningCandida
 	if node == nil {
 		return errors.New("egraph: nil graph node")
 	}
-	grid := cudalaunch.Dim3{
+	grid := driver.Dim3{
 		X: uint32(cand.GridDim),
 		Y: 1,
 		Z: 1,

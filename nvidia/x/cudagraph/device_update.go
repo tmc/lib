@@ -56,7 +56,7 @@ func (f KernelNodeField) String() string {
 type KernelNodeUpdate struct {
 	Field     KernelNodeField
 	Node      DeviceNode
-	GridDim   cudalaunch.Dim3
+	GridDim   driver.Dim3
 	Offset    uintptr
 	Value     unsafe.Pointer
 	Size      uintptr
@@ -64,7 +64,7 @@ type KernelNodeUpdate struct {
 }
 
 // NewGridDimUpdate creates a KernelNodeUpdate to update the grid dimensions of node.
-func NewGridDimUpdate(node DeviceNode, grid cudalaunch.Dim3) KernelNodeUpdate {
+func NewGridDimUpdate(node DeviceNode, grid driver.Dim3) KernelNodeUpdate {
 	return KernelNodeUpdate{
 		Field:   KernelNodeFieldGridDim,
 		Node:    node,
@@ -207,7 +207,7 @@ func (n *Node) SetParams(params *driver.KernelNodeParams) error {
 }
 
 // SetGrid updates the grid dimensions of the kernel node in the non-instantiated graph.
-func (n *Node) SetGrid(grid cudalaunch.Dim3) error {
+func (n *Node) SetGrid(grid driver.Dim3) error {
 	if grid.X == 0 || grid.Y == 0 || grid.Z == 0 {
 		return errors.New("cudagraph: invalid zero grid dimension")
 	}
@@ -215,7 +215,7 @@ func (n *Node) SetGrid(grid cudalaunch.Dim3) error {
 	if err != nil {
 		return err
 	}
-	params.GridDim = driver.Dim3(grid)
+	params.GridDim = grid
 	return n.SetParams(&params)
 }
 
@@ -309,7 +309,7 @@ func (e *Exec) SetKernelNodeParams(node *Node, params *driver.KernelNodeParams) 
 }
 
 // SetKernelNodeGrid updates the grid dimensions of a kernel node in an instantiated graph.
-func (e *Exec) SetKernelNodeGrid(node *Node, grid cudalaunch.Dim3) error {
+func (e *Exec) SetKernelNodeGrid(node *Node, grid driver.Dim3) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
 	}
@@ -323,7 +323,7 @@ func (e *Exec) SetKernelNodeGrid(node *Node, grid cudalaunch.Dim3) error {
 	if err != nil {
 		return err
 	}
-	params.GridDim = driver.Dim3(grid)
+	params.GridDim = grid
 	return e.SetKernelNodeParams(node, &params)
 }
 
@@ -331,7 +331,7 @@ func (e *Exec) SetKernelNodeGrid(node *Node, grid cudalaunch.Dim3) error {
 // instantiated graph without re-instantiating or validating topology.
 // If grid.X is non-zero, grid dimensions are updated. If args are provided,
 // they are packed, updated, and retained on e to protect them against garbage collection.
-func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) error {
+func (e *Exec) UpdateKernelNode(node *Node, grid driver.Dim3, args ...any) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
 	}
@@ -346,7 +346,7 @@ func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) e
 		if grid.Y == 0 || grid.Z == 0 {
 			return errors.New("cudagraph: invalid zero grid dimension")
 		}
-		params.GridDim = driver.Dim3(grid)
+		params.GridDim = grid
 	}
 	if len(args) > 0 {
 		kernelParams, err := cudalaunch.PackArgs(args...)
@@ -364,8 +364,8 @@ func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) e
 			params: kernelParams,
 			desc: cudalaunch.Description{
 				Function: params.Func,
-				Grid:     cudalaunch.Dim3(params.GridDim),
-				Block:    cudalaunch.Dim3(params.BlockDim),
+				Grid:     params.GridDim,
+				Block:    params.BlockDim,
 			},
 		})
 		return nil
@@ -376,7 +376,7 @@ func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) e
 // HotSwapNode updates the kernel function, grid dimensions, and arguments of an
 // existing kernel node in the instantiated graph without re-instantiating the CUDA Graph.
 // The packed argument storage is retained on e for the lifetime of the Exec.
-func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid cudalaunch.Dim3, args ...any) error {
+func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid driver.Dim3, args ...any) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
 	}
@@ -395,7 +395,7 @@ func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid cudalaunch.Dim3,
 		if grid.Y == 0 || grid.Z == 0 {
 			return errors.New("cudagraph: invalid zero grid dimension")
 		}
-		params.GridDim = driver.Dim3(grid)
+		params.GridDim = grid
 	}
 	if len(args) > 0 {
 		kernelParams, err := cudalaunch.PackArgs(args...)
@@ -412,8 +412,8 @@ func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid cudalaunch.Dim3,
 			params: kernelParams,
 			desc: cudalaunch.Description{
 				Function: fn,
-				Grid:     cudalaunch.Dim3(params.GridDim),
-				Block:    cudalaunch.Dim3(params.BlockDim),
+				Grid:     params.GridDim,
+				Block:    params.BlockDim,
 			},
 		})
 		return nil
