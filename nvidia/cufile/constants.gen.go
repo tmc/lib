@@ -22,12 +22,12 @@ const (
 	RdmaRegister = 1
 	// RdmaRelaxedOrdering is CU_FILE_RDMA_RELAXED_ORDERING.
 	RdmaRelaxedOrdering = 2
-	// StreamFixedBufOffset is CU_FILE_STREAM_FIXED_BUF_OFFSET.
+	// StreamFixedBufOffset is CU_FILE_STREAM_FIXED_BUF_OFFSET. buffer pointer offset is set at submission time.
 	StreamFixedBufOffset = 1
-	// StreamFixedFileOffset is CU_FILE_STREAM_FIXED_FILE_OFFSET.
+	// StreamFixedFileOffset is CU_FILE_STREAM_FIXED_FILE_OFFSET. file offset is set at submission time.
 	StreamFixedFileOffset = 2
-	// StreamFixedFileSize is CU_FILE_STREAM_FIXED_FILE_SIZE.
+	// StreamFixedFileSize is CU_FILE_STREAM_FIXED_FILE_SIZE. file size is set at submission time.
 	StreamFixedFileSize = 4
-	// StreamPageAlignedInputs is CU_FILE_STREAM_PAGE_ALIGNED_INPUTS.
+	// StreamPageAlignedInputs is CU_FILE_STREAM_PAGE_ALIGNED_INPUTS. size, offset and buffer offset are 4k aligned.
 	StreamPageAlignedInputs = 8
 )

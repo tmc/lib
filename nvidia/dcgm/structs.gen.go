@@ -1352,7 +1352,7 @@ type StartEmbeddedV2ParamsV2 struct {
 	DenyList       [10]uint32
 }
 
-// StartEmbeddedV2Params represents options for [StartEmbeddedV2Params] Added in DCGM 4.3, expanded the size of denyList from DCGM_MODULE_ID_COUNT_V1 to DCGM_MODULE_ID_COUNT_V2.
+// StartEmbeddedV2Params represents options for [StartEmbeddedV2Params] Added in DCGM 4.3, expanded the size of denyList from [ModuleIdCountV1] to [ModuleIdCountV2].
 type StartEmbeddedV2Params struct {
 	Version        uint32
 	OpMode         OperationMode

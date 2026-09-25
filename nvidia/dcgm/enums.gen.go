@@ -4,7 +4,7 @@ package dcgm
 
 import "fmt"
 
-// GpuVirtualizationMode represents GPU virtualization mode types for DCGM_FI_DEV_GPU_VIRTUAL_MODE.
+// GpuVirtualizationMode represents GPU virtualization mode types for [FieldDevGpuVirtualMode].
 type GpuVirtualizationMode int32
 
 const (
@@ -36,7 +36,7 @@ func (e GpuVirtualizationMode) String() string {
 type FieldEntityGroup int32
 
 const (
-	FeNone     FieldEntityGroup = 0  // !< Field is not associated with an entity. Field scope should be DCGM_FS_GLOBAL
+	FeNone     FieldEntityGroup = 0  // !< Field is not associated with an entity. Field scope should be [FsGlobal]
 	FeGpu      FieldEntityGroup = 1  // !< Field is associated with a GPU entity
 	FeVgpu     FieldEntityGroup = 2  // !< Field is associated with a VGPU entity
 	FeSwitch   FieldEntityGroup = 3  // !< Field is associated with a Switch entity
@@ -1012,7 +1012,7 @@ func (e GpuTopologyLevelV1) String() string {
 	return fmt.Sprintf("GpuTopologyLevelV1(%d)", e)
 }
 
-// GpuNVLinkErrorType identifies a GPU NVLink error type returned by DCGM_FI_DEV_NVLINK_ERROR.
+// GpuNVLinkErrorType identifies a GPU NVLink error type returned by [FieldDevNvlinkError].
 type GpuNVLinkErrorType int32
 
 const (

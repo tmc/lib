@@ -92,537 +92,539 @@ const (
 	ComputeInstanceProfile7Slice = 4
 	// ComputeInstanceProfile8Slice is NVML_COMPUTE_INSTANCE_PROFILE_8_SLICE. 8_SLICE compute instance profile.
 	ComputeInstanceProfile8Slice = 5
-	// ComputeInstanceProfileCapsGfx is NVML_COMPUTE_INSTANCE_PROFILE_CAPS_GFX.
+	// ComputeInstanceProfileCapsGfx is NVML_COMPUTE_INSTANCE_PROFILE_CAPS_GFX. MIG compute instance profile capability.
+	//
+	// Bit field values representing MIG profile capabilities [ComputeInstanceProfileInfoV3].capabilities.
 	ComputeInstanceProfileCapsGfx = 1
 	// ComputeInstanceProfileCount is NVML_COMPUTE_INSTANCE_PROFILE_COUNT. Number of compute instance profiles.
 	ComputeInstanceProfileCount = 8
 	// DeviceHostnameBufferSize is NVML_DEVICE_HOSTNAME_BUFFER_SIZE. Buffer size for hostname string.
 	DeviceHostnameBufferSize = 64
-	// DeviceInforomVersionBufferSize is NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
+	// DeviceInforomVersionBufferSize is NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE. Buffer size guaranteed to be large enough for [Device.InforomVersion] and [Device.InforomImageVersion].
 	DeviceInforomVersionBufferSize = 16
 	// DeviceMigDisable is NVML_DEVICE_MIG_DISABLE. Disable Multi Instance GPU mode.
 	DeviceMigDisable = 0
 	// DeviceMigEnable is NVML_DEVICE_MIG_ENABLE. Enable Multi Instance GPU mode.
 	DeviceMigEnable = 1
-	// DeviceNameBufferSize is NVML_DEVICE_NAME_BUFFER_SIZE.
+	// DeviceNameBufferSize is NVML_DEVICE_NAME_BUFFER_SIZE. Buffer size guaranteed to be large enough for storing GPU device names.
 	DeviceNameBufferSize = 64
-	// DeviceNameV2BufferSize is NVML_DEVICE_NAME_V2_BUFFER_SIZE.
+	// DeviceNameV2BufferSize is NVML_DEVICE_NAME_V2_BUFFER_SIZE. Buffer size guaranteed to be large enough for [Device.Name].
 	DeviceNameV2BufferSize = 96
-	// DevicePartNumberBufferSize is NVML_DEVICE_PART_NUMBER_BUFFER_SIZE.
+	// DevicePartNumberBufferSize is NVML_DEVICE_PART_NUMBER_BUFFER_SIZE. Buffer size guaranteed to be large enough for [Device.BoardPartNumber].
 	DevicePartNumberBufferSize = 80
 	// DevicePciBusIdBufferSize is NVML_DEVICE_PCI_BUS_ID_BUFFER_SIZE. Buffer size for PCI bus ID.
 	DevicePciBusIdBufferSize = 32
 	// DevicePciBusIdBufferV2Size is NVML_DEVICE_PCI_BUS_ID_BUFFER_V2_SIZE. Buffer size for legacy PCI bus ID.
 	DevicePciBusIdBufferV2Size = 16
-	// DeviceSerialBufferSize is NVML_DEVICE_SERIAL_BUFFER_SIZE.
+	// DeviceSerialBufferSize is NVML_DEVICE_SERIAL_BUFFER_SIZE. Buffer size guaranteed to be large enough for [Device.Serial].
 	DeviceSerialBufferSize = 30
 	// DeviceUuidAsciiLen is NVML_DEVICE_UUID_ASCII_LEN. Length of UUID in ASCII format.
 	DeviceUuidAsciiLen = 41
 	// DeviceUuidBinaryLen is NVML_DEVICE_UUID_BINARY_LEN. Length of UUID in binary format.
 	DeviceUuidBinaryLen = 16
-	// DeviceUuidBufferSize is NVML_DEVICE_UUID_BUFFER_SIZE.
+	// DeviceUuidBufferSize is NVML_DEVICE_UUID_BUFFER_SIZE. Buffer size guaranteed to be large enough for storing GPU identifiers.
 	DeviceUuidBufferSize = 80
-	// DeviceUuidV2BufferSize is NVML_DEVICE_UUID_V2_BUFFER_SIZE.
+	// DeviceUuidV2BufferSize is NVML_DEVICE_UUID_V2_BUFFER_SIZE. Buffer size guaranteed to be large enough for [Device.UUID].
 	DeviceUuidV2BufferSize = 96
-	// DeviceVbiosVersionBufferSize is NVML_DEVICE_VBIOS_VERSION_BUFFER_SIZE.
+	// DeviceVbiosVersionBufferSize is NVML_DEVICE_VBIOS_VERSION_BUFFER_SIZE. Buffer size guaranteed to be large enough for [Device.VbiosVersion].
 	DeviceVbiosVersionBufferSize = 32
-	// DevCapEgm is NVML_DEV_CAP_EGM. Extended GPU memory
+	// DevCapEgm is NVML_DEV_CAP_EGM. Extended GPU memory.
 	DevCapEgm = 1
 	// DoubleBitEcc is NVML_DOUBLE_BIT_ECC. Deprecated double bit ECC error. See [MemoryErrorTypeUncorrected].
 	//
-	// Deprecated: Mapped to [MemoryErrorTypeUncorrected]
+	// Deprecated: Mapped to [MemoryErrorTypeUncorrected].
 	DoubleBitEcc = MemoryErrorTypeUncorrected
-	// FieldDevC2CLinkCount is NVML_FI_DEV_C2C_LINK_COUNT. Number of C2C Links present on the device
+	// FieldDevC2CLinkCount is NVML_FI_DEV_C2C_LINK_COUNT. Number of C2C Links present on the device.
 	FieldDevC2CLinkCount uint32 = 170
-	// FieldDevC2CLinkErrorIntr is NVML_FI_DEV_C2C_LINK_ERROR_INTR. C2C Link CRC Error Counter
+	// FieldDevC2CLinkErrorIntr is NVML_FI_DEV_C2C_LINK_ERROR_INTR. C2C Link CRC Error Counter.
 	FieldDevC2CLinkErrorIntr uint32 = 231
-	// FieldDevC2CLinkErrorReplay is NVML_FI_DEV_C2C_LINK_ERROR_REPLAY. C2C Link Replay Error Counter
+	// FieldDevC2CLinkErrorReplay is NVML_FI_DEV_C2C_LINK_ERROR_REPLAY. C2C Link Replay Error Counter.
 	FieldDevC2CLinkErrorReplay uint32 = 232
-	// FieldDevC2CLinkErrorReplayB2B is NVML_FI_DEV_C2C_LINK_ERROR_REPLAY_B2B. C2C Link Back to Back Replay Error Counter
+	// FieldDevC2CLinkErrorReplayB2B is NVML_FI_DEV_C2C_LINK_ERROR_REPLAY_B2B. C2C Link Back to Back Replay Error Counter.
 	FieldDevC2CLinkErrorReplayB2B uint32 = 233
-	// FieldDevC2CLinkGetMaxBw is NVML_FI_DEV_C2C_LINK_GET_MAX_BW. C2C Link Speed in MBps for active links
+	// FieldDevC2CLinkGetMaxBw is NVML_FI_DEV_C2C_LINK_GET_MAX_BW. C2C Link Speed in MBps for active links.
 	FieldDevC2CLinkGetMaxBw uint32 = 172
-	// FieldDevC2CLinkGetStatus is NVML_FI_DEV_C2C_LINK_GET_STATUS. C2C Link Status 0=INACTIVE 1=ACTIVE
+	// FieldDevC2CLinkGetStatus is NVML_FI_DEV_C2C_LINK_GET_STATUS. C2C Link Status 0=INACTIVE 1=ACTIVE.
 	FieldDevC2CLinkGetStatus uint32 = 171
-	// FieldDevC2CLinkPowerState is NVML_FI_DEV_C2C_LINK_POWER_STATE. C2C Link Power state. See NVML_C2C_POWER_STATE_*
+	// FieldDevC2CLinkPowerState is NVML_FI_DEV_C2C_LINK_POWER_STATE. C2C Link Power state. See NVML_C2C_POWER_STATE_*.
 	FieldDevC2CLinkPowerState uint32 = 234
-	// FieldDevClocksEventReasonHwPowerBrakeSlowdown is NVML_FI_DEV_CLOCKS_EVENT_REASON_HW_POWER_BRAKE_SLOWDOWN. Throttling due to external power brake assertion trigger (reducing core clocks by a factor of 2 or more) in ns
+	// FieldDevClocksEventReasonHwPowerBrakeSlowdown is NVML_FI_DEV_CLOCKS_EVENT_REASON_HW_POWER_BRAKE_SLOWDOWN. Throttling due to external power brake assertion trigger (reducing core clocks by a factor of 2 or more) in ns.
 	FieldDevClocksEventReasonHwPowerBrakeSlowdown uint32 = 271
-	// FieldDevClocksEventReasonHwThermSlowdown is NVML_FI_DEV_CLOCKS_EVENT_REASON_HW_THERM_SLOWDOWN. Throttling due to temperature being too high (reducing core clocks by a factor of 2 or more) in ns
+	// FieldDevClocksEventReasonHwThermSlowdown is NVML_FI_DEV_CLOCKS_EVENT_REASON_HW_THERM_SLOWDOWN. Throttling due to temperature being too high (reducing core clocks by a factor of 2 or more) in ns.
 	FieldDevClocksEventReasonHwThermSlowdown uint32 = 270
-	// FieldDevClocksEventReasonSwPowerCap is NVML_FI_DEV_CLOCKS_EVENT_REASON_SW_POWER_CAP. Throttling to not exceed currently set power limits in ns
+	// FieldDevClocksEventReasonSwPowerCap is NVML_FI_DEV_CLOCKS_EVENT_REASON_SW_POWER_CAP. Throttling to not exceed currently set power limits in ns.
 	FieldDevClocksEventReasonSwPowerCap = FieldDevPerfPolicyPower
-	// FieldDevClocksEventReasonSwThermSlowdown is NVML_FI_DEV_CLOCKS_EVENT_REASON_SW_THERM_SLOWDOWN. Throttling to ensure ((GPU temp < GPU Max Operating Temp) && (Memory Temp < Memory Max Operating Temp)) in ns
+	// FieldDevClocksEventReasonSwThermSlowdown is NVML_FI_DEV_CLOCKS_EVENT_REASON_SW_THERM_SLOWDOWN. Throttling to ensure ((GPU temp < GPU Max Operating Temp) && (Memory Temp < Memory Max Operating Temp)) in ns.
 	FieldDevClocksEventReasonSwThermSlowdown uint32 = 269
-	// FieldDevClocksEventReasonSyncBoost is NVML_FI_DEV_CLOCKS_EVENT_REASON_SYNC_BOOST. Throttling to match minimum possible clock across Sync Boost Group in ns
+	// FieldDevClocksEventReasonSyncBoost is NVML_FI_DEV_CLOCKS_EVENT_REASON_SYNC_BOOST. Throttling to match minimum possible clock across Sync Boost Group in ns.
 	FieldDevClocksEventReasonSyncBoost = FieldDevPerfPolicySyncBoost
 	// FieldDevDrainAndResetStatus is NVML_FI_DEV_DRAIN_AND_RESET_STATUS.
 	//
-	// Deprecated: Do not use (use [FieldDevGetGpuRecoveryAction] instead)
+	// Deprecated: Do not use (use [FieldDevGetGpuRecoveryAction] instead).
 	FieldDevDrainAndResetStatus uint32 = 227
-	// FieldDevEccCurrent is NVML_FI_DEV_ECC_CURRENT. Current ECC mode. 1=Active. 0=Inactive
+	// FieldDevEccCurrent is NVML_FI_DEV_ECC_CURRENT. Current ECC mode. 1=Active. 0=Inactive.
 	FieldDevEccCurrent uint32 = 1
-	// FieldDevEccDbeAggCbu is NVML_FI_DEV_ECC_DBE_AGG_CBU. CBU double bit aggregate ECC errors
+	// FieldDevEccDbeAggCbu is NVML_FI_DEV_ECC_DBE_AGG_CBU. CBU double bit aggregate ECC errors.
 	FieldDevEccDbeAggCbu uint32 = 28
-	// FieldDevEccDbeAggDev is NVML_FI_DEV_ECC_DBE_AGG_DEV. Device memory double bit aggregate (persistent) ECC errors
+	// FieldDevEccDbeAggDev is NVML_FI_DEV_ECC_DBE_AGG_DEV. Device memory double bit aggregate (persistent) ECC errors.
 	FieldDevEccDbeAggDev uint32 = 23
-	// FieldDevEccDbeAggL1 is NVML_FI_DEV_ECC_DBE_AGG_L1. L1 cache double bit aggregate (persistent) ECC errors
+	// FieldDevEccDbeAggL1 is NVML_FI_DEV_ECC_DBE_AGG_L1. L1 cache double bit aggregate (persistent) ECC errors.
 	FieldDevEccDbeAggL1 uint32 = 19
-	// FieldDevEccDbeAggL2 is NVML_FI_DEV_ECC_DBE_AGG_L2. L2 cache double bit aggregate (persistent) ECC errors
+	// FieldDevEccDbeAggL2 is NVML_FI_DEV_ECC_DBE_AGG_L2. L2 cache double bit aggregate (persistent) ECC errors.
 	FieldDevEccDbeAggL2 uint32 = 21
-	// FieldDevEccDbeAggReg is NVML_FI_DEV_ECC_DBE_AGG_REG. Register File double bit aggregate (persistent) ECC errors
+	// FieldDevEccDbeAggReg is NVML_FI_DEV_ECC_DBE_AGG_REG. Register File double bit aggregate (persistent) ECC errors.
 	FieldDevEccDbeAggReg uint32 = 25
-	// FieldDevEccDbeAggTex is NVML_FI_DEV_ECC_DBE_AGG_TEX. Texture memory double bit aggregate (persistent) ECC errors
+	// FieldDevEccDbeAggTex is NVML_FI_DEV_ECC_DBE_AGG_TEX. Texture memory double bit aggregate (persistent) ECC errors.
 	FieldDevEccDbeAggTex uint32 = 27
-	// FieldDevEccDbeAggTotal is NVML_FI_DEV_ECC_DBE_AGG_TOTAL. Total double bit aggregate (persistent) ECC errors
+	// FieldDevEccDbeAggTotal is NVML_FI_DEV_ECC_DBE_AGG_TOTAL. Total double bit aggregate (persistent) ECC errors.
 	FieldDevEccDbeAggTotal uint32 = 6
-	// FieldDevEccDbeVolCbu is NVML_FI_DEV_ECC_DBE_VOL_CBU. CBU double bit volatile ECC errors
+	// FieldDevEccDbeVolCbu is NVML_FI_DEV_ECC_DBE_VOL_CBU. CBU double bit volatile ECC errors.
 	FieldDevEccDbeVolCbu uint32 = 17
-	// FieldDevEccDbeVolDev is NVML_FI_DEV_ECC_DBE_VOL_DEV. Device memory double bit volatile ECC errors
+	// FieldDevEccDbeVolDev is NVML_FI_DEV_ECC_DBE_VOL_DEV. Device memory double bit volatile ECC errors.
 	FieldDevEccDbeVolDev uint32 = 12
-	// FieldDevEccDbeVolL1 is NVML_FI_DEV_ECC_DBE_VOL_L1. L1 cache double bit volatile ECC errors
+	// FieldDevEccDbeVolL1 is NVML_FI_DEV_ECC_DBE_VOL_L1. L1 cache double bit volatile ECC errors.
 	FieldDevEccDbeVolL1 uint32 = 8
-	// FieldDevEccDbeVolL2 is NVML_FI_DEV_ECC_DBE_VOL_L2. L2 cache double bit volatile ECC errors
+	// FieldDevEccDbeVolL2 is NVML_FI_DEV_ECC_DBE_VOL_L2. L2 cache double bit volatile ECC errors.
 	FieldDevEccDbeVolL2 uint32 = 10
-	// FieldDevEccDbeVolReg is NVML_FI_DEV_ECC_DBE_VOL_REG. Register file double bit volatile ECC errors
+	// FieldDevEccDbeVolReg is NVML_FI_DEV_ECC_DBE_VOL_REG. Register file double bit volatile ECC errors.
 	FieldDevEccDbeVolReg uint32 = 14
-	// FieldDevEccDbeVolTex is NVML_FI_DEV_ECC_DBE_VOL_TEX. Texture memory double bit volatile ECC errors
+	// FieldDevEccDbeVolTex is NVML_FI_DEV_ECC_DBE_VOL_TEX. Texture memory double bit volatile ECC errors.
 	FieldDevEccDbeVolTex uint32 = 16
-	// FieldDevEccDbeVolTotal is NVML_FI_DEV_ECC_DBE_VOL_TOTAL. Total double bit volatile ECC errors
+	// FieldDevEccDbeVolTotal is NVML_FI_DEV_ECC_DBE_VOL_TOTAL. Total double bit volatile ECC errors.
 	FieldDevEccDbeVolTotal uint32 = 4
-	// FieldDevEccPending is NVML_FI_DEV_ECC_PENDING. Pending ECC mode. 1=Active. 0=Inactive
+	// FieldDevEccPending is NVML_FI_DEV_ECC_PENDING. Pending ECC mode. 1=Active. 0=Inactive.
 	FieldDevEccPending uint32 = 2
-	// FieldDevEccSbeAggDev is NVML_FI_DEV_ECC_SBE_AGG_DEV. Device memory single bit aggregate (persistent) ECC errors
+	// FieldDevEccSbeAggDev is NVML_FI_DEV_ECC_SBE_AGG_DEV. Device memory single bit aggregate (persistent) ECC errors.
 	FieldDevEccSbeAggDev uint32 = 22
-	// FieldDevEccSbeAggL1 is NVML_FI_DEV_ECC_SBE_AGG_L1. L1 cache single bit aggregate (persistent) ECC errors
+	// FieldDevEccSbeAggL1 is NVML_FI_DEV_ECC_SBE_AGG_L1. L1 cache single bit aggregate (persistent) ECC errors.
 	FieldDevEccSbeAggL1 uint32 = 18
-	// FieldDevEccSbeAggL2 is NVML_FI_DEV_ECC_SBE_AGG_L2. L2 cache single bit aggregate (persistent) ECC errors
+	// FieldDevEccSbeAggL2 is NVML_FI_DEV_ECC_SBE_AGG_L2. L2 cache single bit aggregate (persistent) ECC errors.
 	FieldDevEccSbeAggL2 uint32 = 20
-	// FieldDevEccSbeAggReg is NVML_FI_DEV_ECC_SBE_AGG_REG. Register File single bit aggregate (persistent) ECC errors
+	// FieldDevEccSbeAggReg is NVML_FI_DEV_ECC_SBE_AGG_REG. Register File single bit aggregate (persistent) ECC errors.
 	FieldDevEccSbeAggReg uint32 = 24
-	// FieldDevEccSbeAggTex is NVML_FI_DEV_ECC_SBE_AGG_TEX. Texture memory single bit aggregate (persistent) ECC errors
+	// FieldDevEccSbeAggTex is NVML_FI_DEV_ECC_SBE_AGG_TEX. Texture memory single bit aggregate (persistent) ECC errors.
 	FieldDevEccSbeAggTex uint32 = 26
-	// FieldDevEccSbeAggTotal is NVML_FI_DEV_ECC_SBE_AGG_TOTAL. Total single bit aggregate (persistent) ECC errors
+	// FieldDevEccSbeAggTotal is NVML_FI_DEV_ECC_SBE_AGG_TOTAL. Total single bit aggregate (persistent) ECC errors.
 	FieldDevEccSbeAggTotal uint32 = 5
-	// FieldDevEccSbeVolDev is NVML_FI_DEV_ECC_SBE_VOL_DEV. Device memory single bit volatile ECC errors
+	// FieldDevEccSbeVolDev is NVML_FI_DEV_ECC_SBE_VOL_DEV. Device memory single bit volatile ECC errors.
 	FieldDevEccSbeVolDev uint32 = 11
-	// FieldDevEccSbeVolL1 is NVML_FI_DEV_ECC_SBE_VOL_L1. L1 cache single bit volatile ECC errors
+	// FieldDevEccSbeVolL1 is NVML_FI_DEV_ECC_SBE_VOL_L1. L1 cache single bit volatile ECC errors.
 	FieldDevEccSbeVolL1 uint32 = 7
-	// FieldDevEccSbeVolL2 is NVML_FI_DEV_ECC_SBE_VOL_L2. L2 cache single bit volatile ECC errors
+	// FieldDevEccSbeVolL2 is NVML_FI_DEV_ECC_SBE_VOL_L2. L2 cache single bit volatile ECC errors.
 	FieldDevEccSbeVolL2 uint32 = 9
-	// FieldDevEccSbeVolReg is NVML_FI_DEV_ECC_SBE_VOL_REG. Register file single bit volatile ECC errors
+	// FieldDevEccSbeVolReg is NVML_FI_DEV_ECC_SBE_VOL_REG. Register file single bit volatile ECC errors.
 	FieldDevEccSbeVolReg uint32 = 13
-	// FieldDevEccSbeVolTex is NVML_FI_DEV_ECC_SBE_VOL_TEX. Texture memory single bit volatile ECC errors
+	// FieldDevEccSbeVolTex is NVML_FI_DEV_ECC_SBE_VOL_TEX. Texture memory single bit volatile ECC errors.
 	FieldDevEccSbeVolTex uint32 = 15
-	// FieldDevEccSbeVolTotal is NVML_FI_DEV_ECC_SBE_VOL_TOTAL. Total single bit volatile ECC errors
+	// FieldDevEccSbeVolTotal is NVML_FI_DEV_ECC_SBE_VOL_TOTAL. Total single bit volatile ECC errors.
 	FieldDevEccSbeVolTotal uint32 = 3
-	// FieldDevEdppMultiplier is NVML_FI_DEV_EDPP_MULTIPLIER. EDPp multiplier expressed as a percentage
+	// FieldDevEdppMultiplier is NVML_FI_DEV_EDPP_MULTIPLIER. EDPp multiplier expressed as a percentage.
 	FieldDevEdppMultiplier uint32 = 274
 	// FieldDevEnergy is NVML_FI_DEV_ENERGY. Total energy consumption (in mJ) since the driver was last reloaded. Same as [FieldDevTotalEnergyConsumption] for the GPU.
 	FieldDevEnergy uint32 = 191
-	// FieldDevGetGpuRecoveryAction is NVML_FI_DEV_GET_GPU_RECOVERY_ACTION. GPU Recovery action - None/Reset/Reboot/Drain P2P/Drain and Reset
+	// FieldDevGetGpuRecoveryAction is NVML_FI_DEV_GET_GPU_RECOVERY_ACTION. GPU Recovery action - None/Reset/Reboot/Drain P2P/Drain and Reset.
 	FieldDevGetGpuRecoveryAction uint32 = 230
 	// FieldDevIsMigModeIndependentMigQueryCapable is NVML_FI_DEV_IS_MIG_MODE_INDEPENDENT_MIG_QUERY_CAPABLE. MIG mode independent, MIG query capable device. 1=yes. 0=no.
 	FieldDevIsMigModeIndependentMigQueryCapable uint32 = 199
-	// FieldDevIsResetlessMigSupported is NVML_FI_DEV_IS_RESETLESS_MIG_SUPPORTED. Device's Restless MIG Capability
+	// FieldDevIsResetlessMigSupported is NVML_FI_DEV_IS_RESETLESS_MIG_SUPPORTED. Device's Restless MIG Capability.
 	FieldDevIsResetlessMigSupported uint32 = 184
-	// FieldDevMemoryTemp is NVML_FI_DEV_MEMORY_TEMP. Memory temperature for the device
+	// FieldDevMemoryTemp is NVML_FI_DEV_MEMORY_TEMP. Memory temperature for the device.
 	FieldDevMemoryTemp uint32 = 82
-	// FieldDevNvlinkBandwidthC0L0 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L0. NVLink Bandwidth Counter for Counter Set 0, Lane 0
+	// FieldDevNvlinkBandwidthC0L0 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L0. NVLink Bandwidth Counter for Counter Set 0, Lane 0.
 	FieldDevNvlinkBandwidthC0L0 uint32 = 60
-	// FieldDevNvlinkBandwidthC0L1 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L1. NVLink Bandwidth Counter for Counter Set 0, Lane 1
+	// FieldDevNvlinkBandwidthC0L1 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L1. NVLink Bandwidth Counter for Counter Set 0, Lane 1.
 	FieldDevNvlinkBandwidthC0L1 uint32 = 61
-	// FieldDevNvlinkBandwidthC0L10 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L10. NVLink Bandwidth Counter for Counter Set 0, Lane 10
+	// FieldDevNvlinkBandwidthC0L10 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L10. NVLink Bandwidth Counter for Counter Set 0, Lane 10.
 	FieldDevNvlinkBandwidthC0L10 uint32 = 124
-	// FieldDevNvlinkBandwidthC0L11 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L11. NVLink Bandwidth Counter for Counter Set 0, Lane 11
+	// FieldDevNvlinkBandwidthC0L11 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L11. NVLink Bandwidth Counter for Counter Set 0, Lane 11.
 	FieldDevNvlinkBandwidthC0L11 uint32 = 125
-	// FieldDevNvlinkBandwidthC0L2 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L2. NVLink Bandwidth Counter for Counter Set 0, Lane 2
+	// FieldDevNvlinkBandwidthC0L2 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L2. NVLink Bandwidth Counter for Counter Set 0, Lane 2.
 	FieldDevNvlinkBandwidthC0L2 uint32 = 62
-	// FieldDevNvlinkBandwidthC0L3 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L3. NVLink Bandwidth Counter for Counter Set 0, Lane 3
+	// FieldDevNvlinkBandwidthC0L3 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L3. NVLink Bandwidth Counter for Counter Set 0, Lane 3.
 	FieldDevNvlinkBandwidthC0L3 uint32 = 63
-	// FieldDevNvlinkBandwidthC0L4 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L4. NVLink Bandwidth Counter for Counter Set 0, Lane 4
+	// FieldDevNvlinkBandwidthC0L4 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L4. NVLink Bandwidth Counter for Counter Set 0, Lane 4.
 	FieldDevNvlinkBandwidthC0L4 uint32 = 64
-	// FieldDevNvlinkBandwidthC0L5 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L5. NVLink Bandwidth Counter for Counter Set 0, Lane 5
+	// FieldDevNvlinkBandwidthC0L5 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L5. NVLink Bandwidth Counter for Counter Set 0, Lane 5.
 	FieldDevNvlinkBandwidthC0L5 uint32 = 65
-	// FieldDevNvlinkBandwidthC0L6 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L6. NVLink Bandwidth Counter for Counter Set 0, Lane 6
+	// FieldDevNvlinkBandwidthC0L6 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L6. NVLink Bandwidth Counter for Counter Set 0, Lane 6.
 	FieldDevNvlinkBandwidthC0L6 uint32 = 120
-	// FieldDevNvlinkBandwidthC0L7 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L7. NVLink Bandwidth Counter for Counter Set 0, Lane 7
+	// FieldDevNvlinkBandwidthC0L7 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L7. NVLink Bandwidth Counter for Counter Set 0, Lane 7.
 	FieldDevNvlinkBandwidthC0L7 uint32 = 121
-	// FieldDevNvlinkBandwidthC0L8 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L8. NVLink Bandwidth Counter for Counter Set 0, Lane 8
+	// FieldDevNvlinkBandwidthC0L8 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L8. NVLink Bandwidth Counter for Counter Set 0, Lane 8.
 	FieldDevNvlinkBandwidthC0L8 uint32 = 122
-	// FieldDevNvlinkBandwidthC0L9 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L9. NVLink Bandwidth Counter for Counter Set 0, Lane 9
+	// FieldDevNvlinkBandwidthC0L9 is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_L9. NVLink Bandwidth Counter for Counter Set 0, Lane 9.
 	FieldDevNvlinkBandwidthC0L9 uint32 = 123
-	// FieldDevNvlinkBandwidthC0Total is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_TOTAL. NVLink Bandwidth Counter Total for Counter Set 0, All Lanes
+	// FieldDevNvlinkBandwidthC0Total is NVML_FI_DEV_NVLINK_BANDWIDTH_C0_TOTAL. NVLink Bandwidth Counter Total for Counter Set 0, All Lanes.
 	FieldDevNvlinkBandwidthC0Total uint32 = 66
-	// FieldDevNvlinkBandwidthC1L0 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L0. NVLink Bandwidth Counter for Counter Set 1, Lane 0
+	// FieldDevNvlinkBandwidthC1L0 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L0. NVLink Bandwidth Counter for Counter Set 1, Lane 0.
 	FieldDevNvlinkBandwidthC1L0 uint32 = 67
-	// FieldDevNvlinkBandwidthC1L1 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L1. NVLink Bandwidth Counter for Counter Set 1, Lane 1
+	// FieldDevNvlinkBandwidthC1L1 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L1. NVLink Bandwidth Counter for Counter Set 1, Lane 1.
 	FieldDevNvlinkBandwidthC1L1 uint32 = 68
-	// FieldDevNvlinkBandwidthC1L10 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L10. NVLink Bandwidth Counter for Counter Set 1, Lane 10
+	// FieldDevNvlinkBandwidthC1L10 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L10. NVLink Bandwidth Counter for Counter Set 1, Lane 10.
 	FieldDevNvlinkBandwidthC1L10 uint32 = 130
-	// FieldDevNvlinkBandwidthC1L11 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L11. NVLink Bandwidth Counter for Counter Set 1, Lane 11
+	// FieldDevNvlinkBandwidthC1L11 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L11. NVLink Bandwidth Counter for Counter Set 1, Lane 11.
 	FieldDevNvlinkBandwidthC1L11 uint32 = 131
-	// FieldDevNvlinkBandwidthC1L2 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L2. NVLink Bandwidth Counter for Counter Set 1, Lane 2
+	// FieldDevNvlinkBandwidthC1L2 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L2. NVLink Bandwidth Counter for Counter Set 1, Lane 2.
 	FieldDevNvlinkBandwidthC1L2 uint32 = 69
-	// FieldDevNvlinkBandwidthC1L3 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L3. NVLink Bandwidth Counter for Counter Set 1, Lane 3
+	// FieldDevNvlinkBandwidthC1L3 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L3. NVLink Bandwidth Counter for Counter Set 1, Lane 3.
 	FieldDevNvlinkBandwidthC1L3 uint32 = 70
-	// FieldDevNvlinkBandwidthC1L4 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L4. NVLink Bandwidth Counter for Counter Set 1, Lane 4
+	// FieldDevNvlinkBandwidthC1L4 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L4. NVLink Bandwidth Counter for Counter Set 1, Lane 4.
 	FieldDevNvlinkBandwidthC1L4 uint32 = 71
-	// FieldDevNvlinkBandwidthC1L5 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L5. NVLink Bandwidth Counter for Counter Set 1, Lane 5
+	// FieldDevNvlinkBandwidthC1L5 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L5. NVLink Bandwidth Counter for Counter Set 1, Lane 5.
 	FieldDevNvlinkBandwidthC1L5 uint32 = 72
-	// FieldDevNvlinkBandwidthC1L6 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L6. NVLink Bandwidth Counter for Counter Set 1, Lane 6
+	// FieldDevNvlinkBandwidthC1L6 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L6. NVLink Bandwidth Counter for Counter Set 1, Lane 6.
 	FieldDevNvlinkBandwidthC1L6 uint32 = 126
-	// FieldDevNvlinkBandwidthC1L7 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L7. NVLink Bandwidth Counter for Counter Set 1, Lane 7
+	// FieldDevNvlinkBandwidthC1L7 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L7. NVLink Bandwidth Counter for Counter Set 1, Lane 7.
 	FieldDevNvlinkBandwidthC1L7 uint32 = 127
-	// FieldDevNvlinkBandwidthC1L8 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L8. NVLink Bandwidth Counter for Counter Set 1, Lane 8
+	// FieldDevNvlinkBandwidthC1L8 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L8. NVLink Bandwidth Counter for Counter Set 1, Lane 8.
 	FieldDevNvlinkBandwidthC1L8 uint32 = 128
-	// FieldDevNvlinkBandwidthC1L9 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L9. NVLink Bandwidth Counter for Counter Set 1, Lane 9
+	// FieldDevNvlinkBandwidthC1L9 is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_L9. NVLink Bandwidth Counter for Counter Set 1, Lane 9.
 	FieldDevNvlinkBandwidthC1L9 uint32 = 129
-	// FieldDevNvlinkBandwidthC1Total is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_TOTAL. NVLink Bandwidth Counter Total for Counter Set 1, All Lanes
+	// FieldDevNvlinkBandwidthC1Total is NVML_FI_DEV_NVLINK_BANDWIDTH_C1_TOTAL. NVLink Bandwidth Counter Total for Counter Set 1, All Lanes.
 	FieldDevNvlinkBandwidthC1Total uint32 = 73
-	// FieldDevNvlinkCountBufferOverrunErrors is NVML_FI_DEV_NVLINK_COUNT_BUFFER_OVERRUN_ERRORS. Number of packets that were discarded on Rx due to buffer overrun
+	// FieldDevNvlinkCountBufferOverrunErrors is NVML_FI_DEV_NVLINK_COUNT_BUFFER_OVERRUN_ERRORS. Number of packets that were discarded on Rx due to buffer overrun.
 	FieldDevNvlinkCountBufferOverrunErrors uint32 = 207
-	// FieldDevNvlinkCountEffectiveBer is NVML_FI_DEV_NVLINK_COUNT_EFFECTIVE_BER. Effective BER for effective errors
+	// FieldDevNvlinkCountEffectiveBer is NVML_FI_DEV_NVLINK_COUNT_EFFECTIVE_BER. Effective BER for effective errors.
 	FieldDevNvlinkCountEffectiveBer uint32 = 220
-	// FieldDevNvlinkCountEffectiveErrors is NVML_FI_DEV_NVLINK_COUNT_EFFECTIVE_ERRORS. Sum of the number of errors in each Nvlink packet
+	// FieldDevNvlinkCountEffectiveErrors is NVML_FI_DEV_NVLINK_COUNT_EFFECTIVE_ERRORS. Sum of the number of errors in each Nvlink packet.
 	FieldDevNvlinkCountEffectiveErrors uint32 = 219
-	// FieldDevNvlinkCountFecHistory0 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_0. Count of symbol errors that are corrected - bin 0
+	// FieldDevNvlinkCountFecHistory0 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_0. Count of symbol errors that are corrected - bin 0.
 	FieldDevNvlinkCountFecHistory0 uint32 = 235
-	// FieldDevNvlinkCountFecHistory1 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_1. Count of symbol errors that are corrected - bin 1
+	// FieldDevNvlinkCountFecHistory1 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_1. Count of symbol errors that are corrected - bin 1.
 	FieldDevNvlinkCountFecHistory1 uint32 = 236
-	// FieldDevNvlinkCountFecHistory10 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_10. Count of symbol errors that are corrected - bin 10
+	// FieldDevNvlinkCountFecHistory10 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_10. Count of symbol errors that are corrected - bin 10.
 	FieldDevNvlinkCountFecHistory10 uint32 = 245
-	// FieldDevNvlinkCountFecHistory11 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_11. Count of symbol errors that are corrected - bin 11
+	// FieldDevNvlinkCountFecHistory11 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_11. Count of symbol errors that are corrected - bin 11.
 	FieldDevNvlinkCountFecHistory11 uint32 = 246
-	// FieldDevNvlinkCountFecHistory12 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_12. Count of symbol errors that are corrected - bin 12
+	// FieldDevNvlinkCountFecHistory12 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_12. Count of symbol errors that are corrected - bin 12.
 	FieldDevNvlinkCountFecHistory12 uint32 = 247
-	// FieldDevNvlinkCountFecHistory13 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_13. Count of symbol errors that are corrected - bin 13
+	// FieldDevNvlinkCountFecHistory13 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_13. Count of symbol errors that are corrected - bin 13.
 	FieldDevNvlinkCountFecHistory13 uint32 = 248
-	// FieldDevNvlinkCountFecHistory14 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_14. Count of symbol errors that are corrected - bin 14
+	// FieldDevNvlinkCountFecHistory14 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_14. Count of symbol errors that are corrected - bin 14.
 	FieldDevNvlinkCountFecHistory14 uint32 = 249
-	// FieldDevNvlinkCountFecHistory15 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_15. Count of symbol errors that are corrected - bin 15
+	// FieldDevNvlinkCountFecHistory15 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_15. Count of symbol errors that are corrected - bin 15.
 	FieldDevNvlinkCountFecHistory15 uint32 = 250
-	// FieldDevNvlinkCountFecHistory2 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_2. Count of symbol errors that are corrected - bin 2
+	// FieldDevNvlinkCountFecHistory2 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_2. Count of symbol errors that are corrected - bin 2.
 	FieldDevNvlinkCountFecHistory2 uint32 = 237
-	// FieldDevNvlinkCountFecHistory3 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_3. Count of symbol errors that are corrected - bin 3
+	// FieldDevNvlinkCountFecHistory3 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_3. Count of symbol errors that are corrected - bin 3.
 	FieldDevNvlinkCountFecHistory3 uint32 = 238
-	// FieldDevNvlinkCountFecHistory4 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_4. Count of symbol errors that are corrected - bin 4
+	// FieldDevNvlinkCountFecHistory4 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_4. Count of symbol errors that are corrected - bin 4.
 	FieldDevNvlinkCountFecHistory4 uint32 = 239
-	// FieldDevNvlinkCountFecHistory5 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_5. Count of symbol errors that are corrected - bin 5
+	// FieldDevNvlinkCountFecHistory5 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_5. Count of symbol errors that are corrected - bin 5.
 	FieldDevNvlinkCountFecHistory5 uint32 = 240
-	// FieldDevNvlinkCountFecHistory6 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_6. Count of symbol errors that are corrected - bin 6
+	// FieldDevNvlinkCountFecHistory6 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_6. Count of symbol errors that are corrected - bin 6.
 	FieldDevNvlinkCountFecHistory6 uint32 = 241
-	// FieldDevNvlinkCountFecHistory7 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_7. Count of symbol errors that are corrected - bin 7
+	// FieldDevNvlinkCountFecHistory7 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_7. Count of symbol errors that are corrected - bin 7.
 	FieldDevNvlinkCountFecHistory7 uint32 = 242
-	// FieldDevNvlinkCountFecHistory8 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_8. Count of symbol errors that are corrected - bin 8
+	// FieldDevNvlinkCountFecHistory8 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_8. Count of symbol errors that are corrected - bin 8.
 	FieldDevNvlinkCountFecHistory8 uint32 = 243
-	// FieldDevNvlinkCountFecHistory9 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_9. Count of symbol errors that are corrected - bin 9
+	// FieldDevNvlinkCountFecHistory9 is NVML_FI_DEV_NVLINK_COUNT_FEC_HISTORY_9. Count of symbol errors that are corrected - bin 9.
 	FieldDevNvlinkCountFecHistory9 uint32 = 244
-	// FieldDevNvlinkCountLinkRecoveryEvents is NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_EVENTS. Number of times link went from Up to recovery, irrespective of the result
+	// FieldDevNvlinkCountLinkRecoveryEvents is NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_EVENTS. Number of times link went from Up to recovery, irrespective of the result.
 	FieldDevNvlinkCountLinkRecoveryEvents uint32 = 215
-	// FieldDevNvlinkCountLinkRecoveryFailedEvents is NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_FAILED_EVENTS. Number of times link went from Up to recovery, failed and link was declared down
+	// FieldDevNvlinkCountLinkRecoveryFailedEvents is NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_FAILED_EVENTS. Number of times link went from Up to recovery, failed and link was declared down.
 	FieldDevNvlinkCountLinkRecoveryFailedEvents uint32 = 214
-	// FieldDevNvlinkCountLinkRecoverySuccessfulEvents is NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_SUCCESSFUL_EVENTS. Number of times link went from Up to recovery, succeeded and link came back up
+	// FieldDevNvlinkCountLinkRecoverySuccessfulEvents is NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_SUCCESSFUL_EVENTS. Number of times link went from Up to recovery, succeeded and link came back up.
 	FieldDevNvlinkCountLinkRecoverySuccessfulEvents uint32 = 213
-	// FieldDevNvlinkCountLocalLinkIntegrityErrors is NVML_FI_DEV_NVLINK_COUNT_LOCAL_LINK_INTEGRITY_ERRORS. Total number of times that the count of local errors exceeded a threshold
+	// FieldDevNvlinkCountLocalLinkIntegrityErrors is NVML_FI_DEV_NVLINK_COUNT_LOCAL_LINK_INTEGRITY_ERRORS. Total number of times that the count of local errors exceeded a threshold.
 	FieldDevNvlinkCountLocalLinkIntegrityErrors uint32 = 211
-	// FieldDevNvlinkCountMalformedPacketErrors is NVML_FI_DEV_NVLINK_COUNT_MALFORMED_PACKET_ERRORS. Number of packets Rx on a link where packets are malformed
+	// FieldDevNvlinkCountMalformedPacketErrors is NVML_FI_DEV_NVLINK_COUNT_MALFORMED_PACKET_ERRORS. Number of packets Rx on a link where packets are malformed.
 	FieldDevNvlinkCountMalformedPacketErrors uint32 = 206
 	// FieldDevNvlinkCountRawBer is NVML_FI_DEV_NVLINK_COUNT_RAW_BER.
 	//
-	// Deprecated: Do not use
+	// Deprecated: Do not use.
 	FieldDevNvlinkCountRawBer uint32 = 218
 	// FieldDevNvlinkCountRawBerLane0 is NVML_FI_DEV_NVLINK_COUNT_RAW_BER_LANE0.
 	//
-	// Deprecated: Do not use
+	// Deprecated: Do not use.
 	FieldDevNvlinkCountRawBerLane0 uint32 = 216
-	// FieldDevNvlinkCountRawBerLane0V2 is NVML_FI_DEV_NVLINK_COUNT_RAW_BER_LANE0_V2. NVLINK raw BER for lane 0
+	// FieldDevNvlinkCountRawBerLane0V2 is NVML_FI_DEV_NVLINK_COUNT_RAW_BER_LANE0_V2. NVLINK raw BER for lane 0.
 	FieldDevNvlinkCountRawBerLane0V2 uint32 = 291
 	// FieldDevNvlinkCountRawBerLane1 is NVML_FI_DEV_NVLINK_COUNT_RAW_BER_LANE1.
 	//
-	// Deprecated: Do not use
+	// Deprecated: Do not use.
 	FieldDevNvlinkCountRawBerLane1 uint32 = 217
-	// FieldDevNvlinkCountRawBerLane1V2 is NVML_FI_DEV_NVLINK_COUNT_RAW_BER_LANE1_V2. NVLINK raw BER for lane 1
+	// FieldDevNvlinkCountRawBerLane1V2 is NVML_FI_DEV_NVLINK_COUNT_RAW_BER_LANE1_V2. NVLINK raw BER for lane 1.
 	FieldDevNvlinkCountRawBerLane1V2 uint32 = 292
-	// FieldDevNvlinkCountRawBerV2 is NVML_FI_DEV_NVLINK_COUNT_RAW_BER_V2. NVLINK total raw BER
+	// FieldDevNvlinkCountRawBerV2 is NVML_FI_DEV_NVLINK_COUNT_RAW_BER_V2. NVLINK total raw BER.
 	FieldDevNvlinkCountRawBerV2 uint32 = 293
-	// FieldDevNvlinkCountRawErrorsLane0 is NVML_FI_DEV_NVLINK_COUNT_RAW_ERRORS_LANE0. NVLINK raw error count for lane 0
+	// FieldDevNvlinkCountRawErrorsLane0 is NVML_FI_DEV_NVLINK_COUNT_RAW_ERRORS_LANE0. NVLINK raw error count for lane 0.
 	FieldDevNvlinkCountRawErrorsLane0 uint32 = 289
-	// FieldDevNvlinkCountRawErrorsLane1 is NVML_FI_DEV_NVLINK_COUNT_RAW_ERRORS_LANE1. NVLINK raw error count for lane 1
+	// FieldDevNvlinkCountRawErrorsLane1 is NVML_FI_DEV_NVLINK_COUNT_RAW_ERRORS_LANE1. NVLINK raw error count for lane 1.
 	FieldDevNvlinkCountRawErrorsLane1 uint32 = 290
-	// FieldDevNvlinkCountRcvBytes is NVML_FI_DEV_NVLINK_COUNT_RCV_BYTES. Total Rx bytes on the link in NVLink5
+	// FieldDevNvlinkCountRcvBytes is NVML_FI_DEV_NVLINK_COUNT_RCV_BYTES. Total Rx bytes on the link in NVLink5.
 	FieldDevNvlinkCountRcvBytes uint32 = 204
-	// FieldDevNvlinkCountRcvErrors is NVML_FI_DEV_NVLINK_COUNT_RCV_ERRORS. Total number of packets with errors Rx on a link
+	// FieldDevNvlinkCountRcvErrors is NVML_FI_DEV_NVLINK_COUNT_RCV_ERRORS. Total number of packets with errors Rx on a link.
 	FieldDevNvlinkCountRcvErrors uint32 = 208
-	// FieldDevNvlinkCountRcvGeneralErrors is NVML_FI_DEV_NVLINK_COUNT_RCV_GENERAL_ERRORS. Total number of packets Rx with header mismatch
+	// FieldDevNvlinkCountRcvGeneralErrors is NVML_FI_DEV_NVLINK_COUNT_RCV_GENERAL_ERRORS. Total number of packets Rx with header mismatch.
 	FieldDevNvlinkCountRcvGeneralErrors uint32 = 210
-	// FieldDevNvlinkCountRcvPackets is NVML_FI_DEV_NVLINK_COUNT_RCV_PACKETS. Total Rx packets on the link in NVLink5
+	// FieldDevNvlinkCountRcvPackets is NVML_FI_DEV_NVLINK_COUNT_RCV_PACKETS. Total Rx packets on the link in NVLink5.
 	FieldDevNvlinkCountRcvPackets uint32 = 203
-	// FieldDevNvlinkCountRcvRemoteErrors is NVML_FI_DEV_NVLINK_COUNT_RCV_REMOTE_ERRORS. Total number of packets Rx - stomp/EBP marker
+	// FieldDevNvlinkCountRcvRemoteErrors is NVML_FI_DEV_NVLINK_COUNT_RCV_REMOTE_ERRORS. Total number of packets Rx - stomp/EBP marker.
 	FieldDevNvlinkCountRcvRemoteErrors uint32 = 209
-	// FieldDevNvlinkCountSymbolBer is NVML_FI_DEV_NVLINK_COUNT_SYMBOL_BER. BER for symbol errors
+	// FieldDevNvlinkCountSymbolBer is NVML_FI_DEV_NVLINK_COUNT_SYMBOL_BER. BER for symbol errors.
 	FieldDevNvlinkCountSymbolBer uint32 = 222
-	// FieldDevNvlinkCountSymbolErrors is NVML_FI_DEV_NVLINK_COUNT_SYMBOL_ERRORS. Number of errors in rx symbols
+	// FieldDevNvlinkCountSymbolErrors is NVML_FI_DEV_NVLINK_COUNT_SYMBOL_ERRORS. Number of errors in rx symbols.
 	FieldDevNvlinkCountSymbolErrors uint32 = 221
 	// FieldDevNvlinkCountVL15Dropped is NVML_FI_DEV_NVLINK_COUNT_VL15_DROPPED.
 	//
-	// Deprecated: Do not use
+	// Deprecated: Do not use.
 	FieldDevNvlinkCountVL15Dropped uint32 = 205
-	// FieldDevNvlinkCountXmitBytes is NVML_FI_DEV_NVLINK_COUNT_XMIT_BYTES. Total Tx bytes on the link in NVLink5
+	// FieldDevNvlinkCountXmitBytes is NVML_FI_DEV_NVLINK_COUNT_XMIT_BYTES. Total Tx bytes on the link in NVLink5.
 	FieldDevNvlinkCountXmitBytes uint32 = 202
-	// FieldDevNvlinkCountXmitDiscards is NVML_FI_DEV_NVLINK_COUNT_XMIT_DISCARDS. Total number of tx error packets that were discarded
+	// FieldDevNvlinkCountXmitDiscards is NVML_FI_DEV_NVLINK_COUNT_XMIT_DISCARDS. Total number of tx error packets that were discarded.
 	FieldDevNvlinkCountXmitDiscards uint32 = 212
-	// FieldDevNvlinkCountXmitPackets is NVML_FI_DEV_NVLINK_COUNT_XMIT_PACKETS. Total Tx packets on the link in NVLink5
+	// FieldDevNvlinkCountXmitPackets is NVML_FI_DEV_NVLINK_COUNT_XMIT_PACKETS. Total Tx packets on the link in NVLink5.
 	FieldDevNvlinkCountXmitPackets uint32 = 201
-	// FieldDevNvlinkCrcDataErrorCountL0 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L0. NVLink data CRC Error Counter for Lane 0
+	// FieldDevNvlinkCrcDataErrorCountL0 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L0. NVLink data CRC Error Counter for Lane 0.
 	FieldDevNvlinkCrcDataErrorCountL0 uint32 = 39
-	// FieldDevNvlinkCrcDataErrorCountL1 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L1. NVLink data CRC Error Counter for Lane 1
+	// FieldDevNvlinkCrcDataErrorCountL1 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L1. NVLink data CRC Error Counter for Lane 1.
 	FieldDevNvlinkCrcDataErrorCountL1 uint32 = 40
-	// FieldDevNvlinkCrcDataErrorCountL10 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L10. NVLink data CRC Error Counter for Lane 10
+	// FieldDevNvlinkCrcDataErrorCountL10 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L10. NVLink data CRC Error Counter for Lane 10.
 	FieldDevNvlinkCrcDataErrorCountL10 uint32 = 106
-	// FieldDevNvlinkCrcDataErrorCountL11 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L11. NVLink data CRC Error Counter for Lane 11
+	// FieldDevNvlinkCrcDataErrorCountL11 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L11. NVLink data CRC Error Counter for Lane 11.
 	FieldDevNvlinkCrcDataErrorCountL11 uint32 = 107
-	// FieldDevNvlinkCrcDataErrorCountL2 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L2. NVLink data CRC Error Counter for Lane 2
+	// FieldDevNvlinkCrcDataErrorCountL2 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L2. NVLink data CRC Error Counter for Lane 2.
 	FieldDevNvlinkCrcDataErrorCountL2 uint32 = 41
-	// FieldDevNvlinkCrcDataErrorCountL3 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L3. NVLink data CRC Error Counter for Lane 3
+	// FieldDevNvlinkCrcDataErrorCountL3 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L3. NVLink data CRC Error Counter for Lane 3.
 	FieldDevNvlinkCrcDataErrorCountL3 uint32 = 42
-	// FieldDevNvlinkCrcDataErrorCountL4 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L4. NVLink data CRC Error Counter for Lane 4
+	// FieldDevNvlinkCrcDataErrorCountL4 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L4. NVLink data CRC Error Counter for Lane 4.
 	FieldDevNvlinkCrcDataErrorCountL4 uint32 = 43
-	// FieldDevNvlinkCrcDataErrorCountL5 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L5. NVLink data CRC Error Counter for Lane 5
+	// FieldDevNvlinkCrcDataErrorCountL5 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L5. NVLink data CRC Error Counter for Lane 5.
 	FieldDevNvlinkCrcDataErrorCountL5 uint32 = 44
-	// FieldDevNvlinkCrcDataErrorCountL6 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L6. NVLink data CRC Error Counter for Lane 6
+	// FieldDevNvlinkCrcDataErrorCountL6 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L6. NVLink data CRC Error Counter for Lane 6.
 	FieldDevNvlinkCrcDataErrorCountL6 uint32 = 102
-	// FieldDevNvlinkCrcDataErrorCountL7 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L7. NVLink data CRC Error Counter for Lane 7
+	// FieldDevNvlinkCrcDataErrorCountL7 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L7. NVLink data CRC Error Counter for Lane 7.
 	FieldDevNvlinkCrcDataErrorCountL7 uint32 = 103
-	// FieldDevNvlinkCrcDataErrorCountL8 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L8. NVLink data CRC Error Counter for Lane 8
+	// FieldDevNvlinkCrcDataErrorCountL8 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L8. NVLink data CRC Error Counter for Lane 8.
 	FieldDevNvlinkCrcDataErrorCountL8 uint32 = 104
-	// FieldDevNvlinkCrcDataErrorCountL9 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L9. NVLink data CRC Error Counter for Lane 9
+	// FieldDevNvlinkCrcDataErrorCountL9 is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_L9. NVLink data CRC Error Counter for Lane 9.
 	FieldDevNvlinkCrcDataErrorCountL9 uint32 = 105
-	// FieldDevNvlinkCrcDataErrorCountTotal is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL. NvLink data CRC Error Counter total for all Lanes
+	// FieldDevNvlinkCrcDataErrorCountTotal is NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL. NvLink data CRC Error Counter total for all Lanes.
 	FieldDevNvlinkCrcDataErrorCountTotal uint32 = 45
-	// FieldDevNvlinkCrcFlitErrorCountL0 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L0. NVLink flow control CRC Error Counter for Lane 0
+	// FieldDevNvlinkCrcFlitErrorCountL0 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L0. NVLink flow control CRC Error Counter for Lane 0.
 	FieldDevNvlinkCrcFlitErrorCountL0 uint32 = 32
-	// FieldDevNvlinkCrcFlitErrorCountL1 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L1. NVLink flow control CRC Error Counter for Lane 1
+	// FieldDevNvlinkCrcFlitErrorCountL1 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L1. NVLink flow control CRC Error Counter for Lane 1.
 	FieldDevNvlinkCrcFlitErrorCountL1 uint32 = 33
-	// FieldDevNvlinkCrcFlitErrorCountL10 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L10. NVLink flow control CRC Error Counter for Lane 10
+	// FieldDevNvlinkCrcFlitErrorCountL10 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L10. NVLink flow control CRC Error Counter for Lane 10.
 	FieldDevNvlinkCrcFlitErrorCountL10 uint32 = 100
-	// FieldDevNvlinkCrcFlitErrorCountL11 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L11. NVLink flow control CRC Error Counter for Lane 11
+	// FieldDevNvlinkCrcFlitErrorCountL11 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L11. NVLink flow control CRC Error Counter for Lane 11.
 	FieldDevNvlinkCrcFlitErrorCountL11 uint32 = 101
-	// FieldDevNvlinkCrcFlitErrorCountL2 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L2. NVLink flow control CRC Error Counter for Lane 2
+	// FieldDevNvlinkCrcFlitErrorCountL2 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L2. NVLink flow control CRC Error Counter for Lane 2.
 	FieldDevNvlinkCrcFlitErrorCountL2 uint32 = 34
-	// FieldDevNvlinkCrcFlitErrorCountL3 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L3. NVLink flow control CRC Error Counter for Lane 3
+	// FieldDevNvlinkCrcFlitErrorCountL3 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L3. NVLink flow control CRC Error Counter for Lane 3.
 	FieldDevNvlinkCrcFlitErrorCountL3 uint32 = 35
-	// FieldDevNvlinkCrcFlitErrorCountL4 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L4. NVLink flow control CRC Error Counter for Lane 4
+	// FieldDevNvlinkCrcFlitErrorCountL4 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L4. NVLink flow control CRC Error Counter for Lane 4.
 	FieldDevNvlinkCrcFlitErrorCountL4 uint32 = 36
-	// FieldDevNvlinkCrcFlitErrorCountL5 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L5. NVLink flow control CRC Error Counter for Lane 5
+	// FieldDevNvlinkCrcFlitErrorCountL5 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L5. NVLink flow control CRC Error Counter for Lane 5.
 	FieldDevNvlinkCrcFlitErrorCountL5 uint32 = 37
-	// FieldDevNvlinkCrcFlitErrorCountL6 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L6. NVLink flow control CRC Error Counter for Lane 6
+	// FieldDevNvlinkCrcFlitErrorCountL6 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L6. NVLink flow control CRC Error Counter for Lane 6.
 	FieldDevNvlinkCrcFlitErrorCountL6 uint32 = 96
-	// FieldDevNvlinkCrcFlitErrorCountL7 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L7. NVLink flow control CRC Error Counter for Lane 7
+	// FieldDevNvlinkCrcFlitErrorCountL7 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L7. NVLink flow control CRC Error Counter for Lane 7.
 	FieldDevNvlinkCrcFlitErrorCountL7 uint32 = 97
-	// FieldDevNvlinkCrcFlitErrorCountL8 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L8. NVLink flow control CRC Error Counter for Lane 8
+	// FieldDevNvlinkCrcFlitErrorCountL8 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L8. NVLink flow control CRC Error Counter for Lane 8.
 	FieldDevNvlinkCrcFlitErrorCountL8 uint32 = 98
-	// FieldDevNvlinkCrcFlitErrorCountL9 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L9. NVLink flow control CRC Error Counter for Lane 9
+	// FieldDevNvlinkCrcFlitErrorCountL9 is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_L9. NVLink flow control CRC Error Counter for Lane 9.
 	FieldDevNvlinkCrcFlitErrorCountL9 uint32 = 99
-	// FieldDevNvlinkCrcFlitErrorCountTotal is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL. NVLink flow control CRC Error Counter total for all Lanes
+	// FieldDevNvlinkCrcFlitErrorCountTotal is NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL. NVLink flow control CRC Error Counter total for all Lanes.
 	FieldDevNvlinkCrcFlitErrorCountTotal uint32 = 38
-	// FieldDevNvlinkEccDataErrorCountL0 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L0. NVLink data ECC Error Counter for Link 0
+	// FieldDevNvlinkEccDataErrorCountL0 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L0. NVLink data ECC Error Counter for Link 0.
 	FieldDevNvlinkEccDataErrorCountL0 uint32 = 148
-	// FieldDevNvlinkEccDataErrorCountL1 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L1. NVLink data ECC Error Counter for Link 1
+	// FieldDevNvlinkEccDataErrorCountL1 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L1. NVLink data ECC Error Counter for Link 1.
 	FieldDevNvlinkEccDataErrorCountL1 uint32 = 149
-	// FieldDevNvlinkEccDataErrorCountL10 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L10. NVLink data ECC Error Counter for Link 10
+	// FieldDevNvlinkEccDataErrorCountL10 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L10. NVLink data ECC Error Counter for Link 10.
 	FieldDevNvlinkEccDataErrorCountL10 uint32 = 158
-	// FieldDevNvlinkEccDataErrorCountL11 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L11. NVLink data ECC Error Counter for Link 11
+	// FieldDevNvlinkEccDataErrorCountL11 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L11. NVLink data ECC Error Counter for Link 11.
 	FieldDevNvlinkEccDataErrorCountL11 uint32 = 159
-	// FieldDevNvlinkEccDataErrorCountL2 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L2. NVLink data ECC Error Counter for Link 2
+	// FieldDevNvlinkEccDataErrorCountL2 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L2. NVLink data ECC Error Counter for Link 2.
 	FieldDevNvlinkEccDataErrorCountL2 uint32 = 150
-	// FieldDevNvlinkEccDataErrorCountL3 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L3. NVLink data ECC Error Counter for Link 3
+	// FieldDevNvlinkEccDataErrorCountL3 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L3. NVLink data ECC Error Counter for Link 3.
 	FieldDevNvlinkEccDataErrorCountL3 uint32 = 151
-	// FieldDevNvlinkEccDataErrorCountL4 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L4. NVLink data ECC Error Counter for Link 4
+	// FieldDevNvlinkEccDataErrorCountL4 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L4. NVLink data ECC Error Counter for Link 4.
 	FieldDevNvlinkEccDataErrorCountL4 uint32 = 152
-	// FieldDevNvlinkEccDataErrorCountL5 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L5. NVLink data ECC Error Counter for Link 5
+	// FieldDevNvlinkEccDataErrorCountL5 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L5. NVLink data ECC Error Counter for Link 5.
 	FieldDevNvlinkEccDataErrorCountL5 uint32 = 153
-	// FieldDevNvlinkEccDataErrorCountL6 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L6. NVLink data ECC Error Counter for Link 6
+	// FieldDevNvlinkEccDataErrorCountL6 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L6. NVLink data ECC Error Counter for Link 6.
 	FieldDevNvlinkEccDataErrorCountL6 uint32 = 154
-	// FieldDevNvlinkEccDataErrorCountL7 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L7. NVLink data ECC Error Counter for Link 7
+	// FieldDevNvlinkEccDataErrorCountL7 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L7. NVLink data ECC Error Counter for Link 7.
 	FieldDevNvlinkEccDataErrorCountL7 uint32 = 155
-	// FieldDevNvlinkEccDataErrorCountL8 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L8. NVLink data ECC Error Counter for Link 8
+	// FieldDevNvlinkEccDataErrorCountL8 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L8. NVLink data ECC Error Counter for Link 8.
 	FieldDevNvlinkEccDataErrorCountL8 uint32 = 156
-	// FieldDevNvlinkEccDataErrorCountL9 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L9. NVLink data ECC Error Counter for Link 9
+	// FieldDevNvlinkEccDataErrorCountL9 is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L9. NVLink data ECC Error Counter for Link 9.
 	FieldDevNvlinkEccDataErrorCountL9 uint32 = 157
-	// FieldDevNvlinkEccDataErrorCountTotal is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL. NVLink data ECC Error Counter total for all Links
+	// FieldDevNvlinkEccDataErrorCountTotal is NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL. NVLink data ECC Error Counter total for all Links.
 	FieldDevNvlinkEccDataErrorCountTotal uint32 = 160
-	// FieldDevNvlinkErrorDlCrc is NVML_FI_DEV_NVLINK_ERROR_DL_CRC. NVLink CRC Error Counter
+	// FieldDevNvlinkErrorDlCrc is NVML_FI_DEV_NVLINK_ERROR_DL_CRC. NVLink CRC Error Counter This is unsupported for Blackwell+ Please use NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_*.
 	FieldDevNvlinkErrorDlCrc uint32 = 163
-	// FieldDevNvlinkErrorDlRecovery is NVML_FI_DEV_NVLINK_ERROR_DL_RECOVERY. NVLink Recovery Error Counter
+	// FieldDevNvlinkErrorDlRecovery is NVML_FI_DEV_NVLINK_ERROR_DL_RECOVERY. NVLink Recovery Error Counter This is unsupported for Blackwell+ Please use NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_*.
 	FieldDevNvlinkErrorDlRecovery uint32 = 162
-	// FieldDevNvlinkErrorDlReplay is NVML_FI_DEV_NVLINK_ERROR_DL_REPLAY. NVLink Replay Error Counter
+	// FieldDevNvlinkErrorDlReplay is NVML_FI_DEV_NVLINK_ERROR_DL_REPLAY. NVLink Replay Error Counter This is unsupported for Blackwell+. Please use NVML_FI_DEV_NVLINK_COUNT_LINK_RECOVERY_*.
 	FieldDevNvlinkErrorDlReplay uint32 = 161
-	// FieldDevNvlinkGetPowerState is NVML_FI_DEV_NVLINK_GET_POWER_STATE. NVLink Power state. 0=HIGH_SPEED 1=LOW_SPEED
+	// FieldDevNvlinkGetPowerState is NVML_FI_DEV_NVLINK_GET_POWER_STATE. NVLink Power state. 0=HIGH_SPEED 1=LOW_SPEED.
 	FieldDevNvlinkGetPowerState uint32 = 167
-	// FieldDevNvlinkGetPowerThreshold is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD. NVLink length of idle period (units can be found from
+	// FieldDevNvlinkGetPowerThreshold is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD. NVLink length of idle period (units can be found from [FieldDevNvlinkGetPowerThresholdUnits]) before transitioning links to sleep state.
 	FieldDevNvlinkGetPowerThreshold uint32 = 168
-	// FieldDevNvlinkGetPowerThresholdMax is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_MAX. Max Nvlink Power Threshold. See [FieldDevNvlinkGetPowerThreshold]
+	// FieldDevNvlinkGetPowerThresholdMax is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_MAX. Max Nvlink Power Threshold. See [FieldDevNvlinkGetPowerThreshold].
 	FieldDevNvlinkGetPowerThresholdMax uint32 = 200
-	// FieldDevNvlinkGetPowerThresholdMin is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_MIN. Min Nvlink Power Threshold. See [FieldDevNvlinkGetPowerThreshold]
+	// FieldDevNvlinkGetPowerThresholdMin is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_MIN. Min Nvlink Power Threshold. See [FieldDevNvlinkGetPowerThreshold].
 	FieldDevNvlinkGetPowerThresholdMin uint32 = 223
-	// FieldDevNvlinkGetPowerThresholdSupported is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_SUPPORTED. Determine if Nvlink Power Threshold feature is supported
+	// FieldDevNvlinkGetPowerThresholdSupported is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_SUPPORTED. Determine if Nvlink Power Threshold feature is supported.
 	FieldDevNvlinkGetPowerThresholdSupported uint32 = 225
-	// FieldDevNvlinkGetPowerThresholdUnits is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_UNITS. Values are in the form NVML_NVLINK_LOW_POWER_THRESHOLD_UNIT_*
+	// FieldDevNvlinkGetPowerThresholdUnits is NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_UNITS. Values are in the form NVML_NVLINK_LOW_POWER_THRESHOLD_UNIT_*.
 	FieldDevNvlinkGetPowerThresholdUnits uint32 = 224
-	// FieldDevNvlinkGetSpeed is NVML_FI_DEV_NVLINK_GET_SPEED. NVLink Speed in MBps
+	// FieldDevNvlinkGetSpeed is NVML_FI_DEV_NVLINK_GET_SPEED. NVLink Speed in MBps.
 	FieldDevNvlinkGetSpeed uint32 = 164
-	// FieldDevNvlinkGetState is NVML_FI_DEV_NVLINK_GET_STATE. NVLink State - Active,Inactive
+	// FieldDevNvlinkGetState is NVML_FI_DEV_NVLINK_GET_STATE. NVLink State - Active,Inactive.
 	FieldDevNvlinkGetState uint32 = 165
-	// FieldDevNvlinkGetVersion is NVML_FI_DEV_NVLINK_GET_VERSION. NVLink Version
+	// FieldDevNvlinkGetVersion is NVML_FI_DEV_NVLINK_GET_VERSION. NVLink Version.
 	FieldDevNvlinkGetVersion uint32 = 166
-	// FieldDevNvlinkLinkCount is NVML_FI_DEV_NVLINK_LINK_COUNT. Number of NVLinks present on the device
+	// FieldDevNvlinkLinkCount is NVML_FI_DEV_NVLINK_LINK_COUNT. Number of NVLinks present on the device.
 	FieldDevNvlinkLinkCount uint32 = 91
-	// FieldDevNvlinkPlrXmitBlocks is NVML_FI_DEV_NVLINK_PLR_XMIT_BLOCKS. NVLINK PLR Xmit Blocks
+	// FieldDevNvlinkPlrXmitBlocks is NVML_FI_DEV_NVLINK_PLR_XMIT_BLOCKS. NVLINK PLR Xmit Blocks.
 	FieldDevNvlinkPlrXmitBlocks uint32 = 294
-	// FieldDevNvlinkPlrXmitRetryBlocks is NVML_FI_DEV_NVLINK_PLR_XMIT_RETRY_BLOCKS. NVLINK PLR Xmit Retry Blocks
+	// FieldDevNvlinkPlrXmitRetryBlocks is NVML_FI_DEV_NVLINK_PLR_XMIT_RETRY_BLOCKS. NVLINK PLR Xmit Retry Blocks.
 	FieldDevNvlinkPlrXmitRetryBlocks uint32 = 295
-	// FieldDevNvlinkRecoveryErrorCountL0 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L0. NVLink Recovery Error Counter for Lane 0
+	// FieldDevNvlinkRecoveryErrorCountL0 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L0. NVLink Recovery Error Counter for Lane 0.
 	FieldDevNvlinkRecoveryErrorCountL0 uint32 = 53
-	// FieldDevNvlinkRecoveryErrorCountL1 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L1. NVLink Recovery Error Counter for Lane 1
+	// FieldDevNvlinkRecoveryErrorCountL1 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L1. NVLink Recovery Error Counter for Lane 1.
 	FieldDevNvlinkRecoveryErrorCountL1 uint32 = 54
-	// FieldDevNvlinkRecoveryErrorCountL10 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L10. NVLink Recovery Error Counter for Lane 10
+	// FieldDevNvlinkRecoveryErrorCountL10 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L10. NVLink Recovery Error Counter for Lane 10.
 	FieldDevNvlinkRecoveryErrorCountL10 uint32 = 118
-	// FieldDevNvlinkRecoveryErrorCountL11 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L11. NVLink Recovery Error Counter for Lane 11
+	// FieldDevNvlinkRecoveryErrorCountL11 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L11. NVLink Recovery Error Counter for Lane 11.
 	FieldDevNvlinkRecoveryErrorCountL11 uint32 = 119
-	// FieldDevNvlinkRecoveryErrorCountL2 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L2. NVLink Recovery Error Counter for Lane 2
+	// FieldDevNvlinkRecoveryErrorCountL2 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L2. NVLink Recovery Error Counter for Lane 2.
 	FieldDevNvlinkRecoveryErrorCountL2 uint32 = 55
-	// FieldDevNvlinkRecoveryErrorCountL3 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L3. NVLink Recovery Error Counter for Lane 3
+	// FieldDevNvlinkRecoveryErrorCountL3 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L3. NVLink Recovery Error Counter for Lane 3.
 	FieldDevNvlinkRecoveryErrorCountL3 uint32 = 56
-	// FieldDevNvlinkRecoveryErrorCountL4 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L4. NVLink Recovery Error Counter for Lane 4
+	// FieldDevNvlinkRecoveryErrorCountL4 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L4. NVLink Recovery Error Counter for Lane 4.
 	FieldDevNvlinkRecoveryErrorCountL4 uint32 = 57
-	// FieldDevNvlinkRecoveryErrorCountL5 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L5. NVLink Recovery Error Counter for Lane 5
+	// FieldDevNvlinkRecoveryErrorCountL5 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L5. NVLink Recovery Error Counter for Lane 5.
 	FieldDevNvlinkRecoveryErrorCountL5 uint32 = 58
-	// FieldDevNvlinkRecoveryErrorCountL6 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L6. NVLink Recovery Error Counter for Lane 6
+	// FieldDevNvlinkRecoveryErrorCountL6 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L6. NVLink Recovery Error Counter for Lane 6.
 	FieldDevNvlinkRecoveryErrorCountL6 uint32 = 114
-	// FieldDevNvlinkRecoveryErrorCountL7 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L7. NVLink Recovery Error Counter for Lane 7
+	// FieldDevNvlinkRecoveryErrorCountL7 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L7. NVLink Recovery Error Counter for Lane 7.
 	FieldDevNvlinkRecoveryErrorCountL7 uint32 = 115
-	// FieldDevNvlinkRecoveryErrorCountL8 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L8. NVLink Recovery Error Counter for Lane 8
+	// FieldDevNvlinkRecoveryErrorCountL8 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L8. NVLink Recovery Error Counter for Lane 8.
 	FieldDevNvlinkRecoveryErrorCountL8 uint32 = 116
-	// FieldDevNvlinkRecoveryErrorCountL9 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L9. NVLink Recovery Error Counter for Lane 9
+	// FieldDevNvlinkRecoveryErrorCountL9 is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_L9. NVLink Recovery Error Counter for Lane 9.
 	FieldDevNvlinkRecoveryErrorCountL9 uint32 = 117
-	// FieldDevNvlinkRecoveryErrorCountTotal is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_TOTAL. NVLink Recovery Error Counter total for all Lanes
+	// FieldDevNvlinkRecoveryErrorCountTotal is NVML_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_TOTAL. NVLink Recovery Error Counter total for all Lanes.
 	FieldDevNvlinkRecoveryErrorCountTotal uint32 = 59
-	// FieldDevNvlinkRemoteNvlinkId is NVML_FI_DEV_NVLINK_REMOTE_NVLINK_ID. Remote device NVLink ID
+	// FieldDevNvlinkRemoteNvlinkId is NVML_FI_DEV_NVLINK_REMOTE_NVLINK_ID. Remote device NVLink ID.
 	FieldDevNvlinkRemoteNvlinkId uint32 = 146
-	// FieldDevNvlinkReplayErrorCountL0 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L0. NVLink Replay Error Counter for Lane 0
+	// FieldDevNvlinkReplayErrorCountL0 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L0. NVLink Replay Error Counter for Lane 0.
 	FieldDevNvlinkReplayErrorCountL0 uint32 = 46
-	// FieldDevNvlinkReplayErrorCountL1 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L1. NVLink Replay Error Counter for Lane 1
+	// FieldDevNvlinkReplayErrorCountL1 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L1. NVLink Replay Error Counter for Lane 1.
 	FieldDevNvlinkReplayErrorCountL1 uint32 = 47
-	// FieldDevNvlinkReplayErrorCountL10 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L10. NVLink Replay Error Counter for Lane 10
+	// FieldDevNvlinkReplayErrorCountL10 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L10. NVLink Replay Error Counter for Lane 10.
 	FieldDevNvlinkReplayErrorCountL10 uint32 = 112
-	// FieldDevNvlinkReplayErrorCountL11 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L11. NVLink Replay Error Counter for Lane 11
+	// FieldDevNvlinkReplayErrorCountL11 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L11. NVLink Replay Error Counter for Lane 11.
 	FieldDevNvlinkReplayErrorCountL11 uint32 = 113
-	// FieldDevNvlinkReplayErrorCountL2 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L2. NVLink Replay Error Counter for Lane 2
+	// FieldDevNvlinkReplayErrorCountL2 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L2. NVLink Replay Error Counter for Lane 2.
 	FieldDevNvlinkReplayErrorCountL2 uint32 = 48
-	// FieldDevNvlinkReplayErrorCountL3 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L3. NVLink Replay Error Counter for Lane 3
+	// FieldDevNvlinkReplayErrorCountL3 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L3. NVLink Replay Error Counter for Lane 3.
 	FieldDevNvlinkReplayErrorCountL3 uint32 = 49
-	// FieldDevNvlinkReplayErrorCountL4 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L4. NVLink Replay Error Counter for Lane 4
+	// FieldDevNvlinkReplayErrorCountL4 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L4. NVLink Replay Error Counter for Lane 4.
 	FieldDevNvlinkReplayErrorCountL4 uint32 = 50
-	// FieldDevNvlinkReplayErrorCountL5 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L5. NVLink Replay Error Counter for Lane 5
+	// FieldDevNvlinkReplayErrorCountL5 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L5. NVLink Replay Error Counter for Lane 5.
 	FieldDevNvlinkReplayErrorCountL5 uint32 = 51
-	// FieldDevNvlinkReplayErrorCountL6 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L6. NVLink Replay Error Counter for Lane 6
+	// FieldDevNvlinkReplayErrorCountL6 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L6. NVLink Replay Error Counter for Lane 6.
 	FieldDevNvlinkReplayErrorCountL6 uint32 = 108
-	// FieldDevNvlinkReplayErrorCountL7 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L7. NVLink Replay Error Counter for Lane 7
+	// FieldDevNvlinkReplayErrorCountL7 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L7. NVLink Replay Error Counter for Lane 7.
 	FieldDevNvlinkReplayErrorCountL7 uint32 = 109
-	// FieldDevNvlinkReplayErrorCountL8 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L8. NVLink Replay Error Counter for Lane 8
+	// FieldDevNvlinkReplayErrorCountL8 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L8. NVLink Replay Error Counter for Lane 8.
 	FieldDevNvlinkReplayErrorCountL8 uint32 = 110
-	// FieldDevNvlinkReplayErrorCountL9 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L9. NVLink Replay Error Counter for Lane 9
+	// FieldDevNvlinkReplayErrorCountL9 is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_L9. NVLink Replay Error Counter for Lane 9.
 	FieldDevNvlinkReplayErrorCountL9 uint32 = 111
-	// FieldDevNvlinkReplayErrorCountTotal is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_TOTAL. NVLink Replay Error Counter total for all Lanes
+	// FieldDevNvlinkReplayErrorCountTotal is NVML_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_TOTAL. NVLink Replay Error Counter total for all Lanes.
 	FieldDevNvlinkReplayErrorCountTotal uint32 = 52
-	// FieldDevNvlinkSpeedMbpsCommon is NVML_FI_DEV_NVLINK_SPEED_MBPS_COMMON. Common NVLink Speed in MBps for active links
+	// FieldDevNvlinkSpeedMbpsCommon is NVML_FI_DEV_NVLINK_SPEED_MBPS_COMMON. Common NVLink Speed in MBps for active links.
 	FieldDevNvlinkSpeedMbpsCommon uint32 = 90
-	// FieldDevNvlinkSpeedMbpsL0 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L0. NVLink Speed in MBps for Link 0
+	// FieldDevNvlinkSpeedMbpsL0 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L0. NVLink Speed in MBps for Link 0.
 	FieldDevNvlinkSpeedMbpsL0 uint32 = 84
-	// FieldDevNvlinkSpeedMbpsL1 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L1. NVLink Speed in MBps for Link 1
+	// FieldDevNvlinkSpeedMbpsL1 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L1. NVLink Speed in MBps for Link 1.
 	FieldDevNvlinkSpeedMbpsL1 uint32 = 85
-	// FieldDevNvlinkSpeedMbpsL10 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L10. NVLink Speed in MBps for Link 10
+	// FieldDevNvlinkSpeedMbpsL10 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L10. NVLink Speed in MBps for Link 10.
 	FieldDevNvlinkSpeedMbpsL10 uint32 = 136
-	// FieldDevNvlinkSpeedMbpsL11 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L11. NVLink Speed in MBps for Link 11
+	// FieldDevNvlinkSpeedMbpsL11 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L11. NVLink Speed in MBps for Link 11.
 	FieldDevNvlinkSpeedMbpsL11 uint32 = 137
-	// FieldDevNvlinkSpeedMbpsL2 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L2. NVLink Speed in MBps for Link 2
+	// FieldDevNvlinkSpeedMbpsL2 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L2. NVLink Speed in MBps for Link 2.
 	FieldDevNvlinkSpeedMbpsL2 uint32 = 86
-	// FieldDevNvlinkSpeedMbpsL3 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L3. NVLink Speed in MBps for Link 3
+	// FieldDevNvlinkSpeedMbpsL3 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L3. NVLink Speed in MBps for Link 3.
 	FieldDevNvlinkSpeedMbpsL3 uint32 = 87
-	// FieldDevNvlinkSpeedMbpsL4 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L4. NVLink Speed in MBps for Link 4
+	// FieldDevNvlinkSpeedMbpsL4 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L4. NVLink Speed in MBps for Link 4.
 	FieldDevNvlinkSpeedMbpsL4 uint32 = 88
-	// FieldDevNvlinkSpeedMbpsL5 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L5. NVLink Speed in MBps for Link 5
+	// FieldDevNvlinkSpeedMbpsL5 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L5. NVLink Speed in MBps for Link 5.
 	FieldDevNvlinkSpeedMbpsL5 uint32 = 89
-	// FieldDevNvlinkSpeedMbpsL6 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L6. NVLink Speed in MBps for Link 6
+	// FieldDevNvlinkSpeedMbpsL6 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L6. NVLink Speed in MBps for Link 6.
 	FieldDevNvlinkSpeedMbpsL6 uint32 = 132
-	// FieldDevNvlinkSpeedMbpsL7 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L7. NVLink Speed in MBps for Link 7
+	// FieldDevNvlinkSpeedMbpsL7 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L7. NVLink Speed in MBps for Link 7.
 	FieldDevNvlinkSpeedMbpsL7 uint32 = 133
-	// FieldDevNvlinkSpeedMbpsL8 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L8. NVLink Speed in MBps for Link 8
+	// FieldDevNvlinkSpeedMbpsL8 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L8. NVLink Speed in MBps for Link 8.
 	FieldDevNvlinkSpeedMbpsL8 uint32 = 134
-	// FieldDevNvlinkSpeedMbpsL9 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L9. NVLink Speed in MBps for Link 9
+	// FieldDevNvlinkSpeedMbpsL9 is NVML_FI_DEV_NVLINK_SPEED_MBPS_L9. NVLink Speed in MBps for Link 9.
 	FieldDevNvlinkSpeedMbpsL9 uint32 = 135
-	// FieldDevNvlinkThroughputDataRx is NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX. NVLink RX Data throughput in KiB
+	// FieldDevNvlinkThroughputDataRx is NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX. NVLink RX Data throughput in KiB.
 	FieldDevNvlinkThroughputDataRx uint32 = 139
-	// FieldDevNvlinkThroughputDataTx is NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX. NVLink TX Data throughput in KiB
+	// FieldDevNvlinkThroughputDataTx is NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX. NVLink TX Data throughput in KiB.
 	FieldDevNvlinkThroughputDataTx uint32 = 138
-	// FieldDevNvlinkThroughputRawRx is NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX. NVLink RX Data + protocol overhead in KiB
+	// FieldDevNvlinkThroughputRawRx is NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX. NVLink RX Data + protocol overhead in KiB.
 	FieldDevNvlinkThroughputRawRx uint32 = 141
-	// FieldDevNvlinkThroughputRawTx is NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX. NVLink TX Data + protocol overhead in KiB
+	// FieldDevNvlinkThroughputRawTx is NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX. NVLink TX Data + protocol overhead in KiB.
 	FieldDevNvlinkThroughputRawTx uint32 = 140
-	// FieldDevNvswitchConnectedLinkCount is NVML_FI_DEV_NVSWITCH_CONNECTED_LINK_COUNT. Number of NVLinks connected to NVSwitch
+	// FieldDevNvswitchConnectedLinkCount is NVML_FI_DEV_NVSWITCH_CONNECTED_LINK_COUNT. Number of NVLinks connected to NVSwitch.
 	FieldDevNvswitchConnectedLinkCount uint32 = 147
-	// FieldDevPcieCountBadDllp is NVML_FI_DEV_PCIE_COUNT_BAD_DLLP. PCIe Bad DLLP Counter
+	// FieldDevPcieCountBadDllp is NVML_FI_DEV_PCIE_COUNT_BAD_DLLP. PCIe Bad DLLP Counter.
 	FieldDevPcieCountBadDllp uint32 = 178
-	// FieldDevPcieCountBadTlp is NVML_FI_DEV_PCIE_COUNT_BAD_TLP. PCIe Bad TLP Counter
+	// FieldDevPcieCountBadTlp is NVML_FI_DEV_PCIE_COUNT_BAD_TLP. PCIe Bad TLP Counter.
 	FieldDevPcieCountBadTlp uint32 = 176
-	// FieldDevPcieCountCorrectableErrors is NVML_FI_DEV_PCIE_COUNT_CORRECTABLE_ERRORS. PCIe Correctable Errors Counter
+	// FieldDevPcieCountCorrectableErrors is NVML_FI_DEV_PCIE_COUNT_CORRECTABLE_ERRORS. PCIe Correctable Errors Counter.
 	FieldDevPcieCountCorrectableErrors uint32 = 173
-	// FieldDevPcieCountFatalError is NVML_FI_DEV_PCIE_COUNT_FATAL_ERROR. PCIe Fatal Error Counter
+	// FieldDevPcieCountFatalError is NVML_FI_DEV_PCIE_COUNT_FATAL_ERROR. PCIe Fatal Error Counter.
 	FieldDevPcieCountFatalError uint32 = 180
 	// FieldDevPcieCountLaneError is NVML_FI_DEV_PCIE_COUNT_LANE_ERROR. PCIe Per Lane Error Counter.
 	FieldDevPcieCountLaneError uint32 = 183
-	// FieldDevPcieCountLcrcError is NVML_FI_DEV_PCIE_COUNT_LCRC_ERROR. PCIe LCRC Error Counter
+	// FieldDevPcieCountLcrcError is NVML_FI_DEV_PCIE_COUNT_LCRC_ERROR. PCIe LCRC Error Counter.
 	FieldDevPcieCountLcrcError uint32 = 182
-	// FieldDevPcieCountNaksReceived is NVML_FI_DEV_PCIE_COUNT_NAKS_RECEIVED. PCIe NAK Receive Counter
+	// FieldDevPcieCountNaksReceived is NVML_FI_DEV_PCIE_COUNT_NAKS_RECEIVED. PCIe NAK Receive Counter.
 	FieldDevPcieCountNaksReceived uint32 = 174
-	// FieldDevPcieCountNaksSent is NVML_FI_DEV_PCIE_COUNT_NAKS_SENT. PCIe NAK Send Counter
+	// FieldDevPcieCountNaksSent is NVML_FI_DEV_PCIE_COUNT_NAKS_SENT. PCIe NAK Send Counter.
 	FieldDevPcieCountNaksSent uint32 = 177
-	// FieldDevPcieCountNonFatalError is NVML_FI_DEV_PCIE_COUNT_NON_FATAL_ERROR. PCIe Non Fatal Error Counter
+	// FieldDevPcieCountNonFatalError is NVML_FI_DEV_PCIE_COUNT_NON_FATAL_ERROR. PCIe Non Fatal Error Counter.
 	FieldDevPcieCountNonFatalError uint32 = 179
-	// FieldDevPcieCountReceiverError is NVML_FI_DEV_PCIE_COUNT_RECEIVER_ERROR. PCIe Receiver Error Counter
+	// FieldDevPcieCountReceiverError is NVML_FI_DEV_PCIE_COUNT_RECEIVER_ERROR. PCIe Receiver Error Counter.
 	FieldDevPcieCountReceiverError uint32 = 175
 	// FieldDevPcieCountRxBytes is NVML_FI_DEV_PCIE_COUNT_RX_BYTES. PCIe receive bytes. Value can be wrapped.
 	FieldDevPcieCountRxBytes uint32 = 198
 	// FieldDevPcieCountTxBytes is NVML_FI_DEV_PCIE_COUNT_TX_BYTES. PCIe transmit bytes. Value can be wrapped.
 	FieldDevPcieCountTxBytes uint32 = 197
-	// FieldDevPcieCountUnsupportedReq is NVML_FI_DEV_PCIE_COUNT_UNSUPPORTED_REQ. PCIe Unsupported Request Counter
+	// FieldDevPcieCountUnsupportedReq is NVML_FI_DEV_PCIE_COUNT_UNSUPPORTED_REQ. PCIe Unsupported Request Counter.
 	FieldDevPcieCountUnsupportedReq uint32 = 181
 	// FieldDevPcieInboundAtomicsMask is NVML_FI_DEV_PCIE_INBOUND_ATOMICS_MASK.
 	FieldDevPcieInboundAtomicsMask uint32 = 229
-	// FieldDevPcieL0ToRecoveryCounter is NVML_FI_DEV_PCIE_L0_TO_RECOVERY_COUNTER. Device PEX error recovery counter
+	// FieldDevPcieL0ToRecoveryCounter is NVML_FI_DEV_PCIE_L0_TO_RECOVERY_COUNTER. Device PEX error recovery counter.
 	FieldDevPcieL0ToRecoveryCounter uint32 = 169
 	// FieldDevPcieOutboundAtomicsMask is NVML_FI_DEV_PCIE_OUTBOUND_ATOMICS_MASK.
 	FieldDevPcieOutboundAtomicsMask uint32 = 228
-	// FieldDevPcieReplayCounter is NVML_FI_DEV_PCIE_REPLAY_COUNTER. PCIe replay counter
+	// FieldDevPcieReplayCounter is NVML_FI_DEV_PCIE_REPLAY_COUNTER. PCIe replay counter.
 	FieldDevPcieReplayCounter uint32 = 94
-	// FieldDevPcieReplayRolloverCounter is NVML_FI_DEV_PCIE_REPLAY_ROLLOVER_COUNTER. PCIe replay rollover counter
+	// FieldDevPcieReplayRolloverCounter is NVML_FI_DEV_PCIE_REPLAY_ROLLOVER_COUNTER. PCIe replay rollover counter.
 	FieldDevPcieReplayRolloverCounter uint32 = 95
-	// FieldDevPerfPolicyBoardLimit is NVML_FI_DEV_PERF_POLICY_BOARD_LIMIT. Perf Policy Counter for Board Limit
+	// FieldDevPerfPolicyBoardLimit is NVML_FI_DEV_PERF_POLICY_BOARD_LIMIT. Perf Policy Counter for Board Limit.
 	FieldDevPerfPolicyBoardLimit uint32 = 77
-	// FieldDevPerfPolicyLowUtilization is NVML_FI_DEV_PERF_POLICY_LOW_UTILIZATION. Perf Policy Counter for Low GPU Utilization Policy
+	// FieldDevPerfPolicyLowUtilization is NVML_FI_DEV_PERF_POLICY_LOW_UTILIZATION. Perf Policy Counter for Low GPU Utilization Policy.
 	FieldDevPerfPolicyLowUtilization uint32 = 78
-	// FieldDevPerfPolicyPower is NVML_FI_DEV_PERF_POLICY_POWER. Perf Policy Counter for Power Policy
+	// FieldDevPerfPolicyPower is NVML_FI_DEV_PERF_POLICY_POWER. Perf Policy Counter for Power Policy.
 	FieldDevPerfPolicyPower uint32 = 74
-	// FieldDevPerfPolicyReliability is NVML_FI_DEV_PERF_POLICY_RELIABILITY. Perf Policy Counter for Reliability Policy
+	// FieldDevPerfPolicyReliability is NVML_FI_DEV_PERF_POLICY_RELIABILITY. Perf Policy Counter for Reliability Policy.
 	FieldDevPerfPolicyReliability uint32 = 79
-	// FieldDevPerfPolicySyncBoost is NVML_FI_DEV_PERF_POLICY_SYNC_BOOST. Perf Policy Counter for Sync boost Policy
+	// FieldDevPerfPolicySyncBoost is NVML_FI_DEV_PERF_POLICY_SYNC_BOOST. Perf Policy Counter for Sync boost Policy.
 	FieldDevPerfPolicySyncBoost uint32 = 76
-	// FieldDevPerfPolicyThermal is NVML_FI_DEV_PERF_POLICY_THERMAL. Perf Policy Counter for Thermal Policy
+	// FieldDevPerfPolicyThermal is NVML_FI_DEV_PERF_POLICY_THERMAL. Perf Policy Counter for Thermal Policy.
 	FieldDevPerfPolicyThermal uint32 = 75
-	// FieldDevPerfPolicyTotalAppClocks is NVML_FI_DEV_PERF_POLICY_TOTAL_APP_CLOCKS. Perf Policy Counter for Total App Clock Policy
+	// FieldDevPerfPolicyTotalAppClocks is NVML_FI_DEV_PERF_POLICY_TOTAL_APP_CLOCKS. Perf Policy Counter for Total App Clock Policy.
 	FieldDevPerfPolicyTotalAppClocks uint32 = 80
-	// FieldDevPerfPolicyTotalBaseClocks is NVML_FI_DEV_PERF_POLICY_TOTAL_BASE_CLOCKS. Perf Policy Counter for Total Base Clocks Policy
+	// FieldDevPerfPolicyTotalBaseClocks is NVML_FI_DEV_PERF_POLICY_TOTAL_BASE_CLOCKS. Perf Policy Counter for Total Base Clocks Policy.
 	FieldDevPerfPolicyTotalBaseClocks uint32 = 81
 	// FieldDevPowerAverage is NVML_FI_DEV_POWER_AVERAGE. GPU power averaged over 1 sec interval, supported on Ampere (except GA100) or newer architectures.
 	FieldDevPowerAverage uint32 = 185
@@ -638,21 +640,21 @@ const (
 	FieldDevPowerMinLimit uint32 = 187
 	// FieldDevPowerRequestedLimit is NVML_FI_DEV_POWER_REQUESTED_LIMIT. Power limit requested by NVML or any other userspace client.
 	FieldDevPowerRequestedLimit uint32 = 192
-	// FieldDevPowerSyncBalancingAf is NVML_FI_DEV_POWER_SYNC_BALANCING_AF. Accumulated activity factor of the GPU to be used for averaging
+	// FieldDevPowerSyncBalancingAf is NVML_FI_DEV_POWER_SYNC_BALANCING_AF. Accumulated activity factor of the GPU to be used for averaging.
 	FieldDevPowerSyncBalancingAf uint32 = 273
-	// FieldDevPowerSyncBalancingFreq is NVML_FI_DEV_POWER_SYNC_BALANCING_FREQ. Accumulated frequency of the GPU to be used for averaging
+	// FieldDevPowerSyncBalancingFreq is NVML_FI_DEV_POWER_SYNC_BALANCING_FREQ. Accumulated frequency of the GPU to be used for averaging.
 	FieldDevPowerSyncBalancingFreq uint32 = 272
-	// FieldDevRemappedCor is NVML_FI_DEV_REMAPPED_COR. Number of remapped rows due to correctable errors
+	// FieldDevRemappedCor is NVML_FI_DEV_REMAPPED_COR. Number of remapped rows due to correctable errors.
 	FieldDevRemappedCor uint32 = 142
-	// FieldDevRemappedFailure is NVML_FI_DEV_REMAPPED_FAILURE. If any rows failed to be remapped 1=yes 0=no
+	// FieldDevRemappedFailure is NVML_FI_DEV_REMAPPED_FAILURE. If any rows failed to be remapped 1=yes 0=no.
 	FieldDevRemappedFailure uint32 = 145
-	// FieldDevRemappedPending is NVML_FI_DEV_REMAPPED_PENDING. If any rows are pending remapping. 1=yes 0=no
+	// FieldDevRemappedPending is NVML_FI_DEV_REMAPPED_PENDING. If any rows are pending remapping. 1=yes 0=no.
 	FieldDevRemappedPending uint32 = 144
-	// FieldDevRemappedUnc is NVML_FI_DEV_REMAPPED_UNC. Number of remapped rows due to uncorrectable errors
+	// FieldDevRemappedUnc is NVML_FI_DEV_REMAPPED_UNC. Number of remapped rows due to uncorrectable errors.
 	FieldDevRemappedUnc uint32 = 143
-	// FieldDevResetStatus is NVML_FI_DEV_RESET_STATUS. Depracated, do not use (use [FieldDevGetGpuRecoveryAction] instead)
+	// FieldDevResetStatus is NVML_FI_DEV_RESET_STATUS. Depracated, do not use (use [FieldDevGetGpuRecoveryAction] instead).
 	FieldDevResetStatus uint32 = 226
-	// FieldDevRetiredDbe is NVML_FI_DEV_RETIRED_DBE. Number of retired pages because of double bit errors
+	// FieldDevRetiredDbe is NVML_FI_DEV_RETIRED_DBE. Number of retired pages because of double bit errors.
 	FieldDevRetiredDbe uint32 = 30
 	// FieldDevRetiredPending is NVML_FI_DEV_RETIRED_PENDING. If any pages are pending retirement. 1=yes. 0=no.
 	FieldDevRetiredPending uint32 = 31
@@ -660,83 +662,83 @@ const (
 	FieldDevRetiredPendingDbe uint32 = 93
 	// FieldDevRetiredPendingSbe is NVML_FI_DEV_RETIRED_PENDING_SBE. If any pages are pending retirement due to SBE. 1=yes. 0=no.
 	FieldDevRetiredPendingSbe uint32 = 92
-	// FieldDevRetiredSbe is NVML_FI_DEV_RETIRED_SBE. Number of retired pages because of single bit errors
+	// FieldDevRetiredSbe is NVML_FI_DEV_RETIRED_SBE. Number of retired pages because of single bit errors.
 	FieldDevRetiredSbe uint32 = 29
-	// FieldDevTemperatureGpuMaxTlimit is NVML_FI_DEV_TEMPERATURE_GPU_MAX_TLIMIT. T.Limit temperature after which GPU may be throttled below base clock
+	// FieldDevTemperatureGpuMaxTlimit is NVML_FI_DEV_TEMPERATURE_GPU_MAX_TLIMIT. T.Limit temperature after which GPU may be throttled below base clock.
 	FieldDevTemperatureGpuMaxTlimit uint32 = 196
-	// FieldDevTemperatureMemMaxTlimit is NVML_FI_DEV_TEMPERATURE_MEM_MAX_TLIMIT. T.Limit temperature after which GPU may begin SW slowdown due to memory temperature
+	// FieldDevTemperatureMemMaxTlimit is NVML_FI_DEV_TEMPERATURE_MEM_MAX_TLIMIT. T.Limit temperature after which GPU may begin SW slowdown due to memory temperature.
 	FieldDevTemperatureMemMaxTlimit uint32 = 195
-	// FieldDevTemperatureShutdownTlimit is NVML_FI_DEV_TEMPERATURE_SHUTDOWN_TLIMIT. T.Limit temperature after which GPU may shut down for HW protection
+	// FieldDevTemperatureShutdownTlimit is NVML_FI_DEV_TEMPERATURE_SHUTDOWN_TLIMIT. T.Limit temperature after which GPU may shut down for HW protection.
 	FieldDevTemperatureShutdownTlimit uint32 = 193
-	// FieldDevTemperatureSlowdownTlimit is NVML_FI_DEV_TEMPERATURE_SLOWDOWN_TLIMIT. T.Limit temperature after which GPU may begin HW slowdown
+	// FieldDevTemperatureSlowdownTlimit is NVML_FI_DEV_TEMPERATURE_SLOWDOWN_TLIMIT. T.Limit temperature after which GPU may begin HW slowdown.
 	FieldDevTemperatureSlowdownTlimit uint32 = 194
-	// FieldDevTotalEnergyConsumption is NVML_FI_DEV_TOTAL_ENERGY_CONSUMPTION. Total energy consumption for the GPU in mJ since the driver was last reloaded
+	// FieldDevTotalEnergyConsumption is NVML_FI_DEV_TOTAL_ENERGY_CONSUMPTION. Total energy consumption for the GPU in mJ since the driver was last reloaded.
 	FieldDevTotalEnergyConsumption uint32 = 83
-	// FieldMax is NVML_FI_MAX. One greater than the largest field ID defined above
+	// FieldMax is NVML_FI_MAX. One greater than the largest field ID defined above.
 	FieldMax uint32 = 296
-	// FieldPwrSmoothingActivePresetProfile is NVML_FI_PWR_SMOOTHING_ACTIVE_PRESET_PROFILE. Active preset profile number
+	// FieldPwrSmoothingActivePresetProfile is NVML_FI_PWR_SMOOTHING_ACTIVE_PRESET_PROFILE. Active preset profile number.
 	FieldPwrSmoothingActivePresetProfile uint32 = 264
-	// FieldPwrSmoothingAdminOverridePercentTmpFloor is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_PERCENT_TMP_FLOOR. % TMP floor for a given profile
+	// FieldPwrSmoothingAdminOverridePercentTmpFloor is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_PERCENT_TMP_FLOOR. % TMP floor for a given profile.
 	FieldPwrSmoothingAdminOverridePercentTmpFloor uint32 = 265
-	// FieldPwrSmoothingAdminOverridePrimaryFloorActOffset is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_PRIMARY_FLOOR_ACT_OFFSET.
+	// FieldPwrSmoothingAdminOverridePrimaryFloorActOffset is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_PRIMARY_FLOOR_ACT_OFFSET. Current primary floor activation offset value in Watts for admin override. If the target moving average falls below the secondary floor plus this offset, the primary floor will be activated.
 	FieldPwrSmoothingAdminOverridePrimaryFloorActOffset uint32 = 288
-	// FieldPwrSmoothingAdminOverridePrimaryFloorActWinMult is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_PRIMARY_FLOOR_ACT_WIN_MULT.
+	// FieldPwrSmoothingAdminOverridePrimaryFloorActWinMult is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_PRIMARY_FLOOR_ACT_WIN_MULT. Current primary floor activation window multiplier value for admin override. This is the "X" ms time multiplier for the activation moving average window size. The activation moving average is compared against the (secondary floor + primary floor activation offset value) to determine if the controller should switch from the secondary floor to the primary floor. Setting this to 0 will disable switching to the secondary floor.
 	FieldPwrSmoothingAdminOverridePrimaryFloorActWinMult uint32 = 286
-	// FieldPwrSmoothingAdminOverridePrimaryFloorTarWinMult is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_PRIMARY_FLOOR_TAR_WIN_MULT.
+	// FieldPwrSmoothingAdminOverridePrimaryFloorTarWinMult is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_PRIMARY_FLOOR_TAR_WIN_MULT. Current primary floor target window multiplier value for admin override. This is the "X" ms time multiplier for the target moving average window size. When set to non-zero value, the target moving average power determines the primary floor. When set to 0, driver will use the Floor percentage instead to derive the primary floor.
 	FieldPwrSmoothingAdminOverridePrimaryFloorTarWinMult uint32 = 287
-	// FieldPwrSmoothingAdminOverrideRampDownHystVal is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_RAMP_DOWN_HYST_VAL. Ramp down hysteresis value in ms for a given profile
+	// FieldPwrSmoothingAdminOverrideRampDownHystVal is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_RAMP_DOWN_HYST_VAL. Ramp down hysteresis value in ms for a given profile.
 	FieldPwrSmoothingAdminOverrideRampDownHystVal uint32 = 268
-	// FieldPwrSmoothingAdminOverrideRampDownRate is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_RAMP_DOWN_RATE. Ramp down rate in mW/s for a given profile
+	// FieldPwrSmoothingAdminOverrideRampDownRate is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_RAMP_DOWN_RATE. Ramp down rate in mW/s for a given profile.
 	FieldPwrSmoothingAdminOverrideRampDownRate uint32 = 267
-	// FieldPwrSmoothingAdminOverrideRampUpRate is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_RAMP_UP_RATE. Ramp up rate in mW/s for a given profile
+	// FieldPwrSmoothingAdminOverrideRampUpRate is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_RAMP_UP_RATE. Ramp up rate in mW/s for a given profile.
 	FieldPwrSmoothingAdminOverrideRampUpRate uint32 = 266
-	// FieldPwrSmoothingAdminOverrideSecondaryPowerFloor is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_SECONDARY_POWER_FLOOR.
+	// FieldPwrSmoothingAdminOverrideSecondaryPowerFloor is NVML_FI_PWR_SMOOTHING_ADMIN_OVERRIDE_SECONDARY_POWER_FLOOR. Current secondary power floor value in Watts for admin override. This is the power floor that will be applied during active workload periods on the GPU when primary floor activation window multiplier is set to a non-zero value.
 	FieldPwrSmoothingAdminOverrideSecondaryPowerFloor uint32 = 285
-	// FieldPwrSmoothingAppliedTmpCeil is NVML_FI_PWR_SMOOTHING_APPLIED_TMP_CEIL. Applied TMP ceiling value in Watts
+	// FieldPwrSmoothingAppliedTmpCeil is NVML_FI_PWR_SMOOTHING_APPLIED_TMP_CEIL. Applied TMP ceiling value in Watts.
 	FieldPwrSmoothingAppliedTmpCeil uint32 = 254
-	// FieldPwrSmoothingAppliedTmpFloor is NVML_FI_PWR_SMOOTHING_APPLIED_TMP_FLOOR. Applied TMP floor value in Watts
+	// FieldPwrSmoothingAppliedTmpFloor is NVML_FI_PWR_SMOOTHING_APPLIED_TMP_FLOOR. Applied TMP floor value in Watts.
 	FieldPwrSmoothingAppliedTmpFloor uint32 = 255
-	// FieldPwrSmoothingDelayedPwrSmoothingSupported is NVML_FI_PWR_SMOOTHING_DELAYED_PWR_SMOOTHING_SUPPORTED.
+	// FieldPwrSmoothingDelayedPwrSmoothingSupported is NVML_FI_PWR_SMOOTHING_DELAYED_PWR_SMOOTHING_SUPPORTED. Support (0/Not Supported or 1/Supported) for delayed power smoothing.
 	FieldPwrSmoothingDelayedPwrSmoothingSupported uint32 = 280
-	// FieldPwrSmoothingEnabled is NVML_FI_PWR_SMOOTHING_ENABLED. Enablement (0/DISABLED or 1/ENABLED)
+	// FieldPwrSmoothingEnabled is NVML_FI_PWR_SMOOTHING_ENABLED. Enablement (0/DISABLED or 1/ENABLED).
 	FieldPwrSmoothingEnabled uint32 = 251
-	// FieldPwrSmoothingHwCircuitryPercentLifetimeRemaining is NVML_FI_PWR_SMOOTHING_HW_CIRCUITRY_PERCENT_LIFETIME_REMAINING. HW Circuitry % lifetime remaining
+	// FieldPwrSmoothingHwCircuitryPercentLifetimeRemaining is NVML_FI_PWR_SMOOTHING_HW_CIRCUITRY_PERCENT_LIFETIME_REMAINING. HW Circuitry % lifetime remaining.
 	FieldPwrSmoothingHwCircuitryPercentLifetimeRemaining uint32 = 258
-	// FieldPwrSmoothingImmRampDownEnabled is NVML_FI_PWR_SMOOTHING_IMM_RAMP_DOWN_ENABLED. Immediate ramp down enablement (0/DISABLED or 1/ENABLED)
+	// FieldPwrSmoothingImmRampDownEnabled is NVML_FI_PWR_SMOOTHING_IMM_RAMP_DOWN_ENABLED. Immediate ramp down enablement (0/DISABLED or 1/ENABLED).
 	FieldPwrSmoothingImmRampDownEnabled uint32 = 253
-	// FieldPwrSmoothingMaxNumPresetProfiles is NVML_FI_PWR_SMOOTHING_MAX_NUM_PRESET_PROFILES. Max number of preset profiles
+	// FieldPwrSmoothingMaxNumPresetProfiles is NVML_FI_PWR_SMOOTHING_MAX_NUM_PRESET_PROFILES. Max number of preset profiles.
 	FieldPwrSmoothingMaxNumPresetProfiles uint32 = 259
-	// FieldPwrSmoothingMaxPercentTmpFloorSetting is NVML_FI_PWR_SMOOTHING_MAX_PERCENT_TMP_FLOOR_SETTING. Max % TMP Floor value
+	// FieldPwrSmoothingMaxPercentTmpFloorSetting is NVML_FI_PWR_SMOOTHING_MAX_PERCENT_TMP_FLOOR_SETTING. Max % TMP Floor value.
 	FieldPwrSmoothingMaxPercentTmpFloorSetting uint32 = 256
-	// FieldPwrSmoothingMinPercentTmpFloorSetting is NVML_FI_PWR_SMOOTHING_MIN_PERCENT_TMP_FLOOR_SETTING. Min % TMP Floor value
+	// FieldPwrSmoothingMinPercentTmpFloorSetting is NVML_FI_PWR_SMOOTHING_MIN_PERCENT_TMP_FLOOR_SETTING. Min % TMP Floor value.
 	FieldPwrSmoothingMinPercentTmpFloorSetting uint32 = 257
-	// FieldPwrSmoothingMinPrimaryFloorActOffset is NVML_FI_PWR_SMOOTHING_MIN_PRIMARY_FLOOR_ACT_OFFSET.
+	// FieldPwrSmoothingMinPrimaryFloorActOffset is NVML_FI_PWR_SMOOTHING_MIN_PRIMARY_FLOOR_ACT_OFFSET. Minimum primary floor activation offset value in Watts. This is the minimum primary floor activation offset accepted by the driver specified in Watts. This is a static field.
 	FieldPwrSmoothingMinPrimaryFloorActOffset uint32 = 277
-	// FieldPwrSmoothingMinPrimaryFloorActPoint is NVML_FI_PWR_SMOOTHING_MIN_PRIMARY_FLOOR_ACT_POINT.
+	// FieldPwrSmoothingMinPrimaryFloorActPoint is NVML_FI_PWR_SMOOTHING_MIN_PRIMARY_FLOOR_ACT_POINT. Minimum primary floor activation point value in Watts. This is the minimum absolute raw value specified in Watts that the driver will use for switching between primary and secondary floor. This point is calculated as "secondary power floor + primary floor activation offset", and then computed value is floored to "min primary floor activation point" by the driver at run time. This value is used to avoid setting of switch point too low accidentally.
 	FieldPwrSmoothingMinPrimaryFloorActPoint uint32 = 278
-	// FieldPwrSmoothingPrimaryPowerFloor is NVML_FI_PWR_SMOOTHING_PRIMARY_POWER_FLOOR.
+	// FieldPwrSmoothingPrimaryPowerFloor is NVML_FI_PWR_SMOOTHING_PRIMARY_POWER_FLOOR. Current primary power floor value in Watts. This value is calculated by doing "TMP ceiling value * (% TMP floor value)".
 	FieldPwrSmoothingPrimaryPowerFloor uint32 = 275
-	// FieldPwrSmoothingPrivLvl is NVML_FI_PWR_SMOOTHING_PRIV_LVL. Current privilege level
+	// FieldPwrSmoothingPrivLvl is NVML_FI_PWR_SMOOTHING_PRIV_LVL. Current privilege level.
 	FieldPwrSmoothingPrivLvl uint32 = 252
-	// FieldPwrSmoothingProfilePercentTmpFloor is NVML_FI_PWR_SMOOTHING_PROFILE_PERCENT_TMP_FLOOR. % TMP floor for a given profile
+	// FieldPwrSmoothingProfilePercentTmpFloor is NVML_FI_PWR_SMOOTHING_PROFILE_PERCENT_TMP_FLOOR. % TMP floor for a given profile.
 	FieldPwrSmoothingProfilePercentTmpFloor uint32 = 260
-	// FieldPwrSmoothingProfilePrimaryFloorActOffset is NVML_FI_PWR_SMOOTHING_PROFILE_PRIMARY_FLOOR_ACT_OFFSET.
+	// FieldPwrSmoothingProfilePrimaryFloorActOffset is NVML_FI_PWR_SMOOTHING_PROFILE_PRIMARY_FLOOR_ACT_OFFSET. Current primary floor activation offset value in Watts for a given profile. If the target moving average falls below the secondary floor plus this offset, the primary floor will be activated.
 	FieldPwrSmoothingProfilePrimaryFloorActOffset uint32 = 284
-	// FieldPwrSmoothingProfilePrimaryFloorActWinMult is NVML_FI_PWR_SMOOTHING_PROFILE_PRIMARY_FLOOR_ACT_WIN_MULT.
+	// FieldPwrSmoothingProfilePrimaryFloorActWinMult is NVML_FI_PWR_SMOOTHING_PROFILE_PRIMARY_FLOOR_ACT_WIN_MULT. Current primary floor activation window multiplier value for a given profile. This is the "X" ms time multiplier for the activation moving average window size. The activation moving average is compared against the (secondary floor + primary floor activation offset value) to determine if the controller should switch from the secondary floor to the primary floor. Setting this to 0 will disable switching to the secondary floor.
 	FieldPwrSmoothingProfilePrimaryFloorActWinMult uint32 = 282
-	// FieldPwrSmoothingProfilePrimaryFloorTarWinMult is NVML_FI_PWR_SMOOTHING_PROFILE_PRIMARY_FLOOR_TAR_WIN_MULT.
+	// FieldPwrSmoothingProfilePrimaryFloorTarWinMult is NVML_FI_PWR_SMOOTHING_PROFILE_PRIMARY_FLOOR_TAR_WIN_MULT. Current primary floor target window multiplier value for a given profile. This is the "X" ms time multiplier for the target moving average window size. When set to non-zero value, the target moving average power determines the primary floor. When set to 0, driver will use the Floor percentage instead to derive the primary floor.
 	FieldPwrSmoothingProfilePrimaryFloorTarWinMult uint32 = 283
-	// FieldPwrSmoothingProfileRampDownHystVal is NVML_FI_PWR_SMOOTHING_PROFILE_RAMP_DOWN_HYST_VAL. Ramp down hysteresis value in ms for a given profile
+	// FieldPwrSmoothingProfileRampDownHystVal is NVML_FI_PWR_SMOOTHING_PROFILE_RAMP_DOWN_HYST_VAL. Ramp down hysteresis value in ms for a given profile.
 	FieldPwrSmoothingProfileRampDownHystVal uint32 = 263
-	// FieldPwrSmoothingProfileRampDownRate is NVML_FI_PWR_SMOOTHING_PROFILE_RAMP_DOWN_RATE. Ramp down rate in mW/s for a given profile
+	// FieldPwrSmoothingProfileRampDownRate is NVML_FI_PWR_SMOOTHING_PROFILE_RAMP_DOWN_RATE. Ramp down rate in mW/s for a given profile.
 	FieldPwrSmoothingProfileRampDownRate uint32 = 262
-	// FieldPwrSmoothingProfileRampUpRate is NVML_FI_PWR_SMOOTHING_PROFILE_RAMP_UP_RATE. Ramp up rate in mW/s for a given profile
+	// FieldPwrSmoothingProfileRampUpRate is NVML_FI_PWR_SMOOTHING_PROFILE_RAMP_UP_RATE. Ramp up rate in mW/s for a given profile.
 	FieldPwrSmoothingProfileRampUpRate uint32 = 261
-	// FieldPwrSmoothingProfileSecondaryPowerFloor is NVML_FI_PWR_SMOOTHING_PROFILE_SECONDARY_POWER_FLOOR.
+	// FieldPwrSmoothingProfileSecondaryPowerFloor is NVML_FI_PWR_SMOOTHING_PROFILE_SECONDARY_POWER_FLOOR. Current secondary power floor value in Watts for a given profile. This is the power floor that will be applied during active workload periods on the GPU when primary floor activation window multiplier is set to a non-zero value.
 	FieldPwrSmoothingProfileSecondaryPowerFloor uint32 = 281
-	// FieldPwrSmoothingSecondaryPowerFloor is NVML_FI_PWR_SMOOTHING_SECONDARY_POWER_FLOOR.
+	// FieldPwrSmoothingSecondaryPowerFloor is NVML_FI_PWR_SMOOTHING_SECONDARY_POWER_FLOOR. Current secondary power floor value in Watts. This is the power floor that is applied during active workload periods on the GPU when primary floor activation window multiplier is set to a non-zero value.
 	FieldPwrSmoothingSecondaryPowerFloor uint32 = 276
-	// FieldPwrSmoothingWindowMultiplier is NVML_FI_PWR_SMOOTHING_WINDOW_MULTIPLIER.
+	// FieldPwrSmoothingWindowMultiplier is NVML_FI_PWR_SMOOTHING_WINDOW_MULTIPLIER. Window Multiplier value in ms. This is the multiplier unit specified in ms for other multipliers in the profile (primary floor activation window multiplier and primary floor target window multiplier). This is a static field.
 	FieldPwrSmoothingWindowMultiplier uint32 = 279
 	// GpmMetricsGetVersion is NVML_GPM_METRICS_GET_VERSION.
 	GpmMetricsGetVersion = 1
@@ -746,87 +748,87 @@ const (
 	GpuAttestationCertChainSize = 5120
 	// GpuCertChainSize is NVML_GPU_CERT_CHAIN_SIZE. Size of the certificate chain.
 	GpuCertChainSize = 4096
-	// GpuFabricHealthMaskAccessTimeoutRecoveryFalse is NVML_GPU_FABRIC_HEALTH_MASK_ACCESS_TIMEOUT_RECOVERY_FALSE. Fabric Health Mask: Access Timeout Recovery not in progress
+	// GpuFabricHealthMaskAccessTimeoutRecoveryFalse is NVML_GPU_FABRIC_HEALTH_MASK_ACCESS_TIMEOUT_RECOVERY_FALSE. Fabric Health Mask: Access Timeout Recovery not in progress.
 	GpuFabricHealthMaskAccessTimeoutRecoveryFalse = 2
-	// GpuFabricHealthMaskAccessTimeoutRecoveryNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_ACCESS_TIMEOUT_RECOVERY_NOT_SUPPORTED. Fabric Health Mask: Access Timeout Recovery not supported
+	// GpuFabricHealthMaskAccessTimeoutRecoveryNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_ACCESS_TIMEOUT_RECOVERY_NOT_SUPPORTED. Fabric Health Mask: Access Timeout Recovery not supported.
 	GpuFabricHealthMaskAccessTimeoutRecoveryNotSupported = 0
-	// GpuFabricHealthMaskAccessTimeoutRecoveryTrue is NVML_GPU_FABRIC_HEALTH_MASK_ACCESS_TIMEOUT_RECOVERY_TRUE. Fabric Health Mask: Access Timeout Recovery in progress
+	// GpuFabricHealthMaskAccessTimeoutRecoveryTrue is NVML_GPU_FABRIC_HEALTH_MASK_ACCESS_TIMEOUT_RECOVERY_TRUE. Fabric Health Mask: Access Timeout Recovery in progress.
 	GpuFabricHealthMaskAccessTimeoutRecoveryTrue = 1
-	// GpuFabricHealthMaskDegradedBwFalse is NVML_GPU_FABRIC_HEALTH_MASK_DEGRADED_BW_FALSE. Fabric Health Mask: Bandwidth not degraded
+	// GpuFabricHealthMaskDegradedBwFalse is NVML_GPU_FABRIC_HEALTH_MASK_DEGRADED_BW_FALSE. Fabric Health Mask: Bandwidth not degraded.
 	GpuFabricHealthMaskDegradedBwFalse = 2
-	// GpuFabricHealthMaskDegradedBwNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_DEGRADED_BW_NOT_SUPPORTED. Fabric Health Mask: Degraded Bandwidth not supported
+	// GpuFabricHealthMaskDegradedBwNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_DEGRADED_BW_NOT_SUPPORTED. Fabric Health Mask: Degraded Bandwidth not supported.
 	GpuFabricHealthMaskDegradedBwNotSupported = 0
-	// GpuFabricHealthMaskDegradedBwTrue is NVML_GPU_FABRIC_HEALTH_MASK_DEGRADED_BW_TRUE. Fabric Health Mask: Bandwidth degraded
+	// GpuFabricHealthMaskDegradedBwTrue is NVML_GPU_FABRIC_HEALTH_MASK_DEGRADED_BW_TRUE. Fabric Health Mask: Bandwidth degraded.
 	GpuFabricHealthMaskDegradedBwTrue = 1
-	// GpuFabricHealthMaskIncorrectConfigurationGpuStateInvalid is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_GPU_STATE_INVALID. Fabric Health Mask: Incorrect Configuration - GPU State Invalid
+	// GpuFabricHealthMaskIncorrectConfigurationGpuStateInvalid is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_GPU_STATE_INVALID. Fabric Health Mask: Incorrect Configuration - GPU State Invalid.
 	GpuFabricHealthMaskIncorrectConfigurationGpuStateInvalid = 8
-	// GpuFabricHealthMaskIncorrectConfigurationIncompatibleGpuFw is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INCOMPATIBLE_GPU_FW. Fabric Health Mask: Incorrect Configuration - Incompatible GPU Firmware
+	// GpuFabricHealthMaskIncorrectConfigurationIncompatibleGpuFw is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INCOMPATIBLE_GPU_FW. Fabric Health Mask: Incorrect Configuration - Incompatible GPU Firmware.
 	GpuFabricHealthMaskIncorrectConfigurationIncompatibleGpuFw = 6
-	// GpuFabricHealthMaskIncorrectConfigurationIncorrectChassisSn is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INCORRECT_CHASSIS_SN. Fabric Health Mask: Incorrect Configuration - Chassis Serial Number
+	// GpuFabricHealthMaskIncorrectConfigurationIncorrectChassisSn is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INCORRECT_CHASSIS_SN. Fabric Health Mask: Incorrect Configuration - Chassis Serial Number.
 	GpuFabricHealthMaskIncorrectConfigurationIncorrectChassisSn = 3
-	// GpuFabricHealthMaskIncorrectConfigurationIncorrectSysguid is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INCORRECT_SYSGUID. Fabric Health Mask: Incorrect Configuration - SysGUID
+	// GpuFabricHealthMaskIncorrectConfigurationIncorrectSysguid is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INCORRECT_SYSGUID. Fabric Health Mask: Incorrect Configuration - SysGUID.
 	GpuFabricHealthMaskIncorrectConfigurationIncorrectSysguid = 2
-	// GpuFabricHealthMaskIncorrectConfigurationInsufficientNvlinks is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INSUFFICIENT_NVLINKS. Fabric Health Mask: Incorrect Configuration - Insufficient Nvlinks
+	// GpuFabricHealthMaskIncorrectConfigurationInsufficientNvlinks is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INSUFFICIENT_NVLINKS. Fabric Health Mask: Incorrect Configuration - Insufficient Nvlinks.
 	GpuFabricHealthMaskIncorrectConfigurationInsufficientNvlinks = 5
-	// GpuFabricHealthMaskIncorrectConfigurationInvalidLocation is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INVALID_LOCATION. Fabric Health Mask: Incorrect Configuration - Invalid Location
+	// GpuFabricHealthMaskIncorrectConfigurationInvalidLocation is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_INVALID_LOCATION. Fabric Health Mask: Incorrect Configuration - Invalid Location.
 	GpuFabricHealthMaskIncorrectConfigurationInvalidLocation = 7
-	// GpuFabricHealthMaskIncorrectConfigurationNone is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_NONE. Fabric Health Mask: Correct Configuration
+	// GpuFabricHealthMaskIncorrectConfigurationNone is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_NONE. Fabric Health Mask: Correct Configuration.
 	GpuFabricHealthMaskIncorrectConfigurationNone = 1
-	// GpuFabricHealthMaskIncorrectConfigurationNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_NOT_SUPPORTED. Fabric Health Mask: Incorrect Configuration not supported
+	// GpuFabricHealthMaskIncorrectConfigurationNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_NOT_SUPPORTED. Fabric Health Mask: Incorrect Configuration not supported.
 	GpuFabricHealthMaskIncorrectConfigurationNotSupported = 0
-	// GpuFabricHealthMaskIncorrectConfigurationNoPartition is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_NO_PARTITION. Fabric Health Mask: Incorrect Configuration - No Partition
+	// GpuFabricHealthMaskIncorrectConfigurationNoPartition is NVML_GPU_FABRIC_HEALTH_MASK_INCORRECT_CONFIGURATION_NO_PARTITION. Fabric Health Mask: Incorrect Configuration - No Partition.
 	GpuFabricHealthMaskIncorrectConfigurationNoPartition = 4
-	// GpuFabricHealthMaskPartitionAssignedFalse is NVML_GPU_FABRIC_HEALTH_MASK_PARTITION_ASSIGNED_FALSE. Fabric Health Mask: Partition is not Assigned
+	// GpuFabricHealthMaskPartitionAssignedFalse is NVML_GPU_FABRIC_HEALTH_MASK_PARTITION_ASSIGNED_FALSE. Fabric Health Mask: Partition is not Assigned.
 	GpuFabricHealthMaskPartitionAssignedFalse = 2
-	// GpuFabricHealthMaskPartitionAssignedNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_PARTITION_ASSIGNED_NOT_SUPPORTED. Fabric Health Mask: Partition Assigned not supported
+	// GpuFabricHealthMaskPartitionAssignedNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_PARTITION_ASSIGNED_NOT_SUPPORTED. Fabric Health Mask: Partition Assigned not supported.
 	GpuFabricHealthMaskPartitionAssignedNotSupported = 0
-	// GpuFabricHealthMaskPartitionAssignedTrue is NVML_GPU_FABRIC_HEALTH_MASK_PARTITION_ASSIGNED_TRUE. Fabric Health Mask: Partition is Assigned
+	// GpuFabricHealthMaskPartitionAssignedTrue is NVML_GPU_FABRIC_HEALTH_MASK_PARTITION_ASSIGNED_TRUE. Fabric Health Mask: Partition is Assigned.
 	GpuFabricHealthMaskPartitionAssignedTrue = 1
-	// GpuFabricHealthMaskRouteRecoveryFalse is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_RECOVERY_FALSE. Fabric Health Mask: Route Recovery not in progress
+	// GpuFabricHealthMaskRouteRecoveryFalse is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_RECOVERY_FALSE. Fabric Health Mask: Route Recovery not in progress.
 	GpuFabricHealthMaskRouteRecoveryFalse = 2
-	// GpuFabricHealthMaskRouteRecoveryNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_RECOVERY_NOT_SUPPORTED. Fabric Health Mask: Route Recovery not supported
+	// GpuFabricHealthMaskRouteRecoveryNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_RECOVERY_NOT_SUPPORTED. Fabric Health Mask: Route Recovery not supported.
 	GpuFabricHealthMaskRouteRecoveryNotSupported = 0
-	// GpuFabricHealthMaskRouteRecoveryTrue is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_RECOVERY_TRUE. Fabric Health Mask: Route Recovery in progress
+	// GpuFabricHealthMaskRouteRecoveryTrue is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_RECOVERY_TRUE. Fabric Health Mask: Route Recovery in progress.
 	GpuFabricHealthMaskRouteRecoveryTrue = 1
-	// GpuFabricHealthMaskRouteUnhealthyFalse is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_UNHEALTHY_FALSE. Fabric Health Mask: Route is healthy
+	// GpuFabricHealthMaskRouteUnhealthyFalse is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_UNHEALTHY_FALSE. Fabric Health Mask: Route is healthy.
 	GpuFabricHealthMaskRouteUnhealthyFalse = 2
-	// GpuFabricHealthMaskRouteUnhealthyNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_UNHEALTHY_NOT_SUPPORTED. Fabric Health Mask: Route Unhealthy not supported
+	// GpuFabricHealthMaskRouteUnhealthyNotSupported is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_UNHEALTHY_NOT_SUPPORTED. Fabric Health Mask: Route Unhealthy not supported.
 	GpuFabricHealthMaskRouteUnhealthyNotSupported = 0
-	// GpuFabricHealthMaskRouteUnhealthyTrue is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_UNHEALTHY_TRUE. Fabric Health Mask: Route is unhealthy
+	// GpuFabricHealthMaskRouteUnhealthyTrue is NVML_GPU_FABRIC_HEALTH_MASK_ROUTE_UNHEALTHY_TRUE. Fabric Health Mask: Route is unhealthy.
 	GpuFabricHealthMaskRouteUnhealthyTrue = 1
-	// GpuFabricHealthMaskShiftAccessTimeoutRecovery is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_ACCESS_TIMEOUT_RECOVERY. Fabric Health Mask Bit Shift for Access Timeout Recovery
+	// GpuFabricHealthMaskShiftAccessTimeoutRecovery is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_ACCESS_TIMEOUT_RECOVERY. Fabric Health Mask Bit Shift for Access Timeout Recovery.
 	GpuFabricHealthMaskShiftAccessTimeoutRecovery = 6
-	// GpuFabricHealthMaskShiftDegradedBw is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_DEGRADED_BW. Fabric Health Mask Bit Shift for Degraded Bandwidth
+	// GpuFabricHealthMaskShiftDegradedBw is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_DEGRADED_BW. Fabric Health Mask Bit Shift for Degraded Bandwidth.
 	GpuFabricHealthMaskShiftDegradedBw = 0
-	// GpuFabricHealthMaskShiftIncorrectConfiguration is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_INCORRECT_CONFIGURATION. Fabric Health Mask Bit Shift for Incorrect Configuration
+	// GpuFabricHealthMaskShiftIncorrectConfiguration is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_INCORRECT_CONFIGURATION. Fabric Health Mask Bit Shift for Incorrect Configuration.
 	GpuFabricHealthMaskShiftIncorrectConfiguration = 8
-	// GpuFabricHealthMaskShiftPartitionAssigned is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_PARTITION_ASSIGNED. Fabric Health Mask Bit Shift for Partition Assigned
+	// GpuFabricHealthMaskShiftPartitionAssigned is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_PARTITION_ASSIGNED. Fabric Health Mask Bit Shift for Partition Assigned.
 	GpuFabricHealthMaskShiftPartitionAssigned = 12
-	// GpuFabricHealthMaskShiftRouteRecovery is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_ROUTE_RECOVERY. Fabric Health Mask Bit Shift for Route Recovery
+	// GpuFabricHealthMaskShiftRouteRecovery is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_ROUTE_RECOVERY. Fabric Health Mask Bit Shift for Route Recovery.
 	GpuFabricHealthMaskShiftRouteRecovery = 2
-	// GpuFabricHealthMaskShiftRouteUnhealthy is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_ROUTE_UNHEALTHY. Fabric Health Mask Bit Shift for Route Unhealthy
+	// GpuFabricHealthMaskShiftRouteUnhealthy is NVML_GPU_FABRIC_HEALTH_MASK_SHIFT_ROUTE_UNHEALTHY. Fabric Health Mask Bit Shift for Route Unhealthy.
 	GpuFabricHealthMaskShiftRouteUnhealthy = 4
-	// GpuFabricHealthMaskWidthAccessTimeoutRecovery is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_ACCESS_TIMEOUT_RECOVERY. Fabric Health Mask Width for Access Timeout Recovery
+	// GpuFabricHealthMaskWidthAccessTimeoutRecovery is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_ACCESS_TIMEOUT_RECOVERY. Fabric Health Mask Width for Access Timeout Recovery.
 	GpuFabricHealthMaskWidthAccessTimeoutRecovery = 3
-	// GpuFabricHealthMaskWidthDegradedBw is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_DEGRADED_BW. Fabric Health Mask Width for Degraded Bandwidth
+	// GpuFabricHealthMaskWidthDegradedBw is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_DEGRADED_BW. Fabric Health Mask Width for Degraded Bandwidth.
 	GpuFabricHealthMaskWidthDegradedBw = 3
-	// GpuFabricHealthMaskWidthIncorrectConfiguration is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_INCORRECT_CONFIGURATION. Fabric Health Mask Width for Incorrect Configuration
+	// GpuFabricHealthMaskWidthIncorrectConfiguration is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_INCORRECT_CONFIGURATION. Fabric Health Mask Width for Incorrect Configuration.
 	GpuFabricHealthMaskWidthIncorrectConfiguration = 15
-	// GpuFabricHealthMaskWidthPartitionAssigned is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_PARTITION_ASSIGNED. Fabric Health Mask Width for Partition Assigned
+	// GpuFabricHealthMaskWidthPartitionAssigned is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_PARTITION_ASSIGNED. Fabric Health Mask Width for Partition Assigned.
 	GpuFabricHealthMaskWidthPartitionAssigned = 3
-	// GpuFabricHealthMaskWidthRouteRecovery is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_ROUTE_RECOVERY. Fabric Health Mask Width for Route Recovery
+	// GpuFabricHealthMaskWidthRouteRecovery is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_ROUTE_RECOVERY. Fabric Health Mask Width for Route Recovery.
 	GpuFabricHealthMaskWidthRouteRecovery = 3
-	// GpuFabricHealthMaskWidthRouteUnhealthy is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_ROUTE_UNHEALTHY. Fabric Health Mask Width for Route Unhealthy
+	// GpuFabricHealthMaskWidthRouteUnhealthy is NVML_GPU_FABRIC_HEALTH_MASK_WIDTH_ROUTE_UNHEALTHY. Fabric Health Mask Width for Route Unhealthy.
 	GpuFabricHealthMaskWidthRouteUnhealthy = 3
-	// GpuFabricHealthSummaryHealthy is NVML_GPU_FABRIC_HEALTH_SUMMARY_HEALTHY. Fabric Health Summary: Healthy
+	// GpuFabricHealthSummaryHealthy is NVML_GPU_FABRIC_HEALTH_SUMMARY_HEALTHY. Fabric Health Summary: Healthy.
 	GpuFabricHealthSummaryHealthy = 1
-	// GpuFabricHealthSummaryLimitedCapacity is NVML_GPU_FABRIC_HEALTH_SUMMARY_LIMITED_CAPACITY. Fabric Health Summary: Limited Capacity
+	// GpuFabricHealthSummaryLimitedCapacity is NVML_GPU_FABRIC_HEALTH_SUMMARY_LIMITED_CAPACITY. Fabric Health Summary: Limited Capacity.
 	GpuFabricHealthSummaryLimitedCapacity = 3
-	// GpuFabricHealthSummaryNotSupported is NVML_GPU_FABRIC_HEALTH_SUMMARY_NOT_SUPPORTED. Fabric Health Summary: Not supported
+	// GpuFabricHealthSummaryNotSupported is NVML_GPU_FABRIC_HEALTH_SUMMARY_NOT_SUPPORTED. Fabric Health Summary: Not supported.
 	GpuFabricHealthSummaryNotSupported = 0
-	// GpuFabricHealthSummaryUnhealthy is NVML_GPU_FABRIC_HEALTH_SUMMARY_UNHEALTHY. Fabric Health Summary: Unhealthy
+	// GpuFabricHealthSummaryUnhealthy is NVML_GPU_FABRIC_HEALTH_SUMMARY_UNHEALTHY. Fabric Health Summary: Unhealthy.
 	GpuFabricHealthSummaryUnhealthy = 2
-	// GpuFabricUuidLen is NVML_GPU_FABRIC_UUID_LEN. Length of Fabric UUID
+	// GpuFabricUuidLen is NVML_GPU_FABRIC_UUID_LEN. Length of Fabric UUID.
 	GpuFabricUuidLen = 16
 	// GpuInstanceProfile1Slice is NVML_GPU_INSTANCE_PROFILE_1_SLICE. 1_SLICE GPU instance profile.
 	GpuInstanceProfile1Slice = 0
@@ -870,41 +872,41 @@ const (
 	GpuInstanceProfileCount = 17
 	// GpuIntstanceProfileCapsP2P is NVML_GPU_INTSTANCE_PROFILE_CAPS_P2P.
 	//
-	// Deprecated: Do not use
+	// Deprecated: Do not use.
 	GpuIntstanceProfileCapsP2P = 1
-	// GridLicenseBufferSize is NVML_GRID_LICENSE_BUFFER_SIZE.
+	// GridLicenseBufferSize is NVML_GRID_LICENSE_BUFFER_SIZE. Buffer size guaranteed to be large enough for [VgpuTypeId.License].
 	GridLicenseBufferSize = 128
-	// GridLicenseExpiryInvalid is NVML_GRID_LICENSE_EXPIRY_INVALID. Invalid expiry or error fetching expiry
+	// GridLicenseExpiryInvalid is NVML_GRID_LICENSE_EXPIRY_INVALID. Invalid expiry or error fetching expiry.
 	GridLicenseExpiryInvalid = 1
-	// GridLicenseExpiryNotApplicable is NVML_GRID_LICENSE_EXPIRY_NOT_APPLICABLE. Expiry not applicable
+	// GridLicenseExpiryNotApplicable is NVML_GRID_LICENSE_EXPIRY_NOT_APPLICABLE. Expiry not applicable.
 	GridLicenseExpiryNotApplicable = 3
-	// GridLicenseExpiryNotAvailable is NVML_GRID_LICENSE_EXPIRY_NOT_AVAILABLE. Expiry information not available
+	// GridLicenseExpiryNotAvailable is NVML_GRID_LICENSE_EXPIRY_NOT_AVAILABLE. Expiry information not available.
 	GridLicenseExpiryNotAvailable = 0
-	// GridLicenseExpiryPermanent is NVML_GRID_LICENSE_EXPIRY_PERMANENT. Permanent expiry
+	// GridLicenseExpiryPermanent is NVML_GRID_LICENSE_EXPIRY_PERMANENT. Permanent expiry.
 	GridLicenseExpiryPermanent = 4
-	// GridLicenseExpiryValid is NVML_GRID_LICENSE_EXPIRY_VALID. Valid expiry
+	// GridLicenseExpiryValid is NVML_GRID_LICENSE_EXPIRY_VALID. Valid expiry.
 	GridLicenseExpiryValid = 2
 	// GridLicenseFeatureMaxCount is NVML_GRID_LICENSE_FEATURE_MAX_COUNT.
 	GridLicenseFeatureMaxCount = 3
-	// GridLicenseStateLicensed is NVML_GRID_LICENSE_STATE_LICENSED. Licensed state
+	// GridLicenseStateLicensed is NVML_GRID_LICENSE_STATE_LICENSED. Licensed state.
 	GridLicenseStateLicensed = 5
-	// GridLicenseStateUninitialized is NVML_GRID_LICENSE_STATE_UNINITIALIZED. Uninitialized state
+	// GridLicenseStateUninitialized is NVML_GRID_LICENSE_STATE_UNINITIALIZED. Uninitialized state.
 	GridLicenseStateUninitialized = 1
-	// GridLicenseStateUnknown is NVML_GRID_LICENSE_STATE_UNKNOWN. Unknown state
+	// GridLicenseStateUnknown is NVML_GRID_LICENSE_STATE_UNKNOWN. Unknown state.
 	GridLicenseStateUnknown = 0
-	// GridLicenseStateUnlicensed is NVML_GRID_LICENSE_STATE_UNLICENSED. Unlicensed state
+	// GridLicenseStateUnlicensed is NVML_GRID_LICENSE_STATE_UNLICENSED. Unlicensed state.
 	GridLicenseStateUnlicensed = 4
-	// GridLicenseStateUnlicensedRestricted is NVML_GRID_LICENSE_STATE_UNLICENSED_RESTRICTED. Unlicensed restricted state
+	// GridLicenseStateUnlicensedRestricted is NVML_GRID_LICENSE_STATE_UNLICENSED_RESTRICTED. Unlicensed restricted state.
 	GridLicenseStateUnlicensedRestricted = 3
-	// GridLicenseStateUnlicensedUnrestricted is NVML_GRID_LICENSE_STATE_UNLICENSED_UNRESTRICTED. Unlicensed unrestricted state
+	// GridLicenseStateUnlicensedUnrestricted is NVML_GRID_LICENSE_STATE_UNLICENSED_UNRESTRICTED. Unlicensed unrestricted state.
 	GridLicenseStateUnlicensedUnrestricted = 2
 	// GspFirmwareVersionBufSize is NVML_GSP_FIRMWARE_VERSION_BUF_SIZE. Buffer size for GSP firmware version string.
 	GspFirmwareVersionBufSize = 64
-	// InitFlagForceInit is NVML_INIT_FLAG_FORCE_INIT. Force GPU initialization when a previous [Init] was called with NO_GPUS and NO_ATTACH flags
+	// InitFlagForceInit is NVML_INIT_FLAG_FORCE_INIT. Force GPU initialization when a previous [Init] was called with NO_GPUS and NO_ATTACH flags.
 	InitFlagForceInit = 4
-	// InitFlagNoAttach is NVML_INIT_FLAG_NO_ATTACH. Don't attach GPUs
+	// InitFlagNoAttach is NVML_INIT_FLAG_NO_ATTACH. Don't attach GPUs.
 	InitFlagNoAttach = 2
-	// InitFlagNoGpus is NVML_INIT_FLAG_NO_GPUS. Don't fail [Init] when no GPUs are found
+	// InitFlagNoGpus is NVML_INIT_FLAG_NO_GPUS. Don't fail [Init] when no GPUs are found.
 	InitFlagNoGpus = 1
 	// InvalidVgpuPlacementId is NVML_INVALID_VGPU_PLACEMENT_ID.
 	InvalidVgpuPlacementId = 65535
@@ -950,7 +952,7 @@ const (
 	NvlinkLowPowerThresholdDefault = NvlinkLowPowerThresholdReset
 	// NvlinkLowPowerThresholdMax is NVML_NVLINK_LOW_POWER_THRESHOLD_MAX.
 	NvlinkLowPowerThresholdMax = 8191
-	// NvlinkLowPowerThresholdMin is NVML_NVLINK_LOW_POWER_THRESHOLD_MIN.
+	// NvlinkLowPowerThresholdMin is NVML_NVLINK_LOW_POWER_THRESHOLD_MIN. [NvlinkLowPowerThresholdMin] will be deprecated. Use the NVML Field Value [FieldDevNvlinkGetPowerThresholdMin] to get the correct Min Low Power Threshold.
 	NvlinkLowPowerThresholdMin = 1
 	// NvlinkLowPowerThresholdReset is NVML_NVLINK_LOW_POWER_THRESHOLD_RESET.
 	NvlinkLowPowerThresholdReset = 4294967295
@@ -1004,13 +1006,13 @@ const (
 	PcieLinkMaxSpeedInvalid = 0
 	// PerfModesBufferSize is NVML_PERF_MODES_BUFFER_SIZE. Buffer size for performance modes strings.
 	PerfModesBufferSize = 2048
-	// PowerMizerModeAdaptive is NVML_POWER_MIZER_MODE_ADAPTIVE. adjust GPU clocks based on GPU utilization
+	// PowerMizerModeAdaptive is NVML_POWER_MIZER_MODE_ADAPTIVE. adjust GPU clocks based on GPU utilization.
 	PowerMizerModeAdaptive = 0
 	// PowerMizerModeAuto is NVML_POWER_MIZER_MODE_AUTO. PowerMizer mode is driver controlled.
 	PowerMizerModeAuto = 2
-	// PowerMizerModePreferConsistentPerformance is NVML_POWER_MIZER_MODE_PREFER_CONSISTENT_PERFORMANCE. lock to GPU base clocks
+	// PowerMizerModePreferConsistentPerformance is NVML_POWER_MIZER_MODE_PREFER_CONSISTENT_PERFORMANCE. lock to GPU base clocks.
 	PowerMizerModePreferConsistentPerformance = 3
-	// PowerMizerModePreferMaximumPerformance is NVML_POWER_MIZER_MODE_PREFER_MAXIMUM_PERFORMANCE. raise GPU clocks to favor maximum performance,
+	// PowerMizerModePreferMaximumPerformance is NVML_POWER_MIZER_MODE_PREFER_MAXIMUM_PERFORMANCE. raise GPU clocks to favor maximum performance, to the extent that thermal and other constraints allow.
 	PowerMizerModePreferMaximumPerformance = 1
 	// PowerSmoothingAdminOverrideNotSet is NVML_POWER_SMOOTHING_ADMIN_OVERRIDE_NOT_SET. Admin override not set.
 	PowerSmoothingAdminOverrideNotSet = 4294967295
@@ -1020,11 +1022,11 @@ const (
 	PowerSmoothingNumProfileParams = 8
 	// PowerSmoothingProfileParamPercentTmpFloor is NVML_POWER_SMOOTHING_PROFILE_PARAM_PERCENT_TMP_FLOOR. Percent temperature floor.
 	PowerSmoothingProfileParamPercentTmpFloor = 0
-	// PowerSmoothingProfileParamPrimaryFloorActOffset is NVML_POWER_SMOOTHING_PROFILE_PARAM_PRIMARY_FLOOR_ACT_OFFSET. Primary floor activation offset value in Watts for a given profile
+	// PowerSmoothingProfileParamPrimaryFloorActOffset is NVML_POWER_SMOOTHING_PROFILE_PARAM_PRIMARY_FLOOR_ACT_OFFSET. Primary floor activation offset value in Watts for a given profile.
 	PowerSmoothingProfileParamPrimaryFloorActOffset = 7
-	// PowerSmoothingProfileParamPrimaryFloorActWinMult is NVML_POWER_SMOOTHING_PROFILE_PARAM_PRIMARY_FLOOR_ACT_WIN_MULT. Primary floor activation window multiplier value for a given profile
+	// PowerSmoothingProfileParamPrimaryFloorActWinMult is NVML_POWER_SMOOTHING_PROFILE_PARAM_PRIMARY_FLOOR_ACT_WIN_MULT. Primary floor activation window multiplier value for a given profile.
 	PowerSmoothingProfileParamPrimaryFloorActWinMult = 5
-	// PowerSmoothingProfileParamPrimaryFloorTarWinMult is NVML_POWER_SMOOTHING_PROFILE_PARAM_PRIMARY_FLOOR_TAR_WIN_MULT. Primary floor target window multiplier value for a given profile
+	// PowerSmoothingProfileParamPrimaryFloorTarWinMult is NVML_POWER_SMOOTHING_PROFILE_PARAM_PRIMARY_FLOOR_TAR_WIN_MULT. Primary floor target window multiplier value for a given profile.
 	PowerSmoothingProfileParamPrimaryFloorTarWinMult = 6
 	// PowerSmoothingProfileParamRampDownHysteresis is NVML_POWER_SMOOTHING_PROFILE_PARAM_RAMP_DOWN_HYSTERESIS. Ramp down hysteresis.
 	PowerSmoothingProfileParamRampDownHysteresis = 3
@@ -1032,41 +1034,41 @@ const (
 	PowerSmoothingProfileParamRampDownRate = 2
 	// PowerSmoothingProfileParamRampUpRate is NVML_POWER_SMOOTHING_PROFILE_PARAM_RAMP_UP_RATE. Ramp up rate.
 	PowerSmoothingProfileParamRampUpRate = 1
-	// PowerSmoothingProfileParamSecondaryPowerFloor is NVML_POWER_SMOOTHING_PROFILE_PARAM_SECONDARY_POWER_FLOOR. Secondary power floor value in Watts for a given profile
+	// PowerSmoothingProfileParamSecondaryPowerFloor is NVML_POWER_SMOOTHING_PROFILE_PARAM_SECONDARY_POWER_FLOOR. Secondary power floor value in Watts for a given profile.
 	PowerSmoothingProfileParamSecondaryPowerFloor = 4
 	// PrmDataMaxSize is NVML_PRM_DATA_MAX_SIZE. Maximum size of the PRM data.
 	PrmDataMaxSize = 496
-	// RusdPollAll is NVML_RUSD_POLL_ALL. Enable RUSD polling on all groups
+	// RusdPollAll is NVML_RUSD_POLL_ALL. Enable RUSD polling on all groups.
 	RusdPollAll uint64 = 18446744073709551615
-	// RusdPollClock is NVML_RUSD_POLL_CLOCK. Enable RUSD polling on clock group
+	// RusdPollClock is NVML_RUSD_POLL_CLOCK. Enable RUSD polling on clock group.
 	RusdPollClock = 1
-	// RusdPollFan is NVML_RUSD_POLL_FAN. Enable RUSD polling on fan group
+	// RusdPollFan is NVML_RUSD_POLL_FAN. Enable RUSD polling on fan group.
 	RusdPollFan = 64
-	// RusdPollMemory is NVML_RUSD_POLL_MEMORY. Enable RUSD polling on memory group
+	// RusdPollMemory is NVML_RUSD_POLL_MEMORY. Enable RUSD polling on memory group.
 	RusdPollMemory = 4
-	// RusdPollNone is NVML_RUSD_POLL_NONE. Disable RUSD polling on all metric groups
+	// RusdPollNone is NVML_RUSD_POLL_NONE. Disable RUSD polling on all metric groups.
 	RusdPollNone = 0
-	// RusdPollPci is NVML_RUSD_POLL_PCI. Enable RUSD polling on pci group
+	// RusdPollPci is NVML_RUSD_POLL_PCI. Enable RUSD polling on pci group.
 	RusdPollPci = 32
-	// RusdPollPerf is NVML_RUSD_POLL_PERF. Enable RUSD polling on performance group
+	// RusdPollPerf is NVML_RUSD_POLL_PERF. Enable RUSD polling on performance group.
 	RusdPollPerf = 2
-	// RusdPollPower is NVML_RUSD_POLL_POWER. Enable RUSD polling on power group
+	// RusdPollPower is NVML_RUSD_POLL_POWER. Enable RUSD polling on power group.
 	RusdPollPower = 8
-	// RusdPollProcUtil is NVML_RUSD_POLL_PROC_UTIL. Enable RUSD polling on process utilization group
+	// RusdPollProcUtil is NVML_RUSD_POLL_PROC_UTIL. Enable RUSD polling on process utilization group.
 	RusdPollProcUtil = 128
-	// RusdPollThermal is NVML_RUSD_POLL_THERMAL. Enable RUSD polling on thermal group
+	// RusdPollThermal is NVML_RUSD_POLL_THERMAL. Enable RUSD polling on thermal group.
 	RusdPollThermal = 16
 	// SchedulerSwMaxLogEntries is NVML_SCHEDULER_SW_MAX_LOG_ENTRIES. Maximum number of scheduler log entries.
 	SchedulerSwMaxLogEntries = 200
 	// SingleBitEcc is NVML_SINGLE_BIT_ECC. Deprecated single bit ECC error. See [MemoryErrorTypeCorrected].
 	//
-	// Deprecated: Mapped to [MemoryErrorTypeCorrected]
+	// Deprecated: Mapped to [MemoryErrorTypeCorrected].
 	SingleBitEcc = MemoryErrorTypeCorrected
 	// SupportedVgpuSchedulerPolicyCount is NVML_SUPPORTED_VGPU_SCHEDULER_POLICY_COUNT. Number of supported vGPU scheduler policies.
 	SupportedVgpuSchedulerPolicyCount = 3
-	// SystemDriverVersionBufferSize is NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE.
+	// SystemDriverVersionBufferSize is NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE. Buffer size guaranteed to be large enough for [SystemGetDriverVersion].
 	SystemDriverVersionBufferSize = 80
-	// SystemNvmlVersionBufferSize is NVML_SYSTEM_NVML_VERSION_BUFFER_SIZE.
+	// SystemNvmlVersionBufferSize is NVML_SYSTEM_NVML_VERSION_BUFFER_SIZE. Buffer size guaranteed to be large enough for [SystemGetNVMLVersion].
 	SystemNvmlVersionBufferSize = 80
 	// TopologyCpu is NVML_TOPOLOGY_CPU. Topology level for node.
 	TopologyCpu = TopologyNode
@@ -1084,7 +1086,7 @@ const (
 	VgpuPgpuVirtualizationCapMigrationYes = 1
 	// VgpuSchedulerArrDefault is NVML_VGPU_SCHEDULER_ARR_DEFAULT. Default Adaptive Round Robin mode.
 	//
-	// Deprecated: Adaptive Round Robin mode is always enabled
+	// Deprecated: Adaptive Round Robin mode is always enabled.
 	VgpuSchedulerArrDefault = 0
 	// VgpuSchedulerArrDisable is NVML_VGPU_SCHEDULER_ARR_DISABLE. Disable Adaptive Round Robin mode.
 	VgpuSchedulerArrDisable = 1
@@ -1092,9 +1094,9 @@ const (
 	VgpuSchedulerArrEnable = 2
 	// VgpuSchedulerEngineTypeGraphics is NVML_VGPU_SCHEDULER_ENGINE_TYPE_GRAPHICS. Graphics engine.
 	VgpuSchedulerEngineTypeGraphics = 1
-	// VgpuSchedulerEngineTypeNvenc0 is NVML_VGPU_SCHEDULER_ENGINE_TYPE_NVENC0. NVENC0
+	// VgpuSchedulerEngineTypeNvenc0 is NVML_VGPU_SCHEDULER_ENGINE_TYPE_NVENC0. NVENC0.
 	VgpuSchedulerEngineTypeNvenc0 = 3
-	// VgpuSchedulerEngineTypeNvenc1 is NVML_VGPU_SCHEDULER_ENGINE_TYPE_NVENC1. NVENC1
+	// VgpuSchedulerEngineTypeNvenc1 is NVML_VGPU_SCHEDULER_ENGINE_TYPE_NVENC1. NVENC1.
 	VgpuSchedulerEngineTypeNvenc1 = 2
 	// VgpuSchedulerPolicyBestEffort is NVML_VGPU_SCHEDULER_POLICY_BEST_EFFORT. Best effort scheduler policy.
 	VgpuSchedulerPolicyBestEffort = 1
@@ -1114,7 +1116,7 @@ const (
 	ClocksEventReasonAll uint64 = 511
 	// ClocksEventReasonApplicationsClocksSetting is nvmlClocksEventReasonApplicationsClocksSetting. Clocks are set to application-specific values.
 	//
-	// Deprecated: No longer used
+	// Deprecated: No longer used.
 	ClocksEventReasonApplicationsClocksSetting uint64 = 2
 	// ClocksEventReasonDisplayClockSetting is nvmlClocksEventReasonDisplayClockSetting. Display clock setting limited.
 	ClocksEventReasonDisplayClockSetting uint64 = 256
@@ -1130,7 +1132,7 @@ const (
 	ClocksEventReasonSyncBoost uint64 = 16
 	// ClocksThrottleReasonAll is nvmlClocksThrottleReasonAll. All clock throttling reasons.
 	//
-	// Deprecated: Use [ClocksEventReasonAll] instead
+	// Deprecated: Use [ClocksEventReasonAll] instead.
 	ClocksThrottleReasonAll = ClocksEventReasonAll
 	// ClocksThrottleReasonApplicationsClocksSetting is nvmlClocksThrottleReasonApplicationsClocksSetting.
 	//
@@ -1138,11 +1140,11 @@ const (
 	ClocksThrottleReasonApplicationsClocksSetting = ClocksEventReasonApplicationsClocksSetting
 	// ClocksThrottleReasonDisplayClockSetting is nvmlClocksThrottleReasonDisplayClockSetting. Display clock setting.
 	//
-	// Deprecated: Use [ClocksEventReasonDisplayClockSetting] instead
+	// Deprecated: Use [ClocksEventReasonDisplayClockSetting] instead.
 	ClocksThrottleReasonDisplayClockSetting = ClocksEventReasonDisplayClockSetting
 	// ClocksThrottleReasonGpuIdle is nvmlClocksThrottleReasonGpuIdle. GPU idle.
 	//
-	// Deprecated: Use [ClocksEventReasonGpuIdle] instead
+	// Deprecated: Use [ClocksEventReasonGpuIdle] instead.
 	ClocksThrottleReasonGpuIdle = ClocksEventReasonGpuIdle
 	// ClocksThrottleReasonHwPowerBrakeSlowdown is nvmlClocksThrottleReasonHwPowerBrakeSlowdown. Hardware power brake slowdown activated.
 	ClocksThrottleReasonHwPowerBrakeSlowdown uint64 = 128
@@ -1152,19 +1154,19 @@ const (
 	ClocksThrottleReasonHwThermalSlowdown uint64 = 64
 	// ClocksThrottleReasonNone is nvmlClocksThrottleReasonNone. No clock throttling.
 	//
-	// Deprecated: Use [ClocksEventReasonNone] instead
+	// Deprecated: Use [ClocksEventReasonNone] instead.
 	ClocksThrottleReasonNone = ClocksEventReasonNone
 	// ClocksThrottleReasonSwPowerCap is nvmlClocksThrottleReasonSwPowerCap. Software power cap.
 	//
-	// Deprecated: Use [ClocksEventReasonSwPowerCap] instead
+	// Deprecated: Use [ClocksEventReasonSwPowerCap] instead.
 	ClocksThrottleReasonSwPowerCap = ClocksEventReasonSwPowerCap
 	// ClocksThrottleReasonSwThermalSlowdown is nvmlClocksThrottleReasonSwThermalSlowdown. Software thermal slowdown.
 	//
-	// Deprecated: Use [ClocksEventReasonSwThermalSlowdown] instead
+	// Deprecated: Use [ClocksEventReasonSwThermalSlowdown] instead.
 	ClocksThrottleReasonSwThermalSlowdown = ClocksEventReasonSwThermalSlowdown
 	// ClocksThrottleReasonSyncBoost is nvmlClocksThrottleReasonSyncBoost. Sync boost.
 	//
-	// Deprecated: Use [ClocksEventReasonSyncBoost] instead
+	// Deprecated: Use [ClocksEventReasonSyncBoost] instead.
 	ClocksThrottleReasonSyncBoost = ClocksEventReasonSyncBoost
 	// ClocksThrottleReasonUserDefinedClocks is nvmlClocksThrottleReasonUserDefinedClocks. User-defined clocks.
 	//
@@ -1208,8 +1210,8 @@ const (
 	FlagForce = 1
 	// SystemEventTypeCount is nvmlSystemEventTypeCount. Number of system event types.
 	SystemEventTypeCount = 2
-	// SystemEventTypeGpuDriverBind is nvmlSystemEventTypeGpuDriverBind. Bitmask value of Driver Bind System Event
+	// SystemEventTypeGpuDriverBind is nvmlSystemEventTypeGpuDriverBind. Bitmask value of Driver Bind System Event.
 	SystemEventTypeGpuDriverBind uint64 = 2
-	// SystemEventTypeGpuDriverUnbind is nvmlSystemEventTypeGpuDriverUnbind. Bitmask value of Driver Unbind System Event
+	// SystemEventTypeGpuDriverUnbind is nvmlSystemEventTypeGpuDriverUnbind. Bitmask value of Driver Unbind System Event.
 	SystemEventTypeGpuDriverUnbind uint64 = 1
 )

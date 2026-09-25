@@ -86,7 +86,7 @@ func (h Handle) Disconnect() error {
 //   - entityCount: IN: Number of entries in entities[]
 //   - fields: IN: Field IDs to return data for. See the definitions in dcgm_fields.h that start with DCGM_FI_
 //   - fieldCount: IN: Number of field IDs in fields[] array
-//   - flags: IN: Optional flags that affect how this request is processed. Pass DCGM_FV_FLAG_LIVE_DATA here to retrieve a live driver value rather than a cached value. See that flag's documentation for caveats
+//   - flags: IN: Optional flags that affect how this request is processed. Pass [FvFlagLiveData] here to retrieve a live driver value rather than a cached value. See that flag's documentation for caveats
 //   - values: OUT: Latest field values for the fields requested. This must be able to hold entityCount * fieldCount field value records
 //
 // Wraps dcgmEntitiesGetLatestValues.
@@ -121,7 +121,7 @@ func (h Handle) EntityGroupEntities(entityGroup FieldEntityGroup, entities *Fiel
 
 // FieldGroupCreate Used to create a group of fields and return the handle in dcgmFieldGroupId
 //
-//   - numFieldIds: IN: Number of field IDs that are being provided in fieldIds[]. Must be between 1 and DCGM_MAX_FIELD_IDS_PER_FIELD_GROUP
+//   - numFieldIds: IN: Number of field IDs that are being provided in fieldIds[]. Must be between 1 and [MaxFieldIDsPerFieldGroup]
 //   - fieldIds: IN: Field IDs to be added to the newly-created field group
 //   - fieldGroupName: IN: Unique name for this group of fields. This must not be the same as any existing field groups
 //   - dcgmFieldGroupId: OUT: Handle to the newly-created field group
@@ -220,7 +220,7 @@ func (h Handle) GroupAddEntity(groupId GpuGrp, entityGroupId FieldEntityGroup, e
 // GroupCreate Used to create a entity group handle which can store one or more entity Ids as an opaque handle returned in pDcgmGrpId.
 //
 // To create the group with all the entities present on the system, the type field should be
-// specified as [GroupDefault] or DCGM_GROUP_ALL_NVSWITCHES. To create an empty group,
+// specified as [GroupDefault] or [GroupAllNvSwitches]. To create an empty group,
 // the type field should be specified as [GroupEmpty]. The empty group can be updated
 // with the desired set of entities using the APIs [Handle.GroupAddDevice], [Handle.GroupAddEntity],
 // [Handle.GroupRemoveDevice], and [Handle.GroupRemoveEntity].
@@ -306,7 +306,7 @@ func (h Handle) HealthCheck(groupId GpuGrp, results *HealthResponse) error {
 
 // HealthGet Retrieve the current state of the DCGM health check system
 //
-//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to perform operation on all the NvSwitches
+//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs or [GroupAllNvSwitches] to perform operation on all the NvSwitches
 //   - systems: OUT: An integer representing the enabled systems for the given group Refer to [HealthSystems] for details
 //
 // Wraps dcgmHealthGet.
@@ -441,7 +441,7 @@ func (h Handle) StopEmbedded() error {
 
 // UnwatchFields Request that DCGM stop recording updates for a given field collection.
 //
-//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to to perform the operation on all NvSwitches
+//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs or [GroupAllNvSwitches] to to perform the operation on all NvSwitches
 //   - fieldGroupId: IN: Fields to unwatch
 //
 // Wraps dcgmUnwatchFields.
@@ -467,7 +467,7 @@ func (h Handle) UpdateAllFields(waitForUpdate int32) error {
 // Note that the first update of the field will not occur until the next field update cycle.
 // To force a field update cycle, call [Handle.UpdateAllFields](1).
 //
-//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to to perform the operation on all NvSwitches
+//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs or [GroupAllNvSwitches] to to perform the operation on all NvSwitches
 //   - fieldGroupId: IN: Fields to watch
 //   - updateFreq: IN: How often to update this field in usec
 //   - maxKeepAge: IN: How long to keep data for this field in seconds

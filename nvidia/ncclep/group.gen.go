@@ -66,7 +66,7 @@ func (g Group) ErrorClear() error {
 // Create and initialize EP handle. Must be called before the first [Handle.Dispatch]/[Handle.Combine].
 //
 // NOTE: the impact of auto-sizing of internal buffers
-// ([GroupConfig].rdma_buffer_size == NCCL_EP_AUTO):
+// ([GroupConfig].rdma_buffer_size == [Auto]):
 // * collective behaviour: This function MAY be collective and must be called by all ranks
 // in the group in the same order.
 // * memory allocation/re-allocation: This function may perform allocation/re-allocation
