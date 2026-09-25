@@ -116,6 +116,24 @@ func kernelImages(cap *cudacapture.Capture) ([]kernelImage, map[string]string) {
 	return kept, unread
 }
 
+// kernelResources returns the .nv.info resources of each kernel the images
+// answer for.
+func kernelResources(images []kernelImage) []cudaoccupancy.KernelResourceInfo {
+	var infos []cudaoccupancy.KernelResourceInfo
+	for _, img := range images {
+		kinfos, err := cudaoccupancy.ReadKernelInfoBytes(img.cubin)
+		if err != nil {
+			continue
+		}
+		for _, k := range kinfos {
+			if img.answers(k.Name) {
+				infos = append(infos, k)
+			}
+		}
+	}
+	return infos
+}
+
 // findCaptureCUBIN returns the capture's own CUBIN, when it names one.
 func findCaptureCUBIN(cap *cudacapture.Capture) ([]byte, bool) {
 	for _, name := range []string{cap.Code.CUBIN, "kernels.cubin"} {

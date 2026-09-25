@@ -98,6 +98,24 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 
 	images, unread := kernelImages(cap)
 	disasm := adviseDisassembly(cap, images)
+	resources := kernelResources(images)
+
+	ptxData, ptxFile, _ := capturefiles.PTX(cap)
+	var ptxMod *cudaptx.Module
+	if len(ptxData) > 0 {
+		if mod, err := cudaptx.ParseBytes(ptxData); err == nil {
+			ptxMod = mod
+		}
+	}
+
+	// Precise float math, charged only where it costs local memory.
+	mathKernels, math := floatMathByKernel(disasm, ptxMod, ptxFile)
+	frames := make(map[string]int)
+	for _, k := range resources {
+		frames[k.Name] = k.FrameSizeBytes
+	}
+	auditPreciseFloatMath(cap, report, mathKernels, math, frames)
+
 	if disasm != nil {
 		arch := parseArchFromCapture(cap)
 		if arch == "" {
@@ -109,7 +127,6 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 			var peakGPRInst, peakUGPRInst cudasass.Instruction
 			var spills []cudasass.Instruction
 			var imadWides []cudasass.Instruction
-			var fchkInsts []cudasass.Instruction
 
 			for _, inst := range fn.Instructions {
 				if inst.LiveGPR > peakGPR {
@@ -131,11 +148,6 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 				// Check SASS for IMAD.WIDE scalar fallback
 				if strings.HasPrefix(inst.Opcode, "IMAD.WIDE") || inst.Opcode == "IMAD.WIDE" {
 					imadWides = append(imadWides, inst)
-				}
-
-				// Check SASS for IEEE compliance check branches (missing --use_fast_math)
-				if inst.Opcode == "FCHK" || strings.HasPrefix(inst.Opcode, "FCHK") {
-					fchkInsts = append(fchkInsts, inst)
 				}
 			}
 
@@ -159,27 +171,12 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 				})
 			}
 
-			// Report FCHK arithmetic checks
-			if len(fchkInsts) > 0 {
-				first := fchkInsts[0]
-				report.Items = append(report.Items, Item{
-					Severity:      SeverityCost,
-					Category:      CategoryArchitectureCompute,
-					EvidenceLevel: EvidenceObserved,
-					Location: Location{
-						Kernel: fn.Name,
-						PC:     first.Address,
-						File:   first.SourceFile,
-						Line:   first.SourceLine,
-					},
-					Finding:                  fmt.Sprintf("Kernel %q appears compiled without --use_fast_math: %d IEEE compliance check instructions (FCHK) detected in arithmetic paths", fn.Name, len(fchkInsts)),
-					ActionableRecommendation: "If strict IEEE 754 bit-exact rounding is not required, compile with --use_fast_math to substitute hardware approximations (e.g. MUFU.RCP) and eliminate FCHK branches. NOTE: --use_fast_math changes division and transcendental rounding and flushes denormals to zero; if the workload enforces bit-exact logit invariants, keep IEEE math and prefer --extra-device-vectorization or explicit fast reciprocal intrinsics (__fdividef) over the global flag.",
-					NextMeasurement:          "A/B wall-clock timing with --use_fast_math",
-				})
-			}
-
 			if len(spills) > 0 {
 				first := spills[0]
+				rec := "Reduce register lifetimes or apply __launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor) to eliminate spills to slow local memory."
+				if math[fn.Name].costs(frames[fn.Name]) {
+					rec += fastMathLead
+				}
 				report.Items = append(report.Items, Item{
 					Severity:      SeverityReadFirst,
 					Category:      CategoryRegisterPressure,
@@ -191,7 +188,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 						Line:   first.SourceLine,
 					},
 					Finding:                  fmt.Sprintf("Register spill point detected in kernel %q: %d local-memory instructions, first %s, at %s", fn.Name, len(spills), capturefiles.Instruction(first), formatPCs(spills)),
-					ActionableRecommendation: "Reduce register lifetimes or apply __launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor) to eliminate spills to slow local memory.",
+					ActionableRecommendation: rec,
 					NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
 				})
 			}
@@ -272,123 +269,119 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 	}
 
 	// 3. PTX Architecture Audits (via x/cudaptx)
-	ptxData, ptxFile, _ := capturefiles.PTX(cap)
-	if len(ptxData) > 0 {
-		mod, err := cudaptx.ParseBytes(ptxData)
-		if err == nil && mod != nil {
-			target := mod.Target
-			for _, k := range mod.Kernels {
-				// 1. Architecture compatibility check
+	if mod := ptxMod; mod != nil {
+		target := mod.Target
+		for _, k := range mod.Kernels {
+			// 1. Architecture compatibility check
+			for _, inst := range k.Instructions {
+				req := cudaptx.InstructionMinTarget(inst.Mnemonic)
+				if req != "" && req != "all" && target != "" && !architectureCompatible(target, req) {
+					loc := Location{
+						Kernel: k.Name,
+						File:   inst.Loc.File,
+						Line:   inst.Loc.Line,
+					}
+					if loc.File == "" {
+						loc.File = ptxFile
+						loc.Line = inst.Line
+					}
+					report.Items = append(report.Items, Item{
+						Severity:                 SeverityReadFirst,
+						Category:                 CategoryArchitecture,
+						EvidenceLevel:            EvidenceObserved,
+						severityByKind:           true,
+						Location:                 loc,
+						Finding:                  fmt.Sprintf("Instruction %q (%s) requires architecture %s, but module targets %s", inst.Opcode, inst.Mnemonic, req, target),
+						ActionableRecommendation: fmt.Sprintf("Compile with target architecture >= %s or replace with instructions compatible with %s.", req, target),
+						NextMeasurement:          "recompile targeting supported compute capability",
+					})
+				}
+			}
+
+			// 2. Scalar fallbacks check on target architecture (sm_90, sm_100, sm_121a, or modern SM)
+			// If SASS disassembly is available for this kernel, prefer SASS analysis
+			// and skip redundant PTX-level scalar fallback warnings.
+			if disasm != nil && disasm.Function(k.Name) != nil {
+				continue
+			}
+			isModern := parseSM(target) >= 90
+			if isModern {
+				var scalarLoads []cudaptx.Instruction
+				var madWides []cudaptx.Instruction
 				for _, inst := range k.Instructions {
-					req := cudaptx.InstructionMinTarget(inst.Mnemonic)
-					if req != "" && req != "all" && target != "" && !architectureCompatible(target, req) {
-						loc := Location{
-							Kernel: k.Name,
-							File:   inst.Loc.File,
-							Line:   inst.Loc.Line,
+					// Scalar global loads: ld.global without .v2/.v4/.v8
+					if inst.Mnemonic == "ld" && strings.Contains(inst.Opcode, ".global") {
+						if !strings.Contains(inst.Opcode, ".v2") &&
+							!strings.Contains(inst.Opcode, ".v4") &&
+							!strings.Contains(inst.Opcode, ".v8") {
+							scalarLoads = append(scalarLoads, inst)
 						}
-						if loc.File == "" {
-							loc.File = ptxFile
-							loc.Line = inst.Line
-						}
-						report.Items = append(report.Items, Item{
-							Severity:                 SeverityReadFirst,
-							Category:                 CategoryArchitecture,
-							EvidenceLevel:            EvidenceObserved,
-							severityByKind:           true,
-							Location:                 loc,
-							Finding:                  fmt.Sprintf("Instruction %q (%s) requires architecture %s, but module targets %s", inst.Opcode, inst.Mnemonic, req, target),
-							ActionableRecommendation: fmt.Sprintf("Compile with target architecture >= %s or replace with instructions compatible with %s.", req, target),
-							NextMeasurement:          "recompile targeting supported compute capability",
-						})
+					}
+					// Scalar address arithmetic fallback: mad.wide or mul.wide
+					if (inst.Mnemonic == "mad" || inst.Mnemonic == "mul") && strings.Contains(inst.Opcode, ".wide") {
+						madWides = append(madWides, inst)
 					}
 				}
 
-				// 2. Scalar fallbacks check on target architecture (sm_90, sm_100, sm_121a, or modern SM)
-				// If SASS disassembly is available for this kernel, prefer SASS analysis
-				// and skip redundant PTX-level scalar fallback warnings.
-				if disasm != nil && disasm.Function(k.Name) != nil {
-					continue
-				}
-				isModern := parseSM(target) >= 90
-				if isModern {
-					var scalarLoads []cudaptx.Instruction
-					var madWides []cudaptx.Instruction
-					for _, inst := range k.Instructions {
-						// Scalar global loads: ld.global without .v2/.v4/.v8
-						if inst.Mnemonic == "ld" && strings.Contains(inst.Opcode, ".global") {
-							if !strings.Contains(inst.Opcode, ".v2") &&
-								!strings.Contains(inst.Opcode, ".v4") &&
-								!strings.Contains(inst.Opcode, ".v8") {
-								scalarLoads = append(scalarLoads, inst)
-							}
-						}
-						// Scalar address arithmetic fallback: mad.wide or mul.wide
-						if (inst.Mnemonic == "mad" || inst.Mnemonic == "mul") && strings.Contains(inst.Opcode, ".wide") {
-							madWides = append(madWides, inst)
-						}
-					}
-
-					// Report scalar global loads (up to 3 distinct locations to avoid flooding)
-					for i, sLoad := range scalarLoads {
-						if i >= 3 {
-							report.Items = append(report.Items, Item{
-								Severity:      SeverityCost,
-								Category:      CategoryArchitecture,
-								EvidenceLevel: EvidenceSuspected,
-								Location: Location{
-									Kernel: k.Name,
-								},
-								Finding:                  fmt.Sprintf("Kernel %q has %d scalar global load instructions on target %s", k.Name, len(scalarLoads), target),
-								ActionableRecommendation: "If memory access is contiguous and 16-byte aligned, vectorize memory accesses using 128-bit vector loads (e.g. ld.global.v4) or, for multidimensional tensor tiles, Tensor Memory Accelerator (TMA) asynchronous copies (cp.async.bulk.tensor) on sm_90+ architectures.",
-								NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or A/B wall-clock timing",
-							})
-							break
-						}
-						loc := Location{
-							Kernel: k.Name,
-							File:   sLoad.Loc.File,
-							Line:   sLoad.Loc.Line,
-						}
-						if loc.File == "" {
-							loc.File = ptxFile
-							loc.Line = sLoad.Line
-						}
+				// Report scalar global loads (up to 3 distinct locations to avoid flooding)
+				for i, sLoad := range scalarLoads {
+					if i >= 3 {
 						report.Items = append(report.Items, Item{
-							Severity:                 SeverityCost,
-							Category:                 CategoryArchitecture,
-							EvidenceLevel:            EvidenceSuspected,
-							Location:                 loc,
-							Finding:                  fmt.Sprintf("Scalar global load (%s) detected on target %s without vectorized or TMA path", sLoad.Opcode, target),
-							ActionableRecommendation: "If memory access is contiguous and 16-byte aligned, upgrade memory loads to 128-bit vector accesses (e.g. ld.global.v4) or, for multidimensional tensor tiles on sm_90+ architectures, use TMA asynchronous copies (cp.async.bulk.tensor) to maximize memory bandwidth utilization.",
+							Severity:      SeverityCost,
+							Category:      CategoryArchitecture,
+							EvidenceLevel: EvidenceSuspected,
+							Location: Location{
+								Kernel: k.Name,
+							},
+							Finding:                  fmt.Sprintf("Kernel %q has %d scalar global load instructions on target %s", k.Name, len(scalarLoads), target),
+							ActionableRecommendation: "If memory access is contiguous and 16-byte aligned, vectorize memory accesses using 128-bit vector loads (e.g. ld.global.v4) or, for multidimensional tensor tiles, Tensor Memory Accelerator (TMA) asynchronous copies (cp.async.bulk.tensor) on sm_90+ architectures.",
 							NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or A/B wall-clock timing",
 						})
+						break
 					}
+					loc := Location{
+						Kernel: k.Name,
+						File:   sLoad.Loc.File,
+						Line:   sLoad.Loc.Line,
+					}
+					if loc.File == "" {
+						loc.File = ptxFile
+						loc.Line = sLoad.Line
+					}
+					report.Items = append(report.Items, Item{
+						Severity:                 SeverityCost,
+						Category:                 CategoryArchitecture,
+						EvidenceLevel:            EvidenceSuspected,
+						Location:                 loc,
+						Finding:                  fmt.Sprintf("Scalar global load (%s) detected on target %s without vectorized or TMA path", sLoad.Opcode, target),
+						ActionableRecommendation: "If memory access is contiguous and 16-byte aligned, upgrade memory loads to 128-bit vector accesses (e.g. ld.global.v4) or, for multidimensional tensor tiles on sm_90+ architectures, use TMA asynchronous copies (cp.async.bulk.tensor) to maximize memory bandwidth utilization.",
+						NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or A/B wall-clock timing",
+					})
+				}
 
-					// Report scalar address arithmetic
-					for i, mad := range madWides {
-						if i >= 2 {
-							break
-						}
-						loc := Location{
-							Kernel: k.Name,
-							File:   mad.Loc.File,
-							Line:   mad.Loc.Line,
-						}
-						if loc.File == "" {
-							loc.File = ptxFile
-							loc.Line = mad.Line
-						}
-						report.Items = append(report.Items, Item{
-							Severity:                 SeverityCost,
-							Category:                 CategoryArchitecture,
-							EvidenceLevel:            EvidenceSuspected,
-							Location:                 loc,
-							Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected in kernel %q on target %s", mad.Opcode, k.Name, target),
-							ActionableRecommendation: "If indexing into contiguous arrays or structured tensors, use vectorized pointer indexing or TMA multidimensional tensor descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
-							NextMeasurement:          "A/B wall-clock timing",
-						})
+				// Report scalar address arithmetic
+				for i, mad := range madWides {
+					if i >= 2 {
+						break
 					}
+					loc := Location{
+						Kernel: k.Name,
+						File:   mad.Loc.File,
+						Line:   mad.Loc.Line,
+					}
+					if loc.File == "" {
+						loc.File = ptxFile
+						loc.Line = mad.Line
+					}
+					report.Items = append(report.Items, Item{
+						Severity:                 SeverityCost,
+						Category:                 CategoryArchitecture,
+						EvidenceLevel:            EvidenceSuspected,
+						Location:                 loc,
+						Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected in kernel %q on target %s", mad.Opcode, k.Name, target),
+						ActionableRecommendation: "If indexing into contiguous arrays or structured tensors, use vectorized pointer indexing or TMA multidimensional tensor descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
+						NextMeasurement:          "A/B wall-clock timing",
+					})
 				}
 			}
 		}
@@ -398,7 +391,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 	auditCaptureStatus(cap, report)
 
 	// 3. CUBIN ELF Resource & Microarchitecture Occupancy Audit (via x/cudaoccupancy)
-	auditCUBINResourceOccupancy(cap, report, images, launchesByKernel)
+	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel, math)
 
 	// 4. Launch Geometry Audits (Underpopulated Thread Block & SM Grid Starvation)
 	auditLaunchGeometry(cap, report)

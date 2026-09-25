@@ -392,47 +392,6 @@ Args:
 	})
 }
 
-func TestAdvice_SASSFastMathFCHK(t *testing.T) {
-	const sass = `
-	.section	.text.fchk_kernel,"ax",@progbits
-fchk_kernel:
-.text.fchk_kernel:
-        /*0000*/                   FCHK R0, R1, 0x1 ;
-        /*0010*/                   FCHK R2, R3, 0x1 ;
-        /*0020*/                   EXIT ;
-`
-	cap := &cudacapture.Capture{
-		Code: cudacapture.CodeFiles{SASS: "kernels.sass"},
-		Files: map[string][]byte{
-			"kernels.sass": []byte(sass),
-		},
-	}
-
-	report, err := Analyze(cap)
-	if err != nil {
-		t.Fatalf("Analyze failed: %v", err)
-	}
-
-	var found bool
-	for _, item := range report.Items {
-		if strings.Contains(item.Finding, "without --use_fast_math") && strings.Contains(item.Finding, "2 IEEE compliance check") {
-			found = true
-			if item.Category != CategoryArchitectureCompute {
-				t.Errorf("category = %s, want %s", item.Category, CategoryArchitectureCompute)
-			}
-			if !strings.Contains(item.ActionableRecommendation, "changes division and transcendental rounding") ||
-				!strings.Contains(item.ActionableRecommendation, "flushes denormals") ||
-				!strings.Contains(item.ActionableRecommendation, "bit-exact logit invariants") {
-				t.Errorf("fast-math recommendation lacks bit-exactness warning: %q", item.ActionableRecommendation)
-			}
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("expected FCHK finding, got items: %+v", report.Items)
-	}
-}
-
 func TestAdvice_SASSIMADCapping(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("\t.section\t.text.imad_kernel,\"ax\",@progbits\nimad_kernel:\n.text.imad_kernel:\n")

@@ -10,23 +10,8 @@ import (
 // auditCUBINResourceOccupancy inspects CUBIN ELF .nv.info sections (EIATTR_REG_COUNT,
 // EIATTR_SHARED_SIZE_SYSMEM, EIATTR_FRAME_SIZE, EIATTR_MAXREG_COUNT) using x/cudaoccupancy
 // to calculate target-specific SM warp occupancy, occupancy cliffs, and hardware limiting factors.
-func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, images []kernelImage, launchesByKernel map[string]launchRecord) {
-	if cap == nil {
-		return
-	}
-	var infos []cudaoccupancy.KernelResourceInfo
-	for _, img := range images {
-		kinfos, err := cudaoccupancy.ReadKernelInfoBytes(img.cubin)
-		if err != nil {
-			continue
-		}
-		for _, k := range kinfos {
-			if img.answers(k.Name) {
-				infos = append(infos, k)
-			}
-		}
-	}
-	if len(infos) == 0 {
+func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos []cudaoccupancy.KernelResourceInfo, launchesByKernel map[string]launchRecord, math map[string]floatMath) {
+	if cap == nil || len(infos) == 0 {
 		return
 	}
 
@@ -43,6 +28,10 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, image
 
 		// 1. Stack frame size (EIATTR_FRAME_SIZE)
 		if k.FrameSizeBytes > 0 {
+			rec := "Reduce local variable lifetimes, eliminate large stack arrays, or apply __launch_bounds__ to eliminate local memory stack frame spills."
+			if math[k.Name].costs(k.FrameSizeBytes) {
+				rec += fastMathLead
+			}
 			report.Items = append(report.Items, Item{
 				Severity:      SeverityReadFirst,
 				Category:      CategoryRegisterPressure,
@@ -50,7 +39,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, image
 				Location:      Location{Kernel: k.Name},
 				Finding: fmt.Sprintf("Kernel %q allocates %d bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE), causing spills to high-latency local memory",
 					k.Name, k.FrameSizeBytes),
-				ActionableRecommendation: "Reduce local variable lifetimes, eliminate large stack arrays, or apply __launch_bounds__ to eliminate local memory stack frame spills.",
+				ActionableRecommendation: rec,
 				NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
 			})
 		}
