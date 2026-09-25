@@ -305,6 +305,20 @@ func TestWriteCaptureStatusRejectsUnrepresentableCopyBytes(t *testing.T) {
 	}
 }
 
+// TestRunCaptureCommandNamesTargetSignal checks the line a caller sees when
+// the target dies by a signal: the signal's name, not its description.
+func TestRunCaptureCommandNamesTargetSignal(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "capture.pprof")
+	old := os.Args
+	os.Args = []string{"cudaprof", "capture", "--no-inject", "-o", path, "--", "/bin/sh", "-c", "kill -SEGV $$"}
+	t.Cleanup(func() { os.Args = old })
+	err := runCaptureCommand(os.Args[2:])
+	var exitErr *exitCodeError
+	if !errors.As(err, &exitErr) || exitErr.Code != 128 || err.Error() != "target died by SIGSEGV" {
+		t.Fatalf("error = %v, want exit 128 and \"target died by SIGSEGV\"", err)
+	}
+}
+
 func TestRunCaptureCommandPreservesTargetFailure(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "capture.pprof")
 	old := os.Args

@@ -659,6 +659,18 @@ int main(int argc, char **argv) {
 		if (strcmp(scenario, "runtime-exit-finalize") == 0) cudaprof_finalize();
 		_exit(0);
 	}
+	/* finalize-crash finalizes its journal and then fails the way a Go target
+	   that crashed under --finalize=exit-group does: with argv[6] 0 it dies by
+	   SIGSEGV, otherwise it exits with that status. The journal is complete,
+	   so only the target's own status says the run did not finish. */
+	if (strcmp(scenario, "finalize-crash") == 0) {
+		cudaprof_finalize();
+		unsigned status = arg_uint(argc, argv, 6, 0);
+		if (status != 0) _exit((int)status);
+		signal(SIGSEGV, SIG_DFL);
+		raise(SIGSEGV);
+		_exit(1);
+	}
 	/* A status other than 0, so the control can tell the target's own status
 	   from one the producer made up. */
 	if (strcmp(scenario, "runtime-exit-fork") == 0 || strcmp(scenario, "runtime-exit-exec") == 0) _exit(3);

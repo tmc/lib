@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -213,7 +214,7 @@ func run() error {
 	}
 	// Refuse an artifact that records its own failure before handing it to
 	// pprof, which would render it as a valid, empty profile and exit 0.
-	if err := preflightCapture(cap); err != nil {
+	if err := preflightCapture(os.Stderr, cap); err != nil {
 		return err
 	}
 	// State what the shares below are shares of, and refuse to rank by a total
@@ -599,9 +600,17 @@ func isIdentByte(c byte) bool {
 // small, which is the mistake the artifact invites. Reading it fails closed;
 // the status is still reachable through advise, which reports the failure as a
 // finding rather than pretending to measure.
-func preflightCapture(cap *cudacapture.Capture) error {
+//
+// A capture of a target that died or exited nonzero is the exception: its
+// records are real up to the point the target stopped, so it is read, with a
+// warning on w that says where they end.
+func preflightCapture(w io.Writer, cap *cudacapture.Capture) error {
 	reason, failed := capturefiles.Failure(cap)
 	if !failed {
+		return nil
+	}
+	if capturefiles.Status(cap)["outcome"] == captureOutcomeTargetFailed {
+		fmt.Fprintf(w, "cudaprof: warning: %s: the profile covers the run only until the target stopped\n", reason)
 		return nil
 	}
 	return fmt.Errorf("this capture records its own failure: %s\n"+

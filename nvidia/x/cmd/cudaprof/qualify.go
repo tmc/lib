@@ -431,6 +431,9 @@ func measureQualifyEntry(e *qualifyEntry, opts gapOptions, rules opRules, stages
 		return nil
 	}
 	st := &envelope.Status
+	if err := targetFailure(st); err != nil {
+		return fmt.Errorf("%s: %w", e.Path, err)
+	}
 	if st.Target != nil && st.Target.Executable != nil {
 		e.Executable = st.Target.Executable.SHA256
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -85,7 +86,7 @@ func TestPProfPathRefusesFailedCapture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read capture: %v", err)
 	}
-	err = preflightCapture(cap)
+	err = preflightCapture(io.Discard, cap)
 	if err == nil {
 		t.Fatal("pprof path accepted a capture whose status records capture_success:false")
 	}
@@ -101,5 +102,40 @@ func TestPProfPathRefusesFailedCapture(t *testing.T) {
 	}
 	if _, statErr := os.Stat(path); statErr != nil {
 		t.Errorf("refusal removed the artifact: %v", statErr)
+	}
+}
+
+// TestPProfPathReadsTargetFailedCapture covers the exception to the refusal
+// above: a capture of a target that died has real records, so it is read,
+// and the warning says where they end.
+func TestPProfPathReadsTargetFailedCapture(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "crashed.pprof")
+	result := markTargetFailed(captureResult{
+		Protocol:        captureProtocolVersion,
+		Session:         "00112233445566778899aabbccddeeff",
+		State:           captureStateFinalized,
+		Outcome:         captureOutcomeCollected,
+		CaptureSuccess:  true,
+		RunCompleteness: runComplete,
+		ActivityRecords: 12,
+		TargetExitCode:  -1,
+		TargetSignal:    "segmentation fault",
+	})
+	if err := writeCaptureStatus(path, result, captureArtifactBudget{}.effective()); err != nil {
+		t.Fatal(err)
+	}
+	cap, err := readCapturePathLimits(path, cudacapture.Limits{})
+	if err != nil {
+		t.Fatalf("read capture: %v", err)
+	}
+	if _, failed := capturefiles.Failure(cap); !failed {
+		t.Fatal("Failure did not report a capture of a target that died")
+	}
+	var warn strings.Builder
+	if err := preflightCapture(&warn, cap); err != nil {
+		t.Fatalf("pprof path refused a capture whose records are real: %v", err)
+	}
+	if !strings.Contains(warn.String(), "target died by SIGSEGV") {
+		t.Errorf("warning = %q, want it to name the signal", warn.String())
 	}
 }

@@ -202,6 +202,10 @@ func TestCompareRefuses(t *testing.T) {
 		want         string
 	}{
 		{"partial run", compareCapture(good, with(func(s map[string]any) { s["run_completeness"] = "partial" })), nil, compareOptions{phase: -1}, `run_completeness is "partial"`},
+		{"target died", compareCapture(good, with(func(s map[string]any) { s["target_signal"] = "segmentation fault" })), nil, compareOptions{phase: -1}, "target died by SIGSEGV"},
+		// A capture written before target-failed existed still says
+		// capture_success true; its exit status is what gives it away.
+		{"target exited nonzero", compareCapture(good, with(func(s map[string]any) { s["target_exit_code"] = 2 })), nil, compareOptions{phase: -1}, "target exited with status 2"},
 		{"dropped records", compareCapture(good, with(func(s map[string]any) { s["dropped_records"] = 3 })), nil, compareOptions{phase: -1}, "dropped 3 record(s)"},
 		{"record loss", compareCapture(good, with(func(s map[string]any) {
 			s["record_loss"] = map[string]any{"offered_records": 10, "retained_records": 9}

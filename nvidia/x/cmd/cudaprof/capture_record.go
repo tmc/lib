@@ -90,10 +90,10 @@ func runCaptureCommand(args []string) error {
 		return runErr
 	}
 	if result.TargetSignal != "" {
-		return &exitCodeError{Code: 128, Err: fmt.Errorf("target terminated by %s", result.TargetSignal)}
+		return &exitCodeError{Code: 128, Err: errors.New(targetFailureMessage(result))}
 	}
 	if result.TargetExitCode != 0 {
-		return &exitCodeError{Code: result.TargetExitCode, Err: fmt.Errorf("target exited with status %d", result.TargetExitCode)}
+		return &exitCodeError{Code: result.TargetExitCode, Err: errors.New(targetFailureMessage(result))}
 	}
 	if !result.CaptureSuccess {
 		if opts.NoInject && result.TargetExitCode == 0 {

@@ -348,6 +348,19 @@ func TestQualifyCLI(t *testing.T) {
 		t.Errorf("refusal exits %d, the status of a failed verdict", exit.Code)
 	}
 
+	// A capture whose target died is refused, not scored as an arm: its
+	// records stop where the target did.
+	crashed := completeStatus()
+	crashed["target_signal"] = "segmentation fault"
+	crashedPath := filepath.Join(dir, "B2-C2.pprof")
+	writeTestCaptureFile(t, crashedPath, testCapture(map[string][]byte{"capture.journal": qualifyJournal(spans["C2"])}, crashed))
+	out.Reset()
+	err = runQualifyCommand([]string{"-warmup-until=hc_expand", "-noise-floor-ms=0.1", mpath}, &out)
+	if err == nil || !strings.Contains(err.Error(), "target died by SIGSEGV") {
+		t.Fatalf("err = %v, want a refusal naming the dead target", err)
+	}
+	writeTestCaptureFile(t, crashedPath, testCapture(map[string][]byte{"capture.journal": qualifyJournal(spans["C2"])}, completeStatus()))
+
 	// A G capture that ran another executable is refused before scoring.
 	status := completeStatus()
 	status["target_environment"] = map[string]any{"executable": map[string]any{"path": "/bin/other", "sha256": "bb"}}

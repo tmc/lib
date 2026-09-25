@@ -1154,6 +1154,9 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 		return nil, fmt.Errorf("read capture-status.json: %w", err)
 	}
 	status := envelope.Status
+	if err := targetFailure(&status); err != nil {
+		return nil, err
+	}
 	completeness := status.RunCompleteness
 	if completeness == "" {
 		completeness = runCompletenessOf(status.TransportReady, status.CollectorFinalized, status.UnqualifiedGenerations, status.DroppedRecords, status.ActivityRecords)

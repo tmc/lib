@@ -336,8 +336,11 @@ const (
 	finalizeExitGroup       = "exit-group"
 )
 
-// captureResult keeps target termination independent from capture status.
-// A target may fail while the capture itself is complete, or vice versa.
+// captureResult records target termination beside capture status. A capture
+// can fail while its target succeeds, but not the other way round: a complete
+// capture of a target that died or exited nonzero is reported as
+// captureOutcomeTargetFailed, with capture_success false, because its records
+// stop where the target did.
 type captureResult struct {
 	Protocol           int    `json:"protocol"`
 	Session            string `json:"session"`
@@ -1216,6 +1219,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 				result.TargetExitCode = status.ExitStatus()
 			}
 		}
+		result = markTargetFailed(result)
 		if result.Cancelled {
 			return result, runctx.Err()
 		}
