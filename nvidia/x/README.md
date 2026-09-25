@@ -13,6 +13,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | --- | --- |
 | [cublasltx](cublasltx/) | Package cublasltx provides an owning cuBLASLt matrix multiplication engine. |
 | [cuda](cuda/) | Package cuda provides idiomatic, high-level Go abstractions over NVIDIA CUDA devices, execution contexts, streams, and events. |
+| [cudaattn](cudaattn/) | Package cudaattn provides causal attention CUDA source and JIT compilation. |
 | [cudabench](cudabench/) | Package cudabench provides precise GPU event-timed benchmarking utilities for Go testing. |
 | [cudablock](cudablock/) | Package cudablock provides high-performance CUDA thread-block and warp-level primitives for collective reductions, prefix scans, and cooperative tile staging into shared memory. |
 | [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
@@ -21,11 +22,13 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudacmp](cudacmp/) | Package cudacmp implements pure-Go differential CUDA performance analysis. |
 | [cudacollective](cudacollective/) | Package cudacollective defines collective communication plans, rank membership, communicator generations, multi-transport fallback resolution, and double-buffered pipelined transfers for distributed CUDA execution. |
 | [cudadevicetable](cudadevicetable/) | Package cudadevicetable holds GPU device facts that were read from a real device, separated from the ones that were not. |
+| [cudaerrors](cudaerrors/) | Package cudaerrors holds the sentinels that more than one package must agree on. |
 | [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations. |
 | [cudafuse](cudafuse/) | Package cudafuse compiles sub-graphs of elementwise and reduction operations into single fused CUDA mega-kernels. |
 | [cudagradcheck](cudagradcheck/) | Package cudagradcheck checks gradients computed by hand-written GPU kernels against float64 host oracles. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
 | [cudagroup](cudagroup/) | Package cudagroup describes bounded CUDA execution-group contracts. |
+| [cudahf](cudahf/) | Package cudahf finds model files in the local Hugging Face hub cache. |
 | [cudair](cudair/) | Package cudair provides a typed Intermediate Representation (IR) graph, immutable validated snapshots, and waterfall memory arena planning for GPU tensor graphs. |
 | [cudakernel](cudakernel/) | Package cudakernel provides immutable kernel artifact descriptors, ABI parameter schemas, fixed-width argument packing, and hardware resource contracts for CUDA execution. |
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
@@ -52,6 +55,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaref](cudaref/) | Package cudaref provides an independent CPU reference implementation and numerical oracle for validating GPU kernel operations and semantic IR execution graphs. |
 | [cudareg](cudareg/) | Package cudareg checks a bounded setmaxnreg producer-consumer protocol. |
 | [cudaroofline](cudaroofline/) | Package cudaroofline models kernel arithmetic intensity (FLOPs/byte) and evaluates a launch against device ceilings. |
+| [cudasafetensors](cudasafetensors/) | Package cudasafetensors copies tensors from safetensors files into CUDA device memory. |
 | [cudasanitizer](cudasanitizer/) | Package cudasanitizer runs a program under the NVIDIA compute-sanitizer command-line tool and classifies what happened. |
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
 | [cudasearch](cudasearch/) | Package cudasearch provides workload-bound search strategies (Beam and MCTS) over e-graph program rewrite transitions for CUDA execution plans. |
@@ -85,3 +89,4 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [tileir](tileir/) | Package tileir provides abstract syntax tree (AST) representations, type models, textual MLIR parsing, and binary bytecode decoding for CUDA Tile IR (.tilebc / .tileirbc). |
 | [tileiras](tileiras/) | Package tileiras provides programmatic invocation and diagnostics parsing for NVIDIA's tileiras optimizing Tile IR assembler. |
 | [tileirdisasm](tileirdisasm/) | Package tileirdisasm disassembles binary CUDA Tile IR bytecode (.tilebc) and parses textual Tile IR into an SSA abstract syntax tree (AST). |
+| [trainstat](trainstat/) | Package trainstat writes training runs in the Go benchmark format, for comparison with the trainstat command or benchstat. |
