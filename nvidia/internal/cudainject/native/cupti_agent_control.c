@@ -493,9 +493,30 @@ int main(int argc, char **argv) {
 	   destructor and atexit handler both run; _exit would skip the path
 	   under test. */
 	int child_exited = 0, child_status = -1;
-	if (strcmp(scenario, "fork") == 0) {
+	/* runtime-exit-fork: the child leaves the way its parent will, through
+	   exit_group, and with a status of its own so the control can see that
+	   the status got through. */
+	/* runtime-exit-exec: the child execs this harness again as a runtime-exit
+	   target, so it loads an agent of its own under the filter the parent
+	   installed. Its report goes nowhere; the control reads its journal. */
+	if (strcmp(scenario, "fork") == 0 || strcmp(scenario, "runtime-exit-fork") == 0 || strcmp(scenario, "runtime-exit-exec") == 0) {
 		pid_t pid = fork();
-		if (pid == 0) exit(0);
+		if (pid == 0) {
+			if (strcmp(scenario, "runtime-exit-fork") == 0) _exit(5);
+			if (strcmp(scenario, "runtime-exit-exec") == 0) {
+				int null = open("/dev/null", O_WRONLY);
+				if (null < 0 || dup2(null, 1) < 0) _exit(6);
+				char n[4][16];
+				snprintf(n[0], sizeof n[0], "%u", threads);
+				snprintf(n[1], sizeof n[1], "%u", buffers);
+				snprintf(n[2], sizeof n[2], "%u", per_buffer);
+				snprintf(n[3], sizeof n[3], "%u", pause_micros);
+				char *args[] = {argv[0], "runtime-exit", n[0], n[1], n[2], n[3], NULL};
+				execv("/proc/self/exe", args);
+				_exit(6);
+			}
+			exit(0);
+		}
 		if (pid < 0) { fprintf(stderr, "fork: %s\n", strerror(errno)); return 2; }
 		for (int i = 0; i < 500; i++) {
 			pid_t got = waitpid(pid, &child_status, WNOHANG);
@@ -638,6 +659,9 @@ int main(int argc, char **argv) {
 		if (strcmp(scenario, "runtime-exit-finalize") == 0) cudaprof_finalize();
 		_exit(0);
 	}
+	/* A status other than 0, so the control can tell the target's own status
+	   from one the producer made up. */
+	if (strcmp(scenario, "runtime-exit-fork") == 0 || strcmp(scenario, "runtime-exit-exec") == 0) _exit(3);
 	if (strcmp(scenario, "race") == 0 || strcmp(scenario, "forced-kill") == 0) {
 		/* Stay alive so the signal decides how the process ends. */
 		for (int i = 0; i < 100; i++) { struct timespec ts = {0, 100000000L}; nanosleep(&ts, NULL); }

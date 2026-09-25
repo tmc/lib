@@ -1050,6 +1050,131 @@ func TestRuntimeExitLosesTheJournalWithoutAnExplicitFinalize(t *testing.T) {
 	}
 }
 
+// TestFinalizeOnExitGroup covers CUDAPROF_FINALIZE=exit-group, the route that
+// needs nothing from a target leaving through exit_group: the producer holds
+// the syscall, finalizes, and lets it continue. The scenario is the one the
+// test above shows losing the journal, so a finalized record here is the
+// producer's doing.
+// requireExitGroup skips a test of exit_group finalization, which needs a
+// seccomp user-notification listener and so exists only on linux.
+// TestFinalizeOnExitGroupUnavailable covers the other platforms.
+func requireExitGroup(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS != "linux" {
+		t.Skipf("exit_group finalization is linux-only; GOOS=%s", runtime.GOOS)
+	}
+}
+
+// TestFinalizeOnExitGroupUnavailable covers a platform without seccomp: the
+// agent must say it could not honor the request rather than claim the mode.
+func TestFinalizeOnExitGroupUnavailable(t *testing.T) {
+	if runtime.GOOS == "linux" {
+		t.Skip("exit_group finalization is available on linux")
+	}
+	env := []string{"CUDAPROF_FINALIZE=exit-group"}
+	_, _, captures := runEnv(t, env, "runtime-exit", "4", "4", "256", "0")
+	c := only(t, captures)
+	if c.capability.Finalize != "requested_unavailable" {
+		t.Errorf("finalize = %q, want requested_unavailable", c.capability.Finalize)
+	}
+	found := false
+	for _, f := range c.failures {
+		if strings.Contains(f, "exit-group finalize") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("failures = %q, want one naming the exit-group finalize", c.failures)
+	}
+}
+
+func TestFinalizeOnExitGroup(t *testing.T) {
+	requireExitGroup(t)
+	env := []string{"CUDAPROF_FINALIZE=exit-group"}
+	_, status, captures := runEnv(t, env, "runtime-exit", "4", "4", "256", "0")
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Fatalf("status = %v, want a clean exit: holding exit_group must not change how the target terminates", status)
+	}
+	c := only(t, captures)
+	if c.capability.Finalize != "exit-group" {
+		t.Fatalf("finalize = %q, want exit-group; failures: %v", c.capability.Finalize, c.failures)
+	}
+	if c.finalized == nil {
+		t.Fatal("no finalized record after exit_group")
+	}
+	if c.finalized.Trigger != "exit_group" {
+		t.Errorf("trigger = %q, want exit_group", c.finalized.Trigger)
+	}
+	if c.counts[kindActivity] == 0 {
+		t.Error("finalized with no activity records")
+	}
+}
+
+// TestFinalizeOnExitGroupWithChild covers a forked child, which inherits the
+// seccomp filter. Its exit_group reaches the parent's listener and must be
+// continued with the child's own status, without finalizing the parent's
+// journal or hanging; the parent's later exit_group must still finalize and
+// keep the parent's status.
+func TestFinalizeOnExitGroupWithChild(t *testing.T) {
+	requireExitGroup(t)
+	env := []string{"CUDAPROF_FINALIZE=exit-group"}
+	result, status, captures := runEnv(t, env, "runtime-exit-fork", "1", "8", "512", "0")
+	if result.ChildExited != 1 {
+		t.Fatal("forked child did not exit: its exit_group was held and never continued")
+	}
+	if ws := syscall.WaitStatus(result.ChildStatus); !ws.Exited() || ws.ExitStatus() != 5 {
+		t.Errorf("child status = %v, want exit 5", ws)
+	}
+	if !status.Exited() || status.ExitStatus() != 3 {
+		t.Fatalf("status = %v, want exit 3", status)
+	}
+	c := only(t, captures)
+	if c.finalized == nil {
+		t.Fatal("no finalized record after the parent's exit_group")
+	}
+	if c.finalized.Trigger != "exit_group" {
+		t.Errorf("trigger = %q, want exit_group: the child's exit finalized the parent", c.finalized.Trigger)
+	}
+	checkReconciles(t, c, result.Offered)
+}
+
+// TestFinalizeOnExitGroupWithAgentChild covers a descendant that execs and
+// loads an agent of its own. The kernel allows one listener per filter chain,
+// so the descendant cannot hold its own exit_group; the parent's watcher must
+// finalize it through the rendezvous before letting it exit.
+func TestFinalizeOnExitGroupWithAgentChild(t *testing.T) {
+	requireExitGroup(t)
+	env := []string{"CUDAPROF_FINALIZE=exit-group"}
+	result, status, captures := runEnv(t, env, "runtime-exit-exec", "1", "4", "256", "0")
+	if result.ChildExited != 1 {
+		t.Fatal("exec'd child did not exit")
+	}
+	if ws := syscall.WaitStatus(result.ChildStatus); !ws.Exited() || ws.ExitStatus() != 0 {
+		t.Errorf("child status = %v, want exit 0", ws)
+	}
+	if !status.Exited() || status.ExitStatus() != 3 {
+		t.Fatalf("status = %v, want exit 3", status)
+	}
+	if len(captures) != 2 {
+		t.Fatalf("got %d journals, want the parent's and the child's", len(captures))
+	}
+	for i, c := range captures {
+		if c.capability.Finalize != "exit-group" {
+			t.Errorf("journal %d: finalize = %q, want exit-group; failures: %v", i, c.capability.Finalize, c.failures)
+		}
+		if c.finalized == nil {
+			t.Errorf("journal %d: no finalized record", i)
+			continue
+		}
+		if c.finalized.Trigger != "exit_group" {
+			t.Errorf("journal %d: trigger = %q, want exit_group", i, c.finalized.Trigger)
+		}
+		if c.counts[kindActivity] == 0 {
+			t.Errorf("journal %d: no activity records", i)
+		}
+	}
+}
+
 // TestActivityOnlyConfiguration covers the second supported configuration.
 // API attribution dominates journal volume, so a run may disable it; that has
 // to be an explicit, recorded choice rather than a silent degradation, and it

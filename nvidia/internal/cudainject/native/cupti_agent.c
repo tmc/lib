@@ -28,6 +28,16 @@
 #include <sys/uio.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <linux/audit.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
+#include <sys/ioctl.h>
+#include <sys/prctl.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
+#include <sys/un.h>
+#endif
 
 /* CUDAPROF_AGENT_REVISION is set by the build to the revision of the source
    this agent was compiled from. Empty means the build did not say. */
@@ -286,10 +296,14 @@ _Static_assert(CUPTI_DRIVER_TRACE_CBID_cuProfilerStop == 309, "unexpected cuProf
    may stop and start collection again, and finalizing on every stop would end
    the journal at the first one. The mode is reported in the capability record,
    including when it was asked for and the stop callback could not be armed, so
-   a reader never assumes a trigger that is not there. */
+   a reader never assumes a trigger that is not there.
+
+   CUDAPROF_FINALIZE=exit-group needs nothing from the target: it catches the
+   exit_group syscall itself. See install_exit_group. */
 #define FINALIZE_EXIT 0
 #define FINALIZE_PROFILER_STOP 1
 #define FINALIZE_UNAVAILABLE 2
+#define FINALIZE_EXIT_GROUP 3
 static int finalize_mode;
 static _Atomic int finalize_started;
 static _Atomic int finalize_done;
@@ -345,6 +359,11 @@ static _Atomic int term_signalled;
 static pthread_t terminator;
 static struct sigaction prev_sigterm;
 static int sigterm_installed;
+/* exit_group finalization: the seccomp listener. See install_exit_group. */
+static int exit_listener = -1;
+/* The rendezvous socket a descendant listens on instead; see
+   install_exit_group. */
+static int exit_rendezvous = -1;
 /* Whether the fork guard is registered; reported in the capability record so a
    run never silently assumes it. */
 static int atfork_guard;
@@ -1701,6 +1720,221 @@ static void install_sigterm(void) {
 	if (sigaction(SIGTERM, &sa, NULL) == 0) sigterm_installed = 1;
 }
 
+/* exit_group finalization, for a target whose runtime leaves by issuing the
+   exit_group syscall itself -- every Go program -- and so never reaches the
+   destructor, atexit or cudaprof_finalize. A seccomp filter hands each
+   exit_group to a user-space listener instead of running it. The calling
+   thread waits in the kernel while every other thread, this agent's among
+   them, keeps running; exit_watcher finalizes and then tells the kernel to
+   continue the syscall, so the process exits exactly as it would have, with
+   its own status, once the finalized record is on disk.
+
+   The filter is the one piece of this agent that outlives it, which is what
+   makes the mode opt-in:
+
+   - Installing a filter without CAP_SYS_ADMIN needs no_new_privs, which this
+     sets for the process: from here on an exec cannot gain privileges, so a
+     setuid program the target runs runs as the target's user.
+   - Filters survive fork and exec, so every descendant's exit_group reaches
+     this listener too, and the kernel allows no second listener in the chain.
+     A descendant that loads its own agent therefore listens on a unix socket
+     named for the session and its pid instead (exit_rendezvous_main), and
+     exit_watcher, holding that descendant's exit_group, asks it to finalize
+     there before continuing the syscall. A descendant without an agent is
+     continued at once. A descendant that outlives this process finds the
+     listener gone, and its exit_group fails with ENOSYS; a C child then falls
+     back to exit, a Go child crashes.
+
+   A finalize that hangs holds the exit, as it does for SIGTERM. */
+#ifdef __linux__
+#if defined(__aarch64__)
+#define EXIT_GROUP_AUDIT_ARCH AUDIT_ARCH_AARCH64
+#elif defined(__x86_64__)
+#define EXIT_GROUP_AUDIT_ARCH AUDIT_ARCH_X86_64
+#endif
+#ifndef SECCOMP_FILTER_FLAG_TSYNC_ESRCH
+#define SECCOMP_FILTER_FLAG_TSYNC_ESRCH (1UL << 4)
+#endif
+#ifndef SECCOMP_USER_NOTIF_FLAG_CONTINUE
+#define SECCOMP_USER_NOTIF_FLAG_CONTINUE (1UL << 0)
+#endif
+#endif
+
+#if defined(__linux__) && defined(EXIT_GROUP_AUDIT_ARCH) && defined(SECCOMP_IOCTL_NOTIF_RECV)
+/* owns_thread reports whether a notification's thread id names a thread of
+   this process rather than of a child that inherited the filter. */
+static int owns_thread(uint32_t tid) {
+	char path[64];
+	if ((uint64_t)tid == self_pid) return 1;
+	if (snprintf(path, sizeof(path), "/proc/self/task/%u", tid) >= (int)sizeof(path)) return 0;
+	return access(path, F_OK) == 0;
+}
+
+/* rendezvous_address fills addr with the abstract socket name of process
+   pid's rendezvous and returns its length, or 0 if there is no session. */
+static socklen_t rendezvous_address(struct sockaddr_un *addr, uint64_t pid) {
+	const char *session = getenv("CUDAPROF_SESSION");
+	if (session == NULL || session[0] == '\0') return 0;
+	memset(addr, 0, sizeof(*addr));
+	addr->sun_family = AF_UNIX;
+	/* sun_path[0] stays 0: an abstract name, which leaves nothing behind. */
+	int n = snprintf(addr->sun_path + 1, sizeof(addr->sun_path) - 1, "cudaprof-exit-%s-%" PRIu64, session, pid);
+	if (n <= 0 || (size_t)n >= sizeof(addr->sun_path) - 1) return 0;
+	return (socklen_t)(offsetof(struct sockaddr_un, sun_path) + 1 + (size_t)n);
+}
+
+/* thread_group returns the process that thread tid belongs to, or 0. */
+static uint64_t thread_group(uint32_t tid) {
+	char path[64], line[128];
+	if (snprintf(path, sizeof(path), "/proc/%u/status", tid) >= (int)sizeof(path)) return 0;
+	FILE *f = fopen(path, "re");
+	if (f == NULL) return 0;
+	uint64_t tgid = 0;
+	while (fgets(line, sizeof(line), f) != NULL) {
+		if (sscanf(line, "Tgid: %" SCNu64, &tgid) == 1) break;
+	}
+	fclose(f);
+	return tgid;
+}
+
+/* finalize_descendant asks the process containing thread tid to finalize,
+   and waits for it to answer or give up. A process with no rendezvous has no
+   agent of its own to finalize. */
+static void finalize_descendant(uint32_t tid) {
+	struct sockaddr_un addr;
+	uint64_t tgid = thread_group(tid);
+	socklen_t len = tgid != 0 ? rendezvous_address(&addr, tgid) : 0;
+	if (len == 0) return;
+	int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+	if (fd < 0) return;
+	/* Longer than finalize's own 10 s wait for a concurrent finalize, so a
+	   descendant that answers at all is heard. */
+	struct timeval tv = {30, 0};
+	(void)setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+	(void)setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+	char b = 'f';
+	if (connect(fd, (struct sockaddr *)&addr, len) == 0 && write(fd, &b, 1) == 1) {
+		ssize_t n = read(fd, &b, 1);
+		(void)n;
+	}
+	(void)close(fd);
+}
+
+static void *exit_rendezvous_main(void *arg) {
+	(void)arg;
+	for (;;) {
+		int fd = accept4(exit_rendezvous, NULL, NULL, SOCK_CLOEXEC);
+		if (fd < 0) {
+			if (errno == EINTR || errno == ECONNABORTED) continue;
+			return NULL;
+		}
+		/* Only this user's processes may end the capture. */
+		struct ucred cred;
+		socklen_t cl = sizeof(cred);
+		char b;
+		if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cred, &cl) == 0 && cred.uid == getuid() && read(fd, &b, 1) == 1) {
+			cudaprof_cupti_finalize("exit_group", 0);
+			/* The answer only ends the watcher's wait; a watcher that gave
+			   up has nothing to be told. */
+			ssize_t n = write(fd, &b, 1);
+			(void)n;
+		}
+		(void)close(fd);
+	}
+}
+
+/* install_exit_rendezvous starts the rendezvous a descendant uses when an
+   ancestor already holds the listener. It returns NULL or the step that
+   failed with errno set. */
+static const char *install_exit_rendezvous(void) {
+	struct sockaddr_un addr;
+	socklen_t len = rendezvous_address(&addr, self_pid);
+	if (len == 0) { errno = EINVAL; return "rendezvous name"; }
+	int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+	if (fd < 0) return "socket(rendezvous)";
+	if (bind(fd, (struct sockaddr *)&addr, len) != 0 || listen(fd, 4) != 0) {
+		int e = errno;
+		(void)close(fd);
+		errno = e;
+		return "bind(rendezvous)";
+	}
+	exit_rendezvous = fd;
+	pthread_t id;
+	int rc = pthread_create(&id, NULL, exit_rendezvous_main, NULL);
+	if (rc != 0) {
+		(void)close(exit_rendezvous);
+		exit_rendezvous = -1;
+		errno = rc;
+		return "pthread_create(exit rendezvous)";
+	}
+	(void)pthread_detach(id);
+	return NULL;
+}
+
+/* exit_watcher serves exit_listener. */
+static pthread_t exit_watcher;
+
+static void *exit_watcher_main(void *arg) {
+	(void)arg;
+	for (;;) {
+		struct seccomp_notif req;
+		memset(&req, 0, sizeof(req));
+		if (ioctl(exit_listener, SECCOMP_IOCTL_NOTIF_RECV, &req) != 0) {
+			/* ENOENT: the caller died before its notification was read. */
+			if (errno == EINTR || errno == ENOENT) continue;
+			return NULL;
+		}
+		if (owns_thread(req.pid)) cudaprof_cupti_finalize("exit_group", 0);
+		else finalize_descendant(req.pid);
+		struct seccomp_notif_resp resp;
+		memset(&resp, 0, sizeof(resp));
+		resp.id = req.id;
+		resp.flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE;
+		/* ENOENT again means the caller is already gone; nothing to answer. */
+		(void)ioctl(exit_listener, SECCOMP_IOCTL_NOTIF_SEND, &resp);
+	}
+}
+
+/* install_exit_group returns NULL on success, or the step that failed with
+   errno set. */
+static const char *install_exit_group(void) {
+	struct sock_filter code[] = {
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, arch)),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, EXIT_GROUP_AUDIT_ARCH, 0, 2),
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SYS_exit_group, 1, 0),
+		BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+		BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_USER_NOTIF),
+	};
+	struct sock_fprog prog = {.len = sizeof(code) / sizeof(code[0]), .filter = code};
+	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) return "prctl(PR_SET_NO_NEW_PRIVS)";
+	/* TSYNC because a CUDA_INJECTION64_PATH load runs this constructor inside
+	   cuInit, on whichever thread got there, with the rest of the target's
+	   threads already running. TSYNC_ESRCH lets the call return the listener
+	   rather than the id of a thread it could not synchronize. */
+	long fd = syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_NEW_LISTENER | SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH, &prog);
+	/* EBUSY: an ancestor's filter already has the listener, and its watcher
+	   will serve this process's exit_group through the rendezvous. */
+	if (fd < 0 && errno == EBUSY) return install_exit_rendezvous();
+	if (fd < 0) return "seccomp(SECCOMP_FILTER_FLAG_NEW_LISTENER)";
+	exit_listener = (int)fd;
+	/* The filter is installed and cannot be removed. Without a watcher every
+	   exit_group would wait on a listener nobody reads, so closing it is the
+	   fallback: the kernel then fails those calls with ENOSYS, and a libc exit
+	   falls back to exit. */
+	int rc = pthread_create(&exit_watcher, NULL, exit_watcher_main, NULL);
+	if (rc != 0) {
+		(void)close(exit_listener);
+		exit_listener = -1;
+		errno = rc;
+		return "pthread_create(exit watcher)";
+	}
+	return NULL;
+}
+#else
+static const char *install_exit_group(void) { errno = ENOSYS; return "unsupported platform"; }
+#endif
+
 /* fork(2) copies only the calling thread, so a child inherits the producer's
    initialized state, its descriptors and its signal disposition, but none of
    its threads. Every remaining entry point is harmful there. Finalizing joins a
@@ -1764,6 +1998,12 @@ static void cudaprof_after_fork_child(void) {
 	if (term_pipe[1] >= 0) { (void)close(term_pipe[1]); term_pipe[1] = -1; }
 	if (term_pipe[0] >= 0) { (void)close(term_pipe[0]); term_pipe[0] = -1; }
 	if (journal_fd >= 0) { (void)close(journal_fd); journal_fd = -1; }
+	/* The parent's watcher still serves this child's exit_group. A child that
+	   kept the listener open would hold it open past the parent, and its own
+	   exit_group would then wait on it forever. */
+	if (exit_listener >= 0) { (void)close(exit_listener); exit_listener = -1; }
+	/* The rendezvous names the parent's pid, and its thread stayed there. */
+	if (exit_rendezvous >= 0) { (void)close(exit_rendezvous); exit_rendezvous = -1; }
 	worker_dir[0] = '\0';
 }
 
@@ -2803,6 +3043,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	int range_requested = range_env != NULL && strcmp(range_env, "cudaProfilerApi") == 0;
 	const char *finalize_env = getenv("CUDAPROF_FINALIZE");
 	int stop_requested = finalize_env != NULL && strcmp(finalize_env, "profiler-stop") == 0;
+	int exit_group_requested = finalize_env != NULL && strcmp(finalize_env, "exit-group") == 0;
 	/* Module capture rides the same subscription, because CUPTI allows one
 	   subscriber per process and the profiler-API triggers already hold it.
 
@@ -2949,7 +3190,20 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
 		}
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, cupti_library_path());
+	/* Last, so the capture is collecting before the target's exits are held
+	   for it. */
+	if (exit_group_requested) {
+		const char *failed = install_exit_group();
+		if (failed == NULL) {
+			finalize_mode = FINALIZE_EXIT_GROUP;
+		} else {
+			finalize_mode = FINALIZE_UNAVAILABLE;
+			char failure[256];
+			int n = snprintf(failure, sizeof(failure), "{\"state\":\"producer_failure\",\"error\":\"exit-group finalize: %s: %s\"}", failed, strerror(errno));
+			if (n > 0 && (size_t)n < sizeof(failure)) (void)write_record(KIND_FAILURE, now_ns(), failure, (size_t)n);
+		}
+	}
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_EXIT_GROUP ? "exit-group" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
