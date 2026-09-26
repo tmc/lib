@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof/advise"
+	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 )
 
 func runAdviseCommand(rawArgs []string) error {
@@ -33,6 +36,11 @@ func runAdviseCommand(rawArgs []string) error {
 	if err != nil {
 		return fmt.Errorf("analyze capture: %w", err)
 	}
+	if opts.iterationMarker != "" {
+		if err := adviseIterations(report, cap, opts); err != nil {
+			return fmt.Errorf("advise: %w", err)
+		}
+	}
 	if opts.base != "" {
 		if err := adviseAgainstBase(report, cap, path, opts, limits); err != nil {
 			return fmt.Errorf("advise: %w", err)
@@ -56,7 +64,7 @@ func runAdviseCommand(rawArgs []string) error {
 	return nil
 }
 
-const adviseUsage = "usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] [-base base.pprof [-ops ops.txt] [-phase i]] capture.pprof"
+const adviseUsage = "usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] [-base base.pprof [-ops ops.txt] [-phase i]] [-iteration-marker RE [-nvtx] [-skip-iterations N] [-expect-markers N]] capture.pprof"
 
 type adviseOptions struct {
 	format  string
@@ -68,12 +76,19 @@ type adviseOptions struct {
 	base  string
 	ops   string
 	phase int
+
+	// iterationMarker, when set, adds the findings of cudaprof iterations
+	// run with the same flags.
+	iterationMarker string
+	nvtx            bool
+	skipIterations  int
+	expectMarkers   int
 }
 
 // parseAdviseArgs parses advise's flags, each spelled with one dash or two
 // and taking its value as -flag=v or -flag v.
 func parseAdviseArgs(args []string) (adviseOptions, error) {
-	opts := adviseOptions{limit: advise.DefaultLimit, phase: -1}
+	opts := adviseOptions{limit: advise.DefaultLimit, phase: -1, skipIterations: 1}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if !strings.HasPrefix(arg, "-") {
@@ -121,6 +136,14 @@ func parseAdviseArgs(args []string) (adviseOptions, error) {
 			opts.ops, err = value()
 		case name == "phase":
 			opts.phase, err = intValue()
+		case name == "iteration-marker":
+			opts.iterationMarker, err = value()
+		case !hasVal && name == "nvtx":
+			opts.nvtx = true
+		case name == "skip-iterations":
+			opts.skipIterations, err = intValue()
+		case name == "expect-markers":
+			opts.expectMarkers, err = intValue()
 		default:
 			return opts, fmt.Errorf("unknown flag: %s", arg)
 		}
@@ -131,8 +154,33 @@ func parseAdviseArgs(args []string) (adviseOptions, error) {
 	if opts.capture == "" {
 		return opts, errors.New(adviseUsage)
 	}
+	if opts.iterationMarker == "" && (opts.nvtx || opts.skipIterations != 1 || opts.expectMarkers != 0) {
+		return opts, errors.New("-nvtx, -skip-iterations and -expect-markers need -iteration-marker")
+	}
+	if opts.skipIterations < 0 {
+		return opts, fmt.Errorf("invalid -skip-iterations %d", opts.skipIterations)
+	}
 	if opts.base == "" && (opts.ops != "" || opts.phase >= 0) {
 		return opts, errors.New("-ops and -phase select a comparison and need -base")
 	}
 	return opts, nil
+}
+
+// adviseIterations adds the per-iteration findings of a complete capture
+// to report.
+func adviseIterations(report *advise.Report, cap *cudacapture.Capture, opts adviseOptions) error {
+	marker, err := regexp.Compile(opts.iterationMarker)
+	if err != nil {
+		return fmt.Errorf("-iteration-marker: %w", err)
+	}
+	_, records, err := decodeCompleteCapture(cap, 0, 0)
+	if err != nil {
+		return fmt.Errorf("iterations: %w", err)
+	}
+	r, err := iteration.Analyze(records, iteration.Options{Marker: marker, NVTX: opts.nvtx, Skip: opts.skipIterations, Expect: opts.expectMarkers})
+	if err != nil {
+		return fmt.Errorf("iterations: %w", err)
+	}
+	report.AddIterations(r)
+	return nil
 }

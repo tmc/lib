@@ -218,6 +218,8 @@ The advice ranks four costs repeated in most steady iterations, by time
 per iteration: device allocation and free, CUDA graph capture and
 instantiation, host synchronization the device sits idle across, and an
 idle share of 10% or more.
+`cudaprof advise -iteration-marker=RE` takes the same flags and adds
+these findings to its report, after the findings to read first.
 
 ## Qualify
 

@@ -151,7 +151,7 @@ func (r *Report) Advise() []Finding {
 				Rule: "idle",
 				Finding: fmt.Sprintf("the device is idle %.1f%% of each iteration (%s of %s)",
 					100*share, dur(ns), dur(w/int64(n))),
-				Action: "The device waits on the host: see the host calls above, launch fewer and larger kernels, or replay the iteration as a CUDA graph.",
+				Action: "The device waits on the host between launches: launch fewer and larger kernels, or replay the iteration as a CUDA graph. cudaprof iterations lists the host calls each iteration makes.",
 				Nanos:  ns,
 			})
 		}
