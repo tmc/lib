@@ -10,6 +10,13 @@
 //	unlockdestroy      a context released on a different thread from the one it is current on
 //	graphshare         a graph used concurrently from two goroutines
 //
+//	devicederef        a device address turned into a Go pointer
+//	devptruintptr      a DevicePtr passed where the binding says only uintptr
+//	memallocptr        a Go pointer type stored in device memory
+//	useafterdestroy    a handle used after it is released
+//	sizeunits          a legacy BufferSize in elements allocated as bytes
+//	sizetrunc          a size_t result narrowed without a bounds check
+//
 // Usage:
 //
 //	cudavet [flags] package...
@@ -37,6 +44,13 @@ var analyzers = []*analysis.Analyzer{
 	contextThreadAnalyzer,
 	unlockDestroyAnalyzer,
 	graphShareAnalyzer,
+
+	deviceDerefAnalyzer,
+	devptrUintptrAnalyzer,
+	memallocPtrAnalyzer,
+	useAfterDestroyAnalyzer,
+	sizeUnitsAnalyzer,
+	sizeTruncAnalyzer,
 }
 
 func main() {
