@@ -144,6 +144,9 @@ type compareOptions struct {
 
 // runCompareCommand implements "cudaprof compare".
 func runCompareCommand(args []string, stdout io.Writer) error {
+	if compareWantsGEMMs(args) {
+		return runCompareGEMMs(args, stdout)
+	}
 	opts, paths, err := parseCompareArgs(args, stdout)
 	if err != nil || paths == nil {
 		return err
@@ -1305,9 +1308,24 @@ func (o *opTotals) mean() int64 {
 // measureCompareSide refuses a capture whose records are incomplete, picks its
 // window, and partitions the window.
 func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBoundaries, opts compareOptions) (*CompareSide, error) {
-	status, records, err := decodeCompleteCapture(cap, opts.maxRecords, opts.journalBytes)
+	side, records, err := openCompareSide(cap, opts)
 	if err != nil {
 		return nil, err
+	}
+	if err := side.measure(records, rules, stages, opts); err != nil {
+		return nil, err
+	}
+	if side.UnresolvedNanos > 0 && !opts.allowUnresolved {
+		return nil, fmt.Errorf("%d ns of graph replay in the window is covered by no resolved record, so the per-op census is hidden (graph trace mode %s); capture with --graph-trace=node or graphs disabled, or pass -allow-unresolved for window totals only", side.UnresolvedNanos, side.graphTraceModeString())
+	}
+	return side, nil
+}
+
+// openCompareSide decodes a capture's journals and selects its window.
+func openCompareSide(cap *cudacapture.Capture, opts compareOptions) (*CompareSide, timeline.Records, error) {
+	status, records, err := decodeCompleteCapture(cap, opts.maxRecords, opts.journalBytes)
+	if err != nil {
+		return nil, timeline.Records{}, err
 	}
 	side := &CompareSide{PhaseIndex: -1}
 	if data, ok := cap.Files["capture-provenance.json"]; ok {
@@ -1319,25 +1337,19 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 	side.GraphTraceMode, _ = captureGraphTraceMode(status.Capability)
 	side.Memsets = captureMemsets(status.Capability)
 	if err := side.selectWindow(status.PhaseReceipt, opts.phase, records); err != nil {
-		return nil, err
+		return nil, timeline.Records{}, err
 	}
 	if opts.warmup != nil {
 		if err := side.cutWarmup(records, *opts.warmup); err != nil {
-			return nil, err
+			return nil, timeline.Records{}, err
 		}
 	}
 	if opts.iterations != nil {
 		if err := side.cutIterations(records, *opts.iterations); err != nil {
-			return nil, err
+			return nil, timeline.Records{}, err
 		}
 	}
-	if err := side.measure(records, rules, stages, opts); err != nil {
-		return nil, err
-	}
-	if side.UnresolvedNanos > 0 && !opts.allowUnresolved {
-		return nil, fmt.Errorf("%d ns of graph replay in the window is covered by no resolved record, so the per-op census is hidden (graph trace mode %s); capture with --graph-trace=node or graphs disabled, or pass -allow-unresolved for window totals only", side.UnresolvedNanos, side.graphTraceModeString())
-	}
-	return side, nil
+	return side, records, nil
 }
 
 // selectWindow takes the window from the phase receipt, or from the device

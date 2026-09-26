@@ -75,6 +75,10 @@ To capture a base, a target and a repeated-base control back to back, and compar
 To list each kernel's launches, time per launch and launch configurations in one capture:
   cudaprof kernels [-grep RE] [-phase i] [-warmup-until=RE | -warmup-ms=N] [-templates] [-json] capture.pprof
 
+To tabulate the cuBLASLt calls of a capture made with --gemms, or join two by shape:
+  cudaprof gemms [-phase i] [-warmup-until=RE | -warmup-ms=N] [-json] capture.pprof
+  cudaprof compare -gemms [-phase i] [-warmup-until=RE | -warmup-ms=N] [-json] base.pprof target.pprof
+
 To score an ABBA timing campaign (blocks of C1,G1,G2,C2 captures) against its noise and sign gates:
   cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-violations=FILE [-violation-margin=2s] [-min-blocks=N]] [-ops ops.txt] [-stages stages.txt] [-max-records=N] [-json] manifest.txt
 
@@ -118,6 +122,7 @@ func commands() []command {
 		{name: "view", aliases: []string{"web"}, run: runViewCommand},
 		{name: "advise", usage: adviseUsage, run: func(args []string) error { return runAdviseCommand(args[1:]) }},
 		{name: "gaps", run: func(args []string) error { return runGapsCommand(args[1:]) }},
+		{name: "gemms", usage: gemmsUsage, run: runGEMMsCommand},
 		{name: "compare", run: func(args []string) error { return runCompareCommand(args[1:], os.Stdout) }},
 		{name: "iterations", usage: iterationsUsage, run: func(args []string) error { return runIterationsCommand(args[1:], os.Stdout) }},
 		{name: "ab", run: func(args []string) error { return runABCommand(args[1:], os.Stdout, os.Stderr) }},
