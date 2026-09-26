@@ -10,8 +10,6 @@ package driver
 // The offset and size have to be suitably aligned to match the requirements of the external API. Mapping two buffers whose ranges overlap may or may not result in the same virtual address being returned for the overlapped portion. In such cases, the application must ensure that all accesses to that region from the GPU are volatile. Otherwise writes made via one address are not guaranteed to be visible via the other address, even if they’re issued by the same thread. It is recommended that applications map the combined range instead of mapping separate buffers and then apply the appropriate offsets to the returned pointer to derive the individual buffers.
 // The returned pointer devPtr must be freed using [DevicePtr.Free].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedMipmappedArray]
 //
 //   - bufferDesc: Buffer descriptor
@@ -30,8 +28,6 @@ func (e ExternalMemory) MappedBuffer(bufferDesc *ExternalMemoryBufferDesc) (Devi
 // Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported.
 // The returned CUDA mipmapped array must be freed using [MipmappedArray.Destroy].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedBuffer]
 //
 //   - mipmapDesc: CUDA array descriptor
@@ -44,8 +40,6 @@ func (e ExternalMemory) MappedMipmappedArray(mipmapDesc *ExternalMemoryMipmapped
 // Destroy destroys an external memory object.
 //
 // Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [ImportExternalMemory], [ExternalMemory.MappedBuffer], [ExternalMemory.MappedMipmappedArray]
 //

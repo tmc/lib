@@ -753,13 +753,14 @@ var slotGetProcRank outSlot[int32]
 // GetVersion returns the semantic version number of the cuDensityMat library.
 //
 // Wraps cudensitymatGetVersion.
-// It returns the zero value when the library or symbol is unavailable.
-func GetVersion() uint {
+// The error reports an unavailable library or symbol.
+func GetVersion() (uint, error) {
 	if err := checkLibSym("cudensitymatGetVersion"); err != nil {
 		var zero uint
-		return zero
+		return zero, err
 	}
-	return fnGetVersion()
+	_result := fnGetVersion()
+	return _result, nil
 }
 
 // operatorAppendTerm appends an operator term to the operator.

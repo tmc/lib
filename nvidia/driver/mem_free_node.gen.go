@@ -14,10 +14,6 @@ type MemFreeNode struct {
 //
 // Returns the address of a memory free node hNode in dptrOut.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.Params], [Graph.AddMemFreeNode], [MemAllocNode.Params]
 //
 // Wraps cuGraphMemFreeNodeGetParams.

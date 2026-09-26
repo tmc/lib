@@ -3539,8 +3539,6 @@ func fnwaitExternalSemaphoresAsync(a0 *ExternalSemaphore, a1 *ExternalSemaphoreW
 // Description for a 64 x 64 CUDA array of floats:
 // Description for a width x height x depth CUDA array of 64-bit, 4x16-bit float16’s:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc3DArray
 //
 //   - pAllocateArray: 3D array descriptor
@@ -3566,8 +3564,6 @@ var slotArray3DCreate outSlot[Array]
 //
 // Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes.
 // This function may be called on 1D and 2D arrays, in which case the Height and/or Depth members of the descriptor struct will be set to 0.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
 //
@@ -3600,8 +3596,6 @@ var slotArray3DGetDescriptor outSlot[Array3dDescriptor]
 // Description for a width x height CUDA array of 64-bit, 4x16-bit float16’s:
 // Description for a width x height CUDA array of 16-bit elements, each of which is two 8-bit unsigned chars:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray3D], [Array.Get3DDescriptor], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocArray
 //
 //   - pAllocateArray: Array descriptor
@@ -3627,8 +3621,6 @@ var slotArrayCreate outSlot[Array]
 //
 // Destroys the CUDA array hArray.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFreeArray
 //
 //   - hArray: Array to destroy
@@ -3644,8 +3636,6 @@ func arrayDestroy(hArray Array) error {
 // arrayGetDescriptor gets a 1D or 2D CUDA array descriptor.
 //
 // Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
 //
@@ -3700,8 +3690,6 @@ var slotArrayGetMemoryRequirements outSlot[ArrayMemoryRequirements]
 // Returns in pPlaneArray a CUDA array that represents a single format plane of the CUDA array hArray.
 // If planeIdx is greater than the maximum number of planes in this array or if the array does not have a multi-planar format e.g: [AdFormatNV12], then [ErrInvalidValue] is returned.
 // Note that if the hArray has format [AdFormatNV12], then passing in 0 for planeIdx returns a CUDA array of the same size as hArray but with one channel and [AdFormatUnsignedINT8] as its format. If 1 is passed for planeIdx, then the returned CUDA array has half the height and width of hArray with two channels and [AdFormatUnsignedINT8] as its format.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray], cudaArrayGetPlane
 //
@@ -4063,8 +4051,6 @@ func CoredumpSetAttributeGlobal(attrib CoredumpSettings, value uintptr, size *ui
 // Increments the usage count of the context and passes back a context handle in *pctx that must be passed to [Context.Detach] when the application is done with the context. [CtxAttach] fails if there is no context current to the thread.
 // Currently, the flags parameter must be 0.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.Destroy], [Context.Detach], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - flags: Context attach flags (must be 0)
@@ -4099,8 +4085,6 @@ var slotCtxAttach outSlot[Context]
 // Context creation will fail with [ErrInvalidValue] if invalid parameter was passed by client to create the CUDA context.
 // Context creation in CIG mode will fail with [ErrNotSupported] if CIG is not supported by the device or the driver.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CoredumpSetAttributeGlobal], [CoredumpSetAttribute], [CtxSynchronize] [CtxGetExecAffinity]
 //
 //   - ctxCreateParams: Context creation parameters. Can be NULL to create a regular CUDA context. See [CtxCreateParams] for details
@@ -4132,8 +4116,6 @@ var slotCtxCreate outSlot[Context]
 //
 // Note: [Context.Destroy] will not destroy memory allocations by [MemCreate], [Stream.MemAllocAsync] and [MemoryPool.MemAllocFromPoolAsync]. These memory allocations are not associated with any CUDA context and need to be destroyed explicitly.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - ctx: Context to destroy
@@ -4149,8 +4131,6 @@ func ctxDestroy(ctx Context) error {
 // ctxDetach decrements a context’s usage-count.
 //
 // Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext] or [CtxAttach], and must be current to the calling thread.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
@@ -4170,8 +4150,6 @@ func ctxDetach(ctx Context) error {
 //
 // Returns [ErrPeerAccessNotEnabled] if direct peer access has not yet been enabled from peerContext to the current context.
 // Returns [ErrInvalidContext] if there is no current context, or if peerContext is not a valid context.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.CanAccessPeer], [Context.EnablePeerAccess], cudaDeviceDisablePeerAccess
 //
@@ -4195,8 +4173,6 @@ func ctxDisablePeerAccess(peerContext Context) error {
 // Returns [ErrTooManyPeers] if direct peer access is not possible because hardware resources required for peer access have been exhausted.
 // Returns [ErrInvalidContext] if there is no current context, peerContext is not a valid context, or if the current context is peerContext.
 // Returns [ErrInvalidValue] if Flags is not 0.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.CanAccessPeer], [Context.DisablePeerAccess], cudaDeviceEnablePeerAccess
 //
@@ -4244,8 +4220,6 @@ var slotCtxFromGreenCtx outSlot[Context]
 // Returns a version number in version corresponding to the capabilities of the context (e.g. 3010 or 3020), which library developers can use to direct callers to a specific API version. If ctx is NULL, returns the API version used to create the currently bound context.
 // Note that new API versions are only introduced when context capabilities are changed that break binary compatibility, so the API version and driver version may be different. For example, it is valid for the API version to be 3020 while the driver version is 4020.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.Destroy], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - ctx: Context to check
@@ -4273,8 +4247,6 @@ var slotCtxGetApiVersion outSlot[uint32]
 // This will return a pconfig of [FuncCachePreferNone] on devices where the size of the L1 cache and shared memory are fixed.
 // The supported cache configurations are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], [Function.SetCacheConfig], cudaDeviceGetCacheConfig
 //
 // Wraps cuCtxGetCacheConfig.
@@ -4297,8 +4269,6 @@ var slotCtxGetCacheConfig outSlot[FuncCacheConfig]
 // ctxGetCurrent returns the CUDA context bound to the calling CPU thread.
 //
 // Returns in *pctx the CUDA context bound to the calling CPU thread. If no context is bound to the calling CPU thread then *pctx is set to NULL and [Success] is returned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Context.SetCurrent], [NewContext], [Context.Destroy], cudaGetDevice
 //
@@ -4349,8 +4319,6 @@ var slotCtxGetDevResource outSlot[DevResource]
 //
 // Returns in *device the handle of the current context’s device.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaGetDevice
 //
 // Wraps cuCtxGetDevice.
@@ -4373,8 +4341,6 @@ var slotCtxGetDevice outSlot[Device]
 // ctxGetDeviceV2 returns the device handle for the specified context.
 //
 // Returns in *device the handle of the specified context’s device. If the specified context is NULL, the API will return the current context’s device.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [CtxGetCurrent], [CtxPopCurrent], [Context.PushCurrent]
 //
@@ -4401,8 +4367,6 @@ var slotCtxGetDeviceV2 outSlot[Device]
 //
 // Returns in *pExecAffinity the current value of type. The supported [ExecAffinityType] values are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [ExecAffinityParam]
 //
 //   - type_: Execution affinity type to query
@@ -4428,8 +4392,6 @@ var slotCtxGetExecAffinity outSlot[ExecAffinityParam]
 //
 // Returns in *flags the flags of the current context. See [NewContext] for flag values.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetCurrent], [CtxGetDevice], [CtxGetLimit], [CtxGetSharedMemConfig], [CtxGetStreamPriorityRange], [CtxSetFlags], cudaGetDeviceFlags
 //
 // Wraps cuCtxGetFlags.
@@ -4452,8 +4414,6 @@ var slotCtxGetFlags outSlot[uint32]
 // ctxGetId returns the unique Id associated with the context supplied.
 //
 // Returns in ctxId the unique Id which is associated with a given context. The Id is unique for the life of the program for this instance of CUDA. If context is supplied as NULL and there is one current, the Id of the current context is returned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [Context.PushCurrent]
 //
@@ -4479,8 +4439,6 @@ var slotCtxGetId outSlot[uint64]
 // CtxGetLimit returns resource limits.
 //
 // Returns in *pvalue the current size of limit. The supported [Limit] values are:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceGetLimit
 //
@@ -4508,8 +4466,6 @@ var slotCtxGetLimit outSlot[uint]
 // This function will return in pConfig the current size of shared memory banks in the current context. On devices with configurable shared memory banks, [CtxSetSharedMemConfig] can be used to change this setting, so that all subsequent kernel launches will by default use the new bank size. When [CtxGetSharedMemConfig] is called on devices without configurable shared memory, it will return the fixed bank size of the hardware.
 // The returned bank configurations can be either:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [CtxGetSharedMemConfig], [Function.SetCacheConfig], cudaDeviceGetSharedMemConfig
 //
 // Deprecated: This function is deprecated.
@@ -4536,8 +4492,6 @@ var slotCtxGetSharedMemConfig outSlot[Sharedconfig]
 // Returns in *leastPriority and *greatestPriority the numerical values that correspond to the least and greatest stream priorities respectively. Stream priorities follow a convention where lower numbers imply greater priorities. The range of meaningful stream priorities is given by [ *greatestPriority, *leastPriority]. If the user attempts to create a stream with a priority value that is outside the meaningful range as specified by this API, the priority is automatically clamped down or up to either *leastPriority or *greatestPriority respectively. See [StreamCreateWithPriority] for details on creating a priority stream. A NULL may be passed in for *leastPriority or *greatestPriority if the value is not desired.
 // This function will return ‘0’ in both *leastPriority and *greatestPriority if the current context’s device does not support stream priorities (see [Device.Attribute]).
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [StreamCreateWithPriority], [Stream.Priority], [CtxGetDevice], [CtxGetFlags], [CtxSetLimit], [CtxSynchronize], cudaDeviceGetStreamPriorityRange
 //
 // Wraps cuCtxGetStreamPriorityRange.
@@ -4563,8 +4517,6 @@ var slotCtxGetStreamPriorityRange outSlot[struct {
 // Pops the current CUDA context from the CPU thread and passes back the old context handle in *pctx. That context may then be made current to a different CPU thread by calling [Context.PushCurrent].
 // If a context was current to the CPU thread before [NewContext] or [Context.PushCurrent] was called, this function makes that context current to the CPU thread again.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 // Wraps cuCtxPopCurrent, bound as cuCtxPopCurrent_v2.
@@ -4588,8 +4540,6 @@ var slotCtxPopCurrent outSlot[Context]
 //
 // Pushes the given context ctx onto the CPU thread’s stack of current contexts. The specified context becomes the CPU thread’s current context, so all CUDA functions that operate on the current context are affected.
 // The previous current context may be made current again by calling [Context.Destroy] or [CtxPopCurrent].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
@@ -4626,8 +4576,6 @@ func ctxRecordEvent(hCtx Context, hEvent Event) error {
 //
 // [CtxResetPersistingL2Cache] Resets all persisting lines in cache to normal status. Takes effect on function return.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [AccessPolicyWindow]
 //
 // Wraps cuCtxResetPersistingL2Cache.
@@ -4644,8 +4592,6 @@ func CtxResetPersistingL2Cache() error {
 // This setting does nothing on devices where the size of the L1 cache and shared memory are fixed.
 // Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point.
 // The supported cache configurations are:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [Function.SetCacheConfig], cudaDeviceSetCacheConfig, [Kernel.SetCacheConfig]
 //
@@ -4664,8 +4610,6 @@ func CtxSetCacheConfig(config FuncCacheConfig) error {
 // If ctx is NULL then the CUDA context previously bound to the calling CPU thread is unbound and [Success] is returned.
 // If there exists a CUDA context stack on the calling CPU thread, this will replace the top of that stack with ctx. If ctx is NULL then this will be equivalent to popping the top of the calling CPU thread’s CUDA context stack (or a no-op if the calling CPU thread’s CUDA context stack is empty).
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCurrent], [NewContext], [Context.Destroy], cudaSetDevice
 //
 //   - ctx: Context to bind to the calling CPU thread
@@ -4681,8 +4625,6 @@ func ctxSetCurrent(ctx Context) error {
 // CtxSetFlags sets the flags for the current context.
 //
 // Sets the flags for the current context overwriting previously set ones. See [Device.PrimaryCtxSetFlags] for flag values.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetCurrent], [CtxGetDevice], [CtxGetLimit], [CtxGetSharedMemConfig], [CtxGetStreamPriorityRange], [CtxGetFlags], cudaGetDeviceFlags, [Device.PrimaryCtxSetFlags]
 //
@@ -4700,8 +4642,6 @@ func CtxSetFlags(flags uint32) error {
 //
 // Setting limit to value is a request by the application to update the current limit maintained by the context. The driver is free to modify the requested value to meet h/w requirements (this could be clamping to minimum or maximum values, rounding up to nearest element size, etc). The application can use [CtxGetLimit] to find out exactly what the limit has been set to.
 // Setting each [Limit] has its own specific restrictions, so each is discussed here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSynchronize], cudaDeviceSetLimit
 //
@@ -4724,8 +4664,6 @@ func CtxSetLimit(limit Limit, value uint) error {
 // This function will do nothing on devices with fixed shared memory bank size.
 // The supported bank configurations are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [CtxGetSharedMemConfig], [Function.SetCacheConfig], cudaDeviceSetSharedMemConfig
 //
 //   - config: requested shared memory configuration
@@ -4744,8 +4682,6 @@ func CtxSetSharedMemConfig(config Sharedconfig) error {
 //
 // Blocks until the current context has completed all preceding requested tasks. If the current context is the primary context, green contexts that have been created will also be synchronized. [CtxSynchronize] returns an error if one of the preceding tasks failed. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], cudaDeviceSynchronize
 //
 // Wraps cuCtxSynchronize.
@@ -4761,8 +4697,6 @@ func CtxSynchronize() error {
 // Blocks until the specified context has completed all preceding requested tasks. If the specified context is the primary context, green contexts that have been created will also be synchronized. The API returns an error if one of the preceding tasks failed.
 // If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work.
 // If the specified context is NULL, the API will operate on the current context.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [CtxGetCurrent], [CtxPopCurrent], [Context.PushCurrent], [NewGreenCtx], [CtxFromGreenCtx], cudaDeviceSynchronize
 //
@@ -4801,8 +4735,6 @@ func ctxWaitEvent(hCtx Context, hEvent Event) error {
 //
 // Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [ImportExternalMemory], [ExternalMemory.MappedBuffer], [ExternalMemory.MappedMipmappedArray]
 //
 //   - extMem: External memory object to be destroyed
@@ -4818,8 +4750,6 @@ func destroyExternalMemory(extMem ExternalMemory) error {
 // destroyExternalSemaphore destroys an external semaphore.
 //
 // Destroys an external semaphore object and releases any references to the underlying resource. Any outstanding signals or waits must have completed before the semaphore is destroyed.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
@@ -4923,8 +4853,6 @@ func DevSmResourceSplitByCount(result *DevResource, nbGroups *uint32, input *Dev
 //
 // Returns in *canAccessPeer a value of 1 if contexts on dev are capable of directly accessing memory from contexts on peerDev and 0 otherwise. If direct access of peerDev from dev is possible, then access may be enabled on two specific contexts by calling [Context.EnablePeerAccess].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], cudaDeviceCanAccessPeer
 //
 //   - dev: Device from which allocations on peerDev are to be directly accessed
@@ -4966,8 +4894,6 @@ func deviceComputeCapability(dev Device) (major int, minor int, err error) {
 //
 // Returns in *device a device handle given an ordinal in the range [0, [DeviceGetCount]-1].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [Device.Luid], [Device.TotalMem], [Device.ExecAffinitySupport]
 //
 //   - ordinal: Device number to get handle for
@@ -4990,8 +4916,6 @@ var slotDeviceGet outSlot[Device]
 // deviceGetAttribute returns information about the device.
 //
 // Returns in *pi the integer value of the attribute attrib on device dev.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaDeviceGetAttribute, cudaGetDeviceProperties
 //
@@ -5020,8 +4944,6 @@ var slotDeviceGetAttribute outSlot[int32]
 // Returns in *device a device handle given a PCI bus ID string.
 // where domain, bus, device, and function are all hexadecimal values
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DeviceGet], [Device.Attribute], [Device.PCIBusId], cudaDeviceGetByPCIBusId
 //
 //   - pciBusId: String in one of the following forms:
@@ -5046,8 +4968,6 @@ var slotDeviceGetByPCIBusId outSlot[Device]
 //
 // Returns in *count the number of devices with compute capability greater than or equal to 2.0 that are available for execution. If there is no such device, [DeviceGetCount] returns 0.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [Device.Name], [Device.Uuid], [Device.Luid], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceCount
 //
 // Wraps cuDeviceGetCount.
@@ -5068,8 +4988,6 @@ var slotDeviceGetCount outSlot[int32]
 // deviceGetDefaultMemPool returns the default mempool of a device.
 //
 // The default mempool of a device contains device memory from that device.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.Attribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [Device.MemPool], [NewMemoryPool]
 //
@@ -5122,8 +5040,6 @@ var slotDeviceGetDevResource outSlot[DevResource]
 //
 // Returns in *pi whether execution affinity type type is supported by device dev. The supported types are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
 //
 //   - type_: Execution affinity type to query
@@ -5171,8 +5087,6 @@ func deviceGetGraphMemAttribute(device Device, attr GraphmemAttribute, value uns
 // Returns [ErrInvalidDevice] if dev is not valid.
 // Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [Device.P2PAtomicCapabilities], cudaDeviceGeHostAtomicCapabilities
 //
 //   - operations: Requested operations
@@ -5199,8 +5113,6 @@ var slotDeviceGetHostAtomicCapabilities outSlot[uint32]
 // deviceGetLuid returns an LUID and device node mask for the device.
 //
 // Return identifying information ( luid and deviceNodeMask) to allow matching device with graphics APIs.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceProperties
 //
@@ -5250,8 +5162,6 @@ var slotDeviceGetMemPool outSlot[MemoryPool]
 // deviceGetName returns an identifier string for the device.
 //
 // Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by name. len specifies the maximum length of the string that may be returned. name is shortened to the specified len, if len is less than the device name
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [Device.Uuid], [Device.Luid], [DeviceGetCount], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceProperties
 //
@@ -5306,8 +5216,6 @@ func deviceGetNvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, dev Device, 
 // Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device.
 // Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.P2PAttribute], cudaDeviceGetP2PAttribute, cudaDeviceGetP2PAtomicCapabilities
 //
 //   - operations: Requested operations
@@ -5338,8 +5246,6 @@ var slotDeviceGetP2PAtomicCapabilities outSlot[uint32]
 // Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device.
 // Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], [Device.CanAccessPeer], [Device.P2PAtomicCapabilities], cudaDeviceGetP2PAttribute
 //
 //   - attrib: The requested attribute of the link between srcDevice and dstDevice
@@ -5368,8 +5274,6 @@ var slotDeviceGetP2PAttribute outSlot[int32]
 // Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by pciBusId. len specifies the maximum length of the string that may be returned.
 // where domain, bus, device, and function are all hexadecimal values. pciBusId should be large enough to store 13 characters including the NULL-terminator.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DeviceGet], [Device.Attribute], [DeviceGetByPCIBusId], cudaDeviceGetPCIBusId
 //
 //   - pciBusId: Returned identifier string for the device in the following format
@@ -5396,8 +5300,6 @@ func deviceGetPCIBusId(dev Device) (string, error) {
 //
 // Returns in *prop the properties of device dev. The [Devprop] structure is defined as:
 // where:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
 //
@@ -5426,8 +5328,6 @@ var slotDeviceGetProperties outSlot[Devprop]
 //
 // Returns in maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture for given format and numChannels.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], cudaMemGetInfo, [Device.TotalMem]
 //
 //   - format: Texture format
@@ -5454,8 +5354,6 @@ var slotDeviceGetTexture1DLinearMaxWidth outSlot[uint]
 // deviceGetUuid returns an UUID for the device.
 //
 // Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Luid], [DeviceGet], [Device.TotalMem], cudaGetDeviceProperties
 //
@@ -5498,8 +5396,6 @@ func deviceGraphMemTrim(device Device) error {
 //
 // Returns in *flags the flags for the primary context of dev, and in *active whether it is active. See [Device.PrimaryCtxSetFlags] for flag values.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.PrimaryCtxSetFlags], [CtxGetFlags], [CtxSetFlags], cudaGetDeviceFlags
 //
 //   - dev: Device to get primary context flags for
@@ -5528,8 +5424,6 @@ var slotDevicePrimaryCtxGetState outSlot[struct {
 // Releasing a primary context that has not been previously retained will fail with [ErrInvalidContext].
 // Please note that unlike [Context.Destroy] this method does not pop the context from stack in any circumstances.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.PrimaryCtxRetain], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - dev: Device which primary context is released
@@ -5546,8 +5440,6 @@ func devicePrimaryCtxRelease(dev Device) error {
 //
 // Explicitly destroys and cleans up all resources associated with the current device in the current process.
 // Note that it is responsibility of the calling function to ensure that no other module in the process is using the device any more. For that reason it is recommended to use [Device.PrimaryCtxRelease] in most cases. However it is safe for other modules to call [Device.PrimaryCtxRelease] even after resetting the device. Resetting the primary context does not release it, an application that has retained the primary context should explicitly release its usage.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxRelease], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceReset
 //
@@ -5566,8 +5458,6 @@ func devicePrimaryCtxReset(dev Device) error {
 // Retains the primary context on the device. Once the user successfully retains the primary context, the primary context will be active and available to the user until the user releases it with [Device.PrimaryCtxRelease] or resets it with [Device.PrimaryCtxReset]. Unlike [NewContext] the newly retained context is not pushed onto the stack.
 // Retaining the primary context for the first time will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.Attribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for devices. Documentation for nvidia-smi can be obtained by passing a -h option to it.
 // Please note that the primary context always supports pinned allocations. Other flags can be specified by [Device.PrimaryCtxSetFlags].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.PrimaryCtxRelease], [Device.PrimaryCtxSetFlags], [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
@@ -5595,8 +5485,6 @@ var slotDevicePrimaryCtxRetain outSlot[Context]
 // Sets the flags for the primary context on the device overwriting perviously set ones.
 // The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxGetState], [NewContext], [CtxGetFlags], [CtxSetFlags], cudaSetDeviceFlags
 //
 //   - dev: Device for which the primary context flags are set
@@ -5621,8 +5509,6 @@ func devicePrimaryCtxSetFlags(dev Device, flags CtxFlags) error {
 // Any long running tasks should be queued for execution on an application thread.
 // Callbacks may not call [Device.RegisterAsyncNotification] or [Device.UnregisterAsyncNotification]. Doing so will result in [ErrNotPermitted]. Async notification callbacks execute in an undefined order and may be serialized.
 // Returns in *callback a handle representing the registered callback instance.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.UnregisterAsyncNotification]
 //
@@ -5685,8 +5571,6 @@ func deviceSetMemPool(dev Device, pool MemoryPool) error {
 //
 // Returns in *bytes the total amount of memory available on the device dev in bytes.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.ExecAffinitySupport], cudaMemGetInfo
 //
 //   - dev: Device handle
@@ -5712,8 +5596,6 @@ var slotDeviceTotalMem outSlot[uint]
 //
 // Unregisters callback so that the corresponding callback function will stop receiving async notifications.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.RegisterAsyncNotification]
 //
 //   - device: The device from which to remove callback
@@ -5731,8 +5613,6 @@ func deviceUnregisterAsyncNotification(device Device, callback AsyncCallbackHand
 //
 // Returns in *driverVersion the version of CUDA supported by the driver. The version is returned as (1000 * major + 10 * minor). For example, CUDA 9.2 would be represented by 9020.
 // This function automatically returns [ErrInvalidValue] if driverVersion is NULL.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: cudaDriverGetVersion, cudaRuntimeGetVersion
 //
@@ -5754,8 +5634,6 @@ var slotDriverGetVersion outSlot[int32]
 // eventCreate creates an event.
 //
 // Creates an event *phEvent for the current context with the flags specified via Flags. Valid flags include:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Event.Record], [Event.Query], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventCreate, cudaEventCreateWithFlags
 //
@@ -5783,8 +5661,6 @@ var slotEventCreate outSlot[Event]
 // Destroys the event specified by hEvent.
 // An event may be destroyed before it is complete (i.e., while [Event.Query] would return [ErrNotReady]). In this case, the call does not block on completion of the event, and any associated resources will automatically be released asynchronously at completion.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.ElapsedTime], cudaEventDestroy
 //
 //   - hEvent: Event to destroy
@@ -5802,8 +5678,6 @@ func eventDestroy(hEvent Event) error {
 // Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds). Note this API is not guaranteed to return the latest errors for pending work. As such this API is intended to serve as an elapsed time calculation only and any polling for completion on the events to be compared should be done with [Event.Query] instead.
 // If either event was last recorded in a non-NULL stream, the resulting time may be greater than expected (even if both used the same stream handle). This happens because the [Event.Record] operation takes place asynchronously and there is no guarantee that the measured latency is actually just between the two events. Any number of other different stream operations could execute in between the two measured events, thus altering the timing in a significant way.
 // If [Event.Record] has not been called on either event then [ErrInvalidHandle] is returned. If [Event.Record] has been called on both events but one or both of them has not yet been completed (that is, [Event.Query] would return [ErrNotReady] on at least one of the events), [ErrNotReady] is returned. If either event was created with the [EventDisableTiming] flag, then this function will return [ErrInvalidHandle].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.Destroy], cudaEventElapsedTime
 //
@@ -5833,8 +5707,6 @@ var slotEventElapsedTime outSlot[float32]
 // Returns [Success] if all captured work has been completed, or [ErrNotReady] if any captured work is incomplete.
 // For the purposes of Unified Memory, a return value of [Success] is equivalent to having called [Event.Synchronize].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewEvent], [Event.Record], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventQuery
 //
 //   - hEvent: Event to query
@@ -5853,8 +5725,6 @@ func eventQuery(hEvent Event) error {
 // [Event.Record] can be called multiple times on the same event and will overwrite the previously captured state. Other APIs such as [Stream.WaitEvent] use the most recently captured state at the time of the API call, and are not affected by later calls to [Event.Record]. Before the first call to [Event.Record], an event represents an empty set of work, so for example [Event.Query] would return [Success].
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewEvent], [Event.Query], [Event.Synchronize], [Stream.WaitEvent], [Event.Destroy], [Event.ElapsedTime], cudaEventRecord, [Event.RecordWithFlags]
 //
@@ -5877,8 +5747,6 @@ func eventRecord(hEvent Event, hStream Stream) error {
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewEvent], [Event.Query], [Event.Synchronize], [Stream.WaitEvent], [Event.Destroy], [Event.ElapsedTime], [Event.Record], cudaEventRecord
 //
 //   - hEvent: Event to record
@@ -5897,8 +5765,6 @@ func eventRecordWithFlags(hEvent Event, hStream Stream, flags EventRecordFlags) 
 //
 // Waits until the completion of all work currently captured in hEvent. See [Event.Record] for details on what is captured by an event.
 // Waiting for an event that was created with the [EventBlockingSync] flag will cause the calling CPU thread to block until the event has been completed by the device. If the [EventBlockingSync] flag has not been set, then the CPU thread will busy-wait until the event has been completed by the device.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewEvent], [Event.Record], [Event.Query], [Event.Destroy], [Event.ElapsedTime], cudaEventSynchronize
 //
@@ -5919,8 +5785,6 @@ func eventSynchronize(hEvent Event) error {
 // where [ExternalMemoryBufferDesc].offset is the offset in the memory object where the buffer’s base address is. [ExternalMemoryBufferDesc].size is the size of the buffer. [ExternalMemoryBufferDesc].flags must be zero.
 // The offset and size have to be suitably aligned to match the requirements of the external API. Mapping two buffers whose ranges overlap may or may not result in the same virtual address being returned for the overlapped portion. In such cases, the application must ensure that all accesses to that region from the GPU are volatile. Otherwise writes made via one address are not guaranteed to be visible via the other address, even if they’re issued by the same thread. It is recommended that applications map the combined range instead of mapping separate buffers and then apply the appropriate offsets to the returned pointer to derive the individual buffers.
 // The returned pointer devPtr must be freed using [DevicePtr.Free].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedMipmappedArray]
 //
@@ -5953,8 +5817,6 @@ var slotExternalMemoryGetMappedBuffer outSlot[DevicePtr]
 // Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported.
 // The returned CUDA mipmapped array must be freed using [MipmappedArray.Destroy].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedBuffer]
 //
 //   - extMem: Handle to external memory object
@@ -5984,8 +5846,6 @@ var slotExternalMemoryGetMappedMipmappedArray outSlot[MipmappedArray]
 // On platforms that support GPUDirect RDMA writes via more than one path in hardware (see [MemRangeFlagDmaBufMappingTypePcie]), the user should consider those paths as belonging to separate ordering domains. Note that in such cases CUDA driver will report both RDMA writes ordering and RDMA write scope as ALL_DEVICES and a call to cuFlushGPUDirectRDMA will be a no-op, but when these multiple paths are used simultaneously, it is the user’s responsibility to ensure ordering by using mechanisms outside the scope of CUDA.
 // Users may query support for this API via CU_DEVICE_ATTRIBUTE_FLUSH_FLUSH_GPU_DIRECT_RDMA_OPTIONS.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 //   - target: The target of the operation, see [FlushGPUDirectRDMAWritesTarget]
 //   - scope: The scope of the operation, see [FlushGPUDirectRDMAWritesScope]
 //
@@ -6001,8 +5861,6 @@ func FlushGPUDirectRDMAWrites(target FlushGPUDirectRDMAWritesTarget, scope Flush
 //
 // Returns in *pi the integer value of the attribute attrib on the kernel given by hfunc. The supported attributes are:
 // With a few execeptions, function attributes may also be queried on unloaded function handles returned from [Module.EnumerateFunctions]. [ErrFunctionNotLoaded] is returned if the attribute requires a fully loaded function but the function is not loaded. The loading state of a function may be queried using cuFuncIsloaded. [Function.Load] may be called to explicitly load a function before querying the following attributes that require the function to be loaded:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.LaunchKernel], cudaFuncGetAttributes, cudaFuncSetAttribute, [Function.IsLoaded], [Function.Load], [Kernel.Attribute]
 //
@@ -6031,8 +5889,6 @@ var slotFuncGetAttribute outSlot[int32]
 // Returns in *hmod the handle of the module that function hfunc is located in. The lifetime of the module corresponds to the lifetime of the context it was loaded in or until the module is explicitly unloaded.
 // The CUDA runtime manages its own modules loaded into the primary context. If the handle returned by this API refers to a module loaded by the CUDA runtime, calling [Module.Unload] on that module will result in undefined behavior.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 //   - hfunc: Function to retrieve module for
 //
 // Wraps cuFuncGetModule.
@@ -6056,8 +5912,6 @@ var slotFuncGetModule outSlot[Module]
 //
 // Returns in **name the function name associated with the function handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the function handle is valid. If the module is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 //   - name: The returned name of the function
 //   - hfunc: The function handle to retrieve the name for
 //
@@ -6077,8 +5931,6 @@ func funcGetName(hfunc Function) (string, error) {
 // funcGetParamCount returns the number of parameters used by the function.
 //
 // Queries the number of kernel parameters used by func and returns it in paramCount.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.ParamInfo]
 //
@@ -6104,8 +5956,6 @@ var slotFuncGetParamCount outSlot[uint]
 // funcGetParamInfo returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
 // Queries the kernel parameter at paramIndex into func's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that func takes. paramSize can be set to NULL if only the parameter offset is desired.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Kernel.ParamInfo]
 //
@@ -6176,8 +6026,6 @@ func funcLoad(function Function) error {
 // This call sets the value of a specified attribute attrib on the kernel given by hfunc to an integer value specified by val This function returns [Success] if the new value of the attribute could be successfully set. If the set fails, this call will return an error. Not all attributes can have values set. Attempting to set a value on a read-only attribute will result in an error ([ErrInvalidValue])
 // Supported attributes for the [Function.SetAttribute] call are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.LaunchKernel], cudaFuncGetAttributes, cudaFuncSetAttribute, [Kernel.SetAttribute]
 //
 //   - hfunc: Function to query attribute of
@@ -6195,8 +6043,6 @@ func funcSetAttribute(hfunc Function, attrib FunctionAttribute, value int32) err
 // funcSetBlockShape sets the block-dimensions for the function.
 //
 // Specifies the x, y, and z dimensions of the thread blocks that are created when the kernel given by hfunc is launched.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetSharedSize], [Function.SetCacheConfig], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -6222,8 +6068,6 @@ func funcSetBlockShape(hfunc Function, x int32, y int32, z int32) error {
 // Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point.
 // The supported cache configurations are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.Attribute], [Function.LaunchKernel], cudaFuncSetCacheConfig, [Kernel.SetCacheConfig]
 //
 //   - hfunc: Kernel to configure cache for
@@ -6245,8 +6089,6 @@ func funcSetCacheConfig(hfunc Function, config FuncCacheConfig) error {
 // This function will do nothing on devices with fixed shared memory bank size.
 // The supported bank configurations are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [CtxGetSharedMemConfig], [CtxSetSharedMemConfig], [Function.Attribute], [Function.LaunchKernel], cudaFuncSetSharedMemConfig
 //
 //   - hfunc: kernel to be given a shared memory config
@@ -6265,8 +6107,6 @@ func funcSetSharedMemConfig(hfunc Function, config Sharedconfig) error {
 // funcSetSharedSize sets the dynamic shared-memory size for the function.
 //
 // Sets through bytes the amount of dynamic shared memory that will be available to each thread block when the kernel given by hfunc is launched.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetCacheConfig], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -6300,7 +6140,7 @@ func GetExportTable(ppExportTable *uintptr, pExportTableId *Uuid) error {
 // It will also set the optional symbolStatus to one of the values in [DriverProcAddressQueryResult] with the following meanings:
 // The requested flags can be:
 //
-// Note: Version mixing among CUDA-defined types and driver API versions is strongly discouraged and doing so can result in an undefined behavior. More here.
+// Note: Version mixing among CUDA-defined types and driver API versions is strongly discouraged and doing so can result in an undefined behavior.
 //
 // See also: cudaGetDriverEntryPointByVersion
 //
@@ -6334,10 +6174,6 @@ var slotGetProcAddress outSlot[struct {
 //
 // Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Stream.BatchMemOp], [Stream.WaitValue32], [Stream.WriteValue32], [Stream.WaitValue64], [Stream.WriteValue64], [BatchMemOpNode.Params], [BatchMemOpNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
@@ -6368,10 +6204,6 @@ var slotGraphAddBatchMemOpNode outSlot[GraphNode]
 // If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error.
 // The node executes an embedded child graph. The child graph is cloned in this call.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [ChildGraphNode.Graph], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
 //
 //   - hGraph: Graph to which to add the node
@@ -6401,10 +6233,6 @@ var slotGraphAddChildGraphNode outSlot[GraphNode]
 // The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
 // If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.RemoveDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to which dependencies are added
@@ -6425,10 +6253,6 @@ func graphAddDependencies(hGraph Graph, from *GraphNode, to *GraphNode, edgeData
 //
 // Creates a new node which performs no operation, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // An empty node performs no operation during execution, but can be used for transitive ordering. For example, a phased execution graph with 2 groups of n nodes with a barrier between them can be represented using an empty node and 2*n dependency edges, rather than no empty node and n^2 dependency edges.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -6457,10 +6281,6 @@ var slotGraphAddEmptyNode outSlot[GraphNode]
 //
 // Creates a new event record node and adds it to hGraph with numDependencies dependencies specified via dependencies and event specified in event. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Each launch of the graph will record event to capture execution of the node’s dependencies.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [Graph.AddEventWaitNode], [Event.RecordWithFlags], [Stream.WaitEvent], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -6491,10 +6311,6 @@ var slotGraphAddEventRecordNode outSlot[GraphNode]
 // Creates a new event wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and event specified in event. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The graph node will wait for all work captured in event. See [Event.Record] for details on what is captured by an event. event may be from a different context or device than the launch stream.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Graph.AddEventRecordNode], [Event.RecordWithFlags], [Stream.WaitEvent], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
@@ -6523,10 +6339,6 @@ var slotGraphAddEventWaitNode outSlot[GraphNode]
 //
 // Creates a new external semaphore signal node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Performs a signal operation on a set of externally allocated semaphore objects when the node is launched. The operation(s) will occur after all of the node’s dependencies have completed.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [ExternalSemaphoresSignalNode.Params], [ExternalSemaphoresSignalNode.SetParams], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -6557,10 +6369,6 @@ var slotGraphAddExternalSemaphoresSignalNode outSlot[GraphNode]
 // Creates a new external semaphore wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Performs a wait operation on a set of externally allocated semaphore objects when the node is launched. The node’s dependencies will not be launched until the wait operation has completed.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [ExternalSemaphoresWaitNode.Params], [ExternalSemaphoresWaitNode.SetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresSignalNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
@@ -6589,10 +6397,6 @@ var slotGraphAddExternalSemaphoresWaitNode outSlot[GraphNode]
 //
 // Creates a new CPU execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When the graph is launched, the node will invoke the specified CPU function. Host nodes are not supported under MPS with pre-Volta GPUs.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [Stream.LaunchHostFunc], [HostNode.Params], [HostNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -6630,10 +6434,6 @@ var slotGraphAddHostNode outSlot[GraphNode]
 //
 // Note: Kernels launched using graphs must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Function.LaunchKernel], [Function.LaunchCooperativeKernel], [KernelNode.Params], [KernelNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
@@ -6668,10 +6468,6 @@ var slotGraphAddKernelNode outSlot[GraphNode]
 // It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph.
 // The following restrictions apply to graphs which contain allocation and/or memory free nodes:
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Graph.AddMemFreeNode], [MemAllocNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
@@ -6701,10 +6497,6 @@ var slotGraphAddMemAllocNode outSlot[GraphNode]
 // Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free:
 // The following restrictions apply to graphs which contain allocation and/or memory free nodes:
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [Graph.AddMemAllocNode], [MemFreeNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -6736,10 +6528,6 @@ var slotGraphAddMemFreeNode outSlot[GraphNode]
 // When the graph is launched, the node will perform the memcpy described by copyParams. See [Memcpy3D] for a description of the structure and its restrictions.
 // Memcpy nodes have some additional restrictions with regards to managed memory, if the system contains at least one device which has a zero value for the device attribute [DevAttrConcurrentManagedAccess]. If one or more of the operands refer to managed memory, then using the memory type [MemoryTypeUnified] is disallowed for those operand(s). The managed memory will be treated as residing on either the host or the device, depending on which memory type is specified.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Memcpy3D], [MemcpyNode.Params], [MemcpyNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
@@ -6769,10 +6557,6 @@ var slotGraphAddMemcpyNode outSlot[GraphNode]
 //
 // Creates a new memset node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The element size must be 1, 2, or 4 bytes. When the graph is launched, the node will perform the memset described by memsetParams.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [DevicePtr.MemsetD2D32], [MemsetNode.Params], [MemsetNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode]
 //
@@ -6806,10 +6590,6 @@ var slotGraphAddMemsetNode outSlot[GraphNode]
 // Note that for some node types, nodeParams may contain “out parameters” which are modified during the call, such as nodeParams->alloc.dptr.
 // A handle to the new node will be returned in phGraphNode.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph], [GraphNode.SetParams], [GraphExec.NodeSetParams]
 //
 //   - hGraph: Graph to which to add the node
@@ -6839,10 +6619,6 @@ var slotGraphAddNode outSlot[GraphNode]
 //
 // Returns the parameters of batch mem op node hNode in nodeParamsOut. The paramArray returned in nodeParamsOut is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [BatchMemOpNode.SetParams] to update the parameters of this node.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.SetParams]
 //
 //   - hNode: Node to get the parameters for
@@ -6869,10 +6645,6 @@ var slotGraphBatchMemOpNodeGetParams outSlot[BatchMemOpNodeParams]
 // Sets the parameters of batch mem op node hNode to nodeParams.
 // The paramArray inside nodeParams is copied and therefore it can be freed after the call returns.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params]
 //
 //   - hNode: Node to set the parameters for
@@ -6890,10 +6662,6 @@ func graphBatchMemOpNodeSetParams(hNode GraphNode, nodeParams *BatchMemOpNodePar
 //
 // Gets a handle to the embedded graph in a child graph node. This call does not clone the graph. Changes to the graph will be reflected in the node, and the node retains ownership of the graph.
 // Allocation and free nodes cannot be added to the returned graph. Attempting to do so will return an error.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddChildGraphNode], [GraphNode.FindInClone]
 //
@@ -6923,10 +6691,6 @@ var slotGraphChildGraphNodeGetGraph outSlot[Graph]
 //
 // Note: : Cloning is not supported for graphs which contain memory allocation nodes, memory free nodes, or conditional nodes.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph], [GraphNode.FindInClone]
 //
 //   - originalGraph: Graph to clone
@@ -6955,10 +6719,6 @@ var slotGraphClone outSlot[Graph]
 // Handles not associated with a conditional node may cause graph instantiation to fail.
 // Handles can only be set from the context with which they are associated.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode]
 //
 //   - hGraph: Graph which will contain the conditional node using this handle
@@ -6986,10 +6746,6 @@ var slotGraphConditionalHandleCreate outSlot[uint64]
 // graphCreate creates a graph.
 //
 // Creates an empty graph, which is returned via phGraph.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Instantiate], [Graph.Destroy], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.Clone]
 //
@@ -7033,10 +6789,6 @@ func graphDebugDotPrint(hGraph Graph, path string, flags GraphdebugdotFlags) err
 //
 // Destroys the graph specified by hGraph, as well as all of its nodes.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph]
 //
 //   - hGraph: Graph to destroy
@@ -7054,10 +6806,6 @@ func graphDestroy(hGraph Graph) error {
 // Removes hNode from its graph. This operation also severs any dependencies of other nodes on hNode and vice versa.
 // Nodes which belong to a graph which contains allocation or free nodes cannot be destroyed. Any attempt to do so will return an error.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hNode: Node to remove
@@ -7073,10 +6821,6 @@ func graphDestroyNode(hNode GraphNode) error {
 // graphEventRecordNodeGetEvent returns the event associated with an event record node.
 //
 // Returns the event of event record node hNode in eventOut.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddEventRecordNode], [EventRecordNode.SetEvent], [EventWaitNode.Event], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
@@ -7105,10 +6849,6 @@ var slotGraphEventRecordNodeGetEvent outSlot[Event]
 //
 // Note: This function will reset the node’s context to the event’s device context.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [Graph.AddEventRecordNode], [EventRecordNode.Event], [EventWaitNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - hNode: Node to set the event for
@@ -7125,10 +6865,6 @@ func graphEventRecordNodeSetEvent(hNode GraphNode, event Event) error {
 // graphEventWaitNodeGetEvent returns the event associated with an event wait node.
 //
 // Returns the event of event wait node hNode in eventOut.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddEventWaitNode], [EventWaitNode.SetEvent], [EventRecordNode.Event], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
@@ -7155,10 +6891,6 @@ var slotGraphEventWaitNodeGetEvent outSlot[Event]
 //
 // Sets the event of event wait node hNode to event.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [Graph.AddEventWaitNode], [EventWaitNode.Event], [EventRecordNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - hNode: Node to set the event for
@@ -7182,10 +6914,6 @@ func graphEventWaitNodeSetEvent(hNode GraphNode, event Event) error {
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // The paramArray inside nodeParams is copied and therefore it can be freed after the call returns.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params], [BatchMemOpNode.SetParams], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
@@ -7206,10 +6934,6 @@ func graphExecBatchMemOpNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nod
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [ChildGraphNode.Graph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
@@ -7228,10 +6952,6 @@ func graphExecChildGraphNodeSetParams(hGraphExec GraphExec, hNode GraphNode, chi
 //
 // Destroys the executable graph specified by hGraphExec, as well as all of its executable nodes. If the executable graph is in-flight, it will not be terminated, but rather freed asynchronously on completion.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.Instantiate], [GraphExec.Upload], [GraphExec.Launch]
 //
 //   - hGraphExec: Executable graph to destroy
@@ -7248,10 +6968,6 @@ func graphExecDestroy(hGraphExec GraphExec) error {
 //
 // Sets the event of an event record node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphExec.NodeSetParams], [Graph.AddEventRecordNode], [EventRecordNode.Event], [EventWaitNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
@@ -7271,10 +6987,6 @@ func graphExecEventRecordNodeSetEvent(hGraphExec GraphExec, hNode GraphNode, eve
 //
 // Sets the event of an event wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphExec.NodeSetParams], [Graph.AddEventWaitNode], [EventWaitNode.Event], [EventRecordNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
@@ -7297,10 +7009,6 @@ func graphExecEventWaitNodeSetEvent(hGraphExec GraphExec, hNode GraphNode, event
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Changing nodeParams->numExtSems is not supported.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddExternalSemaphoresSignalNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
@@ -7322,10 +7030,6 @@ func graphExecExternalSemaphoresSignalNodeSetParams(hGraphExec GraphExec, hNode 
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Changing nodeParams->numExtSems is not supported.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
@@ -7343,10 +7047,6 @@ func graphExecExternalSemaphoresWaitNodeSetParams(hGraphExec GraphExec, hNode Gr
 // graphExecGetFlags queries the instantiation flags of an executable graph.
 //
 // Returns the flags that were passed to instantiation for the given executable graph. [GraphInstantiateFlagUpload] will not be returned by this API as it does not affect the resulting executable graph.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.Instantiate], [Graph.InstantiateWithParams]
 //
@@ -7399,10 +7099,6 @@ var slotGraphExecGetId outSlot[uint32]
 // Updates the work represented by hNode in hGraphExec as though hNode had contained nodeParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddHostNode], [HostNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
@@ -7424,10 +7120,6 @@ func graphExecHostNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodeParam
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddKernelNode], [KernelNode.SetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
@@ -7448,10 +7140,6 @@ func graphExecKernelNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodePar
 // The source and destination memory in copyParams must be allocated from the same contexts as the original source and destination memory. Both the instantiation-time memory operands and the memory operands in copyParams must be 1-dimensional. Zero-length operations are not supported.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Returns [ErrInvalidValue] if the memory operands’ mappings changed or either the original or new memory operands are multidimensional.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphExec.NodeSetParams], [Graph.AddMemcpyNode], [MemcpyNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
@@ -7477,10 +7165,6 @@ func graphExecMemcpyNodeSetParams(hGraphExec GraphExec, hNode GraphNode, copyPar
 // Changing other aspects of the memset (width, height, element size or pitch) may cause the update to be rejected. Specifically, for 2d memsets, all dimension changes are rejected. For 1d memsets, changes in height are explicitly rejected and other changes are opportunistically allowed if the resulting work maps onto the work resources already allocated for the node.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddMemsetNode], [MemsetNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
@@ -7501,10 +7185,6 @@ func graphExecMemsetNodeSetParams(hGraphExec GraphExec, hNode GraphNode, memsetP
 // Sets the parameters of a node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph from which the executable graph was instantiated. hNode must not have been removed from the original graph.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Allowed changes to parameters on executable graphs are as follows:
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [GraphNode.SetParams] [GraphExec.Update], [Graph.Instantiate]
 //
@@ -7531,10 +7211,6 @@ func graphExecNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodeParams *G
 // If the update fails for a reason not listed above, the result member of resultInfo will be set to [GraphExecUpdateError]. If the update succeeds, the result member will be set to [GraphExecUpdateSuccess].
 // [GraphExec.Update] returns [Success] when the updated was performed successfully. It returns [ErrGraphExecUpdateFailure] if the graph update was not performed because it included changes which violated constraints specific to instantiated graph update.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.Instantiate]
 //
 //   - hGraphExec: The instantiated graph to be updated
@@ -7552,10 +7228,6 @@ func graphExecUpdate(hGraphExec GraphExec, hGraph Graph, resultInfo *GraphExecUp
 // graphExternalSemaphoresSignalNodeGetParams returns an external semaphore signal node’s parameters.
 //
 // Returns the parameters of an external semaphore signal node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [ExternalSemaphoresSignalNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
@@ -7582,10 +7254,6 @@ var slotGraphExternalSemaphoresSignalNodeGetParams outSlot[ExtSemSignalNodeParam
 //
 // Sets the parameters of an external semaphore signal node hNode to nodeParams.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresSignalNode], [ExternalSemaphoresSignalNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to set the parameters for
@@ -7602,10 +7270,6 @@ func graphExternalSemaphoresSignalNodeSetParams(hNode GraphNode, nodeParams *Ext
 // graphExternalSemaphoresWaitNodeGetParams returns an external semaphore wait node’s parameters.
 //
 // Returns the parameters of an external semaphore wait node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
@@ -7632,10 +7296,6 @@ var slotGraphExternalSemaphoresWaitNodeGetParams outSlot[ExtSemWaitNodeParams]
 //
 // Sets the parameters of an external semaphore wait node hNode to nodeParams.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to set the parameters for
@@ -7652,10 +7312,6 @@ func graphExternalSemaphoresWaitNodeSetParams(hNode GraphNode, nodeParams *ExtSe
 // graphGetEdges returns a graph’s dependency edges.
 //
 // Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.GetNodes], [Graph.RootNodes], [Graph.AddDependencies], [Graph.RemoveDependencies], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
@@ -7702,10 +7358,6 @@ var slotGraphGetId outSlot[uint32]
 //
 // Returns a list of hGraph's nodes. nodes may be NULL, in which case this function will return the number of nodes in numNodes. Otherwise, numNodes entries will be filled in. If numNodes is higher than the actual number of nodes, the remaining entries in nodes will be set to NULL, and the number of nodes actually obtained will be returned in numNodes.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph], [Graph.RootNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to query
@@ -7724,10 +7376,6 @@ func graphGetNodes(hGraph Graph, nodes *GraphNode, numNodes *uint) error {
 //
 // Returns a list of hGraph's root nodes. rootNodes may be NULL, in which case this function will return the number of root nodes in numRootNodes. Otherwise, numRootNodes entries will be filled in. If numRootNodes is higher than the actual number of root nodes, the remaining entries in rootNodes will be set to NULL, and the number of nodes actually obtained will be returned in numRootNodes.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph], [Graph.GetNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to query
@@ -7745,10 +7393,6 @@ func graphGetRootNodes(hGraph Graph, rootNodes *GraphNode, numRootNodes *uint) e
 // graphHostNodeGetParams returns a host node’s parameters.
 //
 // Returns the parameters of host node hNode in nodeParams.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.SetParams]
 //
@@ -7775,10 +7419,6 @@ var slotGraphHostNodeGetParams outSlot[HostNodeParams]
 //
 // Sets the parameters of host node hNode to nodeParams.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.Params]
 //
 //   - hNode: Node to set the parameters for
@@ -7799,10 +7439,6 @@ func graphHostNodeSetParams(hNode GraphNode, nodeParams *HostNodeParams) error {
 // If hGraph contains any allocation or free nodes, there can be at most one executable graph in existence for that graph at a time. An attempt to instantiate a second executable graph before destroying the first with [GraphExec.Destroy] will result in an error. The same also applies if hGraph contains any device-updatable kernel nodes.
 // If hGraph contains kernels which call device-side cudaGraphLaunch() from multiple contexts, this will result in an error.
 // Graphs instantiated for launch on the device have additional restrictions which do not apply to host graphs:
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.Instantiate], [NewGraph], [GraphExec.Upload], [GraphExec.Launch], [GraphExec.Destroy]
 //
@@ -7837,10 +7473,6 @@ var slotGraphInstantiate outSlot[GraphExec]
 // In the event of an error, the result_out and hErrNode_out fields will contain more information about the nature of the error. Possible error reporting includes:
 // If instantiation is successful, result_out will be set to [GraphInstantiateSuccess], and hErrNode_out will be set to NULL.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph], [Graph.Instantiate], [GraphExec.Destroy]
 //
 //   - hGraph: Graph to instantiate
@@ -7867,8 +7499,6 @@ var slotGraphInstantiateWithParams outSlot[GraphExec]
 //
 // Copies attributes from source node src to destination node dst. Both node must have the same context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [AccessPolicyWindow]
 //
 //   - dst: Destination node
@@ -7885,8 +7515,6 @@ func graphKernelNodeCopyAttributes(dst GraphNode, src GraphNode) error {
 // graphKernelNodeGetAttribute queries node attribute.
 //
 // Queries attribute attr from node hNode and stores it in corresponding member of valueOut.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [AccessPolicyWindow]
 //
@@ -7911,10 +7539,6 @@ var slotGraphKernelNodeGetAttribute outSlot[[8]uint64]
 //
 // Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [KernelNode.SetParams] to update the parameters of this node.
 // The params will contain either kernelParams or extra, according to which of these was most recently set on the node.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.SetParams]
 //
@@ -7941,8 +7565,6 @@ var slotGraphKernelNodeGetParams outSlot[KernelNodeParams]
 //
 // Sets attribute attr on node hNode from corresponding attribute of value.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [AccessPolicyWindow]
 //
 // Wraps cuGraphKernelNodeSetAttribute.
@@ -7956,10 +7578,6 @@ func graphKernelNodeSetAttribute(hNode GraphNode, attr int32, value *[8]uint64) 
 // graphKernelNodeSetParams sets a kernel node’s parameters.
 //
 // Sets the parameters of kernel node hNode to nodeParams.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.SetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.Params]
 //
@@ -7979,10 +7597,6 @@ func graphKernelNodeSetParams(hNode GraphNode, nodeParams *KernelNodeParams) err
 // Executes hGraphExec in hStream. Only one instance of hGraphExec may be executing at a time. Each launch is ordered behind both any previous work in hStream and any previous launches of hGraphExec. To execute a graph concurrently, it must be instantiated multiple times into multiple executable graphs.
 // If any allocations created by hGraphExec remain unfreed (from a previous launch) and hGraphExec was not instantiated with [GraphInstantiateFlagAutoFreeOnLaunch], the launch will fail with [ErrInvalidValue].
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.Instantiate], [GraphExec.Upload], [GraphExec.Destroy]
 //
 //   - hGraphExec: Executable graph to launch
@@ -7999,10 +7613,6 @@ func graphLaunch(hGraphExec GraphExec, hStream Stream) error {
 // graphMemAllocNodeGetParams returns a memory alloc node’s parameters.
 //
 // Returns the parameters of a memory alloc node hNode in paramsOut. The poolProps and accessDescs returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.Params], [Graph.AddMemAllocNode], [MemFreeNode.Params]
 //
@@ -8029,10 +7639,6 @@ var slotGraphMemAllocNodeGetParams outSlot[MemAllocNodeParams]
 //
 // Returns the address of a memory free node hNode in dptrOut.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.Params], [Graph.AddMemFreeNode], [MemAllocNode.Params]
 //
 //   - hNode: Node to get the parameters for
@@ -8057,10 +7663,6 @@ var slotGraphMemFreeNodeGetParams outSlot[DevicePtr]
 // graphMemcpyNodeGetParams returns a memcpy node’s parameters.
 //
 // Returns the parameters of memcpy node hNode in nodeParams.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.SetParams]
 //
@@ -8087,10 +7689,6 @@ var slotGraphMemcpyNodeGetParams outSlot[Memcpy3d]
 //
 // Sets the parameters of memcpy node hNode to nodeParams.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.Params]
 //
 //   - hNode: Node to set the parameters for
@@ -8107,10 +7705,6 @@ func graphMemcpyNodeSetParams(hNode GraphNode, nodeParams *Memcpy3d) error {
 // graphMemsetNodeGetParams returns a memset node’s parameters.
 //
 // Returns the parameters of memset node hNode in nodeParams.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.SetParams]
 //
@@ -8137,10 +7731,6 @@ var slotGraphMemsetNodeGetParams outSlot[MemsetNodeParams]
 //
 // Sets the parameters of memset node hNode to nodeParams.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.Params]
 //
 //   - hNode: Node to set the parameters for
@@ -8158,10 +7748,6 @@ func graphMemsetNodeSetParams(hNode GraphNode, nodeParams *MemsetNodeParams) err
 //
 // This function returns the node in hClonedGraph corresponding to hOriginalNode in the original graph.
 // hClonedGraph must have been cloned from hOriginalGraph via [Graph.Clone]. hOriginalNode must have been in hOriginalGraph at the time of the call to [Graph.Clone], and the corresponding cloned node in hClonedGraph must not have been removed. The cloned node is then returned via phClonedNode.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.Clone]
 //
@@ -8215,10 +7801,6 @@ var slotGraphNodeGetContainingGraph outSlot[Graph]
 // Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies.
 // Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
 //   - hNode: Node to query
@@ -8238,10 +7820,6 @@ func graphNodeGetDependencies(hNode GraphNode, dependencies *GraphNode, edgeData
 //
 // Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes.
 // Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
@@ -8267,10 +7845,6 @@ func graphNodeGetDependentNodes(hNode GraphNode, dependentNodes *GraphNode, edge
 // Note: Currently only kernel, memset and memcpy nodes are supported.
 //
 // Note: This function will not reflect device-side updates for device-updatable kernel nodes.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.SetEnabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.Launch]
 //
@@ -8325,10 +7899,6 @@ var slotGraphNodeGetLocalId outSlot[uint32]
 // Any pointers returned in *nodeParams point to driver-owned memory associated with the node. This memory remains valid until the node is destroyed. Any memory pointed to from *nodeParams must not be modified.
 // The returned parameters are a description of the node, but may not be identical to the struct provided at creation and may not be suitable for direct creation of identical nodes. This is because parameters may be partially unspecified and filled in by the driver at creation, may reference non-copyable handles, or may describe ownership semantics or other parameters that govern behavior of node creation but are not part of the final functional descriptor.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.SetParams], [Graph.AddNode], [GraphExec.NodeSetParams]
 //
 //   - hNode: Node to get the parameters for
@@ -8377,10 +7947,6 @@ var slotGraphNodeGetToolsId outSlot[uint64]
 //
 // Returns the node type of hNode in type.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.GetNodes], [Graph.RootNodes], [ChildGraphNode.Graph], [KernelNode.Params], [KernelNode.SetParams], [HostNode.Params], [HostNode.SetParams], [MemcpyNode.Params], [MemcpyNode.SetParams], [MemsetNode.Params], [MemsetNode.SetParams]
 //
 //   - hNode: Node to query
@@ -8412,10 +7978,6 @@ var slotGraphNodeGetType outSlot[GraphNodeType]
 //
 // Note: Currently only kernel, memset and memcpy nodes are supported.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.Enabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.Launch]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
@@ -8434,10 +7996,6 @@ func graphNodeSetEnabled(hGraphExec GraphExec, hNode GraphNode, isEnabled uint32
 //
 // Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
 // Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [GraphNode.Params], [GraphExec.NodeSetParams]
 //
@@ -8476,10 +8034,6 @@ func graphReleaseUserObject(graph Graph, object UserObject, count uint32) error 
 // The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
 // If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge.
 // Dependencies cannot be removed from graphs which contain allocation or free nodes. Any attempt to do so will return an error.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
@@ -8521,10 +8075,6 @@ func graphRetainUserObject(graph Graph, object UserObject, count uint32, flags U
 //
 // Uploads hGraphExec to the device in hStream without executing it. Uploads of the same hGraphExec will be serialized. Each upload is ordered behind both any previous work in hStream and any previous launches of hGraphExec. Uses memory cached by stream to back the allocations owned by hGraphExec.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.Instantiate], [GraphExec.Launch], [GraphExec.Destroy]
 //
 //   - hGraphExec: Executable graph to upload
@@ -8547,8 +8097,6 @@ func graphUpload(hGraphExec GraphExec, hStream Stream) error {
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphicsResource.MappedPointer], [GraphicsResource.SubResourceGetMappedArray], [Stream.GraphicsUnmapResources], cudaGraphicsMapResources
 //
 //   - count: Number of resources to map
@@ -8567,8 +8115,6 @@ func graphicsMapResources(count uint32, resources *GraphicsResource, hStream Str
 //
 // Returns in *pMipmappedArray a mipmapped array through which the mapped graphics resource resource. The value set in *pMipmappedArray may change every time that resource is mapped.
 // If resource is not a texture then it cannot be accessed via a mipmapped array and [ErrNotMappedAsArray] is returned. If resource is not mapped then [ErrNotMapped] is returned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphicsResource.MappedPointer], cudaGraphicsResourceGetMappedMipmappedArray
 //
@@ -8596,8 +8142,6 @@ var slotGraphicsResourceGetMappedMipmappedArray outSlot[MipmappedArray]
 // Returns in *pDevPtr a pointer through which the mapped graphics resource resource may be accessed. Returns in pSize the size of the memory in bytes which may be accessed from that pointer. The value set in pPointer may change every time that resource is mapped.
 // If resource is not a buffer then it cannot be accessed via a pointer and [ErrNotMappedAsPointer] is returned. If resource is not mapped then [ErrNotMapped] is returned.
 // [Stream.GraphicsMapResources], [GraphicsResource.SubResourceGetMappedArray], cudaGraphicsResourceGetMappedPointer
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - resource: Mapped resource to access
 //
@@ -8627,8 +8171,6 @@ var slotGraphicsResourceGetMappedPointer outSlot[struct {
 // Changes to flags will take effect the next time resource is mapped. The flags argument may be any of the following:
 // If resource is presently mapped for access by CUDA then [ErrAlreadyMapped] is returned. If flags is not one of the above values then [ErrInvalidValue] is returned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.GraphicsMapResources], cudaGraphicsResourceSetMapFlags
 //
 //   - resource: Registered resource to set flags for
@@ -8646,8 +8188,6 @@ func graphicsResourceSetMapFlags(resource GraphicsResource, flags GraphicsMapRes
 //
 // Returns in *pArray an array through which the subresource of the mapped graphics resource resource which corresponds to array index arrayIndex and mipmap level mipLevel may be accessed. The value set in *pArray may change every time that resource is mapped.
 // If resource is not a texture then it cannot be accessed via an array and [ErrNotMappedAsArray] is returned. If arrayIndex is not a valid array index for resource then [ErrInvalidValue] is returned. If mipLevel is not a valid mipmap level for resource then [ErrInvalidValue] is returned. If resource is not mapped then [ErrNotMapped] is returned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphicsResource.MappedPointer], cudaGraphicsSubResourceGetMappedArray
 //
@@ -8681,8 +8221,6 @@ var slotGraphicsSubResourceGetMappedArray outSlot[Array]
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.GraphicsMapResources], cudaGraphicsUnmapResources
 //
 //   - count: Number of resources to unmap
@@ -8701,8 +8239,6 @@ func graphicsUnmapResources(count uint32, resources *GraphicsResource, hStream S
 //
 // Unregisters the graphics resource resource so it is not accessible by CUDA unless registered again.
 // If resource is invalid then [ErrInvalidHandle] is returned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: cuGraphicsD3D9RegisterResource, cuGraphicsD3D10RegisterResource, cuGraphicsD3D11RegisterResource, cuGraphicsGLRegisterBuffer, cuGraphicsGLRegisterImage, cudaGraphicsUnregisterResource
 //
@@ -8794,8 +8330,6 @@ var slotGreenCtxGetDevResource outSlot[DevResource]
 //
 // Returns in greenCtxId the unique Id which is associated with a given green context. The Id is unique for the life of the program for this instance of CUDA. If green context is supplied as NULL and the current context is set to a green context, the Id of the current green context is returned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.Id]
 //
 //   - greenCtx: Green context for which to obtain the Id
@@ -8841,8 +8375,6 @@ func greenCtxRecordEvent(hCtx GreenCtx, hEvent Event) error {
 // Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Destroy]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx.
 // The supported values for flags are:
 // Specifying priority affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order. priority follows a convention where lower numbers represent higher priorities. ‘0’ represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: In the current implementation, only compute kernels launched in priority streams are affected by the stream’s priority. Stream priorities have no effect on host-to-device and device-to-host memory operations.
 //
@@ -8907,8 +8439,6 @@ func greenCtxWaitEvent(hCtx GreenCtx, hEvent Event) error {
 // The size of the memory object must be specified in [ExternalMemoryHandleDesc].size.
 // Specifying the flag CUDA_EXTERNAL_MEMORY_DEDICATED in [ExternalMemoryHandleDesc].flags indicates that the resource is a dedicated resource. The definition of what a dedicated resource is outside the scope of this extension. This flag must be set if [ExternalMemoryHandleDesc].type is one of the following: [ExternalMemoryHandleTypeD3d12Resource] [ExternalMemoryHandleTypeD3d11Resource] [ExternalMemoryHandleTypeD3d11ResourceKmt]
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: If the Vulkan memory imported into CUDA is mapped on the CPU then the application must use vkInvalidateMappedMemoryRanges/vkFlushMappedMemoryRanges as well as appropriate Vulkan pipeline barriers to maintain coherence between CPU and GPU. For more information on these APIs, please refer to “Synchronization
 // and Cache Control” chapter from Vulkan specification.
 //
@@ -8949,8 +8479,6 @@ var slotImportExternalMemory outSlot[ExternalMemory]
 // If [ExternalSemaphoreHandleDesc].type is [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], then [ExternalSemaphoreHandleDesc].handlefd must be a valid file descriptor referencing a synchronization object. Ownership of the file descriptor is transferred to the CUDA driver when the handle is imported successfully. Performing any operations on the file descriptor after it is imported results in undefined behavior.
 // If [ExternalSemaphoreHandleDesc].type is [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32], then exactly one of [ExternalSemaphoreHandleDesc].handlewin32.handle and [ExternalSemaphoreHandleDesc].handlewin32.name must not be NULL. If [ExternalSemaphoreHandleDesc].handlewin32.handle is not NULL, then it must represent a valid shared NT handle that references a synchronization object. Ownership of this handle is not transferred to CUDA after the import operation, so the application must release the handle using the appropriate system call. If [ExternalSemaphoreHandleDesc].handlewin32.name is not NULL, then it must name a valid synchronization object.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [ExternalSemaphore.Destroy], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - semHandleDesc: Semaphore import handle descriptor
@@ -8977,8 +8505,6 @@ var slotImportExternalSemaphore outSlot[ExternalSemaphore]
 // Currently, the Flags parameter must be 0. If [Init] has not been called, any function from the driver API will return [ErrNotInitialized].
 //
 // Note: [Init] preloads various libraries needed for JIT compilation. To opt-out of this behavior, set the environment variable CUDA_FORCE_PRELOAD_LIBRARIES=0. CUDA will lazily load JIT libraries as needed. To disable JIT entirely, set the environment variable CUDA_DISABLE_JIT=1.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - flags: Initialization flag for CUDA
 //
@@ -9199,8 +8725,6 @@ var slotKernelGetLibrary outSlot[Library]
 //
 // Returns in **name the function name associated with the kernel handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the kernel handle is valid. If the library is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 //   - name: The returned name of the function
 //   - hfunc: The function handle to retrieve the name for
 //
@@ -9220,8 +8744,6 @@ func kernelGetName(hfunc Kernel) (string, error) {
 // kernelGetParamCount returns the number of parameters used by the kernel.
 //
 // Queries the number of kernel parameters used by kernel and returns it in paramCount.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Kernel.ParamInfo]
 //
@@ -9247,8 +8769,6 @@ var slotKernelGetParamCount outSlot[uint]
 // kernelGetParamInfo returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
 // Queries the kernel parameter at paramIndex into kernel's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that kernel takes. paramSize can be set to NULL if only the parameter offset is desired.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.ParamInfo]
 //
@@ -9326,8 +8846,6 @@ func kernelSetCacheConfig(kernel Kernel, config FuncCacheConfig, dev Device) err
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
 // Launching a function via [Function.LaunchKernel] invalidates the function’s block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 //   - f: Kernel to launch
@@ -9356,8 +8874,6 @@ func launch(f Function) error {
 // Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream.
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], [LaunchCooperativeKernelMultiDevice], cudaLaunchCooperativeKernel, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
@@ -9399,8 +8915,6 @@ func launchCooperativeKernel(f Function, gridDimX uint32, gridDimY uint32, gridD
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], [Function.LaunchCooperativeKernel], cudaLaunchCooperativeKernelMultiDevice
 //
 //   - launchParamsList: List of launch parameters, one per device
@@ -9422,8 +8936,6 @@ func LaunchCooperativeKernelMultiDevice(launchParamsList *LaunchParams, numDevic
 // Invokes the kernel f on a gridWidth x gridHeight grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape].
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
 // Launching a function via [Function.LaunchKernel] invalidates the function’s block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -9451,8 +8963,6 @@ func launchGrid(f Function, gridWidth int32, gridHeight int32) error {
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchKernel]
 //
 //   - f: Kernel to launch
@@ -9478,8 +8988,6 @@ func launchGridAsync(f Function, gridWidth int32, gridHeight int32, hStream Stre
 // Note that, in contrast to [Stream.AddCallback], the function will not be called in the event of an error in the CUDA context.
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewStream], [Stream.Query], [Stream.Synchronize], [Stream.WaitEvent], [Stream.Destroy], [MemAllocManaged], [Stream.AttachMemAsync], [Stream.AddCallback]
 //
@@ -9508,8 +9016,6 @@ func launchHostFunc(hStream Stream, fn uintptr, userData uintptr, syncMode uint3
 // Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream.
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], cudaLaunchKernel, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
@@ -9564,8 +9070,6 @@ func launchKernel(f Function, gridDimX uint32, gridDimY uint32, gridDimZ uint32,
 // Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream [LaunchConfig].hStream or the current context in case of NULL stream.
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], cudaLaunchKernel, cudaLaunchKernelEx, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
@@ -9939,8 +9443,6 @@ var slotLinkComplete outSlot[struct {
 //
 // Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [LinkState.AddData], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy]
 //
 //   - numOptions: Size of options arrays
@@ -10127,8 +9629,6 @@ var slotMemAddressReserve outSlot[DevicePtr]
 // Advise the Unified Memory subsystem about the usage pattern for the memory range starting at devPtr with a size of count bytes. The start address and end address of the memory range will be rounded down and rounded up respectively to be aligned to CPU page size before the advice is applied. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables. The memory range could also refer to system-allocated pageable memory provided it represents a valid, host-accessible region of memory and all additional constraints imposed by advice as outlined below are also satisfied. Specifying an invalid system-allocated pageable memory range results in an error being returned.
 // The advice parameter can take the following values:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: This function uses standard default stream semantics.
@@ -10151,8 +9651,6 @@ func memAdvise(devPtr DevicePtr, count uint, advice MemAdvise, location MemLocat
 // MemAlloc allocates device memory.
 //
 // Allocates bytesize bytes of linear memory on the device and returns in *dptr a pointer to the allocated memory. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAlloc] returns [ErrInvalidValue].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc
 //
@@ -10262,8 +9760,6 @@ var slotMemAllocFromPoolAsync outSlot[DevicePtr]
 // Page-locking excessive amounts of memory with [MemAllocHost] may degrade system performance, since it reduces the amount of memory available to the system for paging. As a result, this function is best used sparingly to allocate staging areas for data exchange between host and device.
 // Note all host memory allocated using [MemAllocHost] will automatically be immediately accessible to all contexts on all devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]). The device pointer that may be used to access this host memory from those contexts is always equal to the returned host pointer *pp. See Unified Addressing for additional details.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocHost
 //
 //   - pp: Returned pointer to host memory
@@ -10287,8 +9783,6 @@ func MemAllocHost(pp *uintptr, bytesize uint) error {
 // In a system where all GPUs have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess], managed memory may not be populated when this API returns and instead may be populated on access. In such systems, managed memory can migrate to any processor’s memory at any time. The Unified Memory driver will employ heuristics to maintain data locality and prevent excessive page faults to the extent possible. The application can also guide the driver about memory usage patterns via [DevicePtr.MemAdvise]. The application can also explicitly migrate memory to a desired processor’s memory via [DevicePtr.MemPrefetchAsync].
 // In a multi-GPU system where all of the GPUs have a zero value for the device attribute [DevAttrConcurrentManagedAccess] and all the GPUs have peer-to-peer support with each other, the physical storage for managed memory is created on the GPU which is active at the time [MemAllocManaged] is called. All other GPUs will reference the data at reduced bandwidth via peer mappings over the PCIe bus. The Unified Memory driver does not migrate memory among such GPUs.
 // In a multi-GPU system where not all GPUs have peer-to-peer support with each other and where the value of the device attribute [DevAttrConcurrentManagedAccess] is zero for at least one of those GPUs, the location chosen for physical storage of managed memory is system-dependent.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], [Device.Attribute], [Stream.AttachMemAsync], cudaMallocManaged
 //
@@ -10334,8 +9828,6 @@ var slotMemAllocManaged outSlot[DevicePtr]
 // The pitch returned by [MemAllocPitch] is guaranteed to work with [Memcpy2D] under all circumstances. For allocations of 2D arrays, it is recommended that programmers consider performing pitch allocations using [MemAllocPitch]. Due to alignment restrictions in the hardware, this is especially true if the application will be performing 2D memory copies between different regions of device memory (whether linear memory or CUDA arrays).
 // The byte alignment of the pitch returned by [MemAllocPitch] is guaranteed to match or exceed the alignment requirement for texture binding with [TexRef.SetAddress2D].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocPitch
 //
 //   - widthInBytes: Requested allocation width in bytes
@@ -10364,8 +9856,6 @@ var slotMemAllocPitch outSlot[struct {
 //
 // Each of the count decompression operations is described by a single entry in the paramsArray array. Once the batch has been submitted, the function will return, and decompression will happen asynchronously w.r.t. the CPU. To the work completion tracking mechanisms in the CUDA driver, the batch will be considered a single unit of work and processed according to stream semantics, i.e., it is not possible to query the completion of individual decompression operations within a batch.
 // The memory pointed to by each of [MemDecompressParams].src, [MemDecompressParams].dst, and [MemDecompressParams].dstActBytes, must be capable of usage with the hardware decompress feature. That is, for each of said pointers, the pointer attribute [PointerAttributeIsHwDecompressCapable] should give a non-zero value. To ensure this, the memory backing the pointers should have been allocated using one of the following CUDA memory allocators:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -10405,8 +9895,6 @@ var slotMemBatchDecompressAsync outSlot[uint]
 // If [MemAllocationProp].allocFlagsusage contains CU_MEM_CREATE_USAGE_TILE_POOL flag then the memory allocation is intended only to be used as backing tile pool for sparse CUDA arrays and sparse CUDA mipmapped arrays. (see [Stream.MemMapArrayAsync]).
 //
 // Note: On devices with a single locality domain, CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 is equivalent to a full-device allocation created with [MemLocationTypeDevice]. The resulting allocation will be of type [MemLocationTypeDevice].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [MemRelease], [MemExportToShareableHandle], [MemImportFromShareableHandle]
 //
@@ -10500,8 +9988,6 @@ func MemExportToShareableHandle(shareableHandle uintptr, handle uint64, handleTy
 // Frees the memory space pointed to by dptr, which must have been returned by a previous call to one of the following memory allocation APIs - [MemAlloc], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync]
 // Note - This API will not perform any implict synchronization when the pointer was allocated with [Stream.MemAllocAsync] or [MemoryPool.MemAllocFromPoolAsync]. Callers must ensure that all accesses to these pointer have completed before invoking [DevicePtr.Free]. For best performance and memory reuse, users should use [DevicePtr.FreeAsync] to free memory allocated via the stream ordered memory allocator. For all other pointers, this API may perform implicit synchronization.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [DevicePtr.FreeAsync], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFree
 //
 //   - dptr: Pointer to memory to free
@@ -10534,8 +10020,6 @@ func memFreeAsync(dptr DevicePtr, hStream Stream) error {
 // MemFreeHost frees page-locked host memory.
 //
 // Frees the memory space pointed to by p, which must have been returned by a previous call to [MemAllocHost].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFreeHost
 //
@@ -10576,8 +10060,6 @@ var slotMemGetAccess outSlot[uint64]
 // memGetAddressRange gets information on memory allocations.
 //
 // Returns the base address in *pbase and size in *psize of the allocation that contains the input pointer dptr. Both parameters pbase and psize are optional. If one of them is NULL, it is ignored.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32]
 //
@@ -10654,8 +10136,6 @@ var slotMemGetAllocationPropertiesFromHandle outSlot[MemAllocationProp]
 //
 // The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost], [MemLocationTypeHostNuma], or CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.Attribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [MemGetMemPool], [NewMemoryPool]
 //
 // Wraps cuMemGetDefaultMemPool.
@@ -10703,8 +10183,6 @@ func memGetHandleForAddressRange(handle uintptr, dptr DevicePtr, size uint, hand
 //
 // Returns in *total the total amount of memory available to the the current context. Returns in *free the amount of memory on the device that is free according to the OS. CUDA is not guaranteed to be able to allocate all of the memory that the OS reports as free. In a multi-tenet situation, free estimate returned is prone to race condition where a new allocation/free done by a different process or a different thread in the same process between the time when free memory was estimated and reported, will result in deviation in free value reported and actual free memory.
 // The integrated GPU on Tegra shares memory with CPU and other component of the SoC. The free and total values returned by the API excludes the SWAP memory space maintained by the OS on some platforms. The OS may move some of the memory pages into swap area as the GPU or CPU allocate or access memory. See Tegra app note on how to calculate total and free memory on Tegra.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemGetInfo
 //
@@ -10761,8 +10239,6 @@ var slotMemGetMemPool outSlot[MemoryPool]
 // The memory allocated by this function must be freed with [MemFreeHost].
 // Note all host memory allocated using [MemHostAlloc] will automatically be immediately accessible to all contexts on all devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]). Unless the flag CU_MEMHOSTALLOC_WRITECOMBINED is specified, the device pointer that may be used to access this host memory from those contexts is always equal to the returned host pointer *pp. If the flag CU_MEMHOSTALLOC_WRITECOMBINED is specified, then the function [MemHostGetDevicePointer] must be used to query the device pointer, even if the context supports unified addressing. See Unified Addressing for additional details.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaHostAlloc
 //
 //   - pp: Returned pointer to host memory
@@ -10783,8 +10259,6 @@ func MemHostAlloc(pp *uintptr, bytesize uint, flags uint32) error {
 // [MemHostGetDevicePointer] will fail if the CU_MEMHOSTALLOC_DEVICEMAP flag was not specified at the time the memory was allocated, or if the function is called on a GPU that does not support mapped pinned memory.
 // For devices that have a non-zero value for the device attribute [DevAttrCanUseHostPointerForRegisteredMem], the memory can also be accessed from the device using the host pointer p. The device pointer returned by [MemHostGetDevicePointer] may or may not match the original host pointer p and depends on the devices visible to the application. If all devices visible to the application have a non-zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will match the original pointer p. If any device visible to the application has a zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will not match the original host pointer p, but it will be suitable for use on all devices provided Unified Virtual Addressing is enabled. In such systems, it is valid to access the memory using either pointer on devices that have a non-zero value for the device attribute. Note however that such devices should access the memory using only one of the two pointers and not both.
 // Flags provides for future releases. For now, it must be set to 0.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaHostGetDevicePointer
 //
@@ -10812,8 +10286,6 @@ var slotMemHostGetDevicePointer outSlot[DevicePtr]
 //
 // Passes back the flags pFlags that were specified when allocating the pinned host buffer p allocated by [MemHostAlloc].
 // [MemHostGetFlags] will fail if the pointer does not reside in an allocation performed by [MemAllocHost] or [MemHostAlloc].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [MemAllocHost], [MemHostAlloc], cudaHostGetFlags
 //
@@ -10846,8 +10318,6 @@ var slotMemHostGetFlags outSlot[uint32]
 // For devices that have a non-zero value for the device attribute [DevAttrCanUseHostPointerForRegisteredMem], the memory can also be accessed from the device using the host pointer p. The device pointer returned by [MemHostGetDevicePointer] may or may not match the original host pointer ptr and depends on the devices visible to the application. If all devices visible to the application have a non-zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will match the original pointer ptr. If any device visible to the application has a zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will not match the original host pointer ptr, but it will be suitable for use on all devices provided Unified Virtual Addressing is enabled. In such systems, it is valid to access the memory using either pointer on devices that have a non-zero value for the device attribute. Note however that such devices should access the memory using only of the two pointers and not both.
 // The memory page-locked by this function must be unregistered with [MemHostUnregister].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [MemHostUnregister], [MemHostGetFlags], [MemHostGetDevicePointer], cudaHostRegister
 //
 //   - p: Host pointer to memory to page-lock
@@ -10866,8 +10336,6 @@ func MemHostRegister(p uintptr, bytesize uint, flags uint32) error {
 //
 // Unmaps the memory range whose base address is specified by p, and makes it pageable again.
 // The base address must be the same one specified to [MemHostRegister].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [MemHostRegister], cudaHostUnregister
 //
@@ -10918,8 +10386,6 @@ var slotMemImportFromShareableHandle outSlot[uint64]
 // Please note calling [DevicePtr.MemMap] does not make the address accessible, the caller needs to update accessibility of a contiguous mapped VA range by calling [DevicePtr.MemSetAccess].
 // Once a recipient process obtains a shareable memory handle from [MemImportFromShareableHandle], the process must use [DevicePtr.MemMap] to map the memory into its address ranges before setting accessibility with [DevicePtr.MemSetAccess].
 // [DevicePtr.MemMap] can only create mappings on VA range reservations that are not currently mapped.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [DevicePtr.MemUnmap], [DevicePtr.MemSetAccess], [MemCreate], [DevicePtr.MemAddressReserve], [MemImportFromShareableHandle]
 //
@@ -11236,8 +10702,6 @@ func memPoolTrimTo(pool MemoryPool, minBytesToKeep uint) error {
 // Note that this API is not required for functionality and only serves to improve performance by allowing the application to migrate data to a suitable location before it is accessed. Memory accesses to this range are always coherent and are allowed even when the data is actively being migrated.
 // Note that this function is asynchronous with respect to the host and all work on other devices.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: This function uses standard default stream semantics.
@@ -11286,8 +10750,6 @@ func memPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, prefetchLo
 // Query an attribute about the memory range starting at devPtr with a size of count bytes. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables.
 // The attribute parameter can take the following values:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: This function uses standard default stream semantics.
@@ -11313,8 +10775,6 @@ func memRangeGetAttribute(data unsafe.Pointer, dataSize uint, attribute MemRange
 // Query attributes of the memory range starting at devPtr with a size of count bytes. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables. The attributes array will be interpreted to have numAttributes entries. The dataSizes array will also be interpreted to have numAttributes entries. The results of the query will be stored in data.
 // The list of supported attributes are given below. Please refer to [DevicePtr.MemRangeGetAttribute] for attribute descriptions and restrictions.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DevicePtr.MemRangeGetAttribute], [DevicePtr.MemAdvise], [DevicePtr.MemPrefetchAsync], cudaMemRangeGetAttributes
 //
 //   - data: A two-dimensional array containing pointers to memory locations where the result of each attribute query will be written to
@@ -11336,8 +10796,6 @@ func memRangeGetAttributes(data *uintptr, dataSizes *uint, attributes *MemRangeA
 //
 // Frees the memory that was allocated on a device through [MemCreate].
 // The memory allocation will be freed when all outstanding mappings to the memory are unmapped and when all outstanding references to the handle (including it’s shareable counterparts) are also released. The generic memory handle can be freed when there are still outstanding mappings made with this handle. Each time a recipient process imports a shareable handle, it needs to pair it with [MemRelease] for the handle to be freed. If handle is not a valid handle the behavior is undefined.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [MemCreate]
 //
@@ -11382,8 +10840,6 @@ var slotMemRetainAllocationHandle outSlot[uint64]
 //
 // Given the virtual address range via ptr and size, and the locations in the array given by desc and count, set the access flags for the target locations. The range must be a fully mapped address range containing all allocations created by [DevicePtr.MemMap] / [MemCreate]. Users cannot specify [MemLocationTypeHostNuma] accessibility for allocations created on with other location types. Note: When [MemAccessDesc].CUmemLocationtype is [MemLocationTypeHostNuma], [MemAccessDesc].CUmemLocationid is ignored. When setting the access flags for a virtual address range mapping a multicast object, ptr and size must be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_MINIMUM_GRANULARITY. For best performance however, it is recommended that ptr and size be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_RECOMMENDED_GRANULARITY.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [DevicePtr.MemSetAccess], [MemCreate], : [DevicePtr.MemMap]
@@ -11423,8 +10879,6 @@ func memSetMemPool(location *MemLocation, type_ MemAllocationType, pool MemoryPo
 // The range must be the entire contiguous address range that was mapped to. In other words, [DevicePtr.MemUnmap] cannot unmap a sub-range of an address range mapped by [MemCreate] / [DevicePtr.MemMap]. Any backing memory allocations will be freed if there are no existing mappings and there are no unreleased memory handles.
 // When [DevicePtr.MemUnmap] returns successfully the address range is converted to an address reservation and can be used for a future calls to [DevicePtr.MemMap]. Any new mapping to this virtual address will need to have access granted through [DevicePtr.MemSetAccess], as all mappings start with no accessibility setup.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [MemCreate], [DevicePtr.MemAddressReserve]
@@ -11443,8 +10897,6 @@ func memUnmap(ptr DevicePtr, size uint) error {
 // memcpy copies memory.
 //
 // Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
@@ -11485,8 +10937,6 @@ func memcpy(dst DevicePtr, src DevicePtr, byteCount uint) error {
 //
 // [Memcpy2D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Memcpy2D] may fail for pitches not computed by [MemAllocPitch]. [Memcpy2DUnaligned] does not have this restriction, but may run significantly slower in the cases where [Memcpy2D] would have returned an error code.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy2D, cudaMemcpy2DToArray, cudaMemcpy2DFromArray
@@ -11521,8 +10971,6 @@ func Memcpy2D(pCopy *Memcpy2d) error {
 // For CUDA arrays, dstXInBytes must be evenly divisible by the array element size.
 //
 // [Stream.Memcpy2DAsync] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Stream.Memcpy2DAsync] may fail for pitches not computed by [MemAllocPitch].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -11562,8 +11010,6 @@ func memcpy2DAsync(pCopy *Memcpy2d, hStream Stream) error {
 //
 // [Memcpy2D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Memcpy2D] may fail for pitches not computed by [MemAllocPitch]. [Memcpy2DUnaligned] does not have this restriction, but may run significantly slower in the cases where [Memcpy2D] would have returned an error code.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy2D, cudaMemcpy2DToArray, cudaMemcpy2DFromArray
@@ -11598,8 +11044,6 @@ func Memcpy2DUnaligned(pCopy *Memcpy2d) error {
 // For CUDA arrays, dstXInBytes must be evenly divisible by the array element size.
 // The srcLOD and dstLOD members of the [Memcpy3d] structure must be set to 0.
 // [Memcpy3D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]).
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
@@ -11636,8 +11080,6 @@ func Memcpy3D(pCopy *Memcpy3d) error {
 // The srcLOD and dstLOD members of the [Memcpy3d] structure must be set to 0.
 // [Stream.Memcpy3DAsync] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]).
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: This function uses standard default stream semantics.
@@ -11664,8 +11106,6 @@ func memcpy3DAsync(pCopy *Memcpy3d, hStream Stream) error {
 // The [MemcpyAttributes].srcAccessOrder indicates the source access ordering to be observed for copies associated with the attribute. If the source access order is set to [MemcpySrcAccessOrderStream], then the source will be accessed in stream order. If the source access order is set to [MemcpySrcAccessOrderDuringApiCall] then it indicates that access to the source pointer can be out of stream order and all accesses must be complete before the API call returns. This flag is suited for ephemeral sources (ex., stack variables) when it’s known that no prior operations in the stream can be accessing the memory and also that the lifetime of the memory is limited to the scope that the source variable was declared in. Specifying this flag allows the driver to optimize the copy and removes the need for the user to synchronize the stream after the API call. If the source access order is set to [MemcpySrcAccessOrderAny] then it indicates that access to the source pointer can be out of stream order and the accesses can happen even after the API call returns. This flag is suited for host pointers allocated outside CUDA (ex., via malloc) when it’s known that no prior operations in the stream can be accessing the memory. Specifying this flag allows the driver to optimize the copy on certain platforms. Each memcopy operation in opList must have a valid srcAccessOrder setting, otherwise this API will return [ErrInvalidValue].
 // The [MemcpyAttributes].flags field can be used to specify certain flags for copies. Setting the [MemcpyFlagPreferOverlapWithCompute] flag indicates that the associated copies should preferably overlap with any compute work. Note that this flag is a hint and can be ignored depending on the platform and other parameters of the copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -11687,8 +11127,6 @@ func memcpy3DBatchAsync(numOps uint, opList *Memcpy3dBatchOp, flags uint64, hStr
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. See the definition of the [Memcpy3dPeer] structure for documentation of its parameters.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromPeer], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyFromPeerAsync], [Stream.Memcpy3DPeerAsync], cudaMemcpy3DPeer
@@ -11706,8 +11144,6 @@ func Memcpy3DPeer(pCopy *Memcpy3dPeer) error {
 // memcpy3DPeerAsync copies memory between contexts asynchronously.
 //
 // Perform a 3D memory copy according to the parameters specified in pCopy. See the definition of the [Memcpy3dPeer] structure for documentation of its parameters.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -11731,8 +11167,6 @@ func memcpy3DPeerAsync(pCopy *Memcpy3dPeer, hStream Stream) error {
 // Performs the copy operation specified in op. flags specifies the flags for the copy and hStream specifies the stream to enqueue the operation in.
 // For more information regarding the operation, please refer to [Memcpy3dBatchOp] and it’s usage desciption in [Stream.Memcpy3DBatchAsync]
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -11754,8 +11188,6 @@ func memcpy3DWithAttributesAsync(op *Memcpy3dBatchOp, flags uint64, hStream Stre
 // memcpyAsync copies memory asynchronously.
 //
 // Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -11782,8 +11214,6 @@ func memcpyAsync(dst DevicePtr, src DevicePtr, byteCount uint, hStream Stream) e
 //
 // Copies from one 1D CUDA array to another. dstArray and srcArray specify the handles of the destination and source CUDA arrays for the copy, respectively. dstOffset and srcOffset specify the destination and source offsets in bytes into the CUDA arrays. ByteCount is the number of bytes to be copied. The size of the elements in the CUDA arrays need not be the same format, but the elements must be the same size; and count must be evenly divisible by that size.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyArrayToArray
@@ -11806,8 +11236,6 @@ func memcpyAtoA(dstArray Array, dstOffset uint, srcArray Array, srcOffset uint, 
 //
 // Copies from one 1D CUDA array to device memory. dstDevice specifies the base pointer of the destination and must be naturally aligned with the CUDA array elements. srcArray and srcOffset specify the CUDA array handle and the offset in bytes into the array where the copy is to begin. ByteCount specifies the number of bytes to copy and must be evenly divisible by the array element size.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyFromArray
@@ -11828,8 +11256,6 @@ func memcpyAtoD(dstDevice DevicePtr, srcArray Array, srcOffset uint, byteCount u
 // memcpyAtoH copies memory from Array to Host.
 //
 // Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
@@ -11853,8 +11279,6 @@ func memcpyAtoH(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, byteCoun
 // memcpyAtoHAsync copies memory from Array to Host.
 //
 // Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -11887,8 +11311,6 @@ func memcpyAtoHAsync(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, byt
 // The [MemcpyAttributes].srcLocHint and [MemcpyAttributes].dstLocHint allows applications to specify hint locations for operands of a copy when the operand doesn’t have a fixed location. That is, these hints are only applicable for managed memory pointers on devices where [DevAttrConcurrentManagedAccess] is true or system-allocated pageable memory on devices where [DevAttrPageableMemoryAccess] is true. For other cases, these hints are ignored.
 // The [MemcpyAttributes].flags field can be used to specify certain flags for copies. Setting the [MemcpyFlagPreferOverlapWithCompute] flag indicates that the associated copies should preferably overlap with any compute work. Note that this flag is a hint and can be ignored depending on the platform and other parameters of the copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -11914,8 +11336,6 @@ func memcpyBatchAsync(dsts *DevicePtr, srcs *DevicePtr, sizes *uint, count uint,
 //
 // Copies from device memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting index of the destination data. srcDevice specifies the base pointer of the source. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyToArray
@@ -11937,8 +11357,6 @@ func memcpyDtoA(dstArray Array, dstOffset uint, srcDevice DevicePtr, byteCount u
 //
 // Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyToSymbol, cudaMemcpyFromSymbol
@@ -11958,8 +11376,6 @@ func memcpyDtoD(dstDevice DevicePtr, srcDevice DevicePtr, byteCount uint) error 
 // memcpyDtoDAsync copies memory from Device to Device.
 //
 // Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -11984,8 +11400,6 @@ func memcpyDtoDAsync(dstDevice DevicePtr, srcDevice DevicePtr, byteCount uint, h
 //
 // Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -12007,8 +11421,6 @@ func memcpyDtoH(dstHost unsafe.Pointer, srcDevice DevicePtr, byteCount uint) err
 // memcpyDtoHAsync copies memory from Device to Host.
 //
 // Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -12035,8 +11447,6 @@ func memcpyDtoHAsync(dstHost unsafe.Pointer, srcDevice DevicePtr, byteCount uint
 //
 // Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. pSrc specifies the base address of the source. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -12059,8 +11469,6 @@ func memcpyHtoA(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, byteCoun
 // memcpyHtoAAsync copies memory from Host to Array.
 //
 // Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. srcHost specifies the base address of the source. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -12088,8 +11496,6 @@ func memcpyHtoAAsync(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, byt
 //
 // Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -12111,8 +11517,6 @@ func memcpyHtoD(dstDevice DevicePtr, srcHost unsafe.Pointer, byteCount uint) err
 // memcpyHtoDAsync copies memory from Host to Device.
 //
 // Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -12139,8 +11543,6 @@ func memcpyHtoDAsync(dstDevice DevicePtr, srcHost unsafe.Pointer, byteCount uint
 //
 // Copies from device memory in one context to device memory in another context. dstDevice is the base device pointer of the destination memory and dstContext is the destination context. srcDevice is the base device pointer of the source memory and srcContext is the source pointer. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [DevicePtr.CopyFromDevice], [Memcpy3DPeer], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyFromPeerAsync], [Stream.Memcpy3DPeerAsync], cudaMemcpyPeer
@@ -12162,8 +11564,6 @@ func memcpyPeer(dstDevice DevicePtr, dstContext Context, srcDevice DevicePtr, sr
 // memcpyPeerAsync copies device memory between two contexts asynchronously.
 //
 // Copies from device memory in one context to device memory in another context. dstDevice is the base device pointer of the destination memory and dstContext is the destination context. srcDevice is the base device pointer of the source memory and srcContext is the source pointer. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -12191,8 +11591,6 @@ func memcpyPeerAsync(dstDevice DevicePtr, dstContext Context, srcDevice DevicePt
 // Performs asynchronous memory copy operation where dst and src are the destination and source pointers respectively. size specifies the number of bytes to copy. attr specifies the attributes for the copy and hStream specifies the stream to enqueue the operation in.
 // For more information regarding the attributes, please refer to [MemcpyAttributes] and it’s usage desciption in [Stream.MemcpyBatchAsync]
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -12217,8 +11615,6 @@ func memcpyWithAttributesAsync(dst DevicePtr, src DevicePtr, size uint, attr *Me
 //
 // Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset
@@ -12238,8 +11634,6 @@ func memsetD16(dstDevice DevicePtr, us uint16, n uint) error {
 // memsetD16Async sets device memory.
 //
 // Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -12264,8 +11658,6 @@ func memsetD16Async(dstDevice DevicePtr, us uint16, n uint, hStream Stream) erro
 //
 // Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
@@ -12287,8 +11679,6 @@ func memsetD2D16(dstDevice DevicePtr, dstPitch uint, us uint16, width uint, heig
 // memsetD2D16Async sets device memory.
 //
 // Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -12315,8 +11705,6 @@ func memsetD2D16Async(dstDevice DevicePtr, dstPitch uint, us uint16, width uint,
 //
 // Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
@@ -12338,8 +11726,6 @@ func memsetD2D32(dstDevice DevicePtr, dstPitch uint, ui uint32, width uint, heig
 // memsetD2D32Async sets device memory.
 //
 // Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -12366,8 +11752,6 @@ func memsetD2D32Async(dstDevice DevicePtr, dstPitch uint, ui uint32, width uint,
 //
 // Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
@@ -12389,8 +11773,6 @@ func memsetD2D8(dstDevice DevicePtr, dstPitch uint, uc uint8, width uint, height
 // memsetD2D8Async sets device memory.
 //
 // Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -12417,8 +11799,6 @@ func memsetD2D8Async(dstDevice DevicePtr, dstPitch uint, uc uint8, width uint, h
 //
 // Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32Async], cudaMemset
@@ -12438,8 +11818,6 @@ func memsetD32(dstDevice DevicePtr, ui uint32, n uint) error {
 // memsetD32Async sets device memory.
 //
 // Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -12464,8 +11842,6 @@ func memsetD32Async(dstDevice DevicePtr, ui uint32, n uint, hStream Stream) erro
 //
 // Sets the memory range of N 8-bit values to the specified value uc.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset
@@ -12485,8 +11861,6 @@ func memsetD8(dstDevice DevicePtr, uc uint8, n uint) error {
 // memsetD8Async sets device memory.
 //
 // Sets the memory range of N 8-bit values to the specified value uc.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -12514,8 +11888,6 @@ func memsetD8Async(dstDevice DevicePtr, uc uint8, n uint, hStream Stream) error 
 // where:
 // Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [MipmappedArray.Destroy], [MipmappedArray.Level], [NewArray], cudaMallocMipmappedArray
 //
 //   - pMipmappedArrayDesc: mipmapped array descriptor
@@ -12542,8 +11914,6 @@ var slotMipmappedArrayCreate outSlot[MipmappedArray]
 //
 // Destroys the CUDA mipmapped array hMipmappedArray.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewMipmappedArray], [MipmappedArray.Level], [NewArray], cudaFreeMipmappedArray
 //
 //   - hMipmappedArray: Mipmapped array to destroy
@@ -12560,8 +11930,6 @@ func mipmappedArrayDestroy(hMipmappedArray MipmappedArray) error {
 //
 // Returns in *pLevelArray a CUDA array that represents a single mipmap level of the CUDA mipmapped array hMipmappedArray.
 // If level is greater than the maximum number of levels in this mipmapped array, [ErrInvalidValue] is returned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewMipmappedArray], [MipmappedArray.Destroy], [NewArray], cudaGetMipmappedArrayLevel
 //
@@ -12662,8 +12030,6 @@ func moduleEnumerateFunctions(functions *Function, numFunctions uint32, mod Modu
 //
 // Returns in *hfunc the handle of the function of name name located in module hmod. If no function of that name exists, [Module.Function] returns [ErrNotFound].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - hmod: Module to retrieve function from
@@ -12712,8 +12078,6 @@ var slotModuleGetFunctionCount outSlot[uint32]
 //
 // Returns in *dptr and *bytes the base pointer and size of the global of name name located in module hmod. If no variable of that name exists, [Module.Global] returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Module.Function], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload], cudaGetSymbolAddress, cudaGetSymbolSize
 //
 //   - hmod: Module to retrieve global from
@@ -12742,8 +12106,6 @@ var slotModuleGetGlobal outSlot[struct {
 //
 // Returns lazy loading mode Module loading mode is controlled by CUDA_MODULE_LOADING env variable
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [ModuleLoad]
 //
 // Wraps cuModuleGetLoadingMode.
@@ -12766,8 +12128,6 @@ var slotModuleGetLoadingMode outSlot[ModuleLoadingMode]
 // moduleGetSurfRef returns a handle to a surface reference.
 //
 // Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.SurfRef] returns [ErrNotFound].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
@@ -12797,8 +12157,6 @@ var slotModuleGetSurfRef outSlot[SurfRef]
 //
 // Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.TexRef] returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Module.Function], [Module.Global], [Module.SurfRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - hmod: Module to retrieve texture reference from
@@ -12827,8 +12185,6 @@ var slotModuleGetTexRef outSlot[TexRef]
 //
 // Takes a filename fname and loads the corresponding module module into the current context. The CUDA driver API does not attempt to lazily allocate the resources needed by a module; if the memory for functions and data (constant and global) needed by the module cannot be allocated, [ModuleLoad] fails. The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc from toolchain 4.0 or later, or a Tile IR file.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - fname: Filename of module to load
@@ -12852,8 +12208,6 @@ var slotModuleLoad outSlot[Module]
 // moduleLoadData loads a module’s data.
 //
 // Takes image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
@@ -12884,8 +12238,6 @@ var slotModuleLoadData outSlot[Module]
 // moduleLoadDataEx loads a module’s data with options.
 //
 // Takes image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a PTX, either as output by nvcc or hand-written, or Tile IR data.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadFatBinary], [Module.Unload]
 //
@@ -12921,8 +12273,6 @@ var slotModuleLoadDataEx outSlot[Module]
 // Takes fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures.
 // Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [Module.Unload]
 //
 //   - fatCubin: Fat binary to load
@@ -12947,8 +12297,6 @@ var slotModuleLoadFatBinary outSlot[Module]
 // moduleUnload unloads a module.
 //
 // Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.Module] will return [ErrNotPermitted].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: Use of the handle after this call is undefined behavior.
 //
@@ -13168,8 +12516,6 @@ func multicastUnbind(mcHandle uint64, dev Device, mcOffset uint, size uint) erro
 // Returns in *dynamicSmemSize the maximum size of dynamic shared memory to allow numBlocks blocks per SM.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 //   - func_: Kernel function for which occupancy is calculated
 //   - numBlocks: Number of blocks to fit on SM
 //   - blockSize: Size of the blocks
@@ -13195,8 +12541,6 @@ var slotOccupancyAvailableDynamicSMemPerBlock outSlot[uint]
 //
 // Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: cudaOccupancyMaxActiveBlocksPerMultiprocessor
 //
@@ -13227,8 +12571,6 @@ var slotOccupancyMaxActiveBlocksPerMultiprocessor outSlot[int32]
 // The Flags parameter controls how special cases are handled. The valid flags are:
 // Note that the API can also be with launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags
 //
 //   - func_: Kernel for which occupancy is calculated
@@ -13258,8 +12600,6 @@ var slotOccupancyMaxActiveBlocksPerMultiprocessorWithFlags outSlot[int32]
 // If the function has required cluster size already set (see cudaFuncGetAttributes / [Function.Attribute]), the cluster size from config must either be unspecified or match the required size. Without required sizes, the cluster size must be specified in config, else the function will return an error.
 // Note that various attributes of the kernel function may affect occupancy calculation. Runtime environment may affect how the hardware schedules the clusters, so the calculated occupancy is not guaranteed to be achievable.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will either be taken from the specified stream config->hStream or the current context in case of NULL stream.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: cudaFuncGetAttributes, [Function.Attribute]
 //
@@ -13292,8 +12632,6 @@ var slotOccupancyMaxActiveClusters outSlot[int32]
 // Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored. An example signature is:
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: cudaOccupancyMaxPotentialBlockSize
 //
 //   - func_: Kernel for which launch configuration is calculated
@@ -13324,8 +12662,6 @@ var slotOccupancyMaxPotentialBlockSize outSlot[struct {
 // An extended version of [Function.MaxPotentialBlockSize]. In addition to arguments passed to [Function.MaxPotentialBlockSize], [Function.MaxPotentialBlockSizeWithFlags] also takes a Flags parameter.
 // The Flags parameter controls how special cases are handled. The valid flags are:
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: cudaOccupancyMaxPotentialBlockSizeWithFlags
 //
@@ -13360,8 +12696,6 @@ var slotOccupancyMaxPotentialBlockSizeWithFlags outSlot[struct {
 // This function will respect the compile time launch bounds.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will either be taken from the specified stream config->hStream or the current context in case of NULL stream.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: cudaFuncGetAttributes, [Function.Attribute]
 //
 //   - func_: Kernel function for which maximum cluster size is calculated
@@ -13388,8 +12722,6 @@ var slotOccupancyMaxPotentialClusterSize outSlot[int32]
 //
 // Sets through numbytes the total size in bytes needed by the function parameters of the kernel corresponding to hfunc.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 //   - hfunc: Kernel to set parameter size for
@@ -13409,8 +12741,6 @@ func paramSetSize(hfunc Function, numbytes uint32) error {
 //
 // Makes the CUDA array or linear memory bound to the texture reference hTexRef available to a device program as a texture. In this version of CUDA, the texture-reference must be obtained via [Module.TexRef] and the texunit parameter must be set to CU_PARAM_TR_DEFAULT.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 //   - hfunc: Kernel to add texture-reference to
 //   - texunit: Texture unit (must be CU_PARAM_TR_DEFAULT)
 //   - hTexRef: Texture-reference to add to argument list
@@ -13428,8 +12758,6 @@ func paramSetTexRef(hfunc Function, texunit int32, hTexRef TexRef) error {
 // paramSetf adds a floating-point parameter to the function’s argument list.
 //
 // Sets a floating-point parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -13451,8 +12779,6 @@ func paramSetf(hfunc Function, offset int32, value float32) error {
 //
 // Sets an integer parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 //   - hfunc: Kernel to add parameter to
@@ -13472,8 +12798,6 @@ func paramSeti(hfunc Function, offset int32, value uint32) error {
 // paramSetv adds arbitrary data to the function’s argument list.
 //
 // Copies an arbitrary amount of data (specified in numbytes) from ptr into the parameter space of the kernel corresponding to hfunc. offset is a byte offset.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -13527,8 +12851,6 @@ func paramSetv(hfunc Function, offset int32, ptr unsafe.Pointer, numbytes uint32
 // Returns in *data an integer representing the locality domain ordinal of the allocation, or -1 if the allocation is not localized to a locality domain.
 // Note that for most allocations in the unified virtual address space the host and device pointer for accessing the allocation will be the same. The exceptions to this are
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DevicePtr.PointerSetAttribute], [MemAlloc], [DevicePtr.Free], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister], cudaPointerGetAttributes
 //
 //   - data: Returned pointer attribute value
@@ -13549,8 +12871,6 @@ func pointerGetAttribute(data unsafe.Pointer, attribute PointerAttribute, ptr De
 // Unlike [DevicePtr.PointerGetAttribute], this function will not return an error when the ptr encountered is not a valid CUDA pointer. Instead, the attributes are assigned default NULL values and [Success] is returned.
 // If ptr was not allocated by, mapped by, or registered with a [Context] which uses UVA (Unified Virtual Addressing), [ErrInvalidContext] is returned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DevicePtr.PointerGetAttribute], [DevicePtr.PointerSetAttribute], cudaPointerGetAttributes
 //
 //   - numAttributes: Number of attributes to query
@@ -13570,8 +12890,6 @@ func pointerGetAttributes(numAttributes uint32, attributes *PointerAttribute, da
 //
 // The supported attributes are:
 // A boolean attribute that can either be set (1) or unset (0). When set, the region of memory that ptr points to is guaranteed to always synchronize memory operations that are synchronous. If there are some previously initiated synchronous memory operations that are pending when this attribute is set, the function does not return until those memory operations are complete. See further documentation in the section titled “API synchronization behavior” to learn more about cases when synchronous memory operations can exhibit asynchronous behavior. value will be considered as a pointer to an unsigned integer to which this attribute is to be set.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [DevicePtr.PointerGetAttribute], [DevicePtr.PointerGetAttributes], [MemAlloc], [DevicePtr.Free], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister]
 //
@@ -13595,8 +12913,6 @@ func pointerSetAttribute(value uintptr, attribute PointerAttribute, ptr DevicePt
 // If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then the semaphore will be set to the value specified in [ExternalSemaphoreSignalParams].paramsfence.value.
 // If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] this API sets [ExternalSemaphoreSignalParams].paramsnvSciSync.fence to a value that can be used by subsequent waiters of the same NvSciSync object to order operations with those currently submitted in stream. Such an update will overwrite previous contents of [ExternalSemaphoreSignalParams].paramsnvSciSync.fence. By default, signaling such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_SIGNAL_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.NvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_SIGNAL, this API will return [ErrNotSupported]. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be deterministic. For this the NvSciSyncAttrList used to create the semaphore object must have value of NvSciSyncAttrKey_RequireDeterministicFences key set to true. Deterministic fences allow users to enqueue a wait over the semaphore object even before corresponding signal is enqueued. For such a semaphore object, CUDA guarantees that each signal operation will increment the fence value by ‘1’. Users are expected to track count of signals enqueued on the semaphore object and insert waits accordingly. When such a semaphore object is signaled from multiple streams, due to concurrent stream execution, it is possible that the order in which the semaphore gets signaled is indeterministic. This could lead to waiters of the semaphore getting unblocked incorrectly. Users are expected to handle such situations, either by not using the same semaphore object with deterministic fence support enabled in different streams or by adding explicit dependency amongst such streams so that the semaphore is signaled in order. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be timestamp enabled. For this the NvSciSyncAttrList used to create the object must have the value of NvSciSyncAttrKey_WaiterRequireTimestamps key set to true. Timestamps are emitted asynchronously by the GPU and CUDA saves the GPU timestamp in the corresponding NvSciSyncFence at the time of signal on GPU. Users are expected to convert GPU clocks to CPU clocks using appropriate scaling functions. Users are expected to wait for the completion of the fence before extracting timestamp using appropriate NvSciSync APIs. Users are expected to ensure that there is only one outstanding timestamp enabled fence per Cuda-NvSciSync object at any point of time, failing which leads to undefined behavior. Extracting the timestamp before the corresponding fence is signalled could lead to undefined behaviour. Timestamp extracted via appropriate NvSciSync API would be in microseconds.
 // If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be released with the key specified in CUDA_EXTERNAL_SEMAPHORE_PARAMS.paramskeyedmutex.key.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.WaitExternalSemaphoresAsync]
 //
@@ -13623,8 +12939,6 @@ func signalExternalSemaphoresAsync(extSemArray *ExternalSemaphore, paramsArray *
 // Note: This function is slated for eventual deprecation and removal. If you do not require the callback to execute in case of a device error, consider using [Stream.LaunchHostFunc]. Additionally, this function is not supported with [Stream.BeginCapture] and [Stream.EndCapture], unlike [Stream.LaunchHostFunc].
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewStream], [Stream.Query], [Stream.Synchronize], [Stream.WaitEvent], [Stream.Destroy], [MemAllocManaged], [Stream.AttachMemAsync], [Stream.LaunchHostFunc], cudaStreamAddCallback
 //
@@ -13655,8 +12969,6 @@ func streamAddCallback(hStream Stream, callback uintptr, userData uintptr, flags
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewStream], [Stream.Query], [Stream.Synchronize], [Stream.WaitEvent], [Stream.Destroy], [MemAllocManaged], cudaStreamAttachMemAsync
 //
 //   - hStream: Stream in which to enqueue the attach operation
@@ -13680,8 +12992,6 @@ func streamAttachMemAsync(hStream Stream, dptr DevicePtr, length uint, flags Mem
 //
 // Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.WaitValue32], [Stream.WaitValue64], [Stream.WriteValue32], [Stream.WriteValue64], [MemHostRegister]
 //
 //   - stream: The stream to enqueue the operations in
@@ -13703,8 +13013,6 @@ func streamBatchMemOp(stream Stream, count uint32, paramArray *[6]uint64, flags 
 // If mode is not [StreamCaptureModeRelaxed], [Stream.EndCapture] must be called on this stream from the same thread.
 //
 // Note: Kernels captured using this API must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewStream], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode]
 //
@@ -13731,8 +13039,6 @@ func streamBeginCapture(hStream Stream, mode StreamCaptureMode) error {
 // Resubmission of the same recorded command list is not allowed. Further more, care must be taken for the order of execution of the recorded CUDA work with regards to other CUDA work submitted under the same CIG context. Out-of-order execution can lead to device hangs or exceptions.
 // CIG capture mode operates similarly to [Stream.BeginCapture] with the [StreamCaptureModeRelaxed] option. There are additional limitations to streams in CIG capture mode. The following functions are not allowed for CIG streams whether directly or indirectly via a recorded graph launch: [Stream.LaunchHostFunc] [Stream.AddCallback] [Stream.Synchronize] [Stream.WaitValue32] [Stream.WaitValue64] [Stream.BatchMemOp] [Stream.BeginCapture] [Stream.BeginCaptureToGraph] [Stream.MemAllocAsync] [DevicePtr.FreeAsync]
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.EndCaptureToCig], [Stream.BeginCapture], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
 //
 //   - hStream: Stream in which to initiate capture to CIG
@@ -13753,8 +13059,6 @@ func streamBeginCaptureToCig(hStream Stream, streamCigCaptureParams *StreamCigCa
 // If mode is not [StreamCaptureModeRelaxed], [Stream.EndCapture] must be called on this stream from the same thread.
 //
 // Note: Kernels captured using this API must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.BeginCapture], [NewStream], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode], [Graph.AddNode]
 //
@@ -13777,8 +13081,6 @@ func streamBeginCaptureToGraph(hStream Stream, hGraph Graph, dependencies *Graph
 //
 // Copies attributes from source stream src to destination stream dst. Both streams must have the same context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [AccessPolicyWindow]
 //
 //   - dst: Destination stream
@@ -13796,8 +13098,6 @@ func streamCopyAttributes(dst Stream, src Stream) error {
 //
 // Creates a stream and returns a handle in phStream. The Flags argument determines behaviors of the stream.
 // Valid values for Flags are:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.Destroy], [StreamCreateWithPriority], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device] [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
 //
@@ -13824,8 +13124,6 @@ var slotStreamCreate outSlot[Stream]
 //
 // Creates a stream with the specified priority and returns a handle in phStream. This affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order.
 // priority follows a convention where lower numbers represent higher priorities. ‘0’ represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: Stream priorities are supported only on GPUs with compute capability 3.5 or higher.
 //
@@ -13858,8 +13156,6 @@ var slotStreamCreateWithPriority outSlot[Stream]
 // Destroys the stream specified by hStream.
 // In case the device is still doing work in the stream hStream when [Stream.Destroy] is called, the function will return immediately and the resources associated with hStream will be released automatically once the device has completed all work in hStream.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewStream], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamDestroy
 //
 //   - hStream: Stream to destroy
@@ -13876,8 +13172,6 @@ func streamDestroy(hStream Stream) error {
 //
 // End capture on hStream, returning the captured graph via phGraph. Capture must have been initiated on hStream via a call to [Stream.BeginCapture]. If capture was invalidated, due to a violation of the rules of stream capture, then a NULL graph will be returned.
 // If the mode argument to [Stream.BeginCapture] was not [StreamCaptureModeRelaxed], this call must be from the same thread as [Stream.BeginCapture].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewStream], [Stream.BeginCapture], [Stream.IsCapturing], [Graph.Destroy]
 //
@@ -13904,8 +13198,6 @@ var slotStreamEndCapture outSlot[Graph]
 //
 // End CIG capture on hStream. Capture must have been initiated on hStream via a call to [Stream.BeginCaptureToCig]. Once this function is called, hStream will exit CIG capture mode and return to its original state, thus removing all CIG stream restrictions. Also, the command list/command buffer that was associated with hStream in the previous call to [Stream.BeginCaptureToCig] is now allowed to be submitted for execution on the graphics API. However, the stream may not be destroyed until execution of the command list is fully done on the GPU. This requirements extends also to all streams dependant on the CIG stream (e.g. via event waits).
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.BeginCaptureToCig]
 //
 //   - hStream: Stream to end CIG capture
@@ -13921,8 +13213,6 @@ func streamEndCaptureToCig(hStream Stream) error {
 // streamGetAttribute queries stream attribute.
 //
 // Queries attribute attr from hStream and stores it in corresponding member of valueOut.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [AccessPolicyWindow]
 //
@@ -13950,10 +13240,6 @@ var slotStreamGetAttribute outSlot[[8]uint64]
 // Valid data (other than capture status) is returned only if both of the following are true:
 // If edgeDataOut is non-NULL then dependenciesOut must be as well. If dependenciesOut is non-NULL and edgeDataOut is NULL, but there is non-zero edge data for one or more of the current stream dependencies, the call will return [ErrLossyQuery].
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.BeginCapture], [Stream.IsCapturing], [Stream.UpdateCaptureDependencies]
 //
 //   - hStream: The stream to query
@@ -13978,8 +13264,6 @@ func streamGetCaptureInfo(hStream Stream, captureStatusOut *StreamCaptureStatus,
 // If the stream is associated with a green context, the API returns the green context in pGreenCtx and the primary context of the associated device in pCtx.
 // If the stream is associated with a regular context, the API returns the regular context in pCtx and NULL in pGreenCtx.
 // The stream handle hStream can refer to any of the following:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.Destroy], [NewStream] [StreamCreateWithPriority], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
 //
@@ -14009,8 +13293,6 @@ var slotStreamGetCtx outSlot[struct {
 //
 // Note: The API will return [ErrInvalidResourceType] is type is [DevResourceTypeWorkqueueConfig] or [DevResourceTypeWorkqueue].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGreenCtx], [GreenCtx.StreamCreate], [NewStream], [DevSmResourceSplitByCount], [DevResourceGenerateDesc], cudaStreamGetDevResource
 //
 //   - hStream: Stream to get resource for
@@ -14037,8 +13319,6 @@ var slotStreamGetDevResource outSlot[DevResource]
 //
 // Returns in *device the device handle of the stream
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.Flags]
 //
 //   - hStream: Handle to the stream to be queried
@@ -14063,8 +13343,6 @@ var slotStreamGetDevice outSlot[Device]
 // streamGetFlags queries the flags of a given stream.
 //
 // Query the flags of a stream created using [NewStream], [StreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the flags in flags.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.Priority], cudaStreamGetFlags, [Stream.Device]
 //
@@ -14093,8 +13371,6 @@ var slotStreamGetFlags outSlot[uint32]
 // The stream handle hStream can refer to any of the following:
 // Passing an invalid handle will result in undefined behavior.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.Destroy], [NewStream], [StreamCreateWithPriority], [Stream.Ctx], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
 //
 //   - hStream: Handle to the stream to be queried
@@ -14121,8 +13397,6 @@ var slotStreamGetGreenCtx outSlot[GreenCtx]
 // Returns in streamId the unique Id which is associated with the given stream handle. The Id is unique for the life of the program.
 // The stream handle hStream can refer to any of the following:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.Destroy], [NewStream], [Stream.Priority], cudaStreamGetId
 //
 //   - hStream: Handle to the stream to be queried
@@ -14147,8 +13421,6 @@ var slotStreamGetId outSlot[uint64]
 // streamGetPriority queries the priority of a given stream.
 //
 // Query the priority of a stream created using [NewStream], [StreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the priority in priority. Note that if the stream was created with a priority outside the numerical range returned by [CtxGetStreamPriorityRange], this function returns the clamped priority. See [StreamCreateWithPriority] for details about priority clamping.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.Destroy], [NewStream], [StreamCreateWithPriority], [GreenCtx.StreamCreate], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], cudaStreamGetPriority
 //
@@ -14176,8 +13448,6 @@ var slotStreamGetPriority outSlot[int32]
 // Return the capture status of hStream via captureStatus. After a successful call, *captureStatus will contain one of the following:
 // Note that, if this is called on CU_STREAM_LEGACY (the “null stream”) while a blocking stream in the same context is capturing, it will return [ErrStreamCaptureImplicit] and *captureStatus is unspecified after the call. The blocking stream capture is not invalidated.
 // When a blocking stream is capturing, the legacy stream is in an unusable state until the blocking stream capture is terminated. The legacy stream is not supported for stream capture, but attempted use would have an implicit dependency on the capturing stream(s).
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewStream], [Stream.BeginCapture], [Stream.EndCapture]
 //
@@ -14207,8 +13477,6 @@ var slotStreamIsCapturing outSlot[StreamCaptureStatus]
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewStream], [Stream.WaitEvent], [Stream.Destroy], [Stream.Synchronize], [Stream.AddCallback], cudaStreamQuery
 //
 //   - hStream: Stream to query status of
@@ -14225,8 +13493,6 @@ func streamQuery(hStream Stream) error {
 //
 // Sets attribute attr on hStream from corresponding attribute of value. The updated attribute will be applied to subsequent work submitted to the stream. It will not affect previously submitted work.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [AccessPolicyWindow]
 //
 // Wraps cuStreamSetAttribute.
@@ -14242,8 +13508,6 @@ func streamSetAttribute(hStream Stream, attr int32, value *[8]uint64) error {
 // Waits until the device has completed all operations in the stream specified by hStream. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the stream is finished with all of its tasks.
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewStream], [Stream.Destroy], [Stream.WaitEvent], [Stream.Query], [Stream.AddCallback], cudaStreamSynchronize
 //
@@ -14287,8 +13551,6 @@ func streamUpdateCaptureDependencies(hStream Stream, dependencies *GraphNode, de
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewStream], [Event.Record], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], [Stream.Destroy], cudaStreamWaitEvent
 //
 //   - hStream: Stream to wait
@@ -14310,8 +13572,6 @@ func streamWaitEvent(hStream Stream, hEvent Event, flags EventWaitFlags) error {
 // Support for [StreamWaitValueNor] can be queried with [Device.Attribute] and CU_DEVICE_ATTRIBUTE_CAN_USE_STREAM_WAIT_VALUE_NOR_V2.
 //
 // Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.WaitValue64], [Stream.WriteValue32], [Stream.WriteValue64], [Stream.BatchMemOp], [MemHostRegister], [Stream.WaitEvent]
 //
@@ -14336,8 +13596,6 @@ func streamWaitValue32(stream Stream, addr DevicePtr, value uint32, flags Stream
 //
 // Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.WaitValue32], [Stream.WriteValue32], [Stream.WriteValue64], [Stream.BatchMemOp], [MemHostRegister], [Stream.WaitEvent]
 //
 //   - stream: The stream to synchronize on the memory location
@@ -14356,8 +13614,6 @@ func streamWaitValue64(stream Stream, addr DevicePtr, value uint64, flags Stream
 // streamWriteValue32 writes a value to memory.
 //
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer]. This function cannot be used with managed memory ( [MemAllocManaged]).
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.WriteValue64], [Stream.WaitValue32], [Stream.WaitValue64], [Stream.BatchMemOp], [MemHostRegister], [Event.Record]
 //
@@ -14378,8 +13634,6 @@ func streamWriteValue32(stream Stream, addr DevicePtr, value uint32, flags Strea
 //
 // If the memory was registered via [MemHostRegister], the device pointer should be obtained with [MemHostGetDevicePointer].
 // Support for this can be queried with [Device.Attribute] and [DevAttrCanUse64BitStreamMemOps].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.WriteValue32], [Stream.WaitValue32], [Stream.WaitValue64], [Stream.BatchMemOp], [MemHostRegister], [Event.Record]
 //
@@ -15439,8 +14693,6 @@ func texRefSetMipmappedArray(hTexRef TexRef, hMipmappedArray MipmappedArray, fla
 // Therefore, stream capture places restrictions on API calls that can be made within or concurrently to a [Stream.BeginCapture]- [Stream.EndCapture] sequence. This behavior can be controlled via this API and flags to [Stream.BeginCapture].
 // A thread’s mode is one of the following:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Stream.BeginCapture]
 //
 //   - mode: Pointer to mode value to swap with the current mode
@@ -15528,8 +14780,6 @@ func userObjectRetain(object UserObject, count uint32) error {
 // If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then waiting on the semaphore will wait until the value of the semaphore is greater than or equal to [ExternalSemaphoreWaitParams].paramsfence.value.
 // If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] then, waiting on the semaphore will wait until the [ExternalSemaphoreSignalParams].paramsnvSciSync.fence is signaled by the signaler of the NvSciSyncObj that was associated with this semaphore object. By default, waiting on such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_WAIT_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.NvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_WAIT, this API will return [ErrNotSupported].
 // If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be acquired when it is released with the key specified in [ExternalSemaphoreWaitParams].paramskeyedmutex.key or until the timeout specified by [ExternalSemaphoreWaitParams].paramskeyedmutex.timeoutMs has lapsed. The timeout interval can either be a finite value specified in milliseconds or an infinite value. In case an infinite value is specified the timeout never elapses. The windows INFINITE macro must be used to specify infinite timeout.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.SignalExternalSemaphoresAsync]
 //

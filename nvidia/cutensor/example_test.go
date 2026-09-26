@@ -19,13 +19,22 @@ func Example() {
 		return
 	}
 	defer h.Destroy()
-	fmt.Println("cuTENSOR version:", cutensor.GetVersion())
-	fmt.Println("CUDA runtime version:", cutensor.GetCudartVersion())
+	version, err := cutensor.GetVersion()
+	if err != nil {
+		fmt.Println("version:", err)
+		return
+	}
+	cudart, err := cutensor.GetCudartVersion()
+	if err != nil {
+		fmt.Println("CUDA runtime version:", err)
+		return
+	}
+	fmt.Println("cuTENSOR version:", version)
+	fmt.Println("CUDA runtime version:", cudart)
 
 	// A 64x32 float32 tensor with dense (nil) strides, 128-byte aligned.
 	extent := []int64{64, 32}
-	desc, err := h.CreateTensorDescriptor(2, &extent[0], nil,
-		cutensor.R32F, 128)
+	desc, err := h.CreateTensorDescriptor(extent, nil, cutensor.R32F, 128)
 	if err != nil {
 		fmt.Println("tensor descriptor:", err)
 		return
@@ -54,8 +63,7 @@ func ExampleHandle_Contract() {
 
 	const m, n, k = 64, 48, 32
 	newDesc := func(extent ...int64) cutensor.TensorDescriptor {
-		d, err := h.CreateTensorDescriptor(uint32(len(extent)), &extent[0],
-			nil, cutensor.R32F, 128)
+		d, err := h.CreateTensorDescriptor(extent, nil, cutensor.R32F, 128)
 		if err != nil {
 			panic(err)
 		}
@@ -72,10 +80,10 @@ func ExampleHandle_Contract() {
 	modeB := []int32{'k', 'n'}
 	modeC := []int32{'m', 'n'}
 	op, err := h.CreateContraction(
-		descA, &modeA[0], cutensor.OpIdentity,
-		descB, &modeB[0], cutensor.OpIdentity,
-		descC, &modeC[0], cutensor.OpIdentity,
-		descC, &modeC[0], compute32f)
+		descA, modeA, cutensor.OpIdentity,
+		descB, modeB, cutensor.OpIdentity,
+		descC, modeC, cutensor.OpIdentity,
+		descC, modeC, compute32f)
 	if err != nil {
 		fmt.Println("contraction:", err)
 		return
@@ -101,7 +109,7 @@ func ExampleHandle_Contract() {
 	}
 	defer plan.Destroy()
 
-	var dA, dB, dC, dWorkspace uintptr // device allocations
+	var dA, dB, dC, dWorkspace driver.DevicePtr // device allocations
 	alpha, beta := float32(1), float32(0)
 	err = h.Contract(plan,
 		unsafe.Pointer(&alpha), dA, dB,

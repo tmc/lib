@@ -16,8 +16,6 @@ import (
 // - Device limitations on the events that can belong to the same group
 // - The event group is full
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 //   - event: The event to add to the group
 //
 // Returns:
@@ -30,6 +28,8 @@ import (
 //   - [ErrMaxLimitReached]: if eventGroup is full
 //   - [ErrInvalidParameter]: if eventGroup is NULL
 //
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
 // Wraps cuptiEventGroupAddEvent.
 func (e EventGroup) AddEvent(event uint32) error {
 	return eventGroupAddEvent(e, event)
@@ -40,13 +40,13 @@ func (e EventGroup) AddEvent(event uint32) error {
 // Destroy an eventGroup and free its resources. An event group
 // cannot be destroyed if it is enabled.
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 // Returns:
 //   - [Success]
 //   - [ErrNotInitialized]
 //   - [ErrInvalidOperation]: if the event group is enabled
 //   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupDestroy.
 func (e EventGroup) Destroy() error {
@@ -58,13 +58,13 @@ func (e EventGroup) Destroy() error {
 // Disabling an event group stops collection
 // of events contained in the group.
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 // Returns:
 //   - [Success]
 //   - [ErrNotInitialized]
 //   - [ErrHardware]
 //   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupDisable.
 func (e EventGroup) Disable() error {
@@ -77,8 +77,6 @@ func (e EventGroup) Disable() error {
 // all the events in the group and then starts collection of those
 // events.
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 // Returns:
 //   - [Success]
 //   - [ErrNotInitialized]
@@ -87,6 +85,8 @@ func (e EventGroup) Disable() error {
 //   - [ErrNotCompatible]: if eventGroup cannot be enabled due to other already enabled event groups
 //   - [ErrInvalidParameter]: if eventGroup is NULL
 //   - [ErrHardwareBusy]: if another client is profiling and hardware is busy
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupEnable.
 func (e EventGroup) Enable() error {
@@ -103,8 +103,6 @@ func (e EventGroup) Enable() error {
 // must guard against simultaneous calls to cudaDeviceReset,
 // cuCtxDestroy, etc.).
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 //   - attrib: The attribute to read
 //   - valueSize: Size of buffer pointed by the value, and returns the number of bytes written to value
 //   - value: Returns the value of the attribute
@@ -114,6 +112,8 @@ func (e EventGroup) Enable() error {
 //   - [ErrNotInitialized]
 //   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an eventgroup attribute
 //   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupGetAttribute.
 func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -156,8 +156,6 @@ func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value
 // called simultaneously with this function, then returned event
 // values are undefined.
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 //   - flags: Flags controlling the reading mode
 //   - eventValueBuffer: Returns the event values
 //   - eventIdArray: Returns the IDs of the events in the same order as the values return in eventValueBuffer
@@ -169,6 +167,8 @@ func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value
 //   - [ErrInvalidOperation]: if eventGroup is disabled
 //   - [ErrInvalidParameter]: if eventGroup, eventValueBufferSizeBytes, eventValueBuffer, eventIdArraySizeBytes, eventIdArray or numEventIdsRead is NULL
 //   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer or eventIdArray is not sufficient
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupReadAllEvents.
 func (e EventGroup) ReadAllEvents(flags ReadEventFlags, eventValueBuffer []uint64, eventIdArray []uint32) (int, error) {
@@ -201,8 +201,6 @@ func (e EventGroup) ReadAllEvents(flags ReadEventFlags, eventValueBuffer []uint6
 // called simultaneously with this function, then returned event
 // values are undefined.
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 //   - flags: Flags controlling the reading mode
 //   - event: The event to read
 //   - eventValueBufferSizeBytes: The size of eventValueBuffer in bytes, and returns the number of bytes written to eventValueBuffer
@@ -217,6 +215,8 @@ func (e EventGroup) ReadAllEvents(flags ReadEventFlags, eventValueBuffer []uint6
 //   - [ErrInvalidParameter]: if eventGroup, eventValueBufferSizeBytes or eventValueBuffer is NULL
 //   - [ErrParameterSizeNotSufficient]: if size of eventValueBuffer is not sufficient
 //
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
 // Wraps cuptiEventGroupReadEvent.
 func (e EventGroup) ReadEvent(flags ReadEventFlags, event uint32, eventValueBufferSizeBytes *uint, eventValueBuffer *uint64) error {
 	return eventGroupReadEvent(e, flags, event, eventValueBufferSizeBytes, eventValueBuffer)
@@ -227,13 +227,13 @@ func (e EventGroup) ReadEvent(flags ReadEventFlags, event uint32, eventValueBuff
 // Events cannot be removed if
 // the event group is enabled.
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 // Returns:
 //   - [Success]
 //   - [ErrNotInitialized]
 //   - [ErrInvalidOperation]: if eventGroup is enabled
 //   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupRemoveAllEvents.
 func (e EventGroup) RemoveAllEvents() error {
@@ -245,8 +245,6 @@ func (e EventGroup) RemoveAllEvents() error {
 // Remove event from the an event group. The event cannot be
 // removed if the event group is enabled.
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 //   - event: The event to remove from the group
 //
 // Returns:
@@ -255,6 +253,8 @@ func (e EventGroup) RemoveAllEvents() error {
 //   - [ErrInvalidEventId]
 //   - [ErrInvalidOperation]: if eventGroup is enabled
 //   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupRemoveEvent.
 func (e EventGroup) RemoveEvent(event uint32) error {
@@ -270,13 +270,13 @@ func (e EventGroup) RemoveEvent(event uint32) error {
 // must guard against simultaneous calls to cudaDeviceReset,
 // cuCtxDestroy, etc.).
 //
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
-//
 // Returns:
 //   - [Success]
 //   - [ErrNotInitialized]
 //   - [ErrHardware]
 //   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupResetAllEvents.
 func (e EventGroup) ResetAllEvents() error {
@@ -284,8 +284,6 @@ func (e EventGroup) ResetAllEvents() error {
 }
 
 // SetAttribute writes an event group attribute.
-//
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
 //
 //   - attrib: The attribute to write
 //   - valueSize: The size, in bytes, of the value
@@ -297,6 +295,8 @@ func (e EventGroup) ResetAllEvents() error {
 //   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attrib is not an event group attribute, or if attrib is not a writable attribute
 //   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
+//
 // Wraps cuptiEventGroupSetAttribute.
 func (e EventGroup) SetAttribute(attrib EventGroupAttribute, valueSize uint, value unsafe.Pointer) error {
 	return eventGroupSetAttribute(e, attrib, valueSize, value)
@@ -306,8 +306,6 @@ func (e EventGroup) SetAttribute(attrib EventGroupAttribute, valueSize uint, val
 //
 // Creates a new event group for context and returns the new group
 // in *eventGroup.
-//
-// Starting with CUDA 13.0, this function is unsupported and should not be used. It always returns the error code [ErrLegacyProfilerNotSupported].
 //
 //   - context: The context for the event group
 //   - eventGroup: Returns the new event group
@@ -319,6 +317,8 @@ func (e EventGroup) SetAttribute(attrib EventGroupAttribute, valueSize uint, val
 //   - [ErrInvalidContext]
 //   - [ErrOutOfMemory]
 //   - [ErrInvalidParameter]: if eventGroup is NULL
+//
+// Deprecated: Unsupported since CUDA 13.0, where it always returns [ErrLegacyProfilerNotSupported]; use the range profiler API, starting with [RangeProfilerEnable].
 //
 // Wraps cuptiEventGroupCreate.
 func NewEventGroup(context driver.Context, flags uint32) (EventGroup, error) {

@@ -6,8 +6,6 @@ package driver
 //
 // Destroys an external semaphore object and releases any references to the underlying resource. Any outstanding signals or waits must have completed before the semaphore is destroyed.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 // Wraps cuDestroyExternalSemaphore.

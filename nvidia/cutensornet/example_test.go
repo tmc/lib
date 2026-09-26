@@ -19,7 +19,12 @@ func Example() {
 		return
 	}
 	defer h.Destroy()
-	fmt.Println("cuTensorNet version:", cutensornet.GetVersion())
+	version, err := cutensornet.GetVersion()
+	if err != nil {
+		fmt.Println("version:", err)
+		return
+	}
+	fmt.Println("cuTensorNet version:", version)
 	fmt.Println("loaded from:", cutensornet.Path())
 }
 

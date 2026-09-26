@@ -63,8 +63,6 @@ func (d DevicePtr) MemAddressReserve(size uint, alignment uint, flags uint64) (D
 // Advise the Unified Memory subsystem about the usage pattern for the memory range starting at devPtr with a size of count bytes. The start address and end address of the memory range will be rounded down and rounded up respectively to be aligned to CPU page size before the advice is applied. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables. The memory range could also refer to system-allocated pageable memory provided it represents a valid, host-accessible region of memory and all additional constraints imposed by advice as outlined below are also satisfied. Specifying an invalid system-allocated pageable memory range results in an error being returned.
 // The advice parameter can take the following values:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: This function uses standard default stream semantics.
@@ -84,8 +82,6 @@ func (d DevicePtr) MemAdvise(count uint, advice MemAdvise, location MemLocation)
 //
 // Frees the memory space pointed to by dptr, which must have been returned by a previous call to one of the following memory allocation APIs - [MemAlloc], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync]
 // Note - This API will not perform any implict synchronization when the pointer was allocated with [Stream.MemAllocAsync] or [MemoryPool.MemAllocFromPoolAsync]. Callers must ensure that all accesses to these pointer have completed before invoking [DevicePtr.Free]. For best performance and memory reuse, users should use [DevicePtr.FreeAsync] to free memory allocated via the stream ordered memory allocator. For all other pointers, this API may perform implicit synchronization.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [DevicePtr.FreeAsync], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFree
 //
@@ -121,8 +117,6 @@ func (d DevicePtr) MemGetAccess(location *MemLocation) (uint64, error) {
 // MemGetAddressRange gets information on memory allocations.
 //
 // Returns the base address in *pbase and size in *psize of the allocation that contains the input pointer dptr. Both parameters pbase and psize are optional. If one of them is NULL, it is ignored.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32]
 //
@@ -160,8 +154,6 @@ func (d DevicePtr) MemGetHandleForAddressRange(handle uintptr, size uint, handle
 // Once a recipient process obtains a shareable memory handle from [MemImportFromShareableHandle], the process must use [DevicePtr.MemMap] to map the memory into its address ranges before setting accessibility with [DevicePtr.MemSetAccess].
 // [DevicePtr.MemMap] can only create mappings on VA range reservations that are not currently mapped.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DevicePtr.MemUnmap], [DevicePtr.MemSetAccess], [MemCreate], [DevicePtr.MemAddressReserve], [MemImportFromShareableHandle]
 //
 //   - size: Size of the memory mapping
@@ -198,8 +190,6 @@ func (d DevicePtr) MemPoolExportPointer() (MemPoolPtrExportData, error) {
 // Note that this API is not required for functionality and only serves to improve performance by allowing the application to migrate data to a suitable location before it is accessed. Memory accesses to this range are always coherent and are allowed even when the data is actively being migrated.
 // Note that this function is asynchronous with respect to the host and all work on other devices.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: This function uses standard default stream semantics.
@@ -220,8 +210,6 @@ func (d DevicePtr) MemPrefetchAsync(count uint, location MemLocation, flags uint
 //
 // Query an attribute about the memory range starting at devPtr with a size of count bytes. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables.
 // The attribute parameter can take the following values:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -244,8 +232,6 @@ func (d DevicePtr) MemRangeGetAttribute(data unsafe.Pointer, dataSize uint, attr
 // Query attributes of the memory range starting at devPtr with a size of count bytes. The memory range must refer to managed memory allocated via [MemAllocManaged] or declared via managed variables. The attributes array will be interpreted to have numAttributes entries. The dataSizes array will also be interpreted to have numAttributes entries. The results of the query will be stored in data.
 // The list of supported attributes are given below. Please refer to [DevicePtr.MemRangeGetAttribute] for attribute descriptions and restrictions.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DevicePtr.MemRangeGetAttribute], [DevicePtr.MemAdvise], [DevicePtr.MemPrefetchAsync], cudaMemRangeGetAttributes
 //
 //   - data: A two-dimensional array containing pointers to memory locations where the result of each attribute query will be written to
@@ -262,8 +248,6 @@ func (d DevicePtr) MemRangeGetAttributes(data *uintptr, dataSizes *uint, attribu
 // MemSetAccess sets the access flags for each location specified in desc for the given virtual address range.
 //
 // Given the virtual address range via ptr and size, and the locations in the array given by desc and count, set the access flags for the target locations. The range must be a fully mapped address range containing all allocations created by [DevicePtr.MemMap] / [MemCreate]. Users cannot specify [MemLocationTypeHostNuma] accessibility for allocations created on with other location types. Note: When [MemAccessDesc].CUmemLocationtype is [MemLocationTypeHostNuma], [MemAccessDesc].CUmemLocationid is ignored. When setting the access flags for a virtual address range mapping a multicast object, ptr and size must be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_MINIMUM_GRANULARITY. For best performance however, it is recommended that ptr and size be aligned to the value returned by [MulticastGetGranularity] with the flag CU_MULTICAST_RECOMMENDED_GRANULARITY.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
@@ -283,8 +267,6 @@ func (d DevicePtr) MemSetAccess(size uint, desc *MemAccessDesc, count uint) erro
 // The range must be the entire contiguous address range that was mapped to. In other words, [DevicePtr.MemUnmap] cannot unmap a sub-range of an address range mapped by [MemCreate] / [DevicePtr.MemMap]. Any backing memory allocations will be freed if there are no existing mappings and there are no unreleased memory handles.
 // When [DevicePtr.MemUnmap] returns successfully the address range is converted to an address reservation and can be used for a future calls to [DevicePtr.MemMap]. Any new mapping to this virtual address will need to have access granted through [DevicePtr.MemSetAccess], as all mappings start with no accessibility setup.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [MemCreate], [DevicePtr.MemAddressReserve]
@@ -299,8 +281,6 @@ func (d DevicePtr) MemUnmap(size uint) error {
 // Memcpy copies memory.
 //
 // Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
@@ -319,8 +299,6 @@ func (d DevicePtr) Memcpy(src DevicePtr, byteCount uint) error {
 // MemcpyAsync copies memory asynchronously.
 //
 // Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -343,8 +321,6 @@ func (d DevicePtr) MemcpyAsync(src DevicePtr, byteCount uint, hStream Stream) er
 //
 // Copies from one 1D CUDA array to device memory. dstDevice specifies the base pointer of the destination and must be naturally aligned with the CUDA array elements. srcArray and srcOffset specify the CUDA array handle and the offset in bytes into the array where the copy is to begin. ByteCount specifies the number of bytes to copy and must be evenly divisible by the array element size.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyFromArray
@@ -362,8 +338,6 @@ func (d DevicePtr) CopyFromArray(srcArray Array, srcOffset uint, byteCount uint)
 //
 // Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyToSymbol, cudaMemcpyFromSymbol
@@ -379,8 +353,6 @@ func (d DevicePtr) CopyFromDevice(srcDevice DevicePtr, byteCount uint) error {
 // CopyFromDeviceAsync copies memory from Device to Device.
 //
 // Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -400,8 +372,6 @@ func (d DevicePtr) CopyFromDeviceAsync(srcDevice DevicePtr, byteCount uint, hStr
 // CopyToHost copies memory from Device to Host.
 //
 // Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
@@ -429,8 +399,6 @@ func (d DevicePtr) CopyToHostPtr(dstHost unsafe.Pointer, byteCount uint) error {
 // CopyToHostAsync copies memory from Device to Host.
 //
 // Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -467,8 +435,6 @@ func (d DevicePtr) CopyToHostAsyncPtr(dstHost unsafe.Pointer, byteCount uint, hS
 //
 // Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -495,8 +461,6 @@ func (d DevicePtr) CopyFromHostPtr(srcHost unsafe.Pointer, byteCount uint) error
 // CopyFromHostAsync copies memory from Host to Device.
 //
 // Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -533,8 +497,6 @@ func (d DevicePtr) CopyFromHostAsyncPtr(srcHost unsafe.Pointer, byteCount uint, 
 //
 // Copies from device memory in one context to device memory in another context. dstDevice is the base device pointer of the destination memory and dstContext is the destination context. srcDevice is the base device pointer of the source memory and srcContext is the source pointer. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [DevicePtr.CopyFromDevice], [Memcpy3DPeer], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyFromPeerAsync], [Stream.Memcpy3DPeerAsync], cudaMemcpyPeer
@@ -552,8 +514,6 @@ func (d DevicePtr) CopyFromPeer(dstContext Context, srcDevice DevicePtr, srcCont
 // CopyFromPeerAsync copies device memory between two contexts asynchronously.
 //
 // Copies from device memory in one context to device memory in another context. dstDevice is the base device pointer of the destination memory and dstContext is the destination context. srcDevice is the base device pointer of the source memory and srcContext is the source pointer. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -577,8 +537,6 @@ func (d DevicePtr) CopyFromPeerAsync(dstContext Context, srcDevice DevicePtr, sr
 // Performs asynchronous memory copy operation where dst and src are the destination and source pointers respectively. size specifies the number of bytes to copy. attr specifies the attributes for the copy and hStream specifies the stream to enqueue the operation in.
 // For more information regarding the attributes, please refer to [MemcpyAttributes] and it’s usage desciption in [Stream.MemcpyBatchAsync]
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
 // Note: Memory regions requested must be either entirely registered with CUDA, or in the case of host pageable transfers, not registered at all. Memory regions spanning over allocations that are both registered and not registered with CUDA are not supported and will return [ErrInvalidValue].
@@ -599,8 +557,6 @@ func (d DevicePtr) MemcpyWithAttributesAsync(src DevicePtr, size uint, attr *Mem
 //
 // Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset
@@ -616,8 +572,6 @@ func (d DevicePtr) MemsetD16(us uint16, n uint) error {
 // MemsetD16Async sets device memory.
 //
 // Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -638,8 +592,6 @@ func (d DevicePtr) MemsetD16Async(us uint16, n uint, hStream Stream) error {
 //
 // Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
@@ -657,8 +609,6 @@ func (d DevicePtr) MemsetD2D16(dstPitch uint, us uint16, width uint, height uint
 // MemsetD2D16Async sets device memory.
 //
 // Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -681,8 +631,6 @@ func (d DevicePtr) MemsetD2D16Async(dstPitch uint, us uint16, width uint, height
 //
 // Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
@@ -700,8 +648,6 @@ func (d DevicePtr) MemsetD2D32(dstPitch uint, ui uint32, width uint, height uint
 // MemsetD2D32Async sets device memory.
 //
 // Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -724,8 +670,6 @@ func (d DevicePtr) MemsetD2D32Async(dstPitch uint, ui uint32, width uint, height
 //
 // Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
@@ -743,8 +687,6 @@ func (d DevicePtr) MemsetD2D8(dstPitch uint, uc uint8, width uint, height uint) 
 // MemsetD2D8Async sets device memory.
 //
 // Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -767,8 +709,6 @@ func (d DevicePtr) MemsetD2D8Async(dstPitch uint, uc uint8, width uint, height u
 //
 // Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32Async], cudaMemset
@@ -784,8 +724,6 @@ func (d DevicePtr) MemsetD32(ui uint32, n uint) error {
 // MemsetD32Async sets device memory.
 //
 // Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -806,8 +744,6 @@ func (d DevicePtr) MemsetD32Async(ui uint32, n uint, hStream Stream) error {
 //
 // Sets the memory range of N 8-bit values to the specified value uc.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: See also memset synchronization details.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset
@@ -823,8 +759,6 @@ func (d DevicePtr) MemsetD8(uc uint8, n uint) error {
 // MemsetD8Async sets device memory.
 //
 // Sets the memory range of N 8-bit values to the specified value uc.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: See also memset synchronization details.
 //
@@ -898,8 +832,6 @@ func (d DevicePtr) MulticastBindAddr(mcHandle uint64, mcOffset uint, size uint, 
 // Returns in *data an integer representing the locality domain ordinal of the allocation, or -1 if the allocation is not localized to a locality domain.
 // Note that for most allocations in the unified virtual address space the host and device pointer for accessing the allocation will be the same. The exceptions to this are
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DevicePtr.PointerSetAttribute], [MemAlloc], [DevicePtr.Free], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister], cudaPointerGetAttributes
 //
 //   - data: Returned pointer attribute value
@@ -916,8 +848,6 @@ func (d DevicePtr) PointerGetAttribute(data unsafe.Pointer, attribute PointerAtt
 // Unlike [DevicePtr.PointerGetAttribute], this function will not return an error when the ptr encountered is not a valid CUDA pointer. Instead, the attributes are assigned default NULL values and [Success] is returned.
 // If ptr was not allocated by, mapped by, or registered with a [Context] which uses UVA (Unified Virtual Addressing), [ErrInvalidContext] is returned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DevicePtr.PointerGetAttribute], [DevicePtr.PointerSetAttribute], cudaPointerGetAttributes
 //
 //   - numAttributes: Number of attributes to query
@@ -933,8 +863,6 @@ func (d DevicePtr) PointerGetAttributes(numAttributes uint32, attributes *Pointe
 //
 // The supported attributes are:
 // A boolean attribute that can either be set (1) or unset (0). When set, the region of memory that ptr points to is guaranteed to always synchronize memory operations that are synchronous. If there are some previously initiated synchronous memory operations that are pending when this attribute is set, the function does not return until those memory operations are complete. See further documentation in the section titled “API synchronization behavior” to learn more about cases when synchronous memory operations can exhibit asynchronous behavior. value will be considered as a pointer to an unsigned integer to which this attribute is to be set.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [DevicePtr.PointerGetAttribute], [DevicePtr.PointerGetAttributes], [MemAlloc], [DevicePtr.Free], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister]
 //

@@ -11,8 +11,8 @@ func (b BatchHandle) IOCancel() error {
 }
 
 // IODestroy wraps cuFileBatchIODestroy.
-func (b BatchHandle) IODestroy() {
-	batchIODestroy(b)
+func (b BatchHandle) IODestroy() error {
+	return batchIODestroy(b)
 }
 
 // IOGetStatus wraps cuFileBatchIOGetStatus.

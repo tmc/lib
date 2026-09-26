@@ -14,10 +14,6 @@ type BatchMemOpNode struct {
 //
 // Returns the parameters of batch mem op node hNode in nodeParamsOut. The paramArray returned in nodeParamsOut is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [BatchMemOpNode.SetParams] to update the parameters of this node.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.SetParams]
 //
 // Wraps cuGraphBatchMemOpNodeGetParams.
@@ -29,10 +25,6 @@ func (b BatchMemOpNode) Params() (BatchMemOpNodeParams, error) {
 //
 // Sets the parameters of batch mem op node hNode to nodeParams.
 // The paramArray inside nodeParams is copied and therefore it can be freed after the call returns.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params]
 //

@@ -269,7 +269,9 @@ func newRig(t *testing.T) *rig {
 
 	r := &rig{t: t, extents: []int64{2}, prepared: map[cudensitymat.Operator]cudensitymat.WorkspaceDescriptor{}}
 	r.check(cudensitymat.Load(""))
-	t.Logf("cuDensityMat version %d from %s", cudensitymat.GetVersion(), cudensitymat.Path())
+	version, err := cudensitymat.GetVersion()
+	r.check(err)
+	t.Logf("cuDensityMat version %d from %s", version, cudensitymat.Path())
 
 	r.check(driver.Init(0))
 	dev, err := driver.DeviceGet(0)

@@ -15,6 +15,12 @@
 // Functions returning a C status report errors wrapping cublasStatus_t with descriptive messages
 // from cublasGetStatusName.
 //
+// # 64-bit Integer Interface
+//
+// A function whose name ends in 64, such as [Handle.Saxpy64], takes its sizes
+// and strides as int64, for problems where n or a stride exceeds the int32
+// range. It is otherwise the same as the function without the suffix.
+//
 // # BLAS3
 //
 //   - [Handle.Cgemm3m]: performs the complex matrix-matrix multiplication, using Gauss complexity reduction algorithm.

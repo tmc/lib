@@ -3,6 +3,7 @@
 package cutensor
 
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 
@@ -455,19 +456,19 @@ func fnwriteKernelCacheToFile(a0 Handle, a1 *byte) Result {
 }
 
 // contract wraps cutensorContract.
-func contract(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
+func contract(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, beta unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	if err := checkLibSym("cutensorContract"); err != nil {
 		return err
 	}
-	return toError(fncontract(handle, plan, alpha, a, b, beta, c, d, workspace, workspaceSize, stream), "cutensorContract")
+	return toError(fncontract(handle, plan, alpha, uintptr(a), uintptr(b), beta, uintptr(c), uintptr(d), uintptr(workspace), workspaceSize, stream), "cutensorContract")
 }
 
 // contractTrinary wraps cutensorContractTrinary.
-func contractTrinary(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, c uintptr, beta unsafe.Pointer, d uintptr, e uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
+func contractTrinary(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, c driver.DevicePtr, beta unsafe.Pointer, d driver.DevicePtr, e driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	if err := checkLibSym("cutensorContractTrinary"); err != nil {
 		return err
 	}
-	return toError(fncontractTrinary(handle, plan, alpha, a, b, c, beta, d, e, workspace, workspaceSize, stream), "cutensorContractTrinary")
+	return toError(fncontractTrinary(handle, plan, alpha, uintptr(a), uintptr(b), uintptr(c), beta, uintptr(d), uintptr(e), uintptr(workspace), workspaceSize, stream), "cutensorContractTrinary")
 }
 
 // Create wraps cutensorCreate.
@@ -488,14 +489,14 @@ func Create() (Handle, error) {
 var slotCreate outSlot[Handle]
 
 // createContraction wraps cutensorCreateContraction.
-func createContraction(handle Handle, descA TensorDescriptor, modeA *int32, opA OperatorT, descB TensorDescriptor, modeB *int32, opB OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func createContraction(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateContraction"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
 	out := slotCreateContraction.get()
 	defer slotCreateContraction.put(out)
-	if err := toError(fncreateContraction(handle, out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, descCompute), "cutensorCreateContraction"); err != nil {
+	if err := toError(fncreateContraction(handle, out, descA, unsafe.SliceData(modeA), opA, descB, unsafe.SliceData(modeB), opB, descC, unsafe.SliceData(modeC), opC, descD, unsafe.SliceData(modeD), descCompute), "cutensorCreateContraction"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -505,14 +506,14 @@ func createContraction(handle Handle, descA TensorDescriptor, modeA *int32, opA 
 var slotCreateContraction outSlot[OperationDescriptor]
 
 // createContractionTrinary wraps cutensorCreateContractionTrinary.
-func createContractionTrinary(handle Handle, descA TensorDescriptor, modeA *int32, opA OperatorT, descB TensorDescriptor, modeB *int32, opB OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, opD OperatorT, descE TensorDescriptor, modeE *int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func createContractionTrinary(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opD OperatorT, descE TensorDescriptor, modeE []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateContractionTrinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
 	out := slotCreateContractionTrinary.get()
 	defer slotCreateContractionTrinary.put(out)
-	if err := toError(fncreateContractionTrinary(handle, out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opD, descE, modeE, descCompute), "cutensorCreateContractionTrinary"); err != nil {
+	if err := toError(fncreateContractionTrinary(handle, out, descA, unsafe.SliceData(modeA), opA, descB, unsafe.SliceData(modeB), opB, descC, unsafe.SliceData(modeC), opC, descD, unsafe.SliceData(modeD), opD, descE, unsafe.SliceData(modeE), descCompute), "cutensorCreateContractionTrinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -522,14 +523,14 @@ func createContractionTrinary(handle Handle, descA TensorDescriptor, modeA *int3
 var slotCreateContractionTrinary outSlot[OperationDescriptor]
 
 // createElementwiseBinary wraps cutensorCreateElementwiseBinary.
-func createElementwiseBinary(handle Handle, descA TensorDescriptor, modeA *int32, opA OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, opAC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func createElementwiseBinary(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opAC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateElementwiseBinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
 	out := slotCreateElementwiseBinary.get()
 	defer slotCreateElementwiseBinary.put(out)
-	if err := toError(fncreateElementwiseBinary(handle, out, descA, modeA, opA, descC, modeC, opC, descD, modeD, opAC, descCompute), "cutensorCreateElementwiseBinary"); err != nil {
+	if err := toError(fncreateElementwiseBinary(handle, out, descA, unsafe.SliceData(modeA), opA, descC, unsafe.SliceData(modeC), opC, descD, unsafe.SliceData(modeD), opAC, descCompute), "cutensorCreateElementwiseBinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -539,14 +540,14 @@ func createElementwiseBinary(handle Handle, descA TensorDescriptor, modeA *int32
 var slotCreateElementwiseBinary outSlot[OperationDescriptor]
 
 // createElementwiseTrinary wraps cutensorCreateElementwiseTrinary.
-func createElementwiseTrinary(handle Handle, descA TensorDescriptor, modeA *int32, opA OperatorT, descB TensorDescriptor, modeB *int32, opB OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, opAB OperatorT, opABC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func createElementwiseTrinary(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opAB OperatorT, opABC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateElementwiseTrinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
 	out := slotCreateElementwiseTrinary.get()
 	defer slotCreateElementwiseTrinary.put(out)
-	if err := toError(fncreateElementwiseTrinary(handle, out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opAB, opABC, descCompute), "cutensorCreateElementwiseTrinary"); err != nil {
+	if err := toError(fncreateElementwiseTrinary(handle, out, descA, unsafe.SliceData(modeA), opA, descB, unsafe.SliceData(modeB), opB, descC, unsafe.SliceData(modeC), opC, descD, unsafe.SliceData(modeD), opAB, opABC, descCompute), "cutensorCreateElementwiseTrinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -556,14 +557,14 @@ func createElementwiseTrinary(handle Handle, descA TensorDescriptor, modeA *int3
 var slotCreateElementwiseTrinary outSlot[OperationDescriptor]
 
 // createPermutation wraps cutensorCreatePermutation.
-func createPermutation(handle Handle, descA TensorDescriptor, modeA *int32, opA OperatorT, descB TensorDescriptor, modeB *int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func createPermutation(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreatePermutation"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
 	out := slotCreatePermutation.get()
 	defer slotCreatePermutation.put(out)
-	if err := toError(fncreatePermutation(handle, out, descA, modeA, opA, descB, modeB, descCompute), "cutensorCreatePermutation"); err != nil {
+	if err := toError(fncreatePermutation(handle, out, descA, unsafe.SliceData(modeA), opA, descB, unsafe.SliceData(modeB), descCompute), "cutensorCreatePermutation"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -607,14 +608,14 @@ func createPlanPreference(handle Handle, algo AlgoT, jitMode JitmodeT) (PlanPref
 var slotCreatePlanPreference outSlot[PlanPreference]
 
 // createReduction wraps cutensorCreateReduction.
-func createReduction(handle Handle, descA TensorDescriptor, modeA *int32, opA OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, opReduce OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func createReduction(handle Handle, descA TensorDescriptor, modeA []int32, opA OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opReduce OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	if err := checkLibSym("cutensorCreateReduction"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
 	out := slotCreateReduction.get()
 	defer slotCreateReduction.put(out)
-	if err := toError(fncreateReduction(handle, out, descA, modeA, opA, descC, modeC, opC, descD, modeD, opReduce, descCompute), "cutensorCreateReduction"); err != nil {
+	if err := toError(fncreateReduction(handle, out, descA, unsafe.SliceData(modeA), opA, descC, unsafe.SliceData(modeC), opC, descD, unsafe.SliceData(modeD), opReduce, descCompute), "cutensorCreateReduction"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -624,14 +625,24 @@ func createReduction(handle Handle, descA TensorDescriptor, modeA *int32, opA Op
 var slotCreateReduction outSlot[OperationDescriptor]
 
 // createTensorDescriptor wraps cutensorCreateTensorDescriptor.
-func createTensorDescriptor(handle Handle, numModes uint32, extent *int64, stride *int64, dataType DataType, alignmentRequirement uint32) (TensorDescriptor, error) {
+func createTensorDescriptor(handle Handle, extent []int64, stride []int64, dataType DataType, alignmentRequirement uint32) (TensorDescriptor, error) {
 	if err := checkLibSym("cutensorCreateTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
+	if len(stride) != 0 && len(stride) != len(extent) {
+		var zero TensorDescriptor
+		return zero, fmt.Errorf("stride has %d elements, extent has %d", len(stride), len(extent))
+	}
 	out := slotCreateTensorDescriptor.get()
 	defer slotCreateTensorDescriptor.put(out)
-	if err := toError(fncreateTensorDescriptor(handle, out, numModes, extent, stride, dataType, alignmentRequirement), "cutensorCreateTensorDescriptor"); err != nil {
+	if len(extent) == 0 {
+		extent = nil
+	}
+	if len(stride) == 0 {
+		stride = nil
+	}
+	if err := toError(fncreateTensorDescriptor(handle, out, uint32(len(extent)), unsafe.SliceData(extent), unsafe.SliceData(stride), dataType, alignmentRequirement), "cutensorCreateTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
@@ -681,19 +692,19 @@ func destroyTensorDescriptor(desc TensorDescriptor) error {
 }
 
 // elementwiseBinaryExecute wraps cutensorElementwiseBinaryExecute.
-func elementwiseBinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream driver.Stream) error {
+func elementwiseBinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, gamma unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
 	if err := checkLibSym("cutensorElementwiseBinaryExecute"); err != nil {
 		return err
 	}
-	return toError(fnelementwiseBinaryExecute(handle, plan, alpha, a, gamma, c, d, stream), "cutensorElementwiseBinaryExecute")
+	return toError(fnelementwiseBinaryExecute(handle, plan, alpha, uintptr(a), gamma, uintptr(c), uintptr(d), stream), "cutensorElementwiseBinaryExecute")
 }
 
 // elementwiseTrinaryExecute wraps cutensorElementwiseTrinaryExecute.
-func elementwiseTrinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, b uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream driver.Stream) error {
+func elementwiseTrinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, beta unsafe.Pointer, b driver.DevicePtr, gamma unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
 	if err := checkLibSym("cutensorElementwiseTrinaryExecute"); err != nil {
 		return err
 	}
-	return toError(fnelementwiseTrinaryExecute(handle, plan, alpha, a, beta, b, gamma, c, d, stream), "cutensorElementwiseTrinaryExecute")
+	return toError(fnelementwiseTrinaryExecute(handle, plan, alpha, uintptr(a), beta, uintptr(b), gamma, uintptr(c), uintptr(d), stream), "cutensorElementwiseTrinaryExecute")
 }
 
 // estimateWorkspaceSize wraps cutensorEstimateWorkspaceSize.
@@ -714,23 +725,25 @@ func estimateWorkspaceSize(handle Handle, desc OperationDescriptor, planPref Pla
 var slotEstimateWorkspaceSize outSlot[uint64]
 
 // GetCudartVersion wraps cutensorGetCudartVersion.
-// It returns the zero value when the library or symbol is unavailable.
-func GetCudartVersion() uint {
+// The error reports an unavailable library or symbol.
+func GetCudartVersion() (uint, error) {
 	if err := checkLibSym("cutensorGetCudartVersion"); err != nil {
 		var zero uint
-		return zero
+		return zero, err
 	}
-	return fnGetCudartVersion()
+	_result := fnGetCudartVersion()
+	return _result, nil
 }
 
 // GetVersion wraps cutensorGetVersion.
-// It returns the zero value when the library or symbol is unavailable.
-func GetVersion() uint {
+// The error reports an unavailable library or symbol.
+func GetVersion() (uint, error) {
 	if err := checkLibSym("cutensorGetVersion"); err != nil {
 		var zero uint
-		return zero
+		return zero, err
 	}
-	return fnGetVersion()
+	_result := fnGetVersion()
+	return _result, nil
 }
 
 // handleReadPlanCacheFromFile wraps cutensorHandleReadPlanCacheFromFile.
@@ -831,11 +844,11 @@ func operationDescriptorSetAttribute(handle Handle, desc OperationDescriptor, at
 }
 
 // permute wraps cutensorPermute.
-func permute(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, stream driver.Stream) error {
+func permute(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, stream driver.Stream) error {
 	if err := checkLibSym("cutensorPermute"); err != nil {
 		return err
 	}
-	return toError(fnpermute(handle, plan, alpha, a, b, stream), "cutensorPermute")
+	return toError(fnpermute(handle, plan, alpha, uintptr(a), uintptr(b), stream), "cutensorPermute")
 }
 
 // planGetAttribute wraps cutensorPlanGetAttribute.
@@ -871,11 +884,11 @@ func readKernelCacheFromFile(handle Handle, filename *byte) error {
 }
 
 // reduce wraps cutensorReduce.
-func reduce(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
+func reduce(handle Handle, plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, beta unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	if err := checkLibSym("cutensorReduce"); err != nil {
 		return err
 	}
-	return toError(fnreduce(handle, plan, alpha, a, beta, c, d, workspace, workspaceSize, stream), "cutensorReduce")
+	return toError(fnreduce(handle, plan, alpha, uintptr(a), beta, uintptr(c), uintptr(d), uintptr(workspace), workspaceSize, stream), "cutensorReduce")
 }
 
 // writeKernelCacheToFile wraps cutensorWriteKernelCacheToFile.

@@ -12,10 +12,6 @@ package driver
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // The paramArray inside nodeParams is copied and therefore it can be freed after the call returns.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params], [BatchMemOpNode.SetParams], [Graph.Instantiate]
 //
 //   - hNode: Batch mem op node from the graph from which graphExec was instantiated
@@ -32,10 +28,6 @@ func (g GraphExec) BatchMemOpNodeSetParams(hNode BatchMemOpNode, nodeParams *Bat
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [ChildGraphNode.Graph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Host node from the graph which was used to instantiate graphExec
@@ -50,10 +42,6 @@ func (g GraphExec) ChildGraphNodeSetParams(hNode ChildGraphNode, childGraph Grap
 //
 // Destroys the executable graph specified by hGraphExec, as well as all of its executable nodes. If the executable graph is in-flight, it will not be terminated, but rather freed asynchronously on completion.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.Instantiate], [GraphExec.Upload], [GraphExec.Launch]
 //
 // Wraps cuGraphExecDestroy.
@@ -65,10 +53,6 @@ func (g GraphExec) Destroy() error {
 //
 // Sets the event of an event record node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphExec.NodeSetParams], [Graph.AddEventRecordNode], [EventRecordNode.Event], [EventWaitNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
@@ -84,10 +68,6 @@ func (g GraphExec) EventRecordNodeSetEvent(hNode EventRecordNode, event Event) e
 //
 // Sets the event of an event wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphExec.NodeSetParams], [Graph.AddEventWaitNode], [EventWaitNode.Event], [EventRecordNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
@@ -106,10 +86,6 @@ func (g GraphExec) EventWaitNodeSetEvent(hNode EventWaitNode, event Event) error
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Changing nodeParams->numExtSems is not supported.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddExternalSemaphoresSignalNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: semaphore signal node from the graph from which graphExec was instantiated
@@ -127,10 +103,6 @@ func (g GraphExec) ExternalSemaphoresSignalNodeSetParams(hNode ExternalSemaphore
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Changing nodeParams->numExtSems is not supported.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: semaphore wait node from the graph from which graphExec was instantiated
@@ -144,10 +116,6 @@ func (g GraphExec) ExternalSemaphoresWaitNodeSetParams(hNode ExternalSemaphoresW
 // Flags queries the instantiation flags of an executable graph.
 //
 // Returns the flags that were passed to instantiation for the given executable graph. [GraphInstantiateFlagUpload] will not be returned by this API as it does not affect the resulting executable graph.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.Instantiate], [Graph.InstantiateWithParams]
 //
@@ -172,10 +140,6 @@ func (g GraphExec) Id() (uint32, error) {
 // Updates the work represented by hNode in hGraphExec as though hNode had contained nodeParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddHostNode], [HostNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Host node from the graph which was used to instantiate graphExec
@@ -193,10 +157,6 @@ func (g GraphExec) HostNodeSetParams(hNode HostNode, nodeParams *HostNodeParams)
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddKernelNode], [KernelNode.SetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: kernel node from the graph from which graphExec was instantiated
@@ -213,10 +173,6 @@ func (g GraphExec) KernelNodeSetParams(hNode KernelNode, nodeParams *KernelNodeP
 // The source and destination memory in copyParams must be allocated from the same contexts as the original source and destination memory. Both the instantiation-time memory operands and the memory operands in copyParams must be 1-dimensional. Zero-length operations are not supported.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Returns [ErrInvalidValue] if the memory operands’ mappings changed or either the original or new memory operands are multidimensional.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphExec.NodeSetParams], [Graph.AddMemcpyNode], [MemcpyNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
@@ -238,10 +194,6 @@ func (g GraphExec) MemcpyNodeSetParams(hNode MemcpyNode, copyParams *Memcpy3d, c
 // Changing other aspects of the memset (width, height, element size or pitch) may cause the update to be rejected. Specifically, for 2d memsets, all dimension changes are rejected. For 1d memsets, changes in height are explicitly rejected and other changes are opportunistically allowed if the resulting work maps onto the work resources already allocated for the node.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphExec.NodeSetParams], [Graph.AddMemsetNode], [MemsetNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Memset node from the graph which was used to instantiate graphExec
@@ -258,10 +210,6 @@ func (g GraphExec) MemsetNodeSetParams(hNode MemsetNode, memsetParams *MemsetNod
 // Sets the parameters of a node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph from which the executable graph was instantiated. hNode must not have been removed from the original graph.
 // The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call.
 // Allowed changes to parameters on executable graphs are as follows:
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [GraphNode.SetParams] [GraphExec.Update], [Graph.Instantiate]
 //
@@ -284,10 +232,6 @@ func (g GraphExec) NodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) e
 // If the update fails for a reason not listed above, the result member of resultInfo will be set to [GraphExecUpdateError]. If the update succeeds, the result member will be set to [GraphExecUpdateSuccess].
 // [GraphExec.Update] returns [Success] when the updated was performed successfully. It returns [ErrGraphExecUpdateFailure] if the graph update was not performed because it included changes which violated constraints specific to instantiated graph update.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.Instantiate]
 //
 //   - hGraph: The graph containing the updated parameters
@@ -303,10 +247,6 @@ func (g GraphExec) Update(hGraph Graph, resultInfo *GraphExecUpdateResultInfo) e
 // Executes hGraphExec in hStream. Only one instance of hGraphExec may be executing at a time. Each launch is ordered behind both any previous work in hStream and any previous launches of hGraphExec. To execute a graph concurrently, it must be instantiated multiple times into multiple executable graphs.
 // If any allocations created by hGraphExec remain unfreed (from a previous launch) and hGraphExec was not instantiated with [GraphInstantiateFlagAutoFreeOnLaunch], the launch will fail with [ErrInvalidValue].
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.Instantiate], [GraphExec.Upload], [GraphExec.Destroy]
 //
 //   - hStream: Stream in which to launch the graph
@@ -319,10 +259,6 @@ func (g GraphExec) Launch(hStream Stream) error {
 // Upload uploads an executable graph in a stream.
 //
 // Uploads hGraphExec to the device in hStream without executing it. Uploads of the same hGraphExec will be serialized. Each upload is ordered behind both any previous work in hStream and any previous launches of hGraphExec. Uses memory cached by stream to back the allocations owned by hGraphExec.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.Instantiate], [GraphExec.Launch], [GraphExec.Destroy]
 //

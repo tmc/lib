@@ -14,10 +14,6 @@ type EventRecordNode struct {
 //
 // Returns the event of event record node hNode in eventOut.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddEventRecordNode], [EventRecordNode.SetEvent], [EventWaitNode.Event], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 // Wraps cuGraphEventRecordNodeGetEvent.
@@ -30,10 +26,6 @@ func (e EventRecordNode) Event() (Event, error) {
 // Sets the event of event record node hNode to event.
 //
 // Note: This function will reset the node’s context to the event’s device context.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.SetParams], [Graph.AddEventRecordNode], [EventRecordNode.Event], [EventWaitNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //

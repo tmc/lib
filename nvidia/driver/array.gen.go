@@ -9,8 +9,6 @@ import "unsafe"
 // Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes.
 // This function may be called on 1D and 2D arrays, in which case the Height and/or Depth members of the descriptor struct will be set to 0.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray3D], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
 //
 // Wraps cuArray3DGetDescriptor, bound as cuArray3DGetDescriptor_v2.
@@ -22,8 +20,6 @@ func (a Array) Get3DDescriptor() (Array3dDescriptor, error) {
 //
 // Destroys the CUDA array hArray.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFreeArray
 //
 // Wraps cuArrayDestroy.
@@ -34,8 +30,6 @@ func (a Array) Destroy() error {
 // Descriptor gets a 1D or 2D CUDA array descriptor.
 //
 // Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
 //
@@ -64,8 +58,6 @@ func (a Array) MemoryRequirements(device Device) (ArrayMemoryRequirements, error
 // If planeIdx is greater than the maximum number of planes in this array or if the array does not have a multi-planar format e.g: [AdFormatNV12], then [ErrInvalidValue] is returned.
 // Note that if the hArray has format [AdFormatNV12], then passing in 0 for planeIdx returns a CUDA array of the same size as hArray but with one channel and [AdFormatUnsignedINT8] as its format. If 1 is passed for planeIdx, then the returned CUDA array has half the height and width of hArray with two channels and [AdFormatUnsignedINT8] as its format.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewArray], cudaArrayGetPlane
 //
 //   - planeIdx: Plane index
@@ -91,8 +83,6 @@ func (a Array) SparseProperties() (ArraySparseProperties, error) {
 //
 // Copies from one 1D CUDA array to another. dstArray and srcArray specify the handles of the destination and source CUDA arrays for the copy, respectively. dstOffset and srcOffset specify the destination and source offsets in bytes into the CUDA arrays. ByteCount is the number of bytes to be copied. The size of the elements in the CUDA arrays need not be the same format, but the elements must be the same size; and count must be evenly divisible by that size.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyArrayToArray
@@ -110,8 +100,6 @@ func (a Array) CopyFromArray(dstOffset uint, srcArray Array, srcOffset uint, byt
 // CopyToHost copies memory from Array to Host.
 //
 // Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
@@ -140,8 +128,6 @@ func (a Array) CopyToHostPtr(dstHost unsafe.Pointer, srcOffset uint, byteCount u
 // CopyToHostAsync copies memory from Array to Host.
 //
 // Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -179,8 +165,6 @@ func (a Array) CopyToHostAsyncPtr(dstHost unsafe.Pointer, srcOffset uint, byteCo
 //
 // Copies from device memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting index of the destination data. srcDevice specifies the base pointer of the source. ByteCount specifies the number of bytes to copy.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Note: This function exhibits synchronous behavior for most use cases.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyToArray
@@ -197,8 +181,6 @@ func (a Array) CopyFromDevice(dstOffset uint, srcDevice DevicePtr, byteCount uin
 // CopyFromHost copies memory from Host to Array.
 //
 // Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. pSrc specifies the base address of the source. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits synchronous behavior for most use cases.
 //
@@ -227,8 +209,6 @@ func (a Array) CopyFromHostPtr(dstOffset uint, srcHost unsafe.Pointer, byteCount
 // CopyFromHostAsync copies memory from Host to Array.
 //
 // Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. srcHost specifies the base address of the source. ByteCount specifies the number of bytes to copy.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: This function exhibits asynchronous behavior for most use cases.
 //
@@ -273,8 +253,6 @@ func (a Array) CopyFromHostAsyncPtr(dstOffset uint, srcHost unsafe.Pointer, byte
 // Description for a 64 x 64 CUDA array of floats:
 // Description for a width x height x depth CUDA array of 64-bit, 4x16-bit float16’s:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc3DArray
 //
 //   - pAllocateArray: 3D array descriptor
@@ -293,8 +271,6 @@ func NewArray3D(pAllocateArray *Array3dDescriptor) (Array, error) {
 // Description for a 64 x 64 CUDA array of floats:
 // Description for a width x height CUDA array of 64-bit, 4x16-bit float16’s:
 // Description for a width x height CUDA array of 16-bit elements, each of which is two 8-bit unsigned chars:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewArray3D], [Array.Get3DDescriptor], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.CopyFromArray], [DevicePtr.CopyFromArray], [Array.CopyToHost], [Array.CopyToHostAsync], [Array.CopyFromDevice], [DevicePtr.CopyFromDevice], [DevicePtr.CopyFromDeviceAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.CopyFromHost], [Array.CopyFromHostAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocArray
 //

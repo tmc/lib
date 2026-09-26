@@ -14,6 +14,13 @@
 // [runtime.LockOSThread] first and keep the thread locked while it makes
 // calls that use that context.
 //
+// # Errors
+//
+// Kernel launches and asynchronous copies report their failures later, so a
+// call may return the error of an earlier asynchronous launch rather than one
+// of its own. [CtxSynchronize] waits for the context's outstanding work and
+// returns such an error.
+//
 // # Array Management
 //
 //   - [NewArray3D]: Creates a 3D CUDA array.

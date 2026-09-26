@@ -60,11 +60,12 @@ func TestPhysicalTransfer(t *testing.T) {
 	check(f.Sync())
 	h, err := cufile.HandleRegister(&cufile.Descr{Type: cufile.HandleTypeOpaqueFd, Handle: [1]uint64{uint64(f.Fd())}})
 	check(err)
-	t.Cleanup(h.Deregister)
+	cleanup(h.Deregister)
 	p, err := driver.MemAllocBytes(n)
 	check(err)
 	cleanup(p.Free)
-	gotn := h.Read(uintptr(p), n, 0, 0)
+	gotn, err := h.Read(uintptr(p), n, 0, 0)
+	check(err)
 	if gotn != n {
 		t.Fatal(fmt.Sprintf("read=%d want=%d", gotn, n))
 	}
@@ -73,7 +74,8 @@ func TestPhysicalTransfer(t *testing.T) {
 	if !bytes.Equal(got, want) {
 		t.Fatal("read bytes differ")
 	}
-	written := h.Write(uintptr(p), n, n, 0)
+	written, err := h.Write(uintptr(p), n, n, 0)
+	check(err)
 	if written != n {
 		t.Fatal(fmt.Sprintf("write=%d", written))
 	}

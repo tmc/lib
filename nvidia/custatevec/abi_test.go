@@ -252,10 +252,10 @@ func TestUnavailableLibraryIsAnError(t *testing.T) {
 		t.Error("ApplyMatrix on an unloaded library returned nil")
 	}
 
-	// GetVersion returns a size_t rather than a status, so it cannot report an
-	// error; it must report zero rather than call through a nil pointer.
-	if v := GetVersion(); v != 0 {
-		t.Errorf("GetVersion() = %d with no library loaded, want 0", v)
+	// GetVersion returns a size_t rather than a status; the wrapper reports the
+	// missing library as an error rather than a version of zero.
+	if v, err := GetVersion(); err == nil {
+		t.Errorf("GetVersion() = %d, nil with no library loaded, want an error", v)
 	}
 }
 

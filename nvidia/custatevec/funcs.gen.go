@@ -862,13 +862,14 @@ var slotGetStream outSlot[driver.Stream]
 // This function returns the version information of the cuStateVec library.
 //
 // Wraps custatevecGetVersion.
-// It returns the zero value when the library or symbol is unavailable.
-func GetVersion() uint {
+// The error reports an unavailable library or symbol.
+func GetVersion() (uint, error) {
 	if err := checkLibSym("custatevecGetVersion"); err != nil {
 		var zero uint
-		return zero
+		return zero, err
 	}
-	return fnGetVersion()
+	_result := fnGetVersion()
+	return _result, nil
 }
 
 // initializeStateVector fills a device state vector with a standard initial state.

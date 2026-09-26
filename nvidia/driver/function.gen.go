@@ -9,8 +9,6 @@ import "unsafe"
 // Returns in *pi the integer value of the attribute attrib on the kernel given by hfunc. The supported attributes are:
 // With a few execeptions, function attributes may also be queried on unloaded function handles returned from [Module.EnumerateFunctions]. [ErrFunctionNotLoaded] is returned if the attribute requires a fully loaded function but the function is not loaded. The loading state of a function may be queried using cuFuncIsloaded. [Function.Load] may be called to explicitly load a function before querying the following attributes that require the function to be loaded:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.LaunchKernel], cudaFuncGetAttributes, cudaFuncSetAttribute, [Function.IsLoaded], [Function.Load], [Kernel.Attribute]
 //
 //   - attrib: Attribute requested
@@ -25,8 +23,6 @@ func (f Function) Attribute(attrib FunctionAttribute) (int32, error) {
 // Returns in *hmod the handle of the module that function hfunc is located in. The lifetime of the module corresponds to the lifetime of the context it was loaded in or until the module is explicitly unloaded.
 // The CUDA runtime manages its own modules loaded into the primary context. If the handle returned by this API refers to a module loaded by the CUDA runtime, calling [Module.Unload] on that module will result in undefined behavior.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Wraps cuFuncGetModule.
 func (f Function) Module() (Module, error) {
 	return funcGetModule(f)
@@ -36,8 +32,6 @@ func (f Function) Module() (Module, error) {
 //
 // Returns in **name the function name associated with the function handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the function handle is valid. If the module is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // Wraps cuFuncGetName.
 func (f Function) Name() (string, error) {
 	return funcGetName(f)
@@ -46,8 +40,6 @@ func (f Function) Name() (string, error) {
 // ParamCount returns the number of parameters used by the function.
 //
 // Queries the number of kernel parameters used by func and returns it in paramCount.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.ParamInfo]
 //
@@ -59,8 +51,6 @@ func (f Function) ParamCount() (uint, error) {
 // ParamInfo returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
 // Queries the kernel parameter at paramIndex into func's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that func takes. paramSize can be set to NULL if only the parameter offset is desired.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Kernel.ParamInfo]
 //
@@ -98,8 +88,6 @@ func (f Function) Load() error {
 // This call sets the value of a specified attribute attrib on the kernel given by hfunc to an integer value specified by val This function returns [Success] if the new value of the attribute could be successfully set. If the set fails, this call will return an error. Not all attributes can have values set. Attempting to set a value on a read-only attribute will result in an error ([ErrInvalidValue])
 // Supported attributes for the [Function.SetAttribute] call are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.LaunchKernel], cudaFuncGetAttributes, cudaFuncSetAttribute, [Kernel.SetAttribute]
 //
 //   - attrib: Attribute requested
@@ -113,8 +101,6 @@ func (f Function) SetAttribute(attrib FunctionAttribute, value int32) error {
 // SetBlockShape sets the block-dimensions for the function.
 //
 // Specifies the x, y, and z dimensions of the thread blocks that are created when the kernel given by hfunc is launched.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetSharedSize], [Function.SetCacheConfig], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -136,8 +122,6 @@ func (f Function) SetBlockShape(x int32, y int32, z int32) error {
 // Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point.
 // The supported cache configurations are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.Attribute], [Function.LaunchKernel], cudaFuncSetCacheConfig, [Kernel.SetCacheConfig]
 //
 //   - config: Requested cache configuration
@@ -155,8 +139,6 @@ func (f Function) SetCacheConfig(config FuncCacheConfig) error {
 // This function will do nothing on devices with fixed shared memory bank size.
 // The supported bank configurations are:
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [CtxGetSharedMemConfig], [CtxSetSharedMemConfig], [Function.Attribute], [Function.LaunchKernel], cudaFuncSetSharedMemConfig
 //
 //   - config: requested shared memory configuration
@@ -171,8 +153,6 @@ func (f Function) SetSharedMemConfig(config Sharedconfig) error {
 // SetSharedSize sets the dynamic shared-memory size for the function.
 //
 // Sets through bytes the amount of dynamic shared memory that will be available to each thread block when the kernel given by hfunc is launched.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetCacheConfig], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -190,8 +170,6 @@ func (f Function) SetSharedSize(bytes uint32) error {
 // Returns in *dynamicSmemSize the maximum size of dynamic shared memory to allow numBlocks blocks per SM.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 //   - numBlocks: Number of blocks to fit on SM
 //   - blockSize: Size of the blocks
 //
@@ -204,8 +182,6 @@ func (f Function) AvailableDynamicSMemPerBlock(numBlocks int32, blockSize int32)
 //
 // Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: cudaOccupancyMaxActiveBlocksPerMultiprocessor
 //
@@ -223,8 +199,6 @@ func (f Function) MaxActiveBlocksPerMultiprocessor(blockSize int32, dynamicSMemS
 // The Flags parameter controls how special cases are handled. The valid flags are:
 // Note that the API can also be with launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags
 //
 //   - blockSize: Block size the kernel is intended to be launched with
@@ -241,8 +215,6 @@ func (f Function) MaxActiveBlocksPerMultiprocessorWithFlags(blockSize int32, dyn
 // If the function has required cluster size already set (see cudaFuncGetAttributes / [Function.Attribute]), the cluster size from config must either be unspecified or match the required size. Without required sizes, the cluster size must be specified in config, else the function will return an error.
 // Note that various attributes of the kernel function may affect occupancy calculation. Runtime environment may affect how the hardware schedules the clusters, so the calculated occupancy is not guaranteed to be achievable.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will either be taken from the specified stream config->hStream or the current context in case of NULL stream.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: cudaFuncGetAttributes, [Function.Attribute]
 //
@@ -262,8 +234,6 @@ func (f Function) MaxActiveClusters(config *LaunchConfig) (int32, error) {
 // Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored. An example signature is:
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: cudaOccupancyMaxPotentialBlockSize
 //
 //   - blockSizeToDynamicSMemSize: A function that calculates how much per-block dynamic shared memory func uses based on the block size (see [OccupancyB2DSize])
@@ -280,8 +250,6 @@ func (f Function) MaxPotentialBlockSize(blockSizeToDynamicSMemSize uintptr, dyna
 // An extended version of [Function.MaxPotentialBlockSize]. In addition to arguments passed to [Function.MaxPotentialBlockSize], [Function.MaxPotentialBlockSizeWithFlags] also takes a Flags parameter.
 // The Flags parameter controls how special cases are handled. The valid flags are:
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: cudaOccupancyMaxPotentialBlockSizeWithFlags
 //
@@ -302,8 +270,6 @@ func (f Function) MaxPotentialBlockSizeWithFlags(blockSizeToDynamicSMemSize uint
 // This function will respect the compile time launch bounds.
 // Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will either be taken from the specified stream config->hStream or the current context in case of NULL stream.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: cudaFuncGetAttributes, [Function.Attribute]
 //
 //   - config: Launch configuration for the given kernel function
@@ -318,8 +284,6 @@ func (f Function) MaxPotentialClusterSize(config *LaunchConfig) (int32, error) {
 // Invokes the kernel f on a 1 x 1 x 1 grid of blocks. The block contains the number of threads specified by a previous call to [Function.SetBlockShape].
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
 // Launching a function via [Function.LaunchKernel] invalidates the function’s block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -344,8 +308,6 @@ func (f Function) Launch() error {
 // Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream.
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], [LaunchCooperativeKernelMultiDevice], cudaLaunchCooperativeKernel, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
@@ -376,8 +338,6 @@ func (f Function) LaunchCooperativeKernel(gridDim Dim3, blockDim Dim3, sharedMem
 // The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], and [Function.ParamSetv] prior to calling this function.
 // Launching a function via [Function.LaunchKernel] invalidates the function’s block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 //   - gridWidth: Width of grid in blocks
@@ -399,8 +359,6 @@ func (f Function) LaunchGrid(gridWidth int32, gridHeight int32) error {
 // Note: In certain cases where cubins are created with no ABI (i.e., using ptxas --abi-compile no), this function may serialize kernel launches. The CUDA driver retains asynchronous behavior by growing the per-thread stack as needed per launch and not shrinking it afterwards.
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchKernel]
 //
@@ -427,8 +385,6 @@ func (f Function) LaunchGridAsync(gridWidth int32, gridHeight int32, hStream Str
 // Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream.
 //
 // Note: This function uses standard default stream semantics.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], cudaLaunchKernel, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
@@ -485,8 +441,6 @@ func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint3
 //
 // Note: This function uses standard default stream semantics.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], cudaLaunchKernel, cudaLaunchKernelEx, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
 //   - config: Config to launch
@@ -501,8 +455,6 @@ func (f Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Poi
 // ParamSetSize sets the parameter size for the function.
 //
 // Sets through numbytes the total size in bytes needed by the function parameters of the kernel corresponding to hfunc.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -519,8 +471,6 @@ func (f Function) ParamSetSize(numbytes uint32) error {
 //
 // Makes the CUDA array or linear memory bound to the texture reference hTexRef available to a device program as a texture. In this version of CUDA, the texture-reference must be obtained via [Module.TexRef] and the texunit parameter must be set to CU_PARAM_TR_DEFAULT.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 //   - texunit: Texture unit (must be CU_PARAM_TR_DEFAULT)
 //   - hTexRef: Texture-reference to add to argument list
 //
@@ -534,8 +484,6 @@ func (f Function) ParamSetTexRef(texunit int32, hTexRef TexRef) error {
 // ParamSetf adds a floating-point parameter to the function’s argument list.
 //
 // Sets a floating-point parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
@@ -553,8 +501,6 @@ func (f Function) ParamSetf(offset int32, value float32) error {
 //
 // Sets an integer parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 //   - offset: Offset to add parameter to argument list
@@ -570,8 +516,6 @@ func (f Function) ParamSeti(offset int32, value uint32) error {
 // ParamSetv adds arbitrary data to the function’s argument list.
 //
 // Copies an arbitrary amount of data (specified in numbytes) from ptr into the parameter space of the kernel corresponding to hfunc. offset is a byte offset.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //

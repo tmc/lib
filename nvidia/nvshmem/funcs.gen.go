@@ -476,13 +476,14 @@ func fnVendorGetVersionInfoRaw(a0 *int32, a1 *int32, a2 *int32) {
 }
 
 // Align wraps nvshmem_align.
-// It returns the zero value when the library or symbol is unavailable.
-func Align(alignment uint, size uint) uintptr {
+// The error reports an unavailable library or symbol.
+func Align(alignment uint, size uint) (uintptr, error) {
 	if err := checkLibSym("nvshmem_align"); err != nil {
 		var zero uintptr
-		return zero
+		return zero, err
 	}
-	return fnAlign(alignment, size)
+	_result := fnAlign(alignment, size)
+	return _result, nil
 }
 
 // AllToAllMem wraps nvshmem_alltoallmem.
@@ -502,12 +503,13 @@ func Barrier(team Team) error {
 }
 
 // BarrierAll wraps nvshmem_barrier_all.
-// It does nothing when the library or symbol is unavailable.
-func BarrierAll() {
+// The error reports an unavailable library or symbol.
+func BarrierAll() error {
 	if err := checkLibSym("nvshmem_barrier_all"); err != nil {
-		return
+		return err
 	}
 	fnBarrierAll()
+	return nil
 }
 
 // BroadcastMem wraps nvshmem_broadcastmem.
@@ -519,13 +521,14 @@ func BroadcastMem(team Team, dest uintptr, src uintptr, nelems uint, pERoot int3
 }
 
 // Calloc wraps nvshmem_calloc.
-// It returns the zero value when the library or symbol is unavailable.
-func Calloc(count uint, size uint) uintptr {
+// The error reports an unavailable library or symbol.
+func Calloc(count uint, size uint) (uintptr, error) {
 	if err := checkLibSym("nvshmem_calloc"); err != nil {
 		var zero uintptr
-		return zero
+		return zero, err
 	}
-	return fnCalloc(count, size)
+	_result := fnCalloc(count, size)
+	return _result, nil
 }
 
 // FCollectMem wraps nvshmem_fcollectmem.
@@ -537,172 +540,190 @@ func FCollectMem(team Team, dest uintptr, src uintptr, nelems uint) error {
 }
 
 // Fence wraps nvshmem_fence.
-// It does nothing when the library or symbol is unavailable.
-func Fence() {
+// The error reports an unavailable library or symbol.
+func Fence() error {
 	if err := checkLibSym("nvshmem_fence"); err != nil {
-		return
+		return err
 	}
 	fnFence()
+	return nil
 }
 
 // Free wraps nvshmem_free.
-// It does nothing when the library or symbol is unavailable.
-func Free(ptr uintptr) {
+// The error reports an unavailable library or symbol.
+func Free(ptr uintptr) error {
 	if err := checkLibSym("nvshmem_free"); err != nil {
-		return
+		return err
 	}
 	fnFree(ptr)
+	return nil
 }
 
 // GetMem wraps nvshmem_getmem.
-// It does nothing when the library or symbol is unavailable.
-func GetMem(dest uintptr, source uintptr, bytes uint, pe int32) {
+// The error reports an unavailable library or symbol.
+func GetMem(dest uintptr, source uintptr, bytes uint, pe int32) error {
 	if err := checkLibSym("nvshmem_getmem"); err != nil {
-		return
+		return err
 	}
 	fnGetMem(dest, source, bytes, pe)
+	return nil
 }
 
 // GetMemNBI wraps nvshmem_getmem_nbi.
-// It does nothing when the library or symbol is unavailable.
-func GetMemNBI(dest uintptr, source uintptr, bytes uint, pe int32) {
+// The error reports an unavailable library or symbol.
+func GetMemNBI(dest uintptr, source uintptr, bytes uint, pe int32) error {
 	if err := checkLibSym("nvshmem_getmem_nbi"); err != nil {
-		return
+		return err
 	}
 	fnGetMemNBI(dest, source, bytes, pe)
+	return nil
 }
 
 // GlobalExit wraps nvshmem_global_exit.
-// It does nothing when the library or symbol is unavailable.
-func GlobalExit(status int32) {
+// The error reports an unavailable library or symbol.
+func GlobalExit(status int32) error {
 	if err := checkLibSym("nvshmem_global_exit"); err != nil {
-		return
+		return err
 	}
 	fnGlobalExit(status)
+	return nil
 }
 
 // Malloc wraps nvshmem_malloc.
-// It returns the zero value when the library or symbol is unavailable.
-func Malloc(size uint) uintptr {
+// The error reports an unavailable library or symbol.
+func Malloc(size uint) (uintptr, error) {
 	if err := checkLibSym("nvshmem_malloc"); err != nil {
 		var zero uintptr
-		return zero
+		return zero, err
 	}
-	return fnMalloc(size)
+	_result := fnMalloc(size)
+	return _result, nil
 }
 
 // MyPE wraps nvshmem_my_pe.
-// It returns the zero value when the library or symbol is unavailable.
-func MyPE() int32 {
+// The error reports an unavailable library or symbol.
+func MyPE() (int32, error) {
 	if err := checkLibSym("nvshmem_my_pe"); err != nil {
 		var zero int32
-		return zero
+		return zero, err
 	}
-	return fnMyPE()
+	_result := fnMyPE()
+	return _result, nil
 }
 
 // NPEs wraps nvshmem_n_pes.
-// It returns the zero value when the library or symbol is unavailable.
-func NPEs() int32 {
+// The error reports an unavailable library or symbol.
+func NPEs() (int32, error) {
 	if err := checkLibSym("nvshmem_n_pes"); err != nil {
 		var zero int32
-		return zero
+		return zero, err
 	}
-	return fnNPEs()
+	_result := fnNPEs()
+	return _result, nil
 }
 
 // Ptr wraps nvshmem_ptr.
-// It returns the zero value when the library or symbol is unavailable.
-func Ptr(ptr uintptr, pe int32) uintptr {
+// The error reports an unavailable library or symbol.
+func Ptr(ptr uintptr, pe int32) (uintptr, error) {
 	if err := checkLibSym("nvshmem_ptr"); err != nil {
 		var zero uintptr
-		return zero
+		return zero, err
 	}
-	return fnPtr(ptr, pe)
+	_result := fnPtr(ptr, pe)
+	return _result, nil
 }
 
 // PutMem wraps nvshmem_putmem.
-// It does nothing when the library or symbol is unavailable.
-func PutMem(dest uintptr, source uintptr, bytes uint, pe int32) {
+// The error reports an unavailable library or symbol.
+func PutMem(dest uintptr, source uintptr, bytes uint, pe int32) error {
 	if err := checkLibSym("nvshmem_putmem"); err != nil {
-		return
+		return err
 	}
 	fnPutMem(dest, source, bytes, pe)
+	return nil
 }
 
 // PutMemNBI wraps nvshmem_putmem_nbi.
-// It does nothing when the library or symbol is unavailable.
-func PutMemNBI(dest uintptr, source uintptr, bytes uint, pe int32) {
+// The error reports an unavailable library or symbol.
+func PutMemNBI(dest uintptr, source uintptr, bytes uint, pe int32) error {
 	if err := checkLibSym("nvshmem_putmem_nbi"); err != nil {
-		return
+		return err
 	}
 	fnPutMemNBI(dest, source, bytes, pe)
+	return nil
 }
 
 // Quiet wraps nvshmem_quiet.
-// It does nothing when the library or symbol is unavailable.
-func Quiet() {
+// The error reports an unavailable library or symbol.
+func Quiet() error {
 	if err := checkLibSym("nvshmem_quiet"); err != nil {
-		return
+		return err
 	}
 	fnQuiet()
+	return nil
 }
 
 // SignalFetch wraps nvshmem_signal_fetch.
-// It returns the zero value when the library or symbol is unavailable.
-func SignalFetch(sigAddr uintptr) uint64 {
+// The error reports an unavailable library or symbol.
+func SignalFetch(sigAddr uintptr) (uint64, error) {
 	if err := checkLibSym("nvshmem_signal_fetch"); err != nil {
 		var zero uint64
-		return zero
+		return zero, err
 	}
-	return fnSignalFetch(sigAddr)
+	_result := fnSignalFetch(sigAddr)
+	return _result, nil
 }
 
 // SyncAll wraps nvshmem_sync_all.
-// It does nothing when the library or symbol is unavailable.
-func SyncAll() {
+// The error reports an unavailable library or symbol.
+func SyncAll() error {
 	if err := checkLibSym("nvshmem_sync_all"); err != nil {
-		return
+		return err
 	}
 	fnSyncAll()
+	return nil
 }
 
 // TeamDestroy wraps nvshmem_team_destroy.
-// It does nothing when the library or symbol is unavailable.
-func TeamDestroy(team Team) {
+// The error reports an unavailable library or symbol.
+func TeamDestroy(team Team) error {
 	if err := checkLibSym("nvshmem_team_destroy"); err != nil {
-		return
+		return err
 	}
 	fnTeamDestroy(team)
+	return nil
 }
 
 // TeamGetConfig wraps nvshmem_team_get_config.
-// It does nothing when the library or symbol is unavailable.
-func TeamGetConfig(team Team, config *TeamConfig) {
+// The error reports an unavailable library or symbol.
+func TeamGetConfig(team Team, config *TeamConfig) error {
 	if err := checkLibSym("nvshmem_team_get_config"); err != nil {
-		return
+		return err
 	}
 	fnTeamGetConfig(team, config)
+	return nil
 }
 
 // TeamMyPE wraps nvshmem_team_my_pe.
-// It returns the zero value when the library or symbol is unavailable.
-func TeamMyPE(team Team) int32 {
+// The error reports an unavailable library or symbol.
+func TeamMyPE(team Team) (int32, error) {
 	if err := checkLibSym("nvshmem_team_my_pe"); err != nil {
 		var zero int32
-		return zero
+		return zero, err
 	}
-	return fnTeamMyPE(team)
+	_result := fnTeamMyPE(team)
+	return _result, nil
 }
 
 // TeamNPEs wraps nvshmem_team_n_pes.
-// It returns the zero value when the library or symbol is unavailable.
-func TeamNPEs(team Team) int32 {
+// The error reports an unavailable library or symbol.
+func TeamNPEs(team Team) (int32, error) {
 	if err := checkLibSym("nvshmem_team_n_pes"); err != nil {
 		var zero int32
-		return zero
+		return zero, err
 	}
-	return fnTeamNPEs(team)
+	_result := fnTeamNPEs(team)
+	return _result, nil
 }
 
 // TeamSplit2D wraps nvshmem_team_split_2d.
@@ -739,13 +760,14 @@ func TeamSync(team Team) error {
 }
 
 // TeamTranslatePE wraps nvshmem_team_translate_pe.
-// It returns the zero value when the library or symbol is unavailable.
-func TeamTranslatePE(srcTeam Team, srcPe int32, destTeam Team) int32 {
+// The error reports an unavailable library or symbol.
+func TeamTranslatePE(srcTeam Team, srcPe int32, destTeam Team) (int32, error) {
 	if err := checkLibSym("nvshmem_team_translate_pe"); err != nil {
 		var zero int32
-		return zero
+		return zero, err
 	}
-	return fnTeamTranslatePE(srcTeam, srcPe, destTeam)
+	_result := fnTeamTranslatePE(srcTeam, srcPe, destTeam)
+	return _result, nil
 }
 
 // AllToAllMemOnStream wraps nvshmemx_alltoallmem_on_stream.
@@ -757,12 +779,13 @@ func AllToAllMemOnStream(team Team, dest uintptr, src uintptr, nelem uint, strea
 }
 
 // BarrierAllOnStream wraps nvshmemx_barrier_all_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func BarrierAllOnStream(stream driver.Stream) {
+// The error reports an unavailable library or symbol.
+func BarrierAllOnStream(stream driver.Stream) error {
 	if err := checkLibSym("nvshmemx_barrier_all_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnBarrierAllOnStream(stream)
+	return nil
 }
 
 // BarrierOnStream wraps nvshmemx_barrier_on_stream.
@@ -790,23 +813,25 @@ func BufferRegister(addr uintptr, length uint) error {
 }
 
 // BufferRegisterSymmetric wraps nvshmemx_buffer_register_symmetric.
-// It returns the zero value when the library or symbol is unavailable.
-func BufferRegisterSymmetric(bufPtr uintptr, size uint, flags int32) uintptr {
+// The error reports an unavailable library or symbol.
+func BufferRegisterSymmetric(bufPtr uintptr, size uint, flags int32) (uintptr, error) {
 	if err := checkLibSym("nvshmemx_buffer_register_symmetric"); err != nil {
 		var zero uintptr
-		return zero
+		return zero, err
 	}
-	return fnBufferRegisterSymmetric(bufPtr, size, flags)
+	_result := fnBufferRegisterSymmetric(bufPtr, size, flags)
+	return _result, nil
 }
 
 // BufferRegisterSymmetricAt wraps nvshmemx_buffer_register_symmetric_at_preferred_address.
-// It returns the zero value when the library or symbol is unavailable.
-func BufferRegisterSymmetricAt(bufPtr uintptr, size uint, preferredAddr uintptr, flags int32) uintptr {
+// The error reports an unavailable library or symbol.
+func BufferRegisterSymmetricAt(bufPtr uintptr, size uint, preferredAddr uintptr, flags int32) (uintptr, error) {
 	if err := checkLibSym("nvshmemx_buffer_register_symmetric_at_preferred_address"); err != nil {
 		var zero uintptr
-		return zero
+		return zero, err
 	}
-	return fnBufferRegisterSymmetricAt(bufPtr, size, preferredAddr, flags)
+	_result := fnBufferRegisterSymmetricAt(bufPtr, size, preferredAddr, flags)
+	return _result, nil
 }
 
 // BufferUnregister wraps nvshmemx_buffer_unregister.
@@ -818,12 +843,13 @@ func BufferUnregister(addr uintptr) error {
 }
 
 // BufferUnregisterAll wraps nvshmemx_buffer_unregister_all.
-// It does nothing when the library or symbol is unavailable.
-func BufferUnregisterAll() {
+// The error reports an unavailable library or symbol.
+func BufferUnregisterAll() error {
 	if err := checkLibSym("nvshmemx_buffer_unregister_all"); err != nil {
-		return
+		return err
 	}
 	fnBufferUnregisterAll()
+	return nil
 }
 
 // BufferUnregisterSymmetric wraps nvshmemx_buffer_unregister_symmetric.
@@ -875,21 +901,23 @@ func FCollectMemOnStream(team Team, dest uintptr, src uintptr, nelem uint, strea
 }
 
 // Flush wraps nvshmemx_flush.
-// It does nothing when the library or symbol is unavailable.
-func Flush() {
+// The error reports an unavailable library or symbol.
+func Flush() error {
 	if err := checkLibSym("nvshmemx_flush"); err != nil {
-		return
+		return err
 	}
 	fnFlush()
+	return nil
 }
 
 // FlushOnStream wraps nvshmemx_flush_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func FlushOnStream(cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func FlushOnStream(cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_flush_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnFlushOnStream(cstrm)
+	return nil
 }
 
 // GetUniqueID wraps nvshmemx_get_uniqueid.
@@ -910,86 +938,95 @@ func GetUniqueID() (UniqueID, error) {
 var slotGetUniqueID outSlot[UniqueID]
 
 // GetMemNBIOnStream wraps nvshmemx_getmem_nbi_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func GetMemNBIOnStream(dest uintptr, source uintptr, bytes uint, pe int32, cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func GetMemNBIOnStream(dest uintptr, source uintptr, bytes uint, pe int32, cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_getmem_nbi_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnGetMemNBIOnStream(dest, source, bytes, pe, cstrm)
+	return nil
 }
 
 // GetMemOnStream wraps nvshmemx_getmem_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func GetMemOnStream(dest uintptr, source uintptr, bytes uint, pe int32, cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func GetMemOnStream(dest uintptr, source uintptr, bytes uint, pe int32, cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_getmem_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnGetMemOnStream(dest, source, bytes, pe, cstrm)
+	return nil
 }
 
 // QueryInitStatus wraps nvshmemx_init_status.
-// It returns the zero value when the library or symbol is unavailable.
-func QueryInitStatus() InitStatus {
+// The error reports an unavailable library or symbol.
+func QueryInitStatus() (InitStatus, error) {
 	if err := checkLibSym("nvshmemx_init_status"); err != nil {
 		var zero InitStatus
-		return zero
+		return zero, err
 	}
-	return fnQueryInitStatus()
+	_result := fnQueryInitStatus()
+	return _result, nil
 }
 
 // MulticastPtr wraps nvshmemx_mc_ptr.
-// It returns the zero value when the library or symbol is unavailable.
-func MulticastPtr(team Team, ptr uintptr) uintptr {
+// The error reports an unavailable library or symbol.
+func MulticastPtr(team Team, ptr uintptr) (uintptr, error) {
 	if err := checkLibSym("nvshmemx_mc_ptr"); err != nil {
 		var zero uintptr
-		return zero
+		return zero, err
 	}
-	return fnMulticastPtr(team, ptr)
+	_result := fnMulticastPtr(team, ptr)
+	return _result, nil
 }
 
 // PutMemNBIOnStream wraps nvshmemx_putmem_nbi_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func PutMemNBIOnStream(dest uintptr, source uintptr, bytes uint, pe int32, cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func PutMemNBIOnStream(dest uintptr, source uintptr, bytes uint, pe int32, cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_putmem_nbi_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnPutMemNBIOnStream(dest, source, bytes, pe, cstrm)
+	return nil
 }
 
 // PutMemOnStream wraps nvshmemx_putmem_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func PutMemOnStream(dest uintptr, source uintptr, bytes uint, pe int32, cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func PutMemOnStream(dest uintptr, source uintptr, bytes uint, pe int32, cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_putmem_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnPutMemOnStream(dest, source, bytes, pe, cstrm)
+	return nil
 }
 
 // PutMemSignalNBIOnStream wraps nvshmemx_putmem_signal_nbi_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func PutMemSignalNBIOnStream(dest uintptr, source uintptr, bytes uint, sigAddr uintptr, signal uint64, sigOp SignalOp, pe int32, cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func PutMemSignalNBIOnStream(dest uintptr, source uintptr, bytes uint, sigAddr uintptr, signal uint64, sigOp SignalOp, pe int32, cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_putmem_signal_nbi_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnPutMemSignalNBIOnStream(dest, source, bytes, sigAddr, signal, int32(sigOp), pe, cstrm)
+	return nil
 }
 
 // PutMemSignalOnStream wraps nvshmemx_putmem_signal_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func PutMemSignalOnStream(dest uintptr, source uintptr, bytes uint, sigAddr uintptr, signal uint64, sigOp SignalOp, pe int32, cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func PutMemSignalOnStream(dest uintptr, source uintptr, bytes uint, sigAddr uintptr, signal uint64, sigOp SignalOp, pe int32, cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_putmem_signal_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnPutMemSignalOnStream(dest, source, bytes, sigAddr, signal, int32(sigOp), pe, cstrm)
+	return nil
 }
 
 // QuietOnStream wraps nvshmemx_quiet_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func QuietOnStream(cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func QuietOnStream(cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_quiet_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnQuietOnStream(cstrm)
+	return nil
 }
 
 // SetAttrMPICommArgs wraps nvshmemx_set_attr_mpi_comm_args.
@@ -1009,30 +1046,33 @@ func SetAttrUniqueIDArgs(myrank int32, nranks int32, uniqueid *UniqueID, attr *I
 }
 
 // SignalOpOnStream wraps nvshmemx_signal_op_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func SignalOpOnStream(sigAddr uintptr, signal uint64, sigOp SignalOp, pe int32, cstrm driver.Stream) {
+// The error reports an unavailable library or symbol.
+func SignalOpOnStream(sigAddr uintptr, signal uint64, sigOp SignalOp, pe int32, cstrm driver.Stream) error {
 	if err := checkLibSym("nvshmemx_signal_op_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnSignalOpOnStream(sigAddr, signal, int32(sigOp), pe, cstrm)
+	return nil
 }
 
 // SignalWaitUntilOnStream wraps nvshmemx_signal_wait_until_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func SignalWaitUntilOnStream(sigAddr uintptr, cmp CmpType, cmpValue uint64, cstream driver.Stream) {
+// The error reports an unavailable library or symbol.
+func SignalWaitUntilOnStream(sigAddr uintptr, cmp CmpType, cmpValue uint64, cstream driver.Stream) error {
 	if err := checkLibSym("nvshmemx_signal_wait_until_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnSignalWaitUntilOnStream(sigAddr, int32(cmp), cmpValue, cstream)
+	return nil
 }
 
 // SyncAllOnStream wraps nvshmemx_sync_all_on_stream.
-// It does nothing when the library or symbol is unavailable.
-func SyncAllOnStream(stream driver.Stream) {
+// The error reports an unavailable library or symbol.
+func SyncAllOnStream(stream driver.Stream) error {
 	if err := checkLibSym("nvshmemx_sync_all_on_stream"); err != nil {
-		return
+		return err
 	}
 	fnSyncAllOnStream(stream)
+	return nil
 }
 
 // TeamGetUniqueID wraps nvshmemx_team_get_uniqueid.

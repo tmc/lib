@@ -6,8 +6,6 @@ package driver
 //
 // Destroys the CUDA mipmapped array hMipmappedArray.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewMipmappedArray], [MipmappedArray.Level], [NewArray], cudaFreeMipmappedArray
 //
 // Wraps cuMipmappedArrayDestroy.
@@ -19,8 +17,6 @@ func (m MipmappedArray) Destroy() error {
 //
 // Returns in *pLevelArray a CUDA array that represents a single mipmap level of the CUDA mipmapped array hMipmappedArray.
 // If level is greater than the maximum number of levels in this mipmapped array, [ErrInvalidValue] is returned.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewMipmappedArray], [MipmappedArray.Destroy], [NewArray], cudaGetMipmappedArrayLevel
 //
@@ -65,8 +61,6 @@ func (m MipmappedArray) SparseProperties() (ArraySparseProperties, error) {
 // The [Array3dDescriptor] is defined as:
 // where:
 // Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth].
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [MipmappedArray.Destroy], [MipmappedArray.Level], [NewArray], cudaMallocMipmappedArray
 //

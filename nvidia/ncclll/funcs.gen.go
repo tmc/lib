@@ -72,21 +72,25 @@ func fnCalcMinReductionBufferSize(a0 LLSyncMode, a1 int32, a2 int32, a3 int32, a
 }
 
 // CalcMinReductionBufferSize wraps ncclCalcMinReductionBufferSize.
-// It panics if the library cannot be loaded or lacks the symbol.
-func CalcMinReductionBufferSize(mode LLSyncMode, nElts int32, eltSize int32, nRanks int32, nBlocks int32, roundRobinFactor int32) uint {
+// The error reports an unavailable library or symbol.
+func CalcMinReductionBufferSize(mode LLSyncMode, nElts int32, eltSize int32, nRanks int32, nBlocks int32, roundRobinFactor int32) (uint, error) {
 	if err := checkLibSym("ncclCalcMinReductionBufferSize"); err != nil {
-		panic(err)
+		var zero uint
+		return zero, err
 	}
-	return fnCalcMinReductionBufferSize(mode, nElts, eltSize, nRanks, nBlocks, roundRobinFactor)
+	_result := fnCalcMinReductionBufferSize(mode, nElts, eltSize, nRanks, nBlocks, roundRobinFactor)
+	return _result, nil
 }
 
 // LLGetPoisonValue wraps ncclLLGetPoisonValue.
-// It panics if the library cannot be loaded or lacks the symbol.
-func LLGetPoisonValue(dtype nccl.DataType) uint32 {
+// The error reports an unavailable library or symbol.
+func LLGetPoisonValue(dtype nccl.DataType) (uint32, error) {
 	if err := checkLibSym("ncclLLGetPoisonValue"); err != nil {
-		panic(err)
+		var zero uint32
+		return zero, err
 	}
-	return fnLLGetPoisonValue(dtype)
+	_result := fnLLGetPoisonValue(dtype)
+	return _result, nil
 }
 
 // LLPoisonBuffer wraps ncclLLPoisonBuffer.

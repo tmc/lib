@@ -37,11 +37,18 @@ func Example_uniqueIDBootstrap() {
 
 	// The allocation is collective: every PE makes it, at the same size, in
 	// the same order, and the address is valid on all of them.
-	buf := nvshmem.Malloc(4096)
+	buf, err := nvshmem.Malloc(4096)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer nvshmem.Free(buf)
 
 	nvshmem.BarrierAll()
-	if nvshmem.MyPE() == 0 {
+	me, err := nvshmem.MyPE()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if me == 0 {
 		nvshmem.PutMem(buf, buf, 4096, 1)
 		nvshmem.Quiet()
 	}

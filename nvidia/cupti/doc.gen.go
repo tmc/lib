@@ -11,10 +11,12 @@
 //     [ActivityRegisterCallbacks], [ActivityFlushAll]).
 //   - Callback: synchronous callbacks at driver, runtime, resource and
 //     synchronization events ([Subscribe], [Subscriber.EnableDomain]).
-//   - Event and Metric: hardware counter collection on pre-Volta style
-//     interfaces ([NewEventGroup], [MetricGetValue]).
-//   - Profiler and Range Profiler: the current counter collection path
-//     ([ProfilerInitialize], [ProfilerBeginPass]).
+//   - Event and Metric: the legacy hardware counter APIs, unsupported
+//     since CUDA 13.0 ([NewEventGroup], [MetricGetValue]).
+//   - Profiler: counter collection in replay passes, deprecated since
+//     CUDA 13.0 ([ProfilerInitialize], [ProfilerBeginPass]).
+//   - Range Profiler: the current counter collection path, which
+//     replaces the three above.
 //   - PC Sampling, PM Sampling and SASS Metrics: instruction-level and
 //     time-series sampling.
 //

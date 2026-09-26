@@ -8,8 +8,6 @@ import "unsafe"
 //
 // Returns in *canAccessPeer a value of 1 if contexts on dev are capable of directly accessing memory from contexts on peerDev and 0 otherwise. If direct access of peerDev from dev is possible, then access may be enabled on two specific contexts by calling [Context.EnablePeerAccess].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], cudaDeviceCanAccessPeer
 //
 //   - peerDev: Device on which the allocations to be directly accessed by dev reside
@@ -30,8 +28,6 @@ func (d Device) ComputeCapability() (major int, minor int, err error) {
 //
 // Returns in *pi the integer value of the attribute attrib on device dev.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaDeviceGetAttribute, cudaGetDeviceProperties
 //
 //   - attrib: Device attribute to query
@@ -44,8 +40,6 @@ func (d Device) Attribute(attrib DeviceAttribute) (int32, error) {
 // DefaultMemPool returns the default mempool of a device.
 //
 // The default mempool of a device contains device memory from that device.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.Attribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [Device.MemPool], [NewMemoryPool]
 //
@@ -70,8 +64,6 @@ func (d Device) DevResource(type_ DevResourceType) (DevResource, error) {
 // ExecAffinitySupport returns information about the execution affinity support of the device.
 //
 // Returns in *pi whether execution affinity type type is supported by device dev. The supported types are:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
 //
@@ -101,8 +93,6 @@ func (d Device) GraphMemAttribute(attr GraphmemAttribute, value unsafe.Pointer) 
 // Returns [ErrInvalidDevice] if dev is not valid.
 // Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [Device.P2PAtomicCapabilities], cudaDeviceGeHostAtomicCapabilities
 //
 //   - operations: Requested operations
@@ -116,8 +106,6 @@ func (d Device) HostAtomicCapabilities(operations *AtomicOperation, count uint32
 // Luid returns an LUID and device node mask for the device.
 //
 // Return identifying information ( luid and deviceNodeMask) to allow matching device with graphics APIs.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceProperties
 //
@@ -142,8 +130,6 @@ func (d Device) MemPool() (MemoryPool, error) {
 // Name returns an identifier string for the device.
 //
 // Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by name. len specifies the maximum length of the string that may be returned. name is shortened to the specified len, if len is less than the device name
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [Device.Uuid], [Device.Luid], [DeviceGetCount], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceProperties
 //
@@ -179,8 +165,6 @@ func (d Device) NvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, flags int3
 // Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device.
 // Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.P2PAttribute], cudaDeviceGetP2PAttribute, cudaDeviceGetP2PAtomicCapabilities
 //
 //   - operations: Requested operations
@@ -198,8 +182,6 @@ func (d Device) P2PAtomicCapabilities(operations *AtomicOperation, count uint32,
 // Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device.
 // Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], [Device.CanAccessPeer], [Device.P2PAtomicCapabilities], cudaDeviceGetP2PAttribute
 //
 //   - attrib: The requested attribute of the link between srcDevice and dstDevice
@@ -215,8 +197,6 @@ func (d Device) P2PAttribute(attrib DeviceP2pattribute, dstDevice Device) (int32
 // Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by pciBusId. len specifies the maximum length of the string that may be returned.
 // where domain, bus, device, and function are all hexadecimal values. pciBusId should be large enough to store 13 characters including the NULL-terminator.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [DeviceGet], [Device.Attribute], [DeviceGetByPCIBusId], cudaDeviceGetPCIBusId
 //
 // Wraps cuDeviceGetPCIBusId.
@@ -228,8 +208,6 @@ func (d Device) PCIBusId() (string, error) {
 //
 // Returns in *prop the properties of device dev. The [Devprop] structure is defined as:
 // where:
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
 //
@@ -244,8 +222,6 @@ func (d Device) Properties() (Devprop, error) {
 //
 // Returns in maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture for given format and numChannels.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], cudaMemGetInfo, [Device.TotalMem]
 //
 //   - format: Texture format
@@ -259,8 +235,6 @@ func (d Device) Texture1DLinearMaxWidth(format ArrayFormat, numChannels uint32) 
 // Uuid returns an UUID for the device.
 //
 // Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Luid], [DeviceGet], [Device.TotalMem], cudaGetDeviceProperties
 //
@@ -284,8 +258,6 @@ func (d Device) GraphMemTrim() error {
 //
 // Returns in *flags the flags for the primary context of dev, and in *active whether it is active. See [Device.PrimaryCtxSetFlags] for flag values.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.PrimaryCtxSetFlags], [CtxGetFlags], [CtxSetFlags], cudaGetDeviceFlags
 //
 // Wraps cuDevicePrimaryCtxGetState.
@@ -299,8 +271,6 @@ func (d Device) PrimaryCtxGetState() (flags uint32, active int32, err error) {
 // Releasing a primary context that has not been previously retained will fail with [ErrInvalidContext].
 // Please note that unlike [Context.Destroy] this method does not pop the context from stack in any circumstances.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.PrimaryCtxRetain], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 // Wraps cuDevicePrimaryCtxRelease, bound as cuDevicePrimaryCtxRelease_v2.
@@ -312,8 +282,6 @@ func (d Device) PrimaryCtxRelease() error {
 //
 // Explicitly destroys and cleans up all resources associated with the current device in the current process.
 // Note that it is responsibility of the calling function to ensure that no other module in the process is using the device any more. For that reason it is recommended to use [Device.PrimaryCtxRelease] in most cases. However it is safe for other modules to call [Device.PrimaryCtxRelease] even after resetting the device. Resetting the primary context does not release it, an application that has retained the primary context should explicitly release its usage.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxRelease], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceReset
 //
@@ -328,8 +296,6 @@ func (d Device) PrimaryCtxReset() error {
 // Retaining the primary context for the first time will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.Attribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for devices. Documentation for nvidia-smi can be obtained by passing a -h option to it.
 // Please note that the primary context always supports pinned allocations. Other flags can be specified by [Device.PrimaryCtxSetFlags].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.PrimaryCtxRelease], [Device.PrimaryCtxSetFlags], [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 // Wraps cuDevicePrimaryCtxRetain.
@@ -341,8 +307,6 @@ func (d Device) PrimaryCtxRetain() (Context, error) {
 //
 // Sets the flags for the primary context on the device overwriting perviously set ones.
 // The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxGetState], [NewContext], [CtxGetFlags], [CtxSetFlags], cudaSetDeviceFlags
 //
@@ -364,8 +328,6 @@ func (d Device) PrimaryCtxSetFlags(flags CtxFlags) error {
 // Any long running tasks should be queued for execution on an application thread.
 // Callbacks may not call [Device.RegisterAsyncNotification] or [Device.UnregisterAsyncNotification]. Doing so will result in [ErrNotPermitted]. Async notification callbacks execute in an undefined order and may be serialized.
 // Returns in *callback a handle representing the registered callback instance.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.UnregisterAsyncNotification]
 //
@@ -408,8 +370,6 @@ func (d Device) SetMemPool(pool MemoryPool) error {
 //
 // Returns in *bytes the total amount of memory available on the device dev in bytes.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.ExecAffinitySupport], cudaMemGetInfo
 //
 // Wraps cuDeviceTotalMem, bound as cuDeviceTotalMem_v2.
@@ -420,8 +380,6 @@ func (d Device) TotalMem() (uint, error) {
 // UnregisterAsyncNotification unregisters an async notification callback.
 //
 // Unregisters callback so that the corresponding callback function will stop receiving async notifications.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Device.RegisterAsyncNotification]
 //
@@ -514,8 +472,6 @@ func (d Device) MulticastUnbind(mcHandle uint64, mcOffset uint, size uint) error
 //
 // Returns in *device a device handle given an ordinal in the range [0, [DeviceGetCount]-1].
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [Device.Luid], [Device.TotalMem], [Device.ExecAffinitySupport]
 //
 //   - ordinal: Device number to get handle for
@@ -529,8 +485,6 @@ func DeviceGet(ordinal int) (Device, error) {
 //
 // Returns in *device a device handle given a PCI bus ID string.
 // where domain, bus, device, and function are all hexadecimal values
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [DeviceGet], [Device.Attribute], [Device.PCIBusId], cudaDeviceGetByPCIBusId
 //

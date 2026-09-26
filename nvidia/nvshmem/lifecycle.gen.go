@@ -92,17 +92,23 @@ func HostlibInit(flags InitFlags, attr *InitAttr) error {
 // Finalize calls the exported nvshmemx_hostlib_finalize. The header's
 // nvshmem_finalize is a static inline over a symbol that is not exported and
 // so is not reachable from Go.
-func Finalize() {
+func Finalize() error {
 	if err := checkLibSym("nvshmemx_hostlib_finalize"); err != nil {
-		return
+		return err
 	}
 	fnHostlibFinalize()
+	return nil
 }
 
 // Initialized reports whether this PE has completed initialization, by
-// checking [InitStatus] against StatusIsInitialized.
+// checking [InitStatus] against StatusIsInitialized. It reports false if the
+// library cannot be loaded.
 func Initialized() bool {
-	switch QueryInitStatus() {
+	s, err := QueryInitStatus()
+	if err != nil {
+		return false
+	}
+	switch s {
 	case StatusIsInitialized, StatusLimitedMpg, StatusFullMpg:
 		return true
 	}
@@ -110,34 +116,34 @@ func Initialized() bool {
 }
 
 // QueryThread returns the thread support level NVSHMEM is providing.
-func QueryThread() ThreadSupport {
+func QueryThread() (ThreadSupport, error) {
 	if err := checkLibSym("nvshmem_query_thread"); err != nil {
-		return ThreadSingle
+		return 0, err
 	}
 	var provided int32
 	fnQueryThreadRaw(&provided)
-	return ThreadSupport(provided)
+	return ThreadSupport(provided), nil
 }
 
 // InfoGetVersion returns the OpenSHMEM specification version NVSHMEM
 // implements. It is not the NVSHMEM release version; see [VendorVersion].
-func InfoGetVersion() (major, minor int) {
+func InfoGetVersion() (major, minor int, err error) {
 	if err := checkLibSym("nvshmem_info_get_version"); err != nil {
-		return 0, 0
+		return 0, 0, err
 	}
 	var maj, min int32
 	fnInfoGetVersionRaw(&maj, &min)
-	return int(maj), int(min)
+	return int(maj), int(min), nil
 }
 
 // VendorVersion returns the NVSHMEM release version.
-func VendorVersion() (major, minor, patch int) {
+func VendorVersion() (major, minor, patch int, err error) {
 	if err := checkLibSym("nvshmemx_vendor_get_version_info"); err != nil {
-		return 0, 0, 0
+		return 0, 0, 0, err
 	}
 	var maj, min, pat int32
 	fnVendorGetVersionInfoRaw(&maj, &min, &pat)
-	return int(maj), int(min), int(pat)
+	return int(maj), int(min), int(pat), nil
 }
 
 // Name returns the vendor name string, "NVSHMEM".
@@ -145,16 +151,16 @@ func VendorVersion() (major, minor, patch int) {
 // The C function writes into a caller-supplied buffer with no length argument
 // and no bound other than the header's NVSHMEM_MAX_NAME_LEN, so the buffer
 // here is that size and the result is truncated at the first NUL.
-func Name() string {
+func Name() (string, error) {
 	if err := checkLibSym("nvshmem_info_get_name"); err != nil {
-		return ""
+		return "", err
 	}
 	var buf [MaxNameLen]byte
 	fnInfoGetNameRaw(&buf[0])
 	for i, b := range buf {
 		if b == 0 {
-			return string(buf[:i])
+			return string(buf[:i]), nil
 		}
 	}
-	return string(buf[:])
+	return string(buf[:]), nil
 }

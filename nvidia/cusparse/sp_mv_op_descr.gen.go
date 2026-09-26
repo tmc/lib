@@ -6,7 +6,7 @@ package cusparse
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 // [Handle.SpMVOp] supports the following type combinations:

@@ -15,10 +15,6 @@ type ExternalSemaphoresSignalNode struct {
 //
 // Returns the parameters of an external semaphore signal node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [ExternalSemaphoresSignalNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 // Wraps cuGraphExternalSemaphoresSignalNodeGetParams.
@@ -29,10 +25,6 @@ func (e ExternalSemaphoresSignalNode) Params() (ExtSemSignalNodeParams, error) {
 // SetParams sets an external semaphore signal node’s parameters.
 //
 // Sets the parameters of an external semaphore signal node hNode to nodeParams.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresSignalNode], [ExternalSemaphoresSignalNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //

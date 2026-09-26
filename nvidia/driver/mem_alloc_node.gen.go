@@ -14,10 +14,6 @@ type MemAllocNode struct {
 //
 // Returns the parameters of a memory alloc node hNode in paramsOut. The poolProps and accessDescs returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [GraphNode.Params], [Graph.AddMemAllocNode], [MemFreeNode.Params]
 //
 // Wraps cuGraphMemAllocNodeGetParams.

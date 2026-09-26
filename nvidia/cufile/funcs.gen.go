@@ -159,12 +159,13 @@ func batchIOCancel(batchIdp BatchHandle) error {
 }
 
 // batchIODestroy wraps cuFileBatchIODestroy.
-// It panics if the library cannot be loaded or lacks the symbol.
-func batchIODestroy(batchIdp BatchHandle) {
+// The error reports an unavailable library or symbol.
+func batchIODestroy(batchIdp BatchHandle) error {
 	if err := checkLibSym("cuFileBatchIODestroy"); err != nil {
-		panic(err)
+		return err
 	}
 	fnbatchIODestroy(batchIdp)
+	return nil
 }
 
 // batchIOGetStatus wraps cuFileBatchIOGetStatus.
@@ -455,12 +456,13 @@ func GetVersion() (int32, error) {
 }
 
 // handleDeregister wraps cuFileHandleDeregister.
-// It panics if the library cannot be loaded or lacks the symbol.
-func handleDeregister(fh Handle) {
+// The error reports an unavailable library or symbol.
+func handleDeregister(fh Handle) error {
 	if err := checkLibSym("cuFileHandleDeregister"); err != nil {
-		panic(err)
+		return err
 	}
 	fnhandleDeregister(fh)
+	return nil
 }
 
 // handleRegister wraps cuFileHandleRegister.
@@ -478,12 +480,14 @@ func handleRegister(descr *Descr) (Handle, error) {
 }
 
 // read wraps cuFileRead.
-// It panics if the library cannot be loaded or lacks the symbol.
-func read(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) int64 {
+// The error reports an unavailable library or symbol.
+func read(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	if err := checkLibSym("cuFileRead"); err != nil {
-		panic(err)
+		var zero int64
+		return zero, err
 	}
-	return fnread(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
+	_result := fnread(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
+	return _result, nil
 }
 
 // readAsync wraps cuFileReadAsync.
@@ -583,21 +587,25 @@ func StreamRegister(stream driver.Stream, flags uint32) error {
 }
 
 // UseCount wraps cuFileUseCount.
-// It panics if the library cannot be loaded or lacks the symbol.
-func UseCount() int {
+// The error reports an unavailable library or symbol.
+func UseCount() (int, error) {
 	if err := checkLibSym("cuFileUseCount"); err != nil {
-		panic(err)
+		var zero int
+		return zero, err
 	}
-	return fnUseCount()
+	_result := fnUseCount()
+	return _result, nil
 }
 
 // write wraps cuFileWrite.
-// It panics if the library cannot be loaded or lacks the symbol.
-func write(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) int64 {
+// The error reports an unavailable library or symbol.
+func write(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	if err := checkLibSym("cuFileWrite"); err != nil {
-		panic(err)
+		var zero int64
+		return zero, err
 	}
-	return fnwrite(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
+	_result := fnwrite(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
+	return _result, nil
 }
 
 // writeAsync wraps cuFileWriteAsync.

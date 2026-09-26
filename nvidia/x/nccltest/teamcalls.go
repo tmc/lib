@@ -96,8 +96,18 @@ func CheckTeamCalls(device int32) (report TeamCallReport, err error) {
 		return report, fmt.Errorf("binding failures: %+v", failures)
 	}
 
-	world, lsa := comm.TeamWorld(), comm.TeamLsa()
-	cft := comm.TeamCft(nccl.CftTeamFlat)
+	world, err := comm.TeamWorld()
+	if err != nil {
+		return report, fmt.Errorf("world team: %w", err)
+	}
+	lsa, err := comm.TeamLsa()
+	if err != nil {
+		return report, fmt.Errorf("LSA team: %w", err)
+	}
+	cft, err := comm.TeamCft(nccl.CftTeamFlat)
+	if err != nil {
+		return report, fmt.Errorf("CFT team: %w", err)
+	}
 	for _, team := range []nccl.Team{world, lsa, cft} {
 		if team.NRanks != 1 || team.Rank != 0 || team.Stride != 1 {
 			return report, fmt.Errorf("unexpected single-rank team %+v", team)

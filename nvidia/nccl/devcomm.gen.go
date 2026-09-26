@@ -80,25 +80,41 @@ func devCommDestroy(comm Comm, devComm *DevComm) error {
 // comm is the host-side communicator and mode is a selector used to filter the subset of CFT unicast group ranks that are part of the team (useful to build hierarchical communication patterns).
 //
 // Wraps ncclTeamCft.
-func teamCft(comm Comm, mode CftTeamMode) Team {
-	return fnteamCft(comm, mode)
+func teamCft(comm Comm, mode CftTeamMode) (Team, error) {
+	if err := checkLibSym("ncclTeamCft"); err != nil {
+		var zero Team
+		return zero, err
+	}
+	return fnteamCft(comm, mode), nil
 }
 
 // teamCftMultimem returns the host-side multicast CFT team containing all the ranks that are part of the CFT multicast group.
 //
 // Wraps ncclTeamCftMultimem.
-func teamCftMultimem(comm Comm) Team {
-	return fnteamCftMultimem(comm)
+func teamCftMultimem(comm Comm) (Team, error) {
+	if err := checkLibSym("ncclTeamCftMultimem"); err != nil {
+		var zero Team
+		return zero, err
+	}
+	return fnteamCftMultimem(comm), nil
 }
 
 // teamLsa wraps ncclTeamLsa.
-func teamLsa(comm Comm) Team {
-	return fnteamLsa(comm)
+func teamLsa(comm Comm) (Team, error) {
+	if err := checkLibSym("ncclTeamLsa"); err != nil {
+		var zero Team
+		return zero, err
+	}
+	return fnteamLsa(comm), nil
 }
 
 // teamRail wraps ncclTeamRail.
-func teamRail(comm Comm) Team {
-	return fnteamRail(comm)
+func teamRail(comm Comm) (Team, error) {
+	if err := checkLibSym("ncclTeamRail"); err != nil {
+		var zero Team
+		return zero, err
+	}
+	return fnteamRail(comm), nil
 }
 
 // teamRankToLsa wraps ncclTeamRankToLsa.
@@ -120,8 +136,12 @@ func teamRankToWorld(comm Comm, team Team, rank int32) (int32, error) {
 }
 
 // teamWorld wraps ncclTeamWorld.
-func teamWorld(comm Comm) Team {
-	return fnteamWorld(comm)
+func teamWorld(comm Comm) (Team, error) {
+	if err := checkLibSym("ncclTeamWorld"); err != nil {
+		var zero Team
+		return zero, err
+	}
+	return fnteamWorld(comm), nil
 }
 
 // QueryProperties Exposes communicator properties by filling in props.
@@ -159,24 +179,24 @@ func (c Comm) DevCommDestroy(devComm *DevComm) error {
 // comm is the host-side communicator and mode is a selector used to filter the subset of CFT unicast group ranks that are part of the team (useful to build hierarchical communication patterns).
 //
 // Wraps ncclTeamCft.
-func (c Comm) TeamCft(mode CftTeamMode) Team {
+func (c Comm) TeamCft(mode CftTeamMode) (Team, error) {
 	return teamCft(c, mode)
 }
 
 // TeamCftMultimem returns the host-side multicast CFT team containing all the ranks that are part of the CFT multicast group.
 //
 // Wraps ncclTeamCftMultimem.
-func (c Comm) TeamCftMultimem() Team {
+func (c Comm) TeamCftMultimem() (Team, error) {
 	return teamCftMultimem(c)
 }
 
 // TeamLsa wraps ncclTeamLsa.
-func (c Comm) TeamLsa() Team {
+func (c Comm) TeamLsa() (Team, error) {
 	return teamLsa(c)
 }
 
 // TeamRail wraps ncclTeamRail.
-func (c Comm) TeamRail() Team {
+func (c Comm) TeamRail() (Team, error) {
 	return teamRail(c)
 }
 
@@ -191,6 +211,6 @@ func (c Comm) TeamRankToWorld(team Team, rank int32) (int32, error) {
 }
 
 // TeamWorld wraps ncclTeamWorld.
-func (c Comm) TeamWorld() Team {
+func (c Comm) TeamWorld() (Team, error) {
 	return teamWorld(c)
 }

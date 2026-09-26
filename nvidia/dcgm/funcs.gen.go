@@ -547,50 +547,60 @@ func fnWatchFields(a0 Handle, a1 GpuGrp, a2 FieldGrp, a3 int64, a4 float64, a5 i
 }
 
 // DcgmFieldGetById wraps DcgmFieldGetById.
-// It panics if the library cannot be loaded or lacks the symbol.
-func DcgmFieldGetById(fieldId uint16) FieldMetaP {
+// The error reports an unavailable library or symbol.
+func DcgmFieldGetById(fieldId uint16) (FieldMetaP, error) {
 	if err := checkLibSym("DcgmFieldGetById"); err != nil {
-		panic(err)
+		var zero FieldMetaP
+		return zero, err
 	}
-	return fnDcgmFieldGetById(fieldId)
+	_result := fnDcgmFieldGetById(fieldId)
+	return _result, nil
 }
 
 // DcgmFieldGetByTag wraps DcgmFieldGetByTag.
-// It panics if the library cannot be loaded or lacks the symbol.
-func DcgmFieldGetByTag(tag *byte) FieldMetaP {
+// The error reports an unavailable library or symbol.
+func DcgmFieldGetByTag(tag *byte) (FieldMetaP, error) {
 	if err := checkLibSym("DcgmFieldGetByTag"); err != nil {
-		panic(err)
+		var zero FieldMetaP
+		return zero, err
 	}
-	return fnDcgmFieldGetByTag(tag)
+	_result := fnDcgmFieldGetByTag(tag)
+	return _result, nil
 }
 
 // DcgmFieldsGetEntityGroupString gets the string version of a entityGroupId
 //
 // Wraps DcgmFieldsGetEntityGroupString.
-// It panics if the library cannot be loaded or lacks the symbol.
-func DcgmFieldsGetEntityGroupString(entityGroupId FieldEntityGroup) string {
+// The error reports an unavailable library or symbol.
+func DcgmFieldsGetEntityGroupString(entityGroupId FieldEntityGroup) (string, error) {
 	if err := checkLibSym("DcgmFieldsGetEntityGroupString"); err != nil {
-		panic(err)
+		var zero string
+		return zero, err
 	}
-	return fnDcgmFieldsGetEntityGroupString(entityGroupId)
+	_result := fnDcgmFieldsGetEntityGroupString(entityGroupId)
+	return _result, nil
 }
 
 // DcgmFieldsInit wraps DcgmFieldsInit.
-// It panics if the library cannot be loaded or lacks the symbol.
-func DcgmFieldsInit() int32 {
+// The error reports an unavailable library or symbol.
+func DcgmFieldsInit() (int32, error) {
 	if err := checkLibSym("DcgmFieldsInit"); err != nil {
-		panic(err)
+		var zero int32
+		return zero, err
 	}
-	return fnDcgmFieldsInit()
+	_result := fnDcgmFieldsInit()
+	return _result, nil
 }
 
 // DcgmFieldsTerm wraps DcgmFieldsTerm.
-// It panics if the library cannot be loaded or lacks the symbol.
-func DcgmFieldsTerm() int32 {
+// The error reports an unavailable library or symbol.
+func DcgmFieldsTerm() (int32, error) {
 	if err := checkLibSym("DcgmFieldsTerm"); err != nil {
-		panic(err)
+		var zero int32
+		return zero, err
 	}
-	return fnDcgmFieldsTerm()
+	_result := fnDcgmFieldsTerm()
+	return _result, nil
 }
 
 // ConnectV2 is used to connect to a stand-alone host engine process.

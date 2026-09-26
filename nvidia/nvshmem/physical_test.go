@@ -69,7 +69,10 @@ func TestPhysicalVendorVersion(t *testing.T) {
 	if err := Load(""); err != nil {
 		t.Fatalf("loading libnvshmem_host.so.3: %v", err)
 	}
-	major, minor, patch := VendorVersion()
+	major, minor, patch, err := VendorVersion()
+	if err != nil {
+		t.Fatalf("VendorVersion: %v", err)
+	}
 	if major == 0 && minor == 0 && patch == 0 {
 		t.Fatal("VendorVersion returned 0.0.0; nvshmemx_vendor_get_version_info did not answer")
 	}
@@ -77,8 +80,8 @@ func TestPhysicalVendorVersion(t *testing.T) {
 	if major != 3 || minor != 7 || patch != 2 {
 		t.Logf("this is not the pinned release; layouts are checked by TestGeneratedLayouts against 3.7.2 headers")
 	}
-	if spec, rev := InfoGetVersion(); spec == 0 {
-		t.Errorf("InfoGetVersion returned %d.%d; want the OpenSHMEM specification version", spec, rev)
+	if spec, rev, err := InfoGetVersion(); err != nil || spec == 0 {
+		t.Errorf("InfoGetVersion returned %d.%d, %v; want the OpenSHMEM specification version", spec, rev, err)
 	}
 }
 
@@ -133,17 +136,28 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 		t.Fatalf("InitWithUniqueID(pe=%d, npes=%d): %v", pe, npes, err)
 	}
 	defer Finalize()
-
-	if got := int(MyPE()); got != pe {
-		t.Fatalf("MyPE = %d, want %d: the bootstrap did not assign the rank it was given", got, pe)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
-	if got := int(NPEs()); got != npes {
-		t.Fatalf("NPEs = %d, want %d", got, npes)
+
+	me, err := MyPE()
+	must(err)
+	if int(me) != pe {
+		t.Fatalf("MyPE = %d, want %d: the bootstrap did not assign the rank it was given", me, pe)
+	}
+	n, err := NPEs()
+	must(err)
+	if int(n) != npes {
+		t.Fatalf("NPEs = %d, want %d", n, npes)
 	}
 
 	// The allocation is collective and must be identical on every PE.
 	const size = 4096
-	buf := Malloc(size)
+	buf, err := Malloc(size)
+	must(err)
 	if buf == 0 {
 		t.Fatal("Malloc(4096) returned 0; the symmetric heap allocation failed")
 	}
@@ -152,7 +166,8 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 	// Every PE writes to its right neighbour and reads what its left
 	// neighbour wrote. The barrier before the exchange makes the remote
 	// buffer allocated; the barrier after makes the write visible.
-	source := Malloc(size)
+	source, err := Malloc(size)
+	must(err)
 	if source == 0 {
 		t.Fatal("source allocation failed")
 	}
@@ -167,11 +182,11 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 	if err := driver.DevicePtr(buf).MemsetD8(0xee, size); err != nil {
 		t.Fatal(err)
 	}
-	BarrierAll()
+	must(BarrierAll())
 	next := (pe + 1) % npes
-	PutMem(buf, source, size, int32(next))
-	Quiet()
-	BarrierAll()
+	must(PutMem(buf, source, size, int32(next)))
+	must(Quiet())
+	must(BarrierAll())
 
 	got := make([]byte, size)
 	if err := driver.DevicePtr(buf).CopyToHostPtr(unsafe.Pointer(&got[0]), size); err != nil {
@@ -187,7 +202,9 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 	// Ptr returns a directly addressable pointer to a peer's symmetric memory
 	// where the transport allows it, and 0 where it does not. Either answer is
 	// correct; a panic or a wild address is not.
-	t.Logf("nvshmem_ptr(buf, pe %d) = %#x", next, Ptr(buf, int32(next)))
+	ptr, err := Ptr(buf, int32(next))
+	must(err)
+	t.Logf("nvshmem_ptr(buf, pe %d) = %#x", next, ptr)
 }
 
 // rendezvous publishes or reads the unique ID through the shared file. It is

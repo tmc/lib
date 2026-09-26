@@ -29,8 +29,6 @@ func (g GreenCtx) DevResource(type_ DevResourceType) (DevResource, error) {
 //
 // Returns in greenCtxId the unique Id which is associated with a given green context. The Id is unique for the life of the program for this instance of CUDA. If green context is supplied as NULL and the current context is set to a green context, the Id of the current green context is returned.
 //
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.Id]
 //
 // Wraps cuGreenCtxGetId.
@@ -58,8 +56,6 @@ func (g GreenCtx) RecordEvent(hEvent Event) error {
 // Creates a stream for use in the specified green context greenCtx and returns a handle in phStream. The stream can be destroyed by calling [Stream.Destroy]. Note that the API ignores the context that is current to the calling thread and creates a stream in the specified green context greenCtx.
 // The supported values for flags are:
 // Specifying priority affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order. priority follows a convention where lower numbers represent higher priorities. ‘0’ represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Note: In the current implementation, only compute kernels launched in priority streams are affected by the stream’s priority. Stream priorities have no effect on host-to-device and device-to-host memory operations.
 //

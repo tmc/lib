@@ -125,8 +125,16 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 		t.Fatalf("cutensornetCreate: %v", err)
 	}
 	defer h.Destroy()
+	version, err := cutensornet.GetVersion()
+	if err != nil {
+		t.Fatalf("cutensornetGetVersion: %v", err)
+	}
+	cudart, err := cutensornet.GetCudartVersion()
+	if err != nil {
+		t.Fatalf("cutensornetGetCudartVersion: %v", err)
+	}
 	t.Logf("cuTensorNet version %d, built against CUDA runtime %d, loaded from %s",
-		cutensornet.GetVersion(), cutensornet.GetCudartVersion(), cutensornet.Path())
+		version, cudart, cutensornet.Path())
 
 	net, err := h.NewNetwork([]cutensornet.Tensor{a, b}, &c, cutensornet.R64F, cutensornet.Compute64F)
 	if err != nil {

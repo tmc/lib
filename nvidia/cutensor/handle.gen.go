@@ -8,37 +8,37 @@ import (
 )
 
 // Contract wraps cutensorContract.
-func (h Handle) Contract(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
+func (h Handle) Contract(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, beta unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	return contract(h, plan, alpha, a, b, beta, c, d, workspace, workspaceSize, stream)
 }
 
 // ContractTrinary wraps cutensorContractTrinary.
-func (h Handle) ContractTrinary(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, c uintptr, beta unsafe.Pointer, d uintptr, e uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
+func (h Handle) ContractTrinary(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, c driver.DevicePtr, beta unsafe.Pointer, d driver.DevicePtr, e driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	return contractTrinary(h, plan, alpha, a, b, c, beta, d, e, workspace, workspaceSize, stream)
 }
 
 // CreateContraction wraps cutensorCreateContraction.
-func (h Handle) CreateContraction(descA TensorDescriptor, modeA *int32, opA OperatorT, descB TensorDescriptor, modeB *int32, opB OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func (h Handle) CreateContraction(descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createContraction(h, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, descCompute)
 }
 
 // CreateContractionTrinary wraps cutensorCreateContractionTrinary.
-func (h Handle) CreateContractionTrinary(descA TensorDescriptor, modeA *int32, opA OperatorT, descB TensorDescriptor, modeB *int32, opB OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, opD OperatorT, descE TensorDescriptor, modeE *int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func (h Handle) CreateContractionTrinary(descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opD OperatorT, descE TensorDescriptor, modeE []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createContractionTrinary(h, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opD, descE, modeE, descCompute)
 }
 
 // CreateElementwiseBinary wraps cutensorCreateElementwiseBinary.
-func (h Handle) CreateElementwiseBinary(descA TensorDescriptor, modeA *int32, opA OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, opAC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func (h Handle) CreateElementwiseBinary(descA TensorDescriptor, modeA []int32, opA OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opAC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createElementwiseBinary(h, descA, modeA, opA, descC, modeC, opC, descD, modeD, opAC, descCompute)
 }
 
 // CreateElementwiseTrinary wraps cutensorCreateElementwiseTrinary.
-func (h Handle) CreateElementwiseTrinary(descA TensorDescriptor, modeA *int32, opA OperatorT, descB TensorDescriptor, modeB *int32, opB OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, opAB OperatorT, opABC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func (h Handle) CreateElementwiseTrinary(descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, opB OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opAB OperatorT, opABC OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createElementwiseTrinary(h, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opAB, opABC, descCompute)
 }
 
 // CreatePermutation wraps cutensorCreatePermutation.
-func (h Handle) CreatePermutation(descA TensorDescriptor, modeA *int32, opA OperatorT, descB TensorDescriptor, modeB *int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func (h Handle) CreatePermutation(descA TensorDescriptor, modeA []int32, opA OperatorT, descB TensorDescriptor, modeB []int32, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createPermutation(h, descA, modeA, opA, descB, modeB, descCompute)
 }
 
@@ -53,13 +53,13 @@ func (h Handle) CreatePlanPreference(algo AlgoT, jitMode JitmodeT) (PlanPreferen
 }
 
 // CreateReduction wraps cutensorCreateReduction.
-func (h Handle) CreateReduction(descA TensorDescriptor, modeA *int32, opA OperatorT, descC TensorDescriptor, modeC *int32, opC OperatorT, descD TensorDescriptor, modeD *int32, opReduce OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
+func (h Handle) CreateReduction(descA TensorDescriptor, modeA []int32, opA OperatorT, descC TensorDescriptor, modeC []int32, opC OperatorT, descD TensorDescriptor, modeD []int32, opReduce OperatorT, descCompute ComputeDescriptor) (OperationDescriptor, error) {
 	return createReduction(h, descA, modeA, opA, descC, modeC, opC, descD, modeD, opReduce, descCompute)
 }
 
 // CreateTensorDescriptor wraps cutensorCreateTensorDescriptor.
-func (h Handle) CreateTensorDescriptor(numModes uint32, extent *int64, stride *int64, dataType DataType, alignmentRequirement uint32) (TensorDescriptor, error) {
-	return createTensorDescriptor(h, numModes, extent, stride, dataType, alignmentRequirement)
+func (h Handle) CreateTensorDescriptor(extent []int64, stride []int64, dataType DataType, alignmentRequirement uint32) (TensorDescriptor, error) {
+	return createTensorDescriptor(h, extent, stride, dataType, alignmentRequirement)
 }
 
 // Destroy wraps cutensorDestroy.
@@ -68,12 +68,12 @@ func (h Handle) Destroy() error {
 }
 
 // ElementwiseBinaryExecute wraps cutensorElementwiseBinaryExecute.
-func (h Handle) ElementwiseBinaryExecute(plan Plan, alpha unsafe.Pointer, a uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream driver.Stream) error {
+func (h Handle) ElementwiseBinaryExecute(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, gamma unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
 	return elementwiseBinaryExecute(h, plan, alpha, a, gamma, c, d, stream)
 }
 
 // ElementwiseTrinaryExecute wraps cutensorElementwiseTrinaryExecute.
-func (h Handle) ElementwiseTrinaryExecute(plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, b uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream driver.Stream) error {
+func (h Handle) ElementwiseTrinaryExecute(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, beta unsafe.Pointer, b driver.DevicePtr, gamma unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, stream driver.Stream) error {
 	return elementwiseTrinaryExecute(h, plan, alpha, a, beta, b, gamma, c, d, stream)
 }
 
@@ -83,7 +83,7 @@ func (h Handle) EstimateWorkspaceSize(desc OperationDescriptor, planPref PlanPre
 }
 
 // Permute wraps cutensorPermute.
-func (h Handle) Permute(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, stream driver.Stream) error {
+func (h Handle) Permute(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, b driver.DevicePtr, stream driver.Stream) error {
 	return permute(h, plan, alpha, a, b, stream)
 }
 
@@ -98,7 +98,7 @@ func (h Handle) ReadPlanCacheFromFile(filename *byte) (uint32, error) {
 }
 
 // Reduce wraps cutensorReduce.
-func (h Handle) Reduce(plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream driver.Stream) error {
+func (h Handle) Reduce(plan Plan, alpha unsafe.Pointer, a driver.DevicePtr, beta unsafe.Pointer, c driver.DevicePtr, d driver.DevicePtr, workspace driver.DevicePtr, workspaceSize uint64, stream driver.Stream) error {
 	return reduce(h, plan, alpha, a, beta, c, d, workspace, workspaceSize, stream)
 }
 

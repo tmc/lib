@@ -37,14 +37,14 @@ func (a AttnDescriptor) Get() (AttnConfig, error) {
 // This function configures a multihead attention descriptor that was previously created using the [CreateAttnDescriptor] function. The function sets attention parameters that are necessary to compute internal buffer sizes, dimensions of weight and bias tensors, or to select optimized code paths.
 // Input sequence data descriptors in [Handle.MultiHeadAttnForward], [Handle.MultiHeadAttnBackwardData], and [Handle.MultiHeadAttnBackwardWeights] functions are checked against the configuration parameters stored in the attention descriptor. Some parameters must match exactly while max arguments such as maxBatchSize or qoMaxSeqLength establish upper limits for the corresponding dimensions.
 // The multihead attention model can be described by the following equations:
-// hi=(WV,iV)softmax(smScaler(KᵀWK,iT)(WQ,iq)),fori=0⋯nHeads−1
-// MultiHeadAttn(q,K,V,WQ,WK,WV,WO)=∑i=0nHeads−1WO,ihi
+// hᵢ=(W_(V,i)V)softmax(smScaler(KᵀW_(K,i)ᵀ)(W_(Q,i)q)),fori=0⋯nHeads−1
+// MultiHeadAttn(q,K,V,W_(Q),W_(K),W_(V),W_(O))=∑i=0nHeads−1W_(O,i)hᵢ
 // Where:
 // The lengths of query, key, and value vectors are defined by the qSize, kSize, and vSize arguments respectively.
 // For simplicity, the above equations are presented using a single embedding vector q but the cuDNN API can handle multiple q candidates in the beam search scheme, process q vectors from multiple sequences bundled into a batch, or automatically iterate through all embedding vectors (time-steps) of a sequence. Thus, in general, q, K, V inputs are tensors with additional pieces of information such as the active length of each sequence or how unused padding vectors should be saved.
 // In some publications, W O,i matrices are combined into one output projection matrix and h i vectors are merged explicitly into a single vector. This is an equivalent notation. In the cuDNN library, W O,i matrices are conceptually treated the same way as W Q,i, W K,i, or W V,i input projection weights. Refer to the description of the [Handle.MultiHeadAttnWeights] function for more details.
 // Weight matrices W Q,i, W K,i, W V,i, and W O,i play similar roles, adjusting vector lengths in q, K, V inputs and in the multihead attention final output. The user can disable any or all projections by setting qProjSize, kProjSize, vProjSize, or oProjSize arguments to zero.
-// Embedding vector sizes in q, K, V and the vector lengths after projections need to be selected in such a way that matrix multiplications described above are feasible. Otherwise, [ErrBadParam] is returned by the [AttnDescriptor.Set] function. All four weight matrices are used when it is desirable to maintain rank deficiency WKQ,i=WK,iTWQ,i or WOV,i=WO,iWV,i of matrices to eliminate one or more dimensions during linear transformations in each head. This is a form of feature extraction. In such cases, the projected sizes are smaller than the original vector lengths.
+// Embedding vector sizes in q, K, V and the vector lengths after projections need to be selected in such a way that matrix multiplications described above are feasible. Otherwise, [ErrBadParam] is returned by the [AttnDescriptor.Set] function. All four weight matrices are used when it is desirable to maintain rank deficiency W_(KQ,i)=W_(K,i)ᵀW_(Q,i) or W_(OV,i)=W_(O,i)W_(V,i) of matrices to eliminate one or more dimensions during linear transformations in each head. This is a form of feature extraction. In such cases, the projected sizes are smaller than the original vector lengths.
 // For each attention head, weight matrix sizes are defined as follows:
 // When the output projection is disabled ( oProjSize=0), the output vector length is nHeads * (vProjSize > 0 ? vProjSize : vSize), meaning, the output is a concatenation of all h i vectors. In the alternative interpretation, a concatenated matrix W O = [ W O,0, W O,1, W O,2, …] forms the identity matrix.
 // Softmax is a normalized, exponential vector function that takes and outputs vectors of the same size. The multihead attention API utilizes softmax of the [SoftmaxAccurate] type to reduce the likelihood of the floating-point overflow.
@@ -61,7 +61,7 @@ func (a AttnDescriptor) Get() (AttnConfig, error) {
 // CUDNN_ATTN_DISABLE_PROJ_BIASES
 // Use no biases in the attention input and output projections.
 // CUDNN_ATTN_ENABLE_PROJ_BIASES
-// Use extra biases in the attention input and output projections. In this case the projected K¯ vectors are computed as K¯i=WK,iK+b*[1,1,⋯,1]1xn, where n is the number of columns in the K matrix. In other words, the same column vector b is added to all columns of K after the weight matrix multiplication.
+// Use extra biases in the attention input and output projections. In this case the projected K¯ vectors are computed as K¯ᵢ=W_(K,i)K+b*[1,1,⋯,1]₁ₓₙ, where n is the number of columns in the K matrix. In other words, the same column vector b is added to all columns of K after the weight matrix multiplication.
 // Unsupported Features
 //
 //   - attnMode: Input. Enables various attention options that do not require additional numerical values. Refer to the table below for the list of supported flags. The user should assign a preferred set of bitwise OR-ed flags to this argument

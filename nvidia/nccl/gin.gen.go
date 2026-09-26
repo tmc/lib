@@ -42,8 +42,12 @@ func ginBarrierCreateRequirement(comm Comm, team Team, nBarriers int32, outHandl
 }
 
 // LLA2ACalcSlots wraps ncclLLA2ACalcSlots.
-func LLA2ACalcSlots(maxElts int32, maxEltSize int32) int32 {
-	return fnLLA2ACalcSlots(maxElts, maxEltSize)
+func LLA2ACalcSlots(maxElts int32, maxEltSize int32) (int32, error) {
+	if err := checkLibSym("ncclLLA2ACalcSlots"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return fnLLA2ACalcSlots(maxElts, maxEltSize), nil
 }
 
 // LLA2ACreateRequirement wraps ncclLLA2ACreateRequirement.

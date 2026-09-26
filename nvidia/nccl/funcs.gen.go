@@ -1017,8 +1017,12 @@ func ParamBind(out *ParamHandle, key *byte) error {
 // Example of output with [ParamDumpAll] set to true:
 //
 // Wraps ncclParamDumpAll.
-func ParamDumpAll() {
+func ParamDumpAll() error {
+	if err := checkLibSym("ncclParamDumpAll"); err != nil {
+		return err
+	}
 	fnParamDumpAll()
+	return nil
 }
 
 // paramGet copies the raw binary representation of the parameter bound to h into the caller-allocated buffer out.

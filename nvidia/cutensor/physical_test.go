@@ -44,7 +44,7 @@ func TestPhysicalContraction(t *testing.T) {
 	// The pinned header requires strictly positive extents. The valid
 	// contraction below also checks that rejection leaves the handle usable.
 	for _, extent := range []int64{0, -1} {
-		desc, err := h.CreateTensorDescriptor(1, &extent, nil, cutensor.R32F, 128)
+		desc, err := h.CreateTensorDescriptor([]int64{extent}, nil, cutensor.R32F, 128)
 		if err == nil {
 			cleanup(desc.Destroy)
 			t.Fatalf("accepted extent %d", extent)
@@ -61,8 +61,7 @@ func TestPhysicalContraction(t *testing.T) {
 
 	const m, n, k = 3, 4, 5
 	newDesc := func(extent ...int64) cutensor.TensorDescriptor {
-		d, err := h.CreateTensorDescriptor(uint32(len(extent)), &extent[0],
-			nil, cutensor.R32F, 128)
+		d, err := h.CreateTensorDescriptor(extent, nil, cutensor.R32F, 128)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,10 +76,10 @@ func TestPhysicalContraction(t *testing.T) {
 	modeB := []int32{'k', 'n'}
 	modeC := []int32{'m', 'n'}
 	op, err := h.CreateContraction(
-		descA, &modeA[0], cutensor.OpIdentity,
-		descB, &modeB[0], cutensor.OpIdentity,
-		descC, &modeC[0], cutensor.OpIdentity,
-		descC, &modeC[0], compute32f)
+		descA, modeA, cutensor.OpIdentity,
+		descB, modeB, cutensor.OpIdentity,
+		descC, modeC, cutensor.OpIdentity,
+		descC, modeC, compute32f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +136,7 @@ func TestPhysicalContraction(t *testing.T) {
 		cleanup(workspace.Free)
 	}
 	alpha, beta := float32(2), float32(-1)
-	check(h.Contract(plan, unsafe.Pointer(&alpha), uintptr(pa), uintptr(pb), unsafe.Pointer(&beta), uintptr(pc), uintptr(pc), uintptr(workspace), wsSize, 0))
+	check(h.Contract(plan, unsafe.Pointer(&alpha), pa, pb, unsafe.Pointer(&beta), pc, pc, workspace, wsSize, 0))
 	check(driver.CtxSynchronize())
 	check(pc.CopyToHostPtr(unsafe.Pointer(&c[0]), uint(len(c)*4)))
 	for i, v := range c {

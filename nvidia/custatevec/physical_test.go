@@ -330,7 +330,11 @@ func TestVersionMatchesPinnedHeader(t *testing.T) {
 		t.Logf("libcustatevec is 1.%d; the pinned header is 1.14. The bound calls are "+
 			"unchanged across 1.x minors, but regenerate before relying on that.", minor)
 	}
-	if v := custatevec.GetVersion(); v != uint(major*10000+minor*100) && v/10000 != uint(major) {
+	v, err := custatevec.GetVersion()
+	if err != nil {
+		t.Fatalf("custatevecGetVersion: %v", err)
+	}
+	if v != uint(major*10000+minor*100) && v/10000 != uint(major) {
 		t.Errorf("custatevecGetVersion() = %d, inconsistent with property major.minor %d.%d",
 			v, major, minor)
 	}

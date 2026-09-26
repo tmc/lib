@@ -448,8 +448,8 @@ func (h Handle) SpGEMMreuseWorkEstimation(opA Operation, opB Operation, matA Con
 // C=αop(A)⋅op(B)+βC
 // where
 // The routine can be also used to perform the multiplication of a dense matrix and a sparse matrix by switching the dense matrices layout:
-// CC=BC⋅A+βCC→CR=Aᵀ⋅BR+βCR
-// where BC , CC indicate column-major layout, while BR , CR refer to row-major layout
+// C_(C)=B_(C)⋅A+βC_(C)→C_(R)=Aᵀ⋅B_(R)+βC_(R)
+// where B_(C) , C_(C) indicate column-major layout, while B_(R) , C_(R) refer to row-major layout
 // Also, for matrix A and B: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], op(B) = Bᵀ if opB == [OperationTranspose], and op(B) = Bᴴ if opB == [OperationConjugateTranspose].
 // When using the (conjugate) transpose of the sparse matrix A, this routine may produce slightly different results during different runs with the same input parameters.
 // The function [Handle.SpMMBufferSize] returns the size of the workspace needed by [Handle.SpMM]
@@ -519,8 +519,8 @@ func (h Handle) SpMMBufferSize(opA Operation, opB Operation, alpha uintptr, matA
 // C=αop(A)⋅op(B)+βC
 // where
 // The routine can be also used to perform the multiplication of a dense matrix and a sparse matrix by switching the dense matrices layout:
-// CC=BC⋅A+βCC→CR=Aᵀ⋅BR+βCR
-// where BC , CC indicate column-major layout, while BR , CR refer to row-major layout
+// C_(C)=B_(C)⋅A+βC_(C)→C_(R)=Aᵀ⋅B_(R)+βC_(R)
+// where B_(C) , C_(C) indicate column-major layout, while B_(R) , C_(R) refer to row-major layout
 // Also, for matrix A and B: op(A) = A if opA == [OperationNonTranspose], op(A) = Aᵀ if opA == [OperationTranspose], and op(A) = Aᴴ if opA == [OperationConjugateTranspose]; op(B) = B if opB == [OperationNonTranspose], op(B) = Bᵀ if opB == [OperationTranspose], and op(B) = Bᴴ if opB == [OperationConjugateTranspose].
 // When using the (conjugate) transpose of the sparse matrix A, this routine may produce slightly different results during different runs with the same input parameters.
 // The function [Handle.SpMMBufferSize] returns the size of the workspace needed by [Handle.SpMM]
@@ -626,7 +626,7 @@ func (h Handle) SpMVBufferSize(opA Operation, alpha uintptr, matA ConstSpMatDesc
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 // [Handle.SpMVOp] supports the following type combinations:
@@ -670,7 +670,7 @@ func (h Handle) SpMVOpBufferSize(opA Operation, matA ConstSpMatDescr, vecX Const
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 // [Handle.SpMVOp] supports the following type combinations:
@@ -700,7 +700,7 @@ func (h Handle) SpMVOpCreateDescr(opA Operation, matA ConstSpMatDescr, vecX Cons
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 // [Handle.SpMVOp] supports the following type combinations:
@@ -724,7 +724,7 @@ func (h Handle) SpMVOpCreatePlan(desc SpMVOpDescr, code uintptr, codeSize uint) 
 //
 // It performs the multiplication of a sparse matrix matA and a dense vector vecX.
 // This function is experimental.
-// Zi=epilogue(α∑k(op(Aik)⋅Xk)+βYi)
+// Zᵢ=epilogue(α∑k(op(Aᵢₖ)⋅Xₖ)+βYᵢ)
 // where
 // [Handle.SpMVOp] supports sparse format [FormatCsr] and opA=[OperationNonTranspose]. The following index type combinations are supported:
 // [Handle.SpMVOp] supports the following type combinations:

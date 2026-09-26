@@ -15,12 +15,12 @@ func HandleRegister(descr *Descr) (Handle, error) {
 }
 
 // Deregister wraps cuFileHandleDeregister.
-func (h Handle) Deregister() {
-	handleDeregister(h)
+func (h Handle) Deregister() error {
+	return handleDeregister(h)
 }
 
 // Read wraps cuFileRead.
-func (h Handle) Read(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) int64 {
+func (h Handle) Read(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	return read(h, bufPtrBase, size, fileOffset, bufPtrOffset)
 }
 
@@ -30,7 +30,7 @@ func (h Handle) ReadAsync(bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, b
 }
 
 // Write wraps cuFileWrite.
-func (h Handle) Write(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) int64 {
+func (h Handle) Write(bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) (int64, error) {
 	return write(h, bufPtrBase, size, fileOffset, bufPtrOffset)
 }
 

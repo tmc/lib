@@ -6,6 +6,18 @@
 //
 // Create a [Handle], select a stream and configuration, then call an algorithm matching the matrix representation and precision.
 //
+// # Workspace and devInfo
+//
+// A routine such as [Handle.Dgetrf] takes a device workspace of lwork elements
+// of the routine's data type (float64 for D routines, complex128 for Z
+// routines), so its size in bytes is lwork times the size of that type. The
+// routine's size helper, such as [Handle.DgetrfBufferSize], returns lwork.
+// The 64-bit routines, such as [Handle.Xgetrf], and the iterative refinement
+// routines size their workspaces in bytes, as their size helpers say.
+//
+// A routine that reports devInfo sets it to -i when its i-th parameter,
+// not counting the handle, is wrong.
+//
 // # Complex Single-Precision Dense Solvers
 //
 //   - [Handle.CCgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.

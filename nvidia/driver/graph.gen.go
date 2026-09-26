@@ -9,10 +9,6 @@ package driver
 //
 // Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Stream.BatchMemOp], [Stream.WaitValue32], [Stream.WriteValue32], [Stream.WaitValue64], [Stream.WriteValue64], [BatchMemOpNode.Params], [BatchMemOpNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
@@ -31,10 +27,6 @@ func (g Graph) AddBatchMemOpNode(dependencies *GraphNode, numDependencies uint, 
 // If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error.
 // The node executes an embedded child graph. The child graph is cloned in this call.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [ChildGraphNode.Graph], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
 //
 //   - dependencies: Dependencies of the node
@@ -51,10 +43,6 @@ func (g Graph) AddChildGraphNode(dependencies *GraphNode, numDependencies uint, 
 //
 // The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
 // If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.RemoveDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
@@ -73,10 +61,6 @@ func (g Graph) AddDependencies(from *GraphNode, to *GraphNode, edgeData *GraphEd
 // Creates a new node which performs no operation, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // An empty node performs no operation during execution, but can be used for transitive ordering. For example, a phased execution graph with 2 groups of n nodes with a barrier between them can be represented using an empty node and 2*n dependency edges, rather than no empty node and n^2 dependency edges.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
@@ -91,10 +75,6 @@ func (g Graph) AddEmptyNode(dependencies *GraphNode, numDependencies uint) (Grap
 //
 // Creates a new event record node and adds it to hGraph with numDependencies dependencies specified via dependencies and event specified in event. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Each launch of the graph will record event to capture execution of the node’s dependencies.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [Graph.AddEventWaitNode], [Event.RecordWithFlags], [Stream.WaitEvent], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -113,10 +93,6 @@ func (g Graph) AddEventRecordNode(dependencies *GraphNode, numDependencies uint,
 // Creates a new event wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and event specified in event. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The graph node will wait for all work captured in event. See [Event.Record] for details on what is captured by an event. event may be from a different context or device than the launch stream.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Graph.AddEventRecordNode], [Event.RecordWithFlags], [Stream.WaitEvent], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
@@ -133,10 +109,6 @@ func (g Graph) AddEventWaitNode(dependencies *GraphNode, numDependencies uint, e
 //
 // Creates a new external semaphore signal node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Performs a signal operation on a set of externally allocated semaphore objects when the node is launched. The operation(s) will occur after all of the node’s dependencies have completed.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [ExternalSemaphoresSignalNode.Params], [ExternalSemaphoresSignalNode.SetParams], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -155,10 +127,6 @@ func (g Graph) AddExternalSemaphoresSignalNode(dependencies *GraphNode, numDepen
 // Creates a new external semaphore wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // Performs a wait operation on a set of externally allocated semaphore objects when the node is launched. The node’s dependencies will not be launched until the wait operation has completed.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [ExternalSemaphoresWaitNode.Params], [ExternalSemaphoresWaitNode.SetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresSignalNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
@@ -175,10 +143,6 @@ func (g Graph) AddExternalSemaphoresWaitNode(dependencies *GraphNode, numDepende
 //
 // Creates a new CPU execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // When the graph is launched, the node will invoke the specified CPU function. Host nodes are not supported under MPS with pre-Volta GPUs.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [Stream.LaunchHostFunc], [HostNode.Params], [HostNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -204,10 +168,6 @@ func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodePa
 //
 // Note: Kernels launched using graphs must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Function.LaunchKernel], [Function.LaunchCooperativeKernel], [KernelNode.Params], [KernelNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
@@ -230,10 +190,6 @@ func (g Graph) AddKernelNode(dependencies *GraphNode, numDependencies uint, node
 // It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph.
 // The following restrictions apply to graphs which contain allocation and/or memory free nodes:
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Graph.AddMemFreeNode], [MemAllocNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
@@ -251,10 +207,6 @@ func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, no
 // Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free:
 // The following restrictions apply to graphs which contain allocation and/or memory free nodes:
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [Graph.AddMemAllocNode], [MemFreeNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
@@ -274,10 +226,6 @@ func (g Graph) AddMemFreeNode(dependencies *GraphNode, numDependencies uint, dpt
 // When the graph is launched, the node will perform the memcpy described by copyParams. See [Memcpy3D] for a description of the structure and its restrictions.
 // Memcpy nodes have some additional restrictions with regards to managed memory, if the system contains at least one device which has a zero value for the device attribute [DevAttrConcurrentManagedAccess]. If one or more of the operands refer to managed memory, then using the memory type [MemoryTypeUnified] is disallowed for those operand(s). The managed memory will be treated as residing on either the host or the device, depending on which memory type is specified.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [Graph.AddNode], [Memcpy3D], [MemcpyNode.Params], [MemcpyNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
@@ -295,10 +243,6 @@ func (g Graph) AddMemcpyNode(dependencies *GraphNode, numDependencies uint, copy
 //
 // Creates a new memset node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode.
 // The element size must be 1, 2, or 4 bytes. When the graph is launched, the node will perform the memset described by memsetParams.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode], [DevicePtr.MemsetD2D32], [MemsetNode.Params], [MemsetNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode]
 //
@@ -320,10 +264,6 @@ func (g Graph) AddMemsetNode(dependencies *GraphNode, numDependencies uint, mems
 // Note that for some node types, nodeParams may contain “out parameters” which are modified during the call, such as nodeParams->alloc.dptr.
 // A handle to the new node will be returned in phGraphNode.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph], [GraphNode.SetParams], [GraphExec.NodeSetParams]
 //
 //   - dependencies: Dependencies of the node
@@ -343,10 +283,6 @@ func (g Graph) AddNode(dependencies *GraphNode, dependencyData *GraphEdgeData, n
 //
 // Note: : Cloning is not supported for graphs which contain memory allocation nodes, memory free nodes, or conditional nodes.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph], [GraphNode.FindInClone]
 //
 // Wraps cuGraphClone.
@@ -360,10 +296,6 @@ func (g Graph) Clone() (Graph, error) {
 // The conditional handle must be associated with a conditional node in this graph or one of its children.
 // Handles not associated with a conditional node may cause graph instantiation to fail.
 // Handles can only be set from the context with which they are associated.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddNode]
 //
@@ -392,10 +324,6 @@ func (g Graph) DebugDotPrint(path string, flags GraphdebugdotFlags) error {
 //
 // Destroys the graph specified by hGraph, as well as all of its nodes.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph]
 //
 // Wraps cuGraphDestroy.
@@ -406,10 +334,6 @@ func (g Graph) Destroy() error {
 // Edges returns a graph’s dependency edges.
 //
 // Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.GetNodes], [Graph.RootNodes], [Graph.AddDependencies], [Graph.RemoveDependencies], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
@@ -438,10 +362,6 @@ func (g Graph) Id() (uint32, error) {
 //
 // Returns a list of hGraph's nodes. nodes may be NULL, in which case this function will return the number of nodes in numNodes. Otherwise, numNodes entries will be filled in. If numNodes is higher than the actual number of nodes, the remaining entries in nodes will be set to NULL, and the number of nodes actually obtained will be returned in numNodes.
 //
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
-//
 // See also: [NewGraph], [Graph.RootNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - nodes: Pointer to return the nodes
@@ -455,10 +375,6 @@ func (g Graph) GetNodes(nodes *GraphNode, numNodes *uint) error {
 // RootNodes returns a graph’s root nodes.
 //
 // Returns a list of hGraph's root nodes. rootNodes may be NULL, in which case this function will return the number of root nodes in numRootNodes. Otherwise, numRootNodes entries will be filled in. If numRootNodes is higher than the actual number of root nodes, the remaining entries in rootNodes will be set to NULL, and the number of nodes actually obtained will be returned in numRootNodes.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewGraph], [Graph.GetNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
@@ -477,10 +393,6 @@ func (g Graph) RootNodes(rootNodes *GraphNode, numRootNodes *uint) error {
 // If hGraph contains any allocation or free nodes, there can be at most one executable graph in existence for that graph at a time. An attempt to instantiate a second executable graph before destroying the first with [GraphExec.Destroy] will result in an error. The same also applies if hGraph contains any device-updatable kernel nodes.
 // If hGraph contains kernels which call device-side cudaGraphLaunch() from multiple contexts, this will result in an error.
 // Graphs instantiated for launch on the device have additional restrictions which do not apply to host graphs:
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.Instantiate], [NewGraph], [GraphExec.Upload], [GraphExec.Launch], [GraphExec.Destroy]
 //
@@ -501,10 +413,6 @@ func (g Graph) Instantiate(flags GraphinstantiateFlags) (GraphExec, error) {
 // Graphs instantiated for launch on the device have additional restrictions which do not apply to host graphs:
 // In the event of an error, the result_out and hErrNode_out fields will contain more information about the nature of the error. Possible error reporting includes:
 // If instantiation is successful, result_out will be set to [GraphInstantiateSuccess], and hErrNode_out will be set to NULL.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [NewGraph], [Graph.Instantiate], [GraphExec.Destroy]
 //
@@ -535,10 +443,6 @@ func (g Graph) ReleaseUserObject(object UserObject, count uint32) error {
 // The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
 // If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge.
 // Dependencies cannot be removed from graphs which contain allocation or free nodes. Any attempt to do so will return an error.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
@@ -571,10 +475,6 @@ func (g Graph) RetainUserObject(object UserObject, count uint32, flags Userobjec
 // NewGraph creates a graph.
 //
 // Creates an empty graph, which is returned via phGraph.
-//
-// Note: Graph objects are not threadsafe. More here.
-//
-// Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Instantiate], [Graph.Destroy], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.Clone]
 //

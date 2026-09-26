@@ -60,12 +60,18 @@ type ExternalMemory uintptr
 type ExternalSemaphore uintptr
 
 // Graph is CUDA graph.
+//
+// Graph objects are not thread safe. Serialize all calls that use the same graph, including ones that only read it, such as [Graph.Clone] and [Graph.Instantiate].
 type Graph uintptr
 
 // GraphNode is CUDA graph node.
+//
+// A node follows the thread-safety rule of its [Graph].
 type GraphNode uintptr
 
 // GraphExec is CUDA executable graph.
+//
+// Graph objects are not thread safe. Serialize all calls that use the same graph, including ones that only read it, such as [Graph.Clone] and [Graph.Instantiate].
 type GraphExec uintptr
 
 // MemoryPool is CUDA memory pool.

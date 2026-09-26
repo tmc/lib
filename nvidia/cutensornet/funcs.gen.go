@@ -1081,13 +1081,14 @@ func distributedSynchronize(handle Handle) error {
 }
 
 // GetCudartVersion wraps cutensornetGetCudartVersion.
-// It returns the zero value when the library or symbol is unavailable.
-func GetCudartVersion() uint {
+// The error reports an unavailable library or symbol.
+func GetCudartVersion() (uint, error) {
 	if err := checkLibSym("cutensornetGetCudartVersion"); err != nil {
 		var zero uint
-		return zero
+		return zero, err
 	}
-	return fnGetCudartVersion()
+	_result := fnGetCudartVersion()
+	return _result, nil
 }
 
 // getOutputTensorDescriptor wraps cutensornetGetOutputTensorDescriptor.
@@ -1126,13 +1127,14 @@ func getTensorDetails(handle Handle, tensorDesc TensorDescriptor, numModes *int3
 }
 
 // GetVersion wraps cutensornetGetVersion.
-// It returns the zero value when the library or symbol is unavailable.
-func GetVersion() uint {
+// The error reports an unavailable library or symbol.
+func GetVersion() (uint, error) {
 	if err := checkLibSym("cutensornetGetVersion"); err != nil {
 		var zero uint
-		return zero
+		return zero, err
 	}
-	return fnGetVersion()
+	_result := fnGetVersion()
+	return _result, nil
 }
 
 // LoggerForceDisable wraps cutensornetLoggerForceDisable.
