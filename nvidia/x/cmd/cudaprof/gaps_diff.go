@@ -629,7 +629,7 @@ func writeNanosRow(b *strings.Builder, v GapIntDelta) {
 // A capture without a usable journal is named with the reason the timeline
 // could not be reconstructed, and the rest of the explanation still prints.
 func gapDecompositionMarkdown(baseCap, targetCap *cudacapture.Capture, basePath, targetPath string) string {
-	opts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords}
+	opts := gapOptions{warmupMS: 200}
 	baseReport, baseErr := analyzeGaps(baseCap, opts)
 	targetReport, targetErr := analyzeGaps(targetCap, opts)
 	return gapDecompositionReportsMarkdown(baseReport, baseErr, targetReport, targetErr, basePath, targetPath)

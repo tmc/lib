@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -367,8 +368,8 @@ func TestTotalBudgetOmitsModulesBeforeJournals(t *testing.T) {
 	}
 }
 
-// TestReadLimitsAreExplicit pins that the read side honors an explicit bound
-// and never raises one implicitly. The raise direction is pinned in
+// TestReadLimitsAreExplicit pins that the read side honors an explicit bound,
+// even below what the capture records. The raise direction is pinned in
 // x/cudacapture/limits_test.go, where it does not cost a 64 MiB fixture; here
 // the mirror image is enough: a tightened reader rejects what the default
 // reader accepts, so the flag is really in force.
@@ -466,5 +467,107 @@ func TestPartialCaptureFails(t *testing.T) {
 	o, err := parseCaptureArgs([]string{"--allow-partial", "--", "true"})
 	if err != nil || !o.AllowPartial {
 		t.Fatalf("--allow-partial: AllowPartial = %v, err = %v", o.AllowPartial, err)
+	}
+}
+
+// TestStoredLimitsRoundTrip pins that a capture records the bounds it was
+// written under, in capture-status.json for the journal decoders and in the
+// manifest for the artifact reader, and that a reader takes its defaults from
+// them.
+func TestStoredLimitsRoundTrip(t *testing.T) {
+	dir, size, _ := budgetScratch(t, 8192)
+	result := manyActivities(16, dir)
+	result.Limits = &captureLimits{MaxRecords: 1 << 22, JournalRecords: 7}
+	out := filepath.Join(t.TempDir(), "capture.pprof")
+	if err := writeCaptureStatus(out, result, captureArtifactBudget{}); err != nil {
+		t.Fatal(err)
+	}
+	c, err := readCapturePath(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := storedLimits(c)
+	want := captureLimits{
+		MaxRecords:        1 << 22,
+		CaptureFileBytes:  captureFileBytes,
+		CaptureTotalBytes: captureTotalBytes,
+		JournalRecords:    7,
+		JournalBytes:      size,
+		AttachmentBytes:   got.AttachmentBytes,
+	}
+	if got != want {
+		t.Errorf("stored limits = %+v, want %+v", got, want)
+	}
+	if got.AttachmentBytes < size {
+		t.Errorf("attachment bytes = %d, less than the %d-byte journal", got.AttachmentBytes, size)
+	}
+	if want := (cudacapture.Limits{FileBytes: captureFileBytes, TotalBytes: captureTotalBytes}); c.Limits != want {
+		t.Errorf("manifest limits = %+v, want %+v", c.Limits, want)
+	}
+
+	if records, bytes := decodeLimits(c, 0, 0); records != 1<<22 || bytes != cudacapture.MaxCaptureInputBytes {
+		t.Errorf("decodeLimits(0, 0) = %d, %d, want %d, %d", records, bytes, 1<<22, cudacapture.MaxCaptureInputBytes)
+	}
+	if records, bytes := decodeLimits(c, 5, 6); records != 5 || bytes != 6 {
+		t.Errorf("decodeLimits(5, 6) = %d, %d, want the explicit bounds", records, bytes)
+	}
+}
+
+// TestCompareUsesStoredLimits pins that compare decodes a capture under the
+// bounds it records when no flag says otherwise, and that a flag set below
+// them is used as set and refused with the value that would decode it.
+func TestCompareUsesStoredLimits(t *testing.T) {
+	status := phaseStatus(1000, 2000)
+	status["limits"] = map[string]any{"max_records": 1 << 22, "journal_bytes": 1 << 30}
+	cap := compareCapture([]rec{
+		{subtype: "kernel", name: "a", start: 1100, end: 1200},
+		{subtype: "kernel", name: "b", start: 1300, end: 1400},
+	}, status)
+
+	opts, _, err := parseCompareArgs([]string{"a", "b"}, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if records, bytes := decodeLimits(cap, opts.maxRecords, opts.journalBytes); records != 1<<22 || bytes != 1<<30 {
+		t.Errorf("compare decodes under %d records, %d bytes; want the stored %d, %d", records, bytes, 1<<22, 1<<30)
+	}
+	if _, err := measureCompareSide(cap, nil, nil, opts); err != nil {
+		t.Fatalf("compare under stored limits: %v", err)
+	}
+
+	opts.maxRecords, opts.journalBytes = 1, 16
+	_, err = measureCompareSide(cap, nil, nil, opts)
+	if err == nil {
+		t.Fatal("compare under -max-records=1 -journal-bytes=16 accepted the capture")
+	}
+	opts.journalBytes = flagValue(t, err.Error(), "--journal-bytes")
+	_, err = measureCompareSide(cap, nil, nil, opts)
+	if err == nil {
+		t.Fatal("compare under -max-records=1 accepted the capture")
+	}
+	opts.maxRecords = flagValue(t, err.Error(), "--max-records")
+	if _, err := measureCompareSide(cap, nil, nil, opts); err != nil {
+		t.Errorf("compare under the named bounds %d records, %d bytes: %v", opts.maxRecords, opts.journalBytes, err)
+	}
+}
+
+// TestReadLimitErrorNamesTheFlags pins that a capture refused for its size
+// names the read flags, with values that admit it.
+func TestReadLimitErrorNamesTheFlags(t *testing.T) {
+	dir, _, _ := budgetScratch(t, 8192)
+	out := filepath.Join(t.TempDir(), "capture.pprof")
+	if err := writeCaptureStatus(out, manyActivities(16, dir), captureArtifactBudget{}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := readCapturePathLimits(out, cudacapture.Limits{FileBytes: 128, TotalBytes: 256})
+	if err == nil {
+		t.Fatal("tightened read accepted the capture")
+	}
+	limits := cudacapture.Limits{
+		FileBytes:  flagValue(t, err.Error(), "--capture-file-bytes"),
+		TotalBytes: flagValue(t, err.Error(), "--capture-total-bytes"),
+	}
+	if _, err := readCapturePathLimits(out, limits); err != nil {
+		t.Errorf("read under the named limits %+v: %v", limits, err)
 	}
 }

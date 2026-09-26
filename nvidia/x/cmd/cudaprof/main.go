@@ -253,9 +253,9 @@ func pack(output, input string) (err error) {
 	return err
 }
 
-// extract unpacks a capture under explicit limits. A zero Limits keeps the
-// package defaults, so an artifact written under a raised producer budget must
-// be asked for by name on both sides.
+// extract unpacks a capture under limits, which admit the bounds the capture
+// records it was written under; see readCapturePathLimits. The directory
+// records the same bounds, so it reads back as the file did.
 func extract(dir, input string, limits cudacapture.Limits) (err error) {
 	f, err := os.Open(input)
 	if err != nil {
@@ -263,11 +263,12 @@ func extract(dir, input string, limits cudacapture.Limits) (err error) {
 	}
 	defer f.Close()
 
+	limits = trustedLimits(limits, fileSize(input))
 	cap, err := cudacapture.ReadLimits(f, limits)
 	if err != nil {
-		return err
+		return readLimitRemedy(err)
 	}
-	return cudacapture.WriteDirLimits(dir, cap, limits)
+	return readLimitRemedy(cudacapture.WriteDirLimits(dir, cap, limits))
 }
 
 type fetcher struct {

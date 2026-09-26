@@ -351,7 +351,7 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 	// The device timelines are read once: summed kernel time is stated
 	// against each arm's device-active time and span, and the decomposition
 	// below breaks the same timelines down.
-	gapOpts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords}
+	gapOpts := gapOptions{warmupMS: 200}
 	baseReport, baseGapErr := analyzeGaps(baseCap, gapOpts)
 	targetReport, targetGapErr := analyzeGaps(targetCap, gapOpts)
 

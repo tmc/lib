@@ -103,7 +103,7 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 	if err != nil {
 		return gapOptions{}, err
 	}
-	opts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes, limits: limits}
+	opts := gapOptions{warmupMS: 200, limits: limits}
 	for _, arg := range args {
 		switch {
 		case arg == "-h" || arg == "-help" || arg == "--help":
@@ -193,8 +193,10 @@ Options:
   --diff_base=FILE  compare against this capture and report deltas
   --warmup-ms=N     warmup window excluded from the steady-state section (default 200)
   --warmup-until=RE exclude instead everything before the first kernel matching RE
-  --max-records=N   maximum journal records to decode (default 1048576)
-  --journal-bytes=N maximum decompressed bytes per journal (default 536870912)
+  --max-records=N   maximum journal records to decode (default: the larger of
+                    1048576 and what the capture records)
+  --journal-bytes=N maximum decompressed bytes per journal (default: the larger
+                    of 536870912 and what the capture records)
   --json            write the report as JSON
 `)
 }
@@ -269,7 +271,7 @@ func truncationRemedy(status gapStatus) string {
 	if why := status.RecordLoss.dominant(status.Capability); why != "" {
 		fmt.Fprintf(&b, "; %s", why)
 	}
-	b.WriteString("; --max-records is not the remedy here: it bounds how many already-written frames this reader decodes, and a journal that exceeds it fails outright with \"capture journal exceeded limit\" rather than dropping silently")
+	b.WriteString("; --max-records is not the remedy here: it bounds how many already-written frames this reader decodes, and a journal that exceeds it fails outright rather than dropping silently")
 	return b.String()
 }
 
@@ -286,9 +288,10 @@ type GapReport struct {
 }
 
 func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) {
+	opts.maxRecords, opts.journalBytes = decodeLimits(cap, opts.maxRecords, opts.journalBytes)
 	r, err := gaps.Analyze(cap, opts.analysis())
 	if err != nil {
-		return nil, withRemedy(cap, err)
+		return nil, withRemedy(cap, decodeRemedy(cap, err, opts.maxRecords, opts.journalBytes))
 	}
 	if status, ok := readGapStatus(cap); ok {
 		if m, ok := captureGraphTraceMode(status.Capability); ok {

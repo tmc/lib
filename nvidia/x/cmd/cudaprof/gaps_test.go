@@ -288,15 +288,15 @@ func TestGapsParseArgs(t *testing.T) {
 		want    gapOptions
 		wantErr string
 	}{
-		{name: "path only", args: []string{"c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, maxRecords: controllerMaxJournalRecords}},
-		{name: "json", args: []string{"--json", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, maxRecords: controllerMaxJournalRecords, json: true}},
-		{name: "warmup", args: []string{"--warmup-ms=12.5", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 12.5, maxRecords: controllerMaxJournalRecords}},
+		{name: "path only", args: []string{"c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200}},
+		{name: "json", args: []string{"--json", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, json: true}},
+		{name: "warmup", args: []string{"--warmup-ms=12.5", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 12.5}},
 		{name: "max records", args: []string{"--max-records=7", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, maxRecords: 7}},
-		{name: "journal bytes", args: []string{"--journal-bytes=7", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, maxRecords: controllerMaxJournalRecords, journalBytes: 7}},
+		{name: "journal bytes", args: []string{"--journal-bytes=7", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, journalBytes: 7}},
 		{name: "bad journal bytes", args: []string{"--journal-bytes=0", "c.pprof"}, wantErr: "invalid journal bytes"},
 		{name: "unknown flag", args: []string{"--nope", "c.pprof"}, wantErr: "unknown flag"},
 		{name: "bad warmup", args: []string{"--warmup-ms=x", "c.pprof"}, wantErr: "invalid warmup"},
-		{name: "warmup until", args: []string{"--warmup-until=^hc_", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, warmupUntil: "^hc_", maxRecords: controllerMaxJournalRecords}},
+		{name: "warmup until", args: []string{"--warmup-until=^hc_", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, warmupUntil: "^hc_"}},
 		{name: "bad warmup until", args: []string{"--warmup-until=(", "c.pprof"}, wantErr: "invalid warmup kernel pattern"},
 		{name: "two captures", args: []string{"a.pprof", "b.pprof"}, wantErr: "multiple capture files"},
 		{name: "no capture", args: []string{"--json"}, wantErr: "usage: cudaprof gaps"},

@@ -119,11 +119,10 @@ type compareOptions struct {
 	stageEntries bool
 	// templates keeps template arguments in the name ops join by.
 	templates bool
-	// maxRecords bounds the records decoded from each capture's journals;
-	// zero means controllerMaxJournalRecords.
-	maxRecords int64
-	// journalBytes bounds each journal's decompressed size; zero means
-	// cudacapture.MaxCaptureInputBytes.
+	// maxRecords bounds the records decoded from each capture's journals,
+	// and journalBytes each journal's decompressed size; zero means the
+	// bound the capture records, or the default. See decodeLimits.
+	maxRecords   int64
 	journalBytes int64
 	// limits bounds the artifacts read from each capture, as capture
 	// --capture-file-bytes and --capture-total-bytes allowed it to write.
@@ -197,8 +196,8 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
 	fs.BoolVar(&opts.templates, "templates", false, "keep template arguments in kernel names, so each instantiation is its own op")
 	fs.BoolVar(&opts.allowUnresolved, "allow-unresolved", false, "report window totals even when graph replay hides the per-op census")
-	fs.Int64Var(&opts.maxRecords, "max-records", controllerMaxJournalRecords, "maximum journal records to decode per capture, as capture --max-records allowed it to write")
-	fs.Int64Var(&opts.journalBytes, "journal-bytes", cudacapture.MaxCaptureInputBytes, "maximum decompressed bytes per journal")
+	fs.Int64Var(&opts.maxRecords, "max-records", 0, fmt.Sprintf("maximum journal records to decode per capture (default: the larger of %d and what the capture records)", controllerMaxJournalRecords))
+	fs.Int64Var(&opts.journalBytes, "journal-bytes", 0, fmt.Sprintf("maximum decompressed bytes per journal (default: the larger of %d and what the capture records)", cudacapture.MaxCaptureInputBytes))
 	var warmup gapOptions
 	fs.Float64Var(&warmup.warmupMS, "warmup-ms", 0, "start each window `N` ms after its first device activity, as gaps does")
 	fs.StringVar(&warmup.warmupUntil, "warmup-until", "", "start each window at its first kernel matching `RE`, as gaps does")
@@ -234,10 +233,10 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	if opts.iterations, err = iters.window(set); err != nil {
 		return opts, nil, fmt.Errorf("compare: %w", err)
 	}
-	if opts.maxRecords <= 0 {
+	if set["max-records"] && opts.maxRecords <= 0 {
 		return opts, nil, fmt.Errorf("compare: invalid -max-records %d", opts.maxRecords)
 	}
-	if opts.journalBytes <= 0 {
+	if set["journal-bytes"] && opts.journalBytes <= 0 {
 		return opts, nil, fmt.Errorf("compare: invalid -journal-bytes %d", opts.journalBytes)
 	}
 	if opts.stageEntries && opts.stagesPath == "" {

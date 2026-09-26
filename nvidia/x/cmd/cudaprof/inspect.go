@@ -279,16 +279,19 @@ func readCapturePath(path string) (*cudacapture.Capture, error) {
 	return readCapturePathLimits(path, cudacapture.Limits{})
 }
 
-// readCapturePathLimits reads a capture under explicit limits. A zero Limits
-// is the package default, so an artifact written under a raised producer
-// budget is rejected until the reader asks for the same bound by name.
+// readCapturePathLimits reads a capture under limits. A bound limits leaves
+// zero is the larger of the package default and what the capture records it
+// was written under, so an artifact written under a raised producer budget
+// reads back without restating it. A refusal of the capture's size names the
+// flags that would admit it.
 func readCapturePathLimits(path string, limits cudacapture.Limits) (*cudacapture.Capture, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 	if fi.IsDir() {
-		return cudacapture.ReadDirLimits(path, limits)
+		cap, err := cudacapture.ReadDirLimits(path, trustedLimits(limits, 0))
+		return cap, readLimitRemedy(err)
 	}
 	if isBundlePath(path) {
 		return readBundleCapturePath(path, limits)
@@ -298,19 +301,19 @@ func readCapturePathLimits(path string, limits cudacapture.Limits) (*cudacapture
 		return nil, err
 	}
 	defer f.Close()
-	cap, err := cudacapture.ReadLimits(io.Reader(f), limits)
+	cap, err := cudacapture.ReadLimits(io.Reader(f), trustedLimits(limits, fi.Size()))
 	if err != nil {
 		if bCap, bErr := readBundleCapturePath(path, limits); bErr == nil {
 			return bCap, nil
 		}
 	}
-	return cap, err
+	return cap, readLimitRemedy(err)
 }
 
 // parseReadLimits removes the explicit read-side bounds from args. They mirror
-// the producer flags by name, exist for reading an artifact this machine
-// produced under a raised budget, and never become a default: an unset flag
-// leaves the package default in force.
+// the producer flags by name. An unset flag leaves in force the larger of the
+// package default and the bound the capture records it was written under; a
+// set flag is used as set. See trustedLimits.
 //
 // Raising TotalBytes also raises InputBytes to at least the same value, since
 // a larger embedded total implies a larger serialized profile to read it from.

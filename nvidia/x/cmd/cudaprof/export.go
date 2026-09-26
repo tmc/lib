@@ -67,9 +67,10 @@ func runExportCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	records, nvtx, ext, err := decodeTraceJournals(journals, opts.maxRecords, opts.journalBytes)
+	maxRecords, journalBytes := decodeLimits(cap, opts.maxRecords, opts.journalBytes)
+	records, nvtx, ext, err := decodeTraceJournals(journals, maxRecords, journalBytes)
 	if err != nil {
-		return err
+		return decodeRemedy(cap, err, maxRecords, journalBytes)
 	}
 	f, err := os.Create(opts.outPath)
 	if err != nil {
@@ -104,7 +105,7 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 	if err != nil {
 		return exportOptions{}, err
 	}
-	opts := exportOptions{maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes, limits: limits}
+	opts := exportOptions{limits: limits}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch {
@@ -167,8 +168,10 @@ host trace taken from another clock.
 
 Options:
   -o <path>          output file (default: the capture path with .pftrace)
-  --max-records=N    maximum journal records to decode (default 1048576)
-  --journal-bytes=N  maximum decompressed bytes per journal
+  --max-records=N    maximum journal records to decode (default: the larger of
+                     1048576 and what the capture records)
+  --journal-bytes=N  maximum decompressed bytes per journal (default: the
+                     larger of 536870912 and what the capture records)
 `)
 }
 

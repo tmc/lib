@@ -14,8 +14,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-
-	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
 // Qualify computes a pre-registered verdict for an A/B timing campaign from
@@ -182,7 +180,7 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 // parseQualifyArgs returns options with an empty manifest and a nil error
 // when help was requested and printed.
 func parseQualifyArgs(args []string, stdout io.Writer) (qualifyOptions, error) {
-	opts := qualifyOptions{gaps: gapOptions{maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes}}
+	var opts qualifyOptions
 	fs := flag.NewFlagSet("qualify", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.Float64Var(&opts.gaps.warmupMS, "warmup-ms", 0, "exclude the first `N` ms of each capture's device timeline")
@@ -192,7 +190,7 @@ func parseQualifyArgs(args []string, stdout io.Writer) (qualifyOptions, error) {
 	fs.StringVar(&opts.violations, "violations", "", "exclude arms that ran while a process in this violations `file` loaded the host")
 	fs.DurationVar(&opts.violationMargin, "violation-margin", 2*time.Second, "widen each arm's window by this much on each side; at least the watcher's sampling interval")
 	fs.IntVar(&opts.minBlocks, "min-blocks", 0, "the fewest blocks the verdict may be scored from after exclusions; 0 means every block")
-	fs.Int64Var(&opts.gaps.maxRecords, "max-records", opts.gaps.maxRecords, "maximum journal records to decode per capture")
+	fs.Int64Var(&opts.gaps.maxRecords, "max-records", 0, fmt.Sprintf("maximum journal records to decode per capture (default: the larger of %d and what the capture records)", controllerMaxJournalRecords))
 	fs.BoolVar(&opts.json, "json", false, "write the verdict as JSON")
 	fs.StringVar(&opts.opsPath, "ops", "", "break the pairs down by op, from a file of `regex op` lines as compare reads, or \"default\" for the built-in groups")
 	fs.StringVar(&opts.stagesPath, "stages", "", "break the pairs down by stage, from a file of `regex stage` boundaries as compare reads")
@@ -218,7 +216,7 @@ func parseQualifyArgs(args []string, stdout io.Writer) (qualifyOptions, error) {
 		return qualifyOptions{}, errors.New("qualify: empty -warmup-until pattern")
 	case !(opts.noiseMultiplier > 0) || !(opts.noiseFloorMS >= 0):
 		return qualifyOptions{}, errors.New("qualify: -noise-multiplier must be positive and -noise-floor-ms nonnegative")
-	case opts.gaps.maxRecords <= 0:
+	case set["max-records"] && opts.gaps.maxRecords <= 0:
 		return qualifyOptions{}, fmt.Errorf("qualify: invalid -max-records %d", opts.gaps.maxRecords)
 	case opts.violationMargin < 0:
 		return qualifyOptions{}, fmt.Errorf("qualify: invalid -violation-margin %s", opts.violationMargin)

@@ -15,7 +15,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
@@ -60,8 +59,8 @@ func parseIterationsArgs(rawArgs []string, stdout io.Writer) (iterationsOptions,
 	fs.DurationVar(&opts.gaps, "gaps", 0, "list device idle gaps of at least `DURATION` in steady iterations (default 1ms with -perf)")
 	fs.StringVar(&opts.perfPath, "perf", "", "label idle gaps with the host stacks in `file`, the output of perf script --ns -F comm,tid,time,ip,sym for a perf record -k CLOCK_MONOTONIC of the capture")
 	fs.BoolVar(&opts.json, "json", false, "write the report as JSON")
-	fs.Int64Var(&opts.maxRecords, "max-records", controllerMaxJournalRecords, "maximum journal records to decode, as capture --max-records allowed it to write")
-	fs.Int64Var(&opts.journalBytes, "journal-bytes", cudacapture.MaxCaptureInputBytes, "maximum decompressed bytes per journal")
+	fs.Int64Var(&opts.maxRecords, "max-records", 0, fmt.Sprintf("maximum journal records to decode (default: the larger of %d and what the capture records)", controllerMaxJournalRecords))
+	fs.Int64Var(&opts.journalBytes, "journal-bytes", 0, fmt.Sprintf("maximum decompressed bytes per journal (default: the larger of %d and what the capture records)", cudacapture.MaxCaptureInputBytes))
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			fmt.Fprintln(stdout, iterationsUsage)
@@ -383,7 +382,8 @@ func stackLine(stack []string) string {
 
 // decodeCompleteCapture decodes a capture's journals after checking that
 // its run is complete and lost no records: a measurement over a capture
-// that did would be missing work it cannot see.
+// that did would be missing work it cannot see. A zero bound means the one
+// the capture records, or the default; see decodeLimits.
 func decodeCompleteCapture(cap *cudacapture.Capture, maxRecords, journalBytes int64) (captureResult, timeline.Records, error) {
 	var none timeline.Records
 	data, ok := cap.Files["capture-status.json"]
@@ -417,18 +417,10 @@ func decodeCompleteCapture(cap *cudacapture.Capture, maxRecords, journalBytes in
 	if err != nil {
 		return status, none, err
 	}
-	if maxRecords == 0 {
-		maxRecords = controllerMaxJournalRecords
-	}
-	if journalBytes == 0 {
-		journalBytes = cudacapture.MaxCaptureInputBytes
-	}
+	maxRecords, journalBytes = decodeLimits(cap, maxRecords, journalBytes)
 	records, err := timeline.Decode(journals, maxRecords, journalBytes)
-	if errors.Is(err, wire.ErrRecordLimit) {
-		return status, none, fmt.Errorf("%w: raise -max-records past %d", err, maxRecords)
-	}
 	if err != nil {
-		return status, none, err
+		return status, none, decodeRemedy(cap, err, maxRecords, journalBytes)
 	}
 	return status, records, nil
 }
