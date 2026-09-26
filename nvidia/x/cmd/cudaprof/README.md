@@ -296,8 +296,9 @@ beside them), and the summary in `ab.txt` and `ab.json`:
 The commands are split into words, with quotes, and run without a shell:
 capture reads the range edges from its target process's journal, so a
 shell wrapper would leave the captures without a range. Use `env` for
-variables. `-compare` takes compare's flags; the capture flags'
-`--max-records` and byte limits are passed on to it. Each run's GPU
+variables. `-compare` takes compare's flags; compare reads each capture
+under the limits it records, so capture's `--max-records` and byte limits
+need no repeating there. Each run's GPU
 columns are NVML's readings at the start and stop edges, and a warning
 names any edge whose SM clock differs from the base's by more than
 `-clock-tolerance` percent (default 2) or whose temperature differs by more

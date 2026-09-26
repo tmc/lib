@@ -75,7 +75,8 @@ type abOptions struct {
 	tempTolerance  float64
 
 	// captureFlags are passed to every capture; compareArgs are compare's
-	// flags, capture limits first.
+	// flags. Compare reads the limits each capture records, so capture's
+	// limit flags need no counterpart here.
 	captureFlags []string
 	compareArgs  []string
 
@@ -168,39 +169,11 @@ func parseABArgs(args []string, stdout io.Writer) (*abOptions, error) {
 		}
 	}
 
-	// The captures were written under the capture flags' limits, so compare
-	// reads them under the same ones unless its own flags say otherwise.
-	opts.compareArgs = append(captureReadLimits(opts.captureFlags), strings.Fields(*compare)...)
+	opts.compareArgs = strings.Fields(*compare)
 	if _, _, err := parseCompareArgs(append(slices.Clone(opts.compareArgs), "b", "t"), io.Discard); err != nil {
 		return nil, fmt.Errorf("ab: -compare: %w", err)
 	}
 	return opts, nil
-}
-
-// captureReadLimits returns the compare flags that read what capture flags
-// allowed a capture to write.
-func captureReadLimits(flags []string) []string {
-	var out []string
-	for i := 0; i < len(flags); i++ {
-		name, value, ok := strings.Cut(flags[i], "=")
-		switch name {
-		case "--max-records", "--capture-file-bytes", "--capture-total-bytes":
-		default:
-			continue
-		}
-		if !ok {
-			if i+1 == len(flags) {
-				break
-			}
-			i++
-			value = flags[i]
-		}
-		if name == "--max-records" {
-			name = "-max-records"
-		}
-		out = append(out, name+"="+value)
-	}
-	return out
 }
 
 // abReport is what an A/B run reports.

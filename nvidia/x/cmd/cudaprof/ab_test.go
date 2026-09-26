@@ -29,11 +29,11 @@ func TestParseABArgs(t *testing.T) {
 		{name: "control", args: append(base, "-control"), order: []string{"base", "target", "control"}, control: true},
 		{name: "order", args: append(base, "-order=control,target,base"), order: []string{"control", "target", "base"}, control: true},
 		{
-			name:    "capture limits reach compare",
+			name:    "capture limits stay with capture",
 			args:    append(base, "-compare", "-warmup-ms=5 -max-records=9", "--", "--inject", "a.so", "--max-records", "8388608", "--capture-file-bytes=1073741824"),
 			order:   []string{"base", "target"},
 			capture: []string{"--inject", "a.so", "--max-records", "8388608", "--capture-file-bytes=1073741824"},
-			compare: []string{"-max-records=8388608", "--capture-file-bytes=1073741824", "-warmup-ms=5", "-max-records=9"},
+			compare: []string{"-warmup-ms=5", "-max-records=9"},
 		},
 		{name: "no target", args: []string{"-o", "d", "-base", "b"}, err: "usage"},
 		{name: "unknown arm", args: append(base, "-order=base,new"), err: `unknown arm "new"`},
