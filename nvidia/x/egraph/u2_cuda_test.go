@@ -81,7 +81,7 @@ func TestGeneratedU2MatchesReference(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer stream.Destroy()
+			defer stream.Close()
 
 			dq := deviceSlice(t, dev, q)
 			da := deviceSlice(t, dev, a)

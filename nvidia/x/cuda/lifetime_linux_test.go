@@ -41,7 +41,7 @@ func TestConcurrentWithContextAndClose(t *testing.T) {
 	}
 }
 
-func TestStreamOperationSerializedWithDestroy(t *testing.T) {
+func TestStreamOperationSerializedWithClose(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	stream, err := dev.NewStream()
@@ -55,7 +55,7 @@ func TestStreamOperationSerializedWithDestroy(t *testing.T) {
 		<-release
 	})
 	destroyDone := make(chan error, 1)
-	go func() { destroyDone <- stream.Destroy() }()
+	go func() { destroyDone <- stream.Close() }()
 	<-entered
 	queryDone := make(chan error, 1)
 	go func() {
@@ -65,7 +65,7 @@ func TestStreamOperationSerializedWithDestroy(t *testing.T) {
 	select {
 	case err := <-queryDone:
 		if err == nil {
-			t.Fatal("Query crossed concurrent Destroy")
+			t.Fatal("Query crossed concurrent Close")
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Query remained blocked during cleanup callback")
@@ -76,7 +76,7 @@ func TestStreamOperationSerializedWithDestroy(t *testing.T) {
 	}
 }
 
-func TestWithHandleExcludesDestroy(t *testing.T) {
+func TestWithHandleExcludesClose(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	stream, err := dev.NewStream()
@@ -95,10 +95,10 @@ func TestWithHandleExcludesDestroy(t *testing.T) {
 	}()
 	<-entered
 	destroyDone := make(chan error, 1)
-	go func() { destroyDone <- stream.Destroy() }()
+	go func() { destroyDone <- stream.Close() }()
 	select {
 	case err := <-destroyDone:
-		t.Fatalf("Destroy crossed live-handle submission: %v", err)
+		t.Fatalf("Close crossed live-handle submission: %v", err)
 	default:
 	}
 	close(release)
@@ -111,26 +111,26 @@ func TestWithHandleExcludesDestroy(t *testing.T) {
 			t.Fatal(err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("Destroy remained blocked after submission returned")
+		t.Fatal("Close remained blocked after submission returned")
 	}
 	if err := stream.WithHandle(func(driver.Stream) error { return nil }); err == nil {
-		t.Fatal("WithHandle succeeded after Destroy")
+		t.Fatal("WithHandle succeeded after Close")
 	}
 }
 
-func TestEventOperationsAfterDestroyFail(t *testing.T) {
+func TestEventOperationsAfterCloseFail(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 	event, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := event.Destroy(); err != nil {
+	if err := event.Close(); err != nil {
 		t.Fatal(err)
 	}
 	tests := []struct {
@@ -145,20 +145,20 @@ func TestEventOperationsAfterDestroyFail(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.do(); err == nil {
-				t.Fatal("operation after Destroy succeeded")
+				t.Fatal("operation after Close succeeded")
 			}
 		})
 	}
 }
 
-func TestEventQuerySerializedWithDestroy(t *testing.T) {
+func TestEventQuerySerializedWithClose(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 	event, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +181,7 @@ func TestEventQuerySerializedWithDestroy(t *testing.T) {
 		}
 	}()
 	close(start)
-	if err := event.Destroy(); err != nil {
+	if err := event.Close(); err != nil {
 		t.Fatal(err)
 	}
 	<-done
@@ -261,8 +261,8 @@ func TestRepeatedRelease(t *testing.T) {
 		name    string
 		release func() error
 	}{
-		{"event", event.Destroy},
-		{"stream", stream.Destroy},
+		{"event", event.Close},
+		{"stream", stream.Close},
 		{"context", ctx.Release},
 		{"device", dev.Close},
 	}

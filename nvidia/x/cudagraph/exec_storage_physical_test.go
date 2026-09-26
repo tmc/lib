@@ -69,7 +69,7 @@ func TestExecOutlivesTheGraphItWasUpdatedFrom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const (
 		n      = 256

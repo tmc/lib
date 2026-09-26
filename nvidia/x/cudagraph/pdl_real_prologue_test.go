@@ -255,7 +255,7 @@ func TestRealKernelPrologueTimestamps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const dim = 1024
 	tsBuf, err := cudamem.Alloc[int64](dev, 7)
@@ -385,7 +385,7 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const dim = 1024
 	xBuf, _ := cudamem.Alloc[float32](dev, dim)
@@ -432,12 +432,12 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(startEv.Destroy)
+	defer dev.WithContext(startEv.Close)
 	stopEv, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stopEv.Destroy)
+	defer dev.WithContext(stopEv.Close)
 
 	launchArm := func(cFn driver.Function, pdl bool) float64 {
 		g, err := cudagraph.Capture(stream, func() {

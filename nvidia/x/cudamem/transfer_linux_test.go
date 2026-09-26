@@ -16,7 +16,7 @@ func TestPinnedTransferCUDA(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := stream.Destroy(); err != nil {
+		if err := stream.Close(); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -108,7 +108,7 @@ func TestTransferLeaseCUDA(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := stream.Destroy(); err != nil {
+		if err := stream.Close(); err != nil {
 			t.Error(err)
 		}
 	}()

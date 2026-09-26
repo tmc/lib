@@ -238,7 +238,7 @@ func testIQ2XXSMatvec(t *testing.T, threads uint32) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	const (
 		rows = 4
@@ -313,7 +313,7 @@ func TestGeneratedIQ2XXSMatvecRaggedColsReturnsNaN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	const (
 		rows = 2

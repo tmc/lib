@@ -136,7 +136,7 @@ func TestNVRTCCompileTileIR(t *testing.T) {
 
 					stream, err := dev.NewStream()
 					if err == nil {
-						t.Cleanup(func() { _ = stream.Destroy() })
+						t.Cleanup(func() { _ = stream.Close() })
 						args := []unsafe.Pointer{
 							unsafe.Pointer(&pA),
 							unsafe.Pointer(&pB),

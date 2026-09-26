@@ -61,7 +61,7 @@ func TestNativeGraphReplayDiagnostic(t *testing.T) {
 	cleanup(dev.Close)
 	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	check(err)
-	cleanup(stream.Destroy)
+	cleanup(stream.Close)
 	data, err := cudamem.Alloc[uint32](dev, 160)
 	check(err)
 	cleanup(data.Free)

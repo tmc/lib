@@ -142,7 +142,7 @@ func (d *Device) Close() error {
 // DefaultStream returns the device's legacy default stream, the stream that carries
 // work submitted without a stream of its own. The returned Stream is never nil and is
 // shared by every caller, so code can always name a stream instead of branching on nil.
-// [Stream.Destroy] on it drains registered cleanups without destroying the handle.
+// [Stream.Close] on it drains registered cleanups without destroying the handle.
 func (d *Device) DefaultStream() *Stream {
 	d.defaultOnce.Do(func() {
 		d.defaultStream = &Stream{device: d, isDefault: true}

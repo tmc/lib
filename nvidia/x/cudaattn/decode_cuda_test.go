@@ -97,7 +97,7 @@ func testDecodeAgainstReference(t *testing.T, threads uint32, legacyShared bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	const (
 		qHeads  = 4
@@ -221,7 +221,7 @@ func runDecode(t *testing.T, threads uint32, qSign float32) []float32 {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	const (
 		qHeads  = 2

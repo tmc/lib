@@ -86,7 +86,7 @@ func TestGeneratedHalfAddMatchesReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	// Exactly representable half values, so the expected sums are exact and the
 	// comparison can be on bit patterns.

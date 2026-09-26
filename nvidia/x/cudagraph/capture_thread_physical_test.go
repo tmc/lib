@@ -33,7 +33,7 @@ func TestCaptureStaysOnOneThread(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	var first, last int
 	var moved int

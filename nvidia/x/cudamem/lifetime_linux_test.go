@@ -188,7 +188,7 @@ func TestAsyncAllocationAliasesReleaseOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = stream.Destroy() })
+	t.Cleanup(func() { _ = stream.Close() })
 	s, err := AllocAsync[byte](stream, 4096)
 	if err != nil {
 		t.Fatal(err)
@@ -211,7 +211,7 @@ func TestAsyncFreeAccountsAtCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 	var tracker Tracker
 	s, err := AllocTracked[byte](dev, &tracker, 4096)
 	if err != nil {
@@ -239,7 +239,7 @@ func TestAsyncCopyCallerRetainsDeviceAllocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 	var tracker Tracker
 	s, err := AllocTracked[byte](dev, &tracker, 4096)
 	if err != nil {
@@ -281,7 +281,7 @@ func TestConcurrentStreamsAsyncCopiesAndCancellation(t *testing.T) {
 		}
 		d, err := Alloc[byte](dev, n)
 		if err != nil {
-			_ = s.Destroy()
+			_ = s.Close()
 			t.Fatal(err)
 		}
 		transfers[i] = transfer{s, d, make([]byte, n), make([]byte, n)}
@@ -290,7 +290,7 @@ func TestConcurrentStreamsAsyncCopiesAndCancellation(t *testing.T) {
 		}
 		t.Cleanup(func() {
 			_ = d.Free()
-			_ = s.Destroy()
+			_ = s.Close()
 		})
 	}
 
@@ -394,7 +394,7 @@ func TestPostSynchronizeAllocationBaseline(t *testing.T) {
 	if err := s.Free(); err != nil {
 		t.Fatal(err)
 	}
-	if err := stream.Destroy(); err != nil {
+	if err := stream.Close(); err != nil {
 		t.Fatal(err)
 	}
 	src = nil

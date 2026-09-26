@@ -26,14 +26,14 @@ func Example() {
 		fmt.Printf("Failed to create stream: %v\n", err)
 		return
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	event, err := dev.NewEvent()
 	if err != nil {
 		fmt.Printf("Failed to create event: %v\n", err)
 		return
 	}
-	defer event.Destroy()
+	defer event.Close()
 
 	_ = event.Record(stream)
 

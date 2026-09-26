@@ -69,7 +69,7 @@ func TestUpdateDoesNotValidateKernelIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const (
 		n      = 256
@@ -183,7 +183,7 @@ func TestUpdateErrorNamesTheNode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const n, block = 256, 128
 	buf, err := cudamem.Alloc[uint32](dev, n)

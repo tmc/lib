@@ -95,7 +95,7 @@ func testRMSNormGEMV(t *testing.T, threads uint32) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	const (
 		inDim  = 128

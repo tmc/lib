@@ -64,7 +64,7 @@ func NewEventTimer(dev *Device, streams []*Stream) (*EventTimer, error) {
 		query:      streamQueryIfAvailable(),
 		syncEvent:  func(e *Event) error { return e.Synchronize(nil) },
 		syncStream: func(s *Stream) error { return s.Synchronize(nil) },
-		elapsed:    (*Event).ElapsedSince, destroyEvent: (*Event).Destroy, destroyStream: (*Stream).Destroy,
+		elapsed:    (*Event).ElapsedSince, destroyEvent: (*Event).Close, destroyStream: (*Stream).Close,
 	})
 }
 

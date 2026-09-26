@@ -100,9 +100,9 @@ func TestDefaultStream(t *testing.T) {
 	s.AddCleanup(func() { drained = true })
 	s.drainCleanups()
 	if !drained {
-		t.Error("Destroy did not drain registered cleanups")
+		t.Error("Close did not drain registered cleanups")
 	}
 	if d.DefaultStream() != s {
-		t.Error("default stream was discarded by Destroy")
+		t.Error("default stream was discarded by Close")
 	}
 }

@@ -30,7 +30,7 @@ func TestGraphCapture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	g, err := cudagraph.Capture(stream, func() {
 		// Captured operations on stream
@@ -74,7 +74,7 @@ func TestGraphReplayOutputAndLifetime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const n = 257
 	direct, err := cudamem.Alloc[uint32](dev, n)
@@ -303,7 +303,7 @@ func TestGraphCaptureWithPDL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const n = 128
 	buf, err := cudamem.Alloc[uint32](dev, n)

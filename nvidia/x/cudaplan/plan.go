@@ -475,16 +475,16 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 
 	if p.graphReplay {
 		if err := p.graphExec.Launch(stream); err != nil {
-			_ = event.Destroy()
+			_ = event.Close()
 			return nil, fmt.Errorf("cudaplan: replay graph: %w", err)
 		}
 	} else if err := p.enqueue(stream, nodePointers); err != nil {
-		_ = event.Destroy()
+		_ = event.Close()
 		return nil, err
 	}
 
 	if err := event.Record(stream); err != nil {
-		_ = event.Destroy()
+		_ = event.Close()
 		p.inFlight = false
 		return nil, fmt.Errorf("cudaplan: record completion event: %w", err)
 	}

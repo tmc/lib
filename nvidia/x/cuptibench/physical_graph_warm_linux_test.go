@@ -36,7 +36,7 @@ func TestPhysicalGraphWarmBeforeProfiling(t *testing.T) {
 	if streamMode == "blocking" {
 		stream, err := p.dev.NewStream()
 		physicalCheck(t, err)
-		physicalClose(t, stream.Destroy)
+		physicalClose(t, stream.Close)
 		p.streams[0] = stream
 	}
 	t.Logf("graph warm order=%s stream=%s", order, streamMode)

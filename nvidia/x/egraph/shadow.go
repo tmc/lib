@@ -139,13 +139,13 @@ func (e *DeviceShadowExecutor) ExecuteShadow(ctx context.Context, s *cuda.Stream
 	if err != nil {
 		return 0, fmt.Errorf("egraph: create start event: %w", err)
 	}
-	defer start.Destroy()
+	defer start.Close()
 
 	stop, err := e.dev.NewEvent()
 	if err != nil {
 		return 0, fmt.Errorf("egraph: create stop event: %w", err)
 	}
-	defer stop.Destroy()
+	defer stop.Close()
 
 	if err := start.Record(s); err != nil {
 		return 0, fmt.Errorf("egraph: record start event: %w", err)
@@ -242,7 +242,7 @@ func (st *ShadowTuner) Close() error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	if st.ownsStream && st.stream != nil {
-		err := st.stream.Destroy()
+		err := st.stream.Close()
 		st.stream = nil
 		st.ownsStream = false
 		return err

@@ -62,12 +62,12 @@ func TestEventDoneAcrossRecordings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 	event, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer event.Destroy()
+	defer event.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	var previous <-chan struct{}

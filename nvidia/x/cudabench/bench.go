@@ -79,13 +79,13 @@ func (b *B) Time(fn func(stream *cuda.Stream)) {
 	if err != nil {
 		b.tb.Fatalf("cudabench: create start event: %v", err)
 	}
-	defer start.Destroy()
+	defer start.Close()
 
 	stop, err := b.dev.NewEvent()
 	if err != nil {
 		b.tb.Fatalf("cudabench: create stop event: %v", err)
 	}
-	defer stop.Destroy()
+	defer stop.Close()
 
 	// Warmup run
 	fn(b.stream)
@@ -241,7 +241,7 @@ func Run(b *testing.B, dev *cuda.Device, benchmarkFn func(cb *B)) {
 	if err != nil {
 		b.Fatalf("cudabench: create stream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	cb := &B{
 		tb:     b,

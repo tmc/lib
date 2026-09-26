@@ -50,7 +50,7 @@ func testPagedRoPEStoreAndAttention(t *testing.T, seqs int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	const (
 		qHeads    = 4

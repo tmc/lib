@@ -787,7 +787,7 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	// Test real ShadowTuner with isolated shadow stream and DeviceShadowExecutor
 	tuner, err := NewShadowTuner(dev)

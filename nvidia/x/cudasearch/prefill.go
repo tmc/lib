@@ -361,7 +361,7 @@ func (x *prefillExecutable) Close() error {
 		}
 	}
 	if x.stream != nil {
-		if err := x.stream.Destroy(); err != nil {
+		if err := x.stream.Close(); err != nil {
 			return err
 		}
 		x.stream = nil

@@ -76,7 +76,7 @@ func TestGeneratedCompositeMatchesReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	const n = 1024
 	a := make([]float32, n)

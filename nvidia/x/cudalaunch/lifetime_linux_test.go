@@ -63,7 +63,7 @@ func TestCounterCountsSubmissionNotCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	var counter cudalaunch.Counter
 	launch := cudalaunch.Kernel(fn).On(stream).Count(&counter)
@@ -110,7 +110,7 @@ func TestConcurrentStreamLaunchesOwnContext(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			defer stream.Destroy()
+			defer stream.Close()
 			if err := cudalaunch.Kernel(fn).On(stream).Count(&counter).Launch(uint64(1_000_000)); err != nil {
 				errs <- err
 				return

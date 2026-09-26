@@ -54,7 +54,7 @@ func (s Slice[T]) copyPinnedAsync(host HostAllocation[T], stream *cuda.Stream, c
 		release()
 		return nil, fmt.Errorf("cudamem: create transfer event: %w", err)
 	}
-	state := &transferState{release: release, destroy: event.Destroy, wait: stream.Synchronize}
+	state := &transferState{release: release, destroy: event.Close, wait: stream.Synchronize}
 	completion := &Completion{state: state}
 	attempted := false
 	err = stream.WithHandle(func(handle driver.Stream) error {

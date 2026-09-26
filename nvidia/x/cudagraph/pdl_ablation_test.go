@@ -142,7 +142,7 @@ func TestPDLPositiveControl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	buf1, err := cudamem.Alloc[int32](dev, 1)
 	if err != nil {
@@ -169,12 +169,12 @@ func TestPDLPositiveControl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(startEv.Destroy)
+	defer dev.WithContext(startEv.Close)
 	stopEv, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stopEv.Destroy)
+	defer dev.WithContext(stopEv.Close)
 
 	measure := func(prodSpin int64) float64 {
 		g, err := cudagraph.Capture(stream, func() {
@@ -254,7 +254,7 @@ func TestPDLHardwareTimestamps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	tsBuf, err := cudamem.Alloc[int64](dev, 6)
 	if err != nil {
@@ -348,7 +348,7 @@ func TestPDLAblationRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	buf1, err := cudamem.Alloc[int32](dev, 1)
 	if err != nil {
@@ -388,12 +388,12 @@ func TestPDLAblationRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(startEv.Destroy)
+	defer dev.WithContext(startEv.Close)
 	stopEv, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stopEv.Destroy)
+	defer dev.WithContext(stopEv.Close)
 
 	launchArm := func(pdl bool) float64 {
 		g, err := cudagraph.Capture(stream, func() {

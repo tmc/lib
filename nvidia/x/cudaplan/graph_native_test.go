@@ -239,7 +239,7 @@ func runNativeGraphReference(t *testing.T, kind string) {
 			}
 		}
 		if stream != nil {
-			if err := stream.Destroy(); err != nil {
+			if err := stream.Close(); err != nil {
 				t.Error(err)
 				return
 			}

@@ -22,13 +22,13 @@ type Stream struct {
 }
 
 // Raw returns the underlying driver.Stream handle. The handle is invalid after
-// Destroy. Callers using it directly must serialize that use with Destroy;
+// Close. Callers using it directly must serialize that use with Close;
 // wrapper methods do this automatically.
 func (s *Stream) Raw() driver.Stream {
 	return s.raw
 }
 
-// WithHandle calls fn with the live driver handle while excluding Destroy.
+// WithHandle calls fn with the live driver handle while excluding Close.
 // It protects only the host-side call: resources referenced by asynchronous
 // work must remain live until the stream completes. The callback must not call
 // methods on s.
@@ -116,7 +116,7 @@ func (s *Stream) query() (bool, error) {
 //
 // Cancellation stops polling and returns the context error; it does not cancel
 // GPU work or run cleanup callbacks. Retained resources must remain live until a
-// later successful Synchronize or Destroy. Cancellation cannot interrupt waiting
+// later successful Synchronize or Close. Cancellation cannot interrupt waiting
 // for another stream operation's lifecycle lock, a driver call, or cleanup
 // callbacks. If completion is observed before cancellation, Synchronize succeeds.
 func (s *Stream) Synchronize(ctx context.Context) error {
@@ -197,11 +197,11 @@ func (s *Stream) WaitEvent(e *Event) error {
 	return nil
 }
 
-// Destroy waits for all in-flight work on the stream to complete before draining
-// registered cleanups and destroying the stream handle. Destroying the stream
+// Close waits for all in-flight work on the stream to complete before draining
+// registered cleanups and destroying the stream handle. Closing the stream
 // returned by [Device.DefaultStream] drains its cleanups but keeps the handle,
 // which belongs to the driver rather than to the caller. Repeated calls are safe.
-func (s *Stream) Destroy() error {
+func (s *Stream) Close() error {
 	s.lifeMu.Lock()
 	if s.destroyed {
 		s.lifeMu.Unlock()

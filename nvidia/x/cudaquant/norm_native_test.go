@@ -71,7 +71,7 @@ func TestNativeNormQuantReference(t *testing.T) {
 			}
 		}
 		if stream != nil {
-			if err := stream.Destroy(); err != nil {
+			if err := stream.Close(); err != nil {
 				t.Error(err)
 				return
 			}

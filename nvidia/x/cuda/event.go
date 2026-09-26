@@ -19,7 +19,7 @@ type Event struct {
 }
 
 // Raw returns the underlying driver.Event handle. The handle is invalid after
-// Destroy. Callers using it directly must serialize that use with Destroy;
+// Close. Callers using it directly must serialize that use with Close;
 // wrapper methods do this automatically.
 func (e *Event) Raw() driver.Event {
 	return e.raw
@@ -156,7 +156,7 @@ func (e *Event) ElapsedSince(start *Event) (time.Duration, error) {
 }
 
 // Done returns a new channel that closes when Query reports completion or an
-// error, including an error caused by Destroy or Device.Close. A closed channel
+// error, including an error caused by Close or Device.Close. A closed channel
 // does not establish successful GPU completion. Use Synchronize when the result
 // or cancellation matters.
 //
@@ -185,8 +185,8 @@ func (e *Event) Done() <-chan struct{} {
 	return ch
 }
 
-// Destroy destroys the event. Repeated calls are safe.
-func (e *Event) Destroy() error {
+// Close destroys the event. Repeated calls are safe.
+func (e *Event) Close() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.destroyed {

@@ -18,7 +18,7 @@ func TestMatMulValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestMatMulShapeDifferential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
@@ -161,7 +161,7 @@ func TestMatMul(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
@@ -240,7 +240,7 @@ func TestMatMulSubmissionFailureDoesNotPoisonEngine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := closed.Destroy(); err != nil {
+	if err := closed.Close(); err != nil {
 		t.Fatal(err)
 	}
 	for range 32 {
@@ -252,7 +252,7 @@ func TestMatMulSubmissionFailureDoesNotPoisonEngine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer live.Destroy()
+	defer live.Close()
 	if err := engine.MatMul(live, a, 1, 1, b, 1, d); err != nil {
 		t.Fatalf("MatMul after rejected submissions: %v", err)
 	}
@@ -274,7 +274,7 @@ func BenchmarkCuBLASLtGEMM(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
@@ -334,7 +334,7 @@ func TestMatMulWithGELUBias(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
@@ -415,7 +415,7 @@ func TestMatMulRowMajor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
@@ -473,7 +473,7 @@ func TestLinearRowMajor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
@@ -531,7 +531,7 @@ func TestMatMulF16(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
@@ -603,7 +603,7 @@ func TestLinearRowMajorF16(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
@@ -749,7 +749,7 @@ func TestEngineWithWorkspaceConcurrentStreams(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewStream %d: %v", i, err)
 		}
-		defer s.Destroy()
+		defer s.Close()
 		streams = append(streams, s)
 
 		// Allocate dedicated workspace per stream (1MB each)
@@ -843,7 +843,7 @@ func TestMatMulRawPerOperationWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	const m, k, n = 8, 8, 8
 	a, err := cudamem.Alloc[float32](dev, m*k)

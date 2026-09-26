@@ -60,7 +60,7 @@ func newEventCompletion(dev *cuda.Device, stream *cuda.Stream, event *cuda.Event
 		releases: releases,
 		destroy: func() error {
 			if event != nil {
-				return event.Destroy()
+				return event.Close()
 			}
 			return nil
 		},

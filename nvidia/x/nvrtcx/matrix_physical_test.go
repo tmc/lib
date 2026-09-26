@@ -173,7 +173,7 @@ func runTileMatrix(t *testing.T, mixed bool) {
 	}
 	stream, err := dev.NewStream()
 	check(err)
-	cleanup(stream.Destroy)
+	cleanup(stream.Close)
 	var a, b [16 * 32]float32
 	var c [16 * 16]float32
 	for i := range a {

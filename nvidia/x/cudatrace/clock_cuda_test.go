@@ -29,23 +29,23 @@ func TestClockPlacesDeviceWorkOnHostTimeline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	anchor, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer anchor.Destroy()
+	defer anchor.Close()
 	start, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer start.Destroy()
+	defer start.Close()
 	end, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer end.Destroy()
+	defer end.Close()
 
 	clock, err := cudatrace.Calibrate(context.Background(), stream, anchor)
 	if err != nil {
@@ -61,7 +61,7 @@ func TestClockPlacesDeviceWorkOnHostTimeline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer otherAnchor.Destroy()
+	defer otherAnchor.Close()
 	if _, err := cudatrace.Calibrate(context.Background(), stream, otherAnchor); err != nil {
 		t.Fatalf("Calibrate with another handle for the same primary context: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestClockPlacesDeviceWorkOnHostTimeline(t *testing.T) {
 	if _, err := cudatrace.Calibrate(ctx, stream, anchor); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled Calibrate = %v, want context.Canceled", err)
 	}
-	if err := anchor.Destroy(); err != nil {
+	if err := anchor.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := clock.HostNs(end); err == nil {

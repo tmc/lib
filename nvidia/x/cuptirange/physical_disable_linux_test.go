@@ -60,7 +60,7 @@ func TestPhysicalDisableRetry(t *testing.T) {
 	own(dev, dev.Close)
 	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	check(err)
-	own(stream, stream.Destroy)
+	own(stream, stream.Close)
 	out, err := cudamem.Alloc[uint32](dev, 32)
 	check(err)
 	own(out, out.Free)

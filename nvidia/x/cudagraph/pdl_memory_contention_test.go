@@ -550,7 +550,7 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const (
 		dim            = 2048
@@ -599,12 +599,12 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(startEv.Destroy)
+	defer dev.WithContext(startEv.Close)
 	stopEv, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stopEv.Destroy)
+	defer dev.WithContext(stopEv.Close)
 
 	smemBytes := uint32(dim * 2) // sizeof(unsigned short) * dim
 	var nullTs driver.DevicePtr
@@ -855,18 +855,18 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	startEv, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(startEv.Destroy)
+	defer dev.WithContext(startEv.Close)
 	stopEv, err := dev.NewEvent()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stopEv.Destroy)
+	defer dev.WithContext(stopEv.Close)
 
 	const (
 		rows           = 32
@@ -1125,7 +1125,7 @@ func TestPDLResidentCTAStarvationIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer dev.WithContext(stream.Close)
 
 	const (
 		dim            = 2048

@@ -75,19 +75,19 @@ func TestStreamAndEventLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	eventStart, err := dev.NewEvent()
 	if err != nil {
 		t.Fatalf("NewEvent (start) failed: %v", err)
 	}
-	defer eventStart.Destroy()
+	defer eventStart.Close()
 
 	eventEnd, err := dev.NewEvent()
 	if err != nil {
 		t.Fatalf("NewEvent (end) failed: %v", err)
 	}
-	defer eventEnd.Destroy()
+	defer eventEnd.Close()
 
 	if err := eventStart.Record(stream); err != nil {
 		t.Fatalf("eventStart.Record failed: %v", err)
@@ -133,7 +133,7 @@ func TestStreamCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	cleaned := false
 	stream.AddCleanup(func() {

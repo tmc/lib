@@ -92,7 +92,7 @@ func TestArgumentABIConcurrentStreams(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			defer stream.Destroy()
+			defer stream.Close()
 			defer out.Free()
 			err := cudalaunch.Kernel(fn).On(stream).Launch(
 				int8(-7-i), int16(-300-i), int32(-70000-i), int64(-9000000000-i),

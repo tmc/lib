@@ -234,7 +234,7 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 	if err != nil {
 		return 0, fmt.Errorf("egraph: create stream: %w", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	plan, err := benchmarkPlan(cand)
 	if err != nil {

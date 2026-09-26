@@ -99,14 +99,14 @@ func newPhysicalPipeline(tb testing.TB, grid uint32) *physicalPipeline {
 	for i := range p.streams {
 		p.streams[i], err = dev.NewStreamWithFlags(driver.StreamNonBlocking)
 		physicalCheck(tb, err)
-		physicalClose(tb, p.streams[i].Destroy)
+		physicalClose(tb, p.streams[i].Close)
 	}
 	p.projected, err = dev.NewEventWithFlags(driver.EventDisableTiming)
 	physicalCheck(tb, err)
-	physicalClose(tb, p.projected.Destroy)
+	physicalClose(tb, p.projected.Close)
 	p.decoded, err = dev.NewEventWithFlags(driver.EventDisableTiming)
 	physicalCheck(tb, err)
-	physicalClose(tb, p.decoded.Destroy)
+	physicalClose(tb, p.decoded.Close)
 	for _, slice := range []*cudamem.Slice[uint32]{&p.state, &p.mid, &p.out} {
 		*slice, err = cudamem.Alloc[uint32](dev, physicalCapacity)
 		physicalCheck(tb, err)
@@ -401,10 +401,10 @@ func TestPhysicalTwoStreamTiming(t *testing.T) {
 			for i := range starts {
 				starts[i], err = p.dev.NewEvent()
 				physicalCheck(t, err)
-				physicalClose(t, starts[i].Destroy)
+				physicalClose(t, starts[i].Close)
 				ends[i], err = p.dev.NewEvent()
 				physicalCheck(t, err)
-				physicalClose(t, ends[i].Destroy)
+				physicalClose(t, ends[i].Close)
 			}
 			physicalCheck(t, p.synchronize())
 			begin := time.Now()

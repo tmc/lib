@@ -56,7 +56,7 @@ func newEpilogueFixture(t *testing.T) *epilogueFixture {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	t.Cleanup(func() { stream.Destroy() })
+	t.Cleanup(func() { stream.Close() })
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
@@ -242,7 +242,7 @@ func TestMatMulEpilogueRowMajorBias(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 	engine, err := cublasltx.NewEngine(dev)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)

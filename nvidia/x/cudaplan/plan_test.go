@@ -193,7 +193,7 @@ func TestNativeMatMulReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	nativePlan, err := cudaplan.Compile(snap, cudaplan.WithDevice(dev))
 	if err != nil {
