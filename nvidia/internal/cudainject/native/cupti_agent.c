@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <link.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
@@ -112,6 +113,9 @@
    CUDAPROF_PCSAMPLING for the same reason modules are gated: a consumer that
    meets a kind it cannot decode refuses the whole journal. */
 #define KIND_PCSAMPLE 10
+/* One cuBLASLt call, or the link from a call to a kernel launch it made.
+   Gated on CUDAPROF_GEMMS for the same reason again. */
+#define KIND_GEMM 11
 
 /* Host-state sampling. CUPTI can say the device was idle for 8 ms; it cannot
    say what the host was doing during those 8 ms, so every device gap reads the
@@ -211,7 +215,7 @@ static _Atomic uint64_t offered_count;
    kind identity through admission and out to the finalized record so that a
    per-kind loss statement is derivable rather than inferred. Indexed by the
    KIND_ constants; only kinds that pass through the ring are ever nonzero. */
-#define KIND_COUNT 11
+#define KIND_COUNT 12
 static _Atomic uint64_t offered_by_kind[KIND_COUNT];
 static _Atomic uint64_t retained_by_kind[KIND_COUNT];
 static _Atomic uint64_t dropped_by_kind[KIND_COUNT];
@@ -1181,6 +1185,244 @@ static int append_api(const char *domain, const CUpti_ActivityAPI *api) {
 		domain, (unsigned)api->cbid, api->start, api->end, api->processId, api->threadId, api->correlationId, api->returnValue);
 	if (n < 0 || (size_t)n >= sizeof(payload)) return -1;
 	return queue_pending(KIND_API, api->start, payload, (size_t)n);
+}
+
+/* ------------------------------------------------------------------------
+   cuBLASLt calls.
+
+   A kernel record names the kernel cuBLASLt chose and nothing about the call
+   that chose it: not the shape, the types, beta or the algorithm. No CUPTI
+   domain covers cuBLAS, and interposing its entry points misses a target that
+   resolves them with dlsym on its own handle -- a purego binding does exactly
+   that, and a lookup through a handle never reaches a preloaded library.
+   cuBLASLt's logger reaches every caller, because it is a setting of the
+   library itself: at mask 2 ("performance trace") it hands the callback one
+   line per matmul, on the calling thread and before the launch, naming the
+   layouts, the compute descriptor, the algorithm and beta. cuBLAS's own GEMMs
+   arrive there too, as the internal Lt entry they are routed through.
+
+   The line is forwarded as written and parsed by the reader. cublasLt.h calls
+   the logger experimental, and a reader can be fixed after the fact where an
+   agent that dropped a field cannot.
+
+   The call is joined to its kernels here, because only here is the call still
+   on the stack. The line arrives before the launch and nothing marks the
+   call's return, so the callback leaves the call pending on its thread and
+   each driver launch on that thread asks whether it is still inside
+   libcublasLt: a return address inside the library's code means the launch is
+   the call's (a split-K GEMM launches twice), and none means the call has
+   returned. The walk follows frame records, which AArch64 code keeps; code
+   built without them ends the walk early and leaves the call with no
+   launches, which the reader reports rather than guesses at.
+
+   The library is loaded when the target decides, so it is looked for at
+   start and then on each callback until it appears. dl_iterate_phdr's
+   load counter keeps the look to one object when nothing new was loaded. */
+static int gemms_requested;
+static _Atomic int gemm_hooked;
+static pthread_mutex_t gemm_mu = PTHREAD_MUTEX_INITIALIZER;
+static unsigned long long gemm_adds;
+static uintptr_t gemm_text_lo, gemm_text_hi;
+static char gemm_library[PATH_MAX];
+static _Atomic uint64_t gemm_next_id;
+static _Atomic uint64_t gemm_calls;
+static _Atomic uint64_t gemm_launches;
+static _Atomic uint64_t gemm_oversize;
+/* The call this thread is inside, or zero. */
+static _Thread_local uint64_t gemm_pending;
+/* This thread's stack, which bounds the frame walk: 1 known, -1 unavailable. */
+static _Thread_local int gemm_stack_state;
+static _Thread_local uintptr_t gemm_stack_lo, gemm_stack_hi;
+
+typedef void (*gemm_logger_fn)(int, const char *, const char *);
+
+struct gemm_scan {
+	unsigned long long adds;
+	int first;
+	uintptr_t lo, hi;
+	char path[PATH_MAX];
+};
+
+static int gemm_scan_object(struct dl_phdr_info *info, size_t size, void *arg) {
+	(void)size;
+	struct gemm_scan *s = arg;
+	if (s->first) {
+		s->first = 0;
+		if (info->dlpi_adds == s->adds) return 1;
+		s->adds = info->dlpi_adds;
+	}
+	const char *name = info->dlpi_name ? info->dlpi_name : "";
+	const char *base = strrchr(name, '/');
+	base = base ? base + 1 : name;
+	if (strncmp(base, "libcublasLt.so", 14) != 0) return 0;
+	uintptr_t lo = UINTPTR_MAX, hi = 0;
+	for (int i = 0; i < info->dlpi_phnum; i++) {
+		const ElfW(Phdr) *ph = &info->dlpi_phdr[i];
+		if (ph->p_type != PT_LOAD || !(ph->p_flags & PF_X)) continue;
+		uintptr_t a = (uintptr_t)(info->dlpi_addr + ph->p_vaddr);
+		if (a < lo) lo = a;
+		if (a + ph->p_memsz > hi) hi = a + ph->p_memsz;
+	}
+	if (hi <= lo || strlen(name) >= sizeof(s->path)) return 0;
+	s->lo = lo;
+	s->hi = hi;
+	strcpy(s->path, name);
+	return 1;
+}
+
+static void gemm_log(int level, const char *function, const char *message);
+
+/* gemm_probe installs the logger once libcublasLt is mapped. */
+static void gemm_probe(void) {
+	if (!gemms_requested || atomic_load(&gemm_hooked)) return;
+	/* A thread that finds another probing leaves: the other will finish. */
+	if (pthread_mutex_trylock(&gemm_mu) != 0) return;
+	if (atomic_load(&gemm_hooked)) { pthread_mutex_unlock(&gemm_mu); return; }
+	struct gemm_scan s;
+	memset(&s, 0, sizeof(s));
+	s.adds = gemm_adds;
+	s.first = 1;
+	(void)dl_iterate_phdr(gemm_scan_object, &s);
+	gemm_adds = s.adds;
+	if (s.path[0] != '\0') {
+		/* The handle is kept: it holds the library, and with it the logger
+		   setting, for the rest of the process. */
+		void *h = dlopen(s.path, RTLD_NOW | RTLD_NOLOAD);
+		int (*set_callback)(gemm_logger_fn) = NULL;
+		int (*set_file)(FILE *) = NULL;
+		int (*set_mask)(int) = NULL;
+		if (h != NULL) {
+			*(void **)(&set_callback) = dlsym(h, "cublasLtLoggerSetCallback");
+			*(void **)(&set_file) = dlsym(h, "cublasLtLoggerSetFile");
+			*(void **)(&set_mask) = dlsym(h, "cublasLtLoggerSetMask");
+		}
+		if (set_callback != NULL && set_mask != NULL) {
+			gemm_text_lo = s.lo;
+			gemm_text_hi = s.hi;
+			strcpy(gemm_library, s.path);
+			/* The callback replaces the log file only once the file is
+			   cleared; left alone, every line also goes to the target's
+			   stdout. */
+			if (set_file != NULL && set_file(NULL) != 0) {
+				FILE *null = fopen("/dev/null", "w");
+				if (null != NULL) set_file(null);
+			}
+			if (set_callback(gemm_log) == 0 && set_mask(2) == 0) {
+				atomic_store(&gemm_hooked, 1);
+			} else {
+				record_cupti_failure("cublasLtLogger", CUPTI_ERROR_UNKNOWN);
+				gemms_requested = 0;
+			}
+		}
+	}
+	pthread_mutex_unlock(&gemm_mu);
+}
+
+/* gemm_append copies a log line into a JSON string body. The logger's text
+   is not a symbol, so unlike append_escaped a control byte becomes a space
+   rather than a failure; a line that does not fit is counted and skipped. */
+static int gemm_append(char *payload, size_t cap, int n, const char *text) {
+	for (const unsigned char *p = (const unsigned char *)text; *p; p++) {
+		if (n < 0 || (size_t)n + 8 >= cap) return -1;
+		unsigned char c = *p < 0x20 ? ' ' : *p;
+		if (c == '"' || c == '\\') payload[n++] = '\\';
+		payload[n++] = (char)c;
+	}
+	return n;
+}
+
+static void gemm_log(int level, const char *function, const char *message) {
+	(void)level;
+	if (function == NULL || message == NULL) return;
+	size_t fl = strlen(function);
+	if (fl < 6 || strcmp(function + fl - 6, "Matmul") != 0) return;
+	atomic_fetch_add(&callback_active, 1);
+	gemm_pending = 0;
+	if (atomic_load(&shutdown_started) || !atomic_load(&collecting)) {
+		atomic_fetch_sub(&callback_active, 1);
+		return;
+	}
+	uint64_t id = atomic_fetch_add(&gemm_next_id, 1) + 1;
+	uint64_t ts = now_ns();
+	char payload[MAX_PAYLOAD];
+	int n = snprintf(payload, sizeof(payload), "{\"kind\":\"gemm\",\"id\":%" PRIu64 ",\"thread\":%ld,\"api\":\"", id, (long)syscall(SYS_gettid));
+	n = gemm_append(payload, sizeof(payload), n, function);
+	if (n >= 0) {
+		int w = snprintf(payload + n, sizeof(payload) - (size_t)n, "\",\"log\":\"");
+		n = w < 0 || (size_t)(n + w) >= sizeof(payload) ? -1 : n + w;
+	}
+	n = n < 0 ? -1 : gemm_append(payload, sizeof(payload), n, message);
+	if (n < 0 || (size_t)n + 2 >= sizeof(payload)) {
+		atomic_fetch_add(&gemm_oversize, 1);
+	} else {
+		payload[n++] = '"';
+		payload[n++] = '}';
+		if (queue_pending(KIND_GEMM, ts, payload, (size_t)n) == 0) {
+			atomic_fetch_add(&gemm_calls, 1);
+			gemm_pending = id;
+		}
+	}
+	atomic_fetch_sub(&callback_active, 1);
+}
+
+/* gemm_in_library reports whether a caller of this function is code in
+   libcublasLt, by the return addresses in this thread's frame records. */
+__attribute__((noinline)) static int gemm_in_library(void) {
+	if (gemm_stack_state == 0) {
+		gemm_stack_state = -1;
+		pthread_attr_t attr;
+		if (pthread_getattr_np(pthread_self(), &attr) == 0) {
+			void *addr;
+			size_t size;
+			if (pthread_attr_getstack(&attr, &addr, &size) == 0) {
+				gemm_stack_lo = (uintptr_t)addr;
+				gemm_stack_hi = (uintptr_t)addr + size;
+				gemm_stack_state = 1;
+			}
+			pthread_attr_destroy(&attr);
+		}
+	}
+	if (gemm_stack_state < 0) return 0;
+	const uintptr_t *fp = __builtin_frame_address(0);
+	for (int depth = 0; depth < 64; depth++) {
+		uintptr_t p = (uintptr_t)fp;
+		if (p < gemm_stack_lo || p > gemm_stack_hi - 2 * sizeof(uintptr_t) || (p & (sizeof(uintptr_t) - 1)) != 0) return 0;
+		if (fp[1] >= gemm_text_lo && fp[1] < gemm_text_hi) return 1;
+		if (fp[0] <= p) return 0;
+		fp = (const uintptr_t *)fp[0];
+	}
+	return 0;
+}
+
+static int gemm_launch_cbid(CUpti_CallbackId cbid) {
+	switch (cbid) {
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel_ptsz:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz:
+		return 1;
+	}
+	return 0;
+}
+
+/* gemm_launch links a driver launch to the call pending on this thread, or
+   ends that call when the launch is not the library's. */
+static void gemm_launch(uint32_t correlation) {
+	uint64_t id = gemm_pending;
+	if (id == 0 || correlation == 0) return;
+	if (!gemm_in_library()) {
+		gemm_pending = 0;
+		return;
+	}
+	atomic_fetch_add(&callback_active, 1);
+	if (!atomic_load(&shutdown_started)) {
+		char payload[128];
+		int n = snprintf(payload, sizeof(payload), "{\"kind\":\"gemm_launch\",\"id\":%" PRIu64 ",\"correlation\":%u}", id, correlation);
+		if (n > 0 && (size_t)n < sizeof(payload) && queue_pending(KIND_GEMM, now_ns(), payload, (size_t)n) == 0) atomic_fetch_add(&gemm_launches, 1);
+	}
+	atomic_fetch_sub(&callback_active, 1);
 }
 
 /* ------------------------------------------------------------------------
@@ -2763,6 +3005,9 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 			atomic_fetch_sub(&callback_active, 1);
 			return;
 		}
+		/* A module load is often the first callback after the target
+		   loads libcublasLt, and so the first chance to find it. */
+		if (gemms_requested && !atomic_load(&gemm_hooked)) gemm_probe();
 		if (cbid != CUPTI_CBID_RESOURCE_MODULE_LOADED || !modules_enabled) return;
 		const CUpti_ResourceData *res = (const CUpti_ResourceData *)cbdata;
 		const CUpti_ModuleResourceData *mod = (const CUpti_ModuleResourceData *)res->resourceDescriptor;
@@ -2784,6 +3029,10 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 	}
 	const CUpti_CallbackData *data = (const CUpti_CallbackData *)cbdata;
 	if (crash_depth > 0) crash_note(domain, cbid, data);
+	if (gemms_requested && domain == CUPTI_CB_DOMAIN_DRIVER_API) {
+		if (!atomic_load(&gemm_hooked)) gemm_probe();
+		if (data->callbackSite == CUPTI_API_ENTER && gemm_launch_cbid(cbid)) gemm_launch(data->correlationId);
+	}
 	if (modules_enabled && track_module_callback(domain, cbid, data)) return;
 	int start;
 	const char *api;
@@ -3258,12 +3507,17 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	if (period >= 5 && period <= 31) pcsampling_period = (uint32_t)period;
 	pcsampling_hardware_bytes = env_bytes("CUDAPROF_PCSAMPLING_HARDWARE_BYTES", pcsampling_hardware_bytes);
 	pcsampling_scratch_bytes = env_bytes("CUDAPROF_PCSAMPLING_SCRATCH_BYTES", pcsampling_scratch_bytes);
+	/* cuBLASLt calls: gated for the same reason as modules, and not free --
+	   the library formats a line per call. */
+	const char *gemms_env = getenv("CUDAPROF_GEMMS");
+	gemms_requested = gemms_env != NULL && strcmp(gemms_env, "0") != 0 && strcmp(gemms_env, "off") != 0;
+	int gemms_requested_at_start = gemms_requested;
 	int modules_requested = modules_enabled;
 	int pcsampling_requested_at_start = pcsampling_requested;
 	uint64_t depth = env_bytes("CUDAPROF_CRASH_TRACE", 0);
 	crash_depth = depth > CRASH_RING ? CRASH_RING : (unsigned)depth;
 	unsigned crash_requested = crash_depth;
-	if (range_requested || stop_requested || modules_enabled || pcsampling_requested || crash_depth > 0) {
+	if (range_requested || stop_requested || modules_enabled || pcsampling_requested || crash_depth > 0 || gemms_requested) {
 		CUptiResult sub = cuptiSubscribe(&range_subscriber, range_callback, NULL);
 		if (sub != CUPTI_SUCCESS) {
 			record_cupti_failure("cuptiSubscribe(profiler API)", sub);
@@ -3272,6 +3526,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			modules_enabled = 0;
 			pcsampling_requested = 0;
 			crash_depth = 0;
+			gemms_requested = 0;
 		} else {
 			range_subscribed = 1;
 			/* Every API call rather than a chosen few: which call a target
@@ -3286,6 +3541,23 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 				} else {
 					install_crash_trace();
 					if (!crash_installed) crash_depth = 0;
+				}
+			}
+			/* The launches a cuBLASLt call makes, which join it to its
+			   kernels; the same callbacks give the library a chance to be
+			   found once the target loads it. */
+			if (gemms_requested) {
+				static const CUpti_CallbackId gemm_trace[] = {
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel_ptsz,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz,
+				};
+				for (size_t i = 0; i < sizeof(gemm_trace) / sizeof(gemm_trace[0]); i++) {
+					CUptiResult r = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_DRIVER_API, gemm_trace[i]);
+					if (r != CUPTI_SUCCESS) record_cupti_failure("cuptiEnableCallback(gemm launch)", r);
 				}
 			}
 			if (pcsampling_requested) {
@@ -3366,13 +3638,14 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			if (range_requested) range_gated = opens_armed > 0 && closes_armed > 0 ? RANGE_GATED : RANGE_UNAVAILABLE;
 			if (stop_requested) finalize_mode = closes_armed > 0 ? FINALIZE_PROFILER_STOP : FINALIZE_UNAVAILABLE;
 			if (range_gated == RANGE_GATED) (void)set_activity_collection(0);
-			else if (finalize_mode != FINALIZE_PROFILER_STOP && !modules_enabled && crash_depth == 0) {
+			else if (finalize_mode != FINALIZE_PROFILER_STOP && !modules_enabled && crash_depth == 0 && !gemms_requested) {
 				(void)cuptiUnsubscribe(range_subscriber);
 				range_subscribed = 0;
 			}
 		}
 	}
 	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
+	gemm_probe();
 	configure_host_sampler();
 	/* An interval flush is the last resort for a target that cooperates with
 	   nothing: it neither fills a CUPTI buffer nor reaches a trigger, so
@@ -3411,7 +3684,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			if (n > 0 && (size_t)n < sizeof(failure)) (void)write_record(KIND_FAILURE, now_ns(), failure, (size_t)n);
 		}
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"memsets_requested\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"crash_trace\":\"%s\",\"crash_trace_depth\":%u,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", memset_requested ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_EXIT_GROUP ? "exit-group" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, crash_depth > 0 ? "armed" : crash_requested > 0 ? "requested_unavailable" : "off", crash_depth, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"memsets_requested\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"crash_trace\":\"%s\",\"crash_trace_depth\":%u,\"gemms\":\"%s\",\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", memset_requested ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_EXIT_GROUP ? "exit-group" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, crash_depth > 0 ? "armed" : crash_requested > 0 ? "requested_unavailable" : "off", crash_depth, gemms_requested ? "requested" : gemms_requested_at_start ? "requested_unavailable" : "off", cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
@@ -3506,7 +3779,7 @@ static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) 
 	if (pthread_join(worker, NULL) != 0) atomic_store(&producer_failed, 1);
 	char payload[MAX_PAYLOAD];
 	const char *state = atomic_load(&producer_failed) ? "producer_failure" : (atomic_load(&activity_count) ? "collected" : "initialized_no_activity");
-	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"module\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"pcsample\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"modules_written\":%u,\"modules_omitted\":%u,\"module_bytes\":%" PRIu64 ",\"module_seen_max\":%u,\"modules_unchecked\":%u,\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 "}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
+	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"module\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"pcsample\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"gemm\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"modules_written\":%u,\"modules_omitted\":%u,\"module_bytes\":%" PRIu64 ",\"module_seen_max\":%u,\"modules_unchecked\":%u,\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 ",\"gemm_calls\":%" PRIu64 ",\"gemm_launches\":%" PRIu64 ",\"gemm_oversize\":%" PRIu64 ",\"gemm_library\":\"%s\"}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
 		atomic_load(&offered_by_kind[KIND_ACTIVITY]), atomic_load(&retained_by_kind[KIND_ACTIVITY]), atomic_load(&dropped_by_kind[KIND_ACTIVITY]),
 		atomic_load(&offered_by_kind[KIND_API]), atomic_load(&retained_by_kind[KIND_API]), atomic_load(&dropped_by_kind[KIND_API]),
 		atomic_load(&offered_by_kind[KIND_EXTERNAL]), atomic_load(&retained_by_kind[KIND_EXTERNAL]), atomic_load(&dropped_by_kind[KIND_EXTERNAL]),
@@ -3514,8 +3787,10 @@ static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) 
 		atomic_load(&offered_by_kind[KIND_HOST]), atomic_load(&retained_by_kind[KIND_HOST]), atomic_load(&dropped_by_kind[KIND_HOST]),
 		atomic_load(&offered_by_kind[KIND_MODULE]), atomic_load(&retained_by_kind[KIND_MODULE]), atomic_load(&dropped_by_kind[KIND_MODULE]),
 		atomic_load(&offered_by_kind[KIND_PCSAMPLE]), atomic_load(&retained_by_kind[KIND_PCSAMPLE]), atomic_load(&dropped_by_kind[KIND_PCSAMPLE]),
+		atomic_load(&offered_by_kind[KIND_GEMM]), atomic_load(&retained_by_kind[KIND_GEMM]), atomic_load(&dropped_by_kind[KIND_GEMM]),
 		module_seq - module_omitted, module_omitted, module_total_bytes, (unsigned)MODULE_SEEN_MAX, module_unchecked,
-		atomic_load(&host_samples_taken), atomic_load(&host_sample_records));
+		atomic_load(&host_samples_taken), atomic_load(&host_sample_records),
+		atomic_load(&gemm_calls), atomic_load(&gemm_launches), atomic_load(&gemm_oversize), gemm_library);
 	if (n < 0 || (size_t)n >= sizeof(payload) || write_record(KIND_FINALIZED, now_ns(), payload, (size_t)n) != 0) atomic_store(&producer_failed, 1);
 	if (fsync(journal_fd) != 0) atomic_store(&producer_failed, 1);
 	if (close(journal_fd) != 0) atomic_store(&producer_failed, 1);

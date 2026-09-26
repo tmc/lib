@@ -33,6 +33,7 @@ const (
 	KindHost       uint16 = 8
 	KindModule     uint16 = 9
 	KindPCSample   uint16 = 10
+	KindGEMM       uint16 = 11
 )
 
 var (
