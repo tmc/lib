@@ -17,6 +17,12 @@
 //	sizeunits          a legacy BufferSize in elements allocated as bytes
 //	sizetrunc          a size_t result narrowed without a bounds check
 //
+//	asynchost          a host buffer written or freed while an async copy uses it
+//	readbeforesync     a host buffer read before its async copy has finished
+//	launcherr          a launch whose first synchronizing call discards its error
+//	streammismatch     device memory written on one stream and used on another
+//	querydone          the done result of Query discarded
+//
 // Usage:
 //
 //	cudavet [flags] package...
@@ -51,6 +57,12 @@ var analyzers = []*analysis.Analyzer{
 	useAfterDestroyAnalyzer,
 	sizeUnitsAnalyzer,
 	sizeTruncAnalyzer,
+
+	asyncHostAnalyzer,
+	readBeforeSyncAnalyzer,
+	launchErrAnalyzer,
+	streamMismatchAnalyzer,
+	queryDoneAnalyzer,
 }
 
 func main() {
