@@ -46,7 +46,7 @@ func TestGapsRefusesTheProbeCapture(t *testing.T) {
 	// The one knob a reader can reach for is the wrong one. Offering it as the
 	// remedy would send the user to re-run with a flag that bounds decoding and
 	// cannot recover a record the producer never wrote.
-	if strings.Contains(err.Error(), "re-run with --max-records") {
+	if strings.Contains(err.Error(), "rerun with --max-records") {
 		t.Errorf("refusal offers --max-records as the remedy: %v", err)
 	}
 }
@@ -387,13 +387,13 @@ func TestBudgetRemedyNamesTheFlag(t *testing.T) {
 		{
 			name:    "per-file budget",
 			omitted: []captureOmittedFile{{Name: journal, Bytes: 8750387720, Reason: "compressed journal exceeds capture file budget of 67108864 bytes"}},
-			want:    []string{"--capture-file-bytes", "67108864", "at most 8750387720"},
+			want:    []string{"--capture-file-bytes", "1073741824", "at most 8750387720"},
 			deny:    []string{"--capture-total-bytes"},
 		},
 		{
 			name:    "whole-artifact budget",
 			omitted: []captureOmittedFile{{Name: journal, Bytes: 300000000, Reason: "exceeds capture total budget of 268435456 bytes"}},
-			want:    []string{"--capture-total-bytes", "268435456"},
+			want:    []string{"--capture-total-bytes", "1073741824"},
 			deny:    []string{"--capture-file-bytes"},
 		},
 		{
@@ -496,8 +496,9 @@ func TestCaptureHelpDocumentsTheBudgetFlags(t *testing.T) {
 	for _, want := range []string{
 		"--capture-file-bytes",
 		"--capture-total-bytes",
-		fmt.Sprintf("%d", cudacapture.MaxCaptureFileBytes),
-		fmt.Sprintf("%d", cudacapture.MaxCaptureTotalBytes),
+		fmt.Sprintf("%d", captureFileBytes),
+		fmt.Sprintf("%d", captureTotalBytes),
+		"--allow-partial",
 		"bounds decoding only",
 	} {
 		if !strings.Contains(help, want) {

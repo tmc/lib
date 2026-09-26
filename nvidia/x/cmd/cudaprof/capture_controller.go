@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/journal"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
@@ -295,6 +294,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			if f.h.InjectionFailure != "" {
 				worker.Failure, worker.Disposition = f.h.InjectionFailure, "injection-failed"
 			} else if records, state, metrics, activities, apis, _, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, int(f.h.Process), opts.maxJournalRecords); err == nil || (recoverWorkers && errors.Is(err, errJournalNotFinalized)) {
+				result.noteJournal(state, err)
 				// Identity is checked before anything is contributed, whether
 				// or not the generation finalized.
 				if state.generation != f.h.Generation {
@@ -341,6 +341,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 					}
 				}
 			} else {
+				result.noteJournal(state, err)
 				worker.Failure = err.Error()
 				if state.failure != "" {
 					worker.Failure = state.failure
@@ -359,6 +360,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			continue
 		}
 		records, state, metrics, activities, apis, innerWorkers, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, result.TargetPID, opts.maxJournalRecords)
+		result.noteJournal(state, err)
 		if state.failure != "" {
 			targetFailureState = state
 		}
@@ -852,7 +854,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 	}
 	var id [16]byte
 	copy(id[:], raw)
-	maxBound := int64(controllerMaxJournalRecords)
+	maxBound := int64(captureMaxRecords)
 	if maxRecords > 0 {
 		maxBound = maxRecords
 	}
@@ -862,8 +864,14 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 	}
 	recovered, err := journal.Recover(path, wire.Limits{MaxRecords: limitsMaxRecords})
 	if err != nil {
-		if strings.Contains(err.Error(), "record count exceeds limit") {
-			return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, fmt.Errorf("capture journal exceeded limit of %d records (re-run with --max-records=N or reduce workload size): %w", maxBound, err)
+		if errors.Is(err, wire.ErrRecordLimit) {
+			// The count is what makes the remedy exact. It is taken only
+			// here, once the journal has already been refused.
+			n, cerr := countJournalRecords(path)
+			if cerr != nil {
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, fmt.Errorf("capture journal exceeded limit of %d records (rerun with a larger --max-records): %w", maxBound, err)
+			}
+			return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, &journalRecordLimitError{Limit: maxBound, Records: n, Err: err}
 		}
 		return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, err
 	}

@@ -63,10 +63,14 @@ func runCaptureCommand(args []string) error {
 	if opts.LaunchManifest {
 		result.LaunchManifest = buildLaunchManifest(result)
 	}
+	budget := captureArtifactBudget{FileBytes: opts.CaptureFileBytes, TotalBytes: opts.CaptureTotalBytes}
+	result.recordLimits(opts.MaxJournalRecords, budget)
 	if opts.Output != "" {
-		if err := writeCaptureStatus(opts.Output, result, captureArtifactBudget{FileBytes: opts.CaptureFileBytes, TotalBytes: opts.CaptureTotalBytes}); err != nil {
+		omitted, err := writeCapture(opts.Output, result, budget)
+		if err != nil {
 			return fmt.Errorf("write capture: %w", err)
 		}
+		result.OmittedFiles = omitted
 	}
 	status := compactCaptureStatus(result)
 	if opts.JSON || !isTerminal(os.Stdout) {
@@ -90,11 +94,19 @@ func runCaptureCommand(args []string) error {
 	if runErr != nil {
 		return runErr
 	}
+	partial := partialCapture(result)
+	if partial != nil && opts.AllowPartial {
+		fmt.Fprintf(os.Stderr, "cudaprof: %v\n", partial)
+		partial = nil
+	}
 	if result.TargetSignal != "" {
 		return &exitCodeError{Code: 128, Err: errors.New(targetFailureMessage(result))}
 	}
 	if result.TargetExitCode != 0 {
 		return &exitCodeError{Code: result.TargetExitCode, Err: errors.New(targetFailureMessage(result))}
+	}
+	if partial != nil {
+		return &exitCodeError{Code: 2, Err: partial}
 	}
 	if !result.CaptureSuccess {
 		if opts.NoInject && result.TargetExitCode == 0 {
@@ -353,11 +365,11 @@ func budgetRemedy(omitted []captureOmittedFile) string {
 	}
 	switch {
 	case file && total:
-		return fmt.Sprintf("; raise both --capture-file-bytes (default %d) and --capture-total-bytes (default %d) on the capture that writes it", cudacapture.MaxCaptureFileBytes, cudacapture.MaxCaptureTotalBytes)
+		return fmt.Sprintf("; raise both --capture-file-bytes (default %d) and --capture-total-bytes (default %d) on the capture that writes it", captureFileBytes, captureTotalBytes)
 	case total:
-		return fmt.Sprintf("; raise --capture-total-bytes (default %d) on the capture that writes it, to at most %d for this journal", cudacapture.MaxCaptureTotalBytes, largest)
+		return fmt.Sprintf("; raise --capture-total-bytes (default %d) on the capture that writes it, to at most %d for this journal", captureTotalBytes, largest)
 	case file:
-		return fmt.Sprintf("; raise --capture-file-bytes (default %d) on the capture that writes it -- the journal is compared against the budget compressed, so it needs more than the budget and at most %d, the uncompressed size reported above", cudacapture.MaxCaptureFileBytes, largest)
+		return fmt.Sprintf("; raise --capture-file-bytes (default %d) on the capture that writes it -- the journal is compared against the budget compressed, so it needs more than the budget and at most %d, the uncompressed size reported above", captureFileBytes, largest)
 	}
 	return ""
 }
@@ -703,22 +715,27 @@ func labelExternalCorrelation(p *profile.Profile, session string, targetPID uint
 	return out, nil
 }
 
-// writeCaptureStatus publishes the capture recording under budget. The budget
-// is a policy applied to raw attachments before anything is written, so a
-// capture whose workload has already run is never lost to a size rejection at
-// the end: an artifact that does not fit is omitted with its exact size and
-// digest instead.
-func writeCaptureStatus(path string, result captureResult, budget captureArtifactBudget) error {
+// writeCapture publishes the capture recording under budget and returns the
+// attachments it omitted. The budget is a policy applied to raw attachments
+// before anything is written, so a capture whose workload has already run is
+// never lost to a size rejection at the end: an artifact that does not fit is
+// omitted with its exact size and digest instead.
+func writeCapture(path string, result captureResult, budget captureArtifactBudget) ([]captureOmittedFile, error) {
 	// pprof sample values are signed int64. Keep the native uint64 in the
 	// status/journal, but refuse to publish a misleading zero when the ordinary
 	// projection cannot represent it.
 	const maxInt64 = uint64(^uint64(0) >> 1)
 	for i, activity := range result.Activities {
 		if activity.Valid && activity.Subtype == "memcpy" && activity.Bytes > maxInt64 {
-			return fmt.Errorf("activity %d copy bytes %d exceed pprof int64 range", i, activity.Bytes)
+			return nil, fmt.Errorf("activity %d copy bytes %d exceed pprof int64 range", i, activity.Bytes)
 		}
 	}
 	budget = budget.effective()
+	var maxRecords int64
+	if result.Limits != nil {
+		maxRecords = result.Limits.MaxRecords
+	}
+	result.recordLimits(maxRecords, budget)
 
 	// Decide what is embedded before anything is read. Generated content --
 	// the compact status and the provenance record -- is the capture itself
@@ -759,7 +776,7 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 			Status captureStatus `json:"status"`
 		}{Status: compactCaptureStatus(result)})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		total := int64(len(metadata)) + int64(len(provData))
 		for _, a := range kept {
@@ -808,7 +825,7 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	p, sampleRecords := cudacapture.BuildActivityProfileIndex(result.Session, uint64(result.TargetPID), result.Activities, result.APIRecords)
 	p, err := labelExternalCorrelation(p, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	c := &cudacapture.Capture{
 		Profile: p,
@@ -866,23 +883,23 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 		c.Files["capture-provenance.json"] = provData
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
+		return nil, err
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".cudaprof-status-")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tmpName := tmp.Name()
 	if err := cudacapture.WriteLimits(tmp, c, limits); err != nil {
 		_ = tmp.Close()
-		return err
+		return nil, err
 	}
 	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
-		return err
+		return nil, err
 	}
 	if err := tmp.Close(); err != nil {
-		return err
+		return nil, err
 	}
 	// Link publishes the completed file without replacing an existing output.
 	// Unlike rename-on-Unix, this keeps a concurrent capture from clobbering a
@@ -890,12 +907,18 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	// in one directory, so publication is atomic with respect to readers.
 	if err := os.Link(tmpName, path); err != nil {
 		_ = os.Remove(tmpName)
-		return fmt.Errorf("publish capture: %w", err)
+		return nil, fmt.Errorf("publish capture: %w", err)
 	}
 	if err := os.Remove(tmpName); err != nil {
-		return fmt.Errorf("remove temporary capture: %w", err)
+		return nil, fmt.Errorf("remove temporary capture: %w", err)
 	}
-	return nil
+	return result.OmittedFiles, nil
+}
+
+// writeCaptureStatus is writeCapture, discarding the omissions.
+func writeCaptureStatus(path string, result captureResult, budget captureArtifactBudget) error {
+	_, err := writeCapture(path, result, budget)
+	return err
 }
 
 func formatByteSize(b int64) string {
@@ -951,7 +974,7 @@ Options:
                                 activity records: a capture that observed nothing must not
                                 block the retry under its own name. The decision is the
                                 file's record count, never a flag or the name
-  --max-records <N>             maximum journal records the reader decodes (default %d);
+  --max-records <N>             maximum records decoded from one journal (default %d);
                                 bounds decoding only -- it cannot recover a record the
                                 producer never wrote, and a journal that exceeds it fails
                                 the capture rather than being silently truncated
@@ -960,6 +983,13 @@ Options:
                                 does not fit is omitted, which makes the capture unusable
                                 for cudaprof gaps
   --capture-total-bytes <N>     maximum bytes for the whole capture artifact (default %[3]d)
+  --allow-partial               exit zero for a capture that omitted an attachment over the
+                                budget or holds a journal over --max-records. Without it
+                                the capture is still written, and the command exits 2
+                                naming the flags to rerun with, sized from this run. The
+                                bounds used are recorded as "limits" in capture-status.json
+                                and in the capture manifest, so cudaprof's readers admit
+                                the capture without restating them
   --capture-range <mode>        %[4]s (default) or %[5]s, which collects only between
                                 the target's own cuProfilerStart and cuProfilerStop
                                 (driver.ProfilerStart/ProfilerStop in Go); sets
@@ -1047,7 +1077,7 @@ Hardware counters are out of scope here: capture records a CUPTI activity timeli
 counter collection needs the CUPTI Profiling API with replay. That exists in-process --
 github.com/tmc/lib/nvidia/x/cuptirange profiles ranges with user replay (Plan.Capture), and
 cuptimetrics lists the metrics a given chip offers.
-`, controllerMaxJournalRecords, cudacapture.MaxCaptureFileBytes, cudacapture.MaxCaptureTotalBytes,
+`, captureMaxRecords, captureFileBytes, captureTotalBytes,
 		captureRangeNone, captureRangeProfilerAPI, finalizeExit, finalizeProfilerStop, captureOutcomePartialRecovered,
 		graphTraceNode, graphTraceGraph, finalizeExitGroup)
 }

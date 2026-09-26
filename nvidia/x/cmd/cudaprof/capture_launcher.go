@@ -260,15 +260,19 @@ type captureOptions struct {
 	// capture status. It never enables parameter decoding by itself.
 	LaunchManifest bool
 	// CaptureFileBytes is the per-file budget for artifacts attached to the
-	// written capture. Zero means the cudacapture package default. It applies
-	// only to the capture this process is producing from its own scratch
-	// directory; it never relaxes what a reader will decode.
+	// written capture. Zero means captureFileBytes. The capture records the
+	// budget it was written under, and cudaprof's readers admit it from
+	// there; a reader that does not trust the capture keeps the cudacapture
+	// defaults.
 	CaptureFileBytes int64
 	// CaptureTotalBytes is the total budget for raw attachments plus generated
-	// content. Zero means the cudacapture package default. Raising it produces
-	// an artifact that default readers reject, which is why the read side has
-	// a matching explicit option rather than a raised default.
+	// content. Zero means captureTotalBytes. It is recorded as
+	// CaptureFileBytes is.
 	CaptureTotalBytes int64
+	// AllowPartial accepts a capture that omitted an attachment or holds a
+	// journal over MaxJournalRecords. Without it such a capture is still
+	// written, but the command exits nonzero naming the flags to rerun with.
+	AllowPartial bool
 	// RecoverUnfinalized admits records from readable generations that carry no
 	// finalized record, as an explicitly labelled partial. It never makes a
 	// capture successful and never affects a finalized generation.
@@ -403,6 +407,9 @@ type captureResult struct {
 	// they exceeded the per-file budget. Their exact size and digest are kept
 	// so an omission is always visible and the original stays identifiable.
 	OmittedFiles []captureOmittedFile `json:"omitted_files,omitempty"`
+	// Limits records the bounds the capture was written under and the sizes
+	// that decide what a reader needs to decode it.
+	Limits *captureLimits `json:"limits,omitempty"`
 	// Modules records every device module image the agent saw the driver
 	// load, including the ones it declined to store. It is the census the
 	// embedded cubins are drawn from: a module missing from the capture is
@@ -450,8 +457,8 @@ type captureAPI = cudacapture.APIRecord
 // captureArtifactBudget bounds the artifact a capture writes. It is a producer
 // policy, applied before anything is embedded, not a limit discovered at the
 // end: an attachment that does not fit is omitted with its exact size and
-// digest so the capture is still written. A zero field means the corresponding
-// cudacapture package default.
+// digest so the capture is still written. A zero field means the capture
+// default, captureFileBytes or captureTotalBytes.
 type captureArtifactBudget struct {
 	FileBytes  int64
 	TotalBytes int64
@@ -460,10 +467,10 @@ type captureArtifactBudget struct {
 // effective substitutes the package default for every unset field.
 func (b captureArtifactBudget) effective() captureArtifactBudget {
 	if b.FileBytes <= 0 {
-		b.FileBytes = cudacapture.MaxCaptureFileBytes
+		b.FileBytes = captureFileBytes
 	}
 	if b.TotalBytes <= 0 {
-		b.TotalBytes = cudacapture.MaxCaptureTotalBytes
+		b.TotalBytes = captureTotalBytes
 	}
 	return b
 }
@@ -558,6 +565,8 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			o.CrashTrace = n
 		case "--require-complete":
 			o.RequireComplete = true
+		case "--allow-partial":
+			o.AllowPartial = true
 		case "--recover-unfinalized":
 			o.RecoverUnfinalized = true
 		case "--capture-total-bytes":

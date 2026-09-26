@@ -404,3 +404,67 @@ func TestReadLimitsAreExplicit(t *testing.T) {
 		}
 	}
 }
+
+// flagValue returns the value of the flag named in msg as name=N.
+func flagValue(t *testing.T, msg, name string) int64 {
+	t.Helper()
+	i := strings.LastIndex(msg, name+"=")
+	if i < 0 {
+		t.Fatalf("%q does not name %s", msg, name)
+	}
+	var n int64
+	if _, err := fmt.Sscanf(msg[i+len(name)+1:], "%d", &n); err != nil {
+		t.Fatalf("%q: %s: %v", msg, name, err)
+	}
+	return n
+}
+
+// TestPartialCaptureFails pins that a capture which omitted an attachment, or
+// holds a journal over --max-records, is refused with the flags that would
+// capture it whole, and that rerunning with them does.
+func TestPartialCaptureFails(t *testing.T) {
+	dir, _, _ := budgetScratch(t, 4096)
+	write := func(budget captureArtifactBudget) captureResult {
+		t.Helper()
+		result := captureResult{Protocol: 1, Session: "session", State: captureStateFinalized, Outcome: captureOutcomeNoCUDA, CaptureSuccess: true, TransportReady: true, ScratchDir: dir}
+		result.recordLimits(0, budget)
+		omitted, err := writeCapture(filepath.Join(t.TempDir(), "capture.pprof"), result, budget)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result.OmittedFiles = omitted
+		return result
+	}
+
+	result := write(captureArtifactBudget{FileBytes: 1024})
+	err := partialCapture(result)
+	if err == nil {
+		t.Fatalf("capture omitting %+v was not refused", result.OmittedFiles)
+	}
+	if !strings.Contains(err.Error(), "--allow-partial") {
+		t.Errorf("refusal does not offer --allow-partial: %v", err)
+	}
+	fileBytes := flagValue(t, err.Error(), "--capture-file-bytes")
+	result = write(captureArtifactBudget{FileBytes: fileBytes})
+	if len(result.OmittedFiles) != 0 {
+		t.Fatalf("rerun with --capture-file-bytes=%d omitted %+v", fileBytes, result.OmittedFiles)
+	}
+	if err := partialCapture(result); err != nil {
+		t.Fatalf("whole capture refused: %v", err)
+	}
+
+	result.Limits.JournalRecords = 3 << 20
+	result.Limits.MaxRecords = 1 << 20
+	err = partialCapture(result)
+	if err == nil {
+		t.Fatal("capture over --max-records was not refused")
+	}
+	if n := flagValue(t, err.Error(), "--max-records"); n < 3<<20 {
+		t.Errorf("refusal names --max-records=%d, below the %d records observed", n, 3<<20)
+	}
+
+	o, err := parseCaptureArgs([]string{"--allow-partial", "--", "true"})
+	if err != nil || !o.AllowPartial {
+		t.Fatalf("--allow-partial: AllowPartial = %v, err = %v", o.AllowPartial, err)
+	}
+}
