@@ -66,6 +66,9 @@ To write the device timeline as a Perfetto trace:
 To decompose why target took longer than base, per op or stage, in exact nanoseconds:
   cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-json] base.pprof target.pprof
 
+To measure each iteration between launches of a marker kernel, with a gate and advice:
+  cudaprof iterations -iteration-marker=RE [-nvtx] [-skip-iterations=1] [-expect-markers=N] [-ops ops.txt] [-json] capture.pprof
+
 To score an ABBA timing campaign (blocks of C1,G1,G2,C2 captures) against its noise and sign gates:
   cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-violations=FILE [-violation-margin=2s] [-min-blocks=N]] [-ops ops.txt] [-stages stages.txt] [-max-records=N] [-json] manifest.txt
 
@@ -110,6 +113,7 @@ func commands() []command {
 		{name: "advise", usage: adviseUsage, run: func(args []string) error { return runAdviseCommand(args[1:]) }},
 		{name: "gaps", run: func(args []string) error { return runGapsCommand(args[1:]) }},
 		{name: "compare", run: func(args []string) error { return runCompareCommand(args[1:], os.Stdout) }},
+		{name: "iterations", usage: iterationsUsage, run: func(args []string) error { return runIterationsCommand(args[1:], os.Stdout) }},
 		{name: "qualify", run: func(args []string) error { return runQualifyCommand(args[1:], os.Stdout) }},
 		{name: "lines", usage: linesUsage, run: runLinesCommand},
 		{name: "pressure", usage: pressureUsage, run: runPressureCommand},

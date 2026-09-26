@@ -14,7 +14,7 @@ go generate ./x/cmd/cudaprof   # Linux with CUDA only: builds cupti_agent.so int
 | Command | Needs |
 | --- | --- |
 | `capture` | Linux, an NVIDIA driver, and `cupti_agent.so` built against the CUDA toolkit's CUPTI (12.x or 13.x headers; the agent refuses a runtime of another major version). Tested on an NVIDIA GB10 (arm64, SM 12.1) with CUPTI 13.0. Driver version: not recorded in the code. |
-| `gaps`, `compare`, `qualify`, `export`, `view`, `-top`, `-http`, `version`, `help` | Any OS. No GPU, no CUDA. |
+| `gaps`, `compare`, `iterations`, `qualify`, `export`, `view`, `-top`, `-http`, `version`, `help` | Any OS. No GPU, no CUDA. |
 
 A capture is one `.pprof` file: a pprof profile of device time that also
 embeds `capture-status.json`, the per-record journals, the module images
@@ -182,6 +182,35 @@ and a config column. After it:
 - with `-stages`, the per-stage table, whose `entries` columns say how
   often each stage began; counts that differ mean the boundaries did not
   align.
+
+## Iterations
+
+```sh
+cudaprof iterations -iteration-marker='^Embed$' -expect-markers=11 -ops ops.txt run.pprof
+cudaprof iterations -iteration-marker='^mlx::core::cu::gather<float, int, 1, 2' train.pprof
+cudaprof iterations -nvtx -iteration-marker='^step$' train.pprof
+```
+
+Cuts the timeline at each launch of the marker kernel, matched against its
+demangled name with template arguments and without parameters, or with
+`-nvtx` at each NVTX range or marker of that name. Iteration i runs from
+marker i to marker i+1; the time after the last marker is not an
+iteration. The first `-skip-iterations` (default 1) are warm-up, and the
+rest are the steady state, reported per iteration: window, busy and idle,
+exclusive kernel, memcpy and memset time, launches, the ops of `-ops`
+(the file compare reads), the top kernels, and every host API call made.
+A record overlapping a marker is split between the iterations it
+overlaps; it is launched in the one it starts in.
+
+The gate fails, and the command exits 2, when the marker fired other than
+`-expect-markers` times, left no steady iteration, or the steady
+iterations launched different numbers of kernels. A capture that is not
+complete is refused, as compare refuses it.
+
+The advice ranks four costs repeated in most steady iterations, by time
+per iteration: device allocation and free, CUDA graph capture and
+instantiation, host synchronization the device sits idle across, and an
+idle share of 10% or more.
 
 ## Qualify
 

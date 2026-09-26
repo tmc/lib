@@ -17,7 +17,6 @@ import (
 
 	"github.com/ianlancetaylor/demangle"
 	"github.com/tmc/lib/nvidia/cupti"
-	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaprof/gaps"
@@ -1172,49 +1171,7 @@ func (o *opTotals) mean() int64 {
 // measureCompareSide refuses a capture whose records are incomplete, picks its
 // window, and partitions the window.
 func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBoundaries, opts compareOptions) (*CompareSide, error) {
-	data, ok := cap.Files["capture-status.json"]
-	if !ok {
-		return nil, errors.New("capture has no capture-status.json, so its completeness is unknown")
-	}
-	var envelope struct {
-		Status captureResult `json:"status"`
-	}
-	if err := json.Unmarshal(data, &envelope); err != nil {
-		return nil, fmt.Errorf("read capture-status.json: %w", err)
-	}
-	status := envelope.Status
-	if err := targetFailure(&status); err != nil {
-		return nil, err
-	}
-	completeness := status.RunCompleteness
-	if completeness == "" {
-		completeness = runCompletenessOf(status.TransportReady, status.CollectorFinalized, status.UnqualifiedGenerations, status.DroppedRecords, status.ActivityRecords)
-	}
-	if completeness != runComplete {
-		return nil, fmt.Errorf("run_completeness is %q, not %q: records the window would hold may be missing", completeness, runComplete)
-	}
-	if status.DroppedRecords != 0 {
-		return nil, fmt.Errorf("capture dropped %d record(s)", status.DroppedRecords)
-	}
-	if l := status.RecordLoss; l != nil && l.Offered != l.Retained {
-		return nil, fmt.Errorf("capture lost records: %d offered, %d retained", l.Offered, l.Retained)
-	}
-	journals, err := requireJournals(cap)
-	if err != nil {
-		return nil, err
-	}
-	limit := opts.maxRecords
-	if limit == 0 {
-		limit = controllerMaxJournalRecords
-	}
-	journalBytes := opts.journalBytes
-	if journalBytes == 0 {
-		journalBytes = cudacapture.MaxCaptureInputBytes
-	}
-	records, err := timeline.Decode(journals, limit, journalBytes)
-	if errors.Is(err, wire.ErrRecordLimit) {
-		return nil, fmt.Errorf("%w: raise -max-records past %d", err, limit)
-	}
+	status, records, err := decodeCompleteCapture(cap, opts.maxRecords, opts.journalBytes)
 	if err != nil {
 		return nil, err
 	}
