@@ -1,23 +1,29 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
+	"github.com/tmc/lib/nvidia/x/cudaprof/perfscript"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 )
 
-const iterationsUsage = "usage: cudaprof iterations -iteration-marker=RE [-nvtx] [-skip-iterations=N] [-expect-markers=N] [-ops ops.txt] [-kernels=N] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] capture.pprof"
+const iterationsUsage = "usage: cudaprof iterations -iteration-marker=RE [-nvtx] [-skip-iterations=N] [-expect-markers=N] [-ops ops.txt] [-kernels=N] [-gaps=DURATION] [-perf=host.txt] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] capture.pprof"
 
 type iterationsOptions struct {
 	marker       string
@@ -26,6 +32,8 @@ type iterationsOptions struct {
 	expect       int
 	opsPath      string
 	kernels      int
+	gaps         time.Duration
+	perfPath     string
 	json         bool
 	maxRecords   int64
 	journalBytes int64
@@ -49,6 +57,8 @@ func parseIterationsArgs(rawArgs []string, stdout io.Writer) (iterationsOptions,
 	fs.IntVar(&opts.expect, "expect-markers", 0, "fail the gate unless the marker fired exactly `N` times")
 	fs.StringVar(&opts.opsPath, "ops", "", "file of `regex op` lines grouping kernels into ops, as compare reads")
 	fs.IntVar(&opts.kernels, "kernels", 15, "list the `N` kernels with the most exclusive time")
+	fs.DurationVar(&opts.gaps, "gaps", 0, "list device idle gaps of at least `DURATION` in steady iterations (default 1ms with -perf)")
+	fs.StringVar(&opts.perfPath, "perf", "", "label idle gaps with the host stacks in `file`, the output of perf script --ns -F comm,tid,time,ip,sym for a perf record -k CLOCK_MONOTONIC of the capture")
 	fs.BoolVar(&opts.json, "json", false, "write the report as JSON")
 	fs.Int64Var(&opts.maxRecords, "max-records", controllerMaxJournalRecords, "maximum journal records to decode, as capture --max-records allowed it to write")
 	fs.Int64Var(&opts.journalBytes, "journal-bytes", cudacapture.MaxCaptureInputBytes, "maximum decompressed bytes per journal")
@@ -66,8 +76,13 @@ func parseIterationsArgs(rawArgs []string, stdout io.Writer) (iterationsOptions,
 		return opts, "", fmt.Errorf("iterations: -iteration-marker is required\n%s", iterationsUsage)
 	case opts.skip < 0:
 		return opts, "", fmt.Errorf("iterations: invalid -skip-iterations %d", opts.skip)
+	case opts.gaps < 0:
+		return opts, "", fmt.Errorf("iterations: invalid -gaps %v", opts.gaps)
 	case fs.NArg() != 1:
 		return opts, "", fmt.Errorf("iterations: want one capture\n%s", iterationsUsage)
+	}
+	if opts.perfPath != "" && opts.gaps == 0 {
+		opts.gaps = time.Millisecond
 	}
 	return opts, fs.Arg(0), nil
 }
@@ -92,6 +107,12 @@ func runIterationsCommand(args []string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("iterations: %w", err)
 	}
+	var host []iteration.HostSample
+	if opts.perfPath != "" {
+		if host, err = readHostSamples(opts.perfPath); err != nil {
+			return fmt.Errorf("iterations: %w", err)
+		}
+	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return err
@@ -100,7 +121,7 @@ func runIterationsCommand(args []string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("iterations: read capture %s: %w", path, err)
 	}
-	res, err := measureIterations(cap, marker, rules, opts)
+	res, err := measureIterations(cap, marker, rules, opts, host)
 	if err != nil {
 		return fmt.Errorf("iterations: %w", err)
 	}
@@ -123,8 +144,8 @@ func runIterationsCommand(args []string, stdout io.Writer) error {
 }
 
 // measureIterations measures a complete capture iteration by iteration,
-// grouping kernels into ops by rules.
-func measureIterations(cap *cudacapture.Capture, marker *regexp.Regexp, rules opRules, opts iterationsOptions) (*iterationsResult, error) {
+// grouping kernels into ops by rules and labeling idle gaps with host.
+func measureIterations(cap *cudacapture.Capture, marker *regexp.Regexp, rules opRules, opts iterationsOptions, host []iteration.HostSample) (*iterationsResult, error) {
 	_, records, err := decodeCompleteCapture(cap, opts.maxRecords, opts.journalBytes)
 	if err != nil {
 		return nil, err
@@ -134,6 +155,8 @@ func measureIterations(cap *cudacapture.Capture, marker *regexp.Regexp, rules op
 		NVTX:   opts.nvtx,
 		Skip:   opts.skip,
 		Expect: opts.expect,
+		MinGap: opts.gaps.Nanoseconds(),
+		Host:   host,
 		Group: func(name string) string {
 			op, _ := rules.kernelOp(cudalowering.MatchKey(name))
 			return op
@@ -236,6 +259,10 @@ func (res *iterationsResult) write(w io.Writer, kernels int) error {
 		tw.Flush()
 	}
 
+	if r.Gaps != nil || r.GapStacks != nil {
+		res.writeGaps(w)
+	}
+
 	if len(res.Advice) > 0 {
 		fmt.Fprintf(w, "\nadvice\n")
 		for _, f := range res.Advice {
@@ -243,6 +270,90 @@ func (res *iterationsResult) write(w io.Writer, kernels int) error {
 		}
 	}
 	return nil
+}
+
+// readHostSamples reads the perf script output at path.
+func readHostSamples(path string) ([]iteration.HostSample, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	samples, err := perfscript.Parse(f)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	host := make([]iteration.HostSample, len(samples))
+	for i, s := range samples {
+		host[i] = iteration.HostSample{Time: s.Time, Thread: s.Thread, Stack: s.Stack}
+	}
+	return host, nil
+}
+
+// writeGaps writes the idle gaps and the host stacks sampled in them.
+func (res *iterationsResult) writeGaps(w io.Writer) {
+	r := res.Report
+	n := float64(r.Steady.Iterations)
+	var nanos int64
+	var calls, samples int
+	for _, g := range r.Gaps {
+		nanos += g.End - g.Start
+		calls += g.Calls
+		samples += g.Samples
+	}
+	fmt.Fprintf(w, "\nidle gaps (per steady iteration): %.1f gaps, %.3f ms of %.3f ms idle, %.1f host API calls begun in them",
+		float64(len(r.Gaps))/n, float64(nanos)/n/1e6, float64(r.Steady.IdleNanos)/n/1e6, float64(calls)/n)
+	if r.GapStacks == nil {
+		fmt.Fprintf(w, "\n")
+	} else {
+		fmt.Fprintf(w, ", %.1f host samples taken in them\n", float64(samples)/n)
+	}
+	if len(r.GapStacks) > 0 {
+		fmt.Fprintf(w, "\nhost stacks sampled in idle gaps (top %d of %d)\n", min(10, len(r.GapStacks)), len(r.GapStacks))
+		tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+		fmt.Fprintf(tw, "  samples\tgaps\tstack, leaf first\n")
+		for _, st := range r.GapStacks[:min(10, len(r.GapStacks))] {
+			fmt.Fprintf(tw, "  %.1f%%\t%d\t%s\n", 100*float64(st.Samples)/float64(samples), st.Gaps, stackLine(st.Stack))
+		}
+		tw.Flush()
+	}
+	if len(r.GapCalls) > 0 {
+		fmt.Fprintf(w, "\nhost API calls begun in idle gaps (per steady iteration, top %d of %d)\n", min(10, len(r.GapCalls)), len(r.GapCalls))
+		tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+		fmt.Fprintf(tw, "  ms\tcalls\tclass\tcall\n")
+		for _, c := range r.GapCalls[:min(10, len(r.GapCalls))] {
+			class := string(c.Class)
+			if class == "" {
+				class = "-"
+			}
+			fmt.Fprintf(tw, "  %.3f\t%.1f\t%s\t%s\n", float64(c.Nanos)/n/1e6, float64(c.Count)/n, class, c.Name)
+		}
+		tw.Flush()
+	}
+	gaps := slices.Clone(r.Gaps)
+	slices.SortStableFunc(gaps, func(a, b iteration.Gap) int { return cmp.Compare(b.End-b.Start, a.End-a.Start) })
+	gaps = gaps[:min(10, len(gaps))]
+	fmt.Fprintf(w, "\nlongest idle gaps (top %d of %d)\n", len(gaps), len(r.Gaps))
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintf(tw, "  iteration\tat ms\tidle ms\tcalls\tsamples\ttop stack\n")
+	for _, g := range gaps {
+		at := g.Start - r.Iterations[g.Iteration].Start
+		fmt.Fprintf(tw, "  %d\t%.3f\t%.3f\t%d\t%d\t%s\n", g.Iteration, float64(at)/1e6, float64(g.End-g.Start)/1e6, g.Calls, g.Samples, stackLine(g.Stack))
+	}
+	tw.Flush()
+}
+
+// stackLine formats a stack's innermost frames on one line.
+func stackLine(stack []string) string {
+	const frames = 6
+	if len(stack) == 0 {
+		return "-"
+	}
+	s := strings.Join(stack[:min(frames, len(stack))], " < ")
+	if len(stack) > frames {
+		s += " < ..."
+	}
+	return s
 }
 
 // decodeCompleteCapture decodes a capture's journals after checking that

@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof/iteration"
 )
 
 // iterationRecs is n iterations of 1000ns: a marker kernel, a gemm and a
@@ -28,7 +31,7 @@ func iterationRecs(n int) []rec {
 func TestMeasureIterations(t *testing.T) {
 	cap := compareCapture(iterationRecs(5), completeStatus())
 	rules := mustRules(t, "gemm gemm\nEmbed embed\n")
-	res, err := measureIterations(cap, regexp.MustCompile(`^Embed$`), rules, iterationsOptions{skip: 1, expect: 5})
+	res, err := measureIterations(cap, regexp.MustCompile(`^Embed$`), rules, iterationsOptions{skip: 1, expect: 5}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +60,7 @@ func TestMeasureIterationsRefuses(t *testing.T) {
 	status := completeStatus()
 	status["run_completeness"] = "partial"
 	cap := compareCapture(iterationRecs(5), status)
-	_, err := measureIterations(cap, regexp.MustCompile(`^Embed$`), nil, iterationsOptions{skip: 1})
+	_, err := measureIterations(cap, regexp.MustCompile(`^Embed$`), nil, iterationsOptions{skip: 1}, nil)
 	if err == nil || !strings.Contains(err.Error(), `run_completeness is "partial"`) {
 		t.Errorf("err = %v, want a refusal of the partial run", err)
 	}
@@ -72,6 +75,9 @@ func TestParseIterationsArgs(t *testing.T) {
 	}{
 		{"defaults", []string{"-iteration-marker=^Embed$", "c.pprof"}, iterationsOptions{marker: "^Embed$", skip: 1, kernels: 15}, ""},
 		{"all", []string{"-iteration-marker", "step", "-nvtx", "-skip-iterations=2", "-expect-markers=11", "-json", "c.pprof"}, iterationsOptions{marker: "step", nvtx: true, skip: 2, expect: 11, json: true, kernels: 15}, ""},
+		{"perf", []string{"-iteration-marker=x", "-perf=h.txt", "c.pprof"}, iterationsOptions{marker: "x", skip: 1, kernels: 15, perfPath: "h.txt", gaps: time.Millisecond}, ""},
+		{"gaps", []string{"-iteration-marker=x", "-gaps=2us", "-perf=h.txt", "c.pprof"}, iterationsOptions{marker: "x", skip: 1, kernels: 15, perfPath: "h.txt", gaps: 2 * time.Microsecond}, ""},
+		{"negative gaps", []string{"-iteration-marker=x", "-gaps=-1ms", "c.pprof"}, iterationsOptions{}, "invalid -gaps"},
 		{"no marker", []string{"c.pprof"}, iterationsOptions{}, "-iteration-marker is required"},
 		{"negative skip", []string{"-iteration-marker=x", "-skip-iterations=-1", "c.pprof"}, iterationsOptions{}, "invalid -skip-iterations -1"},
 		{"two captures", []string{"-iteration-marker=x", "a.pprof", "b.pprof"}, iterationsOptions{}, "want one capture"},
@@ -163,5 +169,36 @@ func TestParseCaptureIterations(t *testing.T) {
 				t.Errorf("Iterations = %+v, want %+v", o.Iterations, tt.want)
 			}
 		})
+	}
+}
+
+func TestIterationsGaps(t *testing.T) {
+	var host []iteration.HostSample
+	for i := range int64(5) {
+		t := 1000*(i+1) + 600
+		host = append(host,
+			iteration.HostSample{Time: t, Thread: 1, Stack: []string{"tokenize", "main.run", "main.main"}},
+			iteration.HostSample{Time: t + 1, Thread: 1, Stack: []string{"tokenize", "main.run", "main.main"}},
+			iteration.HostSample{Time: t + 2, Thread: 2, Stack: []string{"runtime.gcBgMarkWorker"}},
+		)
+	}
+	cap := compareCapture(iterationRecs(5), completeStatus())
+	res, err := measureIterations(cap, regexp.MustCompile(`^Embed$`), nil, iterationsOptions{skip: 1, gaps: 100}, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := res.write(&out, 0); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"idle gaps (per steady iteration): 1.0 gaps, 0.001 ms of 0.001 ms idle, 0.0 host API calls begun in them, 3.0 host samples taken in them",
+		"66.7%    3     tokenize < main.run < main.main",
+		"33.3%    3     runtime.gcBgMarkWorker",
+		"longest idle gaps (top 3 of 3)",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q:\n%s", want, out.String())
+		}
 	}
 }

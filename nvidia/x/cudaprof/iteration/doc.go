@@ -18,6 +18,11 @@
 // A capture that fails it holds different work in different iterations, and
 // its per-iteration means describe no iteration that ran.
 //
+// With [Options.MinGap] set, [Report.Gaps] lists the steady iterations'
+// device idle gaps and the host API calls begun in each. Host CPU samples
+// in [Options.Host], such as perf records read by package perfscript,
+// label each gap with the host stacks sampled while the device waited.
+//
 // [Report.Advise] reads the steady state for four costs a per-kernel profile
 // does not show: device allocation, CUDA graph construction and host
 // synchronization repeated every iteration, and a large idle share.

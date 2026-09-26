@@ -214,6 +214,21 @@ The gate fails, and the command exits 2, when the marker fired other than
 iterations launched different numbers of kernels. A capture that is not
 complete is refused, as compare refuses it.
 
+`-gaps=1ms` lists the device idle gaps of at least that length in the
+steady iterations, the host API calls begun in them, and the longest.
+`-perf=host.txt` labels each gap with the host stacks sampled during it,
+from perf recorded on the capture's clock, CLOCK_MONOTONIC:
+
+```sh
+perf record -k CLOCK_MONOTONIC --call-graph fp -e cpu-clock --all-user -o perf.data -- \
+	cudaprof capture -o run.pprof -- ./train
+perf script -i perf.data --ns -F comm,tid,time,ip,sym > host.txt
+cudaprof iterations -iteration-marker=RE -perf=host.txt run.pprof
+```
+
+A gap with no samples is one the host spent off the CPU: blocked,
+sleeping or waiting on a lock.
+
 The advice ranks four costs repeated in most steady iterations, by time
 per iteration: device allocation and free, CUDA graph capture and
 instantiation, host synchronization the device sits idle across, and an

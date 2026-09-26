@@ -36,6 +36,14 @@ type Options struct {
 	// When nil, a kernel's group is its qualified name without template
 	// arguments.
 	Group func(name string) string
+
+	// MinGap, when positive, lists every device idle gap of at least
+	// MinGap nanoseconds in a steady iteration in [Report.Gaps].
+	MinGap int64
+
+	// Host is host CPU samples on the capture's clock. When set, each
+	// listed gap is labeled with the host stacks sampled during it.
+	Host []HostSample
 }
 
 // A Report is a capture measured iteration by iteration.
@@ -56,7 +64,44 @@ type Report struct {
 	Kernels []Kernel    `json:"kernels"`
 	Calls   []CallTotal `json:"calls"`
 
+	// Gaps is the device idle gaps of at least Options.MinGap in steady
+	// iterations, in time order, and GapStacks the host stacks sampled
+	// during them, most samples first. GapCalls is the host API calls
+	// begun in them, by time.
+	Gaps      []Gap       `json:"gaps,omitempty"`
+	GapStacks []GapStack  `json:"gap_stacks,omitempty"`
+	GapCalls  []CallTotal `json:"gap_calls,omitempty"`
+
 	Gate Gate `json:"gate"`
+}
+
+// A HostSample is one host CPU sample.
+type HostSample struct {
+	Time   int64    `json:"time"`
+	Thread int      `json:"thread"`
+	Stack  []string `json:"stack"` // leaf first
+}
+
+// A Gap is a device idle gap in one iteration.
+type Gap struct {
+	Iteration int   `json:"iteration"`
+	Start     int64 `json:"start"`
+	End       int64 `json:"end"`
+
+	// Calls is the host API calls that began in the gap.
+	Calls int `json:"calls"`
+
+	// Samples is the host samples taken in the gap, and Stack the one
+	// sampled most often.
+	Samples int      `json:"samples,omitempty"`
+	Stack   []string `json:"stack,omitempty"`
+}
+
+// A GapStack is a host stack and the samples of it taken during gaps.
+type GapStack struct {
+	Stack   []string `json:"stack"`
+	Samples int      `json:"samples"`
+	Gaps    int      `json:"gaps"` // gaps it was sampled in
 }
 
 // An Iteration is the window from one marker to the next.
@@ -354,6 +399,7 @@ func Analyze(records timeline.Records, opts Options) (*Report, error) {
 	slices.Sort(bounds)
 	bounds = slices.Compact(bounds)
 	var active []int
+	var idle []Gap
 	next, k := 0, 0
 	for i := 0; i+1 < len(bounds); i++ {
 		t, u := bounds[i], bounds[i+1]
@@ -369,7 +415,18 @@ func Analyze(records timeline.Records, opts Options) (*Report, error) {
 				active = append(active, next)
 			}
 		}
+		for k+1 < nIter && t >= marks[k+1] {
+			k++
+		}
+		it := &r.Iterations[k]
 		if len(active) == 0 {
+			if opts.MinGap > 0 && it.Steady {
+				if n := len(idle); n > 0 && idle[n-1].Iteration == k && idle[n-1].End == t {
+					idle[n-1].End = u
+				} else {
+					idle = append(idle, Gap{Iteration: k, Start: t, End: u})
+				}
+			}
 			continue
 		}
 		owner := active[0]
@@ -378,10 +435,6 @@ func Analyze(records timeline.Records, opts Options) (*Report, error) {
 				owner = j
 			}
 		}
-		for k+1 < nIter && t >= marks[k+1] {
-			k++
-		}
-		it := &r.Iterations[k]
 		d := u - t
 		it.BusyNanos += d
 		rec := recs[owner]
@@ -467,6 +520,13 @@ func Analyze(records timeline.Records, opts Options) (*Report, error) {
 		}
 	}
 
+	for _, g := range idle {
+		if g.End-g.Start >= opts.MinGap {
+			r.Gaps = append(r.Gaps, g)
+		}
+	}
+	r.labelGaps(calls, opts.Host)
+
 	for i := range r.Iterations {
 		it := &r.Iterations[i]
 		it.IdleNanos = it.WindowNanos - it.BusyNanos
@@ -499,15 +559,87 @@ func Analyze(records timeline.Records, opts Options) (*Report, error) {
 	for _, t := range byName {
 		r.Calls = append(r.Calls, *t)
 	}
-	sort.Slice(r.Calls, func(i, j int) bool {
-		a, b := r.Calls[i], r.Calls[j]
+	sortCalls(r.Calls)
+	r.gateLaunches()
+	return r, nil
+}
+
+// sortCalls sorts calls by time, largest first.
+func sortCalls(calls []CallTotal) {
+	sort.Slice(calls, func(i, j int) bool {
+		a, b := calls[i], calls[j]
 		if a.Nanos != b.Nanos {
 			return a.Nanos > b.Nanos
 		}
 		return a.Name < b.Name
 	})
-	r.gateLaunches()
-	return r, nil
+}
+
+// labelGaps counts the calls begun and the host samples taken in each gap,
+// and sums the sampled stacks across gaps. calls is sorted by start.
+func (r *Report) labelGaps(calls []timeline.Call, host []HostSample) {
+	if len(r.Gaps) == 0 {
+		return
+	}
+	samples := append([]HostSample(nil), host...)
+	sort.SliceStable(samples, func(i, j int) bool { return samples[i].Time < samples[j].Time })
+	stacks := make(map[string]*GapStack)
+	byName := make(map[string]*CallTotal)
+	for i := range r.Gaps {
+		g := &r.Gaps[i]
+		lo := sort.Search(len(calls), func(i int) bool { return calls[i].Start >= g.Start })
+		hi := sort.Search(len(calls), func(i int) bool { return calls[i].Start >= g.End })
+		g.Calls = hi - lo
+		for _, c := range calls[lo:hi] {
+			name := c.Name()
+			key := c.Domain + ":" + name
+			t := byName[key]
+			if t == nil {
+				t = &CallTotal{Name: key, Class: Classify(name)}
+				byName[key] = t
+			}
+			t.Count++
+			t.Nanos += c.End - c.Start
+		}
+		lo = sort.Search(len(samples), func(i int) bool { return samples[i].Time >= g.Start })
+		hi = sort.Search(len(samples), func(i int) bool { return samples[i].Time >= g.End })
+		g.Samples = hi - lo
+		count := make(map[string]int)
+		var top string
+		for _, s := range samples[lo:hi] {
+			key := strings.Join(s.Stack, "\n")
+			count[key]++
+			if count[key] > count[top] || count[key] == count[top] && key < top {
+				top = key
+			}
+			st := stacks[key]
+			if st == nil {
+				st = &GapStack{Stack: s.Stack}
+				stacks[key] = st
+			}
+			st.Samples++
+		}
+		if g.Samples > 0 {
+			g.Stack = stacks[top].Stack
+		}
+		for key := range count {
+			stacks[key].Gaps++
+		}
+	}
+	for _, t := range byName {
+		r.GapCalls = append(r.GapCalls, *t)
+	}
+	sortCalls(r.GapCalls)
+	for _, st := range stacks {
+		r.GapStacks = append(r.GapStacks, *st)
+	}
+	sort.Slice(r.GapStacks, func(i, j int) bool {
+		a, b := r.GapStacks[i], r.GapStacks[j]
+		if a.Samples != b.Samples {
+			return a.Samples > b.Samples
+		}
+		return strings.Join(a.Stack, "\n") < strings.Join(b.Stack, "\n")
+	})
 }
 
 // gate records the marker checks, which need no measurement.

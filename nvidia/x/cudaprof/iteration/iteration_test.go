@@ -326,3 +326,50 @@ func TestSyncIdleShared(t *testing.T) {
 		t.Errorf("sync idle = %d, want 30", got)
 	}
 }
+
+func TestGaps(t *testing.T) {
+	recs := steps(5)
+	for i := range int64(5) {
+		recs.Calls = append(recs.Calls, call(cbSync, 100*i+75, 100*i+80))
+	}
+	var host []HostSample
+	for i := range int64(5) {
+		host = append(host,
+			HostSample{Time: 100*i + 72, Thread: 1, Stack: []string{"python", "main"}},
+			HostSample{Time: 100*i + 90, Thread: 1, Stack: []string{"tokenize", "main"}},
+			HostSample{Time: 100*i + 95, Thread: 1, Stack: []string{"tokenize", "main"}},
+			HostSample{Time: 100*i + 30, Thread: 1, Stack: []string{"busy"}},
+		)
+	}
+	r, err := Analyze(recs, Options{Marker: regexp.MustCompile(`^mlx::core::cu::gather`), Skip: 1, MinGap: 20, Host: host})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []Gap
+	for i := range int64(3) {
+		t := 100*(i+1) + 70
+		want = append(want, Gap{Iteration: int(i) + 1, Start: t, End: t + 30, Calls: 1, Samples: 3, Stack: []string{"tokenize", "main"}})
+	}
+	if !reflect.DeepEqual(r.Gaps, want) {
+		t.Errorf("Gaps =\n%+v\nwant\n%+v", r.Gaps, want)
+	}
+	wantStacks := []GapStack{
+		{Stack: []string{"tokenize", "main"}, Samples: 6, Gaps: 3},
+		{Stack: []string{"python", "main"}, Samples: 3, Gaps: 3},
+	}
+	if !reflect.DeepEqual(r.GapStacks, wantStacks) {
+		t.Errorf("GapStacks = %+v, want %+v", r.GapStacks, wantStacks)
+	}
+	wantCalls := []CallTotal{{Name: "driver:cuStreamSynchronize", Class: Sync, CallStat: CallStat{Count: 3, Nanos: 15}}}
+	if !reflect.DeepEqual(r.GapCalls, wantCalls) {
+		t.Errorf("GapCalls = %+v, want %+v", r.GapCalls, wantCalls)
+	}
+
+	r, err = Analyze(recs, Options{Marker: regexp.MustCompile(`^mlx::core::cu::gather`), Skip: 1, MinGap: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Gaps) != 6 || r.GapStacks != nil {
+		t.Errorf("MinGap 5: %d gaps, stacks %v; want 6, none", len(r.Gaps), r.GapStacks)
+	}
+}

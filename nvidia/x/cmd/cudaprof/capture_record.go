@@ -120,7 +120,7 @@ func runCaptureCommand(args []string) error {
 // writes a one-line summary of it to w. The capture fails with status 2
 // when the gate does.
 func captureIterationGate(w io.Writer, cap *cudacapture.Capture, opts iterationsOptions) error {
-	res, err := measureIterations(cap, regexp.MustCompile(opts.marker), nil, opts)
+	res, err := measureIterations(cap, regexp.MustCompile(opts.marker), nil, opts, nil)
 	if err != nil {
 		return &exitCodeError{Code: 2, Err: fmt.Errorf("iteration gate: %w", err)}
 	}
