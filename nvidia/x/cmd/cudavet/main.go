@@ -23,6 +23,12 @@
 //	streammismatch     device memory written on one stream and used on another
 //	querydone          the done result of Query discarded
 //
+//	errcompare         a binding error compared with == instead of errors.Is
+//	uncheckedsync      a discarded error of a Synchronize or release
+//	devinfo            a cuSOLVER devInfo buffer never checked
+//	zeroversion        a GetVersion of 0 read as a version
+//	legacycupti        a CUPTI function that always fails since CUDA 13.0
+//
 // Usage:
 //
 //	cudavet [flags] package...
@@ -63,6 +69,12 @@ var analyzers = []*analysis.Analyzer{
 	launchErrAnalyzer,
 	streamMismatchAnalyzer,
 	queryDoneAnalyzer,
+
+	errCompareAnalyzer,
+	uncheckedSyncAnalyzer,
+	devInfoAnalyzer,
+	zeroVersionAnalyzer,
+	legacyCuptiAnalyzer,
 }
 
 func main() {
