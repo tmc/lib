@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -15,16 +16,14 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 )
 
-func TestCargalign(t *testing.T) {
-	analysistest.Run(t, analysistest.TestData(), cargalignAnalyzer, "cargalign")
-}
-
-func TestUnpinned(t *testing.T) {
-	analysistest.Run(t, analysistest.TestData(), unpinnedAnalyzer, "unpinned")
-}
-
-func TestLeak(t *testing.T) {
-	analysistest.Run(t, analysistest.TestData(), leakAnalyzer, "leak")
+// TestAnalyzers runs each check over the fixture package named after it,
+// which holds both the cases that must be reported and the ones that must not.
+func TestAnalyzers(t *testing.T) {
+	for _, a := range analyzers {
+		t.Run(a.Name, func(t *testing.T) {
+			analysistest.Run(t, analysistest.TestData(), a, a.Name)
+		})
+	}
 }
 
 // TestCleanPackageProducesNoDiagnostics runs every check over packages that
@@ -125,7 +124,14 @@ func TestAnalyzerOffsetMovesWithSchema(t *testing.T) {
 // to fire by a fixture.
 func TestEveryDiagnosticHasAFiringCase(t *testing.T) {
 	wants := allWants(t)
-	for _, file := range []string{"cargalign.go", "unpinned.go", "leak.go"} {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file, "_test.go") {
+			continue
+		}
 		for _, format := range reportFormats(t, file) {
 			literal := longestLiteral(format)
 			if literal == "" {
@@ -172,6 +178,8 @@ func sourceWithoutWants(t *testing.T, fixture string) string {
 }
 
 // allWants returns every expectation in testdata, as one string to search.
+// Backslashes are removed, so that a pattern escaping a metacharacter still
+// contains the literal text it matches.
 func allWants(t *testing.T) string {
 	t.Helper()
 	var b strings.Builder
@@ -194,7 +202,7 @@ func allWants(t *testing.T) string {
 			}
 		}
 	}
-	return b.String()
+	return strings.ReplaceAll(b.String(), `\`, "")
 }
 
 // reportFormats returns the format strings of every diagnostic a source file

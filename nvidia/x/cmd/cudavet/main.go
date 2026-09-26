@@ -21,9 +21,16 @@
 package main
 
 import (
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 )
 
+var analyzers = []*analysis.Analyzer{
+	cargalignAnalyzer,
+	unpinnedAnalyzer,
+	leakAnalyzer,
+}
+
 func main() {
-	multichecker.Main(cargalignAnalyzer, unpinnedAnalyzer, leakAnalyzer)
+	multichecker.Main(analyzers...)
 }
