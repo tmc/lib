@@ -21,6 +21,7 @@ func BenchmarkCall(b *testing.B) {
 	args[0], args[1], args[2], args[3] = 1, 2, 3, 4
 	args[4] = uintptr(math.Float32bits(0.5))
 	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ffi.Call(fn, 5, &args, 1<<4)
 	}

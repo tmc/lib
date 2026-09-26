@@ -29,6 +29,8 @@ func TestCall_Validation(t *testing.T) {
 		{"floatMask beyond n", func() { ffi.Call(1, 2, &args, 1<<4) }},
 		{"ffi.CallFloat zero fn", func() { ffi.CallFloat(0, 1, &args, 0) }},
 		{"ffi.CallFloat nil args", func() { ffi.CallFloat(1, 1, nil, 0) }},
+		{"widths beyond n", func() { ffi.CallWidths(1, 2, &args, 0, ffi.Width4<<4) }},
+		{"ffi.CallFloatWidths widths beyond n", func() { ffi.CallFloatWidths(1, 2, &args, 0, ffi.Width1<<6) }},
 	}
 	// The 8-float ceiling is a trampoline-platform limit (the FP register-file
 	// width). windows/amd64's positional Win64 path has no such limit — floats

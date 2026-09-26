@@ -101,3 +101,85 @@ func TestCall_AllocBudget(t *testing.T) {
 		t.Fatalf("ffi.Call = %v allocs/op at 15 args, want 0", allocs)
 	}
 }
+
+// srcStackArgs takes eight integer register arguments and then narrow stack
+// arguments, interleaved with floats that stay in registers. The first argument
+// selects which received value to return, so a test can check each one rather
+// than a sum. Apple arm64 packs the stack arguments at natural size; elsewhere
+// each takes an 8-byte slot.
+const srcStackArgs = `
+#include <stdint.h>
+int64_t stack_ints(int64_t sel,int64_t a2,int64_t a3,int64_t a4,
+                   int64_t a5,int64_t a6,int64_t a7,int64_t a8,
+                   int32_t s1,int16_t s2,uint8_t s3,int32_t s4,int64_t s5){
+    int64_t v[] = {a2+a3+a4+a5+a6+a7+a8, s1, s2, s3, s4, s5};
+    return v[sel];
+}
+int64_t stack_mixed(int64_t sel,int64_t a2,int64_t a3,int64_t a4,
+                    int64_t a5,int64_t a6,int64_t a7,int64_t a8,
+                    float f1,int16_t s1,double f2,uint8_t s2,int32_t s3,int64_t s4){
+    int64_t v[] = {a2+a3+a4+a5+a6+a7+a8, s1, s2, s3, s4,
+                   (int64_t)(f1*100.0f), (int64_t)(f2*100.0)};
+    return v[sel];
+}`
+
+// TestCallWidths_StackArgs checks that narrow arguments past the integer
+// registers arrive intact, which on darwin/arm64 needs the widths mask.
+func TestCallWidths_StackArgs(t *testing.T) {
+	w := func(i int, code uint64) uint64 { return code << (2 * i) }
+	f32 := func(f float32) uintptr { return uintptr(math.Float32bits(f)) }
+	neg := func(v int64) uintptr { return uintptr(v) }
+
+	tests := []struct {
+		name      string
+		sym       string
+		args      []uintptr // args[0] is replaced by the selector
+		floatMask uint32
+		widths    uint64
+		want      []int64 // want[0] is the sum of the other register arguments
+	}{
+		{
+			name:   "ints",
+			sym:    "stack_ints",
+			args:   []uintptr{0, 2, 3, 4, 5, 6, 7, 8, neg(-2), neg(-3), 200, 0x7fffffff, neg(-5)},
+			widths: w(8, ffi.Width4) | w(9, ffi.Width2) | w(10, ffi.Width1) | w(11, ffi.Width4),
+			want:   []int64{35, -2, -3, 200, 0x7fffffff, -5},
+		},
+		{
+			name:      "mixed",
+			sym:       "stack_mixed",
+			args:      []uintptr{0, 2, 3, 4, 5, 6, 7, 8, f32(1.5), neg(-7), uintptr(math.Float64bits(2.25)), 9, neg(-11), 1 << 40},
+			floatMask: 1<<8 | 1<<10,
+			widths:    w(8, ffi.Width4) | w(9, ffi.Width2) | w(11, ffi.Width1) | w(12, ffi.Width4),
+			want:      []int64{35, -7, 9, -11, 1 << 40, 150, 225},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fn := buildSym(t, srcStackArgs, tt.sym)
+			for sel, want := range tt.want {
+				var args [ffi.MaxArgs]uintptr
+				copy(args[:], tt.args)
+				args[0] = uintptr(sel)
+				got, _, _ := ffi.CallWidths(fn, len(tt.args), &args, tt.floatMask, tt.widths)
+				if int64(got) != want {
+					t.Errorf("value %d = %d, want %d", sel, int64(got), want)
+				}
+			}
+		})
+	}
+}
+
+// TestCallWidths_AllocBudget checks that packing stack arguments allocates
+// nothing.
+func TestCallWidths_AllocBudget(t *testing.T) {
+	fn := buildSym(t, srcStackArgs, "stack_ints")
+	var args [ffi.MaxArgs]uintptr
+	for i := 1; i < 13; i++ {
+		args[i] = uintptr(i + 1)
+	}
+	widths := uint64(ffi.Width4)<<16 | ffi.Width2<<18 | ffi.Width1<<20 | ffi.Width4<<22
+	if allocs := testing.AllocsPerRun(1000, func() { ffi.CallWidths(fn, 13, &args, 0, widths) }); allocs != 0 {
+		t.Fatalf("ffi.CallWidths = %v allocs/op, want 0", allocs)
+	}
+}
