@@ -3,8 +3,10 @@ package advise
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
@@ -175,14 +177,30 @@ func adviseDisassembly(cap *cudacapture.Capture, images []kernelImage) *cudasass
 	if d, err := capturefiles.Pressure(cap); err == nil && d != nil {
 		return d
 	}
+	// Each image is two nvdisasm runs, and a process capture holds one
+	// image per loaded module, so disassemble them concurrently.
+	disasms := make([]*cudasass.Disassembly, len(images))
+	sem := make(chan struct{}, runtime.GOMAXPROCS(0))
+	var wg sync.WaitGroup
+	for i, img := range images {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if d, err := cudasass.DisassembleWithPressure(img.cubin); err == nil {
+				disasms[i] = d
+			}
+		}()
+	}
+	wg.Wait()
 	var fns []*cudasass.Function
-	for _, img := range images {
-		d, err := cudasass.DisassembleWithPressure(img.cubin)
-		if err != nil {
+	for i, d := range disasms {
+		if d == nil {
 			continue
 		}
 		for _, fn := range d.Functions {
-			if img.answers(fn.Name) {
+			if images[i].answers(fn.Name) {
 				fns = append(fns, fn)
 			}
 		}
