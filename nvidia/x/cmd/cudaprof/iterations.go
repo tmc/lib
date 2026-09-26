@@ -92,6 +92,7 @@ type iterationsResult struct {
 	Capture string              `json:"capture"`
 	Report  *iteration.Report   `json:"report"`
 	Advice  []iteration.Finding `json:"advice"`
+	Notes   []string            `json:"notes,omitempty"`
 }
 
 func runIterationsCommand(args []string, stdout io.Writer) error {
@@ -146,7 +147,7 @@ func runIterationsCommand(args []string, stdout io.Writer) error {
 // measureIterations measures a complete capture iteration by iteration,
 // grouping kernels into ops by rules and labeling idle gaps with host.
 func measureIterations(cap *cudacapture.Capture, marker *regexp.Regexp, rules opRules, opts iterationsOptions, host []iteration.HostSample) (*iterationsResult, error) {
-	_, records, err := decodeCompleteCapture(cap, opts.maxRecords, opts.journalBytes)
+	status, records, err := decodeCompleteCapture(cap, opts.maxRecords, opts.journalBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +166,28 @@ func measureIterations(cap *cudacapture.Capture, marker *regexp.Regexp, rules op
 	if err != nil {
 		return nil, err
 	}
-	return &iterationsResult{Report: r, Advice: r.Advise()}, nil
+	res := &iterationsResult{Report: r, Advice: r.Advise()}
+	if note := memsetNote(status, r); note != "" {
+		res.Notes = append(res.Notes, note)
+	}
+	return res, nil
+}
+
+// memsetNote says when the capture did not collect memset activity, whose
+// device time then counts as idle.
+func memsetNote(status captureResult, r *iteration.Report) string {
+	var c struct {
+		Memsets *bool `json:"memsets"`
+	}
+	if json.Unmarshal(status.Capability, &c) != nil || c.Memsets == nil || *c.Memsets {
+		return ""
+	}
+	note := "memset activity was not collected (capture --memsets=false), so the device time of every memset counts as idle"
+	if n := r.Steady.Iterations; n > 0 {
+		calls := r.Steady.Classes[iteration.Memset].Count
+		note += fmt.Sprintf(": each steady iteration made %.1f memset calls, and a CUDA graph also replays the memsets captured into it without a call", float64(calls)/float64(n))
+	}
+	return note
 }
 
 func (res *iterationsResult) write(w io.Writer, kernels int) error {
@@ -207,8 +229,11 @@ func (res *iterationsResult) write(w io.Writer, kernels int) error {
 	fmt.Fprintf(tw, "  idle\t%s ms\t%s\t\n", ms(s.IdleNanos), pct(s.IdleNanos, s.WindowNanos))
 	fmt.Fprintf(tw, "  host API calls\t%s ms\t%s calls\t\n", ms(s.CallNanos), per(s.Calls))
 	tw.Flush()
-	fmt.Fprintf(w, "  launches %s (graph nodes %s), memcpys %s (%d bytes), memsets %s\n",
-		per(s.Launches), per(s.GraphLaunches), per(s.Memcpys), s.MemcpyBytes/uint64(n), per(s.Memsets))
+	fmt.Fprintf(w, "  launches %s (graph nodes %s), memcpys %s (%d bytes), memsets %s (memset calls %s)\n",
+		per(s.Launches), per(s.GraphLaunches), per(s.Memcpys), s.MemcpyBytes/uint64(n), per(s.Memsets), per(s.Classes[iteration.Memset].Count))
+	for _, note := range res.Notes {
+		fmt.Fprintf(w, "  note: %s\n", note)
+	}
 
 	fmt.Fprintf(w, "\niterations\n")
 	tw = tabwriter.NewWriter(w, 0, 4, 2, ' ', tabwriter.AlignRight)

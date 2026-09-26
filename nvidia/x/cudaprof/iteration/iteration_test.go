@@ -192,6 +192,9 @@ func TestClassify(t *testing.T) {
 		{"cuStreamSynchronize", Sync},
 		{"cudaDeviceSynchronize", Sync},
 		{"cuLaunchKernel", ""},
+		{"cudaMemsetAsync", Memset},
+		{"cuMemsetD8Async", Memset},
+		{"cuGraphAddMemsetNode", GraphBuild},
 	}
 	for _, tt := range tests {
 		if got := Classify(tt.name); got != tt.want {

@@ -202,3 +202,32 @@ func TestIterationsGaps(t *testing.T) {
 		}
 	}
 }
+
+func TestIterationsMemsetNote(t *testing.T) {
+	tests := []struct {
+		name       string
+		capability any
+		want       string
+	}{
+		{"collected", map[string]any{"memsets": true}, ""},
+		{"no capability", nil, ""},
+		{"not collected", map[string]any{"memsets": false}, "memset activity was not collected (capture --memsets=false), so the device time of every memset counts as idle: each steady iteration made 0.0 memset calls"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := completeStatus()
+			if tt.capability != nil {
+				status["capability"] = tt.capability
+			}
+			cap := compareCapture(iterationRecs(5), status)
+			res, err := measureIterations(cap, regexp.MustCompile(`^Embed$`), nil, iterationsOptions{skip: 1}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := strings.Join(res.Notes, "\n")
+			if tt.want == "" && got != "" || !strings.Contains(got, tt.want) {
+				t.Errorf("notes = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

@@ -208,6 +208,9 @@ exclusive kernel, memcpy and memset time, launches, the ops of `-ops`
 (the file compare reads), the top kernels, and every host API call made.
 A record overlapping a marker is split between the iterations it
 overlaps; it is launched in the one it starts in.
+A capture made with `--memsets=false` has no memset records, so their
+device time is idle; iterations says so and counts the memset calls each
+iteration made, a lower bound when CUDA graphs replay captured memsets.
 
 The gate fails, and the command exits 2, when the marker fired other than
 `-expect-markers` times, left no steady iteration, or the steady

@@ -18,6 +18,7 @@ const (
 	GraphUpdate      Class = "graph-update"      // cuGraphExecUpdate, cuGraphExec*SetParams
 	GraphLaunch      Class = "graph-launch"      // cuGraphLaunch
 	Sync             Class = "sync"              // cu*Synchronize, cudaDeviceSynchronize
+	Memset           Class = "memset"            // cuMemsetD*, cudaMemset*, including those captured into a graph
 )
 
 // Classify returns the class of a driver or runtime API call given its
@@ -35,6 +36,8 @@ func Classify(name string) Class {
 		return GraphBuild
 	case has("Synchronize"):
 		return Sync
+	case has("Memset"):
+		return Memset
 	case has("Pool"), has("Destroy"):
 		return ""
 	case has("MemAlloc"), has("Malloc"), has("HostAlloc"), has("MemCreate"):
