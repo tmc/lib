@@ -3,7 +3,10 @@ package advise
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
+
+	"github.com/ianlancetaylor/demangle"
 )
 
 // occupancyCaveat qualifies every recommendation derived from an occupancy or
@@ -243,7 +246,7 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 	// reads as an all-clear.
 	if len(r.Items) == 0 {
 		sb.WriteString("No optimization issues or architecture fallbacks identified.\n")
-		return sb.String()
+		return demangleText(sb.String())
 	}
 
 	var readFirst, cost, context int
@@ -318,7 +321,7 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 		sb.WriteString(fmt.Sprintf("*... %d additional findings omitted (use --format=json for all, -e, or -limit=N).*\n", omitted))
 	}
 
-	return sb.String()
+	return demangleText(sb.String())
 }
 
 // maxPatternLines is the number of patterns Markdown prints under one finding.
@@ -364,4 +367,21 @@ func sourceFusionMarkdownCaveat(failure string) string {
 		"\n>\n> Findings below carry no source file or line: the PTX and SASS of this capture are not from " +
 		"one compilation, so the binding was *refused*, not attempted and lost. Kernel names, PC offsets " +
 		"and SASS text are unaffected.\n\n"
+}
+
+// mangledName matches an Itanium-mangled symbol in running text.
+var mangledName = regexp.MustCompile(`\b_Z[0-9A-Za-z_$.]+`)
+
+// demangleText replaces each mangled kernel name in s with its demangled
+// name without parameters, leaving a name the demangler rejects as it is.
+// The Markdown report is read by people; the JSON keeps the names as
+// recorded, which is what the other commands match.
+func demangleText(s string) string {
+	return mangledName.ReplaceAllStringFunc(s, func(name string) string {
+		d, err := demangle.ToString(name, demangle.NoParams)
+		if err != nil {
+			return name
+		}
+		return d
+	})
 }

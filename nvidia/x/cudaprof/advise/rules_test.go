@@ -53,3 +53,22 @@ func TestMarkdownPatternLimit(t *testing.T) {
 		t.Errorf("markdown does not stop after %d patterns:\n%s", maxPatternLines, md)
 	}
 }
+
+func TestDemangleText(t *testing.T) {
+	tests := []struct {
+		name, in, want string
+	}{
+		{"quoted", `kernel "_ZN7cutlass7Kernel2I52cutlass_80_tensorop_s1688gemm_256x128_16x3_nn_align4EEvNT_6ParamsE" was launched`,
+			`kernel "cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_256x128_16x3_nn_align4>" was launched`},
+		{"location", "kernel _ZN3mlx4core2cu9binary_vvINS1_8MultiplyEffjLi4EEEvPKT0_S6_PT1_T2_\n",
+			"kernel mlx::core::cu::binary_vv<mlx::core::cu::Multiply, float, float, unsigned int, 4>\n"},
+		{"extern C", "kernel nvjet_sm121_sss_tf32_mma_256x128x32_2_64x64x32_tmaAB_alignCD4_bz_TNNN", "kernel nvjet_sm121_sss_tf32_mma_256x128x32_2_64x64x32_tmaAB_alignCD4_bz_TNNN"},
+		{"not mangled", "kernel _Zfoo", "kernel _Zfoo"},
+		{"inside a word", "a_ZN3foo3barEv", "a_ZN3foo3barEv"},
+	}
+	for _, tt := range tests {
+		if got := demangleText(tt.in); got != tt.want {
+			t.Errorf("%s: demangleText(%q) = %q, want %q", tt.name, tt.in, got, tt.want)
+		}
+	}
+}
