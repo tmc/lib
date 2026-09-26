@@ -1158,6 +1158,14 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown API domain")
 			}
 			apis = append(apis, captureAPI{Domain: payload.Domain, CallbackID: payload.CallbackID, Start: payload.Start, End: payload.End, ProcessID: payload.ProcessID, ThreadID: payload.ThreadID, Correlation: payload.Correlation, ReturnValue: payload.ReturnValue})
+		case wire.KindGEMM:
+			// cuBLASLt calls and the launches they made. The agent writes
+			// them only while collecting, from the target's own threads, so
+			// they are ordered like API records. They are read back from
+			// the journal by the gemms command, not summarized here.
+			if terminal || !state.bootstrap || !state.capability || (payload.Kind != "gemm" && payload.Kind != "gemm_launch") {
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order gemm record")
+			}
 		case wire.KindHost:
 			// Host run-state samples. They are not device work and never
 			// enter the activity totals: this stream says what the host was

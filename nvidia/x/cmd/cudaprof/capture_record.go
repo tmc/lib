@@ -1053,6 +1053,10 @@ Options:
                                 dies (sets CUDAPROF_CRASH_TRACE). Every API call then passes
                                 through an agent callback, and a Go target that crashes in C
                                 code loses its own traceback
+  --gemms                       record each cuBLASLt matmul (shape, types, beta, algorithm)
+                                and the kernels it launched, for cudaprof gemms (sets
+                                CUDAPROF_GEMMS). Off by default: the library formats a line
+                                per call
   --follow-children[=false]     count the generations of processes the target spawned in this
                                 capture's totals and projection (default true). Injection is
                                 inherited across exec, so a child runs the agent and writes its

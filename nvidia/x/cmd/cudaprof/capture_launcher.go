@@ -252,7 +252,11 @@ type captureOptions struct {
 	// CrashTrace is how many of the target's last CUDA API callbacks the
 	// agent writes to standard error if the target dies of a fault, exported
 	// as CUDAPROF_CRASH_TRACE. Zero leaves the agent's default, off.
-	CrashTrace      int
+	CrashTrace int
+	// GEMMs records each cuBLASLt matmul the target makes -- shape, types,
+	// beta and algorithm -- and the kernels it launched. Off by default:
+	// the library formats a log line per call.
+	GEMMs           bool
 	RequireComplete bool
 	NoInject        bool
 	JSON            bool
@@ -541,6 +545,12 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, err
 			}
 			o.PCSampling = v
+		case "--gemms", "-gemms":
+			v, err := captureBool(name, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			o.GEMMs = v
 		case "--pcsampling-period":
 			v, next, err := captureValue(args, i, value, hasValue)
 			if err != nil {
@@ -993,6 +1003,11 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 	}
 	if o.CrashTrace > 0 {
 		env = setCaptureEnv(env, "CUDAPROF_CRASH_TRACE", strconv.Itoa(o.CrashTrace))
+	}
+	// cuBLASLt calls, like PC samples, arrive under a kind only this process
+	// knows, so they are asked for only when wanted.
+	if o.GEMMs {
+		env = setCaptureEnv(env, "CUDAPROF_GEMMS", "1")
 	}
 	if o.FlushInterval > 0 {
 		env = setCaptureEnv(env, "CUDAPROF_FLUSH_INTERVAL_MS", strconv.FormatInt(o.FlushInterval.Milliseconds(), 10))
