@@ -14,8 +14,8 @@ func (r Error) Error() string {
 
 // CallError reports that a library call returned a failure result.
 //
-// Unwrap returns Result, so errors.Is(err, c) matches a Error constant c
-// and errors.As(err, &r) with r a Error recovers the code.
+// Unwrap returns Result, so errors.As(err, &r) with r of type Error
+// recovers the codes it holds.
 type CallError struct {
 	Func   string // the C symbol called
 	Result Error

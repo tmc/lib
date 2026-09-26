@@ -494,9 +494,10 @@ func fnwriteKernelCacheToFile(a0 Handle, a1 *byte) Result {
 //
 // The cuTENSOR documentation says a scalar is a "pointer to the host
 // memory" and that operations can be captured into CUDA graphs, but not
-// when a host scalar is read. The call assumes, as cuBLAS documents for
-// itself, that the library reads it before the call returns, including
-// under capture.
+// when a host scalar is read. The call assumes what cuBLAS documents for
+// itself: that the library reads it before the call returns, and that
+// capture into a CUDA graph keeps the value (cuBLAS documentation,
+// sections 2.1.5 and 2.1.12).
 //
 // The kind of a host Scalar must be the type the library reads. Where a
 // call names that type in another parameter, a Scalar of another kind is a
@@ -617,10 +618,10 @@ var scalarCells outSlot[[3][2]uint64]
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
 //   - plan: Opaque handle holding the contraction execution plan (created by [Handle.CreateContraction] followed by [Handle.CreatePlan])
-//   - alpha: Scaling for A*B. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling for A*B. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Pointer to the data corresponding to A. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
 //   - b: Pointer to the data corresponding to B. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
-//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - c: Pointer to the data corresponding to C. Pointer to the GPU-accessible memory
 //   - d: Pointer to the data corresponding to D. Pointer to the GPU-accessible memory
 //   - workspace: Optional parameter that may be NULL. This pointer provides additional workspace, in device memory, to the library for additional optimizations; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
@@ -654,11 +655,11 @@ func contract(handle Handle, plan Plan, alpha Scalar, a driver.DevicePtr, b driv
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
 //   - plan: Opaque handle holding the contraction execution plan (created by [Handle.CreateContractionTrinary] followed by [Handle.CreatePlan])
-//   - alpha: Scaling for A*B*C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling for A*B*C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Pointer to the data corresponding to A. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
 //   - b: Pointer to the data corresponding to B. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
 //   - c: Pointer to the data corresponding to C. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to E
-//   - beta: Scaling for D. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - beta: Scaling for D. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - d: Pointer to the data corresponding to D. Pointer to the GPU-accessible memory
 //   - e: Pointer to the data corresponding to E. Pointer to the GPU-accessible memory
 //   - workspace: Optional parameter that may be NULL. This pointer provides additional workspace, in device memory, to the library for additional optimizations; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)
@@ -1272,9 +1273,9 @@ func destroyTensorDescriptor(desc TensorDescriptor) error {
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
 //   - plan: Opaque handle holding all information about the desired elementwise operation (created by [Handle.CreateElementwiseBinary] followed by [Handle.CreatePlan])
-//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Multi-mode tensor (described by descA as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
-//   - gamma: Scaling factor for C (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If gamma is zero, C is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - gamma: Scaling factor for C (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). If gamma is zero, C is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - c: Multi-mode tensor (described by descC as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
 //   - d: Multi-mode tensor (described by descD as part of [Handle.CreateElementwiseBinary]). Pointer to the GPU-accessible memory ( C and D may be identical, if and only if descC == descD)
 //   - stream: The CUDA stream used to perform the operation
@@ -1304,11 +1305,11 @@ func elementwiseBinaryExecute(handle Handle, plan Plan, alpha Scalar, a driver.D
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
 //   - plan: Opaque handle holding all information about the desired elementwise operation (created by [Handle.CreateElementwiseTrinary] followed by [Handle.CreatePlan])
-//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Multi-mode tensor (described by descA as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
-//   - beta: Scaling factor for B (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If beta is zero, B is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - beta: Scaling factor for B (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). If beta is zero, B is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - b: Multi-mode tensor (described by descB as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
-//   - gamma: Scaling factor for C (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). Pointer to the host memory. If gamma is zero, C is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - gamma: Scaling factor for C (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE) to query the expected data type). If gamma is zero, C is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - c: Multi-mode tensor (described by descC as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
 //   - d: Multi-mode tensor (described by descD as part of [Handle.CreateElementwiseTrinary]). Pointer to the GPU-accessible memory ( C and D may be identical, if and only if descC == descD)
 //   - stream: The CUDA stream used to perform the operation
@@ -1593,7 +1594,7 @@ func operationDescriptorSetAttribute(handle Handle, desc OperationDescriptor, at
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
 //   - plan: Opaque handle holding all information about the desired tensor reduction (created by [Handle.CreatePermutation] followed by [Handle.CreatePlan])
-//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling factor for A (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). If alpha is zero, A is not read and the corresponding unary operator is not applied. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Multi-mode tensor of type typeA with nmodeA modes. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
 //   - b: Multi-mode tensor of type typeB with nmodeB modes. Pointer to the GPU-accessible memory
 //   - stream: The CUDA stream
@@ -1702,9 +1703,9 @@ func readKernelCacheFromFile(handle Handle, filename *byte) error {
 //
 //   - handle: Opaque handle holding cuTENSOR’s library context
 //   - plan: Opaque handle holding the reduction execution plan (created by [Handle.CreateReduction] followed by [Handle.CreatePlan])
-//   - alpha: Scaling for A. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - alpha: Scaling for A. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - a: Pointer to the data corresponding to A in device memory. Pointer to the GPU-accessible memory. The data accessed via this pointer must not overlap with the elements written to D
-//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Pointer to the host memory. Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
+//   - beta: Scaling for C. Its data type is determined by ‘descCompute’ (see [OperationDescriptor.Attribute](desc, CUTENSOR_OPERATION_SCALAR_TYPE)). Its kind must match the scalar type of the operation descriptor plan was created from ([OperationDescriptorScalarType]).
 //   - c: Pointer to the data corresponding to C in device memory. Pointer to the GPU-accessible memory
 //   - d: Pointer to the data corresponding to C in device memory. Pointer to the GPU-accessible memory
 //   - workspace: Scratchpad (device) memory of size —at least— workspaceSize bytes; the workspace must be aligned to 256 bytes (i.e., the default alignment of cudaMalloc)

@@ -65,7 +65,7 @@ func (h Handle) Destroy() error {
 //   - m: in Number of rows of op(A) and C
 //   - n: in Number of columns of op(B) and C
 //   - k: in Number of columns of op(A) and rows of op(B)
-//   - alpha: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
+//   - alpha: in Scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: in Pointer to local portion of global matrix A (device)
 //   - ia: in Row index of the first row of sub(A). ia - 1 must be a multiple of mbA
 //   - ja: in Column index of the first column of sub(A). ja - 1 must be a multiple of nbA
@@ -74,7 +74,7 @@ func (h Handle) Destroy() error {
 //   - ib: in Row index of the first row of sub(B). ib - 1 must be a multiple of mbB
 //   - jb: in Column index of the first column of sub(B). jb - 1 must be a multiple of nbB
 //   - descB: in Matrix descriptor for global matrix B
-//   - beta: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
+//   - beta: in Scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: in,out Pointer to local portion of global matrix C (device)
 //   - ic: in Row index of the first row of sub(C). ic - 1 must be a multiple of mbC
 //   - jc: in Column index of the first column of sub(C). jc - 1 must be a multiple of nbC
@@ -109,7 +109,7 @@ func (h Handle) Gemm(transA cublas.Operation, transB cublas.Operation, m int64, 
 //   - m: in Number of rows of op(A) and C
 //   - n: in Number of columns of op(B) and C
 //   - k: in Number of columns of op(A) and rows of op(B)
-//   - alpha: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
+//   - alpha: in Scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: in Pointer to local portion of global matrix A (device)
 //   - ia: in Row index of the first row of sub(A). ia - 1 must be a multiple of mbA
 //   - ja: in Column index of the first column of sub(A). ja - 1 must be a multiple of nbA
@@ -118,7 +118,7 @@ func (h Handle) Gemm(transA cublas.Operation, transB cublas.Operation, m int64, 
 //   - ib: in Row index of the first row of sub(B). ib - 1 must be a multiple of mbB
 //   - jb: in Column index of the first column of sub(B). jb - 1 must be a multiple of nbB
 //   - descB: in Matrix descriptor for global matrix B
-//   - beta: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
+//   - beta: in Scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: in Pointer to local portion of global matrix C (device)
 //   - ic: in Row index of the first row of sub(C). ic - 1 must be a multiple of mbC
 //   - jc: in Column index of the first column of sub(C). jc - 1 must be a multiple of nbC

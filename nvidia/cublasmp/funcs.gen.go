@@ -157,9 +157,10 @@ func fnMatrixDescriptorDestroy(a0 MatrixDescriptor) Result {
 // Scalar never reaches the library and can live anywhere.
 //
 // The cuBLASMp header says only that alpha and beta are host pointers, not
-// when they are read. The call assumes, as cuBLAS documents for itself,
-// that the library reads them before the call returns, including under
-// capture into a CUDA graph.
+// when they are read. The call assumes what cuBLAS documents for itself:
+// that the library reads them before the call returns, and that capture
+// into a CUDA graph keeps the values (cuBLAS documentation, sections 2.1.5
+// and 2.1.12).
 //
 // The kind of a host Scalar must be the type the library reads. Where a
 // call names that type in another parameter, a Scalar of another kind is a
@@ -431,7 +432,7 @@ func Free(grid Grid, ptr uintptr) error {
 //   - m: in Number of rows of op(A) and C
 //   - n: in Number of columns of op(B) and C
 //   - k: in Number of columns of op(A) and rows of op(B)
-//   - alpha: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
+//   - alpha: in Scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: in Pointer to local portion of global matrix A (device)
 //   - ia: in Row index of the first row of sub(A). ia - 1 must be a multiple of mbA
 //   - ja: in Column index of the first column of sub(A). ja - 1 must be a multiple of nbA
@@ -440,7 +441,7 @@ func Free(grid Grid, ptr uintptr) error {
 //   - ib: in Row index of the first row of sub(B). ib - 1 must be a multiple of mbB
 //   - jb: in Column index of the first column of sub(B). jb - 1 must be a multiple of nbB
 //   - descB: in Matrix descriptor for global matrix B
-//   - beta: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
+//   - beta: in Scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: in,out Pointer to local portion of global matrix C (device)
 //   - ic: in Row index of the first row of sub(C). ic - 1 must be a multiple of mbC
 //   - jc: in Column index of the first column of sub(C). jc - 1 must be a multiple of nbC
@@ -487,7 +488,7 @@ func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int
 //   - m: in Number of rows of op(A) and C
 //   - n: in Number of columns of op(B) and C
 //   - k: in Number of columns of op(A) and rows of op(B)
-//   - alpha: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
+//   - alpha: in Scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - a: in Pointer to local portion of global matrix A (device)
 //   - ia: in Row index of the first row of sub(A). ia - 1 must be a multiple of mbA
 //   - ja: in Column index of the first column of sub(A). ja - 1 must be a multiple of nbA
@@ -496,7 +497,7 @@ func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int
 //   - ib: in Row index of the first row of sub(B). ib - 1 must be a multiple of mbB
 //   - jb: in Column index of the first column of sub(B). jb - 1 must be a multiple of nbB
 //   - descB: in Matrix descriptor for global matrix B
-//   - beta: in Scalar used for multiplication (host pointer). Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
+//   - beta: in Scalar used for multiplication. Its kind must match computeType; a host [Scalar] of another kind is a *[ScalarError].
 //   - c: in Pointer to local portion of global matrix C (device)
 //   - ic: in Row index of the first row of sub(C). ic - 1 must be a multiple of mbC
 //   - jc: in Column index of the first column of sub(C). jc - 1 must be a multiple of nbC

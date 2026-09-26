@@ -1230,9 +1230,10 @@ func fnsparseToDenseBufferSize(a0 Handle, a1 ConstSpMatDescr, a2 DnMatDescr, a3 
 //
 // The cuSPARSE documentation says only that host scalars are "passed by
 // reference on the host", not when they are read, and that routines can be
-// captured into CUDA graphs. The call assumes, as cuBLAS documents for
-// itself, that the library reads a host scalar before the call returns,
-// including under capture.
+// captured into CUDA graphs. The call assumes what cuBLAS documents for
+// itself: that the library reads a host scalar before the call returns,
+// and that capture into a CUDA graph keeps the value (cuBLAS
+// documentation, sections 2.1.5 and 2.1.12).
 //
 // The kind of a host Scalar must be the type the library reads. Where a
 // call names that type in another parameter, a Scalar of another kind is a

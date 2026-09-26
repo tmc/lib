@@ -76,8 +76,9 @@ func goString(p *byte) string {
 
 // CallError reports that a library call returned a failure result.
 //
-// Unwrap returns Result, so errors.Is(err, c) matches a Result constant c
-// and errors.As(err, &r) with r a Result recovers the code.
+// Unwrap returns Result, so errors.Is(err, c) reports whether the call
+// returned the Result constant c, and errors.As(err, &r) with r of type
+// Result recovers the code.
 type CallError struct {
 	Func   string // the C symbol called
 	Result Result
