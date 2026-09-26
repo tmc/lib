@@ -194,14 +194,19 @@ compare; a note gives the window, busy and idle time per iteration.
 The header gives each side's window and `gpu at range edges`: the SM and
 memory clocks, temperature and power at each edge, or why they were not
 recorded. Two sides at different clocks differ by that ratio before any
-code does. The per-op table has launches, exclusive, summed and mean ns,
-and a config column. After it:
+code does. The per-op table has launches, exclusive ns, the exclusive
+delta split in two, mean and median launch duration, the summed delta and
+a config column. The split is exact: `count` is the launches gained or
+lost priced at the base's exclusive ns per launch, `per-launch` the rest.
+A fused pair shows as a count drop on one row and a per-launch change on
+another. After it:
 
 - `launch configuration`: ops whose grid, block and dynamic shared memory
   sets are `SAME`, `CHANGED` (both sets printed with launch counts),
   `UNREAD` (not recorded) or `ONE_SIDED`.
-- `launch count changes`: ops whose counts differ by 1.5x or more, or ran
-  on one side only.
+- `launch count changes`: every op whose count moved, largest Δ from
+  count first; `*` marks a ratio of 1.5x or more, or an op that ran on
+  one side only (JSON `launch_count_changed`).
 - `per-launch exclusive ns`: p10, p50 and p90 for the ops of largest
   |Δ|. A p50 that moved with a tight spread is a slower kernel; a p90 that
   moved alone is a few slow launches.

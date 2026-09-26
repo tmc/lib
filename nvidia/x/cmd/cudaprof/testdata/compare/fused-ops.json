@@ -1,0 +1,189 @@
+{
+	"base": {
+		"capture": "",
+		"window": "phase",
+		"phase_index": 0,
+		"start_timestamp": 1000,
+		"stop_timestamp": 2000,
+		"window_ns": 1000,
+		"lead_in_ns": 0,
+		"tail_ns": 618,
+		"busy_ns": 328,
+		"idle_ns": 672,
+		"unresolved_ns": 0,
+		"kernel_exclusive_ns": 328,
+		"memcpy_exclusive_ns": 0,
+		"memset_exclusive_ns": 0,
+		"kernel_count": 16,
+		"memcpy_count": 0,
+		"memcpy_bytes": 0,
+		"memset_count": 0,
+		"edge_straddlers": 0,
+		"unrecorded_configs": 16,
+		"clocks": {
+			"not_recorded": "the phase receipt holds no edges for the window"
+		}
+	},
+	"target": {
+		"capture": "",
+		"window": "phase",
+		"phase_index": 0,
+		"start_timestamp": 1000,
+		"stop_timestamp": 2000,
+		"window_ns": 1000,
+		"lead_in_ns": 0,
+		"tail_ns": 624,
+		"busy_ns": 256,
+		"idle_ns": 744,
+		"unresolved_ns": 0,
+		"kernel_exclusive_ns": 256,
+		"memcpy_exclusive_ns": 0,
+		"memset_exclusive_ns": 0,
+		"kernel_count": 12,
+		"memcpy_count": 0,
+		"memcpy_bytes": 0,
+		"memset_count": 0,
+		"edge_straddlers": 0,
+		"unrecorded_configs": 12,
+		"clocks": {
+			"not_recorded": "the phase receipt holds no edges for the window"
+		}
+	},
+	"terms": [
+		{
+			"name": "window",
+			"base": 1000,
+			"target": 1000,
+			"delta": 0
+		},
+		{
+			"name": "lead_in",
+			"base": 0,
+			"target": 0,
+			"delta": 0
+		},
+		{
+			"name": "tail",
+			"base": 618,
+			"target": 624,
+			"delta": 6
+		},
+		{
+			"name": "busy",
+			"base": 328,
+			"target": 256,
+			"delta": -72
+		},
+		{
+			"name": "kernel",
+			"base": 328,
+			"target": 256,
+			"delta": -72
+		},
+		{
+			"name": "memcpy",
+			"base": 0,
+			"target": 0,
+			"delta": 0
+		},
+		{
+			"name": "memset",
+			"base": 0,
+			"target": 0,
+			"delta": 0
+		},
+		{
+			"name": "idle",
+			"base": 672,
+			"target": 744,
+			"delta": 72
+		},
+		{
+			"name": "unresolved",
+			"base": 0,
+			"target": 0,
+			"delta": 0
+		}
+	],
+	"op_status": "MEASURED",
+	"ops": [
+		{
+			"op": "layernorm",
+			"base_launches": 12,
+			"target_launches": 8,
+			"base_exclusive_ns": 208,
+			"target_exclusive_ns": 136,
+			"delta_exclusive_ns": -72,
+			"base_summed_ns": 208,
+			"target_summed_ns": 136,
+			"delta_summed_ns": -72,
+			"base_mean_ns": 17,
+			"target_mean_ns": 17,
+			"delta_mean_ns": 0,
+			"base_median_ns": 20,
+			"target_median_ns": 8,
+			"delta_median_ns": -12,
+			"delta_from_count_ns": -69,
+			"delta_from_per_launch_ns": -3,
+			"launch_count_changed": true,
+			"config_status": "UNREAD",
+			"base_unrecorded_configs": 12,
+			"target_unrecorded_configs": 8,
+			"base_exclusive_spread": {
+				"p10_ns": 12,
+				"p50_ns": 20,
+				"p90_ns": 20
+			},
+			"target_exclusive_spread": {
+				"p10_ns": 8,
+				"p50_ns": 8,
+				"p90_ns": 26
+			}
+		},
+		{
+			"op": "gemm",
+			"base_launches": 4,
+			"target_launches": 4,
+			"base_exclusive_ns": 120,
+			"target_exclusive_ns": 120,
+			"delta_exclusive_ns": 0,
+			"base_summed_ns": 120,
+			"target_summed_ns": 120,
+			"delta_summed_ns": 0,
+			"base_mean_ns": 30,
+			"target_mean_ns": 30,
+			"delta_mean_ns": 0,
+			"base_median_ns": 30,
+			"target_median_ns": 30,
+			"delta_median_ns": 0,
+			"delta_from_count_ns": 0,
+			"delta_from_per_launch_ns": 0,
+			"launch_count_changed": false,
+			"config_status": "UNREAD",
+			"base_unrecorded_configs": 4,
+			"target_unrecorded_configs": 4,
+			"base_exclusive_spread": {
+				"p10_ns": 30,
+				"p50_ns": 30,
+				"p90_ns": 30
+			},
+			"target_exclusive_spread": {
+				"p10_ns": 30,
+				"p50_ns": 30,
+				"p90_ns": 30
+			}
+		}
+	],
+	"unmatched_share": 0,
+	"notes": [
+		"base: launch configuration (grid, block, dynamic shared memory) not recorded, so no op's configuration is compared",
+		"target: launch configuration (grid, block, dynamic shared memory) not recorded, so no op's configuration is compared"
+	],
+	"cudaprof": {
+		"module": "",
+		"revision": "",
+		"time": "",
+		"modified": "",
+		"go_version": ""
+	}
+}

@@ -1317,7 +1317,7 @@ func TestCompareLaunchCountSection(t *testing.T) {
 	if !ok {
 		t.Fatalf("no launch count section:\n%s", out.String())
 	}
-	for _, want := range []string{"1 3 3.00x split", "1 0 - gone"} {
+	for _, want := range []string{"1 3 +2 3.00x +20 -15 * split", "1 0 -1 - -10 +0 * gone"} {
 		if !strings.Contains(squash(section), want) {
 			t.Errorf("section lacks %q:\n%s", want, section)
 		}

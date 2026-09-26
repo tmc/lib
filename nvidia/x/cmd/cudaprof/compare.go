@@ -629,6 +629,7 @@ type opTotals struct {
 // opLaunches is what one op's launches were on one side, launch by launch.
 type opLaunches struct {
 	exclusive  []int64 // per launch
+	durations  []int64 // per launch, end - start
 	configs    map[LaunchConfig]int
 	unrecorded int // launches whose record carries no configuration
 }
@@ -759,6 +760,21 @@ type CompareOp struct {
 	DeltaSummedNanos     int64  `json:"delta_summed_ns"`
 	BaseMeanNanos        int64  `json:"base_mean_ns"`
 	TargetMeanNanos      int64  `json:"target_mean_ns"`
+	DeltaMeanNanos       int64  `json:"delta_mean_ns"`
+
+	// BaseMedianNanos and TargetMedianNanos are the nearest-rank median
+	// launch duration, zero on a side with no launches.
+	BaseMedianNanos   int64 `json:"base_median_ns"`
+	TargetMedianNanos int64 `json:"target_median_ns"`
+	DeltaMedianNanos  int64 `json:"delta_median_ns"`
+
+	// DeltaFromCountNanos and DeltaFromPerLaunchNanos split
+	// DeltaExclusiveNanos exactly: the first is what the launch count change
+	// alone would have cost at the base's exclusive time per launch, the
+	// second what the change in exclusive time per launch cost over the
+	// target's launches. An op the base never ran is all count.
+	DeltaFromCountNanos     int64 `json:"delta_from_count_ns"`
+	DeltaFromPerLaunchNanos int64 `json:"delta_from_per_launch_ns"`
 
 	// LaunchCountChanged is set when the launch counts differ by a ratio
 	// of at least 1.5, or one of them is zero.
@@ -1175,8 +1191,11 @@ func joinOps(base, target map[string]*opTotals, baseLaunches, targetLaunches map
 			DeltaSummedNanos:     t.summed - b.summed,
 			BaseMeanNanos:        b.mean(),
 			TargetMeanNanos:      t.mean(),
+			DeltaMeanNanos:       t.mean() - b.mean(),
 			LaunchCountChanged:   launchCountChanged(b.launches, t.launches),
 		}
+		row.DeltaFromCountNanos = countDelta(b.launches, t.launches, b.exclusive, t.exclusive)
+		row.DeltaFromPerLaunchNanos = row.DeltaExclusiveNanos - row.DeltaFromCountNanos
 		if baseLaunches != nil {
 			bl, tl := baseLaunches[n], targetLaunches[n]
 			if bl == nil {
@@ -1192,6 +1211,9 @@ func joinOps(base, target map[string]*opTotals, baseLaunches, targetLaunches map
 			row.TargetUnrecordedConfigs = tl.unrecorded
 			row.BaseSpread = spreadOf(bl.exclusive)
 			row.TargetSpread = spreadOf(tl.exclusive)
+			row.BaseMedianNanos = medianNanos(bl.durations)
+			row.TargetMedianNanos = medianNanos(tl.durations)
+			row.DeltaMedianNanos = row.TargetMedianNanos - row.BaseMedianNanos
 		}
 		rows = append(rows, row)
 	}
@@ -1203,6 +1225,31 @@ func joinOps(base, target map[string]*opTotals, baseLaunches, targetLaunches map
 		return rows[i].Op < rows[j].Op
 	})
 	return rows
+}
+
+// countDelta returns the part of an op's exclusive delta its launch count
+// change explains: the launches gained or lost, each at the base's exclusive
+// time per launch, rounded to the nearest nanosecond. When the base never
+// ran the op, the whole delta is count.
+func countDelta(nb, nt int, xb, xt int64) int64 {
+	if nb == 0 {
+		return xt - xb
+	}
+	num, den := int64(nt-nb)*xb, int64(nb)
+	if num < 0 {
+		return -((-num + den/2) / den)
+	}
+	return (num + den/2) / den
+}
+
+// medianNanos returns the nearest-rank median of ns, or zero when it is empty.
+// It sorts ns.
+func medianNanos(ns []int64) int64 {
+	if len(ns) == 0 {
+		return 0
+	}
+	slices.Sort(ns)
+	return percentile(ns, 50)
 }
 
 func (o *opTotals) mean() int64 {
@@ -1446,6 +1493,7 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 				s.launches[r.op] = l
 			}
 			l.exclusive = append(l.exclusive, owned[i])
+			l.durations = append(l.durations, r.end-r.start)
 			if r.configKnown {
 				l.configs[r.config]++
 			} else {
@@ -1581,17 +1629,20 @@ func (c *Comparison) write(w io.Writer) error {
 	fmt.Fprintf(w, "coverage: (unmatched) is %.1f%% of Σ|Δ| over the identity's terms\n\n", 100*c.UnmatchedShare)
 
 	fmt.Fprintln(w, "per op, ns. exclusive: each busy instant charged once (kernel > memcpy > memset, then earliest start); it sums to busy.")
-	fmt.Fprintln(w, "summed: raw launch durations; overlapping launches count more than once.")
+	fmt.Fprintln(w, "Δ split: Δ exclusive = count (launches gained or lost at the base's exclusive per launch) + per-launch (the rest).")
+	fmt.Fprintln(w, "mean, median: raw launch duration; summed: raw durations added up, so overlapping launches count more than once.")
 	fmt.Fprintln(w, "config: launch configuration (grid, block, dynamic shared memory) SAME, CHANGED, UNREAD (not recorded) or ONE_SIDED.")
 	tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(tw, "launches\t\texclusive\t\t\tsummed\t\t\tmean\t\t\t")
-	fmt.Fprintln(tw, "base\ttarget\tbase\ttarget\tdelta\tbase\ttarget\tdelta\tbase\ttarget\tconfig\t  op")
+	fmt.Fprintln(tw, "launches\t\texclusive\t\t\tΔ split\t\tmean\t\t\tmedian\t\tsummed\t\t")
+	fmt.Fprintln(tw, "base\ttarget\tbase\ttarget\tΔ\tcount\tper-launch\tbase\ttarget\tΔ\tbase\ttarget\tΔ\tconfig\t  op")
 	for _, o := range c.Ops {
-		fmt.Fprintf(tw, "%d\t%d\t%d\t%d\t%+d\t%d\t%d\t%+d\t%d\t%d\t%s\t  %s\n",
+		fmt.Fprintf(tw, "%d\t%d\t%d\t%d\t%+d\t%+d\t%+d\t%d\t%d\t%+d\t%d\t%d\t%+d\t%s\t  %s\n",
 			o.BaseLaunches, o.TargetLaunches,
 			o.BaseExclusiveNanos, o.TargetExclusiveNanos, o.DeltaExclusiveNanos,
-			o.BaseSummedNanos, o.TargetSummedNanos, o.DeltaSummedNanos,
-			o.BaseMeanNanos, o.TargetMeanNanos, o.ConfigStatus, o.Op)
+			o.DeltaFromCountNanos, o.DeltaFromPerLaunchNanos,
+			o.BaseMeanNanos, o.TargetMeanNanos, o.DeltaMeanNanos,
+			o.BaseMedianNanos, o.TargetMedianNanos, o.DeltaSummedNanos,
+			o.ConfigStatus, o.Op)
 	}
 	if err := tw.Flush(); err != nil {
 		return err
@@ -1721,20 +1772,29 @@ func (c *Comparison) writeLaunches(w io.Writer) error {
 
 	var moved []CompareOp
 	for _, o := range c.Ops {
-		if o.LaunchCountChanged {
+		if o.BaseLaunches != o.TargetLaunches {
 			moved = append(moved, o)
 		}
 	}
 	if len(moved) > 0 {
-		fmt.Fprintln(w, "\nlaunch count changes (ratio >= 1.5, or ran on one side only):")
+		sort.SliceStable(moved, func(i, j int) bool {
+			return abs64(moved[i].DeltaFromCountNanos) > abs64(moved[j].DeltaFromCountNanos)
+		})
+		fmt.Fprintln(w, "\nlaunch count changes, largest |Δ from count| first. * marks a ratio >= 1.5, or an op that ran on one side only.")
+		fmt.Fprintln(w, "from count: Δ exclusive ns the count change alone explains; per-launch: the rest.")
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
-		fmt.Fprintln(tw, "base\ttarget\tratio\t  op")
+		fmt.Fprintln(tw, "base\ttarget\tΔ\tratio\tfrom count\tper-launch\t\t  op")
 		for _, o := range moved {
 			ratio := "-"
 			if o.BaseLaunches > 0 && o.TargetLaunches > 0 {
 				ratio = fmt.Sprintf("%.2fx", float64(o.TargetLaunches)/float64(o.BaseLaunches))
 			}
-			fmt.Fprintf(tw, "%d\t%d\t%s\t  %s\n", o.BaseLaunches, o.TargetLaunches, ratio, o.Op)
+			mark := ""
+			if o.LaunchCountChanged {
+				mark = "*"
+			}
+			fmt.Fprintf(tw, "%d\t%d\t%+d\t%s\t%+d\t%+d\t%s\t  %s\n", o.BaseLaunches, o.TargetLaunches,
+				o.TargetLaunches-o.BaseLaunches, ratio, o.DeltaFromCountNanos, o.DeltaFromPerLaunchNanos, mark, o.Op)
 		}
 		if err := tw.Flush(); err != nil {
 			return err
