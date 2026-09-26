@@ -38,6 +38,10 @@
 //	jitlog             a whole JIT log buffer converted to a string
 //	linkoptions        LinkCreate option buffers that die before LinkComplete
 //
+//	arch               a GPU architecture fixed in compile options
+//	gridtrunc          a grid size that rounds down
+//	blocklimit         a constant block or shared memory size over the hardware limit
+//
 // Usage:
 //
 //	cudavet [flags] package...
@@ -93,6 +97,10 @@ var analyzers = []*analysis.Analyzer{
 	stringNULAnalyzer,
 	jitLogAnalyzer,
 	linkOptionsAnalyzer,
+
+	archAnalyzer,
+	gridTruncAnalyzer,
+	blockLimitAnalyzer,
 }
 
 func main() {
