@@ -40,9 +40,10 @@ var syscallXABI0 uintptr
 var syscallArgsPool = sync.Pool{New: func() any { return new(syscallArgs) }}
 
 // dispatch fills a pooled shadow struct with the integer and floating-point
-// register files, invokes the vendored trampoline, copies the result registers,
+// register files, invokes the trampoline tramp (syscallXABI0, or with -with-errno
+// syscallXErrnoABI0 for CallErrno on linux), copies the result registers,
 // and only then returns the block to the pool.
-func dispatch(fn uintptr, ints *[MaxArgs]uintptr, floats *[8]uintptr) (r1, r2, r3, rf1 uintptr) {
+func dispatch(tramp, fn uintptr, ints *[MaxArgs]uintptr, floats *[8]uintptr) (r1, r2, r3, rf1 uintptr) {
 	s := syscallArgsPool.Get().(*syscallArgs)
 	*s = syscallArgs{
 		fn: fn,
@@ -58,7 +59,7 @@ func dispatch(fn uintptr, ints *[MaxArgs]uintptr, floats *[8]uintptr) (r1, r2, r
 		f5: floats[4], f6: floats[5], f7: floats[6], f8: floats[7],
 		arm64_r8: 0,
 	}
-	runtime_cgocall(syscallXABI0, unsafe.Pointer(s))
+	runtime_cgocall(tramp, unsafe.Pointer(s))
 	r1, r2, r3, rf1 = s.a1, s.a2, s.a3, s.f1
 	syscallArgsPool.Put(s)
 	return
