@@ -180,6 +180,19 @@ one-cycle-per-layer file is layer i), and is refused when a stage began a
 different number of times in the two captures. With `-ops`, `-stages` and
 `-json`, each stage row is broken down by op.
 
+`-by phase` groups kernels by the NVTX ranges open on the host thread
+when each was launched: `forward` (a range name holding `:fwd` or
+`forward`), `backward` (`:bwd`, `backward`, as in autograd's
+`MulBackward0`), `optimizer` (`optim`), `(other range)`, `(no range)`, or
+`(no launch record)` when the launch has no host API record. The
+outermost range that names a phase decides. A thread with no ranges of
+its own is placed by every thread's ranges, and the table header counts
+how many launches that was. `-by range` groups by the innermost range
+name instead. Rows sum to kernel exclusive and carry each op's cells.
+The capture needs NVTX ranges: laya's region hooks emit them, and a
+PyTorch run needs module-level ranges (`torch.cuda.nvtx.range_push` in
+forward and backward hooks, or `emit_nvtx`).
+
 `-phase i` picks the capture-range phase when a capture has several.
 `-warmup-until` and `-warmup-ms` cut a prologue as gaps does. `-templates`
 keeps template arguments, so each instantiation is its own op.

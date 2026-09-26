@@ -138,7 +138,8 @@ type Journal struct {
 // Records is everything [Decode] reads out of the journals.
 type Records struct {
 	Activities []Activity
-	// APIs holds the host API calls by correlation id. Their Device is zero.
+	// APIs holds the host API calls by correlation id. Their Device is zero
+	// and their Thread is the host thread that made the call.
 	APIs     map[uint32]Span
 	Journals []Journal
 
@@ -146,6 +147,12 @@ type Records struct {
 	// journal order, and Markers the NVTX markers.
 	Calls   []Call
 	Markers []Marker
+
+	// Ranges holds the NVTX ranges, each a START marker paired with the
+	// END that closed it. UnpairedMarkers counts the halves that found no
+	// partner, such as a range still open when the process ended.
+	Ranges          []Range
+	UnpairedMarkers int
 
 	// Spans that explain idle rather than occupy the device. None of the
 	// three is in Activities: see the exclusions in decodeJournal.
@@ -212,6 +219,54 @@ type Activity struct {
 type Span struct {
 	Device     uint32
 	Start, End int64
+	Thread     uint32 // host thread, for an API call
+}
+
+// A Range is one NVTX range on one host thread.
+type Range struct {
+	Name            string // "domain/name" when the range has a domain
+	Process, Thread uint32
+	Start, End      int64
+}
+
+type markerKey struct {
+	process, thread, id uint32
+	domain              string
+}
+
+// pairMarkers pairs one journal's START and END markers into ranges, LIFO
+// within a thread, id and domain because NVTX ranges nest. It returns the
+// ranges and how many halves found no partner.
+func pairMarkers(markers []recordPayload) ([]Range, int) {
+	// Journal order is drain order, which producer threads interleave.
+	sort.SliceStable(markers, func(i, j int) bool { return markers[i].Start < markers[j].Start })
+	var ranges []Range
+	unpaired := 0
+	open := make(map[markerKey][]recordPayload)
+	for _, m := range markers {
+		k := markerKey{m.ProcessID, m.ThreadID, m.MarkerID, m.MarkerDomain}
+		switch {
+		case m.MarkerFlags&MarkerStart != 0:
+			open[k] = append(open[k], m)
+		case m.MarkerFlags&MarkerEnd != 0:
+			stack := open[k]
+			if len(stack) == 0 {
+				unpaired++
+				continue
+			}
+			start := stack[len(stack)-1]
+			open[k] = stack[:len(stack)-1]
+			name := start.Name
+			if start.MarkerDomain != "" {
+				name = start.MarkerDomain + "/" + name
+			}
+			ranges = append(ranges, Range{Name: name, Process: start.ProcessID, Thread: start.ThreadID, Start: int64(start.Start), End: int64(m.End)})
+		}
+	}
+	for _, stack := range open {
+		unpaired += len(stack)
+	}
+	return ranges, unpaired
 }
 
 // A Call is one host driver or runtime API call.
@@ -316,6 +371,7 @@ type recordPayload struct {
 	OverheadKind uint32  `json:"overhead_kind"`
 	SyncType     uint32  `json:"sync_type"`
 	Dropped      uint64  `json:"dropped"`
+	ProcessID    uint32  `json:"process_id"`
 }
 
 // Decode decodes every journal member, reading at most maxRecords records
@@ -545,6 +601,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 	apis := make(map[uint32]Span)
 	var calls []Call
 	var markers []Marker
+	var nvtx []recordPayload
 	for {
 		r, err := d.Next()
 		if err != nil {
@@ -568,6 +625,9 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				}
 				out.Calls = append(out.Calls, calls...)
 				out.Markers = append(out.Markers, markers...)
+				ranges, unpaired := pairMarkers(nvtx)
+				out.Ranges = append(out.Ranges, ranges...)
+				out.UnpairedMarkers += unpaired
 				return nil
 			case errors.Is(err, io.ErrUnexpectedEOF):
 				return fmt.Errorf("journal %s is truncated after %d record(s): its final frame is incomplete, so the timeline ends at an unknown point", name, summary.Records)
@@ -607,6 +667,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 					Flags:  payload.MarkerFlags,
 					Time:   int64(payload.Start),
 				})
+				nvtx = append(nvtx, payload)
 				continue
 			}
 			if payload.Subtype == "capture_range" {
@@ -685,7 +746,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
 				continue
 			}
-			apis[payload.Correlation] = Span{Start: int64(payload.Start), End: int64(payload.End)}
+			apis[payload.Correlation] = Span{Start: int64(payload.Start), End: int64(payload.End), Thread: payload.ThreadID}
 			calls = append(calls, Call{
 				Domain:      payload.Domain,
 				CallbackID:  payload.CallbackID,

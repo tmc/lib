@@ -3,6 +3,7 @@ package timeline
 import (
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -194,5 +195,41 @@ func TestMeasure(t *testing.T) {
 	}
 	if _, err := Decode(journals, records-1, size); !errors.Is(err, wire.ErrRecordLimit) {
 		t.Errorf("Decode under %d records: err = %v, want %v", records-1, err, wire.ErrRecordLimit)
+	}
+}
+
+func TestDecodeRanges(t *testing.T) {
+	marker := func(name string, id, flags uint32, thread uint32, at uint64) map[string]any {
+		return map[string]any{"kind": "activity", "subtype": "marker", "valid": true, "name": name,
+			"marker_id": id, "marker_flags": flags, "thread_id": thread, "process_id": 7, "start": at, "end": at}
+	}
+	b := journaltest.New().Kernel(100, 200, 1)
+	b.Append(wire.KindAPI, map[string]any{"kind": "api", "start": 90, "end": 95, "correlation": 1, "thread_id": 3})
+	// Nested ranges sharing an id close innermost first. The END is
+	// appended before its START to check that pairing sorts by time.
+	b.Append(wire.KindActivity, marker("", 5, MarkerEnd, 3, 300))
+	b.Append(wire.KindActivity, marker("outer", 5, MarkerStart, 3, 10))
+	b.Append(wire.KindActivity, marker("inner", 5, MarkerStart, 3, 20))
+	b.Append(wire.KindActivity, marker("", 5, MarkerEnd, 3, 250))
+	b.Append(wire.KindActivity, marker("open", 6, MarkerStart, 4, 30))
+	got, err := Decode(map[string][]byte{"capture.journal": b.Finalize()}, MaxRecords, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Range{
+		{Name: "inner", Process: 7, Thread: 3, Start: 20, End: 250},
+		{Name: "outer", Process: 7, Thread: 3, Start: 10, End: 300},
+	}
+	if !slices.Equal(got.Ranges, want) {
+		t.Errorf("ranges = %+v, want %+v", got.Ranges, want)
+	}
+	if got.UnpairedMarkers != 1 {
+		t.Errorf("unpaired markers = %d, want 1", got.UnpairedMarkers)
+	}
+	if len(got.Activities) != 1 {
+		t.Errorf("activities = %d, want 1: markers are not device work", len(got.Activities))
+	}
+	if a := got.APIs[1]; a.Thread != 3 {
+		t.Errorf("api thread = %d, want 3", a.Thread)
 	}
 }

@@ -119,6 +119,9 @@ type compareOptions struct {
 	stageEntries bool
 	// templates keeps template arguments in the name ops join by.
 	templates bool
+	// by groups kernels by the NVTX ranges open at their launch: "phase"
+	// or "range", or "" for no grouping.
+	by string
 	// maxRecords bounds the records decoded from each capture's journals,
 	// and journalBytes each journal's decompressed size; zero means the
 	// bound the capture records, or the default. See decodeLimits.
@@ -176,7 +179,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	return c.write(stdout)
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N | -iteration-marker=RE [-skip-iterations=N] [-iteration-count=N]] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N | -iteration-marker=RE [-skip-iterations=N] [-iteration-count=N]] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-by phase|range] [-templates] [-allow-unresolved] [-max-records=N] [-journal-bytes=N] [--capture-file-bytes=N] [--capture-total-bytes=N] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
@@ -195,6 +198,7 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	fs.BoolVar(&opts.stageEntries, "stage-entries", false, "also report each entry of each stage, in the order entered; refused when a stage's entry counts differ")
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
 	fs.BoolVar(&opts.templates, "templates", false, "keep template arguments in kernel names, so each instantiation is its own op")
+	fs.StringVar(&opts.by, "by", "", "also group kernels by the NVTX ranges open at their launch: `phase` (forward, backward, optimizer) or range (the innermost range)")
 	fs.BoolVar(&opts.allowUnresolved, "allow-unresolved", false, "report window totals even when graph replay hides the per-op census")
 	fs.Int64Var(&opts.maxRecords, "max-records", 0, fmt.Sprintf("maximum journal records to decode per capture (default: the larger of %d and what the capture records)", controllerMaxJournalRecords))
 	fs.Int64Var(&opts.journalBytes, "journal-bytes", 0, fmt.Sprintf("maximum decompressed bytes per journal (default: the larger of %d and what the capture records)", cudacapture.MaxCaptureInputBytes))
@@ -238,6 +242,9 @@ func parseCompareArgs(rawArgs []string, stdout io.Writer) (compareOptions, []str
 	}
 	if set["journal-bytes"] && opts.journalBytes <= 0 {
 		return opts, nil, fmt.Errorf("compare: invalid -journal-bytes %d", opts.journalBytes)
+	}
+	if opts.by != "" && opts.by != "phase" && opts.by != "range" {
+		return opts, nil, fmt.Errorf("compare: -by is phase or range, not %q", opts.by)
 	}
 	if opts.stageEntries && opts.stagesPath == "" {
 		return opts, nil, errors.New("compare: -stage-entries needs -stages")
@@ -512,6 +519,10 @@ type Comparison struct {
 	// read; the Notes flag the ones that differ.
 	ClockRatios []ClockRatio `json:"clock_ratios,omitempty"`
 
+	// By is the -by grouping, and Groups its rows.
+	By     string         `json:"by,omitempty"`
+	Groups []CompareGroup `json:"groups,omitempty"`
+
 	// Replacements pairs kernels that ran on one side only; see
 	// pairReplacements.
 	Replacements []KernelReplacement `json:"replacements,omitempty"`
@@ -579,11 +590,15 @@ type CompareSide struct {
 	// Clocks is the GPU state read at the window's capture-range edges.
 	Clocks *compareClocks `json:"clocks"`
 
+	// Groups says how -by placed the kernels, when it was given.
+	Groups *GroupAttribution `json:"group_attribution,omitempty"`
+
 	ops          map[string]*opTotals
 	launches     map[string]*opLaunches
 	kernels      map[string]map[string]*opTotals // op, then kernel match key
 	stages       map[string]*stageTotals
 	stageEntries []*stageTotals
+	groups       map[string]*stageTotals
 }
 
 // compareClocks is the GPU state read at a window's capture-range edges.
@@ -860,8 +875,8 @@ func compareCaptures(base, target *cudacapture.Capture, rules opRules, stages st
 	return c, nil
 }
 
-// compareSides joins two measured sides by op and by stage. Of opts it uses
-// only stageEntries.
+// compareSides joins two measured sides by op, by stage and by -by group.
+// Of opts it uses only stageEntries and by.
 func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts compareOptions) (*Comparison, error) {
 	if b.Device != "" && t.Device != "" && b.Device != t.Device {
 		return nil, fmt.Errorf("captures ran on different devices: base %q, target %q", b.Device, t.Device)
@@ -926,7 +941,14 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 			}
 		}
 	}
+	if opts.by != "" {
+		c.By = opts.by
+		c.Groups = joinGroups(opts.by, b.groups, t.groups)
+	}
 	if err := checkIdentity(c); err != nil {
+		return nil, err
+	}
+	if err := checkGroups(c); err != nil {
 		return nil, err
 	}
 	var gross, unmatched int64
@@ -952,6 +974,7 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 		c.OpStatus = "UNREAD"
 		c.Ops = nil
 		c.Replacements = nil
+		c.Groups = nil
 		c.Stages = nil
 		c.StageEntries = nil
 		c.UnmatchedShare = 0
@@ -1302,7 +1325,7 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 			return nil, err
 		}
 	}
-	if err := side.measure(records, rules, stages, opts.templates); err != nil {
+	if err := side.measure(records, rules, stages, opts.templates, opts.by); err != nil {
 		return nil, err
 	}
 	if side.UnresolvedNanos > 0 && !opts.allowUnresolved {
@@ -1417,6 +1440,7 @@ type compareRecord struct {
 	class      int
 	op         string
 	key        string // the kernel's match key, which stage boundaries test
+	corr       uint32 // correlation id of the launch's host API record
 
 	config      LaunchConfig
 	configKnown bool
@@ -1425,7 +1449,7 @@ type compareRecord struct {
 // measure partitions the window. Device records count only when they fall
 // entirely inside it and graph replay envelopes are clipped to it, the rule
 // measurePhase applies to the phase receipt.
-func (s *CompareSide) measure(records timeline.Records, rules opRules, stages stageBoundaries, templates bool) error {
+func (s *CompareSide) measure(records timeline.Records, rules opRules, stages stageBoundaries, templates bool, by string) error {
 	lo, hi := s.StartTimestamp, s.StopTimestamp
 	s.WindowNanos = hi - lo
 	s.ops = make(map[string]*opTotals)
@@ -1459,7 +1483,7 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 			}
 			t.launches++
 			t.summed += a.End - a.Start
-			r.op, r.key = op, key
+			r.op, r.key, r.corr = op, key, a.Correlation
 			r.config, r.configKnown = launchConfigOf(a)
 			s.KernelCount++
 		case classMemcpy:
@@ -1492,6 +1516,9 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 	if stages != nil {
 		s.stageEntries = stages.assign(recs, owned)
 		s.stages = byStage(s.stageEntries)
+	}
+	if by != "" {
+		s.groups = s.assignGroups(recs, owned, records, by)
 	}
 	busy := make([]timeline.Interval, len(recs))
 	first, last := recs[0].start, recs[0].end
@@ -1679,6 +1706,9 @@ func (c *Comparison) write(w io.Writer) error {
 		return err
 	}
 	if err := c.writeReplacements(w); err != nil {
+		return err
+	}
+	if err := c.writeGroups(w); err != nil {
 		return err
 	}
 	if c.Stages == nil {
