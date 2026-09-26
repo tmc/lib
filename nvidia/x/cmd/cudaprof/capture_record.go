@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -105,6 +106,33 @@ func runCaptureCommand(args []string) error {
 		}
 		return &exitCodeError{Code: 2, Err: errors.New(msg)}
 	}
+	if opts.Iterations != nil {
+		cap, err := readCapturePathLimits(opts.Output, cudacapture.Limits{FileBytes: opts.CaptureFileBytes, TotalBytes: opts.CaptureTotalBytes})
+		if err != nil {
+			return fmt.Errorf("iteration gate: read capture: %w", err)
+		}
+		return captureIterationGate(os.Stderr, cap, *opts.Iterations)
+	}
+	return nil
+}
+
+// captureIterationGate runs the iterations gate on a written capture and
+// writes a one-line summary of it to w. The capture fails with status 2
+// when the gate does.
+func captureIterationGate(w io.Writer, cap *cudacapture.Capture, opts iterationsOptions) error {
+	res, err := measureIterations(cap, regexp.MustCompile(opts.marker), nil, opts)
+	if err != nil {
+		return &exitCodeError{Code: 2, Err: fmt.Errorf("iteration gate: %w", err)}
+	}
+	r := res.Report
+	if !r.Gate.Pass {
+		fmt.Fprintf(w, "cudaprof: iteration gate FAIL: %s\n", strings.Join(r.Gate.Failures, "; "))
+		return &exitCodeError{Code: 2, Err: errors.New("iteration gate failed")}
+	}
+	s := r.Steady
+	n := float64(s.Iterations) * 1e6
+	fmt.Fprintf(w, "cudaprof: iteration gate pass: %d markers, %d steady iterations; per iteration window %.3f ms, busy %.3f ms, idle %.3f ms, %.0f launches\n",
+		r.Markers, s.Iterations, float64(s.WindowNanos)/n, float64(s.BusyNanos)/n, float64(s.IdleNanos)/n, float64(s.Launches)/float64(s.Iterations))
 	return nil
 }
 
@@ -898,6 +926,11 @@ Options:
   --json                        write JSON status summary to stdout
   --launch-manifest             attach an opt-in metadata-only launch manifest;
                                 unknown callback layouts remain UNREAD
+  --iteration-marker <regex>    after writing -o, run the cudaprof iterations gate with
+                                iterations beginning at kernels matching regex, and fail
+                                the capture with status 2 when it fails
+  --skip-iterations <N>         warm-up iterations the gate excludes (default 1)
+  --expect-markers <N>          the number of times the marker must fire
   --stamp-env <names>           record the values of these environment variables in the
                                 capture, comma separated, exact names or a NAME* prefix.
                                 The capture always records a digest of the target's whole

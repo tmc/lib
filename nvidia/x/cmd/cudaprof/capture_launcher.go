@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
@@ -207,6 +208,10 @@ func (l captureLoss) retainedFraction() (float64, bool) {
 // captureOptions is the policy for one capture invocation. command contains
 // the target argv after the -- separator and is never interpreted by a shell.
 type captureOptions struct {
+	// Iterations, when set, runs the iterations gate on the written
+	// capture, and the capture fails when the gate does.
+	Iterations *iterationsOptions
+
 	Trace   bool
 	Replay  string
 	Exclude []string
@@ -690,6 +695,32 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			o.JSON = true
 		case "--launch-manifest":
 			o.LaunchManifest = true
+		case "--iteration-marker", "--skip-iterations", "--expect-markers":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			if o.Iterations == nil {
+				o.Iterations = &iterationsOptions{skip: 1}
+			}
+			switch name {
+			case "--iteration-marker":
+				if _, err := regexp.Compile(v); err != nil {
+					return o, fmt.Errorf("invalid %s: %w", name, err)
+				}
+				o.Iterations.marker = v
+			case "--skip-iterations":
+				o.Iterations.skip, err = strconv.Atoi(v)
+				if err != nil || o.Iterations.skip < 0 {
+					return o, fmt.Errorf("invalid %s %q", name, v)
+				}
+			case "--expect-markers":
+				o.Iterations.expect, err = strconv.Atoi(v)
+				if err != nil || o.Iterations.expect < 1 {
+					return o, fmt.Errorf("invalid %s %q", name, v)
+				}
+			}
 		default:
 			return o, unknownCaptureOption(name)
 		}
@@ -697,6 +728,14 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 	}
 	if i == 0 || i >= len(args) {
 		return o, errors.New("capture requires -- followed by a target command")
+	}
+	if o.Iterations != nil {
+		switch {
+		case o.Iterations.marker == "":
+			return o, errors.New("--skip-iterations and --expect-markers need --iteration-marker")
+		case o.Output == "":
+			return o, errors.New("--iteration-marker needs -o: the gate reads the written capture")
+		}
 	}
 	o.command = append([]string(nil), args[i:]...)
 	if o.Output != "" {

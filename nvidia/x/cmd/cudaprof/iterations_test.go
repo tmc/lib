@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -89,6 +91,76 @@ func TestParseIterationsArgs(t *testing.T) {
 			got.maxRecords, got.journalBytes = 0, 0
 			if got != tt.want || path != "c.pprof" {
 				t.Errorf("got %+v %q, want %+v c.pprof", got, path, tt.want)
+			}
+		})
+	}
+}
+
+func TestCaptureIterationGate(t *testing.T) {
+	tests := []struct {
+		name   string
+		opts   iterationsOptions
+		pass   bool
+		stderr string
+	}{
+		{"pass", iterationsOptions{marker: `^Embed$`, skip: 1, expect: 5}, true,
+			"iteration gate pass: 5 markers, 3 steady iterations; per iteration window 0.001 ms"},
+		{"expect", iterationsOptions{marker: `^Embed$`, skip: 1, expect: 6}, false,
+			"iteration gate FAIL: marker fired 5 times, want 6"},
+		{"no marker", iterationsOptions{marker: `^Nope$`, skip: 1}, false, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cap := compareCapture(iterationRecs(5), completeStatus())
+			var out bytes.Buffer
+			err := captureIterationGate(&out, cap, tt.opts)
+			if tt.pass != (err == nil) {
+				t.Fatalf("err = %v, want pass %v", err, tt.pass)
+			}
+			if err != nil {
+				var code *exitCodeError
+				if !errors.As(err, &code) || code.Code != 2 {
+					t.Errorf("err = %v, want exit status 2", err)
+				}
+			}
+			if !strings.Contains(out.String(), tt.stderr) {
+				t.Errorf("output = %q, want %q", out.String(), tt.stderr)
+			}
+		})
+	}
+}
+
+func TestParseCaptureIterations(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		want    *iterationsOptions
+		wantErr string
+	}{
+		{"none", []string{"-o", "c.pprof", "--", "t"}, nil, ""},
+		{"marker", []string{"-o", "c.pprof", "--iteration-marker", "^gather", "--", "t"},
+			&iterationsOptions{marker: "^gather", skip: 1}, ""},
+		{"all", []string{"-o", "c.pprof", "--iteration-marker=^g", "--skip-iterations", "2", "--expect-markers", "10", "--", "t"},
+			&iterationsOptions{marker: "^g", skip: 2, expect: 10}, ""},
+		{"no output", []string{"--iteration-marker", "^g", "--", "t"}, nil, "needs -o"},
+		{"no marker", []string{"-o", "c.pprof", "--skip-iterations", "2", "--", "t"}, nil, "need --iteration-marker"},
+		{"bad regexp", []string{"-o", "c.pprof", "--iteration-marker", "(", "--", "t"}, nil, "invalid --iteration-marker"},
+		{"bad skip", []string{"-o", "c.pprof", "--iteration-marker", "g", "--skip-iterations", "-1", "--", "t"}, nil, "invalid --skip-iterations"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o, err := parseCaptureArgs(tt.args)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(o.Iterations, tt.want) {
+				t.Errorf("Iterations = %+v, want %+v", o.Iterations, tt.want)
 			}
 		})
 	}

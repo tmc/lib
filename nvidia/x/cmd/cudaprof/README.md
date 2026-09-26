@@ -220,6 +220,9 @@ instantiation, host synchronization the device sits idle across, and an
 idle share of 10% or more.
 `cudaprof advise -iteration-marker=RE` takes the same flags and adds
 these findings to its report, after the findings to read first.
+`cudaprof capture -o run.pprof --iteration-marker=RE` runs the gate on the
+capture it wrote, prints a one-line summary, and exits 2 when the gate
+fails, so a scripted capture cannot silently record the wrong window.
 
 ## Qualify
 
