@@ -946,6 +946,14 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 	// enough to ignore the variable simply writes no modules, and the capture
 	// is what it would have been.
 	env = setCaptureEnv(env, "CUDAPROF_MODULES", "1")
+	// The agent keeps a module image only up to its own per-module limit,
+	// 16 MB by default, well under the file budget this process then applies
+	// to it: sys1's 40.8 MB and 34.9 MB modules were dropped although they
+	// fit. Unless the caller set the agent's limit, it is the file budget.
+	if lookupEnv(env, "CUDAPROF_MODULE_FILE_BYTES") == "" {
+		b := captureArtifactBudget{FileBytes: o.CaptureFileBytes}.effective()
+		env = setCaptureEnv(env, "CUDAPROF_MODULE_FILE_BYTES", strconv.FormatInt(b.FileBytes, 10))
+	}
 	// PC sampling is exported only when asked for, and asking for it is what
 	// makes the agent write the record kind this process has just learned to
 	// decode. An agent that predates the kind ignores the variable.

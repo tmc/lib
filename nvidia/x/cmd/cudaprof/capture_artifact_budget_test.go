@@ -339,6 +339,34 @@ func TestTotalBudgetOmitsLargestFirst(t *testing.T) {
 	}
 }
 
+// TestTotalBudgetOmitsModulesBeforeJournals pins that a module image goes
+// before a larger journal: the journal holds the records every analysis reads.
+func TestTotalBudgetOmitsModulesBeforeJournals(t *testing.T) {
+	dir := t.TempDir()
+	workerDir := filepath.Join(dir, "process-50-1")
+	if err := os.MkdirAll(filepath.Join(workerDir, "modules"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(workerDir, "capture.journal"), incompressibleJournal(24<<10), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(workerDir, "modules", "module-0000-id1.cubin"), bytes.Repeat([]byte{'m'}, 16<<10), 0600); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "capture.pprof")
+	result := captureResult{Protocol: 1, Session: "session", State: captureStateFinalized, Outcome: captureOutcomeNoCUDA, CaptureSuccess: true, TransportReady: true, ScratchDir: dir}
+	if err := writeCaptureStatus(out, result, captureArtifactBudget{FileBytes: 1 << 20, TotalBytes: 32 << 10}); err != nil {
+		t.Fatalf("total budget failed the write: %v", err)
+	}
+	c, status := readWrittenCapture(t, out)
+	if len(status.OmittedFiles) != 1 || status.OmittedFiles[0].Name != "worker-process-50-1-module-0000-id1.cubin" {
+		t.Fatalf("omissions = %+v", status.OmittedFiles)
+	}
+	if _, ok := c.Files["worker-process-50-1-capture.journal.gz"]; !ok {
+		t.Fatal("the journal was dropped")
+	}
+}
+
 // TestReadLimitsAreExplicit pins that the read side honors an explicit bound
 // and never raises one implicitly. The raise direction is pinned in
 // x/cudacapture/limits_test.go, where it does not cost a 64 MiB fixture; here

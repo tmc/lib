@@ -768,10 +768,20 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 		if total <= budget.TotalBytes || len(kept) == 0 {
 			break
 		}
-		largest := 0
+		// A journal holds the records every analysis reads, so the module
+		// images and other attachments go first.
+		largest := -1
 		for i, a := range kept {
-			if a.size > kept[largest].size {
+			if !cudacapture.IsJournalName(a.name) && (largest < 0 || a.size > kept[largest].size) {
 				largest = i
+			}
+		}
+		if largest < 0 {
+			largest = 0
+			for i, a := range kept {
+				if a.size > kept[largest].size {
+					largest = i
+				}
 			}
 		}
 		omitted = append(omitted, omitAttachment(kept[largest], fmt.Sprintf("exceeds capture total budget of %d bytes", budget.TotalBytes)))

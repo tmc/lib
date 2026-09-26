@@ -135,3 +135,26 @@ func TestGapReportGraphTraceMode(t *testing.T) {
 		})
 	}
 }
+
+// TestCaptureModuleFileBytes pins that the agent's per-module limit follows
+// the capture file budget unless the caller set it.
+func TestCaptureModuleFileBytes(t *testing.T) {
+	tests := []struct {
+		name      string
+		fileBytes int64
+		callEnv   []string
+		want      string
+	}{
+		{name: "default budget", want: "67108864"},
+		{name: "raised budget", fileBytes: 100 << 20, want: "104857600"},
+		{name: "caller keeps", fileBytes: 100 << 20, callEnv: []string{"CUDAPROF_MODULE_FILE_BYTES=1024"}, want: "1024"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env := captureEnvironment(captureOptions{Env: tc.callEnv, CaptureFileBytes: tc.fileBytes}, "session", "dir")
+			if got := lookupEnv(env, "CUDAPROF_MODULE_FILE_BYTES"); got != tc.want {
+				t.Errorf("CUDAPROF_MODULE_FILE_BYTES = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

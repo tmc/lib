@@ -19,7 +19,9 @@ go generate ./x/cmd/cudaprof   # Linux with CUDA only: builds cupti_agent.so int
 A capture is one `.pprof` file: a pprof profile of device time that also
 embeds `capture-status.json`, the per-record journals, the module images
 and `capture-provenance.json`. `cudaprof -extract newdir run.pprof` writes
-them out.
+them out. A module image is kept up to `--capture-file-bytes` (64 MB by
+default); when the total budget runs out, module images are dropped
+before any journal.
 
 ## Capture
 
