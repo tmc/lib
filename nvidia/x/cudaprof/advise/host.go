@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -169,11 +168,6 @@ func (j *hostAPIJournal) decode(name string, data []byte) error {
 	}
 }
 
-var (
-	runtimeVersionRE = regexp.MustCompile(`V[0-9]+$`)
-	driverVersionRE  = regexp.MustCompile(`V([0-9]+)(Ptds|Ptsz)?$`)
-)
-
 // hostAPIName names a driver or runtime callback and classifies it.
 //
 // The class is read from the name: a synchronous copy is a Memcpy that is not
@@ -181,31 +175,13 @@ var (
 // graph instantiates and launches are named as such. Other graph calls, which
 // only describe copies and allocations, are neither.
 func hostAPIName(domain string, cbid uint32) (string, hostAPIClass) {
-	var name string
-	switch domain {
-	case "driver":
-		// The stringer spells cuMemcpyHtoD_v2 as CuMemcpyHtoDV2.
-		name = strings.TrimPrefix(cupti.DriverTraceCBID(cbid).String(), "DriverCBID")
-		name = driverVersionRE.ReplaceAllStringFunc(name, func(m string) string {
-			sub := driverVersionRE.FindStringSubmatch(m)
-			v := "_v" + sub[1]
-			if sub[2] != "" {
-				v += "_" + strings.ToLower(sub[2])
-			}
-			return v
-		})
-	case "runtime":
-		name = strings.TrimPrefix(cupti.RuntimeTraceCBID(cbid).String(), "RuntimeCBID")
-		// Runtime callbacks carry the release that introduced them
-		// (cudaMemcpy_v3020); the call a reader wrote has no suffix.
-		name = runtimeVersionRE.ReplaceAllString(name, "")
-	default:
+	if domain != "driver" && domain != "runtime" {
 		return "", hostAPIOther
 	}
-	if strings.Contains(name, "(") || name == "" {
+	name := timeline.CallName(domain, cbid)
+	if strings.Contains(name, ":") {
 		return name, hostAPIOther
 	}
-	name = strings.ToLower(name[:1]) + name[1:]
 	async := strings.Contains(name, "Async")
 	switch {
 	case strings.Contains(name, "GraphInstantiate"):

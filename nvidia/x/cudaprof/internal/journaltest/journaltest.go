@@ -126,6 +126,23 @@ func (b *Builder) API(start, end uint64, correlation uint32) *Builder {
 	})
 }
 
+// Call appends one host API call of the given domain and callback ID.
+func (b *Builder) Call(domain string, cbid, thread uint32, start, end uint64, correlation uint32) *Builder {
+	return b.Append(wire.KindAPI, map[string]any{
+		"kind": "api", "domain": domain, "callback_id": cbid, "thread_id": thread,
+		"start": start, "end": end, "correlation": correlation,
+	})
+}
+
+// Marker appends one NVTX marker record with the given flags.
+func (b *Builder) Marker(name string, id, flags uint32, time uint64) *Builder {
+	return b.Append(wire.KindActivity, map[string]any{
+		"kind": "activity", "subtype": "marker", "valid": true, "name": name,
+		"marker_domain": "", "marker_id": id, "marker_flags": flags,
+		"start": time, "end": time,
+	})
+}
+
 // Finalize appends a finalized record and returns the journal.
 func (b *Builder) Finalize() []byte {
 	b.Append(wire.KindFinalized, map[string]any{"kind": "finalized", "state": "collected"})

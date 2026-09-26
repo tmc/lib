@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
@@ -137,6 +139,11 @@ type Records struct {
 	APIs     map[uint32]Span
 	Journals []Journal
 
+	// Calls holds the same host API calls with what they called, in
+	// journal order, and Markers the NVTX markers.
+	Calls   []Call
+	Markers []Marker
+
 	// Spans that explain idle rather than occupy the device. None of the
 	// three is in Activities: see the exclusions in decodeJournal.
 	Overheads []Span
@@ -204,6 +211,69 @@ type Span struct {
 	Start, End int64
 }
 
+// A Call is one host driver or runtime API call.
+type Call struct {
+	Domain      string // "driver" or "runtime"
+	CallbackID  uint32
+	Thread      uint32
+	Correlation uint32
+	Start, End  int64
+}
+
+// Name returns the API the call made, as [CallName] spells it.
+func (c Call) Name() string { return CallName(c.Domain, c.CallbackID) }
+
+// Marker flags, as CUPTI_ACTIVITY_FLAG_MARKER_* define them.
+const (
+	MarkerInstantaneous = 1 << 0
+	MarkerStart         = 1 << 1
+	MarkerEnd           = 1 << 2
+)
+
+// A Marker is one NVTX marker record. CUPTI reports a range as a start
+// record and an end record sharing an ID; only the start carries the name.
+type Marker struct {
+	Name   string
+	Domain string
+	ID     uint32
+	Flags  uint32
+	Time   int64
+}
+
+var (
+	runtimeVersionRE = regexp.MustCompile(`V[0-9]+$`)
+	driverVersionRE  = regexp.MustCompile(`V([0-9]+)(Ptds|Ptsz)?$`)
+)
+
+// CallName returns the name a program calls a driver or runtime API by,
+// such as cuMemAlloc_v2 or cudaMalloc, given the callback ID CUPTI
+// reported it under. An unknown ID is named by its number.
+func CallName(domain string, cbid uint32) string {
+	var name string
+	switch domain {
+	case "driver":
+		// The stringer spells cuMemcpyHtoD_v2 as CuMemcpyHtoDV2.
+		name = strings.TrimPrefix(cupti.DriverTraceCBID(cbid).String(), "DriverCBID")
+		name = driverVersionRE.ReplaceAllStringFunc(name, func(m string) string {
+			sub := driverVersionRE.FindStringSubmatch(m)
+			v := "_v" + sub[1]
+			if sub[2] != "" {
+				v += "_" + strings.ToLower(sub[2])
+			}
+			return v
+		})
+	case "runtime":
+		name = strings.TrimPrefix(cupti.RuntimeTraceCBID(cbid).String(), "RuntimeCBID")
+		// Runtime callbacks carry the release that introduced them
+		// (cudaMemcpy_v3020); the call a reader wrote has no suffix.
+		name = runtimeVersionRE.ReplaceAllString(name, "")
+	}
+	if name == "" || strings.Contains(name, "(") {
+		return fmt.Sprintf("%s:%d", domain, cbid)
+	}
+	return strings.ToLower(name[:1]) + name[1:]
+}
+
 // rawSync is a synchronization span before its device is known.
 type rawSync struct {
 	context    uint32
@@ -233,6 +303,11 @@ type recordPayload struct {
 	Device       uint32  `json:"device"`
 	Context      uint32  `json:"context"`
 	Correlation  uint32  `json:"correlation"`
+	CallbackID   uint32  `json:"callback_id"`
+	ThreadID     uint32  `json:"thread_id"`
+	MarkerID     uint32  `json:"marker_id"`
+	MarkerFlags  uint32  `json:"marker_flags"`
+	MarkerDomain string  `json:"marker_domain"`
 	GraphID      uint32  `json:"graph_id"`
 	ModuleID     uint32  `json:"module_id"`
 	OverheadKind uint32  `json:"overhead_kind"`
@@ -434,6 +509,8 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 	// API records are held until the journal is admitted: a journal set
 	// aside as having run no CUDA must leave nothing behind.
 	apis := make(map[uint32]Span)
+	var calls []Call
+	var markers []Marker
 	for {
 		r, err := d.Next()
 		if err != nil {
@@ -455,6 +532,8 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				for c, a := range apis {
 					out.APIs[c] = a
 				}
+				out.Calls = append(out.Calls, calls...)
+				out.Markers = append(out.Markers, markers...)
 				return nil
 			case errors.Is(err, io.ErrUnexpectedEOF):
 				return fmt.Errorf("journal %s is truncated after %d record(s): its final frame is incomplete, so the timeline ends at an unknown point", name, summary.Records)
@@ -486,7 +565,17 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 			// Counting either would inflate Activities, stretch SpanNanos to
 			// whichever one sits furthest from the device timeline, and split
 			// a real device gap in two at its timestamp.
-			if payload.Subtype == "marker" || payload.Subtype == "capture_range" {
+			if payload.Subtype == "marker" {
+				markers = append(markers, Marker{
+					Name:   payload.Name,
+					Domain: payload.MarkerDomain,
+					ID:     payload.MarkerID,
+					Flags:  payload.MarkerFlags,
+					Time:   int64(payload.Start),
+				})
+				continue
+			}
+			if payload.Subtype == "capture_range" {
 				continue
 			}
 			// The same exclusion, for three more kinds and a sharper reason.
@@ -563,6 +652,14 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *Records
 				continue
 			}
 			apis[payload.Correlation] = Span{Start: int64(payload.Start), End: int64(payload.End)}
+			calls = append(calls, Call{
+				Domain:      payload.Domain,
+				CallbackID:  payload.CallbackID,
+				Thread:      payload.ThreadID,
+				Correlation: payload.Correlation,
+				Start:       int64(payload.Start),
+				End:         int64(payload.End),
+			})
 		case wire.KindFinalized:
 			finalized = true
 			if payload.Dropped > 0 {
