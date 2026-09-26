@@ -43,8 +43,7 @@ func toError(r Error, fn string) error {
 // failed and C set errno to say why.
 //
 // Errno is that errno, read on the thread that made the call before it
-// could change. It is 0 where the call cannot capture errno: currently
-// everywhere but darwin.
+// could change. It is 0 if the binding for Func cannot capture errno.
 type ErrnoError struct {
 	Func  string        // the C symbol called
 	Errno syscall.Errno // errno after the call, or 0 if not captured

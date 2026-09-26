@@ -6,7 +6,6 @@
 package cufile
 
 import (
-	"runtime"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -93,10 +92,8 @@ func ffiCall1(fn uintptr, floatMask uint32, a0 uintptr) (r1, rf uintptr) {
 	return ffi.CallFloat(fn, 1, &args, floatMask)
 }
 
-// The ffiCallErrno funnels also return the errno the call left. The
-// ffi trampoline reads errno on the calling thread only on darwin;
-// elsewhere its errno result is unspecified, so the funnel reports 0,
-// meaning not captured.
+// The ffiCallErrno funnels call ffi.CallErrno, which also returns the
+// errno the C function left on the calling thread.
 
 //go:uintptrescapes
 func ffiCallErrno5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1 uintptr, errno int32) {
@@ -106,11 +103,8 @@ func ffiCallErrno5(fn uintptr, floatMask uint32, a0, a1, a2, a3, a4 uintptr) (r1
 	args[2] = a2
 	args[3] = a3
 	args[4] = a4
-	r1, _, r3 := ffi.Call(fn, 5, &args, floatMask)
-	if runtime.GOOS != "darwin" {
-		return r1, 0
-	}
-	return r1, int32(r3)
+	r1, _, errno = ffi.CallErrno(fn, 5, &args, floatMask)
+	return r1, errno
 }
 
 // An outSlot pools the heap cells a wrapper passes to C for its outputs.
