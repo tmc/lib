@@ -659,6 +659,25 @@ int main(int argc, char **argv) {
 		if (strcmp(scenario, "runtime-exit-finalize") == 0) cudaprof_finalize();
 		_exit(0);
 	}
+	/* crash-trace makes argv[2] driver API calls, enter and exit, the last
+	   one left open, then dies: by a fault with argv[3] 0, which the kernel
+	   raises again when the handler returns, otherwise by raise(SIGSEGV),
+	   which nothing raises again unless the handler does. */
+	if (strcmp(scenario, "crash-trace") == 0) {
+		unsigned calls = arg_uint(argc, argv, 2, 3);
+		unsigned raised = arg_uint(argc, argv, 3, 0);
+		int fired = 0;
+		cuLaunchKernel_params launch = {0};
+		for (unsigned i = 1; i <= calls; i++) {
+			fired += cudaprof_test_fire_api(CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_ENTER, &launch, i);
+			if (i < calls) fired += cudaprof_test_fire_api(CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_EXIT, &launch, i);
+		}
+		printf("{\"scenario\":\"crash-trace\",\"fired\":%d}\n", fired);
+		fflush(stdout);
+		if (raised) raise(SIGSEGV);
+		else *(volatile int *)(uintptr_t)8 = 1;
+		_exit(1);
+	}
 	/* finalize-crash finalizes its journal and then fails the way a Go target
 	   that crashed under --finalize=exit-group does: with argv[6] 0 it dies by
 	   SIGSEGV, otherwise it exits with that status. The journal is complete,

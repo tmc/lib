@@ -1720,6 +1720,186 @@ static void install_sigterm(void) {
 	if (sigaction(SIGTERM, &sa, NULL) == 0) sigterm_installed = 1;
 }
 
+/* Crash trace. With CUDAPROF_CRASH_TRACE=N the agent keeps the last API
+   callbacks the target made in a ring and, when the target dies of a fault,
+   writes the last N of them to standard error before the process goes. A
+   capture that ends in a crash otherwise ends before any finalization: the
+   records still inside CUPTI are lost, and which call the target was in when
+   it died takes a debugger to find out.
+
+   The ring holds what a callback can record without allocating or locking:
+   the time, the thread, the callback id and site, the correlation id and
+   CUPTI's own name for the function, which is a string CUPTI keeps for the
+   life of the process. A slot is claimed with one fetch-add and published by
+   storing its sequence number last, so the handler can tell a slot that was
+   being written when the fault arrived from a finished one. */
+#define CRASH_RING 4096
+struct crash_slot {
+	_Atomic uint64_t seq; /* claim index + 1 once written, 0 while empty */
+	uint64_t ns;
+	uint64_t tid;
+	const char *name;
+	uint32_t cbid;
+	uint32_t correlation;
+	uint16_t domain;
+	uint16_t site;
+};
+static struct crash_slot crash_ring[CRASH_RING];
+static _Atomic uint64_t crash_next;
+static unsigned crash_depth; /* 0: crash trace off */
+static int crash_installed;
+static _Atomic int crash_dumped;
+static const int crash_signals[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT};
+#define NCRASH_SIGNALS (sizeof(crash_signals) / sizeof(crash_signals[0]))
+static struct sigaction prev_crash[NCRASH_SIGNALS];
+
+static uint64_t crash_tid(void) {
+#ifdef __linux__
+	return (uint64_t)syscall(SYS_gettid);
+#else
+	return (uint64_t)(uintptr_t)pthread_self();
+#endif
+}
+
+static void crash_note(CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const CUpti_CallbackData *data) {
+	uint64_t i = atomic_fetch_add_explicit(&crash_next, 1, memory_order_relaxed);
+	struct crash_slot *s = &crash_ring[i % CRASH_RING];
+	atomic_store_explicit(&s->seq, 0, memory_order_relaxed);
+	s->ns = now_ns();
+	s->tid = crash_tid();
+	s->domain = (uint16_t)domain;
+	s->cbid = (uint32_t)cbid;
+	s->site = data != NULL ? (uint16_t)data->callbackSite : 0;
+	s->correlation = data != NULL ? data->correlationId : 0;
+	s->name = data != NULL ? data->functionName : NULL;
+	atomic_store_explicit(&s->seq, i + 1, memory_order_release);
+}
+
+/* The dump runs in a signal handler, so it formats by hand and writes with
+   write(2): printf and its relatives are not async-signal-safe. */
+struct crash_line {
+	char b[512];
+	size_t n;
+};
+
+static void crash_str(struct crash_line *l, const char *s) {
+	while (s != NULL && *s != '\0' && l->n < sizeof(l->b) - 1) l->b[l->n++] = *s++;
+}
+
+static void crash_uint(struct crash_line *l, uint64_t v, unsigned base) {
+	char tmp[24];
+	int n = 0;
+	do {
+		tmp[n++] = "0123456789abcdef"[v % base];
+		v /= base;
+	} while (v != 0);
+	while (n > 0 && l->n < sizeof(l->b) - 1) l->b[l->n++] = tmp[--n];
+}
+
+static void crash_flush(struct crash_line *l) {
+	l->b[l->n++] = '\n';
+	for (size_t off = 0; off < l->n;) {
+		ssize_t w = write(STDERR_FILENO, l->b + off, l->n - off);
+		if (w > 0) off += (size_t)w;
+		else if (w < 0 && errno == EINTR) continue;
+		else break;
+	}
+	l->n = 0;
+}
+
+static const char *crash_domain_name(uint16_t domain) {
+	switch (domain) {
+	case CUPTI_CB_DOMAIN_DRIVER_API: return "driver";
+	case CUPTI_CB_DOMAIN_RUNTIME_API: return "runtime";
+	case CUPTI_CB_DOMAIN_RESOURCE: return "resource";
+	}
+	return "domain?";
+}
+
+static void crash_dump(int sig, const siginfo_t *si) {
+	int saved = errno;
+	uint64_t end = atomic_load(&crash_next);
+	uint64_t n = end < crash_depth ? end : crash_depth;
+	uint64_t now = now_ns();
+	struct crash_line l = {.n = 0};
+	crash_str(&l, "cudaprof: signal ");
+	crash_uint(&l, (uint64_t)sig, 10);
+	/* si_addr means something only for a fault the kernel raised. */
+	if (si != NULL && si->si_code > 0 && (sig == SIGSEGV || sig == SIGBUS)) {
+		crash_str(&l, " at 0x");
+		crash_uint(&l, (uint64_t)(uintptr_t)si->si_addr, 16);
+	}
+	crash_str(&l, " on thread ");
+	crash_uint(&l, crash_tid(), 10);
+	crash_str(&l, "; last ");
+	crash_uint(&l, n, 10);
+	crash_str(&l, " of ");
+	crash_uint(&l, end, 10);
+	crash_str(&l, " CUDA API callbacks, oldest first:");
+	crash_flush(&l);
+	for (uint64_t i = end - n; i < end; i++) {
+		const struct crash_slot *s = &crash_ring[i % CRASH_RING];
+		crash_str(&l, "cudaprof:   ");
+		if (atomic_load_explicit(&s->seq, memory_order_acquire) != i + 1) {
+			crash_str(&l, "(overwritten or being written)");
+			crash_flush(&l);
+			continue;
+		}
+		crash_uint(&l, now > s->ns ? (now - s->ns) / 1000 : 0, 10);
+		crash_str(&l, "us before, tid ");
+		crash_uint(&l, s->tid, 10);
+		crash_str(&l, " ");
+		crash_str(&l, crash_domain_name(s->domain));
+		crash_str(&l, " cbid ");
+		crash_uint(&l, s->cbid, 10);
+		crash_str(&l, s->site == CUPTI_API_ENTER ? " enter" : " exit");
+		crash_str(&l, " correlation ");
+		crash_uint(&l, s->correlation, 10);
+		if (s->name != NULL) {
+			crash_str(&l, " ");
+			crash_str(&l, s->name);
+		}
+		crash_flush(&l);
+	}
+	errno = saved;
+}
+
+/* crash_handler dumps the ring once and hands the signal back to whatever
+   disposition the target had before the agent loaded -- for most targets the
+   default, which ends the process with the signal. A fault raised by the
+   instruction that caused it is simply returned into: the instruction runs
+   again and faults under the restored disposition. A signal someone sent
+   (kill, raise, abort) would not recur, so it is raised again.
+
+   A Go runtime installs its own handlers after this one and forwards to it a
+   fault raised outside Go code, which is where a CUDA crash happens; SA_ONSTACK
+   is what the runtime requires of a handler it forwards to. */
+static void crash_handler(int sig, siginfo_t *si, void *uc) {
+	(void)uc;
+	if (atomic_exchange(&crash_dumped, 1) == 0) crash_dump(sig, si);
+	for (size_t i = 0; i < NCRASH_SIGNALS; i++) {
+		if (crash_signals[i] == sig) (void)sigaction(sig, &prev_crash[i], NULL);
+	}
+	if (sig == SIGABRT || si == NULL || si->si_code <= 0) (void)raise(sig);
+}
+
+static void install_crash_trace(void) {
+	for (size_t i = 0; i < NCRASH_SIGNALS; i++) {
+		struct sigaction sa;
+		memset(&sa, 0, sizeof(sa));
+		sa.sa_sigaction = crash_handler;
+		sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+		sigemptyset(&sa.sa_mask);
+		if (sigaction(crash_signals[i], &sa, &prev_crash[i]) != 0) continue;
+		/* A target that ignores the signal keeps ignoring it. */
+		if (prev_crash[i].sa_handler == SIG_IGN) {
+			(void)sigaction(crash_signals[i], &prev_crash[i], NULL);
+			continue;
+		}
+		crash_installed = 1;
+	}
+}
+
 /* exit_group finalization, for a target whose runtime leaves by issuing the
    exit_group syscall itself -- every Go program -- and so never reaches the
    destructor, atexit or cudaprof_finalize. A seccomp filter hands each
@@ -2603,6 +2783,7 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 		return;
 	}
 	const CUpti_CallbackData *data = (const CUpti_CallbackData *)cbdata;
+	if (crash_depth > 0) crash_note(domain, cbid, data);
 	if (modules_enabled && track_module_callback(domain, cbid, data)) return;
 	int start;
 	const char *api;
@@ -3079,7 +3260,10 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	pcsampling_scratch_bytes = env_bytes("CUDAPROF_PCSAMPLING_SCRATCH_BYTES", pcsampling_scratch_bytes);
 	int modules_requested = modules_enabled;
 	int pcsampling_requested_at_start = pcsampling_requested;
-	if (range_requested || stop_requested || modules_enabled || pcsampling_requested) {
+	uint64_t depth = env_bytes("CUDAPROF_CRASH_TRACE", 0);
+	crash_depth = depth > CRASH_RING ? CRASH_RING : (unsigned)depth;
+	unsigned crash_requested = crash_depth;
+	if (range_requested || stop_requested || modules_enabled || pcsampling_requested || crash_depth > 0) {
 		CUptiResult sub = cuptiSubscribe(&range_subscriber, range_callback, NULL);
 		if (sub != CUPTI_SUCCESS) {
 			record_cupti_failure("cuptiSubscribe(profiler API)", sub);
@@ -3087,8 +3271,23 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			if (stop_requested) finalize_mode = FINALIZE_UNAVAILABLE;
 			modules_enabled = 0;
 			pcsampling_requested = 0;
+			crash_depth = 0;
 		} else {
 			range_subscribed = 1;
+			/* Every API call rather than a chosen few: which call a target
+			   died in is not known in advance. */
+			if (crash_depth > 0) {
+				CUptiResult dr = cuptiEnableDomain(1, range_subscriber, CUPTI_CB_DOMAIN_DRIVER_API);
+				if (dr == CUPTI_SUCCESS) dr = cuptiEnableDomain(1, range_subscriber, CUPTI_CB_DOMAIN_RUNTIME_API);
+				if (dr != CUPTI_SUCCESS) {
+					record_cupti_failure("cuptiEnableDomain(crash trace)", dr);
+					(void)cuptiEnableDomain(0, range_subscriber, CUPTI_CB_DOMAIN_DRIVER_API);
+					crash_depth = 0;
+				} else {
+					install_crash_trace();
+					if (!crash_installed) crash_depth = 0;
+				}
+			}
 			if (pcsampling_requested) {
 				CUptiResult cr = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_CONTEXT_CREATED);
 				if (cr != CUPTI_SUCCESS) {
@@ -3167,7 +3366,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			if (range_requested) range_gated = opens_armed > 0 && closes_armed > 0 ? RANGE_GATED : RANGE_UNAVAILABLE;
 			if (stop_requested) finalize_mode = closes_armed > 0 ? FINALIZE_PROFILER_STOP : FINALIZE_UNAVAILABLE;
 			if (range_gated == RANGE_GATED) (void)set_activity_collection(0);
-			else if (finalize_mode != FINALIZE_PROFILER_STOP && !modules_enabled) {
+			else if (finalize_mode != FINALIZE_PROFILER_STOP && !modules_enabled && crash_depth == 0) {
 				(void)cuptiUnsubscribe(range_subscriber);
 				range_subscribed = 0;
 			}
@@ -3212,7 +3411,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			if (n > 0 && (size_t)n < sizeof(failure)) (void)write_record(KIND_FAILURE, now_ns(), failure, (size_t)n);
 		}
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"memsets_requested\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", memset_requested ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_EXIT_GROUP ? "exit-group" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"memsets_requested\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"crash_trace\":\"%s\",\"crash_trace_depth\":%u,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", memset_requested ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_EXIT_GROUP ? "exit-group" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, crash_depth > 0 ? "armed" : crash_requested > 0 ? "requested_unavailable" : "off", crash_depth, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))

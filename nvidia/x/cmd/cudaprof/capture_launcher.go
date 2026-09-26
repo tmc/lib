@@ -110,6 +110,10 @@ type captureLoss struct {
 // waits for a freed slot before charging the record to queue_capacity_dropped.
 const admitWaitNanos = 100 * 1000 * 1000
 
+// maxCrashTrace mirrors CRASH_RING in cupti_agent.c: the most API callbacks
+// the agent keeps for a crash trace.
+const maxCrashTrace = 4096
+
 // writeLatencyNote reports whether the producer's own timings say the loss was
 // journal write latency, which is the question a capacity drop count raises and
 // cannot answer.
@@ -245,9 +249,13 @@ type captureOptions struct {
 	// PCSamplingPeriod is the agent's sampling period exponent, 5 to 31. Zero
 	// leaves the agent's own default.
 	PCSamplingPeriod int
-	RequireComplete  bool
-	NoInject         bool
-	JSON             bool
+	// CrashTrace is how many of the target's last CUDA API callbacks the
+	// agent writes to standard error if the target dies of a fault, exported
+	// as CUDAPROF_CRASH_TRACE. Zero leaves the agent's default, off.
+	CrashTrace      int
+	RequireComplete bool
+	NoInject        bool
+	JSON            bool
 	// LaunchManifest enables the bounded, metadata-only launch manifest in the
 	// capture status. It never enables parameter decoding by itself.
 	LaunchManifest bool
@@ -537,6 +545,17 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, fmt.Errorf("invalid %s %q", name, v)
 			}
 			o.PCSamplingPeriod, o.PCSampling = n, true
+		case "--crash-trace":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 1 || n > maxCrashTrace {
+				return o, fmt.Errorf("invalid %s %q (1 to %d)", name, v, maxCrashTrace)
+			}
+			o.CrashTrace = n
 		case "--require-complete":
 			o.RequireComplete = true
 		case "--recover-unfinalized":
@@ -962,6 +981,9 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 		if o.PCSamplingPeriod > 0 {
 			env = setCaptureEnv(env, "CUDAPROF_PCSAMPLING_PERIOD", strconv.Itoa(o.PCSamplingPeriod))
 		}
+	}
+	if o.CrashTrace > 0 {
+		env = setCaptureEnv(env, "CUDAPROF_CRASH_TRACE", strconv.Itoa(o.CrashTrace))
 	}
 	if o.FlushInterval > 0 {
 		env = setCaptureEnv(env, "CUDAPROF_FLUSH_INTERVAL_MS", strconv.FormatInt(o.FlushInterval.Milliseconds(), 10))

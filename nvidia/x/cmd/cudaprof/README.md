@@ -83,6 +83,18 @@ published, then lets the process exit with its own status. The filter sets
 `no_new_privs` and is inherited by children, and a child that outlives the
 target has its `exit_group` fail with ENOSYS.
 
+A target that dies of a fault ends the capture before any finalization.
+`--crash-trace=N` has the agent keep the target's last CUDA API calls and,
+on SIGSEGV, SIGBUS, SIGILL, SIGFPE or SIGABRT, write the last N of them to
+the target's standard error before the process dies with the same signal:
+
+	cudaprof: signal 11 at 0x8 on thread 4121; last 3 of 9 CUDA API callbacks, oldest first:
+	cudaprof:   15us before, tid 4121 driver cbid 307 enter correlation 4 cuLaunchKernel
+
+Every API call then passes through an agent callback, and a Go target that
+faults in C code dies without its own traceback. The capability record's
+`crash_trace` says whether the handler was armed.
+
 From C, include `<cuda_profiler_api.h>`, link `-lcudart`, and call
 `cudaProfilerStart()` / `cudaDeviceSynchronize()` / `cudaProfilerStop()`.
 From Python, call the driver entry points through

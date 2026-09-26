@@ -170,6 +170,20 @@ no stop trigger could be armed, and `"flush_interval_ms"` is the interval this
 process is actually running, which is 0 if the flush thread could not be
 started. Both say what this process will do rather than what was requested.
 
+`CUDAPROF_CRASH_TRACE=N` (1 to 4096) enables the driver and runtime API
+callback domains on the same subscription and keeps every callback in a
+4096-entry ring: time, thread, domain, cbid, site, correlation id and CUPTI's
+function name, claimed with one fetch-add and published by a sequence number,
+so a callback never locks or allocates. Handlers for SIGSEGV, SIGBUS, SIGILL,
+SIGFPE and SIGABRT, installed with `SA_ONSTACK` so a Go runtime forwards
+faults in C code to them, write the last N entries to standard error with
+write(2), restore the previous disposition, and let the signal end the
+process: a fault recurs when the handler returns, and a sent signal is raised
+again. The ring is not written to the journal, which a fault leaves
+unfinalized. `"crash_trace"` in the capability record is `armed`, `off`, or
+`requested_unavailable` where the domains could not be enabled or no handler
+installed.
+
 The identity in every event includes protocol and ABI versions, compiled
 architecture, process generation, PID, nonzero session nonce, and a CUPTI
 version field (zero until a real CUPTI loader records one). The queue

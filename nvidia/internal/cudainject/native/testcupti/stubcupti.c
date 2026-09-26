@@ -146,6 +146,9 @@ static int subscriber_live;
 #define TEST_MAX_ENABLED_CBIDS 64
 static struct { unsigned domain, cbid; } enabled_cbids[TEST_MAX_ENABLED_CBIDS];
 static unsigned enabled_cbid_count;
+/* Domains enabled whole by cuptiEnableDomain, indexed by domain. */
+#define TEST_MAX_DOMAINS 8
+static int enabled_domains[TEST_MAX_DOMAINS];
 
 CUptiResult cuptiSubscribe(CUpti_SubscriberHandle *subscriber, CUpti_CallbackFunc callback, void *userdata) {
 	if (subscriber == NULL || callback == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
@@ -165,6 +168,7 @@ CUptiResult cuptiUnsubscribe(CUpti_SubscriberHandle subscriber) {
 	subscriber_data = NULL;
 	subscriber_live = 0;
 	enabled_cbid_count = 0;
+	memset(enabled_domains, 0, sizeof enabled_domains);
 	return CUPTI_SUCCESS;
 }
 
@@ -209,9 +213,18 @@ CUptiResult cuptiEnableCallback(uint32_t enable, CUpti_SubscriberHandle subscrib
 	return CUPTI_SUCCESS;
 }
 
+CUptiResult cuptiEnableDomain(uint32_t enable, CUpti_SubscriberHandle subscriber, CUpti_CallbackDomain domain) {
+	if (!subscriber_live || subscriber != (CUpti_SubscriberHandle)&subscriber_live) return CUPTI_ERROR_INVALID_PARAMETER;
+	if ((unsigned)domain >= TEST_MAX_DOMAINS) return CUPTI_ERROR_INVALID_PARAMETER;
+	if (enable && getenv("CUDAPROF_TEST_REFUSE_DOMAINS") != NULL) return CUPTI_ERROR_INVALID_PARAMETER;
+	enabled_domains[domain] = enable != 0;
+	return CUPTI_SUCCESS;
+}
+
 int cudaprof_test_subscribed(void) { return subscriber_live; }
 
 int cudaprof_test_callback_enabled(unsigned domain, unsigned cbid) {
+	if (domain < TEST_MAX_DOMAINS && enabled_domains[domain]) return 1;
 	for (unsigned i = 0; i < enabled_cbid_count; i++) {
 		if (enabled_cbids[i].domain == domain && enabled_cbids[i].cbid == cbid) return 1;
 	}

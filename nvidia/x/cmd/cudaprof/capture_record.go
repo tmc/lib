@@ -1017,6 +1017,12 @@ Options:
                                 it costs 25-27 microseconds of host drain per launch
   --pcsampling-period <n>       sampling period exponent, 5 to 31, smaller is more frequent
                                 (implies --pcsampling, sets CUDAPROF_PCSAMPLING_PERIOD)
+  --crash-trace <n>             if the target dies of a fault (SIGSEGV, SIGBUS, SIGILL, SIGFPE
+                                or SIGABRT), have the agent write its last n CUDA API calls,
+                                1 to 4096, to the target's standard error before the process
+                                dies (sets CUDAPROF_CRASH_TRACE). Every API call then passes
+                                through an agent callback, and a Go target that crashes in C
+                                code loses its own traceback
   --follow-children[=false]     count the generations of processes the target spawned in this
                                 capture's totals and projection (default true). Injection is
                                 inherited across exec, so a child runs the agent and writes its

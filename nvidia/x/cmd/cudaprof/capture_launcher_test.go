@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -258,6 +259,42 @@ func TestCaptureEnvironmentExportsCollectionPolicy(t *testing.T) {
 	} {
 		if got := lookupEnv(env, tc.key); got != tc.want {
 			t.Errorf("%s = %q, want %q", tc.key, got, tc.want)
+		}
+	}
+}
+
+func TestParseCaptureArgsCrashTrace(t *testing.T) {
+	tests := []struct {
+		args    []string
+		want    int
+		wantErr bool
+	}{
+		{args: []string{"--", "true"}, want: 0},
+		{args: []string{"--crash-trace=64", "--", "true"}, want: 64},
+		{args: []string{"--crash-trace", "4096", "--", "true"}, want: 4096},
+		{args: []string{"--crash-trace=0", "--", "true"}, wantErr: true},
+		{args: []string{"--crash-trace=4097", "--", "true"}, wantErr: true},
+		{args: []string{"--crash-trace=x", "--", "true"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		o, err := parseCaptureArgs(tt.args)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("parseCaptureArgs(%q) error = %v, want error %v", tt.args, err, tt.wantErr)
+			continue
+		}
+		if err != nil {
+			continue
+		}
+		if o.CrashTrace != tt.want {
+			t.Errorf("parseCaptureArgs(%q).CrashTrace = %d, want %d", tt.args, o.CrashTrace, tt.want)
+		}
+		env := captureEnvironment(o, "session", "dir")
+		want := ""
+		if tt.want > 0 {
+			want = strconv.Itoa(tt.want)
+		}
+		if got := lookupEnv(env, "CUDAPROF_CRASH_TRACE"); got != want {
+			t.Errorf("parseCaptureArgs(%q): CUDAPROF_CRASH_TRACE = %q, want %q", tt.args, got, want)
 		}
 	}
 }

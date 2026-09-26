@@ -317,6 +317,8 @@ type capabilityRecord struct {
 	QueueCapacity    int    `json:"queue_capacity"`
 	AdmitWaitNanos   int64  `json:"admit_wait_nanos"`
 	KernelLayout     string `json:"kernel_layout"`
+	CrashTrace       string `json:"crash_trace"`
+	CrashTraceDepth  int    `json:"crash_trace_depth"`
 }
 
 var (
@@ -3614,4 +3616,93 @@ func TestInitializeInjectionIsTheConstructorsAgent(t *testing.T) {
 		t.Fatalf("finalized = %+v, want a collected capture", c.finalized)
 	}
 	checkReconciles(t, c, result.Offered)
+}
+
+// TestCrashTrace checks that a target that dies of a fault leaves its last
+// API callbacks on standard error, oldest first and bounded by the requested
+// depth, and still dies of the signal it would have died of without the
+// agent. Both ways a SIGSEGV arrives are covered: a fault, which recurs when
+// the handler returns, and a raised signal, which does not.
+func TestCrashTrace(t *testing.T) {
+	tests := []struct {
+		name   string
+		env    []string
+		raised string
+		want   []string // lines that must appear, in order
+		armed  string
+	}{
+		{
+			name:   "fault",
+			env:    []string{"CUDAPROF_CRASH_TRACE=3"},
+			raised: "0",
+			want: []string{
+				"cudaprof: signal 11 at 0x8 on thread ",
+				"; last 3 of 9 CUDA API callbacks, oldest first:",
+				" driver cbid 307 exit correlation 4 cudaprof_control_api",
+				" driver cbid 307 enter correlation 5 cudaprof_control_api",
+			},
+			armed: "armed",
+		},
+		{
+			name:   "raised",
+			env:    []string{"CUDAPROF_CRASH_TRACE=100"},
+			raised: "1",
+			want: []string{
+				"cudaprof: signal 11 on thread ",
+				"; last 9 of 9 CUDA API callbacks, oldest first:",
+				" driver cbid 307 enter correlation 1 cudaprof_control_api",
+				" driver cbid 307 enter correlation 5 cudaprof_control_api",
+			},
+			armed: "armed",
+		},
+		{
+			name:   "refused",
+			env:    []string{"CUDAPROF_CRASH_TRACE=3", "CUDAPROF_TEST_REFUSE_DOMAINS=1"},
+			raised: "0",
+			armed:  "requested_unavailable",
+		},
+		{
+			name:   "off",
+			raised: "0",
+			armed:  "off",
+		},
+	}
+	bin := controlBinary(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			transport := t.TempDir()
+			cmd := exec.Command(bin, "crash-trace", "5", tt.raised)
+			cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+transport, "CUDAPROF_SESSION="+sessionHex)
+			cmd.Env = append(cmd.Env, tt.env...)
+			var stderr strings.Builder
+			cmd.Stderr = &stderr
+			_ = cmd.Run()
+			status, _ := cmd.ProcessState.Sys().(syscall.WaitStatus)
+			if !status.Signaled() || status.Signal() != syscall.SIGSEGV {
+				t.Fatalf("harness ended %v, want killed by SIGSEGV", status)
+			}
+			c := only(t, decodeAll(t, transport, binRevision(bin)))
+			if c.capability.CrashTrace != tt.armed {
+				t.Errorf("capability crash_trace = %q, want %q", c.capability.CrashTrace, tt.armed)
+			}
+			out := stderr.String()
+			if tt.want == nil {
+				if strings.Contains(out, "cudaprof: signal") {
+					t.Errorf("crash trace written when not armed:\n%s", out)
+				}
+				return
+			}
+			rest := out
+			for _, w := range tt.want {
+				i := strings.Index(rest, w)
+				if i < 0 {
+					t.Fatalf("stderr lacks %q after the lines before it:\n%s", w, out)
+				}
+				rest = rest[i+len(w):]
+			}
+			if n := strings.Count(out, "cudaprof: signal"); n != 1 {
+				t.Errorf("crash trace written %d times, want 1:\n%s", n, out)
+			}
+		})
+	}
 }
