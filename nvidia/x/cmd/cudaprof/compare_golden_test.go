@@ -12,8 +12,8 @@ import (
 var update = flag.Bool("update", false, "rewrite testdata/compare golden files")
 
 // fusedPair is a synthetic base and target in which the target fuses two
-// backward kernels into one, renames a forward kernel, and leaves a GEMM
-// alone.
+// backward kernels into one, renames a forward kernel that runs twice as
+// often, and leaves a GEMM alone.
 func fusedPair() (base, target []rec) {
 	for i := range uint64(4) {
 		at := 1000 + 100*i
@@ -22,11 +22,13 @@ func fusedPair() (base, target []rec) {
 			rec{subtype: "kernel", name: "gemm", start: at + 20, end: at + 50},
 			rec{subtype: "kernel", name: "LayerNormBackward", start: at + 50, end: at + 70},
 			rec{subtype: "kernel", name: "LayerNormParamPartial", start: at + 70, end: at + 82},
+			rec{subtype: "kernel", name: "LayerNorm", start: at + 82, end: at + 102},
 		)
 		target = append(target,
 			rec{subtype: "kernel", name: "LayerNormF32", start: at, end: at + 8},
 			rec{subtype: "kernel", name: "gemm", start: at + 20, end: at + 50},
 			rec{subtype: "kernel", name: "LayerNormBackwardParam", start: at + 50, end: at + 76},
+			rec{subtype: "kernel", name: "LayerNormF32", start: at + 82, end: at + 92},
 		)
 	}
 	return base, target

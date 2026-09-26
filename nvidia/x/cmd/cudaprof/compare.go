@@ -508,6 +508,14 @@ type Comparison struct {
 	UnmatchedShare float64  `json:"unmatched_share"`
 	Notes          []string `json:"notes,omitempty"`
 
+	// ClockRatios compares the SM clocks at each window edge both sides
+	// read; the Notes flag the ones that differ.
+	ClockRatios []ClockRatio `json:"clock_ratios,omitempty"`
+
+	// Replacements pairs kernels that ran on one side only; see
+	// pairReplacements.
+	Replacements []KernelReplacement `json:"replacements,omitempty"`
+
 	// Cudaprof is the build that computed the comparison.
 	Cudaprof buildStamp `json:"cudaprof"`
 }
@@ -573,6 +581,7 @@ type CompareSide struct {
 
 	ops          map[string]*opTotals
 	launches     map[string]*opLaunches
+	kernels      map[string]map[string]*opTotals // op, then kernel match key
 	stages       map[string]*stageTotals
 	stageEntries []*stageTotals
 }
@@ -873,6 +882,7 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 		intDelta("unresolved", b.UnresolvedNanos, t.UnresolvedNanos),
 	}
 	c.Ops = joinOps(b.ops, t.ops, b.launches, t.launches)
+	c.Replacements = pairReplacements(b.kernels, t.kernels, rules != nil)
 	for _, s := range []struct {
 		name string
 		side *CompareSide
@@ -894,6 +904,9 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 	}{{"start", b.Clocks.Start, t.Clocks.Start}, {"stop", b.Clocks.Stop, t.Clocks.Stop}} {
 		bc, bok := e.base.smClock()
 		tc, tok := e.target.smClock()
+		if bok && tok && bc > 0 {
+			c.ClockRatios = append(c.ClockRatios, ClockRatio{Edge: e.name, BaseSMClockMHz: bc, TargetSMClockMHz: tc, Ratio: float64(tc) / float64(bc)})
+		}
 		if bok && tok && bc != tc {
 			c.Notes = append(c.Notes, fmt.Sprintf("SM clock at the %s edge was %d MHz in base and %d MHz in target: device time differs by that ratio before any code does", e.name, bc, tc))
 		}
@@ -938,6 +951,7 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 	if b.UnresolvedNanos > 0 || t.UnresolvedNanos > 0 {
 		c.OpStatus = "UNREAD"
 		c.Ops = nil
+		c.Replacements = nil
 		c.Stages = nil
 		c.StageEntries = nil
 		c.UnmatchedShare = 0
@@ -1416,6 +1430,7 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 	s.WindowNanos = hi - lo
 	s.ops = make(map[string]*opTotals)
 	s.launches = make(map[string]*opLaunches)
+	s.kernels = make(map[string]map[string]*opTotals)
 	used := make([]bool, len(rules))
 	var recs []compareRecord
 	for _, a := range records.Activities {
@@ -1494,6 +1509,19 @@ func (s *CompareSide) measure(records timeline.Records, rules opRules, stages st
 			}
 			l.exclusive = append(l.exclusive, owned[i])
 			l.durations = append(l.durations, r.end-r.start)
+			byKey := s.kernels[r.op]
+			if byKey == nil {
+				byKey = make(map[string]*opTotals)
+				s.kernels[r.op] = byKey
+			}
+			k := byKey[r.key]
+			if k == nil {
+				k = &opTotals{}
+				byKey[r.key] = k
+			}
+			k.launches++
+			k.exclusive += owned[i]
+			k.summed += r.end - r.start
 			if r.configKnown {
 				l.configs[r.config]++
 			} else {
@@ -1648,6 +1676,9 @@ func (c *Comparison) write(w io.Writer) error {
 		return err
 	}
 	if err := c.writeLaunches(w); err != nil {
+		return err
+	}
+	if err := c.writeReplacements(w); err != nil {
 		return err
 	}
 	if c.Stages == nil {

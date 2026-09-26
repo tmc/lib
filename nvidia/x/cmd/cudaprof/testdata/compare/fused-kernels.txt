@@ -12,12 +12,12 @@ note: no -ops file: every kernel is its own op, so kernels that differ in name b
                            ns  base  target  delta
                        window  1000    1000     +0
   lead-in (to first activity)     0       0     +0
-   tail (after last activity)   618     624     +6
-                         busy   328     256    -72
-           kernel (exclusive)   328     256    -72
+   tail (after last activity)   598     608    +10
+                         busy   402     296   -106
+           kernel (exclusive)   402     296   -106
            memcpy (exclusive)     0       0     +0
            memset (exclusive)     0       0     +0
-                         idle   672     744    +72
+                         idle   598     704   +106
                    unresolved     0       0     +0
 
 memcpy: count 0 -> 0, bytes 0 -> 0, kinds none -> none
@@ -25,7 +25,7 @@ memcpy synchronous/pageable/legacy-stream: UNREAD (records carry copy kind and s
 memset: count 0 -> 0
 
 identity: Δwindow = ΣΔop + Δunmatched + Δmemcpy + Δmemset + Δidle + Δunresolved
-          +0 = -72 +0 +0 +0 +72 +0 (exact)
+          +0 = -106 +0 +0 +0 +106 +0 (exact)
 coverage: (unmatched) is 0.0% of Σ|Δ| over the identity's terms
 
 per op, ns. exclusive: each busy instant charged once (kernel > memcpy > memset, then earliest start); it sums to busy.
@@ -34,11 +34,11 @@ mean, median: raw launch duration; summed: raw durations added up, so overlappin
 config: launch configuration (grid, block, dynamic shared memory) SAME, CHANGED, UNREAD (not recorded) or ONE_SIDED.
   launches          exclusive                Δ split              mean               median          summed           
       base  target       base  target     Δ    count  per-launch  base  target    Δ    base  target       Δ     config  op
+         8       0        154       0  -154     -154          +0    20       0  -20      20       0    -160  ONE_SIDED  LayerNorm
          0       4          0     104  +104     +104          +0     0      26  +26       0      26    +104  ONE_SIDED  LayerNormBackwardParam
-         4       0         80       0   -80      -80          +0    20       0  -20      20       0     -80  ONE_SIDED  LayerNorm
          4       0         80       0   -80      -80          +0    20       0  -20      20       0     -80  ONE_SIDED  LayerNormBackward
+         0       8          0      72   +72      +72          +0     0       9   +9       0       8     +72  ONE_SIDED  LayerNormF32
          4       0         48       0   -48      -48          +0    12       0  -12      12       0     -48  ONE_SIDED  LayerNormParamPartial
-         0       4          0      32   +32      +32          +0     0       8   +8       0       8     +32  ONE_SIDED  LayerNormF32
          4       4        120     120    +0       +0          +0    30      30   +0      30      30      +0     UNREAD  gemm
 
 launch configuration: 0 ops SAME, 0 CHANGED, 1 UNREAD (not recorded), 5 ONE_SIDED
@@ -46,18 +46,26 @@ launch configuration: 0 ops SAME, 0 CHANGED, 1 UNREAD (not recorded), 5 ONE_SIDE
 launch count changes, largest |Δ from count| first. * marks a ratio >= 1.5, or an op that ran on one side only.
 from count: Δ exclusive ns the count change alone explains; per-launch: the rest.
   base  target   Δ  ratio  from count  per-launch     op
+     8       0  -8      -        -154          +0  *  LayerNorm
      0       4  +4      -        +104          +0  *  LayerNormBackwardParam
-     4       0  -4      -         -80          +0  *  LayerNorm
      4       0  -4      -         -80          +0  *  LayerNormBackward
+     0       8  +8      -         +72          +0  *  LayerNormF32
      4       0  -4      -         -48          +0  *  LayerNormParamPartial
-     0       4  +4      -         +32          +0  *  LayerNormF32
 
 per-launch exclusive ns, nearest rank, for the 6 ops of largest |Δ exclusive|:
   base            target          
    p10  p50  p90     p10  p50  p90  op
+    18   20   20       -    -    -  LayerNorm
      -    -    -      26   26   26  LayerNormBackwardParam
-    20   20   20       -    -    -  LayerNorm
     20   20   20       -    -    -  LayerNormBackward
+     -    -    -       8    8   10  LayerNormF32
     12   12   12       -    -    -  LayerNormParamPartial
-     -    -    -       8    8    8  LayerNormF32
     30   30   30      30   30   30  gemm
+
+kernels replaced: base-only kernels paired with target-only kernels of equal launch count
+(same op with -ops, else a shared name prefix). per launch: a side's summed ns over the launches per kernel;
+rows with launches - are an op's leftover one-sided kernels of unequal counts.
+  launches  per launch               exclusive             
+      each        base  target    Δ       base  target    Δ  kernels
+         8          20       9  -11        154      72  -82  LayerNorm -> LayerNormF32
+         4          32      26   -6        128     104  -24  LayerNormBackward + LayerNormParamPartial -> LayerNormBackwardParam

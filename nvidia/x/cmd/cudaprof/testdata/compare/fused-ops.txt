@@ -11,12 +11,12 @@ note: target: launch configuration (grid, block, dynamic shared memory) not reco
                            ns  base  target  delta
                        window  1000    1000     +0
   lead-in (to first activity)     0       0     +0
-   tail (after last activity)   618     624     +6
-                         busy   328     256    -72
-           kernel (exclusive)   328     256    -72
+   tail (after last activity)   598     608    +10
+                         busy   402     296   -106
+           kernel (exclusive)   402     296   -106
            memcpy (exclusive)     0       0     +0
            memset (exclusive)     0       0     +0
-                         idle   672     744    +72
+                         idle   598     704   +106
                    unresolved     0       0     +0
 
 memcpy: count 0 -> 0, bytes 0 -> 0, kinds none -> none
@@ -24,27 +24,35 @@ memcpy synchronous/pageable/legacy-stream: UNREAD (records carry copy kind and s
 memset: count 0 -> 0
 
 identity: Δwindow = ΣΔop + Δunmatched + Δmemcpy + Δmemset + Δidle + Δunresolved
-          +0 = -72 +0 +0 +0 +72 +0 (exact)
+          +0 = -106 +0 +0 +0 +106 +0 (exact)
 coverage: (unmatched) is 0.0% of Σ|Δ| over the identity's terms
 
 per op, ns. exclusive: each busy instant charged once (kernel > memcpy > memset, then earliest start); it sums to busy.
 Δ split: Δ exclusive = count (launches gained or lost at the base's exclusive per launch) + per-launch (the rest).
 mean, median: raw launch duration; summed: raw durations added up, so overlapping launches count more than once.
 config: launch configuration (grid, block, dynamic shared memory) SAME, CHANGED, UNREAD (not recorded) or ONE_SIDED.
-  launches          exclusive               Δ split              mean              median          summed        
-      base  target       base  target    Δ    count  per-launch  base  target   Δ    base  target       Δ  config  op
-        12       8        208     136  -72      -69          -3    17      17  +0      20       8     -72  UNREAD  layernorm
-         4       4        120     120   +0       +0          +0    30      30  +0      30      30      +0  UNREAD  gemm
+  launches          exclusive                Δ split              mean              median          summed        
+      base  target       base  target     Δ    count  per-launch  base  target   Δ    base  target       Δ  config  op
+        16      12        282     176  -106      -71         -35    18      14  -4      20      10    -112  UNREAD  layernorm
+         4       4        120     120    +0       +0          +0    30      30  +0      30      30      +0  UNREAD  gemm
 
 launch configuration: 0 ops SAME, 0 CHANGED, 2 UNREAD (not recorded), 0 ONE_SIDED
 
 launch count changes, largest |Δ from count| first. * marks a ratio >= 1.5, or an op that ran on one side only.
 from count: Δ exclusive ns the count change alone explains; per-launch: the rest.
-  base  target   Δ  ratio  from count  per-launch     op
-    12       8  -4  0.67x         -69          -3  *  layernorm
+  base  target   Δ  ratio  from count  per-launch    op
+    16      12  -4  0.75x         -71         -35    layernorm
 
 per-launch exclusive ns, nearest rank, for the 2 ops of largest |Δ exclusive|:
   base            target          
    p10  p50  p90     p10  p50  p90  op
-    12   20   20       8    8   26  layernorm
+    12   20   20       8   10   26  layernorm
     30   30   30      30   30   30  gemm
+
+kernels replaced: base-only kernels paired with target-only kernels of equal launch count
+(same op with -ops, else a shared name prefix). per launch: a side's summed ns over the launches per kernel;
+rows with launches - are an op's leftover one-sided kernels of unequal counts.
+  launches  per launch               exclusive             
+      each        base  target    Δ       base  target    Δ  kernels
+         8          20       9  -11        154      72  -82  layernorm: LayerNorm -> LayerNormF32
+         4          32      26   -6        128     104  -24  layernorm: LayerNormBackward + LayerNormParamPartial -> LayerNormBackwardParam

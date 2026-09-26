@@ -7,19 +7,19 @@
 		"stop_timestamp": 2000,
 		"window_ns": 1000,
 		"lead_in_ns": 0,
-		"tail_ns": 618,
-		"busy_ns": 328,
-		"idle_ns": 672,
+		"tail_ns": 598,
+		"busy_ns": 402,
+		"idle_ns": 598,
 		"unresolved_ns": 0,
-		"kernel_exclusive_ns": 328,
+		"kernel_exclusive_ns": 402,
 		"memcpy_exclusive_ns": 0,
 		"memset_exclusive_ns": 0,
-		"kernel_count": 16,
+		"kernel_count": 20,
 		"memcpy_count": 0,
 		"memcpy_bytes": 0,
 		"memset_count": 0,
 		"edge_straddlers": 0,
-		"unrecorded_configs": 16,
+		"unrecorded_configs": 20,
 		"clocks": {
 			"not_recorded": "the phase receipt holds no edges for the window"
 		}
@@ -32,19 +32,19 @@
 		"stop_timestamp": 2000,
 		"window_ns": 1000,
 		"lead_in_ns": 0,
-		"tail_ns": 624,
-		"busy_ns": 256,
-		"idle_ns": 744,
+		"tail_ns": 608,
+		"busy_ns": 296,
+		"idle_ns": 704,
 		"unresolved_ns": 0,
-		"kernel_exclusive_ns": 256,
+		"kernel_exclusive_ns": 296,
 		"memcpy_exclusive_ns": 0,
 		"memset_exclusive_ns": 0,
-		"kernel_count": 12,
+		"kernel_count": 16,
 		"memcpy_count": 0,
 		"memcpy_bytes": 0,
 		"memset_count": 0,
 		"edge_straddlers": 0,
-		"unrecorded_configs": 12,
+		"unrecorded_configs": 16,
 		"clocks": {
 			"not_recorded": "the phase receipt holds no edges for the window"
 		}
@@ -64,21 +64,21 @@
 		},
 		{
 			"name": "tail",
-			"base": 618,
-			"target": 624,
-			"delta": 6
+			"base": 598,
+			"target": 608,
+			"delta": 10
 		},
 		{
 			"name": "busy",
-			"base": 328,
-			"target": 256,
-			"delta": -72
+			"base": 402,
+			"target": 296,
+			"delta": -106
 		},
 		{
 			"name": "kernel",
-			"base": 328,
-			"target": 256,
-			"delta": -72
+			"base": 402,
+			"target": 296,
+			"delta": -106
 		},
 		{
 			"name": "memcpy",
@@ -94,9 +94,9 @@
 		},
 		{
 			"name": "idle",
-			"base": 672,
-			"target": 744,
-			"delta": 72
+			"base": 598,
+			"target": 704,
+			"delta": 106
 		},
 		{
 			"name": "unresolved",
@@ -107,6 +107,33 @@
 	],
 	"op_status": "MEASURED",
 	"ops": [
+		{
+			"op": "LayerNorm",
+			"base_launches": 8,
+			"target_launches": 0,
+			"base_exclusive_ns": 154,
+			"target_exclusive_ns": 0,
+			"delta_exclusive_ns": -154,
+			"base_summed_ns": 160,
+			"target_summed_ns": 0,
+			"delta_summed_ns": -160,
+			"base_mean_ns": 20,
+			"target_mean_ns": 0,
+			"delta_mean_ns": -20,
+			"base_median_ns": 20,
+			"target_median_ns": 0,
+			"delta_median_ns": -20,
+			"delta_from_count_ns": -154,
+			"delta_from_per_launch_ns": 0,
+			"launch_count_changed": true,
+			"config_status": "ONE_SIDED",
+			"base_unrecorded_configs": 8,
+			"base_exclusive_spread": {
+				"p10_ns": 18,
+				"p50_ns": 20,
+				"p90_ns": 20
+			}
+		},
 		{
 			"op": "LayerNormBackwardParam",
 			"base_launches": 0,
@@ -132,33 +159,6 @@
 				"p10_ns": 26,
 				"p50_ns": 26,
 				"p90_ns": 26
-			}
-		},
-		{
-			"op": "LayerNorm",
-			"base_launches": 4,
-			"target_launches": 0,
-			"base_exclusive_ns": 80,
-			"target_exclusive_ns": 0,
-			"delta_exclusive_ns": -80,
-			"base_summed_ns": 80,
-			"target_summed_ns": 0,
-			"delta_summed_ns": -80,
-			"base_mean_ns": 20,
-			"target_mean_ns": 0,
-			"delta_mean_ns": -20,
-			"base_median_ns": 20,
-			"target_median_ns": 0,
-			"delta_median_ns": -20,
-			"delta_from_count_ns": -80,
-			"delta_from_per_launch_ns": 0,
-			"launch_count_changed": true,
-			"config_status": "ONE_SIDED",
-			"base_unrecorded_configs": 4,
-			"base_exclusive_spread": {
-				"p10_ns": 20,
-				"p50_ns": 20,
-				"p90_ns": 20
 			}
 		},
 		{
@@ -189,6 +189,33 @@
 			}
 		},
 		{
+			"op": "LayerNormF32",
+			"base_launches": 0,
+			"target_launches": 8,
+			"base_exclusive_ns": 0,
+			"target_exclusive_ns": 72,
+			"delta_exclusive_ns": 72,
+			"base_summed_ns": 0,
+			"target_summed_ns": 72,
+			"delta_summed_ns": 72,
+			"base_mean_ns": 0,
+			"target_mean_ns": 9,
+			"delta_mean_ns": 9,
+			"base_median_ns": 0,
+			"target_median_ns": 8,
+			"delta_median_ns": 8,
+			"delta_from_count_ns": 72,
+			"delta_from_per_launch_ns": 0,
+			"launch_count_changed": true,
+			"config_status": "ONE_SIDED",
+			"target_unrecorded_configs": 8,
+			"target_exclusive_spread": {
+				"p10_ns": 8,
+				"p50_ns": 8,
+				"p90_ns": 10
+			}
+		},
+		{
 			"op": "LayerNormParamPartial",
 			"base_launches": 4,
 			"target_launches": 0,
@@ -213,33 +240,6 @@
 				"p10_ns": 12,
 				"p50_ns": 12,
 				"p90_ns": 12
-			}
-		},
-		{
-			"op": "LayerNormF32",
-			"base_launches": 0,
-			"target_launches": 4,
-			"base_exclusive_ns": 0,
-			"target_exclusive_ns": 32,
-			"delta_exclusive_ns": 32,
-			"base_summed_ns": 0,
-			"target_summed_ns": 32,
-			"delta_summed_ns": 32,
-			"base_mean_ns": 0,
-			"target_mean_ns": 8,
-			"delta_mean_ns": 8,
-			"base_median_ns": 0,
-			"target_median_ns": 8,
-			"delta_median_ns": 8,
-			"delta_from_count_ns": 32,
-			"delta_from_per_launch_ns": 0,
-			"launch_count_changed": true,
-			"config_status": "ONE_SIDED",
-			"target_unrecorded_configs": 4,
-			"target_exclusive_spread": {
-				"p10_ns": 8,
-				"p50_ns": 8,
-				"p90_ns": 8
 			}
 		},
 		{
@@ -281,6 +281,49 @@
 		"base: launch configuration (grid, block, dynamic shared memory) not recorded, so no op's configuration is compared",
 		"target: launch configuration (grid, block, dynamic shared memory) not recorded, so no op's configuration is compared",
 		"no -ops file: every kernel is its own op, so kernels that differ in name between the captures do not join"
+	],
+	"replacements": [
+		{
+			"op": "",
+			"base": [
+				"LayerNorm"
+			],
+			"target": [
+				"LayerNormF32"
+			],
+			"launches_per_kernel": 8,
+			"base_launches": 8,
+			"target_launches": 8,
+			"base_exclusive_ns": 154,
+			"target_exclusive_ns": 72,
+			"delta_exclusive_ns": -82,
+			"base_summed_ns": 160,
+			"target_summed_ns": 72,
+			"base_per_launch_ns": 20,
+			"target_per_launch_ns": 9,
+			"delta_per_launch_ns": -11
+		},
+		{
+			"op": "",
+			"base": [
+				"LayerNormBackward",
+				"LayerNormParamPartial"
+			],
+			"target": [
+				"LayerNormBackwardParam"
+			],
+			"launches_per_kernel": 4,
+			"base_launches": 8,
+			"target_launches": 4,
+			"base_exclusive_ns": 128,
+			"target_exclusive_ns": 104,
+			"delta_exclusive_ns": -24,
+			"base_summed_ns": 128,
+			"target_summed_ns": 104,
+			"base_per_launch_ns": 32,
+			"target_per_launch_ns": 26,
+			"delta_per_launch_ns": -6
+		}
 	],
 	"cudaprof": {
 		"module": "",

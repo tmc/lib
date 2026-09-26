@@ -167,7 +167,7 @@ func TestCompareSidePartition(t *testing.T) {
 			if got.UnrecordedConfigs != got.KernelCount {
 				t.Errorf("unrecorded configs = %d, want every kernel, %d", got.UnrecordedConfigs, got.KernelCount)
 			}
-			got.ops, got.launches, got.Clocks, got.UnrecordedConfigs = nil, nil, nil, 0
+			got.ops, got.launches, got.kernels, got.Clocks, got.UnrecordedConfigs = nil, nil, nil, nil, 0
 			got.WindowNote, got.StartTimestamp, got.StopTimestamp = "", 0, 0
 			if tt.want.Window == "phase" {
 				tt.want.PhaseIndex = 0
@@ -1367,17 +1367,20 @@ func TestCompareClocks(t *testing.T) {
 		base, target map[string]any
 		phase        int
 		want, not    []string
+		ratios       []ClockRatio
 	}{
 		{
 			name: "same clocks", base: recorded, target: recorded, phase: -1,
-			want: []string{"sm clock MHz 2522 2522 2522 2522", "power mW 80000 85000 80000 85000", "read lag ns"},
-			not:  []string{"not recorded:", "SM clock at the"},
+			want:   []string{"sm clock MHz 2522 2522 2522 2522", "power mW 80000 85000 80000 85000", "read lag ns"},
+			not:    []string{"not recorded:", "SM clock at the"},
+			ratios: []ClockRatio{{"start", 2522, 2522, 1}, {"stop", 2522, 2522, 1}},
 		},
 		{
 			// Phase 0 of the target reads the edges at 1000 and 2000, not
 			// those of phase 1.
 			name: "phase edges", base: recorded, target: twoPhases, phase: 0,
-			want: []string{"sm clock MHz 2522 2522 900 900", "SM clock at the start edge was 2522 MHz in base and 900 MHz in target"},
+			want:   []string{"sm clock MHz 2522 2522 900 900", "SM clock at the start edge was 2522 MHz in base and 900 MHz in target"},
+			ratios: []ClockRatio{{"start", 2522, 900, 900.0 / 2522}, {"stop", 2522, 900, 900.0 / 2522}},
 		},
 		{
 			name: "no edges", base: recorded, target: phaseStatus(1000, 2000), phase: -1,
@@ -1390,7 +1393,8 @@ func TestCompareClocks(t *testing.T) {
 		},
 		{
 			name: "unavailable", base: withEdges(1000, 2000, edge(1, 1000, "start", map[string]any{"unavailable": "nvml init: no library"}), edge(2, 2000, "stop", sample(1, 2, 3, 4))), target: recorded, phase: -1,
-			want: []string{"base start: not recorded: nvml init: no library"},
+			want:   []string{"base start: not recorded: nvml init: no library"},
+			ratios: []ClockRatio{{"stop", 1, 2522, 2522}},
 		},
 	}
 	for _, tt := range tests {
@@ -1419,6 +1423,15 @@ func TestCompareClocks(t *testing.T) {
 			}
 			if !strings.Contains(string(data), `"clocks":{`) {
 				t.Errorf("json has no clocks: %s", data)
+			}
+			var got struct {
+				ClockRatios []ClockRatio `json:"clock_ratios"`
+			}
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got.ClockRatios, tt.ratios) {
+				t.Errorf("clock_ratios = %v, want %v", got.ClockRatios, tt.ratios)
 			}
 		})
 	}

@@ -210,9 +210,19 @@ another. After it:
 - `per-launch exclusive ns`: p10, p50 and p90 for the ops of largest
   |Δ|. A p50 that moved with a tight spread is a slower kernel; a p90 that
   moved alone is a few slow launches.
+- `kernels replaced`: kernels that ran on one side only, paired when
+  they ran equally often and share an op (with `-ops`) or, without one, a
+  five-byte name prefix. Paired kernels form one row, so a fusion of two
+  kernels into one is a 2:1 row, and `per launch` is each side's summed
+  ns over the launches per kernel: `LayerNormBackward +
+  LayerNormParamPartial -> LayerNormBackwardParam` at 424812 -> 374825.
+  With `-ops`, an op's other one-sided kernels form one more row.
 - with `-stages`, the per-stage table, whose `entries` columns say how
   often each stage began; counts that differ mean the boundaries did not
   align.
+
+`-json` carries all of it, plus the edge readings (`clocks`) and each
+edge's SM clock ratio (`clock_ratios`).
 
 ## Iterations
 
@@ -326,6 +336,17 @@ through `sh -c` before each capture and stops on a nonzero exit; a script
 that waits until `nvidia-smi --query-compute-apps` is empty is the usual
 check. For a verdict with a pre-registered noise gate over several blocks,
 use qualify.
+
+## Kernels
+
+```sh
+cudaprof kernels -grep 'LayerNorm' -phase 0 capture.pprof
+```
+
+Lists the kernels of one capture's window whose match key (the name
+compare joins by) matches `-grep`: launches, summed and exclusive ns,
+mean, median and p90 launch duration, and the launch configurations. It
+takes compare's window flags.
 
 ## Qualify
 
